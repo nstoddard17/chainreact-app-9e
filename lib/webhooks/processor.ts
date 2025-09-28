@@ -239,6 +239,35 @@ function applyTriggerFilters(triggerNode: any, event: WebhookEvent): boolean {
       }
     }
   }
+
+  // Trello specific filters
+  if (event.provider === 'trello') {
+    const boardFilter = config.boardId || config.board_id
+    if (boardFilter) {
+      const eventBoardId = event.eventData?.boardId || event.eventData?.board_id
+      if (eventBoardId && eventBoardId !== boardFilter) {
+        return false
+      }
+    }
+
+    const listFilter = config.listId || config.list_id
+    if (listFilter) {
+      const listCandidates = [
+        event.eventData?.listId,
+        event.eventData?.list_id,
+        event.eventData?.listAfterId,
+        event.eventData?.listAfter?.id,
+        event.eventData?.listBeforeId,
+        event.eventData?.listBefore?.id
+      ]
+        .map(value => (value ? String(value) : null))
+        .filter((value): value is string => Boolean(value))
+
+      if (listCandidates.length > 0 && !listCandidates.includes(String(listFilter))) {
+        return false
+      }
+    }
+  }
   
   // Add more provider-specific filters as needed
   

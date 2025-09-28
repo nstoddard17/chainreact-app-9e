@@ -3,11 +3,14 @@
  */
 
 import { getOneDriveFolders } from './folders'
+import { getOneDriveFiles } from './files'
 
-export const onedriveHandlers = {
-  'onedrive-folders': getOneDriveFolders
+export const onedriveHandlers: Record<string, OneDriveDataHandler<any>> = {
+  'onedrive-folders': getOneDriveFolders,
+  'onedrive-files': getOneDriveFiles,
 }
 
 export {
-  getOneDriveFolders
+  getOneDriveFolders,
+  getOneDriveFiles,
 }

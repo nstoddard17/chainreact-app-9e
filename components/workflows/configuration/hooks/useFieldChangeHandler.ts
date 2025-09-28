@@ -621,22 +621,81 @@ export function useFieldChangeHandler({
   ]);
 
   /**
+   * Handle OneDrive-specific field changes
+   */
+  const handleOneDriveFieldChange = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
+    if (nodeInfo?.providerId !== 'onedrive') return false;
+
+    // Handle folderId changes for OneDrive
+    if (fieldName === 'folderId') {
+      console.log('🔍 OneDrive folderId changed:', value);
+
+      // Clear the fileId field
+      setValue('fileId', '');
+
+      if (value) {
+        // Reset options first
+        console.log('📁 OneDrive folder selected, loading files...');
+        resetOptions('fileId');
+
+        // Set loading state for fileId
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add('fileId');
+          return newSet;
+        });
+
+        // Load files for the selected folder with a small delay
+        setTimeout(async () => {
+          try {
+            await loadOptions('fileId', 'folderId', value, true);
+          } finally {
+            // Clear loading state
+            setLoadingFields((prev: Set<string>) => {
+              const newSet = new Set(prev);
+              newSet.delete('fileId');
+              return newSet;
+            });
+          }
+        }, 100);
+      } else {
+        // Clear loading state if no folder selected
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.delete('fileId');
+          return newSet;
+        });
+      }
+
+      // Return true to prevent generic handler from running
+      return true;
+    }
+
+    return false;
+  }, [nodeInfo, values, setValue, resetOptions, setLoadingFields, loadOptions]);
+
+  /**
    * Handle generic dependent field changes for non-provider fields
    */
   const handleGenericDependentField = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
+    // Skip if this is OneDrive folderId - it has its own handler
+    if (nodeInfo?.providerId === 'onedrive' && fieldName === 'folderId') {
+      return false;
+    }
+
     // Check if any field depends on this field
     const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === fieldName) || [];
-    
+
     if (dependentFields.length === 0) {
       return false;
     }
-    
-    console.log('🔍 Generic dependent field change:', { 
-      fieldName, 
-      value, 
-      dependentFields: dependentFields.map((f: any) => f.name) 
+
+    console.log('🔍 Generic dependent field change:', {
+      fieldName,
+      value,
+      dependentFields: dependentFields.map((f: any) => f.name)
     });
-    
+
     // Clear all dependent fields
     dependentFields.forEach((depField: any) => {
       console.log(`🧹 Clearing dependent field: ${depField.name}`);
@@ -655,12 +714,12 @@ export function useFieldChangeHandler({
           newSet.add(depField.name);
           return newSet;
         });
-        
+
         // Reset cached options
         resetOptions(depField.name);
       }
     });
-    
+
     // Load options for dependent fields if value is provided
     if (value) {
       setTimeout(async () => {
@@ -763,13 +822,18 @@ export function useFieldChangeHandler({
       return true;
     }
 
+    // Handle OneDrive-specific field changes
+    if (await handleOneDriveFieldChange(fieldName, value)) {
+      return true;
+    }
+
     // Try generic dependent field handler
     if (await handleGenericDependentField(fieldName, value)) {
       return true;
     }
 
     return false;
-  }, [handleNotionField, handleDiscordField, handleGoogleSheetsField, handleAirtableField, handleGenericDependentField]);
+  }, [handleNotionField, handleDiscordField, handleGoogleSheetsField, handleAirtableField, handleOneDriveFieldChange, handleGenericDependentField]);
 
   /**
    * Main field change handler - the single entry point for all field changes
@@ -846,6 +910,7 @@ export function useFieldChangeHandler({
     handleDiscordFieldChange,
     handleGoogleSheetsFieldChange,
     handleAirtableFieldChange,
+    handleOneDriveFieldChange,
     handleGenericDependentField,
     // Export helper functions
     clearDependentFields,

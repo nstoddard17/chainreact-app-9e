@@ -1,9 +1,24 @@
-import { createClient } from '@supabase/supabase-js'
+export function getMicrosoftGraphClient(accessToken: string) {
+  return new MicrosoftGraphClient({ accessToken })
+}
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export function validateOneDriveIntegration(integration: any): void {
+  if (!integration) {
+    throw new Error('OneDrive integration not found')
+  }
+
+  if (!integration.access_token) {
+    throw new Error('Microsoft authentication required. Please reconnect your account.')
+  }
+
+  if (integration.provider !== 'onedrive' && integration.provider !== 'microsoft-onedrive') {
+    throw new Error('Invalid integration provider. Expected OneDrive.')
+  }
+
+  if (integration.status !== 'connected') {
+    throw new Error(`OneDrive integration not connected, status: ${integration.status}`)
+  }
+}
 
 export interface MicrosoftGraphClientOptions {
   accessToken: string

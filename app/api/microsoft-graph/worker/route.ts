@@ -683,14 +683,17 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
               if (!matches) continue
             }
 
-            // New vs update filter
-            if (!triggerOnUpdates) {
+            // For file_modified trigger, always trigger on updates
+            // For file_created trigger, only trigger on new files
+            const nodeType = node?.data?.type
+            if (nodeType === 'onedrive_trigger_file_created') {
               const created = payload?.createdDateTime ? new Date(payload.createdDateTime).getTime() : null
               const modified = payload?.lastModifiedDateTime ? new Date(payload.lastModifiedDateTime).getTime() : null
               if (!created || !modified) continue
               const isNew = Math.abs(modified - created) < 5000 // 5s tolerance as heuristic
               if (!isNew) continue
             }
+            // For file_modified trigger, we want all file updates, so no filtering needed
 
             // Matched at least one onedrive node
             return true

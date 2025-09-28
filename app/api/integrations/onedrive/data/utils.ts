@@ -3,6 +3,8 @@
  */
 
 import { OneDriveApiError } from './types'
+import { getMicrosoftGraphClient } from '@/lib/microsoft-graph/client'
+import { safeDecrypt } from '@/lib/security/encryption'
 
 /**
  * Create OneDrive API error with proper context
@@ -136,5 +138,22 @@ export async function validateOneDriveToken(integration: any): Promise<{ success
  */
 export function buildOneDriveApiUrl(endpoint: string): string {
   const baseUrl = 'https://graph.microsoft.com'
-  return `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`
+  // Ensure endpoint includes version if not present
+  const versionedEndpoint = endpoint.startsWith('/v1.0/') || endpoint.startsWith('v1.0/')
+    ? endpoint
+    : `/v1.0${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
+  return `${baseUrl}${versionedEndpoint}`
+}
+
+export async function getOneDriveClient(integration: any) {
+  validateOneDriveIntegration(integration)
+  const decryptedToken = typeof integration.access_token === 'string'
+    ? safeDecrypt(integration.access_token)
+    : null
+
+  if (!decryptedToken) {
+    throw new Error('Microsoft authentication expired. Please reconnect your account.')
+  }
+
+  return getMicrosoftGraphClient(decryptedToken)
 }

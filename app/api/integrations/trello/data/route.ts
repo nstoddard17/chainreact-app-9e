@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from "@supabase/supabase-js"
 import { trelloHandlers } from './handlers'
+import { clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 import { TrelloIntegration } from './types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
@@ -136,6 +137,14 @@ export async function POST(req: NextRequest) {
         integrationId,
         resultCount: data?.length || 0
       })
+
+      if (integration.status !== 'connected') {
+        try {
+          await clearIntegrationWorkflowFlags({ integrationId: integration.id, provider: 'trello', userId: integration.user_id })
+        } catch (clearError) {
+          console.warn('⚠️ [Trello API] Failed to clear reconnect flag after successful data load:', clearError)
+        }
+      }
 
       return NextResponse.json({
         data,

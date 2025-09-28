@@ -129,7 +129,7 @@ export function useWorkflowBuilder() {
   // Load initial data
   useEffect(() => {
     fetchWorkflows()
-  }, [fetchWorkflows])
+  }, [])
 
   // Stable callback refs - don't depend on nodes to avoid loops
   const nodesRef = useRef(nodes)

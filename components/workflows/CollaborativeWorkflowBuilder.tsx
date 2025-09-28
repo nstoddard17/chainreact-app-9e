@@ -259,7 +259,7 @@ const useWorkflowBuilderState = () => {
   const { updateWithTransition } = useConcurrentStateUpdates()
   
   const resetIntegrationFilters = useCallback(() => {
-    setShowConnectedOnly(true)
+    setShowConnectedOnly(false)
     setShowComingSoon(false)
   }, [])
 
@@ -2395,7 +2395,6 @@ const useWorkflowBuilderState = () => {
       // Fit view to show the updated workflow
       setTimeout(() => fitView({ padding: 0.5 }), 100)
     }, 50)
-    
     // Save the workflow after node deletion
     // IMPORTANT: We need to save with the captured nodes which have all the updates
     // Pass the correct nodes and edges directly
@@ -3105,7 +3104,6 @@ const useWorkflowBuilderState = () => {
 
     return () => clearInterval(interval);
   }, [isSaving])
-
   // Main save function with auto-retry and recovery
   const handleSave = async (retryCount: any = 0, maxRetries = 3) => {
     // Ensure retryCount is a number (protect against event objects being passed)
@@ -3745,7 +3743,6 @@ const useWorkflowBuilderState = () => {
       isSavingRef.current = false
     }
   }
-
   // Handle Test mode (sandbox) - safe testing without external calls
   const handleTestSandbox = async () => {
     if (isExecuting && !isStepMode && !listeningMode) return
@@ -4466,7 +4463,6 @@ const useWorkflowBuilderState = () => {
       console.log('✅ Execution complete, states auto-cleaned')
     }
   }
-
   // Legacy handleExecute - keep for backward compatibility but will be phased out
   const handleExecute = async () => {
     if (isExecuting && !listeningMode) {
@@ -5360,7 +5356,6 @@ const useWorkflowBuilderState = () => {
     } catch (error) {
     }
   }, [workflowId, handleConfigureNode, handleDeleteNodeWithConfirmation, handleChangeTrigger, handleAddActionClick, setNodes, setEdges, setCurrentWorkflow]);
-
   // Check for Discord integration when workflow is loaded
   useEffect(() => {
     if (currentWorkflow && nodes.length > 0) {
@@ -5666,7 +5661,6 @@ export default function CollaborativeWorkflowBuilder() {
     </div>
   )
 }
-
 function WorkflowBuilderContent() {
   const router = useRouter()
   const { toast } = useToast()
@@ -6983,7 +6977,6 @@ function WorkflowBuilderContent() {
               )}
               </div>
             </ScrollArea>
-
             <div className="w-3/5 flex-1">
               <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
@@ -7144,7 +7137,6 @@ function WorkflowBuilderContent() {
                                               const relativeTop = elementRect.top - containerRect.top;
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
-                                              
                                               
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
@@ -7436,7 +7428,6 @@ function WorkflowBuilderContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Action Selection Dialog - Primary - FORCE REFRESHED */}
       {showActionDialog && (
         <Dialog open={showActionDialog} onOpenChange={handleActionDialogClose}>
@@ -7819,7 +7810,6 @@ function WorkflowBuilderContent() {
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
                                               
-                                              
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
                                                 top: targetScroll,
@@ -8045,7 +8035,6 @@ function WorkflowBuilderContent() {
               })()}
               </div>
             </ScrollArea>
-
             <div className="w-3/5 flex-1">
               <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
                 <div className="p-4">
@@ -8206,7 +8195,6 @@ function WorkflowBuilderContent() {
                                               const relativeTop = elementRect.top - containerRect.top;
                                               const currentScroll = scrollContainer.scrollTop;
                                               const targetScroll = currentScroll + relativeTop - 16; // 16px padding from top
-                                              
                                               
                                               // Scroll to the calculated position
                                               scrollContainer.scrollTo({
@@ -8539,7 +8527,6 @@ function WorkflowBuilderContent() {
         </DialogContent>
         </Dialog>
       )}
-
       {configuringNode && (
         <>
           {/* Use AI Agent config modal for AI Agent nodes */}
@@ -8945,7 +8932,6 @@ function WorkflowBuilderContent() {
                 
                 // Capture the final node ID for use in the setTimeout
                 const aiAgentNodeIdToUse = finalAIAgentNodeId;
-
                 // Process chains after a longer delay to ensure the AI Agent node has been added to state
                 // This is especially important for pending nodes that are being added for the first time
                 // Increase delay for new nodes to ensure React has time to update
@@ -10046,4 +10032,3 @@ const VirtualIntegrationList = React.memo(({
     </div>
   )
 })
-

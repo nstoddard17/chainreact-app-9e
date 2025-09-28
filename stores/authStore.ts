@@ -52,6 +52,7 @@ interface AuthState {
   checkUsernameAndRedirect: () => void
   refreshSession: () => Promise<boolean>
   isAuthenticated: () => boolean
+  resetInitialization: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -66,6 +67,10 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: () => {
         set({ hydrated: true })
+      },
+
+      resetInitialization: () => {
+        set({ initialized: false })
       },
 
       initialize: async () => {
@@ -116,6 +121,7 @@ export const useAuthStore = create<AuthState>()(
                 });
                 
                 if (error) {
+                  console.warn('Failed to apply Supabase magic link session:', error)
                 } else if (data.session) {
                   // Clear the hash
                   window.location.hash = ''
@@ -165,122 +171,169 @@ export const useAuthStore = create<AuthState>()(
 
             // Check if profile exists first, create if it doesn't
             let profile: Profile | null = null
-            
+
+            const mapProfileData = (raw: any): Profile => ({
+              id: raw.id,
+              username: raw.username ?? undefined,
+              full_name: raw.full_name ?? undefined,
+              first_name: raw.first_name ?? undefined,
+              last_name: raw.last_name ?? undefined,
+              avatar_url: raw.avatar_url ?? undefined,
+              company: raw.company ?? undefined,
+              job_title: raw.job_title ?? undefined,
+              role: raw.role ?? undefined,
+              secondary_email: raw.secondary_email ?? undefined,
+              phone_number: raw.phone_number ?? undefined,
+            })
+
+            const fetchProfileViaService = async (): Promise<Profile | null> => {
+              if (typeof window === 'undefined') return null
+              try {
+                const response = await fetch('/api/auth/profile', {
+                  method: 'GET',
+                  credentials: 'include',
+                  cache: 'no-store',
+                })
+
+                if (!response.ok) {
+                  console.warn('Service profile endpoint responded with status:', response.status)
+                  return null
+                }
+
+                const payload = await response.json()
+                if (payload?.profile) {
+                  return mapProfileData(payload.profile)
+                }
+                return null
+              } catch (error) {
+                console.error('Failed to fetch profile via service endpoint:', error)
+                return null
+              }
+            }
+
+            const deriveRoleFromMetadata = (): string => {
+              const metadata = user.user_metadata || {}
+              const explicitRole = metadata.role || metadata.account_role || metadata.membership_role
+              if (explicitRole && typeof explicitRole === 'string') return explicitRole
+              if (metadata.is_beta_tester === true || metadata.beta_tester === true) return 'beta-pro'
+              return 'free'
+            }
+
             try {
-              // First, try to fetch existing profile
-              console.log('🔍 Attempting to fetch profile for user ID:', user.id)
-              const fetchResult = await supabase
-                .from('user_profiles')
-                .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
-                .eq('id', user.id)
-                .single()
-              console.log('📊 Profile fetch result:', {
-                hasError: !!fetchResult.error,
-                hasData: !!fetchResult.data,
-                error: fetchResult.error,
-                data: fetchResult.data
-              })
+              profile = await fetchProfileViaService()
 
-              if (fetchResult.error) {
-                // If fetch fails, try to create a new profile
-                // For Google users, extract first and last name from metadata
-                const isGoogleUser = user.app_metadata?.provider === 'google' || 
-                                   user.app_metadata?.providers?.includes('google') ||
-                                   user.identities?.some(id => id.provider === 'google')
-                
-                let firstName = user.user_metadata?.given_name || ''
-                let lastName = user.user_metadata?.family_name || ''
-                let fullName = user.user_metadata?.full_name || user.user_metadata?.name || ''
-                
-                // If we don't have first/last name but have full name, split it
-                if ((!firstName || !lastName) && fullName) {
-                  const nameParts = fullName.split(' ')
-                  firstName = firstName || nameParts[0] || ''
-                  lastName = lastName || nameParts.slice(1).join(' ') || ''
-                }
-                
-                const createProfileData = {
-                  id: user.id,
-                  full_name: fullName,
-                  first_name: firstName,
-                  last_name: lastName,
-                  avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-                  email: user.email,  // Include the email
-                  provider: isGoogleUser ? 'google' : 'email',
-                  role: 'admin',  // Set your role to admin
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                  // Don't set username for Google users - they'll set it on the setup page
-                  username: isGoogleUser ? null : undefined,
-                }
-
-                const createResult = await supabase
+              if (!profile) {
+                console.log('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
+                const fetchResult = await supabase
                   .from('user_profiles')
-                  .insert(createProfileData)
                   .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                  .eq('id', user.id)
                   .single()
 
-                if (createResult.error) {
-                  // Create a fallback profile from auth metadata
-                  const detectedProvider = user.app_metadata?.provider || 
-                                         user.app_metadata?.providers?.[0] || 
-                                         (user.identities?.some(id => id.provider === 'google') ? 'google' : 'email')
-                      
-                  // Extract name from user metadata
-                  const fullName = user.user_metadata?.full_name || 
-                                  user.user_metadata?.name || 
-                                  user.email?.split('@')[0] || 'User'
-                      
-                  const nameParts = fullName.split(' ')
-                  const firstName = nameParts[0] || ''
-                  const lastName = nameParts.slice(1).join(' ') || ''
-                      
-                  profile = {
+                console.log('📊 Direct profile fetch result:', {
+                  hasError: !!fetchResult.error,
+                  hasData: !!fetchResult.data,
+                  error: fetchResult.error,
+                  data: fetchResult.data
+                })
+
+                if (fetchResult.error) {
+                  const isGoogleUser =
+                    user.app_metadata?.provider === 'google' ||
+                    user.app_metadata?.providers?.includes('google') ||
+                    user.identities?.some((id) => id.provider === 'google')
+
+                  let firstName = user.user_metadata?.given_name || ''
+                  let lastName = user.user_metadata?.family_name || ''
+                  const fullName = user.user_metadata?.full_name || user.user_metadata?.name || ''
+
+                  if ((!firstName || !lastName) && fullName) {
+                    const nameParts = fullName.split(' ')
+                    firstName = firstName || nameParts[0] || ''
+                    lastName = lastName || nameParts.slice(1).join(' ') || ''
+                  }
+
+                  const derivedRole = deriveRoleFromMetadata()
+
+                  const createProfileData = {
                     id: user.id,
                     full_name: fullName,
                     first_name: firstName,
                     last_name: lastName,
-                    avatar_url: user.user_metadata?.avatar_url,
-                    provider: detectedProvider,
-                    role: 'admin',  // Set your role to admin
-                    // Don't auto-generate username for Google users
-                    username: detectedProvider === 'google' ? null : (user.email?.split('@')[0] || 'user'),
+                    avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+                    email: user.email,
+                    provider: isGoogleUser ? 'google' : 'email',
+                    role: derivedRole,
                     created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date().toISOString(),
+                    username: isGoogleUser ? null : undefined,
                   }
-                      
-                  // Update user object with extracted data
-                  userObj.first_name = firstName
-                  userObj.last_name = lastName
-                  userObj.full_name = fullName
-                } else {
-                  const createdProfileData = createResult.data
-                  
-                  if (createdProfileData) {
+
+                  const createResult = await supabase
+                    .from('user_profiles')
+                    .insert(createProfileData)
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                    .single()
+
+                  if (createResult.error) {
+                    const detectedProvider =
+                      user.app_metadata?.provider ||
+                      user.app_metadata?.providers?.[0] ||
+                      (user.identities?.some((id) => id.provider === 'google') ? 'google' : 'email')
+
+                    const fallbackFullName =
+                      user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User'
+
+                    const nameParts = fallbackFullName.split(' ')
+                    const fallbackFirstName = nameParts[0] || ''
+                    const fallbackLastName = nameParts.slice(1).join(' ') || ''
+
+                    profile = {
+                      id: user.id,
+                      full_name: fallbackFullName,
+                      first_name: fallbackFirstName,
+                      last_name: fallbackLastName,
+                      avatar_url: user.user_metadata?.avatar_url,
+                      provider: detectedProvider,
+                      role: derivedRole,
+                      username:
+                        detectedProvider === 'google' ? null : user.email?.split('@')[0] || 'user',
+                    }
+
+                    userObj.first_name = fallbackFirstName
+                    userObj.last_name = fallbackLastName
+                    userObj.full_name = fallbackFullName
+                  } else if (createResult.data) {
+                    const createdProfileData = createResult.data
                     userObj.first_name = createdProfileData.first_name
                     userObj.last_name = createdProfileData.last_name
                     userObj.full_name = createdProfileData.full_name || userObj.name
-                    profile = createdProfileData
+                    profile = mapProfileData(createdProfileData)
                   } else {
                     throw new Error('No profile data returned from creation')
                   }
-                }
-              } else {
-                const fetchedProfileData = fetchResult.data
-                
-                if (fetchedProfileData) {
+                } else if (fetchResult.data) {
+                  const fetchedProfileData = fetchResult.data
                   userObj.first_name = fetchedProfileData.first_name
                   userObj.last_name = fetchedProfileData.last_name
                   userObj.full_name = fetchedProfileData.full_name || userObj.name
-                  profile = fetchedProfileData
-                } else {
-                  throw new Error('No profile data found')
+                  profile = mapProfileData(fetchedProfileData)
+                }
+
+                if (!profile) {
+                  const serviceProfileAfterFallback = await fetchProfileViaService()
+                  if (serviceProfileAfterFallback) {
+                    profile = serviceProfileAfterFallback
+                  }
                 }
               }
 
-              // Ensure profile is set before continuing
               if (!profile) {
                 throw new Error('Profile was not properly initialized')
+              }
+
+              if (!profile.role) {
+                profile.role = deriveRoleFromMetadata()
               }
 
               set({ user: userObj, profile, loading: false, initialized: true })
@@ -990,12 +1043,12 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         profile: state.profile,
-        initialized: state.initialized,
       }),
       onRehydrateStorage: () => (state) => {
         try {
-          // Mark as hydrated immediately
+          // Mark as hydrated immediately and reset initialization so each reload revalidates
           state?.setHydrated()
+          state?.resetInitialization()
 
           // Only initialize if not already initialized and we're on the client
           if (state && !state.initialized && typeof window !== 'undefined') {

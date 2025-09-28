@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getWebhookUrl } from '@/lib/utils/getBaseUrl'
+import { safeDecrypt } from '@/lib/security/encryption'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,14 +20,19 @@ export async function registerTrelloWebhooksForUser(userId: string) {
   // Get user's Trello OAuth key/token from integrations table
   const { data: integ } = await supabase
     .from('integrations')
-    .select('external_key, access_token')
+    .select('access_token, metadata')
     .eq('user_id', userId)
     .eq('provider', 'trello')
     .single()
   if (!integ) return
 
-  const key = integ.external_key
-  const token = integ.access_token
+  const metadataKey = typeof integ.metadata?.client_key === 'string' ? integ.metadata.client_key : null
+  const keyCandidate = metadataKey || process.env.TRELLO_CLIENT_ID || ''
+  const tokenRaw = integ.access_token ? safeDecrypt(integ.access_token) : ''
+  const key = keyCandidate && keyCandidate !== 'null' && keyCandidate !== 'undefined' ? keyCandidate : process.env.TRELLO_CLIENT_ID || ''
+  const token = tokenRaw && tokenRaw !== 'null' && tokenRaw !== 'undefined' ? tokenRaw : ''
+  if (!key || !token) return
+
   const callbackURL = `${getWebhookUrl('trello')}`
 
   // List boards the user is a member of
@@ -47,5 +53,4 @@ export async function registerTrelloWebhooksForUser(userId: string) {
     }
   }
 }
-
 

@@ -3,6 +3,7 @@
  */
 
 import { TrelloApiError } from './types'
+import { safeDecrypt } from '@/lib/security/encryption'
 
 /**
  * Create Trello API error with proper context
@@ -50,20 +51,21 @@ export function validateTrelloIntegration(integration: any): void {
  * Make authenticated request to Trello API
  */
 export async function makeTrelloApiRequest(
-  url: string, 
-  accessToken: string, 
+  url: string,
+  accessToken: string,
+  apiKey?: string | null,
   options: RequestInit = {}
 ): Promise<Response> {
-  const trelloClientId = process.env.TRELLO_CLIENT_ID
+  const trelloClientId = apiKey && apiKey !== 'null' && apiKey !== 'undefined' ? apiKey : process.env.TRELLO_CLIENT_ID
   if (!trelloClientId) {
-    throw new Error('TRELLO_CLIENT_ID environment variable is required')
+    throw new Error('Trello API key is required. Set TRELLO_CLIENT_ID or store the key in the integration record.')
   }
-  
+
   // Add Trello authentication parameters to URL
   const urlObj = new URL(url)
   urlObj.searchParams.set('key', trelloClientId)
   urlObj.searchParams.set('token', accessToken)
-  
+
   return fetch(urlObj.toString(), {
     ...options,
     headers: {
@@ -111,25 +113,33 @@ export async function parseTrelloApiResponse<T>(response: Response): Promise<T[]
 /**
  * Simplified Trello token validation (without complex refresh logic)
  */
-export async function validateTrelloToken(integration: any): Promise<{ success: boolean, token?: string, error?: string }> {
+export async function validateTrelloToken(integration: any): Promise<{ success: boolean, token?: string, key?: string, error?: string }> {
   try {
-    if (!integration.access_token) {
+    const rawToken = integration.access_token ? safeDecrypt(integration.access_token) : ''
+    const metadataKey = typeof integration.metadata?.client_key === 'string' ? integration.metadata.client_key : null
+    const rawKey =
+      (integration.external_key ? safeDecrypt(integration.external_key) : null) ||
+      metadataKey ||
+      process.env.TRELLO_CLIENT_ID || ''
+
+    if (!rawToken || rawToken === 'null' || rawToken === 'undefined') {
       return {
         success: false,
-        error: "No access token found"
+        error: 'No access token found'
       }
     }
 
-    // For now, just return the token as-is
-    // TODO: Add proper token validation against Trello API if needed
+    const normalizedKey = rawKey && rawKey !== 'null' && rawKey !== 'undefined' ? rawKey : process.env.TRELLO_CLIENT_ID || ''
+
     return {
       success: true,
-      token: integration.access_token
+      token: rawToken,
+      key: normalizedKey
     }
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || "Token validation failed"
+      error: error.message || 'Token validation failed'
     }
   }
 }
