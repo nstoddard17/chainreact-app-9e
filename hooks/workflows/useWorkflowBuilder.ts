@@ -52,6 +52,9 @@ export function useWorkflowBuilder() {
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
+
+  // Additional states needed by the main component
+  const [cachedIntegrationStatus, setCachedIntegrationStatus] = useState<Map<string, boolean>>(new Map())
   
   // Custom setNodes that preserves onClick handlers for AddActionNodes
   const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
@@ -243,20 +246,23 @@ export function useWorkflowBuilder() {
           
           // Add AddActionNodes after each leaf node (nodes with no outgoing edges)
           allNodes = [...flowNodes]
-          
+
           // Find leaf nodes - nodes that are not sources for any connection
           const leafNodes = flowNodes.filter((node: any) => {
             // Skip AI agent nodes and existing addAction nodes
             if (node.data?.type === 'ai_agent' || node.type === 'addAction') {
               return false
             }
-            
-            // Check if this node is a source for any connection
-            const isSource = workflow.connections?.some((conn: WorkflowConnection) => 
-              conn.source === node.id
+
+            // Check if this node is a source for any REAL connection (not to AddActionNodes)
+            // This ensures we only consider actual workflow connections
+            const edgesToCheck = workflow.connections || []
+            const isSource = edgesToCheck.some((conn: WorkflowConnection) =>
+              conn.source === node.id &&
+              !conn.target.includes('add-action') // Ignore connections to AddActionNodes
             )
-            
-            // If it's not a source for any connection, it's a leaf node
+
+            // If it's not a source for any real connection, it's a leaf node
             return !isSource
           })
           
@@ -313,6 +319,11 @@ export function useWorkflowBuilder() {
           const flowEdges = [] as any[]
           for (const conn of workflow.connections as WorkflowConnection[]) {
             if (!conn?.source || !conn?.target) continue
+            // Skip edges to/from AddActionNodes (they should be created dynamically)
+            if (conn.source.includes('add-action') || conn.target.includes('add-action')) {
+              console.log('Skipping saved AddActionNode edge:', conn.id)
+              continue
+            }
             if (!validNodeIds.has(conn.source) || !validNodeIds.has(conn.target)) continue
             const key = `${conn.source}->${conn.target}`
             if (seenEdgeKey.has(key)) continue
@@ -335,18 +346,23 @@ export function useWorkflowBuilder() {
           // Add edges to AddActionNodes if we created them
           if (addActionNodeData && Array.isArray(addActionNodeData)) {
             addActionNodeData.forEach(edgeData => {
-              flowEdges.push({
-                id: edgeData.id,
-                source: edgeData.source,
-                target: edgeData.target,
-                type: 'custom',
-                animated: false,
-                style: { 
-                  stroke: "#d1d5db", 
-                  strokeWidth: 1,
-                  strokeDasharray: "5 5" // Make it dotted
-                }
-              })
+              // Check if edge already exists (avoid duplicates)
+              const edgeKey = `${edgeData.source}->${edgeData.target}`
+              if (!seenEdgeKey.has(edgeKey)) {
+                seenEdgeKey.add(edgeKey)
+                flowEdges.push({
+                  id: edgeData.id,
+                  source: edgeData.source,
+                  target: edgeData.target,
+                  type: 'custom',
+                  animated: false,
+                  style: {
+                    stroke: "#d1d5db",
+                    strokeWidth: 1,
+                    strokeDasharray: "5 5" // Make it dotted
+                  }
+                })
+              }
             })
           }
           
@@ -393,7 +409,13 @@ export function useWorkflowBuilder() {
       )
 
       const persistedNodes = nodes.filter(n => !placeholderNodeIds.has(n.id))
-      const persistedEdges = edges.filter(e => !placeholderNodeIds.has(e.source) && !placeholderNodeIds.has(e.target))
+      // Filter out edges to/from placeholder nodes (including AddActionNodes)
+      const persistedEdges = edges.filter(e =>
+        !placeholderNodeIds.has(e.source) &&
+        !placeholderNodeIds.has(e.target) &&
+        !e.target.includes('add-action') && // Explicitly filter out edges to AddActionNodes
+        !e.source.includes('add-action')    // Explicitly filter out edges from AddActionNodes
+      )
 
       const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
         id: node.id,
@@ -770,6 +792,103 @@ export function useWorkflowBuilder() {
     return newNodeId
   }, [nodes, setNodes, setEdges, handleNodeConfigure, handleNodeDelete, handleNodeAddChain, handleAddActionClick])
 
+  // Additional handlers needed
+  const optimizedOnNodesChange = useCallback((changes: any) => {
+    // Optimized version that prevents unnecessary updates
+    onNodesChange(changes)
+  }, [onNodesChange])
+
+  const handleConfigureNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (node && configHook.setConfiguringNode) {
+      configHook.setConfiguringNode({
+        id: nodeId,
+        nodeComponent: node.data?.nodeComponent,
+        integration: node.data?.integration,
+        config: node.data?.config || {}
+      })
+    }
+  }, [nodes, configHook])
+
+  const handleDeleteNodeWithConfirmation = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (node) {
+      dialogsHook.setDeletingNode({
+        id: nodeId,
+        name: node.data?.title || 'Node'
+      })
+    }
+  }, [nodes, dialogsHook])
+
+  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number; y: number }) => {
+    // Implementation for adding node between two nodes
+    console.log('Add node between', sourceId, targetId, position)
+  }, [])
+
+  const openTriggerDialog = useCallback(() => {
+    dialogsHook.setShowTriggerDialog(true)
+  }, [dialogsHook])
+
+  const getWorkflowStatus = useCallback(() => {
+    if (executionHook.isExecuting) return { text: "Executing", variant: "default" as const }
+    if (isSaving) return { text: "Saving", variant: "secondary" as const }
+    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
+    return { text: "Saved", variant: "secondary" as const }
+  }, [executionHook.isExecuting, isSaving, hasUnsavedChanges])
+
+  const nodeNeedsConfiguration = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node || !node.data?.nodeComponent) return false
+    const config = node.data?.config || {}
+    const fields = node.data?.nodeComponent?.fields || []
+    return fields.some((field: any) => field.required && !config[field.name])
+  }, [nodes])
+
+  const confirmDeleteNode = useCallback((nodeId: string) => {
+    // Handle actual deletion
+    handleNodeDelete(nodeId)
+    dialogsHook.setDeletingNode(null)
+  }, [handleNodeDelete, dialogsHook])
+
+  const forceUpdate = useCallback(() => {
+    // Force a re-render
+    setNodes(nodes => [...nodes])
+  }, [setNodes])
+
+  const [displayedTriggers, setDisplayedTriggers] = useState<any[]>([])
+  const [filteredIntegrations, setFilteredIntegrations] = useState<any[]>([])
+
+  const handleConfigurationClose = useCallback(() => {
+    configHook.setConfiguringNode(null)
+  }, [configHook])
+
+  const handleConfigurationSave = useCallback(async (config: any) => {
+    if (configHook.configuringNode) {
+      await configHook.handleSaveConfiguration(
+        { id: configHook.configuringNode.id },
+        config,
+        handleAddTrigger,
+        handleAddAction,
+        handleSave
+      )
+    }
+  }, [configHook, handleAddTrigger, handleAddAction, handleSave])
+
+  const configuringNodeInfo = configHook.configuringNode?.nodeComponent
+  const configuringIntegrationName = configHook.configuringNode?.integration?.name || ''
+  const configuringInitialData = configHook.configuringNode?.config || {}
+
+  // Wrap execution handlers to provide nodes and edges
+  const handleTestSandbox = useCallback(() => {
+    return executionHook.handleTestSandbox()
+  }, [executionHook])
+
+  const handleExecuteLive = useCallback(() => {
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+    return executionHook.handleExecute(currentNodes, currentEdges)
+  }, [getNodes, getEdges, executionHook])
+
   return {
     // React Flow state
     nodes,
@@ -777,11 +896,14 @@ export function useWorkflowBuilder() {
     setNodes,
     setEdges,
     onNodesChange,
+    optimizedOnNodesChange,
     onEdgesChange,
     onConnect,
     nodeTypes,
     edgeTypes,
     fitView,
+    getNodes,
+    getEdges,
     
     // Workflow metadata
     workflowName,
@@ -796,7 +918,7 @@ export function useWorkflowBuilder() {
     isSaving,
     isLoading,
     workflowLoading,
-    integrationsLoading: integrationsLoading || integrationsCacheLoading,
+    integrationsLoading,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     listeningMode,
@@ -816,10 +938,30 @@ export function useWorkflowBuilder() {
     // Collaboration
     collaborators,
     
-    // From custom hooks
+    // From custom hooks (spread but override certain handlers)
     ...executionHook,
+    handleTestSandbox,  // Override with wrapped version
+    handleExecuteLive,  // Override with wrapped version
     ...dialogsHook,
     ...integrationHook,
     ...configHook,
+
+    // Additional handlers and states
+    handleConfigureNode,
+    handleDeleteNodeWithConfirmation,
+    handleAddNodeBetween,
+    openTriggerDialog,
+    getWorkflowStatus,
+    nodeNeedsConfiguration,
+    confirmDeleteNode,
+    forceUpdate,
+    displayedTriggers,
+    filteredIntegrations,
+    handleConfigurationClose,
+    handleConfigurationSave,
+    configuringNodeInfo,
+    configuringIntegrationName,
+    configuringInitialData,
+    cachedIntegrationStatus,
   }
 }

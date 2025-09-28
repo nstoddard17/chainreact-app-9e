@@ -32,24 +32,20 @@ function WorkflowBuilderContent() {
     // React Flow state
     nodes,
     edges,
-    setNodes,
-    setEdges,
     onNodesChange,
     onEdgesChange,
     onConnect,
     nodeTypes,
     edgeTypes,
     fitView,
-    getNodes,
-    getEdges,
-
+    
     // Workflow metadata
     workflowName,
     setWorkflowName,
     workflowDescription,
     setWorkflowDescription,
     currentWorkflow,
-
+    
     // Loading/saving states
     isSaving,
     isLoading,
@@ -57,20 +53,15 @@ function WorkflowBuilderContent() {
     setHasUnsavedChanges,
     listeningMode,
     setListeningMode,
-
+    
     // Handlers
     handleSave,
     handleExecute,
     handleResetLoadingStates,
-    handleToggleLive,
-    isUpdatingStatus,
-    handleTestSandbox,
-    handleExecuteLive,
-    handleConfigureNode,
-
+    
     // Collaboration
     collaborators,
-
+    
     // Dialogs
     showTriggerDialog,
     setShowTriggerDialog,
@@ -78,10 +69,6 @@ function WorkflowBuilderContent() {
     setShowActionDialog,
     showUnsavedChangesModal,
     setShowUnsavedChangesModal,
-    showExecutionHistory,
-    setShowExecutionHistory,
-    showSandboxPreview,
-    setShowSandboxPreview,
     deletingNode,
     setDeletingNode,
     handleOpenTriggerDialog,
@@ -92,21 +79,19 @@ function WorkflowBuilderContent() {
     handleAddActionClick,
     handleAddTrigger,
     handleAddAction,
-
+    
     // Execution state
     isExecuting,
     activeExecutionNodeId,
     executionResults,
-    isStepMode,
-    sandboxInterceptedActions,
-
+    
     // Configuration
     configuringNode,
     setConfiguringNode,
     pendingNode,
     handleSaveConfiguration,
     aiAgentActionCallback,
-
+    
     // Integration selection
     selectedIntegration,
     setSelectedIntegration,
@@ -157,24 +142,6 @@ function WorkflowBuilderContent() {
         handleExecute={() => handleExecute(nodes, edges)}
         handleResetLoadingStates={handleResetLoadingStates}
         handleNavigation={(href) => handleNavigation(hasUnsavedChanges, href)}
-        workflowStatus={currentWorkflow?.status}
-        handleToggleLive={handleToggleLive}
-        isUpdatingStatus={isUpdatingStatus}
-        currentWorkflow={currentWorkflow}
-        workflowId={currentWorkflow?.id}
-        handleTestSandbox={handleTestSandbox}
-        handleExecuteLive={handleExecuteLive}
-        isStepMode={isStepMode}
-        showSandboxPreview={showSandboxPreview}
-        setShowSandboxPreview={setShowSandboxPreview}
-        sandboxInterceptedActions={sandboxInterceptedActions}
-        showExecutionHistory={showExecutionHistory}
-        setShowExecutionHistory={setShowExecutionHistory}
-        getNodes={getNodes}
-        getEdges={getEdges}
-        setNodes={setNodes}
-        setEdges={setEdges}
-        handleConfigureNode={handleConfigureNode}
       />
 
       {nodes.length === 0 ? (

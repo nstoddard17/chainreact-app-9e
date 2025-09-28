@@ -70,9 +70,10 @@ export function TriggerSelectionDialog({
   loadingIntegrations = false,
   refreshIntegrations
 }: TriggerSelectionDialogProps) {
-  
+
   // Get the coming soon integrations from the hook
   const { comingSoonIntegrations } = useIntegrationSelection()
+  const [showComingSoon, setShowComingSoon] = React.useState(false) // Local state for coming soon filter
 
   // Refresh integrations when dialog opens
   useEffect(() => {
@@ -82,8 +83,16 @@ export function TriggerSelectionDialog({
   }, [open, refreshIntegrations])
 
   const filteredIntegrations = useMemo(() => {
-    return filterIntegrations(availableIntegrations, searchQuery, filterCategory, showConnectedOnly)
-  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, filterIntegrations])
+    // First filter by coming soon
+    const baseFiltered = availableIntegrations.filter(int => {
+      if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
+        return false
+      }
+      return true
+    })
+    // Then apply the standard filters
+    return filterIntegrations(baseFiltered, searchQuery, filterCategory, showConnectedOnly)
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, showComingSoon, filterIntegrations, comingSoonIntegrations])
 
   const displayedTriggers = useMemo(() => {
     return getDisplayedTriggers(selectedIntegration, searchQuery)
@@ -116,37 +125,40 @@ export function TriggerSelectionDialog({
         </DialogHeader>
         
         <div className="pt-3 pb-3 border-b border-slate-200">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input 
-                placeholder="Search integrations or triggers..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  placeholder="Search integrations or triggers..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat === 'all' ? 'All Categories' : cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat === 'all' ? 'All Categories' : cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="connected-apps" 
-                checked={showConnectedOnly} 
-                onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))} 
-              />
-              <Label htmlFor="connected-apps" className="whitespace-nowrap">
-                Show only connected apps
-              </Label>
+            <div className="flex items-center justify-end">
+              <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showComingSoon}
+                  onChange={(e) => setShowComingSoon(e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
+                />
+                <span>Show coming soon integrations</span>
+              </label>
             </div>
           </div>
         </div>

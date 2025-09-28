@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
       forceConsent?: boolean
     } = {
       userId: user.id,
-      provider: provider.toLowerCase(), // Ensure consistent provider naming
+      // Microsoft Excel uses OneDrive provider in the database
+      provider: provider.toLowerCase() === 'microsoft-excel' ? 'onedrive' : provider.toLowerCase(), // Ensure consistent provider naming
       reconnect,
       integrationId,
       timestamp: Date.now(),
@@ -222,6 +223,11 @@ export async function POST(request: NextRequest) {
         break
 
       case "onedrive":
+        authUrl = await generateOneDriveAuthUrl(finalState)
+        break
+
+      case "microsoft-excel":
+        // Microsoft Excel uses OneDrive's authentication
         authUrl = await generateOneDriveAuthUrl(finalState)
         break
 

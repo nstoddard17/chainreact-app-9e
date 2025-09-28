@@ -78,10 +78,11 @@ export function ActionSelectionDialog({
   loadingIntegrations = false,
   refreshIntegrations
 }: ActionSelectionDialogProps) {
-  
+
   // Get the coming soon integrations from the hook
   const { comingSoonIntegrations } = useIntegrationSelection()
   const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null)
+  const [showComingSoon, setShowComingSoon] = useState(false) // Local state for coming soon filter
   
   // Get integration store to check status
   const { getIntegrationByProvider } = useIntegrationStore()
@@ -160,31 +161,36 @@ export function ActionSelectionDialog({
 
   const filteredIntegrationsForActions = useMemo(() => {
     const filtered = availableIntegrations.filter(int => {
+      // Filter out coming soon integrations unless explicitly shown
+      if (!showComingSoon && comingSoonIntegrations.has(int.id)) {
+        return false
+      }
+
       // Check connection status
       if (showConnectedOnly && !isIntegrationConnected(int.id)) return false
       if (filterCategory !== 'all' && int.category !== filterCategory) return false
-      
+
       // Always show all integrations - users should be able to connect any integration
       // even if it doesn't have compatible actions with the current trigger
       // Once connected, they might switch triggers or the integration might have actions later
-      
+
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
-        const matchesIntegration = int.name.toLowerCase().includes(query) || 
+        const matchesIntegration = int.name.toLowerCase().includes(query) ||
           int.description.toLowerCase().includes(query)
         // Also search in action names/descriptions if there are actions
-        const matchesAction = int.actions.some(action => 
-          (action.title?.toLowerCase() || '').includes(query) || 
+        const matchesAction = int.actions.some(action =>
+          (action.title?.toLowerCase() || '').includes(query) ||
           (action.description?.toLowerCase() || '').includes(query)
         )
         return matchesIntegration || matchesAction
       }
-      
+
       return true
     })
-    
+
     return filtered
-  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, isIntegrationConnected])
+  }, [availableIntegrations, searchQuery, filterCategory, showConnectedOnly, showComingSoon, isIntegrationConnected, comingSoonIntegrations])
 
   const displayedActions = useMemo(() => {
     if (!selectedIntegration) return []
@@ -236,37 +242,40 @@ export function ActionSelectionDialog({
         </DialogHeader>
         
         <div className="pt-3 pb-3 border-b border-slate-200">
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <Input 
-                placeholder="Search integrations or actions..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center space-x-4">
+              <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  placeholder="Search integrations or actions..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat === 'all' ? 'All Categories' : cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat === 'all' ? 'All Categories' : cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="connected-apps-actions" 
-                checked={showConnectedOnly}
-                onCheckedChange={(checked) => setShowConnectedOnly(Boolean(checked))}
-              />
-              <Label htmlFor="connected-apps-actions" className="whitespace-nowrap">
-                Show only connected apps
-              </Label>
+            <div className="flex items-center justify-end">
+              <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showComingSoon}
+                  onChange={(e) => setShowComingSoon(e.target.checked)}
+                  className="rounded border-gray-300 text-primary focus:ring-primary w-4 h-4"
+                />
+                <span>Show coming soon integrations</span>
+              </label>
             </div>
           </div>
         </div>

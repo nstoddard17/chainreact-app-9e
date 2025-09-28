@@ -64,6 +64,34 @@ export class IntegrationNodeHandlers {
     if (nodeType.startsWith('microsoft-outlook_') || nodeType.startsWith('outlook_')) {
       const config = node.data.config || {}
       switch (nodeType) {
+        case 'microsoft-outlook_trigger_new_email':
+          // Triggers in manual execution return sample data
+          // In production, webhooks would provide real data
+          console.log('📧 Outlook email trigger executing in mode:', context.testMode ? 'test' : 'live')
+
+          // For manual workflow execution (Run Once), always return sample data
+          // Real triggers would be handled by webhooks that provide actual email data
+          return {
+            id: context.testMode ? 'test-email-123' : `email-${Date.now()}`,
+            subject: 'Sample Email for Workflow Testing',
+            from: {
+              name: 'Workflow Test Sender',
+              email: 'test@example.com'
+            },
+            to: [{
+              name: 'Workflow Test Recipient',
+              email: 'recipient@example.com'
+            }],
+            body: 'This is sample email content used for testing your workflow execution.',
+            bodyPreview: 'This is sample email content...',
+            receivedDateTime: new Date().toISOString(),
+            hasAttachments: false,
+            isRead: false,
+            importance: 'normal',
+            conversationId: `conv-${Date.now()}`,
+            messageId: `msg-${Date.now()}@outlook.com`
+          }
+
         case 'microsoft-outlook_action_send_email': {
           const { sendOutlookEmail } = await import('@/lib/workflows/actions/microsoft-outlook')
           const result = await sendOutlookEmail(config, context.userId, context.data || {})
