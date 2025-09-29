@@ -691,6 +691,13 @@ export function useWorkflowBuilder() {
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
+    console.log('🟣 [handleActionSelect] Called with:', {
+      integration: integration?.name,
+      action: action?.type,
+      sourceAddNode: dialogsHook.sourceAddNode,
+      hasSourceAddNode: !!dialogsHook.sourceAddNode
+    })
+
     // Check if trying to add an AI Agent when one already exists
     if (action.type === 'ai_agent') {
       const existingAIAgent = nodes.find(n => n.data?.type === 'ai_agent')
@@ -705,24 +712,50 @@ export function useWorkflowBuilder() {
     }
 
     if (configHook.nodeNeedsConfiguration(action)) {
+      const sourceInfo = dialogsHook.sourceAddNode
+      console.log('🟣 [handleActionSelect] Node needs configuration, setting pending node with sourceNodeInfo:', {
+        sourceAddNode: sourceInfo,
+        sourceAddNodeType: typeof sourceInfo,
+        sourceAddNodeKeys: sourceInfo ? Object.keys(sourceInfo) : [],
+        sourceAddNodeValues: sourceInfo
+      })
+
+      // Make a deep copy of sourceInfo to preserve it
+      const preservedSourceInfo = sourceInfo ? { ...sourceInfo } : undefined
+
       // Store the pending action info and open configuration
-      configHook.setPendingNode({ 
-        type: 'action', 
-        integration, 
+      configHook.setPendingNode({
+        type: 'action',
+        integration,
         nodeComponent: action,
-        sourceNodeInfo: dialogsHook.sourceAddNode 
+        sourceNodeInfo: preservedSourceInfo  // Use the preserved copy
       })
-      configHook.setConfiguringNode({ 
-        id: 'pending-action', 
-        integration, 
-        nodeComponent: action, 
-        config: {} 
+      configHook.setConfiguringNode({
+        id: 'pending-action',
+        integration,
+        nodeComponent: action,
+        config: {}
       })
+
+      // Close dialog AFTER setting pending node to ensure state is saved
+      setTimeout(() => {
+        dialogsHook.setShowActionDialog(false)
+      }, 0)
     } else {
       // Add action without configuration
-      // Implementation would go here
+      const sourceInfo = dialogsHook.sourceAddNode
+      console.log('🟣 [handleActionSelect] Node does NOT need configuration, adding directly with sourceNodeInfo:', sourceInfo)
+
+      if (sourceInfo) {
+        // TODO: Add the action directly without configuration
+        // This needs to be handled differently since handleAddAction is defined later
+        console.log('🟣 [handleActionSelect] Would add action directly, but implementation needed')
+      } else {
+        console.warn('🟣 [handleActionSelect] No sourceNodeInfo available for direct add')
+      }
+
+      dialogsHook.setShowActionDialog(false)
     }
-    dialogsHook.setShowActionDialog(false)
   }, [nodes, configHook, dialogsHook, toast])
 
   // Handle adding a trigger node
@@ -785,19 +818,70 @@ export function useWorkflowBuilder() {
 
   // Handle adding an action node
   const handleAddAction = useCallback((integration: any, nodeComponent: any, config: Record<string, any>, sourceNodeInfo: any) => {
-    const parentId = sourceNodeInfo?.parentId || sourceNodeInfo?.id
-    if (!parentId) return undefined
-    
-    const newNodeId = `action-${Date.now()}`
+    console.log('🟢 [handleAddAction] START - called with:', {
+      integration: integration?.name,
+      nodeComponent: nodeComponent?.type,
+      sourceNodeInfo,
+      insertBefore: sourceNodeInfo?.insertBefore
+    })
+
+    // Check if sourceNodeInfo is valid
+    if (!sourceNodeInfo) {
+      console.warn('handleAddAction called without sourceNodeInfo - this should only be used for adding new actions')
+      return undefined
+    }
+
+    // Check if sourceNodeInfo is an empty object (which shouldn't happen)
+    if (Object.keys(sourceNodeInfo).length === 0) {
+      console.error('handleAddAction called with empty sourceNodeInfo object - this indicates sourceAddNode was null when action was selected')
+      return undefined
+    }
+
+    // For insertions, parentId is the source node, insertBefore is the target
+    // For regular additions, parentId is the parent node, id is the AddAction node to replace
+    const parentId = sourceNodeInfo?.parentId
+    if (!parentId) {
+      console.error('No parentId found in sourceNodeInfo:', sourceNodeInfo)
+      return undefined
+    }
+
     const parentNode = nodes.find(n => n.id === parentId)
-    if (!parentNode) return undefined
-    
+    if (!parentNode) {
+      console.error('Parent node not found:', parentId)
+      return undefined
+    }
+
+    console.log('Found parent node:', parentNode.id, 'insertBefore:', sourceNodeInfo.insertBefore)
+
+    // Check if the parent node is part of an AI agent chain
+    let parentAIAgentId = parentNode?.data?.parentAIAgentId
+    let parentChainIndex = parentNode?.data?.parentChainIndex
+
+    // For regular additions (not insertions), also check the AddAction node being replaced
+    if (!sourceNodeInfo.insertBefore && sourceNodeInfo.id) {
+      const sourceAddActionNode = nodes.find(n => n.id === sourceNodeInfo.id)
+      if (sourceAddActionNode?.data?.parentAIAgentId) {
+        parentAIAgentId = sourceAddActionNode.data.parentAIAgentId
+        parentChainIndex = sourceAddActionNode.data.parentChainIndex
+      }
+    }
+
+    console.log('AI Agent metadata:', { parentAIAgentId, parentChainIndex })
+
+    // Generate proper node ID for AI agent chains
+    const timestamp = Date.now()
+    const newNodeId = parentAIAgentId
+      ? `${parentAIAgentId}-node-${timestamp}-${timestamp}`  // AI agent chain node format
+      : `action-${timestamp}`  // Regular action node format
+
+    console.log('Generated newNodeId:', newNodeId, 'isAIAgentChain:', !!parentAIAgentId)
+
     const newNode: Node = {
       id: newNodeId,
       type: 'custom',
-      position: { 
-        x: parentNode.position.x, 
-        y: parentNode.position.y + 160 
+      position: {
+        x: parentNode.position.x,
+        y: parentNode.position.y + 160
       },
       data: {
         title: nodeComponent.title,
@@ -807,63 +891,139 @@ export function useWorkflowBuilder() {
         providerId: nodeComponent.providerId || integration.id,
         onConfigure: handleNodeConfigure,
         onDelete: handleNodeDelete,
-        onAddChain: nodeComponent.type === 'ai_agent' ? handleNodeAddChain : undefined
+        onAddChain: nodeComponent.type === 'ai_agent' ? handleNodeAddChain : undefined,
+        // Preserve AI agent chain metadata if this is part of a chain
+        ...(parentAIAgentId && {
+          isAIAgentChild: true,
+          parentAIAgentId,
+          parentChainIndex
+        })
       }
     }
     
     // Remove old AddActionNode and add new nodes
     setNodes(nds => {
-      const filteredNodes = nds.filter(n => n.id !== sourceNodeInfo.id)
-      const updatedNodes = [...filteredNodes, newNode]
-      
-      // Add new AddActionNode after the new action
-      const addActionId = `add-action-${newNodeId}`
-      
-      // Store the handler in ref
-      const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
-      addActionHandlersRef.current[addActionId] = clickHandler
-      
-      const addActionNode: Node = {
-        id: addActionId,
-        type: 'addAction',
-        position: {
-          x: newNode.position.x,
-          y: newNode.position.y + 160
-        },
-        draggable: false,
-        selectable: false,
-        data: {
-          parentId: newNodeId,
-          onClick: clickHandler
+      // Check if we're inserting between nodes
+      if (sourceNodeInfo.insertBefore) {
+        console.log('Inserting between nodes. Target:', sourceNodeInfo.insertBefore)
+        // When inserting between nodes, don't remove or add any AddActionNode
+        // Just add the new node
+        const targetNode = nds.find(n => n.id === sourceNodeInfo.insertBefore)
+        if (targetNode) {
+          // Position the new node between the parent and target
+          // Use the X position of the chain (could be different for AI agent chains)
+          const xPosition = targetNode.position.x || parentNode.position.x
+          const yPosition = (parentNode.position.y + targetNode.position.y) / 2
+
+          newNode.position = {
+            x: xPosition,
+            y: yPosition
+          }
+          console.log('Positioned new node at:', newNode.position)
+          console.log('Parent position:', parentNode.position)
+          console.log('Target position:', targetNode.position)
+        } else {
+          console.error('Target node not found for insertion:', sourceNodeInfo.insertBefore)
         }
+        const result = [...nds, newNode]
+        console.log('Total nodes after insertion:', result.length)
+        return result
+      } else {
+        // Regular add action - remove the old AddActionNode and add new one
+        const filteredNodes = nds.filter(n => n.id !== sourceNodeInfo.id)
+        const updatedNodes = [...filteredNodes, newNode]
+
+        // Add new AddActionNode after the new action
+        const addActionId = `add-action-${newNodeId}`
+
+        // Store the handler in ref
+        const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
+        addActionHandlersRef.current[addActionId] = clickHandler
+
+        const addActionNode: Node = {
+          id: addActionId,
+          type: 'addAction',
+          position: {
+            x: newNode.position.x,
+            y: newNode.position.y + 160
+          },
+          draggable: false,
+          selectable: false,
+          data: {
+            parentId: newNodeId,
+            onClick: clickHandler,
+            // Preserve AI agent chain metadata if this is part of a chain
+            ...(parentAIAgentId && {
+              parentAIAgentId,
+              parentChainIndex
+            })
+          }
+        }
+
+        return [...updatedNodes, addActionNode]
       }
-      
-      return [...updatedNodes, addActionNode]
     })
     
     // Update edges
     setEdges(eds => {
-      // Remove edge to old AddActionNode
-      const filteredEdges = eds.filter(e => e.target !== sourceNodeInfo.id)
-      
-      // Add edge from parent to new node
-      const newEdges = [...filteredEdges, {
-        id: `e-${parentId}-${newNodeId}`,
-        source: parentId,
-        target: newNodeId,
-        type: 'custom',
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1 }
-      }, {
-        id: `e-${newNodeId}-add-action-${newNodeId}`,
-        source: newNodeId,
-        target: `add-action-${newNodeId}`,
-        type: 'custom',
-        animated: false,
-        style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
-      }]
-      
-      return newEdges
+      // Check if we're inserting between nodes
+      if (sourceNodeInfo.insertBefore) {
+        console.log('Updating edges for insertion. Removing edge:', parentId, '->', sourceNodeInfo.insertBefore)
+        // Remove the edge between parentId and insertBefore
+        const filteredEdges = eds.filter(e =>
+          !(e.source === parentId && e.target === sourceNodeInfo.insertBefore)
+        )
+
+        console.log('Edges before:', eds.length, 'Edges after filter:', filteredEdges.length)
+
+        // Add edges: parent -> newNode -> insertBefore
+        const newEdges = [...filteredEdges,
+          {
+            id: `e-${parentId}-${newNodeId}`,
+            source: parentId,
+            target: newNodeId,
+            type: 'custom',
+            animated: false,
+            style: { stroke: "#d1d5db", strokeWidth: 1 },
+            data: {} // Ensure data object exists
+          },
+          {
+            id: `e-${newNodeId}-${sourceNodeInfo.insertBefore}`,
+            source: newNodeId,
+            target: sourceNodeInfo.insertBefore,
+            type: 'custom',
+            animated: false,
+            style: { stroke: "#d1d5db", strokeWidth: 1 },
+            data: {} // Ensure data object exists
+          }
+          // Don't add edge to AddAction when inserting between nodes
+        ]
+
+        console.log('Added new edges:', `${parentId} -> ${newNodeId}`, `${newNodeId} -> ${sourceNodeInfo.insertBefore}`)
+        console.log('Total edges after insertion:', newEdges.length)
+        return newEdges
+      } else {
+        // Regular add action (at the end of chain)
+        const filteredEdges = eds.filter(e => e.target !== sourceNodeInfo.id)
+
+        const newEdges = [...filteredEdges, {
+          id: `e-${parentId}-${newNodeId}`,
+          source: parentId,
+          target: newNodeId,
+          type: 'custom',
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1 }
+        }, {
+          id: `e-${newNodeId}-add-action-${newNodeId}`,
+          source: newNodeId,
+          target: `add-action-${newNodeId}`,
+          type: 'custom',
+          animated: false,
+          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
+        }]
+
+        return newEdges
+      }
     })
     
     setHasUnsavedChanges(true)
@@ -938,10 +1098,22 @@ export function useWorkflowBuilder() {
     }
   }, [nodes, dialogsHook])
 
-  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number; y: number }) => {
-    // Implementation for adding node between two nodes
-    console.log('Add node between', sourceId, targetId, position)
-  }, [])
+  const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position?: { x: number; y: number }) => {
+    // Open the action dialog to add a node between two existing nodes
+    const insertNodeInfo = {
+      id: `insert-${Date.now()}`,
+      parentId: sourceId,
+      insertBefore: targetId
+    }
+
+    console.log('🔶 [handleAddNodeBetween] Setting sourceAddNode for insertion:', insertNodeInfo)
+
+    dialogsHook.setSourceAddNode(insertNodeInfo)
+    dialogsHook.setSelectedIntegration(null)
+    dialogsHook.setSelectedAction(null)
+    dialogsHook.setSearchQuery("")
+    dialogsHook.setShowActionDialog(true)
+  }, [dialogsHook])
 
   const openTriggerDialog = useCallback(() => {
     dialogsHook.setShowTriggerDialog(true)
