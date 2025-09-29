@@ -139,6 +139,7 @@ function WorkflowBuilderContent() {
     handleNodeConfigure,
     handleNodeDelete,
     handleAddNodeBetween,
+    ensureOneAddActionPerChain,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -185,6 +186,7 @@ function WorkflowBuilderContent() {
         setNodes={setNodes}
         setEdges={setEdges}
         handleConfigureNode={handleConfigureNode}
+        ensureOneAddActionPerChain={ensureOneAddActionPerChain}
       />
 
       {nodes.length === 0 ? (
@@ -301,10 +303,49 @@ function WorkflowBuilderContent() {
             // If this is an existing AI Agent, extract its chain nodes from the workflow
             if (configuringNode.id !== 'pending-action') {
               // Find chain nodes for this AI Agent
-              const chainNodes = nodes.filter(n =>
+              // First get nodes explicitly marked as children
+              const explicitChainNodes = nodes.filter(n =>
                 n.data?.parentAIAgentId === configuringNode.id &&
                 n.data?.type !== 'addAction'
               )
+
+              // Also find nodes that are connected after the AI Agent (might not have parentAIAgentId)
+              const connectedAfterAIAgent: any[] = []
+              const findConnectedNodes = (nodeId: string, visited = new Set<string>()) => {
+                if (visited.has(nodeId)) return
+                visited.add(nodeId)
+
+                // Find edges from this node
+                const outgoingEdges = edges.filter(e => e.source === nodeId)
+                for (const edge of outgoingEdges) {
+                  const targetNode = nodes.find(n => n.id === edge.target)
+                  if (targetNode &&
+                      targetNode.data?.type !== 'addAction' &&
+                      targetNode.data?.type !== 'ai_agent' &&
+                      !targetNode.data?.isTrigger) {
+                    // Include this node if it's not already in explicit chain nodes
+                    if (!explicitChainNodes.some(n => n.id === targetNode.id)) {
+                      // Assign a chain index if it doesn't have one
+                      const nodeWithChainIndex = {
+                        ...targetNode,
+                        data: {
+                          ...targetNode.data,
+                          parentChainIndex: targetNode.data?.parentChainIndex ?? 0
+                        }
+                      }
+                      connectedAfterAIAgent.push(nodeWithChainIndex)
+                    }
+                    // Continue traversing
+                    findConnectedNodes(targetNode.id, visited)
+                  }
+                }
+              }
+
+              // Start from the AI Agent node
+              findConnectedNodes(configuringNode.id)
+
+              // Combine both sets of nodes
+              const chainNodes = [...explicitChainNodes, ...connectedAfterAIAgent]
 
               // Also find nodes between trigger and AI Agent (pre-processing nodes)
               const preprocessingNodes: any[] = []
@@ -356,7 +397,14 @@ function WorkflowBuilderContent() {
               // Group chain nodes by chain index to reconstruct chains
               const chainGroups = new Map<number, any[]>()
               chainNodes.forEach(node => {
-                const chainIndex = node.data?.parentChainIndex ?? 0
+                // If node doesn't have a chainIndex, assign it based on its position
+                let chainIndex = node.data?.parentChainIndex
+                if (chainIndex === undefined) {
+                  // Assign chain index 0 for nodes without explicit chain index
+                  chainIndex = 0
+                  // Update the node data to include this for consistency
+                  node.data = { ...node.data, parentChainIndex: 0 }
+                }
                 if (!chainGroups.has(chainIndex)) {
                   chainGroups.set(chainIndex, [])
                 }
@@ -395,6 +443,10 @@ function WorkflowBuilderContent() {
                     node.id.substring(aiAgentPrefix.length) :
                     node.id
 
+                  // Get the node component definition to ensure we have the proper title and description
+                  const nodeType = node.data?.type
+                  const nodeComponent = nodeType ? ALL_NODE_COMPONENTS.find(n => n.type === nodeType) : null
+
                   return {
                     id: originalId,
                     type: node.type || 'custom',
@@ -402,12 +454,14 @@ function WorkflowBuilderContent() {
                     data: {
                       ...node.data,
                       type: node.data?.type,
-                      title: node.data?.title || node.data?.label,
-                      description: node.data?.description,
+                      title: node.data?.title || node.data?.label || nodeComponent?.title || 'Action',
+                      description: node.data?.description || nodeComponent?.description || '',
                       label: node.data?.label,
                       config: node.data?.config,
-                      parentChainIndex: node.data?.parentChainIndex,
-                      providerId: node.data?.providerId
+                      parentChainIndex: node.data?.parentChainIndex ?? 0,
+                      providerId: node.data?.providerId,
+                      isAIAgentChild: node.data?.isAIAgentChild,
+                      parentAIAgentId: node.data?.parentAIAgentId
                     }
                   }
                 }),
