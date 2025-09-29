@@ -136,6 +136,8 @@ function WorkflowBuilderContent() {
 
     // Node operations (needed for chain nodes)
     handleDeleteNodeWithConfirmation,
+    handleNodeConfigure,
+    handleNodeDelete,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -536,9 +538,9 @@ function WorkflowBuilderContent() {
                         nodeComponent: nodeComponent,
                         // Add integration info for configuration modal
                         integration: chainNode.integration || chainNode.data?.integration,
-                        // Add handlers
-                        onConfigure: () => handleConfigureNode(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`),
-                        onDelete: () => handleDeleteNodeWithConfirmation(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`)
+                        // Add handlers - these will be called with the node ID
+                        onConfigure: handleNodeConfigure,
+                        onDelete: handleNodeDelete
                       }
 
                       const newNodeId = `${aiAgentNodeId}-${chainNode.id}-${timestamp}`

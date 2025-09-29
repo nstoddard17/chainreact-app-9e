@@ -442,6 +442,7 @@ interface AIAgentVisualChainBuilderProps {
   onChainsChange?: (chains: any) => void
   onOpenActionDialog?: () => void
   onActionSelect?: (callback: (action: any, config?: any) => void) => void
+  onConfigureNode?: (nodeId: string) => void
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
 }
@@ -452,6 +453,7 @@ function AIAgentVisualChainBuilder({
   onChainsChange = () => {},
   onOpenActionDialog,
   onActionSelect,
+  onConfigureNode: onConfigureNodeProp,
   workflowData,
   currentNodeId
 }: AIAgentVisualChainBuilderProps) {
@@ -699,11 +701,19 @@ function AIAgentVisualChainBuilder({
   
   // Forward declare handleConfigureNode
   const handleConfigureNode = useCallback((nodeId: string) => {
-    toast({
-      title: "Configure Node",
-      description: `Configure settings for node ${nodeId}`
-    })
-  }, [toast])
+    console.log('⚙️ [AIAgentVisualChainBuilder] Configure node:', nodeId)
+
+    // If parent provided a configure handler, use it
+    if (onConfigureNodeProp) {
+      onConfigureNodeProp(nodeId)
+    } else {
+      // Fallback to toast if no handler provided
+      toast({
+        title: "Configure Node",
+        description: `Configure settings for node ${nodeId}`
+      })
+    }
+  }, [onConfigureNodeProp, toast])
   
   // Declare handleAddNodeBetween before handleDeleteNode to avoid initialization error
   const handleAddNodeBetween = useCallback((sourceId: string, targetId: string, position: { x: number, y: number }) => {
@@ -1832,7 +1842,7 @@ function AIAgentVisualChainBuilder({
             ? () => handleConfigureNode(node.id) 
             : node.data?.onConfigure,
           onDelete: node.data?.type !== 'trigger' && node.data?.type !== 'ai_agent'
-            ? () => handleDeleteNode(node.id)
+            ? () => handleDeleteNodeRef.current?.(node.id)
             : undefined,
           onAddToChain: node.data?.hasAddButton 
             ? (nodeId: string) => handleAddToChain(nodeId)
