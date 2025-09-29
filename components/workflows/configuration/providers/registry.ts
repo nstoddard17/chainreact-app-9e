@@ -18,6 +18,7 @@ import { outlookOptionsLoader } from './microsoft-outlook/OutlookOptionsLoader';
 import { TeamsOptionsLoader } from './teams/TeamsOptionsLoader';
 import { GoogleCalendarOptionsLoader } from './google-calendar/GoogleCalendarOptionsLoader';
 import { MicrosoftExcelOptionsLoader } from './microsoft-excel/MicrosoftExcelOptionsLoader';
+import { AIOptionsLoader } from './ai/AIOptionsLoader';
 
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
@@ -72,6 +73,9 @@ class ProviderRegistryImpl implements IProviderRegistry {
 
     // Register Microsoft Excel loader
     this.register('microsoft-excel', new MicrosoftExcelOptionsLoader());
+
+    // Register AI Agent loader
+    this.register('ai', new AIOptionsLoader());
 
     // Additional providers can be registered here as they're implemented
     // this.register('gmail', new GmailOptionsLoader());

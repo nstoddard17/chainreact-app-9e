@@ -36,7 +36,9 @@ export function useNodeConfiguration(
   currentWorkflowId: string | undefined,
   nodes: Node[],
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
-  setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>
+  setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>,
+  edges?: any[],
+  setEdges?: React.Dispatch<React.SetStateAction<any[]>>
 ) {
   const { toast } = useToast()
   const [configuringNode, setConfiguringNode] = useState<ConfiguringNode | null>(null)
@@ -133,6 +135,8 @@ export function useNodeConfiguration(
       // Handle existing node configuration updates
       console.log(' Updating existing node configuration')
 
+      // Update the node configuration without handling chains here
+      // Chains will be handled in the CollaborativeWorkflowBuilder
       setNodes((nds) => nds.map((node) => {
         if (node.id === context.id) {
           // Check if this is an AI Agent node with chains
@@ -147,7 +151,7 @@ export function useNodeConfiguration(
             ...((__dynamicOptions && Object.keys(__dynamicOptions).length > 0) ? { savedDynamicOptions: __dynamicOptions } : {}),
             ...((__validationState) ? { validationState: __validationState } : {})
           }
-          
+
           // If it's an AI Agent with chains, remove the onAddChain button
           if (isAIAgent && hasChains) {
             const updatedDataAny = updatedData as any;
@@ -161,7 +165,7 @@ export function useNodeConfiguration(
             updatedDataAny.hasChains = nodeDataAny.hasChains || false;
             updatedDataAny.chainCount = nodeDataAny.chainCount || 0;
           }
-          
+
           return { ...node, data: updatedData }
         }
         return node
