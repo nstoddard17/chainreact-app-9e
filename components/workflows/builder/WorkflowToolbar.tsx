@@ -225,6 +225,7 @@ export function WorkflowToolbar({
             id: addId,
             type: 'addAction',
             position: { x: last.position.x, y: last.position.y + 150 },
+            draggable: false, // Prevent Add Action nodes from being dragged
             data: { parentId: last.id, parentAIAgentId: agent.id }
           }
           newAddNodes.push(addNode)

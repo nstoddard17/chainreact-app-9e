@@ -1185,10 +1185,11 @@ function AIAgentVisualChainBuilder({
               const addActionNode: Node = {
                 id: newAddActionNodeId,
                 type: 'addAction',
-                position: { 
-                  x: previousNode.position.x, 
-                  y: previousNode.position.y + 150  // Use consistent spacing with gap 
+                position: {
+                  x: previousNode.position.x,
+                  y: previousNode.position.y + 150  // Use consistent spacing with gap
                 },
+                draggable: false, // Prevent Add Action nodes from being dragged
                 data: {
                   parentId: previousNodeId,
                   onClick: () => {
@@ -1772,6 +1773,7 @@ function AIAgentVisualChainBuilder({
                 x: lastNodePosition.x,
                 y: lastNodePosition.y + 150
               },
+              draggable: false, // Prevent Add Action nodes from being dragged
               data: {
                 parentId: lastInChain.id,
                 parentChainIndex: chainIndex,
@@ -2081,10 +2083,11 @@ function AIAgentVisualChainBuilder({
         const addActionNode: Node = {
           id: addActionNodeId,
           type: 'addAction',
-          position: { 
-            x: chainNode.position.x, 
+          position: {
+            x: chainNode.position.x,
             y: chainNode.position.y + 150  // Use consistent spacing with gap
           },
+          draggable: false, // Prevent Add Action nodes from being dragged
           data: {
             parentId: newNodeId,
             onClick: () => {
@@ -2139,6 +2142,7 @@ function AIAgentVisualChainBuilder({
                           x: nextNode.position.x,
                           y: nextNode.position.y + 150  // Use consistent spacing with gap
                         },
+                        draggable: false, // Prevent Add Action nodes from being dragged
                         data: {
                           parentId: nextNodeId,
                           onClick: () => {
@@ -2367,10 +2371,11 @@ function AIAgentVisualChainBuilder({
             const addActionNode: Node = {
               id: addActionNodeId,
               type: 'addAction',
-              position: { 
-                x: newNode.position.x, 
-                y: newNode.position.y + 150  // Use consistent spacing with gap 
+              position: {
+                x: newNode.position.x,
+                y: newNode.position.y + 150  // Use consistent spacing with gap
               },
+              draggable: false, // Prevent Add Action nodes from being dragged
               data: {
                 parentId: newNodeId,
                 onClick: () => {

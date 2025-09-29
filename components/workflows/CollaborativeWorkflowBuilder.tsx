@@ -658,6 +658,7 @@ function WorkflowBuilderContent() {
                             x: newNode.position.x,
                             y: newNode.position.y + 150  // Added spacing between nodes
                           },
+                          draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
                             parentId: newNodeId,
                             parentAIAgentId: aiAgentNodeId,

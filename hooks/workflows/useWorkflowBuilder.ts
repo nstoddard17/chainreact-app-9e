@@ -916,28 +916,48 @@ export function useWorkflowBuilder() {
       // Check if we're inserting between nodes
       if (sourceNodeInfo.insertBefore) {
         console.log('Inserting between nodes. Target:', sourceNodeInfo.insertBefore)
-        // When inserting between nodes, don't remove or add any AddActionNode
-        // Just add the new node
+
         const targetNode = nds.find(n => n.id === sourceNodeInfo.insertBefore)
         if (targetNode) {
-          // Position the new node between the parent and target
-          // Use the X position of the chain (could be different for AI agent chains)
+          // Calculate spacing for inserted node
+          const nodeSpacing = parentAIAgentId ? 120 : 160 // Tighter spacing for AI agent chains
+          const halfSpacing = nodeSpacing / 2
+
+          // Position the new node between parent and target with proper spacing
           const xPosition = targetNode.position.x || parentNode.position.x
-          const yPosition = (parentNode.position.y + targetNode.position.y) / 2
+          const yPosition = parentNode.position.y + nodeSpacing // Place it one full spacing below parent
 
           newNode.position = {
             x: xPosition,
             y: yPosition
           }
+
+          // Move the target node and all nodes below it down to make room
+          const updatedNodes = nds.map(node => {
+            if (node.id === sourceNodeInfo.insertBefore ||
+                (node.position.y >= targetNode.position.y &&
+                 Math.abs(node.position.x - xPosition) < 50)) { // Only move nodes in the same vertical chain
+              return {
+                ...node,
+                position: {
+                  ...node.position,
+                  y: node.position.y + nodeSpacing // Move down by one spacing unit
+                }
+              }
+            }
+            return node
+          })
+
           console.log('Positioned new node at:', newNode.position)
-          console.log('Parent position:', parentNode.position)
-          console.log('Target position:', targetNode.position)
+          console.log('Moved target and downstream nodes down by:', nodeSpacing)
+
+          const result = [...updatedNodes, newNode]
+          console.log('Total nodes after insertion:', result.length)
+          return result
         } else {
           console.error('Target node not found for insertion:', sourceNodeInfo.insertBefore)
+          return [...nds, newNode]
         }
-        const result = [...nds, newNode]
-        console.log('Total nodes after insertion:', result.length)
-        return result
       } else {
         // Regular add action - remove the old AddActionNode and add new one
         const filteredNodes = nds.filter(n => n.id !== sourceNodeInfo.id)
