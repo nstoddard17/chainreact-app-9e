@@ -173,7 +173,11 @@ export function MicrosoftExcelConfiguration({
     }
   }, [values.worksheetName, values.action, values.workbookId, microsoftExcelHasHeaders, showPreviewData, loadPreviewData]);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+
     console.log('🔧 [Excel] handleSubmit called with values:', values);
 
     // Validate required fields
@@ -206,6 +210,9 @@ export function MicrosoftExcelConfiguration({
       setValidationErrors(validationErrors);
       return;
     }
+
+    // Clear validation errors if everything is valid
+    setValidationErrors({});
 
     // Prepare final values
     const finalValues = { ...values };
@@ -265,7 +272,12 @@ export function MicrosoftExcelConfiguration({
   const visibleFields = getVisibleFields();
 
   return (
-    <ConfigurationContainer>
+    <ConfigurationContainer
+      onSubmit={handleSubmit}
+      onCancel={onCancel}
+      onBack={onBack}
+      isEditMode={isEditMode}
+    >
       <div className="space-y-6">
         {/* Connection warning if needed */}
         {needsConnection && (
@@ -426,26 +438,6 @@ export function MicrosoftExcelConfiguration({
             </ul>
           </div>
         )}
-
-        {/* Action buttons */}
-        <div className="flex justify-between pt-4 border-t">
-          {onBack && (
-            <Button type="button" variant="outline" onClick={onBack}>
-              Back
-            </Button>
-          )}
-          <div className="flex space-x-3 ml-auto">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={needsConnection}
-            >
-              {isEditMode ? 'Update' : 'Save'}
-            </Button>
-          </div>
-        </div>
       </div>
     </ConfigurationContainer>
   );
