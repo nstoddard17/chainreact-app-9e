@@ -1165,6 +1165,8 @@ export function useWorkflowBuilder() {
     handleConfigureNode,
     handleDeleteNodeWithConfirmation,
     handleAddNodeBetween,
+    handleNodeConfigure,
+    handleNodeDelete,
     openTriggerDialog,
     getWorkflowStatus,
     nodeNeedsConfiguration,

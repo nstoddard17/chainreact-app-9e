@@ -331,6 +331,8 @@ export function AIAgentConfigModal({
   const pendingActionCallbackRef = useRef<any>(null)
   const [showActionSelector, setShowActionSelector] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [configuringNodeId, setConfiguringNodeId] = useState<string | null>(null)
+  const [configuringNodeData, setConfiguringNodeData] = useState<any>(null)
   
   // Loading states
   const [isLoadingSavedConfig, setIsLoadingSavedConfig] = useState(false)
@@ -602,6 +604,22 @@ export function AIAgentConfigModal({
   }
   
   // Handle action selection
+  const handleConfigureNode = useCallback((nodeId: string) => {
+    console.log('⚙️ [AIAgentConfigModal] Configure node requested:', nodeId)
+
+    // Find the node data from the chains layout
+    const nodeData = config.chainsLayout?.nodes?.find((n: any) => n.id === nodeId)
+
+    if (nodeData) {
+      console.log('⚙️ [AIAgentConfigModal] Found node data:', nodeData)
+      setConfiguringNodeId(nodeId)
+      setConfiguringNodeData(nodeData)
+      // Configuration will be handled by showing the configuration form
+    } else {
+      console.warn('⚙️ [AIAgentConfigModal] Node not found:', nodeId)
+    }
+  }, [config.chainsLayout])
+
   const handleActionSelection = (action: any) => {
     console.log('🎯 [AIAgentConfigModal] handleActionSelection called with action:', action)
     console.log('🎯 [AIAgentConfigModal] Action details:', {
@@ -1027,6 +1045,7 @@ export function AIAgentConfigModal({
                         console.log('🚀 [AIAgentConfigModal] pendingActionCallback set in ref')
                         // Don't open dialog here - onOpenActionDialog will handle it
                       }}
+                      onConfigureNode={handleConfigureNode}
                       workflowData={workflowData}
                       currentNodeId={currentNodeId}
                     />
@@ -2359,6 +2378,93 @@ export function AIAgentConfigModal({
                 </div>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Node Configuration Dialog */}
+      {configuringNodeId && configuringNodeData && (
+        <Dialog open={true} onOpenChange={(open) => {
+          if (!open) {
+            setConfiguringNodeId(null)
+            setConfiguringNodeData(null)
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Configure {configuringNodeData.data?.title || 'Action'}</DialogTitle>
+              <DialogDescription>
+                Configure the settings for this action node
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Show configuration form based on node type */}
+              {configuringNodeData.data?.providerId && configuringNodeData.data?.type && (
+                <div className="p-4 border rounded-lg bg-muted/20">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Provider: <span className="font-medium">{configuringNodeData.data.providerId}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Type: <span className="font-medium">{configuringNodeData.data.type}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Current Config: <span className="font-mono text-xs">{JSON.stringify(configuringNodeData.data.config || {}, null, 2)}</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="text-sm text-muted-foreground">
+                <AlertCircle className="w-4 h-4 inline mr-2" />
+                Configuration form for chain actions will be available soon.
+                For now, actions are configured with AI mode or default settings.
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfiguringNodeId(null)
+                  setConfiguringNodeData(null)
+                }}
+              >
+                Close
+              </Button>
+              <Button onClick={() => {
+                // TODO: Save configuration changes
+                console.log('💾 [AIAgentConfigModal] Saving configuration for node:', configuringNodeId)
+
+                // Update the node in chainsLayout
+                if (config.chainsLayout?.nodes) {
+                  const updatedNodes = config.chainsLayout.nodes.map((n: any) => {
+                    if (n.id === configuringNodeId) {
+                      return {
+                        ...n,
+                        data: {
+                          ...n.data,
+                          // Update config here when form is implemented
+                        }
+                      }
+                    }
+                    return n
+                  })
+
+                  setConfig(prev => ({
+                    ...prev,
+                    chainsLayout: {
+                      ...prev.chainsLayout,
+                      nodes: updatedNodes
+                    }
+                  }))
+                }
+
+                setConfiguringNodeId(null)
+                setConfiguringNodeData(null)
+              }}>
+                Save Changes
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
