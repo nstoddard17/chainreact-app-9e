@@ -7,8 +7,15 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { RoleGuard } from '@/components/ui/role-guard'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
-  Shield, FlaskConical, Rocket, History, Eye, EyeOff
+  Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { Node, Edge } from '@xyflow/react'
@@ -363,96 +370,133 @@ export function WorkflowToolbar({
             </TooltipProvider>
           )}
 
-          {/* Test (Sandbox) button */}
-          {handleTestSandbox && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isStepMode || listeningMode ? "secondary" : "outline"}
-                    onClick={handleTestSandbox}
-                    disabled={(isExecuting && !listeningMode) || isSaving}
-                  >
-                    {isExecuting && !listeningMode && !isStepMode ? (
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    ) : isStepMode || listeningMode ? (
-                      <Shield className="w-5 h-5 mr-2" />
-                    ) : (
+          {/* Combined Test button with dropdown */}
+          {(handleTestSandbox || handleExecuteLive) && (
+            <>
+              {isStepMode || listeningMode ? (
+                // Show exit/stop button when in test mode
+                <Button
+                  variant="secondary"
+                  onClick={handleTestSandbox}
+                  disabled={(isExecuting && !listeningMode) || isSaving}
+                >
+                  {isExecuting && !listeningMode && !isStepMode ? (
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  ) : (
+                    <Shield className="w-5 h-5 mr-2" />
+                  )}
+                  {isStepMode ? "Exit Test Mode" : "Stop Sandbox"}
+                </Button>
+              ) : (
+                // Show dropdown when not in test mode
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      disabled={isSaving || isExecuting}
+                    >
                       <FlaskConical className="w-5 h-5 mr-2" />
+                      Test
+                      <ChevronDown className="w-4 h-4 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72">
+                    {handleTestSandbox && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuItem
+                              onClick={handleTestSandbox}
+                              disabled={(isExecuting && !listeningMode) || isSaving}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-start w-full">
+                                <Shield className="w-5 h-5 mr-3 mt-0.5 text-blue-500" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Sandbox Mode</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Safe testing environment - no real actions
+                                  </div>
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-sm">
+                            <p className="font-semibold mb-1">Test in Sandbox Mode</p>
+                            <p className="text-xs">
+                              Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
-                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox" : "Test (Sandbox)"}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="font-semibold mb-1">
-                    {isStepMode ? "Exit Test Mode" : listeningMode ? "Stop Sandbox Mode" : "Test in Sandbox Mode"}
-                  </p>
-                  <p className="text-xs">
-                    {isStepMode
-                      ? "Exit step-by-step test mode and clear all execution states"
-                      : listeningMode
-                      ? "Stop testing your workflow"
-                      : "Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely."
-                    }
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
 
-          {/* Show preview button when in sandbox mode */}
-          {listeningMode && sandboxInterceptedActions.length > 0 && setShowSandboxPreview && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={showSandboxPreview ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setShowSandboxPreview(!showSandboxPreview)}
-                    className="relative"
-                  >
-                    <Shield className="w-5 h-5" />
-                    {sandboxInterceptedActions.length > 0 && (
-                      <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
-                        {sandboxInterceptedActions.length}
-                      </span>
+                    {handleTestSandbox && handleExecuteLive && <DropdownMenuSeparator />}
+
+                    {handleExecuteLive && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuItem
+                              onClick={handleExecuteLive}
+                              disabled={isSaving || isExecuting}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-start w-full">
+                                <Rocket className="w-5 h-5 mr-3 mt-0.5 text-orange-500" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Live Mode</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Execute with real data and actions
+                                  </div>
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-sm">
+                            <p className="font-semibold mb-1">Run Once with Live Data</p>
+                            <p className="text-xs">
+                              Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="font-semibold">
-                    {showSandboxPreview ? "Hide" : "Show"} Sandbox Preview
-                  </p>
-                  <p className="text-xs">
-                    {sandboxInterceptedActions.length} intercepted action{sandboxInterceptedActions.length !== 1 ? 's' : ''}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
 
-          {/* Run Once (Live) button */}
-          {handleExecuteLive && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleExecuteLive}
-                    disabled={isSaving || isExecuting}
-                    variant="default"
-                  >
-                    {isExecuting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Rocket className="w-5 h-5 mr-2" />}
-                    Run Once (Live)
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="font-semibold mb-1">Run Once with Live Data</p>
-                  <p className="text-xs">
-                    Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              {/* Show preview button when in sandbox mode */}
+              {listeningMode && sandboxInterceptedActions.length > 0 && setShowSandboxPreview && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={showSandboxPreview ? "default" : "outline"}
+                        size="icon"
+                        onClick={() => setShowSandboxPreview(!showSandboxPreview)}
+                        className="relative"
+                      >
+                        <Shield className="w-5 h-5" />
+                        {sandboxInterceptedActions.length > 0 && (
+                          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
+                            {sandboxInterceptedActions.length}
+                          </span>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="font-semibold">
+                        {showSandboxPreview ? "Hide" : "Show"} Sandbox Preview
+                      </p>
+                      <p className="text-xs">
+                        {sandboxInterceptedActions.length} intercepted action{sandboxInterceptedActions.length !== 1 ? 's' : ''}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </>
           )}
 
           {/* Execution History Button */}

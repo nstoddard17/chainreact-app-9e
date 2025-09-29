@@ -521,14 +521,14 @@ function AIAgentVisualChainBuilder({
       }
     })
     
-    // Get all action nodes and chain placeholders (exclude system nodes)
-    const actionNodes = nodes.filter(n => 
-      n.id !== 'trigger' && 
-      n.id !== aiAgentId && 
+    // Get all action nodes (exclude system nodes and placeholders)
+    const actionNodes = nodes.filter(n =>
+      n.id !== 'trigger' &&
+      n.id !== aiAgentId &&
       n.type !== 'addAction' &&
       n.data?.type !== 'ai_agent' &&
-      !n.data?.isAIAgent
-      // Keep chain_placeholder nodes - they need to be added to the workflow
+      !n.data?.isAIAgent &&
+      n.data?.type !== 'chain_placeholder' // Exclude chain placeholders - they should NOT be sent to workflow
     )
     
     // Debug: Log what nodes we're including

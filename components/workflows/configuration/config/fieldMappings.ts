@@ -555,6 +555,15 @@ const hubspotMappings: Record<string, FieldMapping> = {
   },
 };
 
+// AI Agent field mappings
+const aiMappings: Record<string, FieldMapping> = {
+  ai_agent: {
+    inputNodeId: "previous_nodes",
+    memoryIntegration: "connected_integrations",
+    customMemoryIntegrations: "connected_integrations",
+  },
+};
+
 // Notion field mappings
 const notionMappings: Record<string, FieldMapping> = {
   notion_action_retrieve_page: {
@@ -719,6 +728,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...facebookMappings,
   ...hubspotMappings,
   ...notionMappings,
+  ...aiMappings,
   default: defaultMappings,
 };
 

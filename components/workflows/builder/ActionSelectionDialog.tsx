@@ -231,7 +231,7 @@ export function ActionSelectionDialog({
             </div>
             <div>
               <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                Select an Action (v2)
+                Select an Action
                 <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
               </DialogTitle>
               <DialogDescription className="text-sm text-slate-600 mt-1">

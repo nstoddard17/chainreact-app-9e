@@ -4,6 +4,8 @@
 
 ## September 28, 2025
 
+Fixed a critical issue where AI Agent chain actions weren't being transferred to the main workflow when saved. The AI Agent allows users to build multiple parallel execution chains visually, but when saved, the Discord, Gmail, and other actions added to these chains were disappearing from the workflow. The root cause was a data structure mismatch - the visual chain builder sends node properties directly on the node object, but the workflow builder was looking for them nested under a data property. Fixed by updating both the filtering logic and node mapping to correctly handle the flat structure from the chain builder. Now when users configure AI Agent chains with actions, those actions properly appear in the main workflow canvas with all their configuration intact, enabling powerful multi-chain AI-driven automations.
+
 Just completed a massive codebase cleanup! We successfully migrated our workflow builder from a 10,000+ line monolithic component to a clean, modular architecture with only 307 lines in the main component. This 97% reduction in complexity means faster development, easier debugging, and better performance. The refactored code uses modern React patterns with custom hooks for state management, making our workflow automation platform more maintainable and scalable. Technical debt: eliminated!
 
 ## January 24, 2025
