@@ -667,6 +667,7 @@ function AIAgentVisualChainBuilder({
               // Update Add Action node position to follow parent
               updatedNodes[addActionIndex] = {
                 ...updatedNodes[addActionIndex],
+                draggable: false, // Ensure Add Action nodes remain non-draggable
                 position: {
                   x: change.position.x,
                   y: change.position.y + 150  // Use consistent spacing with gap
@@ -1354,6 +1355,15 @@ function AIAgentVisualChainBuilder({
     const centerX = 400 // Center of typical viewport
     const defaultChainId = 'chain-default'
 
+    // Try to get AI Agent from workflow data to use its actual position
+    let aiAgentPosition = { x: centerX, y: 200 }
+    if (workflowData?.nodes) {
+      const workflowAIAgent = workflowData.nodes.find(n => n.data?.type === 'ai_agent' || n.id === currentNodeId)
+      if (workflowAIAgent?.position) {
+        aiAgentPosition = workflowAIAgent.position
+      }
+    }
+
     // Try to get trigger from workflow data if available
     let triggerNode = null
     if (workflowData?.nodes) {
@@ -1366,7 +1376,7 @@ function AIAgentVisualChainBuilder({
         triggerNode = {
           id: 'trigger',
           type: 'custom',
-          position: { x: centerX, y: 50 },
+          position: workflowTrigger.position || { x: centerX, y: 50 },
           data: {
             ...workflowTrigger.data,
             title: triggerComponent?.title || workflowTrigger.data?.title || 'Trigger',
@@ -1408,7 +1418,7 @@ function AIAgentVisualChainBuilder({
       {
         id: 'ai-agent',
         type: 'custom',
-        position: { x: centerX, y: 200 },
+        position: aiAgentPosition,
         data: {
           title: 'AI Agent',
           description: 'Intelligent decision-making agent',
@@ -1528,7 +1538,7 @@ function AIAgentVisualChainBuilder({
         })
       }
     }, 200)
-  }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect, workflowData])
+  }, [setNodes, setEdges, fitView, toast, onOpenActionDialog, onActionSelect, workflowData, currentNodeId])
   
   // Add a separate effect to handle fitView when component becomes visible
   useEffect(() => {
@@ -1610,7 +1620,7 @@ function AIAgentVisualChainBuilder({
           triggerNode = {
             id: 'trigger',
             type: 'custom',
-            position: { x: 400, y: 50 },
+            position: workflowTrigger.position || { x: 400, y: 50 },
             data: {
               ...workflowTrigger.data,
               title: triggerComponent?.title || workflowTrigger.data?.title || 'Trigger',
@@ -1647,43 +1657,11 @@ function AIAgentVisualChainBuilder({
         }
       }
 
-      // Find all nodes to determine the bounding box
-      let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity
-      chainsLayout.nodes.forEach((node: any) => {
-        if (node.position) {
-          minY = Math.min(minY, node.position.y)
-          maxY = Math.max(maxY, node.position.y)
-          minX = Math.min(minX, node.position.x)
-          maxX = Math.max(maxX, node.position.x)
-        }
-      })
-
-      // Calculate the center of the workflow content
-      const workflowCenterX = (minX + maxX) / 2
-      const workflowCenterY = (minY + maxY) / 2
-
-      // Set chain builder center position
-      const chainBuilderCenterX = 400
-      const chainBuilderCenterY = 300
-
-      // Calculate offset to center the content
-      const positionOffset = {
-        x: chainBuilderCenterX - workflowCenterX,
-        y: chainBuilderCenterY - workflowCenterY
-      }
-
-      // Use the AI Agent's actual position from workflow (with offset applied)
+      // Use exact positions from workflow without any offset
       const workflowAIAgentPos = chainsLayout.aiAgentPosition || { x: 400, y: 200 }
-      const chainBuilderAIAgentPosition = {
-        x: workflowAIAgentPos.x + positionOffset.x,
-        y: workflowAIAgentPos.y + positionOffset.y
-      }
+      const chainBuilderAIAgentPosition = { ...workflowAIAgentPos }
 
-      console.log('📍 [Position Sync] Maintaining workflow layout:', {
-        workflowBounds: { minX, maxX, minY, maxY },
-        workflowCenter: { x: workflowCenterX, y: workflowCenterY },
-        chainBuilderCenter: { x: chainBuilderCenterX, y: chainBuilderCenterY },
-        offset: positionOffset,
+      console.log('📍 [Position Sync] Using exact workflow positions:', {
         aiAgentPos: chainBuilderAIAgentPosition
       })
 
@@ -1712,16 +1690,13 @@ function AIAgentVisualChainBuilder({
         // Get the node component info for proper title/description
         const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
 
-        // Apply the same offset to all nodes to maintain relative positions
-        const chainBuilderPosition = {
-          x: node.position.x + positionOffset.x,
-          y: node.position.y + positionOffset.y
-        }
+        // Use exact position from workflow without any offset
+        const nodePosition = { ...node.position }
 
         return {
           id: node.id,
           type: 'custom',
-          position: chainBuilderPosition,
+          position: nodePosition,
           data: {
             title: node.data?.title || nodeComponent?.title || node.title || 'Action',
             description: node.data?.description || nodeComponent?.description || node.description || '',
@@ -2647,6 +2622,7 @@ function AIAgentVisualChainBuilder({
               if (n.type === 'addAction' && n.data?.parentId === node.id) {
                 return {
                   ...n,
+                  draggable: false, // Ensure Add Action nodes remain non-draggable
                   position: {
                     x: node.position.x,
                     y: node.position.y + 150  // Use consistent spacing with gap

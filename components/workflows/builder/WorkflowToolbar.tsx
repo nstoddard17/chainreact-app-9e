@@ -58,6 +58,7 @@ interface WorkflowToolbarProps {
   setNodes?: (nodes: any) => void
   setEdges?: (edges: any) => void
   handleConfigureNode?: (nodeId: string) => void
+  ensureOneAddActionPerChain?: () => void
 }
 
 export function WorkflowToolbar({
@@ -90,6 +91,7 @@ export function WorkflowToolbar({
   setNodes,
   setEdges,
   handleConfigureNode,
+  ensureOneAddActionPerChain,
 }: WorkflowToolbarProps) {
   const { toast } = useToast()
   const [showPrecheck, setShowPrecheck] = useState(false)
@@ -168,83 +170,16 @@ export function WorkflowToolbar({
 
   // Clean up add buttons function for admin
   const cleanUpAddButtons = () => {
-    if (!getNodes || !getEdges || !setNodes || !setEdges) return
-
-    try {
-      const allNodes = getNodes()
-      const aiAgents = allNodes.filter((n: any) => n.data?.type === 'ai_agent')
-      if (aiAgents.length === 0) {
-        toast({ title: 'No AI Agents found', description: 'No AI Agent nodes to clean up.' })
-        return
-      }
-
-      // Build node map for quick lookup
-      const nodeMap: Record<string, any> = {}
-      allNodes.forEach(n => nodeMap[n.id] = n)
-
-      // Remove existing addAction nodes
-      const addNodeIds = new Set(allNodes.filter((n: any) => n.type === 'addAction').map((n: any) => n.id))
-
-      setNodes((nodes: any) => nodes.filter((n: any) => !addNodeIds.has(n.id)))
-      setEdges((eds: any) => eds.filter((e: any) => !addNodeIds.has(e.source) && !addNodeIds.has(e.target)))
-
-      // Helper: find last node in a chain by walking edges forward
-      const findLastInChain = (startId: string, edgeList: any[]): any => {
-        let current = nodeMap[startId]
-        const visited = new Set<string>()
-        while (true) {
-          if (!current || visited.has(current.id)) break
-          visited.add(current.id)
-          const outs = edgeList.filter((e: any) => e.source === current.id)
-          const next = outs
-            .map((e: any) => nodeMap[e.target])
-            .find((n: any) => n && n.type !== 'addAction')
-          if (!next) break
-          current = next
-        }
-        return current
-      }
-
-      // For each AI Agent, add clean addAction buttons
-      const newAddNodes: any[] = []
-      const newAddEdges: any[] = []
-      const currentEdges = getEdges() || []
-
-      aiAgents.forEach((agent: any) => {
-        const firstEdges = currentEdges.filter((e: any) => e.source === agent.id)
-        const firstNodes = firstEdges
-          .map((e: any) => nodeMap[e.target])
-          .filter((n: any) => n && n.type !== 'addAction')
-
-        firstNodes.forEach((fn: any, idx: number) => {
-          const last = findLastInChain(fn.id, currentEdges)
-          if (!last) return
-
-          const addId = `add-action-${agent.id}-chain${idx}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`
-          const addNode = {
-            id: addId,
-            type: 'addAction',
-            position: { x: last.position.x, y: last.position.y + 150 },
-            draggable: false, // Prevent Add Action nodes from being dragged
-            data: { parentId: last.id, parentAIAgentId: agent.id }
-          }
-          newAddNodes.push(addNode)
-          newAddEdges.push({ id: `e-${last.id}-${addId}`, source: last.id, target: addId, type: 'straight' })
-        })
-      })
-
-      setNodes((nds: any) => [...nds, ...newAddNodes])
-      setEdges((eds: any) => [...eds, ...newAddEdges])
-
+    if (ensureOneAddActionPerChain) {
+      ensureOneAddActionPerChain()
       toast({
-        title: 'Add buttons cleaned',
-        description: `${newAddNodes.length} buttons repositioned at chain ends.`
+        title: 'Add Action Cleanup',
+        description: 'Add Action buttons have been cleaned up and positioned correctly.'
       })
-    } catch (e) {
-      console.error('Cleanup failed:', e)
+    } else {
       toast({
-        title: 'Cleanup failed',
-        description: 'Could not reposition add buttons.',
+        title: 'Error',
+        description: 'Cleanup function not available.',
         variant: 'destructive'
       })
     }

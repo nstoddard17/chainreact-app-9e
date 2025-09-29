@@ -106,6 +106,7 @@ export function useWorkflowBuilder() {
   const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const isProcessingChainsRef = useRef(false)
+  const isCleaningAddActionsRef = useRef(false)
 
   // Custom hooks
   const executionHook = useWorkflowExecution()
@@ -212,6 +213,142 @@ export function useWorkflowBuilder() {
     console.log('Add chain to AI Agent:', nodeId)
   }, [])
 
+  // Helper function to ensure only one Add Action node per chain
+  const ensureOneAddActionPerChain = useCallback(() => {
+    // Prevent infinite loops by using a guard
+    if (isCleaningAddActionsRef.current) {
+      console.log('Skipping Add Action cleanup - already in progress')
+      return
+    }
+
+    isCleaningAddActionsRef.current = true
+    console.log('Starting Add Action cleanup')
+
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+
+    // Find all nodes with outgoing connections to real nodes
+    const nodesWithOutgoingConnections = new Set<string>()
+    currentEdges.forEach(edge => {
+      // Check if the target is a real node (not an Add Action or Insert Action)
+      const targetNode = currentNodes.find(n => n.id === edge.target)
+      if (targetNode && targetNode.type !== 'addAction' && targetNode.type !== 'insertAction') {
+        nodesWithOutgoingConnections.add(edge.source)
+      }
+    })
+
+    // Find all leaf nodes (nodes without outgoing connections to real nodes)
+    const leafNodes = currentNodes.filter(node => {
+      // Skip UI nodes
+      if (node.type === 'addAction' || node.type === 'insertAction') {
+        return false
+      }
+      // A leaf node has no outgoing connections to real nodes
+      return !nodesWithOutgoingConnections.has(node.id)
+    })
+
+    console.log('Leaf nodes for cleanup:', leafNodes.map(n => ({ id: n.id, type: n.data?.type })))
+
+    // Get all existing Add Action nodes
+    const existingAddActions = currentNodes.filter(node => node.type === 'addAction')
+
+    let nodesToRemove: string[] = []
+    let nodesToAdd: Node[] = []
+    let edgesToRemove: string[] = []
+    let edgesToAdd: Edge[] = []
+
+    // Remove all existing Add Action nodes that aren't after leaf nodes
+    existingAddActions.forEach(addAction => {
+      const parentId = addAction.data?.parentId
+      const isAfterLeafNode = leafNodes.some(leaf => leaf.id === parentId)
+
+      if (!isAfterLeafNode) {
+        nodesToRemove.push(addAction.id)
+        // Remove edges to/from this Add Action
+        currentEdges.forEach(edge => {
+          if (edge.source === addAction.id || edge.target === addAction.id) {
+            edgesToRemove.push(edge.id)
+          }
+        })
+      }
+    })
+
+    // Ensure each leaf node has exactly one Add Action after it
+    leafNodes.forEach(leafNode => {
+      const addActionId = `add-action-${leafNode.id}`
+      const existingAddAction = currentNodes.find(n => n.id === addActionId)
+
+      // If the Add Action doesn't exist or has wrong parent
+      if (!existingAddAction || existingAddAction.data?.parentId !== leafNode.id) {
+        const clickHandler = () => handleAddActionClick(addActionId, leafNode.id)
+        addActionHandlersRef.current[addActionId] = clickHandler
+
+        if (existingAddAction) {
+          // Just needs to be removed, will be recreated
+          nodesToRemove.push(existingAddAction.id)
+        }
+
+        // Create new Add Action
+        nodesToAdd.push({
+          id: addActionId,
+          type: 'addAction',
+          position: {
+            x: leafNode.position.x,
+            y: leafNode.position.y + 160
+          },
+          draggable: false,
+          selectable: false,
+          data: {
+            parentId: leafNode.id,
+            onClick: clickHandler,
+            ...(leafNode.data?.parentAIAgentId && {
+              parentAIAgentId: leafNode.data.parentAIAgentId,
+              parentChainIndex: leafNode.data.parentChainIndex
+            })
+          }
+        })
+
+        // Ensure edge exists from leaf node to Add Action
+        const edgeId = `e-${leafNode.id}-${addActionId}`
+        const edgeExists = currentEdges.some(e => e.id === edgeId || (e.source === leafNode.id && e.target === addActionId))
+
+        if (!edgeExists) {
+          edgesToAdd.push({
+            id: edgeId,
+            source: leafNode.id,
+            target: addActionId,
+            type: 'custom',
+            animated: false,
+            style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
+          })
+        }
+      }
+    })
+
+    // Apply node changes
+    if (nodesToRemove.length > 0 || nodesToAdd.length > 0) {
+      console.log(`Removing ${nodesToRemove.length} Add Actions, adding ${nodesToAdd.length}`)
+      setNodes(nds => {
+        let filtered = nds.filter(n => !nodesToRemove.includes(n.id))
+        return [...filtered, ...nodesToAdd]
+      })
+    }
+
+    // Apply edge changes
+    if (edgesToRemove.length > 0) {
+      setEdges(eds => eds.filter(e => !edgesToRemove.includes(e.id)))
+    }
+    if (edgesToAdd.length > 0) {
+      setEdges(eds => [...eds, ...edgesToAdd])
+    }
+
+    // Reset the guard flag after a short delay
+    setTimeout(() => {
+      isCleaningAddActionsRef.current = false
+      console.log('Add Action cleanup complete')
+    }, 300)
+  }, [getNodes, getEdges, setNodes, setEdges, handleAddActionClick])
+
   // Load workflow when ID changes
   useEffect(() => {
     if (workflowId && workflows && workflows.length > 0) {
@@ -278,66 +415,79 @@ export function useWorkflowBuilder() {
             }
           }))
           
-          // Add AddActionNodes after each leaf node (nodes with no outgoing edges)
+          // Add AddActionNodes only after TRUE leaf nodes (end of each chain)
           allNodes = [...flowNodes]
 
-          // Find leaf nodes - nodes that are not sources for any connection
+          // Find leaf nodes - nodes that don't have outgoing connections to other real nodes
+          const edgesToCheck = workflow.connections || []
+          const nodesWithOutgoingConnections = new Set<string>()
+
+          edgesToCheck.forEach((conn: WorkflowConnection) => {
+            // A node has an outgoing connection if:
+            // 1. It's the source of a connection
+            // 2. The target is NOT an Add Action node or Insert Action node
+            // 3. The target actually exists in our nodes
+            if (conn.source && conn.target) {
+              const targetNode = flowNodes.find((n: any) => n.id === conn.target)
+              // Only count it as an outgoing connection if the target is a real action/trigger node
+              if (targetNode && targetNode.type !== 'addAction' && targetNode.type !== 'insertAction') {
+                nodesWithOutgoingConnections.add(conn.source)
+              }
+            }
+          })
+
+          // Find all leaf nodes (nodes without outgoing connections to real nodes)
           const leafNodes = flowNodes.filter((node: any) => {
-            // Skip AI agent nodes and existing addAction nodes
-            if (node.data?.type === 'ai_agent' || node.type === 'addAction') {
+            // Skip existing addAction and insertAction nodes
+            if (node.type === 'addAction' || node.type === 'insertAction') {
               return false
             }
-
-            // Check if this node is a source for any REAL connection (not to AddActionNodes)
-            // This ensures we only consider actual workflow connections
-            const edgesToCheck = workflow.connections || []
-            const isSource = edgesToCheck.some((conn: WorkflowConnection) =>
-              conn.source === node.id &&
-              !conn.target.includes('add-action') // Ignore connections to AddActionNodes
-            )
-
-            // If it's not a source for any real connection, it's a leaf node
-            return !isSource
+            // A leaf node is one that has no outgoing connections to real nodes
+            return !nodesWithOutgoingConnections.has(node.id)
           })
-          
-          // If no leaf nodes found but we have nodes, use all non-AI-agent nodes
-          const nodesToAddAfter = leafNodes.length > 0 ? leafNodes : 
-            flowNodes.filter((n: any) => n.data?.type !== 'ai_agent' && n.type !== 'addAction')
-          
-          // Add AddActionNode after each leaf node
+
+          console.log('Leaf nodes found:', leafNodes.map((n: any) => ({ id: n.id, type: n.data?.type })))
+
+          // Add Add Action button after each leaf node
           const addActionNodes: Node[] = []
           const addActionEdges: any[] = []
-          
-          nodesToAddAfter.forEach((node: any, index: number) => {
-            const addActionId = `add-action-${node.id}`
-            console.log('Creating AddActionNode:', addActionId, 'handleAddActionClick available:', !!handleAddActionClick)
-            
+
+          leafNodes.forEach((leafNode: any) => {
+            const addActionId = `add-action-${leafNode.id}`
+            console.log('Creating AddActionNode for leaf:', addActionId, 'after node:', leafNode.id)
+
             // Store the handler in ref
-            const clickHandler = () => handleAddActionClick(addActionId, node.id)
+            const clickHandler = () => handleAddActionClick(addActionId, leafNode.id)
             addActionHandlersRef.current[addActionId] = clickHandler
-            
+
             const addActionNode: Node = {
               id: addActionId,
               type: 'addAction',
               position: {
-                x: node.position.x,
-                y: node.position.y + 160
+                x: leafNode.position.x,
+                y: leafNode.position.y + 160
               },
               draggable: false,
               selectable: false,
               data: {
-                parentId: node.id,
-                onClick: clickHandler
+                parentId: leafNode.id,
+                onClick: clickHandler,
+                // Preserve AI agent chain metadata if present
+                ...(leafNode.data?.parentAIAgentId && {
+                  parentAIAgentId: leafNode.data.parentAIAgentId,
+                  parentChainIndex: leafNode.data.parentChainIndex
+                })
               }
             }
             addActionNodes.push(addActionNode)
-            // Ensure unique edge IDs by adding index if needed
-            const edgeId = `e-${node.id}-add-${Date.now()}-${index}`
+
+            // Add edge to connect leaf node to Add Action
+            const edgeId = `e-${leafNode.id}-add-${Date.now()}`
             addActionEdges.push({
               id: edgeId,
-              source: node.id,
+              source: leafNode.id,
               target: addActionId,
-              parentId: node.id
+              parentId: leafNode.id
             })
           })
           
@@ -412,13 +562,18 @@ export function useWorkflowBuilder() {
         setErrorStoreWorkflow(workflow)
         
         // Fit view after loading with offset to prevent nodes from going under top UI
-        setTimeout(() => fitView({
-          padding: 0.2,
-          includeHiddenNodes: false,
-          minZoom: 0.5,
-          maxZoom: 2,
-          offset: { x: 0, y: 40 }
-        }), 100)
+        setTimeout(() => {
+          fitView({
+            padding: 0.2,
+            includeHiddenNodes: false,
+            minZoom: 0.5,
+            maxZoom: 2,
+            offset: { x: 0, y: 40 }
+          })
+
+          // Don't run cleanup automatically to avoid interfering with normal operations
+          // The workflow loading already creates Add Actions correctly
+        }, 100)
       }
     }
     
@@ -1173,44 +1328,46 @@ export function useWorkflowBuilder() {
 
     const placeholderId = `add-action-${nodeId}`
     const currentEdges = getEdges()
-    const parentIds = Array.from(new Set(currentEdges.filter((edge) => edge.target === nodeId).map((edge) => edge.source)))
+    const currentNodes = getNodes()
+
+    // Find incoming and outgoing edges for the deleted node
+    const incomingEdges = currentEdges.filter((edge) => edge.target === nodeId)
+    const outgoingEdges = currentEdges.filter((edge) => edge.source === nodeId)
+
+    // Get parent IDs (nodes that connect TO the deleted node)
+    const parentIds = Array.from(new Set(incomingEdges.map((edge) => edge.source)))
+
+    // Get the node spacing for positioning
+    const parentAIAgentId = nodeToDelete.data?.parentAIAgentId
+    const nodeSpacing = parentAIAgentId ? 120 : 160
 
     delete addActionHandlersRef.current[placeholderId]
+
+    // Track nodes that need to move up after deletion
+    const deletedNodeY = nodeToDelete.position.y
+    const deletedNodeX = nodeToDelete.position.x
 
     setNodes((prevNodes) => {
       let nextNodes = prevNodes.filter((node) => node.id !== nodeId && node.id !== placeholderId)
 
-      parentIds.forEach((parentId) => {
-        const placeholderForParent = `add-action-${parentId}`
-        const hasPlaceholder = nextNodes.some((node) => node.id === placeholderForParent)
-        if (hasPlaceholder) {
-          return
-        }
-
-        const parentNode = nextNodes.find((node) => node.id === parentId) || prevNodes.find((node) => node.id === parentId)
-        if (!parentNode) {
-          return
-        }
-
-        const clickHandler = () => handleAddActionClick(placeholderForParent, parentId)
-        addActionHandlersRef.current[placeholderForParent] = clickHandler
-
-        nextNodes = [
-          ...nextNodes,
-          {
-            id: placeholderForParent,
-            type: 'addAction',
+      // Move nodes that were below the deleted node up
+      nextNodes = nextNodes.map(node => {
+        // Check if this node is in the same vertical chain and below the deleted node
+        if (node.position.y > deletedNodeY && Math.abs(node.position.x - deletedNodeX) < 50) {
+          return {
+            ...node,
             position: {
-              x: parentNode.position?.x ?? 0,
-              y: (parentNode.position?.y ?? 0) + 160,
-            },
-            data: {
-              parentId,
-              onClick: clickHandler,
-            },
-          } as Node,
-        ]
+              ...node.position,
+              y: node.position.y - nodeSpacing
+            }
+          }
+        }
+        return node
       })
+
+      // After deleting a node, remove ALL Add Action nodes first
+      // We'll add back the correct one after edges are updated
+      nextNodes = nextNodes.filter(n => n.type !== 'addAction')
 
       return nextNodes
     })
@@ -1222,31 +1379,57 @@ export function useWorkflowBuilder() {
         return true
       })
 
-      parentIds.forEach((parentId) => {
-        const placeholderForParent = `add-action-${parentId}`
-        const hasEdge = nextEdges.some((edge) => edge.source === parentId && edge.target === placeholderForParent)
-        if (hasEdge) {
-          return
-        }
+      // Reconnect nodes that were connected through the deleted node
+      if (incomingEdges.length > 0 && outgoingEdges.length > 0) {
+        incomingEdges.forEach((incomingEdge) => {
+          outgoingEdges.forEach((outgoingEdge) => {
+            const targetNode = currentNodes.find(n => n.id === outgoingEdge.target)
 
-        nextEdges = [
-          ...nextEdges,
-          {
-            id: `e-${parentId}-${placeholderForParent}`,
-            source: parentId,
-            target: placeholderForParent,
-            type: 'custom',
-            animated: false,
-            style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' },
-          } as Edge,
-        ]
-      })
+            // Only reconnect if the target is NOT an Add Action button
+            if (targetNode && targetNode.type !== 'addAction') {
+              // Check if this edge already exists
+              const edgeExists = nextEdges.some(e =>
+                e.source === incomingEdge.source &&
+                e.target === outgoingEdge.target
+              )
+
+              if (!edgeExists) {
+                nextEdges = [
+                  ...nextEdges,
+                  {
+                    id: `e-${incomingEdge.source}-${outgoingEdge.target}`,
+                    source: incomingEdge.source,
+                    target: outgoingEdge.target,
+                    type: 'custom',
+                    animated: false,
+                    style: { stroke: '#d1d5db', strokeWidth: 1 },
+                    data: {
+                      onAddNode: () => {
+                        console.log('🔵 Edge button clicked - inserting between:', incomingEdge.source, 'and', outgoingEdge.target)
+                        handleAddNodeBetween(incomingEdge.source, outgoingEdge.target)
+                      }
+                    }
+                  } as Edge,
+                ]
+              }
+            }
+          })
+        })
+      }
+
+      // Don't try to add edges to Add Action nodes here
+      // The ensureOneAddActionPerChain function will handle that after edges are updated
 
       return nextEdges
     })
 
     removeNode(nodeId)
     setHasUnsavedChanges(true)
+
+    // After edges are updated, ensure only one Add Action at the end of each chain
+    setTimeout(() => {
+      ensureOneAddActionPerChain()
+    }, 50)
 
     if (configHook.configuringNode?.id === nodeId) {
       configHook.setConfiguringNode(null)
@@ -1265,7 +1448,7 @@ export function useWorkflowBuilder() {
       title: "Node deleted",
       description: "The node has been removed from the workflow",
     })
-  }, [setNodes, setEdges, getEdges, handleAddActionClick, removeNode, setHasUnsavedChanges, configHook, dialogsHook, toast])
+  }, [setNodes, setEdges, getEdges, getNodes, handleAddActionClick, handleAddNodeBetween, removeNode, setHasUnsavedChanges, configHook, dialogsHook, toast, ensureOneAddActionPerChain])
 
   const forceUpdate = useCallback(() => {
     // Force a re-render
@@ -1382,5 +1565,6 @@ export function useWorkflowBuilder() {
     configuringIntegrationName,
     configuringInitialData,
     cachedIntegrationStatus,
+    ensureOneAddActionPerChain,
   }
 }
