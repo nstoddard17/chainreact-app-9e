@@ -262,35 +262,45 @@ export function AIAgentConfigModal({
 
     // If workflowData is provided, convert it to chainsLayout format
     // This happens when reopening an existing AI Agent with chain nodes in the workflow
+    // BUT NOT for new AI Agents that only have a trigger node
     if (workflowData && workflowData.nodes && workflowData.nodes.length > 0) {
-      console.log('🔄 [AIAgentConfigModal] Converting workflowData to chainsLayout:', workflowData)
+      // Check if this is just a trigger node (new AI Agent)
+      const onlyHasTrigger = workflowData.nodes.length === 1 &&
+                              (workflowData.nodes[0].data?.isTrigger ||
+                               workflowData.nodes[0].id === 'trigger')
 
-      // Group nodes by chain index
-      const chainGroups = new Map<number, any[]>()
-      workflowData.nodes.forEach(node => {
-        const chainIndex = node.data?.parentChainIndex ?? 0
-        if (!chainGroups.has(chainIndex)) {
-          chainGroups.set(chainIndex, [])
+      if (!onlyHasTrigger) {
+        console.log('🔄 [AIAgentConfigModal] Converting workflowData to chainsLayout:', workflowData)
+
+        // Group nodes by chain index
+        const chainGroups = new Map<number, any[]>()
+        workflowData.nodes.forEach(node => {
+          const chainIndex = node.data?.parentChainIndex ?? 0
+          if (!chainGroups.has(chainIndex)) {
+            chainGroups.set(chainIndex, [])
+          }
+          chainGroups.get(chainIndex)?.push(node)
+        })
+
+        // Create chains array from grouped nodes
+        const chains = Array.from(chainGroups.entries()).map(([index, nodes]) => ({
+          id: `chain-${index}`,
+          name: `Chain ${index + 1}`,
+          nodes: nodes.map(n => n.id)
+        }))
+
+        baseConfig.chains = chains
+        baseConfig.chainsLayout = {
+          chains,
+          nodes: workflowData.nodes,
+          edges: workflowData.edges,
+          aiAgentPosition: { x: 400, y: 200 } // Default position for AI Agent in chain builder
         }
-        chainGroups.get(chainIndex)?.push(node)
-      })
 
-      // Create chains array from grouped nodes
-      const chains = Array.from(chainGroups.entries()).map(([index, nodes]) => ({
-        id: `chain-${index}`,
-        name: `Chain ${index + 1}`,
-        nodes: nodes.map(n => n.id)
-      }))
-
-      baseConfig.chains = chains
-      baseConfig.chainsLayout = {
-        chains,
-        nodes: workflowData.nodes,
-        edges: workflowData.edges,
-        aiAgentPosition: { x: 400, y: 200 } // Default position for AI Agent in chain builder
+        console.log('🔄 [AIAgentConfigModal] Initialized with chainsLayout:', baseConfig.chainsLayout)
+      } else {
+        console.log('🔄 [AIAgentConfigModal] New AI Agent with only trigger - skipping chainsLayout creation')
       }
-
-      console.log('🔄 [AIAgentConfigModal] Initialized with chainsLayout:', baseConfig.chainsLayout)
     }
 
     return baseConfig
@@ -993,6 +1003,8 @@ export function AIAgentConfigModal({
                     <AIAgentVisualChainBuilderWrapper
                       chains={config.chainsLayout?.chains || config.chains || []}
                       chainsLayout={config.chainsLayout}
+                      workflowData={workflowData}
+                      currentNodeId={currentNodeId}
                       onChainsChange={(chainsData) => {
                         // chainsData contains full layout: { chains: [...], nodes: [...], edges: [...], aiAgentPosition: {...} }
                         console.log('🔄 [AIAgentConfigModal] onChainsChange called with:', chainsData)

@@ -292,11 +292,11 @@ function WorkflowBuilderContent() {
             let workflowData = { nodes: [], edges: [] }
             let initialData = configuringNode.config || {}
 
+            // Always find the trigger node (if exists) - even for new AI Agents
+            const triggerNode = nodes.find(n => n.data?.isTrigger === true)
+
             // If this is an existing AI Agent, extract its chain nodes from the workflow
             if (configuringNode.id !== 'pending-action') {
-              // Find the trigger node (if exists)
-              const triggerNode = nodes.find(n => n.data?.isTrigger === true)
-
               // Find chain nodes for this AI Agent
               const chainNodes = nodes.filter(n =>
                 n.data?.parentAIAgentId === configuringNode.id &&
@@ -367,6 +367,26 @@ function WorkflowBuilderContent() {
               }
 
               console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
+            } else {
+              // For new AI Agents (pending-action), just include the trigger node
+              if (triggerNode) {
+                workflowData = {
+                  nodes: [{
+                    id: 'trigger',
+                    type: 'custom',
+                    position: triggerNode.position,
+                    data: {
+                      ...triggerNode.data,
+                      title: triggerNode.data?.title || 'Trigger',
+                      description: triggerNode.data?.description || '',
+                      isTrigger: true,
+                      config: triggerNode.data?.config
+                    }
+                  }],
+                  edges: []
+                }
+                console.log('🔵 [AI Agent Open] New AI Agent with trigger:', workflowData)
+              }
             }
 
             return (

@@ -68,101 +68,183 @@ export async function POST(
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider } = await params
-  
+  const startTime = Date.now()
+
   // Generate unique request ID for tracking
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  console.log(`🚀 [${requestId}] Starting webhook processing for provider: ${provider}`)
-  
+  const logPrefix = `[${requestId}][${provider}]`
+
+  console.log(`🚀 ${logPrefix} Starting webhook processing for provider: ${provider}`)
+
+  // Variables to track for error handling
+  let workflow: any = null
+  let payload: any = null
+  let headers: any = {}
+
   try {
     // Get the raw body and headers
     const body = await request.text()
-    const headers = Object.fromEntries(request.headers.entries())
-    
+    headers = Object.fromEntries(request.headers.entries())
+
     // Parse JSON if possible
-    let payload
     try {
       payload = JSON.parse(body)
     } catch {
       payload = body
     }
 
-    console.log(`📥 [${requestId}] Received webhook from ${provider}:`, {
+    console.log(`📥 ${logPrefix} Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
       messageId: payload?.id || 'no-id',
       timestamp: new Date().toISOString()
     })
 
-    let workflowNodes: any[] = []
-    if (Array.isArray(workflow.nodes)) {
-      workflowNodes = workflow.nodes
-    } else if (typeof workflow.nodes === 'string') {
-      try {
-        workflowNodes = JSON.parse(workflow.nodes)
-      } catch (parseError) {
-        console.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
-        workflowNodes = []
+    // Special handling for Discord to prevent duplicate processing
+    if (provider === 'discord' && payload?.id) {
+      const cachedData = discordMessageCache.get(payload.id)
+      if (cachedData && cachedData.requestId !== requestId) {
+        const timeDiff = Date.now() - cachedData.timestamp
+        if (timeDiff < 1000) { // Within 1 second is likely a duplicate
+          console.log(`⚡ ${logPrefix} Duplicate Discord message ${payload.id} detected (${timeDiff}ms apart), skipping`)
+          return NextResponse.json({
+            success: true,
+            message: 'Duplicate request ignored',
+            messageId: payload.id
+          })
+        }
       }
+      // Cache this message ID
+      discordMessageCache.set(payload.id, { timestamp: Date.now(), requestId })
     }
 
-    // Find the trigger node for this provider
-    const triggerNode = workflowNodes.find((node: any) => 
-      node.data?.providerId === provider && 
-      node.data?.isTrigger === true
-    )
+    // Fetch workflows that match this provider trigger
+    const { data: workflows, error: workflowError } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('status', 'active')
 
-    if (!triggerNode) {
-      throw new Error(`No trigger node found for provider: ${provider}`)
+    if (workflowError) {
+      console.error(`${logPrefix} Error fetching workflows:`, workflowError)
+      throw new Error('Failed to fetch workflows')
     }
 
-    // Transform payload for the workflow
-    const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
-
-    if (!transformedPayload) {
-      console.log(`${logPrefix} Ignoring webhook payload after transformation (empty payload)`)
-      return {
-        workflowId: workflow.id,
-        sessionId: null,
+    if (!workflows || workflows.length === 0) {
+      console.log(`${logPrefix} No active workflows found`)
+      return NextResponse.json({
         success: true,
-        executionTime: Date.now() - startTime
-      }
-    }
-    
-    // Create execution session
-    const executionEngine = new AdvancedExecutionEngine()
-    const session = await executionEngine.createExecutionSession(
-      workflow.id,
-      workflow.user_id,
-      'webhook',
-      { 
-        inputData: transformedPayload,
-        provider: provider,
-        triggerNode: triggerNode,
-        requestId: requestId
-      }
-    )
-
-    console.log(`${logPrefix} Created execution session: ${session.id}`)
-
-    // Execute the workflow
-    console.log(`${logPrefix} Starting workflow execution...`)
-    await executionEngine.executeWorkflowAdvanced(session.id, transformedPayload)
-    console.log(`${logPrefix} Workflow execution completed`)
-    
-    // Log webhook execution
-    await logWebhookExecution(workflow.id, provider, payload, headers, 'success', Date.now() - startTime)
-
-    return {
-      workflowId: workflow.id,
-      sessionId: session.id,
-      success: true,
-      executionTime: Date.now() - startTime
+        message: 'No active workflows to process'
+      })
     }
 
-  } catch (error) {
-    // Log error
-    await logWebhookExecution(workflow.id, provider, payload, headers, 'error', Date.now() - startTime, error.message)
-    throw error
+    // Process each matching workflow
+    const results = []
+    for (const wf of workflows) {
+      workflow = wf // Set for error handling
+
+      let workflowNodes: any[] = []
+      if (Array.isArray(workflow.nodes)) {
+        workflowNodes = workflow.nodes
+      } else if (typeof workflow.nodes === 'string') {
+        try {
+          workflowNodes = JSON.parse(workflow.nodes)
+        } catch (parseError) {
+          console.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
+          workflowNodes = []
+        }
+      }
+
+      // Find the trigger node for this provider
+      const triggerNode = workflowNodes.find((node: any) =>
+        node.data?.providerId === provider &&
+        node.data?.isTrigger === true
+      )
+
+      if (!triggerNode) {
+        console.log(`${logPrefix} No trigger node found for provider ${provider} in workflow ${workflow.id}, skipping`)
+        continue
+      }
+
+      // Transform payload for the workflow
+      const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
+
+      if (!transformedPayload) {
+        console.log(`${logPrefix} Ignoring webhook payload after transformation (empty payload) for workflow ${workflow.id}`)
+        continue
+      }
+
+      try {
+        // Create execution session
+        const executionEngine = new AdvancedExecutionEngine()
+        const session = await executionEngine.createExecutionSession(
+          workflow.id,
+          workflow.user_id,
+          'webhook',
+          {
+            inputData: transformedPayload,
+            provider: provider,
+            triggerNode: triggerNode,
+            requestId: requestId
+          }
+        )
+
+        console.log(`${logPrefix} Created execution session: ${session.id} for workflow ${workflow.id}`)
+
+        // Execute the workflow
+        console.log(`${logPrefix} Starting workflow execution for workflow ${workflow.id}...`)
+        await executionEngine.executeWorkflowAdvanced(session.id, transformedPayload)
+        console.log(`${logPrefix} Workflow execution completed for workflow ${workflow.id}`)
+
+        // Log webhook execution
+        await logWebhookExecution(workflow.id, provider, payload, headers, 'success', Date.now() - startTime)
+
+        results.push({
+          workflowId: workflow.id,
+          sessionId: session.id,
+          success: true,
+          executionTime: Date.now() - startTime
+        })
+      } catch (workflowError: any) {
+        console.error(`${logPrefix} Error processing workflow ${workflow.id}:`, workflowError)
+        await logWebhookExecution(workflow.id, provider, payload, headers, 'error', Date.now() - startTime, workflowError.message)
+
+        results.push({
+          workflowId: workflow.id,
+          sessionId: null,
+          success: false,
+          error: workflowError.message,
+          executionTime: Date.now() - startTime
+        })
+      }
+    }
+
+    // Return results
+    if (results.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No matching workflows found for this webhook'
+      })
+    }
+
+    const successCount = results.filter(r => r.success).length
+    return NextResponse.json({
+      success: successCount > 0,
+      message: `Processed ${successCount} of ${results.length} workflows`,
+      results
+    })
+
+  } catch (error: any) {
+    console.error(`${logPrefix} Fatal error processing webhook:`, error)
+
+    // Log error if we have a workflow context
+    if (workflow?.id) {
+      await logWebhookExecution(workflow.id, provider, payload, headers, 'error', Date.now() - startTime, error.message)
+    }
+
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Internal server error'
+    }, { status: 500 })
   }
 }
 

@@ -39,9 +39,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { 
+import {
   Plus, Settings, Trash2, Bot, Zap, Workflow,
-  PlusCircle, TestTube, Loader2, Layers
+  PlusCircle, TestTube, Loader2, Layers, Brain
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
@@ -183,7 +183,7 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
             ) : isTrigger ? (
               <Zap className="h-8 w-8 text-foreground" />
             ) : isAIAgent ? (
-              <Bot className="h-8 w-8 text-foreground" />
+              <Brain className="h-8 w-8 text-foreground" />
             ) : (
               component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
             )}
@@ -263,20 +263,20 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
         </div>
       )}
 
-      {/* Handles - matching main CustomNode.tsx exactly */}
+      {/* Handles for connections */}
+      {/* Top handle (input) - show for all nodes except trigger */}
       {!isTrigger && (
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
+          className="!w-3 !h-3 !bg-muted-foreground !border-2 !border-background"
           isConnectable={true}
-          style={{
-            visibility: isTrigger ? "hidden" : "visible",
-          }}
+          style={{ top: -6 }}
           onConnect={() => console.log(`🔌 [AI Chain] Target handle connected on node ${id}`)}
         />
       )}
 
+      {/* Bottom handle(s) (output) */}
       {hasMultipleOutputs ? (
         <>
           <Handle
@@ -302,8 +302,9 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
         <Handle
           type="source"
           position={Position.Bottom}
-          className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
+          className="!w-3 !h-3 !bg-muted-foreground !border-2 !border-background"
           isConnectable={true}
+          style={{ bottom: -6 }}
           onConnect={() => console.log(`🔌 [AI Chain] Source handle connected on node ${id}`)}
         />
       )}
@@ -1331,13 +1332,16 @@ function AIAgentVisualChainBuilder({
   
   // Helper function for default initialization
   const initializeDefaultSetup = useCallback(() => {
+    console.log('🚀 [AIAgentVisualChainBuilder] initializeDefaultSetup called with workflowData:', workflowData)
     const centerX = 400 // Center of typical viewport
     const defaultChainId = 'chain-default'
-    
+
     // Try to get trigger from workflow data if available
     let triggerNode = null
     if (workflowData?.nodes) {
+      console.log('🔍 [initializeDefaultSetup] Looking for trigger in workflowData nodes:', workflowData.nodes)
       const workflowTrigger = workflowData.nodes.find(n => n.data?.isTrigger)
+      console.log('🔍 [initializeDefaultSetup] Found trigger:', workflowTrigger)
       if (workflowTrigger) {
         // Use the actual trigger from the workflow
         const triggerComponent = ALL_NODE_COMPONENTS.find(c => c.type === workflowTrigger.data?.type)
@@ -1389,7 +1393,7 @@ function AIAgentVisualChainBuilder({
         position: { x: centerX, y: 200 },
         data: {
           title: 'AI Agent',
-          description: 'Analyzes input and routes to appropriate chain',
+          description: 'Intelligent decision-making agent',
           type: 'ai_agent',
           isAIAgent: true,
           onConfigure: () => {
@@ -1482,12 +1486,15 @@ function AIAgentVisualChainBuilder({
       }
     ]
 
+    console.log('🎯 [initializeDefaultSetup] Setting initial nodes:', initialNodes)
+    console.log('🎯 [initializeDefaultSetup] Node count:', initialNodes.length)
     setNodes(initialNodes)
 
     // Delay edge creation to ensure nodes are properly rendered with handles
     // This fixes the issue where initial edges (trigger->AI agent and AI agent->chain placeholder)
     // don't connect to handles properly
     setTimeout(() => {
+      console.log('🎯 [initializeDefaultSetup] Setting initial edges:', initialEdges)
       setEdges(initialEdges)
     }, 50) // Small delay to allow React Flow to render nodes and assign handles
 
@@ -1551,12 +1558,77 @@ function AIAgentVisualChainBuilder({
   useEffect(() => {
     // Only initialize once
     if (initializedRef.current) return
+
+    console.log('🔍 [AIAgentVisualChainBuilder] Initialization check:', {
+      hasWorkflowData: !!workflowData,
+      workflowDataNodes: workflowData?.nodes?.length,
+      hasChainsLayout: !!chainsLayout,
+      chainsLayoutNodes: chainsLayout?.nodes?.length
+    })
+
+    // Skip initialization if we're still waiting for data to load
+    // This gives time for workflowData to be properly passed from parent
+    if (!chainsLayout && !workflowData) {
+      console.log('⏳ [AIAgentVisualChainBuilder] Waiting for data to load...')
+      return
+    }
+
+    // Now we can mark as initialized since we have some data
     initializedRef.current = true
-    
+
     // First check if we have chainsLayout data (full layout from saved config)
     if (chainsLayout?.nodes && chainsLayout?.edges && chainsLayout.nodes.length > 0) {
       console.log('🎨 [AIAgentVisualChainBuilder] Initializing with chainsLayout:', chainsLayout)
-      
+
+      // Try to get trigger from workflow data if available
+      let triggerNode = null
+      if (workflowData?.nodes) {
+        console.log('🔍 [AIAgentVisualChainBuilder] Looking for trigger in workflowData:', workflowData.nodes)
+        const workflowTrigger = workflowData.nodes.find(n => n.data?.isTrigger)
+        console.log('🔍 [AIAgentVisualChainBuilder] Found trigger:', workflowTrigger)
+        if (workflowTrigger) {
+          // Use the actual trigger from the workflow
+          const triggerComponent = ALL_NODE_COMPONENTS.find(c => c.type === workflowTrigger.data?.type)
+          triggerNode = {
+            id: 'trigger',
+            type: 'custom',
+            position: { x: 400, y: 50 },
+            data: {
+              ...workflowTrigger.data,
+              title: triggerComponent?.title || workflowTrigger.data?.title || 'Trigger',
+              description: triggerComponent?.description || workflowTrigger.data?.description || 'When workflow starts',
+              onConfigure: () => {
+                toast({
+                  title: "Trigger Configuration",
+                  description: "Trigger is configured in the main workflow"
+                })
+              }
+            }
+          }
+        }
+      }
+
+      // Default trigger if none found
+      if (!triggerNode) {
+        triggerNode = {
+          id: 'trigger',
+          type: 'custom',
+          position: { x: 400, y: 50 },
+          data: {
+            title: 'Trigger',
+            description: 'When workflow starts',
+            type: 'trigger',
+            isTrigger: true,
+            onConfigure: () => {
+              toast({
+                title: "Trigger Configuration",
+                description: "Trigger is configured in the main workflow"
+              })
+            }
+          }
+        }
+      }
+
       // Recreate the exact layout from the saved data
       const aiAgentNode: Node = {
         id: 'ai-agent',
@@ -1570,7 +1642,7 @@ function AIAgentVisualChainBuilder({
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
         }
       }
-      
+
       // Map the saved nodes with proper handlers
       const savedNodes = chainsLayout.nodes.map((node: any) => ({
         id: node.id,
@@ -1666,12 +1738,31 @@ function AIAgentVisualChainBuilder({
         }
       }))
       
-      // Set all nodes first
-      setNodes([aiAgentNode, ...savedNodes, ...addActionNodes])
+      // Set all nodes first (including trigger)
+      setNodes([triggerNode, aiAgentNode, ...savedNodes, ...addActionNodes])
+
+      // Add edge from trigger to AI agent if not already present
+      const triggerToAIAgentEdge = {
+        id: 'e-trigger-ai-agent',
+        source: 'trigger',
+        target: 'ai-agent',
+        type: 'custom',
+        style: {
+          stroke: '#94a3b8',
+          strokeWidth: 2
+        }
+      }
+
+      // Check if trigger-to-ai-agent edge already exists
+      const hasExistingTriggerEdge = mappedEdges.some(e =>
+        e.source === 'trigger' && e.target === 'ai-agent'
+      )
+
+      const finalEdges = hasExistingTriggerEdge ? mappedEdges : [triggerToAIAgentEdge, ...mappedEdges]
 
       // Delay edge creation to ensure nodes are properly rendered with handles
       setTimeout(() => {
-        setEdges(mappedEdges)
+        setEdges(finalEdges)
       }, 50) // Small delay for React Flow to render nodes
       
       // Restore emptiedChains if present
@@ -1693,15 +1784,22 @@ function AIAgentVisualChainBuilder({
       return // Exit early, we've initialized from chainsLayout
     }
     
-    // If we have workflow data, use it to initialize
+    // If we have workflow data, try to extract chains from it
+    // Note: For a new AI Agent, there might be nodes but no relevant edges/chains yet
     if (workflowData?.nodes && workflowData?.edges) {
-      console.log('🔄 [AIAgentVisualChainBuilder] Initializing with workflow data:', workflowData)
-      
+      console.log('🔄 [AIAgentVisualChainBuilder] Checking workflow data for existing chains:', workflowData)
+
       // Find AI Agent node and its children from workflow data
       const aiAgentNode = workflowData.nodes.find(n => n.id === currentNodeId || n.data?.type === 'ai_agent')
-      if (!aiAgentNode) {
-        console.warn('⚠️ [AIAgentVisualChainBuilder] No AI Agent node found in workflow data')
-        // Fall back to default initialization
+
+      // Check if this AI Agent has any chain nodes
+      const hasChainNodes = aiAgentNode && workflowData.nodes.some(n =>
+        n.data?.parentAIAgentId === aiAgentNode.id
+      )
+
+      if (!aiAgentNode || !hasChainNodes) {
+        console.log('📝 [AIAgentVisualChainBuilder] New AI Agent or no chains found, using default setup')
+        // Fall back to default initialization (which will still use trigger from workflowData)
         initializeDefaultSetup()
         return
       }
