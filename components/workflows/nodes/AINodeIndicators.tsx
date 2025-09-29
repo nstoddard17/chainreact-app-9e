@@ -156,7 +156,7 @@ export function NodeAIIndicator({ node }: { node: any }) {
         </Badge>
       )}
       {isInChain && (
-        <Badge variant="outline" className="text-xs">
+        <Badge className="bg-purple-100 text-purple-900 border border-purple-300 text-xs font-medium">
           Chain #{(node.data?.parentChainIndex || 0) + 1}
         </Badge>
       )}
