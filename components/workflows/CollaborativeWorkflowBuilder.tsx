@@ -306,13 +306,51 @@ function WorkflowBuilderContent() {
                 n.data?.type !== 'addAction'
               )
 
-              // Include trigger in the nodes if it exists
-              const allRelevantNodes = triggerNode ? [triggerNode, ...chainNodes] : chainNodes
+              // Also find nodes between trigger and AI Agent (pre-processing nodes)
+              const preprocessingNodes: any[] = []
+              if (triggerNode) {
+                // Find all nodes in the path from trigger to AI Agent
+                const findNodesInPath = (startId: string, endId: string) => {
+                  const pathNodes: any[] = []
+                  const visited = new Set<string>()
+
+                  const traverse = (nodeId: string) => {
+                    if (visited.has(nodeId) || nodeId === endId) return
+                    visited.add(nodeId)
+
+                    // Find edges from this node
+                    const outgoingEdges = edges.filter(e => e.source === nodeId)
+                    for (const edge of outgoingEdges) {
+                      const targetNode = nodes.find(n => n.id === edge.target)
+                      if (targetNode &&
+                          targetNode.id !== endId &&
+                          !targetNode.data?.parentAIAgentId &&
+                          targetNode.data?.type !== 'addAction') {
+                        pathNodes.push(targetNode)
+                        traverse(targetNode.id)
+                      }
+                    }
+                  }
+
+                  traverse(startId)
+                  return pathNodes
+                }
+
+                preprocessingNodes.push(...findNodesInPath(triggerNode.id, configuringNode.id))
+              }
+
+              // Include trigger, preprocessing nodes, and chain nodes
+              const allRelevantNodes = [
+                ...(triggerNode ? [triggerNode] : []),
+                ...preprocessingNodes,
+                ...chainNodes
+              ]
               const chainNodeIds = new Set(allRelevantNodes.map(n => n.id))
 
-              // Get all edges connected to these nodes
+              // Get all edges connected to these nodes, including edges to/from the AI Agent
               const chainEdges = edges.filter(e =>
-                chainNodeIds.has(e.source) || chainNodeIds.has(e.target)
+                chainNodeIds.has(e.source) || chainNodeIds.has(e.target) ||
+                e.source === configuringNode.id || e.target === configuringNode.id
               )
 
               // Group chain nodes by chain index to reconstruct chains
@@ -396,6 +434,10 @@ function WorkflowBuilderContent() {
                 })
               }
 
+              // Find the actual AI Agent node position in the workflow
+              const aiAgentNodeInWorkflow = nodes.find(n => n.id === configuringNode.id)
+              const aiAgentWorkflowPosition = aiAgentNodeInWorkflow?.position || { x: 400, y: 200 }
+
               // Store the chains in initialData so they can be reconstructed in the modal
               initialData = {
                 ...initialData,
@@ -404,7 +446,8 @@ function WorkflowBuilderContent() {
                   nodes: workflowData.nodes,
                   edges: workflowData.edges,
                   chains: chains,
-                  aiAgentPosition: { x: 400, y: 200 }
+                  aiAgentPosition: aiAgentWorkflowPosition, // Use actual workflow position
+                  workflowAIAgentPosition: aiAgentWorkflowPosition // Store for reference
                 }
               }
 

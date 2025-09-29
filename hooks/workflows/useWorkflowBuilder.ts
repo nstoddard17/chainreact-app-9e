@@ -442,17 +442,21 @@ export function useWorkflowBuilder() {
 
     try {
       setIsSaving(true)
-      
+
+      // Get the latest nodes and edges from React Flow to avoid stale closure issues
+      const currentNodes = getNodes()
+      const currentEdges = getEdges()
+
       // Remove UI-only placeholder nodes (AddAction) before saving
       const placeholderNodeIds = new Set(
-        nodes
+        currentNodes
           .filter(n => n.type === 'addAction' || (typeof n.id === 'string' && n.id.startsWith('add-action-')))
           .map(n => n.id)
       )
 
-      const persistedNodes = nodes.filter(n => !placeholderNodeIds.has(n.id))
+      const persistedNodes = currentNodes.filter(n => !placeholderNodeIds.has(n.id))
       // Filter out edges to/from placeholder nodes (including AddActionNodes)
-      const persistedEdges = edges.filter(e =>
+      const persistedEdges = currentEdges.filter(e =>
         !placeholderNodeIds.has(e.source) &&
         !placeholderNodeIds.has(e.target) &&
         !e.target.includes('add-action') && // Explicitly filter out edges to AddActionNodes
@@ -495,7 +499,7 @@ export function useWorkflowBuilder() {
     } finally {
       setIsSaving(false)
     }
-  }, [currentWorkflow, nodes, edges, workflowName, workflowDescription, updateWorkflow, toast])
+  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast])
 
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -583,14 +587,17 @@ export function useWorkflowBuilder() {
           ...edge,
           data: {
             ...edge.data,
-            onAddNode: (sourceId: string, targetId: string, position: { x: number; y: number }) => {
-              // Implementation for adding node between edges
-              console.log('Add node between', sourceId, 'and', targetId)
+            onAddNode: () => {
+              // Use the edge's source and target directly
+              const sourceId = edge.source
+              const targetId = edge.target
+
+              console.log('🔶 [Edge Button] Add node between', sourceId, 'and', targetId)
               console.log('Current showActionDialog state:', dialogsHook.showActionDialog)
               console.log('Setting sourceAddNode and opening dialog...')
-              
+
               // This would open the action dialog with the appropriate context
-              dialogsHook.setSourceAddNode({ 
+              dialogsHook.setSourceAddNode({
                 id: `insert-${Date.now()}`,
                 parentId: sourceId,
                 insertBefore: targetId
@@ -599,7 +606,7 @@ export function useWorkflowBuilder() {
               dialogsHook.setSelectedAction(null)
               dialogsHook.setSearchQuery("")
               dialogsHook.setShowActionDialog(true)
-              
+
               console.log('Dialog should now be open, showActionDialog:', dialogsHook.showActionDialog)
             }
           }
@@ -889,6 +896,9 @@ export function useWorkflowBuilder() {
         type: nodeComponent.type,
         config,
         providerId: nodeComponent.providerId || integration.id,
+        // Store the nodeComponent and integration for proper reconstruction after save
+        nodeComponent: nodeComponent,
+        integration: integration,
         onConfigure: handleNodeConfigure,
         onDelete: handleNodeDelete,
         onAddChain: nodeComponent.type === 'ai_agent' ? handleNodeAddChain : undefined,

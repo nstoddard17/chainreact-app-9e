@@ -183,7 +183,14 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
             ) : isTrigger ? (
               <Zap className="h-8 w-8 text-foreground" />
             ) : isAIAgent ? (
-              <Brain className="h-8 w-8 text-foreground" />
+              <img
+                src="/integrations/ai.svg"
+                alt="AI Agent"
+                className="w-8 h-8 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
             ) : (
               component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
             )}
@@ -1639,16 +1646,57 @@ function AIAgentVisualChainBuilder({
         }
       }
 
+      // Find all nodes to determine the bounding box
+      let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity
+      chainsLayout.nodes.forEach((node: any) => {
+        if (node.position) {
+          minY = Math.min(minY, node.position.y)
+          maxY = Math.max(maxY, node.position.y)
+          minX = Math.min(minX, node.position.x)
+          maxX = Math.max(maxX, node.position.x)
+        }
+      })
+
+      // Calculate the center of the workflow content
+      const workflowCenterX = (minX + maxX) / 2
+      const workflowCenterY = (minY + maxY) / 2
+
+      // Set chain builder center position
+      const chainBuilderCenterX = 400
+      const chainBuilderCenterY = 300
+
+      // Calculate offset to center the content
+      const positionOffset = {
+        x: chainBuilderCenterX - workflowCenterX,
+        y: chainBuilderCenterY - workflowCenterY
+      }
+
+      // Use the AI Agent's actual position from workflow (with offset applied)
+      const workflowAIAgentPos = chainsLayout.aiAgentPosition || { x: 400, y: 200 }
+      const chainBuilderAIAgentPosition = {
+        x: workflowAIAgentPos.x + positionOffset.x,
+        y: workflowAIAgentPos.y + positionOffset.y
+      }
+
+      console.log('📍 [Position Sync] Maintaining workflow layout:', {
+        workflowBounds: { minX, maxX, minY, maxY },
+        workflowCenter: { x: workflowCenterX, y: workflowCenterY },
+        chainBuilderCenter: { x: chainBuilderCenterX, y: chainBuilderCenterY },
+        offset: positionOffset,
+        aiAgentPos: chainBuilderAIAgentPosition
+      })
+
       // Recreate the exact layout from the saved data
       const aiAgentNode: Node = {
         id: 'ai-agent',
         type: 'custom',
-        position: chainsLayout.aiAgentPosition || { x: 400, y: 200 },
+        position: chainBuilderAIAgentPosition,
         data: {
           title: 'AI Agent',
           description: 'Intelligent decision-making agent',
           type: 'ai_agent',
           isAIAgent: true,
+          providerId: 'ai', // Add providerId for icon
           onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
         }
       }
@@ -1663,10 +1711,16 @@ function AIAgentVisualChainBuilder({
         // Get the node component info for proper title/description
         const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
 
+        // Apply the same offset to all nodes to maintain relative positions
+        const chainBuilderPosition = {
+          x: node.position.x + positionOffset.x,
+          y: node.position.y + positionOffset.y
+        }
+
         return {
           id: node.id,
           type: 'custom',
-          position: node.position,
+          position: chainBuilderPosition,
           data: {
             title: node.data?.title || nodeComponent?.title || node.title || 'Action',
             description: node.data?.description || nodeComponent?.description || node.description || '',
@@ -1681,18 +1735,21 @@ function AIAgentVisualChainBuilder({
           }
         }
       }).filter(Boolean) // Remove null entries
-      
+
       // Create Add Action nodes for the last node in each chain
       const addActionNodes: Node[] = []
 
-      // Group nodes by parentChainIndex to identify chains
+      // Group nodes by parentChainIndex to identify chains (only chain nodes, not preprocessing nodes)
       const chainGroups = new Map<number, any[]>()
       savedNodes.forEach((node: any) => {
-        const chainIndex = node.data?.parentChainIndex ?? 0
-        if (!chainGroups.has(chainIndex)) {
-          chainGroups.set(chainIndex, [])
+        // Only group actual chain nodes (those with parentChainIndex)
+        if (node.data?.parentChainIndex !== undefined) {
+          const chainIndex = node.data.parentChainIndex
+          if (!chainGroups.has(chainIndex)) {
+            chainGroups.set(chainIndex, [])
+          }
+          chainGroups.get(chainIndex)!.push(node)
         }
-        chainGroups.get(chainIndex)!.push(node)
       })
 
       // For each chain, find the last node and add an Add Action node
@@ -1705,12 +1762,15 @@ function AIAgentVisualChainBuilder({
           // Only create Add Action node if the last node is NOT a chain placeholder
           if (lastInChain && lastInChain.data?.type !== 'chain_placeholder') {
             const addActionNodeId = `add-action-chain-${chainIndex}-${lastInChain.id}`
+            // Find the corresponding saved node to get its position
+            const savedNode = savedNodes.find(n => n?.id === lastInChain.id)
+            const lastNodePosition = savedNode?.position || lastInChain.position
             const addActionNode = {
               id: addActionNodeId,
               type: 'addAction',
               position: {
-                x: lastInChain.position.x,
-                y: lastInChain.position.y + 150
+                x: lastNodePosition.x,
+                y: lastNodePosition.y + 150
               },
               data: {
                 parentId: lastInChain.id,

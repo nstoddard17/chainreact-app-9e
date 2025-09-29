@@ -119,33 +119,37 @@ export function useNodeConfiguration(
         console.warn('🔵 [useNodeConfiguration] onActionAdd is not defined!')
       }
       
-      // Auto-save the workflow
+      // Auto-save the workflow after adding any node (regular or inserted)
+      // Use a longer delay for inserted nodes to ensure proper state integration
+      const isInsertedNode = pendingNode.sourceNodeInfo?.insertBefore !== undefined
+      const saveDelay = isInsertedNode ? 500 : 100 // Longer delay for inserted nodes
+
       setTimeout(async () => {
         try {
           if (onSave) {
             await onSave()
-            console.log(' New action saved to database automatically')
-            
+            console.log(isInsertedNode ? ' Inserted action saved to database automatically' : ' New action saved to database automatically')
+
             // Save node configuration to persistence
             if (newNodeId && currentWorkflowId) {
               try {
                 const nodeType = pendingNode.nodeComponent.type || 'unknown'
                 await saveNodeConfig(currentWorkflowId, newNodeId, nodeType, newConfig)
-                console.log(' New node configuration saved to persistence layer')
+                console.log(' Node configuration saved to persistence layer')
               } catch (persistenceError) {
-                console.error(' Failed to save new node configuration:', persistenceError)
+                console.error(' Failed to save node configuration:', persistenceError)
               }
             }
           }
         } catch (error) {
-          console.error(' Failed to save new action to database:', error)
-          toast({ 
-            title: "Save Warning", 
-            description: "Action added but failed to save to database. Please save manually.", 
-            variant: "destructive" 
+          console.error(' Failed to save action to database:', error)
+          toast({
+            title: "Save Warning",
+            description: "Action added but failed to save to database. Please save manually.",
+            variant: "destructive"
           })
         }
-      }, 0)
+      }, saveDelay)
       
       setPendingNode(null)
       setConfiguringNode(null)
