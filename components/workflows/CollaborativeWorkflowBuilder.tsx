@@ -138,6 +138,7 @@ function WorkflowBuilderContent() {
     handleDeleteNodeWithConfirmation,
     handleNodeConfigure,
     handleNodeDelete,
+    handleAddNodeBetween,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -314,6 +315,24 @@ function WorkflowBuilderContent() {
                 chainNodeIds.has(e.source) || chainNodeIds.has(e.target)
               )
 
+              // Group chain nodes by chain index to reconstruct chains
+              const chainGroups = new Map<number, any[]>()
+              chainNodes.forEach(node => {
+                const chainIndex = node.data?.parentChainIndex ?? 0
+                if (!chainGroups.has(chainIndex)) {
+                  chainGroups.set(chainIndex, [])
+                }
+                chainGroups.get(chainIndex)!.push(node)
+              })
+
+              // Create chains array for the visual builder
+              const chains = Array.from(chainGroups.entries())
+                .sort(([a], [b]) => a - b)
+                .map(([chainIndex, chainNodes]) => ({
+                  id: `chain-${chainIndex}`,
+                  nodes: chainNodes.map(n => n.id)
+                }))
+
               // Convert to chain builder format (removing AI Agent ID prefix from node IDs)
               const aiAgentPrefix = `${configuringNode.id}-`
               workflowData = {
@@ -333,18 +352,24 @@ function WorkflowBuilderContent() {
                       }
                     }
                   }
-                  // Handle chain nodes
+                  // Handle chain nodes - preserve the original ID for mapping
+                  const originalId = node.id.startsWith(aiAgentPrefix) ?
+                    node.id.substring(aiAgentPrefix.length) :
+                    node.id
+
                   return {
-                    id: node.id.startsWith(aiAgentPrefix) ?
-                      node.id.substring(aiAgentPrefix.length) :
-                      node.id,
-                    type: node.data?.type || node.type,
+                    id: originalId,
+                    type: node.type || 'custom',
                     position: node.position,
                     data: {
                       ...node.data,
+                      type: node.data?.type,
+                      title: node.data?.title || node.data?.label,
+                      description: node.data?.description,
                       label: node.data?.label,
                       config: node.data?.config,
-                      parentChainIndex: node.data?.parentChainIndex
+                      parentChainIndex: node.data?.parentChainIndex,
+                      providerId: node.data?.providerId
                     }
                   }
                 }),
@@ -353,6 +378,9 @@ function WorkflowBuilderContent() {
                   const mapNodeId = (nodeId: string) => {
                     const triggerNode = nodes.find(n => n.id === nodeId && n.data?.isTrigger)
                     if (triggerNode) return 'trigger'
+
+                    // Map AI Agent node ID
+                    if (nodeId === configuringNode.id) return 'ai-agent'
 
                     return nodeId.startsWith(aiAgentPrefix) ?
                       nodeId.substring(aiAgentPrefix.length) :
@@ -363,12 +391,26 @@ function WorkflowBuilderContent() {
                     id: edge.id,
                     source: mapNodeId(edge.source),
                     target: mapNodeId(edge.target),
-                    type: edge.type
+                    type: edge.type || 'custom'
                   }
                 })
               }
 
+              // Store the chains in initialData so they can be reconstructed in the modal
+              initialData = {
+                ...initialData,
+                chains: chains,
+                chainsLayout: {
+                  nodes: workflowData.nodes,
+                  edges: workflowData.edges,
+                  chains: chains,
+                  aiAgentPosition: { x: 400, y: 200 }
+                }
+              }
+
               console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
+              console.log('🔵 [AI Agent Open] Reconstructed chains:', chains)
+              console.log('🔵 [AI Agent Open] Initial data with chainsLayout:', initialData)
             } else {
               // For new AI Agents (pending-action), just include the trigger node
               if (triggerNode) {
@@ -578,8 +620,8 @@ function WorkflowBuilderContent() {
                             parentAIAgentId: aiAgentNodeId,
                             parentChainIndex: chainIndex,
                             onClick: () => {
-                              // This will be handled by the workflow builder
-                              console.log('Add action to chain', chainIndex, 'after', newNodeId)
+                              // Open the action dialog to add a new action
+                              handleAddActionClick(addActionId, newNodeId)
                             }
                           }
                         }
@@ -644,7 +686,16 @@ function WorkflowBuilderContent() {
                           id: `${aiAgentNodeId}-edge-${edge.id}-${timestamp}`,
                           source: sourceId,
                           target: targetId,
-                          type: edge.type || 'custom'
+                          type: edge.type || 'custom',
+                          // Add the onAddNode handler for edges between action nodes
+                          data: {
+                            ...edge.data,
+                            onAddNode: () => {
+                              // Open the action dialog to add a node between sourceId and targetId
+                              console.log('Add node between', sourceId, 'and', targetId)
+                              handleAddNodeBetween(sourceId, targetId)
+                            }
+                          }
                         }
                       })
 
@@ -717,13 +768,26 @@ function WorkflowBuilderContent() {
             initialData={configuringNode.config}
             workflowData={{ nodes, edges, id: currentWorkflow?.id }}
             currentNodeId={configuringNode.id}
-            onSave={(config) => handleSaveConfiguration(
-              { id: configuringNode.id },
-              config,
-              handleAddTrigger,
-              handleAddAction,
-              handleSave
-            )}
+            onSave={(config) => {
+              // Check if this is a pending action (new node being added)
+              const isPendingAction = configuringNode.id === 'pending-action' && pendingNode?.type === 'action'
+              console.log('🟡 [ConfigurationModal] onSave called:', {
+                configuringNodeId: configuringNode.id,
+                isPendingAction,
+                willPassHandleAddAction: isPendingAction,
+                pendingNode: pendingNode,
+                pendingNodeSourceNodeInfo: pendingNode?.sourceNodeInfo,
+                sourceNodeInfoKeys: pendingNode?.sourceNodeInfo ? Object.keys(pendingNode.sourceNodeInfo) : []
+              })
+
+              handleSaveConfiguration(
+                { id: configuringNode.id },
+                config,
+                handleAddTrigger,
+                isPendingAction ? handleAddAction : undefined, // Pass handleAddAction only for pending actions
+                handleSave
+              )
+            }}
           />
         )
       )}

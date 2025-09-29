@@ -1654,81 +1654,95 @@ function AIAgentVisualChainBuilder({
       }
 
       // Map the saved nodes with proper handlers
-      const savedNodes = chainsLayout.nodes.map((node: any) => ({
-        id: node.id,
-        type: 'custom',
-        position: node.position,
-        data: {
-          title: node.title,
-          description: node.description,
-          type: node.type,
-          providerId: node.providerId,
-          config: node.config || {},
-          onConfigure: () => handleConfigureNode(node.id),
-          onDelete: () => handleDeleteNodeRef.current?.(node.id),
-          onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
+      const savedNodes = chainsLayout.nodes.map((node: any) => {
+        // Skip trigger and ai-agent nodes as they're handled separately
+        if (node.id === 'trigger' || node.id === 'ai-agent') {
+          return null
         }
-      }))
+
+        // Get the node component info for proper title/description
+        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+
+        return {
+          id: node.id,
+          type: 'custom',
+          position: node.position,
+          data: {
+            title: node.data?.title || nodeComponent?.title || node.title || 'Action',
+            description: node.data?.description || nodeComponent?.description || node.description || '',
+            type: node.data?.type || node.type,
+            providerId: node.data?.providerId || node.providerId,
+            config: node.data?.config || node.config || {},
+            parentChainIndex: node.data?.parentChainIndex,
+            label: node.data?.label,
+            onConfigure: () => handleConfigureNode(node.id),
+            onDelete: () => handleDeleteNodeRef.current?.(node.id),
+            onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
+          }
+        }
+      }).filter(Boolean) // Remove null entries
       
       // Create Add Action nodes for the last node in each chain
       const addActionNodes: Node[] = []
-      const chainLastNodes = new Map<string, any>() // Track last node per chain
-      
-      // Group nodes by chain (based on edge connections)
-      chainsLayout.edges.forEach((edge: any) => {
-        if (edge.source === 'ai-agent') {
-          // This is a chain start
-          let currentNode = savedNodes.find((n: any) => n.id === edge.target)
-          let lastInChain = currentNode
-          
-          // Follow the chain to find the last node
-          let visited = new Set([edge.target])
-          while (currentNode) {
-            const nextEdge = chainsLayout.edges.find((e: any) => 
-              e.source === currentNode.id && !visited.has(e.target)
-            )
-            if (nextEdge) {
-              currentNode = savedNodes.find((n: any) => n.id === nextEdge.target)
-              if (currentNode) {
-                lastInChain = currentNode
-                visited.add(nextEdge.target)
-              }
-            } else {
-              break
-            }
-          }
-          
-          if (lastInChain) {
-            // Only create Add Action node if the last node is NOT a chain placeholder
-            // Chain placeholders have their own internal Add Action button
-            if (lastInChain.data?.type !== 'chain_placeholder') {
-              // Create Add Action node after the last node in the chain
-              const addActionNodeId = `add-action-${lastInChain.id}`
-              addActionNodes.push({
-                id: addActionNodeId,
-                type: 'addAction',
-                position: {
-                  x: lastInChain.position.x,
-                  y: lastInChain.position.y + 150
-                },
-                data: {
-                  parentId: lastInChain.id,
-                  onClick: () => {
-                    console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for:', lastInChain.id)
-                    handleAddToChainRef.current?.(lastInChain.id)
-                  }
-                }
-              })
 
-              // Add edge to Add Action node
-              chainsLayout.edges.push({
-                id: `e-${lastInChain.id}-${addActionNodeId}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
-                source: lastInChain.id,
-                target: addActionNodeId,
-                type: 'custom'
-              })
+      // Group nodes by parentChainIndex to identify chains
+      const chainGroups = new Map<number, any[]>()
+      savedNodes.forEach((node: any) => {
+        const chainIndex = node.data?.parentChainIndex ?? 0
+        if (!chainGroups.has(chainIndex)) {
+          chainGroups.set(chainIndex, [])
+        }
+        chainGroups.get(chainIndex)!.push(node)
+      })
+
+      // For each chain, find the last node and add an Add Action node
+      chainGroups.forEach((chainNodes, chainIndex) => {
+        if (chainNodes.length > 0) {
+          // Sort nodes by Y position to find the last one in the chain
+          const sortedNodes = [...chainNodes].sort((a, b) => b.position.y - a.position.y)
+          const lastInChain = sortedNodes[0] // Node with the highest Y position
+
+          // Only create Add Action node if the last node is NOT a chain placeholder
+          if (lastInChain && lastInChain.data?.type !== 'chain_placeholder') {
+            const addActionNodeId = `add-action-chain-${chainIndex}-${lastInChain.id}`
+            const addActionNode = {
+              id: addActionNodeId,
+              type: 'addAction',
+              position: {
+                x: lastInChain.position.x,
+                y: lastInChain.position.y + 150
+              },
+              data: {
+                parentId: lastInChain.id,
+                parentChainIndex: chainIndex,
+                onClick: () => {
+                  console.log('🔗 [AIAgentVisualChainBuilder] Add action button clicked for chain:', chainIndex, 'node:', lastInChain.id)
+                  handleAddToChainRef.current?.(lastInChain.id)
+                }
+              }
             }
+            addActionNodes.push(addActionNode)
+
+            // Add edge from last node to Add Action node
+            chainsLayout.edges.push({
+              id: `e-${lastInChain.id}-${addActionNodeId}`,
+              source: lastInChain.id,
+              target: addActionNodeId,
+              type: 'custom',
+              style: { stroke: '#94a3b8', strokeWidth: 2 }
+            })
           }
+        }
+      })
+
+      // Also check if there are chains directly from AI Agent with no nodes yet
+      const aiAgentOutgoingEdges = chainsLayout.edges.filter((e: any) => e.source === 'ai-agent')
+      aiAgentOutgoingEdges.forEach((edge: any) => {
+        // Check if this edge goes to a chain placeholder
+        const targetNode = savedNodes.find((n: any) => n.id === edge.target)
+        if (targetNode?.data?.type === 'chain_placeholder') {
+          // Chain placeholder already has its own Add button, no need for separate Add Action node
+          return
         }
       })
       

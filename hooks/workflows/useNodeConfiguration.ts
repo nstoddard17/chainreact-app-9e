@@ -42,7 +42,17 @@ export function useNodeConfiguration(
 ) {
   const { toast } = useToast()
   const [configuringNode, setConfiguringNode] = useState<ConfiguringNode | null>(null)
-  const [pendingNode, setPendingNode] = useState<PendingNode | null>(null)
+  const [pendingNode, setPendingNodeInternal] = useState<PendingNode | null>(null)
+
+  // Wrapper to log pending node changes
+  const setPendingNode = useCallback((node: PendingNode | null) => {
+    console.log('🔷 [useNodeConfiguration] Setting pendingNode:', {
+      node,
+      sourceNodeInfo: node?.sourceNodeInfo,
+      sourceNodeInfoKeys: node?.sourceNodeInfo ? Object.keys(node.sourceNodeInfo) : []
+    })
+    setPendingNodeInternal(node)
+  }, [])
   const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
 
   const nodeNeedsConfiguration = useCallback((nodeComponent: NodeComponent): boolean => {
@@ -95,9 +105,18 @@ export function useNodeConfiguration(
       toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." })
     } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
       // Add action to workflow with configuration
+      console.log('🔵 [useNodeConfiguration] Processing pending action with sourceNodeInfo:', pendingNode.sourceNodeInfo)
       let newNodeId: string | undefined
       if (onActionAdd) {
+        console.log('🔵 [useNodeConfiguration] Calling onActionAdd with:', {
+          integration: pendingNode.integration?.name,
+          nodeComponent: pendingNode.nodeComponent?.type,
+          sourceNodeInfo: pendingNode.sourceNodeInfo
+        })
         newNodeId = onActionAdd(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo)
+        console.log('🔵 [useNodeConfiguration] onActionAdd returned newNodeId:', newNodeId)
+      } else {
+        console.warn('🔵 [useNodeConfiguration] onActionAdd is not defined!')
       }
       
       // Auto-save the workflow
