@@ -6,9 +6,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 type AddActionNodeData = {
   onClick: () => void
+  isChainPlaceholder?: boolean
+  label?: string
 }
 
 export function AddActionNode({ data }: NodeProps) {
+  const nodeData = data as any
+  const isChainPlaceholder = nodeData?.isChainPlaceholder
+  const tooltipText = nodeData?.label || (isChainPlaceholder ? 'Add Chain' : 'Add Action')
+
   return (
     <div
       className="w-[400px] flex flex-col items-center justify-center py-4"
@@ -23,16 +29,21 @@ export function AddActionNode({ data }: NodeProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="flex items-center justify-center w-12 h-12 bg-background border-2 border-dashed border-border rounded-full hover:border-primary hover:text-primary transition-colors cursor-pointer"
+                className={`flex items-center justify-center w-12 h-12 bg-background border-2 border-dashed rounded-full hover:text-primary transition-colors cursor-pointer ${
+                  isChainPlaceholder
+                    ? 'border-purple-500/50 hover:border-purple-500'
+                    : 'border-border hover:border-primary'
+                }`}
                 style={{
                   pointerEvents: 'auto'
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
                   console.log('AddActionNode button clicked')
-                  console.log('data.onClick available:', !!(data as any).onClick)
-                  if ((data as any).onClick) {
-                    (data as any).onClick()
+                  console.log('Is chain placeholder:', isChainPlaceholder)
+                  console.log('data.onClick available:', !!nodeData.onClick)
+                  if (nodeData.onClick) {
+                    nodeData.onClick()
                   } else {
                     console.error('No onClick handler found in data:', data)
                   }
@@ -44,10 +55,10 @@ export function AddActionNode({ data }: NodeProps) {
                   e.stopPropagation()
                 }}
               >
-                <Plus className="h-6 w-6" />
+                <Plus className={`h-6 w-6 ${isChainPlaceholder ? 'text-purple-500' : ''}`} />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Add Action</TooltipContent>
+            <TooltipContent side="right">{tooltipText}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <div className="w-px h-4 bg-border mt-2" />

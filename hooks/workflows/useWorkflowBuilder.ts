@@ -19,6 +19,7 @@ import { useNodeConfiguration } from './useNodeConfiguration'
 import { supabase } from '@/utils/supabaseClient'
 import CustomNode from '@/components/workflows/CustomNode'
 import { AddActionNode } from '@/components/workflows/AddActionNode'
+import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNode'
 import InsertActionNode from '@/components/workflows/InsertActionNode'
 import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeWithButton'
 import { ALL_NODE_COMPONENTS, type NodeComponent } from '@/lib/workflows/nodes'
@@ -126,6 +127,7 @@ export function useWorkflowBuilder() {
     custom: CustomNode,
     addAction: AddActionNode,
     insertAction: InsertActionNode as any,
+    chainPlaceholder: ChainPlaceholderNode,
   }), [])
   
   const edgeTypes = useMemo(() => ({
@@ -240,7 +242,11 @@ export function useWorkflowBuilder() {
     // Find all leaf nodes (nodes without outgoing connections to real nodes)
     const leafNodes = currentNodes.filter(node => {
       // Skip UI nodes
-      if (node.type === 'addAction' || node.type === 'insertAction') {
+      if (node.type === 'addAction' || node.type === 'insertAction' || node.type === 'chainPlaceholder') {
+        return false
+      }
+      // Skip AI Agent nodes (they get chain placeholders, not add actions)
+      if (node.data?.type === 'ai_agent') {
         return false
       }
       // A leaf node has no outgoing connections to real nodes
@@ -438,8 +444,12 @@ export function useWorkflowBuilder() {
 
           // Find all leaf nodes (nodes without outgoing connections to real nodes)
           const leafNodes = flowNodes.filter((node: any) => {
-            // Skip existing addAction and insertAction nodes
-            if (node.type === 'addAction' || node.type === 'insertAction') {
+            // Skip existing addAction, insertAction, and chainPlaceholder nodes
+            if (node.type === 'addAction' || node.type === 'insertAction' || node.type === 'chainPlaceholder') {
+              return false
+            }
+            // Skip AI Agent nodes (they get chain placeholders, not add actions)
+            if (node.data?.type === 'ai_agent') {
               return false
             }
             // A leaf node is one that has no outgoing connections to real nodes
@@ -491,9 +501,52 @@ export function useWorkflowBuilder() {
             })
           })
           
+          // Also add chain placeholders for AI Agent nodes that don't have chains
+          const aiAgentNodes = flowNodes.filter((node: any) => node.data?.type === 'ai_agent')
+
+          aiAgentNodes.forEach((aiAgentNode: any) => {
+            // Check if this AI Agent already has child nodes (chains)
+            const hasChains = flowNodes.some((n: any) => n.data?.parentAIAgentId === aiAgentNode.id)
+
+            if (!hasChains) {
+              const chainPlaceholderId = `chain-placeholder-${aiAgentNode.id}`
+              console.log('Creating ChainPlaceholder for AI Agent:', chainPlaceholderId)
+
+              // Store the handler in ref
+              const clickHandler = () => handleAddActionClick(chainPlaceholderId, aiAgentNode.id)
+              addActionHandlersRef.current[chainPlaceholderId] = clickHandler
+
+              const chainPlaceholderNode: Node = {
+                id: chainPlaceholderId,
+                type: 'chainPlaceholder',
+                position: {
+                  x: aiAgentNode.position.x,
+                  y: aiAgentNode.position.y + 160
+                },
+                draggable: false,
+                selectable: false,
+                data: {
+                  parentId: aiAgentNode.id,
+                  parentAIAgentId: aiAgentNode.id,
+                  onClick: clickHandler
+                }
+              }
+              addActionNodes.push(chainPlaceholderNode)
+
+              // Add edge to connect AI Agent to chain placeholder
+              const edgeId = `e-${aiAgentNode.id}-${chainPlaceholderId}`
+              addActionEdges.push({
+                id: edgeId,
+                source: aiAgentNode.id,
+                target: chainPlaceholderId,
+                parentId: aiAgentNode.id
+              })
+            }
+          })
+
           allNodes.push(...addActionNodes)
           addActionNodeData = addActionEdges.length > 0 ? addActionEdges : null
-          
+
           setNodes(allNodes)
         }
         
@@ -602,10 +655,14 @@ export function useWorkflowBuilder() {
       const currentNodes = getNodes()
       const currentEdges = getEdges()
 
-      // Remove UI-only placeholder nodes (AddAction) before saving
+      // Remove UI-only placeholder nodes (AddAction and ChainPlaceholder) before saving
       const placeholderNodeIds = new Set(
         currentNodes
-          .filter(n => n.type === 'addAction' || (typeof n.id === 'string' && n.id.startsWith('add-action-')))
+          .filter(n =>
+            n.type === 'addAction' ||
+            n.type === 'chainPlaceholder' ||
+            (typeof n.id === 'string' && (n.id.startsWith('add-action-') || n.id.startsWith('chain-placeholder-')))
+          )
           .map(n => n.id)
       )
 
@@ -1118,34 +1175,71 @@ export function useWorkflowBuilder() {
         const filteredNodes = nds.filter(n => n.id !== sourceNodeInfo.id)
         const updatedNodes = [...filteredNodes, newNode]
 
-        // Add new AddActionNode after the new action
-        const addActionId = `add-action-${newNodeId}`
+        // Check if this is an AI Agent node
+        const isAIAgent = nodeComponent.type === 'ai_agent'
 
-        // Store the handler in ref
-        const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
-        addActionHandlersRef.current[addActionId] = clickHandler
+        let placeholderNode: Node
 
-        const addActionNode: Node = {
-          id: addActionId,
-          type: 'addAction',
-          position: {
-            x: newNode.position.x,
-            y: newNode.position.y + 160
-          },
-          draggable: false,
-          selectable: false,
-          data: {
-            parentId: newNodeId,
-            onClick: clickHandler,
-            // Preserve AI agent chain metadata if this is part of a chain
-            ...(parentAIAgentId && {
-              parentAIAgentId,
-              parentChainIndex
-            })
+        if (isAIAgent) {
+          // For AI Agent nodes, create a chain placeholder
+          const placeholderId = `chain-placeholder-${newNodeId}`
+          console.log('🟣 Creating chain placeholder for AI Agent:', newNodeId, 'with ID:', placeholderId)
+
+          // Store the handler to open action selection modal
+          const clickHandler = () => {
+            console.log('Chain placeholder clicked for AI Agent:', newNodeId)
+            // Open the action selection dialog with AI Agent as source
+            handleAddActionClick(placeholderId, newNodeId)
+          }
+          addActionHandlersRef.current[placeholderId] = clickHandler
+
+          placeholderNode = {
+            id: placeholderId,
+            type: 'chainPlaceholder',
+            position: {
+              x: newNode.position.x,
+              y: newNode.position.y + 160
+            },
+            draggable: false,
+            selectable: false,
+            data: {
+              parentId: newNodeId,
+              parentAIAgentId: newNodeId,
+              onClick: clickHandler
+            }
+          }
+          console.log('🟣 Chain placeholder node created:', placeholderNode)
+        } else {
+          // For regular nodes, add an action button
+          const addActionId = `add-action-${newNodeId}`
+
+          // Store the handler in ref
+          const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
+          addActionHandlersRef.current[addActionId] = clickHandler
+
+          placeholderNode = {
+            id: addActionId,
+            type: 'addAction',
+            position: {
+              x: newNode.position.x,
+              y: newNode.position.y + 160
+            },
+            draggable: false,
+            selectable: false,
+            data: {
+              parentId: newNodeId,
+              onClick: clickHandler,
+              // Preserve AI agent chain metadata if this is part of a chain
+              ...(parentAIAgentId && {
+                parentAIAgentId,
+                parentChainIndex
+              })
+            }
           }
         }
 
-        return [...updatedNodes, addActionNode]
+        console.log('🟣 Returning nodes:', [...updatedNodes, placeholderNode].map(n => ({ id: n.id, type: n.type })))
+        return [...updatedNodes, placeholderNode]
       }
     })
     
@@ -1199,9 +1293,9 @@ export function useWorkflowBuilder() {
           animated: false,
           style: { stroke: "#d1d5db", strokeWidth: 1 }
         }, {
-          id: `e-${newNodeId}-add-action-${newNodeId}`,
+          id: `e-${newNodeId}-${nodeComponent.type === 'ai_agent' ? `chain-placeholder-${newNodeId}` : `add-action-${newNodeId}`}`,
           source: newNodeId,
-          target: `add-action-${newNodeId}`,
+          target: nodeComponent.type === 'ai_agent' ? `chain-placeholder-${newNodeId}` : `add-action-${newNodeId}`,
           type: 'custom',
           animated: false,
           style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
