@@ -6,6 +6,7 @@ import "@xyflow/react/dist/style.css"
 
 // Custom hooks
 import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 // Components
 import { CollaboratorCursors } from "./CollaboratorCursors"
@@ -293,12 +294,20 @@ function WorkflowBuilderContent() {
 
             // If this is an existing AI Agent, extract its chain nodes from the workflow
             if (configuringNode.id !== 'pending-action') {
+              // Find the trigger node (if exists)
+              const triggerNode = nodes.find(n => n.data?.isTrigger === true)
+
+              // Find chain nodes for this AI Agent
               const chainNodes = nodes.filter(n =>
                 n.data?.parentAIAgentId === configuringNode.id &&
                 n.data?.type !== 'addAction'
               )
 
-              const chainNodeIds = new Set(chainNodes.map(n => n.id))
+              // Include trigger in the nodes if it exists
+              const allRelevantNodes = triggerNode ? [triggerNode, ...chainNodes] : chainNodes
+              const chainNodeIds = new Set(allRelevantNodes.map(n => n.id))
+
+              // Get all edges connected to these nodes
               const chainEdges = edges.filter(e =>
                 chainNodeIds.has(e.source) || chainNodeIds.has(e.target)
               )
@@ -306,29 +315,55 @@ function WorkflowBuilderContent() {
               // Convert to chain builder format (removing AI Agent ID prefix from node IDs)
               const aiAgentPrefix = `${configuringNode.id}-`
               workflowData = {
-                nodes: chainNodes.map(node => ({
-                  id: node.id.startsWith(aiAgentPrefix) ?
-                    node.id.substring(aiAgentPrefix.length) :
-                    node.id,
-                  type: node.data?.type || node.type,
-                  position: node.position,
-                  data: {
-                    ...node.data,
-                    label: node.data?.label,
-                    config: node.data?.config,
-                    parentChainIndex: node.data?.parentChainIndex
+                nodes: allRelevantNodes.map(node => {
+                  // Handle trigger node specially
+                  if (node.data?.isTrigger) {
+                    return {
+                      id: 'trigger',
+                      type: 'custom',
+                      position: node.position,
+                      data: {
+                        ...node.data,
+                        title: node.data?.title || 'Trigger',
+                        description: node.data?.description || '',
+                        isTrigger: true,
+                        config: node.data?.config
+                      }
+                    }
                   }
-                })),
-                edges: chainEdges.map(edge => ({
-                  id: edge.id,
-                  source: edge.source.startsWith(aiAgentPrefix) ?
-                    edge.source.substring(aiAgentPrefix.length) :
-                    edge.source,
-                  target: edge.target.startsWith(aiAgentPrefix) ?
-                    edge.target.substring(aiAgentPrefix.length) :
-                    edge.target,
-                  type: edge.type
-                }))
+                  // Handle chain nodes
+                  return {
+                    id: node.id.startsWith(aiAgentPrefix) ?
+                      node.id.substring(aiAgentPrefix.length) :
+                      node.id,
+                    type: node.data?.type || node.type,
+                    position: node.position,
+                    data: {
+                      ...node.data,
+                      label: node.data?.label,
+                      config: node.data?.config,
+                      parentChainIndex: node.data?.parentChainIndex
+                    }
+                  }
+                }),
+                edges: chainEdges.map(edge => {
+                  // Map trigger node IDs
+                  const mapNodeId = (nodeId: string) => {
+                    const triggerNode = nodes.find(n => n.id === nodeId && n.data?.isTrigger)
+                    if (triggerNode) return 'trigger'
+
+                    return nodeId.startsWith(aiAgentPrefix) ?
+                      nodeId.substring(aiAgentPrefix.length) :
+                      nodeId
+                  }
+
+                  return {
+                    id: edge.id,
+                    source: mapNodeId(edge.source),
+                    target: mapNodeId(edge.target),
+                    type: edge.type
+                  }
+                })
               }
 
               console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
@@ -464,15 +499,23 @@ function WorkflowBuilderContent() {
                       console.log('📦 [Chain Node] Original node from chainsLayout:', chainNode)
                       console.log('📦 [Chain Node] Original position:', chainNode.position)
 
+                      // Find the nodeComponent for this node type
+                      const nodeType = chainNode.type || chainNode.data?.type || 'unknown'
+                      const nodeComponent = ALL_NODE_COMPONENTS.find(nc => nc.type === nodeType)
+
                       const nodeData = {
-                        type: chainNode.type || 'unknown',
-                        title: chainNode.title || 'Action',
-                        description: chainNode.description || '',
-                        providerId: chainNode.providerId,
-                        config: chainNode.config || {},
+                        type: nodeType,
+                        title: chainNode.title || chainNode.data?.title || nodeComponent?.title || 'Action',
+                        description: chainNode.description || chainNode.data?.description || nodeComponent?.description || '',
+                        providerId: chainNode.providerId || chainNode.data?.providerId,
+                        config: chainNode.config || chainNode.data?.config || {},
                         isAIAgentChild: true,
                         parentAIAgentId: aiAgentNodeId,
-                        parentChainIndex: chainNode.parentChainIndex || 0,
+                        parentChainIndex: chainNode.parentChainIndex || chainNode.data?.parentChainIndex || 0,
+                        // Add nodeComponent for configuration
+                        nodeComponent: nodeComponent,
+                        // Add integration info for configuration modal
+                        integration: chainNode.integration || chainNode.data?.integration,
                         // Add handlers
                         onConfigure: () => handleConfigureNode(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`),
                         onDelete: () => handleDeleteNodeWithConfirmation(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`)

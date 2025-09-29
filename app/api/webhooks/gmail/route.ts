@@ -30,6 +30,12 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     console.log(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
 
+    // Check if body is empty or invalid
+    if (!body || body.trim() === '') {
+      console.warn(`⚠️ [${requestId}] Empty request body received, possibly aborted connection`)
+      return new Response('OK', { status: 200 }) // Return OK to acknowledge receipt
+    }
+
     let eventData: any
 
     try {
@@ -72,8 +78,22 @@ export async function POST(request: NextRequest) {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody
       }
-    } catch (parseError) {
-      console.error(`[${requestId}] Failed to parse Gmail webhook body:`, parseError)
+    } catch (parseError: any) {
+      // Handle specific JSON parsing errors
+      if (parseError instanceof SyntaxError) {
+        console.error(`[${requestId}] JSON parsing error:`, parseError.message)
+        console.error(`[${requestId}] Body that failed to parse:`, body.substring(0, 100))
+
+        // Check if this might be a connection reset issue
+        if (body.length === 0) {
+          console.warn(`[${requestId}] Received empty body, likely due to connection reset`)
+          return new Response('OK', { status: 200 })
+        }
+
+        return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+      }
+
+      console.error(`[${requestId}] Unexpected error parsing Gmail webhook:`, parseError)
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
@@ -115,15 +135,23 @@ export async function POST(request: NextRequest) {
       processingTime
     }, { status: 200 })
 
-  } catch (error) {
-    console.error('Gmail webhook error:', error)
-    
+  } catch (error: any) {
+    // Handle connection reset errors gracefully
+    if (error.code === 'ECONNRESET' || error.message?.includes('aborted')) {
+      console.warn(`⚠️ [${requestId}] Connection reset/aborted during webhook processing`)
+      // Return OK to prevent retries for connection issues
+      return new Response('OK', { status: 200 })
+    }
+
+    console.error(`❌ [${requestId}] Gmail webhook error:`, error)
+
     // Log error
     await logWebhookEvent({
       provider: 'gmail',
-      requestId: crypto.randomUUID(),
+      requestId: requestId,
       status: 'error',
       error: error instanceof Error ? error.message : 'Unknown error',
+      errorCode: error.code,
       timestamp: new Date().toISOString()
     })
 
