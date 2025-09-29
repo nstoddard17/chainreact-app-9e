@@ -249,17 +249,50 @@ export function AIAgentConfigModal({
       chainsLayout: null as any // Add chainsLayout to store full layout data
     }
     
+    // Merge with initial data if provided
     if (initialData) {
-      return {
-        ...baseConfig,
-        ...initialData,
-        // Ensure chains is always an array
-        chains: initialData.chains || [],
-        // Preserve chainsLayout if it exists
-        chainsLayout: initialData.chainsLayout || null
+      Object.assign(baseConfig, initialData)
+      // Ensure chains is always an array
+      if (initialData.chains && !Array.isArray(initialData.chains)) {
+        baseConfig.chains = []
       }
+      // Preserve chainsLayout if it exists
+      baseConfig.chainsLayout = initialData.chainsLayout || null
     }
-    
+
+    // If workflowData is provided, convert it to chainsLayout format
+    // This happens when reopening an existing AI Agent with chain nodes in the workflow
+    if (workflowData && workflowData.nodes && workflowData.nodes.length > 0) {
+      console.log('🔄 [AIAgentConfigModal] Converting workflowData to chainsLayout:', workflowData)
+
+      // Group nodes by chain index
+      const chainGroups = new Map<number, any[]>()
+      workflowData.nodes.forEach(node => {
+        const chainIndex = node.data?.parentChainIndex ?? 0
+        if (!chainGroups.has(chainIndex)) {
+          chainGroups.set(chainIndex, [])
+        }
+        chainGroups.get(chainIndex)?.push(node)
+      })
+
+      // Create chains array from grouped nodes
+      const chains = Array.from(chainGroups.entries()).map(([index, nodes]) => ({
+        id: `chain-${index}`,
+        name: `Chain ${index + 1}`,
+        nodes: nodes.map(n => n.id)
+      }))
+
+      baseConfig.chains = chains
+      baseConfig.chainsLayout = {
+        chains,
+        nodes: workflowData.nodes,
+        edges: workflowData.edges,
+        aiAgentPosition: { x: 400, y: 200 } // Default position for AI Agent in chain builder
+      }
+
+      console.log('🔄 [AIAgentConfigModal] Initialized with chainsLayout:', baseConfig.chainsLayout)
+    }
+
     return baseConfig
   })
 

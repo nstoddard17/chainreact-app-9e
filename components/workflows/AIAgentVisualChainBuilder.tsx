@@ -650,7 +650,7 @@ function AIAgentVisualChainBuilder({
                 ...updatedNodes[addActionIndex],
                 position: {
                   x: change.position.x,
-                  y: change.position.y + 120  // Use consistent 120px spacing
+                  y: change.position.y + 150  // Use consistent spacing with gap
                 }
               }
             }
@@ -835,8 +835,8 @@ function AIAgentVisualChainBuilder({
             
             nodeAdded = true  // Mark successful node addition
             
-            // Calculate minimal spacing - just enough to not overlap
-            const verticalShift = 120 // Reduced spacing for tighter layout
+            // Calculate spacing with gap between nodes
+            const verticalShift = 150 // Added gap for better visual separation
             
             // Create the new node
             const newNode: Node = {
@@ -1154,7 +1154,7 @@ function AIAgentVisualChainBuilder({
                 type: 'addAction',
                 position: { 
                   x: previousNode.position.x, 
-                  y: previousNode.position.y + 120  // Use consistent 120px spacing 
+                  y: previousNode.position.y + 150  // Use consistent spacing with gap 
                 },
                 data: {
                   parentId: previousNodeId,
@@ -1612,7 +1612,7 @@ function AIAgentVisualChainBuilder({
                 type: 'addAction',
                 position: {
                   x: lastInChain.position.x,
-                  y: lastInChain.position.y + 120
+                  y: lastInChain.position.y + 150
                 },
                 data: {
                   parentId: lastInChain.id,
@@ -1874,7 +1874,7 @@ function AIAgentVisualChainBuilder({
           type: 'addAction',
           position: { 
             x: chainNode.position.x, 
-            y: chainNode.position.y + 120  // Use consistent 120px spacing
+            y: chainNode.position.y + 150  // Use consistent spacing with gap
           },
           data: {
             parentId: newNodeId,
@@ -1907,7 +1907,7 @@ function AIAgentVisualChainBuilder({
                         type: 'custom',
                         position: {
                           x: parentNode.position.x,
-                          y: parentNode.position.y + 120  // Use consistent 120px spacing
+                          y: parentNode.position.y + 150  // Use consistent spacing with gap
                         },
                         data: {
                           title: action.title || config?.title || actionType,
@@ -1928,7 +1928,7 @@ function AIAgentVisualChainBuilder({
                         type: 'addAction',
                         position: {
                           x: nextNode.position.x,
-                          y: nextNode.position.y + 120  // Use consistent 120px spacing
+                          y: nextNode.position.y + 150  // Use consistent spacing with gap
                         },
                         data: {
                           parentId: nextNodeId,
@@ -2139,7 +2139,7 @@ function AIAgentVisualChainBuilder({
               type: 'custom',
               position: { 
                 x: lastNode.position.x, 
-                y: lastNode.position.y + 120  // Use consistent 120px spacing 
+                y: lastNode.position.y + 150  // Use consistent spacing with gap 
               },
               data: {
                 title: action.title || config?.title || actionType,
@@ -2160,7 +2160,7 @@ function AIAgentVisualChainBuilder({
               type: 'addAction',
               position: { 
                 x: newNode.position.x, 
-                y: newNode.position.y + 120  // Use consistent 120px spacing 
+                y: newNode.position.y + 150  // Use consistent spacing with gap 
               },
               data: {
                 parentId: newNodeId,
@@ -2431,7 +2431,7 @@ function AIAgentVisualChainBuilder({
                   ...n,
                   position: {
                     x: node.position.x,
-                    y: node.position.y + 120  // Use consistent 120px spacing
+                    y: node.position.y + 150  // Use consistent spacing with gap
                   }
                 }
               }
