@@ -338,7 +338,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         showIf: (values: any) => values.action === "add",
         dependsOn: "worksheetName",
         description: "Choose which data goes into which columns",
-        helpText: "Select a column from your worksheet, then choose what data from your workflow should go there"
+        helpText: "Select a column from your worksheet, then choose what data from your workflow should go there. For example, put the 'Email' from your trigger into the 'Email Address' column."
       },
 
       // === UPDATE ROW FIELDS ===

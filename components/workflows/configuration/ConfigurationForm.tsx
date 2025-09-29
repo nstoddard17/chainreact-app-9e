@@ -15,6 +15,7 @@ import { useFieldValidation } from './hooks/useFieldValidation';
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
+import { MicrosoftExcelConfiguration } from './providers/MicrosoftExcelConfiguration';
 import { TwitterConfiguration } from './providers/TwitterConfiguration';
 import { GmailConfiguration } from './providers/GmailConfiguration';
 import { SlackConfiguration } from './providers/SlackConfiguration';
@@ -1057,7 +1058,10 @@ function ConfigurationForm({
     // Microsoft Services
     case 'onedrive':
       return <OneDriveConfiguration {...commonProps} />;
-    
+
+    case 'microsoft-excel':
+      return <MicrosoftExcelConfiguration {...commonProps} />;
+
     case 'microsoft-onenote':
     case 'onenote':
       return <OneNoteConfiguration {...commonProps} />;
