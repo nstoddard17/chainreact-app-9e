@@ -920,7 +920,7 @@ function WorkflowBuilderContent() {
                         minZoom: 0.5
                       })
                     }
-                  }, 200) // Small delay to ensure nodes are rendered
+                  }, 300) // Small delay to ensure nodes are rendered
                 }, 100) // 100ms delay to ensure AI Agent node is created
               } else {
                 // No chains at all - add a chain placeholder for the AI Agent
@@ -1030,6 +1030,19 @@ function WorkflowBuilderContent() {
                       return [...filteredEdges, newEdge]
                     })
                   }
+
+                  // Fit view after adding chain placeholder
+                  setTimeout(() => {
+                    if (fitView) {
+                      fitView({
+                        padding: 0.2,
+                        includeHiddenNodes: false,
+                        duration: 400,
+                        maxZoom: 1,
+                        minZoom: 0.5
+                      })
+                    }
+                  }, 100) // Small delay to ensure rendering is complete
                 }, delayTime) // Use same delay as nodes
               }
             }}
