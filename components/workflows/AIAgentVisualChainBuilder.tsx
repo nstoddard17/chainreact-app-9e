@@ -585,11 +585,20 @@ function AIAgentVisualChainBuilder({
       }
     })
     
+    // Include chain placeholders in the saved nodes for proper restoration
+    const allNodesToSave = [...actionNodes]
+
+    // Add chain placeholder nodes explicitly to preserve them
+    const placeholderNodes = nodes.filter(n => n.data?.type === 'chain_placeholder')
+    placeholderNodes.forEach(placeholder => {
+      allNodesToSave.push(placeholder)
+    })
+
     // Build comprehensive layout data with full node/edge structure
     const fullLayoutData = {
       chains: extractedChains,
       chainPlaceholderPositions, // Include placeholder positions for empty chains
-      nodes: actionNodes.map(n => ({
+      nodes: allNodesToSave.map(n => ({
         id: n.id,
         type: n.data?.type,
         providerId: n.data?.providerId,
@@ -597,7 +606,11 @@ function AIAgentVisualChainBuilder({
         title: n.data?.title,
         description: n.data?.description,
         position: n.position,
-        parentChainIndex: nodeChainMap.get(n.id) // Add chain index for each node
+        parentChainIndex: n.data?.parentChainIndex ?? nodeChainMap.get(n.id), // Use existing parentChainIndex for placeholders
+        // Preserve chain placeholder specific properties
+        hasAddButton: n.data?.hasAddButton,
+        isLastInChain: n.data?.isLastInChain,
+        isTrigger: n.data?.isTrigger
       })),
       edges: actionEdges.map(e => ({
         id: e.id,
@@ -1089,7 +1102,7 @@ function AIAgentVisualChainBuilder({
                         onOpenActionDialog()
                       }
                     },
-                    onDelete: () => handleDeleteNodeRef.current?.(placeholderNodeId),
+                    // No delete for chain placeholder - it should always be present
                     onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
                     onAddAction: () => {
                       const chainId = placeholderNodeId
@@ -1356,7 +1369,7 @@ function AIAgentVisualChainBuilder({
     const defaultChainId = 'chain-default'
 
     // Try to get AI Agent from workflow data to use its actual position
-    let aiAgentPosition = { x: centerX, y: 200 }
+    let aiAgentPosition = { x: centerX, y: 250 }
     if (workflowData?.nodes) {
       const workflowAIAgent = workflowData.nodes.find(n => n.data?.type === 'ai_agent' || n.id === currentNodeId)
       if (workflowAIAgent?.position) {
@@ -1397,7 +1410,7 @@ function AIAgentVisualChainBuilder({
       triggerNode = {
         id: 'trigger',
         type: 'custom',
-        position: { x: centerX, y: 50 },
+        position: { x: centerX, y: 100 },
         data: {
           title: 'Trigger',
           description: 'When workflow starts',
@@ -1435,7 +1448,7 @@ function AIAgentVisualChainBuilder({
       {
         id: defaultChainId,
         type: 'custom',
-        position: { x: centerX, y: 400 },
+        position: { x: centerX, y: 450 },
         data: {
           title: 'Chain 1',
           description: 'Click + Add Action to add your first action',
@@ -1448,7 +1461,7 @@ function AIAgentVisualChainBuilder({
               onOpenActionDialog()
             }
           },
-          onDelete: () => handleDeleteNodeRef.current?.(defaultChainId),
+          // No delete for chain placeholder - it should always be present
           onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
           onAddAction: () => {
             // Capture the chain ID to avoid closure issues
@@ -1484,7 +1497,9 @@ function AIAgentVisualChainBuilder({
       {
         id: 'e-trigger-ai',
         source: 'trigger',
+        sourceHandle: undefined, // Use default source handle
         target: 'ai-agent',
+        targetHandle: undefined, // Use default target handle
         type: 'custom',
         animated: true,
         style: {
@@ -1500,7 +1515,9 @@ function AIAgentVisualChainBuilder({
       {
         id: 'e-ai-agent-chain-default',
         source: 'ai-agent',
+        sourceHandle: undefined, // Use default source handle
         target: defaultChainId,
+        targetHandle: undefined, // Use default target handle
         type: 'custom',
         style: {
           stroke: '#94a3b8',
@@ -1524,7 +1541,12 @@ function AIAgentVisualChainBuilder({
     setTimeout(() => {
       console.log('🎯 [initializeDefaultSetup] Setting initial edges:', initialEdges)
       setEdges(initialEdges)
-    }, 50) // Small delay to allow React Flow to render nodes and assign handles
+
+      // Force ReactFlow to recalculate edge paths after a short delay
+      setTimeout(() => {
+        setEdges((edges) => edges.map(edge => ({ ...edge })))
+      }, 100)
+    }, 100) // Increased delay to allow React Flow to properly render nodes and assign handles
 
     // Center view after initial load to show all nodes
     setTimeout(() => {
@@ -1688,23 +1710,70 @@ function AIAgentVisualChainBuilder({
         }
 
         // Get the node component info for proper title/description
-        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+        const nodeType = node.data?.type || node.type
+        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
 
         // Use exact position from workflow without any offset
         const nodePosition = { ...node.position }
+
+        // Special handling for chain placeholders
+        // Check both node.data?.type and node.type since saved data might have it at root level
+        if (nodeType === 'chain_placeholder') {
+          return {
+            id: node.id,
+            type: 'custom',
+            position: nodePosition,
+            data: {
+              title: node.data?.title || node.title || `Chain ${(node.data?.parentChainIndex ?? node.parentChainIndex ?? 0) + 1}`,
+              description: node.data?.description || node.description || 'Click + Add Action to add your first action',
+              type: 'chain_placeholder',
+              isTrigger: node.data?.isTrigger ?? node.isTrigger ?? false,
+              hasAddButton: node.data?.hasAddButton ?? node.hasAddButton ?? true,
+              config: node.data?.config || node.config || {},
+              parentChainIndex: node.data?.parentChainIndex ?? node.parentChainIndex,
+              isLastInChain: node.data?.isLastInChain ?? node.isLastInChain ?? true,
+              onConfigure: () => {
+                if (onOpenActionDialog) {
+                  onOpenActionDialog()
+                }
+              },
+              // No delete for chain placeholder
+              onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+              onAddAction: () => {
+                const chainId = node.id
+                console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called for chain:', chainId)
+                if (onActionSelect) {
+                  const callbackFn = (action: any, config?: any) => {
+                    console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config, 'for chain:', chainId)
+                    if (action && action.type) {
+                      handleAddActionToChainRef.current?.(chainId, action, config)
+                    } else {
+                      console.warn('⚠️ [AIAgentVisualChainBuilder] Callback invoked without valid action')
+                    }
+                  }
+                  onActionSelect(callbackFn)
+                }
+                if (onOpenActionDialog) {
+                  onOpenActionDialog()
+                }
+              },
+              isLastInChain: true
+            }
+          }
+        }
 
         return {
           id: node.id,
           type: 'custom',
           position: nodePosition,
           data: {
-            title: node.data?.title || nodeComponent?.title || node.title || 'Action',
-            description: node.data?.description || nodeComponent?.description || node.description || '',
-            type: node.data?.type || node.type,
+            title: node.data?.title || node.title || nodeComponent?.title || 'Action',
+            description: node.data?.description || node.description || nodeComponent?.description || '',
+            type: nodeType,
             providerId: node.data?.providerId || node.providerId,
             config: node.data?.config || node.config || {},
-            parentChainIndex: node.data?.parentChainIndex,
-            label: node.data?.label,
+            parentChainIndex: node.data?.parentChainIndex ?? node.parentChainIndex,
+            label: node.data?.label || node.label,
             onConfigure: () => handleConfigureNode(node.id),
             onDelete: () => handleDeleteNodeRef.current?.(node.id),
             onAddToChain: (nodeId: string) => handleAddToChain(nodeId)
@@ -1772,6 +1841,69 @@ function AIAgentVisualChainBuilder({
         }
       })
 
+      // Check if we have any empty chains that need placeholders
+      // If there are no nodes in savedNodes but we have chainPlaceholderPositions, create placeholders
+      if (savedNodes.length === 0 && chainsLayout.chainPlaceholderPositions?.length > 0) {
+        console.log('🎯 [AIAgentVisualChainBuilder] Creating chain placeholders from saved positions')
+        chainsLayout.chainPlaceholderPositions.forEach((position: any, chainIndex: number) => {
+          if (position) {
+            const placeholderId = `chain-${chainIndex}-placeholder`
+            const placeholderNode = {
+              id: placeholderId,
+              type: 'custom',
+              position: position,
+              data: {
+                title: `Chain ${chainIndex + 1}`,
+                description: 'Click + Add Action to add your first action',
+                type: 'chain_placeholder',
+                isTrigger: false,
+                hasAddButton: true,
+                config: {},
+                parentChainIndex: chainIndex,
+                onConfigure: () => {
+                  if (onOpenActionDialog) {
+                    onOpenActionDialog()
+                  }
+                },
+                // No delete for chain placeholder
+                onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
+                onAddAction: () => {
+                  const chainId = placeholderId
+                  console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called for chain:', chainId)
+                  if (onActionSelect) {
+                    const callbackFn = (action: any, config?: any) => {
+                      console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config, 'for chain:', chainId)
+                      if (action && action.type) {
+                        handleAddActionToChainRef.current?.(chainId, action, config)
+                      } else {
+                        console.warn('⚠️ [AIAgentVisualChainBuilder] Callback invoked without valid action')
+                      }
+                    }
+                    onActionSelect(callbackFn)
+                  }
+                  if (onOpenActionDialog) {
+                    onOpenActionDialog()
+                  }
+                },
+                isLastInChain: true
+              }
+            }
+            savedNodes.push(placeholderNode)
+
+            // Add edge from AI Agent to placeholder
+            chainsLayout.edges.push({
+              id: `e-ai-agent-${placeholderId}`,
+              source: 'ai-agent',
+              sourceHandle: undefined, // Use default source handle
+              target: placeholderId,
+              targetHandle: undefined, // Use default target handle
+              type: 'custom',
+              style: { stroke: '#94a3b8', strokeWidth: 2 }
+            })
+          }
+        })
+      }
+
       // Also check if there are chains directly from AI Agent with no nodes yet
       const aiAgentOutgoingEdges = chainsLayout.edges.filter((e: any) => e.source === 'ai-agent')
       aiAgentOutgoingEdges.forEach((edge: any) => {
@@ -1806,7 +1938,9 @@ function AIAgentVisualChainBuilder({
       const triggerToAIAgentEdge = {
         id: 'e-trigger-ai-agent',
         source: 'trigger',
+        sourceHandle: undefined, // Use default source handle
         target: 'ai-agent',
+        targetHandle: undefined, // Use default target handle
         type: 'custom',
         style: {
           stroke: '#94a3b8',
@@ -1824,7 +1958,12 @@ function AIAgentVisualChainBuilder({
       // Delay edge creation to ensure nodes are properly rendered with handles
       setTimeout(() => {
         setEdges(finalEdges)
-      }, 50) // Small delay for React Flow to render nodes
+
+        // Force ReactFlow to recalculate edge paths after a short delay
+        setTimeout(() => {
+          setEdges((edges) => edges.map(edge => ({ ...edge })))
+        }, 100)
+      }, 100) // Increased delay to allow React Flow to properly render nodes and calculate handle positions
       
       // Restore emptiedChains if present
       if (chainsLayout.emptiedChains) {
@@ -2600,8 +2739,26 @@ function AIAgentVisualChainBuilder({
     return () => clearInterval(interval)
   }, [nodes, edges])
 
+  // Force edge recalculation when nodes change to ensure proper connections
+  useEffect(() => {
+    if (nodes.length > 0 && edges.length > 0) {
+      // Use a small delay to ensure nodes are rendered
+      const timeoutId = setTimeout(() => {
+        // Force ReactFlow to recalculate all edge paths
+        setEdges((currentEdges) =>
+          currentEdges.map(edge => ({
+            ...edge,
+            // Trigger a re-render by creating new object reference
+          }))
+        )
+      }, 150)
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [nodes.length]) // Only re-run when number of nodes changes
+
   return (
-    <div className="h-[calc(95vh-400px)] min-h-[400px] w-full bg-slate-50 rounded-lg border relative">
+    <div className="h-[calc(95vh-400px)] min-h-[400px] w-full bg-slate-50 rounded-lg border relative ai-agent-chain-builder">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -2610,6 +2767,12 @@ function AIAgentVisualChainBuilder({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        connectionMode="loose"
+        defaultEdgeOptions={{
+          type: 'custom',
+          animated: false,
+          style: { stroke: '#94a3b8', strokeWidth: 2 }
+        }}
         onNodeDragStop={(event, node) => {
           // Update the position of any AddAction nodes that are children of the dragged node
           setNodes((nds) => 

@@ -297,6 +297,15 @@ export function TriggerSelectionDialog({
                             }}
                           >
                             <div className="flex items-center gap-2">
+                              {/* Integration icon */}
+                              <img
+                                src={`/integrations/${selectedIntegration.id}.svg`}
+                                alt={`${selectedIntegration.name} icon`}
+                                className="w-5 h-5 object-contain shrink-0"
+                                onError={(e: any) => {
+                                  e.currentTarget.style.display = 'none'
+                                }}
+                              />
                               <p className="font-medium flex-1 min-w-0 truncate">
                                 {trigger.title}
                               </p>

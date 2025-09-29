@@ -539,7 +539,10 @@ function WorkflowBuilderContent() {
                 currentNodeId={configuringNode.id}
                 onSave={async (config) => {
               console.log('🔴 [AI Agent Save] Config received:', config)
+              console.log('🔴 [AI Agent Save] Config keys:', Object.keys(config))
               console.log('🔴 [AI Agent Save] chainsLayout:', config.chainsLayout)
+              console.log('🔴 [AI Agent Save] chainsLayout type:', typeof config.chainsLayout)
+              console.log('🔴 [AI Agent Save] chainsLayout?.nodes:', config.chainsLayout?.nodes)
               console.log('🔴 [AI Agent Save] pendingNode:', pendingNode)
               console.log('🔴 [AI Agent Save] configuringNode.id:', configuringNode.id)
 
@@ -577,13 +580,27 @@ function WorkflowBuilderContent() {
                 )
               }
 
-              // Then process the chains if they exist
+              // Then process the chains if they exist OR add a chain placeholder
               // We need to do this after a small delay to ensure the AI Agent node has been created
-              if (config.chainsLayout?.nodes && config.chainsLayout.nodes.length > 0) {
+              const chainsLayoutNodes = config.chainsLayout?.nodes
+              const hasChains = chainsLayoutNodes && Array.isArray(chainsLayoutNodes) && chainsLayoutNodes.length > 0
+              const aiAgentNodeId = finalNodeId
+
+              console.log('🔵 [AI Agent Save] Processing after save:', {
+                hasChains,
+                chainsLayoutNodes,
+                chainsLayoutNodesLength: chainsLayoutNodes?.length,
+                isArray: Array.isArray(chainsLayoutNodes),
+                aiAgentNodeId,
+                isPendingNode,
+                finalNodeId,
+                shouldAddPlaceholder: !hasChains
+              })
+
+              if (hasChains) {
                 console.log('🔵 [AI Agent Save] Processing chains from chainsLayout')
                 const chainsLayout = config.chainsLayout
                 const timestamp = Date.now()
-                const aiAgentNodeId = finalNodeId
 
                 // Use setTimeout to ensure the AI Agent node has been added to the workflow
                 setTimeout(() => {
@@ -602,6 +619,74 @@ function WorkflowBuilderContent() {
 
                   if (actualActionNodes.length === 0) {
                     console.log('⚠️ [AI Agent Save] No action nodes to add (only placeholders found)')
+                    console.log('📌 [AI Agent Save] Adding chain placeholder button for AI Agent')
+
+                    // Add a chain placeholder (Add Chain button) for the AI Agent
+                    setNodes((currentNodes) => {
+                      // Get the AI Agent node
+                      const aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId)
+                      if (!aiAgentNode) {
+                        console.error('AI Agent node not found! Looking for:', aiAgentNodeId)
+                        return currentNodes
+                      }
+
+                      // Remove any existing Add Action button for this AI Agent
+                      const filteredNodes = currentNodes.filter(n =>
+                        !(n.type === 'addAction' && n.data?.parentId === aiAgentNodeId)
+                      )
+
+                      // Add a chain placeholder button
+                      const chainPlaceholderId = `chain-placeholder-${aiAgentNodeId}`
+                      const chainPlaceholderNode = {
+                        id: chainPlaceholderId,
+                        type: 'chainPlaceholder',
+                        position: {
+                          x: aiAgentNode.position.x,
+                          y: aiAgentNode.position.y + 160
+                        },
+                        draggable: false,
+                        selectable: false,
+                        data: {
+                          type: 'chain_placeholder', // Add the required type field
+                          parentId: aiAgentNodeId,
+                          parentAIAgentId: aiAgentNodeId,
+                          onClick: () => {
+                            console.log('Chain placeholder clicked for AI Agent:', aiAgentNodeId)
+                            // Open the action selection dialog
+                            handleAddActionClick(chainPlaceholderId, aiAgentNodeId)
+                          }
+                        }
+                      }
+
+                      console.log('✅ [AI Agent Save] Added chain placeholder at position:', chainPlaceholderNode.position)
+                      return [...filteredNodes, chainPlaceholderNode]
+                    })
+
+                    // Add edge from AI Agent to chain placeholder
+                    if (setEdges) {
+                      setEdges((currentEdges) => {
+                        const chainPlaceholderId = `chain-placeholder-${aiAgentNodeId}`
+                        const edgeId = `e-${aiAgentNodeId}-${chainPlaceholderId}`
+
+                        // Check if edge already exists
+                        const edgeExists = currentEdges.some(e => e.id === edgeId)
+                        if (edgeExists) {
+                          return currentEdges
+                        }
+
+                        const newEdge = {
+                          id: edgeId,
+                          source: aiAgentNodeId,
+                          target: chainPlaceholderId,
+                          type: 'custom',
+                          animated: false,
+                          style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
+                        }
+
+                        return [...currentEdges, newEdge]
+                      })
+                    }
+
                     return
                   }
 
@@ -837,6 +922,115 @@ function WorkflowBuilderContent() {
                     }
                   }, 200) // Small delay to ensure nodes are rendered
                 }, 100) // 100ms delay to ensure AI Agent node is created
+              } else {
+                // No chains at all - add a chain placeholder for the AI Agent
+                console.log('📌 [AI Agent Save] ELSE BLOCK REACHED - No chains provided')
+                console.log('📌 [AI Agent Save] Adding chain placeholder for AI Agent:', aiAgentNodeId)
+                console.log('📌 [AI Agent Save] isPendingNode:', isPendingNode)
+                console.log('📌 [AI Agent Save] finalNodeId:', finalNodeId)
+
+                // Use a longer delay for new nodes to ensure they're fully integrated into the workflow
+                const delayTime = isPendingNode ? 300 : 100
+                console.log('📌 [AI Agent Save] Using delay time:', delayTime)
+
+                setTimeout(() => {
+                  console.log('📌 [AI Agent Save] setTimeout executed after', delayTime, 'ms')
+                  // Add a chain placeholder (Add Chain button) for the AI Agent
+                  setNodes((currentNodes) => {
+                    console.log('📌 [Chain Placeholder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.type })))
+                    console.log('📌 [Chain Placeholder] Looking for AI Agent with ID:', aiAgentNodeId)
+
+                    // Get the AI Agent node - try both the ID and look for ai_agent type as fallback
+                    let aiAgentNode = currentNodes.find(n => n.id === aiAgentNodeId)
+
+                    // If not found by ID and it was a pending node, look for the most recent AI Agent
+                    if (!aiAgentNode && isPendingNode) {
+                      console.log('📌 [Chain Placeholder] Pending node - looking for AI Agent by type')
+                      const aiAgentNodes = currentNodes.filter(n => n.data?.type === 'ai_agent')
+                      if (aiAgentNodes.length > 0) {
+                        // Get the most recently added AI Agent (highest Y position typically)
+                        aiAgentNode = aiAgentNodes[aiAgentNodes.length - 1]
+                        console.log('📌 [Chain Placeholder] Found AI Agent by type:', aiAgentNode.id)
+                      }
+                    }
+
+                    if (!aiAgentNode) {
+                      console.error('❌ [Chain Placeholder] AI Agent node not found! Looking for:', aiAgentNodeId)
+                      console.error('❌ [Chain Placeholder] Available node IDs:', currentNodes.map(n => n.id))
+                      console.error('❌ [Chain Placeholder] Was pending node:', isPendingNode)
+                      return currentNodes
+                    }
+
+                    // Use the actual found node's ID for all operations
+                    const actualAIAgentId = aiAgentNode.id
+
+                    // Remove any existing Add Action button for this AI Agent
+                    const filteredNodes = currentNodes.filter(n =>
+                      !(n.type === 'addAction' && n.data?.parentId === actualAIAgentId) &&
+                      !(n.type === 'chainPlaceholder' && n.data?.parentId === actualAIAgentId)
+                    )
+
+                    // Add a chain placeholder button
+                    const chainPlaceholderId = `chain-placeholder-${actualAIAgentId}`
+                    const chainPlaceholderNode = {
+                      id: chainPlaceholderId,
+                      type: 'chainPlaceholder',
+                      position: {
+                        x: aiAgentNode.position.x,
+                        y: aiAgentNode.position.y + 160
+                      },
+                      draggable: false,
+                      selectable: false,
+                      data: {
+                        type: 'chain_placeholder', // Add the required type field
+                        parentId: actualAIAgentId,
+                        parentAIAgentId: actualAIAgentId,
+                        onClick: () => {
+                          console.log('Chain placeholder clicked for AI Agent:', actualAIAgentId)
+                          // Open the action selection dialog
+                          handleAddActionClick(chainPlaceholderId, actualAIAgentId)
+                        }
+                      }
+                    }
+
+                    console.log('✅ [AI Agent Save] Added chain placeholder at position:', chainPlaceholderNode.position)
+                    return [...filteredNodes, chainPlaceholderNode]
+                  })
+
+                  // Add edge from AI Agent to chain placeholder
+                  if (setEdges) {
+                    setEdges((currentEdges) => {
+                      // Need to get the actual AI Agent ID again since this is a different closure
+                      const allNodes = getNodes()
+                      let actualAIAgentId = aiAgentNodeId
+
+                      // If it was a pending node, find the actual AI Agent
+                      if (isPendingNode) {
+                        const aiAgentNodes = allNodes.filter(n => n.data?.type === 'ai_agent')
+                        if (aiAgentNodes.length > 0) {
+                          actualAIAgentId = aiAgentNodes[aiAgentNodes.length - 1].id
+                        }
+                      }
+
+                      const chainPlaceholderId = `chain-placeholder-${actualAIAgentId}`
+                      const edgeId = `e-${actualAIAgentId}-${chainPlaceholderId}`
+
+                      // Remove any existing edge and add new one
+                      const filteredEdges = currentEdges.filter(e => e.id !== edgeId)
+
+                      const newEdge = {
+                        id: edgeId,
+                        source: actualAIAgentId,
+                        target: chainPlaceholderId,
+                        type: 'custom',
+                        animated: false,
+                        style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
+                      }
+
+                      return [...filteredEdges, newEdge]
+                    })
+                  }
+                }, delayTime) // Use same delay as nodes
               }
             }}
             currentNodeId={configuringNode.id}

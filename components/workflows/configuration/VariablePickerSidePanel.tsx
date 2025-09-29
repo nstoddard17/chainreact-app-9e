@@ -222,14 +222,23 @@ export function VariablePickerSidePanel({
       
       // Determine node type and provider info
       const nodeType = node.data?.isTrigger ? 'Trigger' : 'Action'
-      const provider = node.data?.providerId ? 
-        node.data.providerId.charAt(0).toUpperCase() + node.data.providerId.slice(1) : 
-        ''
+
+      // Format provider name properly (e.g., "google-drive" -> "Google Drive")
+      const formatProviderName = (providerId: string): string => {
+        if (!providerId) return ''
+        // Split by hyphen or underscore and capitalize each word
+        return providerId
+          .split(/[-_]/)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
+      }
+
+      const provider = node.data?.providerId ? formatProviderName(node.data.providerId) : ''
       const title = node.data?.title || node.data?.type || node.type || 'Unknown Node'
-      
+
       // Format display name: "Trigger: Gmail: New Email" or "Action: Slack: Send Message"
-      const displayTitle = provider ? 
-        `${nodeType}: ${provider}: ${title}` : 
+      const displayTitle = provider ?
+        `${nodeType}: ${provider}: ${title}` :
         `${nodeType}: ${title}`
 
       return {
