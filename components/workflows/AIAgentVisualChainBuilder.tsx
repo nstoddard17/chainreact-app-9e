@@ -46,6 +46,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { AddActionNode } from './AddActionNode'
+import { ChainPlaceholderNode } from './ChainPlaceholderNode'
 
 // Custom Node Component - Matches CustomNode.tsx exactly
 interface CustomNodeData {
@@ -434,7 +435,8 @@ const CustomEdgeWithButton = ({
 
 const nodeTypes: NodeTypes = {
   custom: AIAgentCustomNode,
-  addAction: AddActionNode as React.ComponentType<NodeProps>
+  addAction: AddActionNode as React.ComponentType<NodeProps>,
+  chainPlaceholder: ChainPlaceholderNode as React.ComponentType<NodeProps>
 }
 
 const edgeTypes: EdgeTypes = {
@@ -1434,43 +1436,36 @@ function AIAgentVisualChainBuilder({
         position: aiAgentPosition,
         data: {
           title: 'AI Agent',
-          description: 'Intelligent decision-making agent',
+          description: 'An AI agent that can use other integrations as tools to accomplish goals',
           type: 'ai_agent',
+          providerId: 'ai', // Add providerId to show the AI logo
           isAIAgent: true,
           onConfigure: () => {
             toast({
               title: "AI Agent Configuration",
               description: "Configure the AI agent settings in the tabs above"
             })
-          }
+          },
+          onDelete: () => {} // Add required onDelete handler
         }
       },
       {
         id: defaultChainId,
-        type: 'custom',
+        type: 'chainPlaceholder',
         position: { x: centerX, y: 450 },
+        draggable: false,
+        selectable: false,
         data: {
-          title: 'Chain 1',
-          description: 'Click + Add Action to add your first action',
           type: 'chain_placeholder',
-          isTrigger: false,
-          hasAddButton: true,
-          config: {},
-          onConfigure: () => {
-            if (onOpenActionDialog) {
-              onOpenActionDialog()
-            }
-          },
-          // No delete for chain placeholder - it should always be present
-          onAddToChain: (nodeId: string) => handleAddToChainRef.current?.(nodeId),
-          onAddAction: () => {
+          parentId: 'ai-agent',
+          parentAIAgentId: 'ai-agent',
+          onClick: () => {
+            console.log('Chain placeholder clicked in AI Agent builder')
             // Capture the chain ID to avoid closure issues
             const chainId = defaultChainId
-            console.log('🔥 [AIAgentVisualChainBuilder] onAddAction called for chain:', chainId)
             if (onActionSelect) {
               console.log('🔥 [AIAgentVisualChainBuilder] Setting callback via onActionSelect')
               // Set the callback first - now expecting the full action object
-              // Wrap in a function that guards against being called immediately
               const callbackFn = (action: any, config?: any) => {
                 console.log('🔥 [AIAgentVisualChainBuilder] Callback invoked with action:', action, 'config:', config, 'for chain:', chainId)
                 if (action && action.type) {  // Ensure we have a valid action with a type
@@ -1487,8 +1482,7 @@ function AIAgentVisualChainBuilder({
               console.log('🔥 [AIAgentVisualChainBuilder] Opening dialog via onOpenActionDialog')
               onOpenActionDialog()
             }
-          },
-          isLastInChain: true
+          }
         }
       }
     ]
