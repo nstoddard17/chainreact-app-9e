@@ -911,9 +911,17 @@ export function useWorkflowBuilder() {
   const handleConfigureNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)
     if (node && configHook.setConfiguringNode) {
+      // Try to find nodeComponent if not already set
+      let nodeComponent = node.data?.nodeComponent
+      if (!nodeComponent && node.data?.type) {
+        // Import ALL_NODE_COMPONENTS if needed
+        const { ALL_NODE_COMPONENTS } = require('@/lib/workflows/nodes')
+        nodeComponent = ALL_NODE_COMPONENTS.find(nc => nc.type === node.data.type)
+      }
+
       configHook.setConfiguringNode({
         id: nodeId,
-        nodeComponent: node.data?.nodeComponent,
+        nodeComponent: nodeComponent,
         integration: node.data?.integration,
         config: node.data?.config || {}
       })
