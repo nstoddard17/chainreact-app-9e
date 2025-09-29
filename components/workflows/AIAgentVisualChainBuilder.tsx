@@ -81,7 +81,8 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
     onConfigure,
     onDelete,
     onAddAction,
-    error
+    error,
+    parentChainIndex
   } = data as CustomNodeData
 
   // Debug logging for handle positioning
@@ -150,6 +151,14 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
       data-testid={`node-${id}`}
       onDoubleClick={handleDoubleClick}
     >
+      {/* Chain badge for nodes that are part of a chain */}
+      {parentChainIndex !== undefined && !isTrigger && !isAIAgent && type !== 'chain_placeholder' && (
+        <div className="absolute -top-3 right-4 z-10">
+          <span className="bg-purple-100 text-purple-900 border border-purple-300 text-xs font-medium px-2 py-0.5 rounded-full">
+            Chain #{parentChainIndex + 1}
+          </span>
+        </div>
+      )}
       {error && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
@@ -1034,17 +1043,23 @@ function AIAgentVisualChainBuilder({
               // If this is the only chain, add a chain_placeholder
               if (chainCount === 1) {
                 console.log('✨ [AIAgentVisualChainBuilder] Only chain emptied, adding chain_placeholder')
-                
+
                 // Create a chain placeholder node
                 const placeholderNodeId = `chain-default-${Date.now()}`
                 const deletedNodePosition = currentNodes.find(n => n.id === nodeId)?.position || { x: 400, y: 400 }
-                
+
+                // Determine which chain number this was
+                const edgeToNode = currentEdges.find(e => e.target === nodeId && e.source === 'ai-agent')
+                const chainNumber = edgeToNode ?
+                  aiAgentEdges.findIndex(e => e.id === edgeToNode.id) + 1 :
+                  1
+
                 const placeholderNode: Node = {
                   id: placeholderNodeId,
                   type: 'custom',
                   position: deletedNodePosition,
                   data: {
-                    title: 'Chain 1',
+                    title: `Chain ${chainNumber}`,
                     description: 'Click + Add Action to add your first action',
                     type: 'chain_placeholder',
                     isTrigger: false,
@@ -1840,6 +1855,17 @@ function AIAgentVisualChainBuilder({
           titleSource: actionTitle ? 'action object' : (config?.title ? 'config' : 'actionType fallback')
         })
         
+        // Find which chain this node belongs to by tracing back to AI Agent
+        let chainIndex = 0
+        setEdges((currentEdges) => {
+          const aiAgentEdges = currentEdges.filter(e => e.source === 'ai-agent')
+          const edgeToChain = currentEdges.find(e => e.target === chainId && e.source === 'ai-agent')
+          if (edgeToChain) {
+            chainIndex = aiAgentEdges.findIndex(e => e.id === edgeToChain.id)
+          }
+          return currentEdges
+        })
+
         // Create the action node at the same position as the chain placeholder
         const newNode: Node = {
           id: newNodeId,
@@ -1851,6 +1877,7 @@ function AIAgentVisualChainBuilder({
             type: actionType,
             providerId: providerId,
             config: config || {},  // Include the AI config or manual config
+            parentChainIndex: chainIndex >= 0 ? chainIndex : undefined,  // Add chain index
             onConfigure: () => handleConfigureNode(newNodeId),
             onDelete: () => handleDeleteNodeRef.current?.(newNodeId),
             onAddToChain: (nodeId: string) => handleAddToChain(nodeId),
@@ -2264,8 +2291,12 @@ function AIAgentVisualChainBuilder({
     }
     console.log('✅ [AIAgentVisualChainBuilder] Found AI Agent node:', aiAgentNode.id)
     
+    // Count all chains (both placeholders and actual chains with nodes)
+    const aiAgentEdges = edges.filter(e => e.source === 'ai-agent')
+    const totalChainCount = aiAgentEdges.length
+
     // Find existing chain placeholder nodes only (not action nodes within chains)
-    const chainPlaceholders = nodes.filter(n => 
+    const chainPlaceholders = nodes.filter(n =>
       n.data?.type === 'chain_placeholder'
     )
     
@@ -2309,7 +2340,7 @@ function AIAgentVisualChainBuilder({
       type: 'custom',
       position: { x: newX, y: newY },
       data: {
-        title: `Chain ${chainPlaceholders.length + 1}`,
+        title: `Chain ${totalChainCount + 1}`,
         description: 'Click + Add Action to add your first action',
         type: 'chain_placeholder',
         isTrigger: false,
