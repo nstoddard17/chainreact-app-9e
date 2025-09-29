@@ -286,10 +286,62 @@ function WorkflowBuilderContent() {
       {/* Configuration Modals */}
       {configuringNode && (
         configuringNode.nodeComponent.type === 'ai_agent' ? (
-          <AIAgentConfigModal
-            isOpen={!!configuringNode}
-            onClose={() => setConfiguringNode(null)}
-            onSave={async (config) => {
+          (() => {
+            // Extract chain nodes and edges for this AI Agent
+            let workflowData = { nodes: [], edges: [] }
+            let initialData = configuringNode.config || {}
+
+            // If this is an existing AI Agent, extract its chain nodes from the workflow
+            if (configuringNode.id !== 'pending-action') {
+              const chainNodes = nodes.filter(n =>
+                n.data?.parentAIAgentId === configuringNode.id &&
+                n.data?.type !== 'addAction'
+              )
+
+              const chainNodeIds = new Set(chainNodes.map(n => n.id))
+              const chainEdges = edges.filter(e =>
+                chainNodeIds.has(e.source) || chainNodeIds.has(e.target)
+              )
+
+              // Convert to chain builder format (removing AI Agent ID prefix from node IDs)
+              const aiAgentPrefix = `${configuringNode.id}-`
+              workflowData = {
+                nodes: chainNodes.map(node => ({
+                  id: node.id.startsWith(aiAgentPrefix) ?
+                    node.id.substring(aiAgentPrefix.length) :
+                    node.id,
+                  type: node.data?.type || node.type,
+                  position: node.position,
+                  data: {
+                    ...node.data,
+                    label: node.data?.label,
+                    config: node.data?.config,
+                    parentChainIndex: node.data?.parentChainIndex
+                  }
+                })),
+                edges: chainEdges.map(edge => ({
+                  id: edge.id,
+                  source: edge.source.startsWith(aiAgentPrefix) ?
+                    edge.source.substring(aiAgentPrefix.length) :
+                    edge.source,
+                  target: edge.target.startsWith(aiAgentPrefix) ?
+                    edge.target.substring(aiAgentPrefix.length) :
+                    edge.target,
+                  type: edge.type
+                }))
+              }
+
+              console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
+            }
+
+            return (
+              <AIAgentConfigModal
+                isOpen={!!configuringNode}
+                onClose={() => setConfiguringNode(null)}
+                initialData={initialData}
+                workflowData={workflowData}
+                currentNodeId={configuringNode.id}
+                onSave={async (config) => {
               console.log('🔴 [AI Agent Save] Config received:', config)
               console.log('🔴 [AI Agent Save] chainsLayout:', config.chainsLayout)
               console.log('🔴 [AI Agent Save] pendingNode:', pendingNode)
@@ -377,7 +429,19 @@ function WorkflowBuilderContent() {
                       return !isChainNode
                     })
 
-                    // Group nodes by chain index to preserve chain structure
+                    // Get AI Agent position from chain builder (if available)
+                    const aiAgentPositionInBuilder = chainsLayout.aiAgentPosition || { x: 400, y: 200 }
+
+                    // Calculate offset between chain builder AI Agent position and workflow AI Agent position
+                    const offsetX = aiAgentNode.position.x - aiAgentPositionInBuilder.x
+                    const offsetY = aiAgentNode.position.y - aiAgentPositionInBuilder.y
+
+                    console.log('🎯 [AI Agent Save] Position offset calculation:')
+                    console.log('  - AI Agent in workflow:', aiAgentNode.position)
+                    console.log('  - AI Agent in builder:', aiAgentPositionInBuilder)
+                    console.log('  - Offset:', { x: offsetX, y: offsetY })
+
+                    // Group nodes by chain index to identify last node in each chain
                     const nodesByChain = new Map<number, any[]>()
                     actualActionNodes.forEach((chainNode: any) => {
                       const chainIndex = chainNode.parentChainIndex || 0
@@ -387,77 +451,75 @@ function WorkflowBuilderContent() {
                       nodesByChain.get(chainIndex)?.push(chainNode)
                     })
 
-                    // Add the new chain nodes from chainsLayout
+                    // Sort each chain's nodes by Y position
+                    nodesByChain.forEach((nodes) => {
+                      nodes.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0))
+                    })
+
+                    // Add the new chain nodes from chainsLayout with exact positions
                     const allChainNodes: any[] = []
                     const addActionNodes: any[] = []
 
-                    nodesByChain.forEach((chainNodes, chainIndex) => {
-                      // Sort nodes in each chain by their Y position to maintain order
-                      chainNodes.sort((a, b) => (a.position?.y || 0) - (b.position?.y || 0))
+                    actualActionNodes.forEach((chainNode: any) => {
+                      console.log('📦 [Chain Node] Original node from chainsLayout:', chainNode)
+                      console.log('📦 [Chain Node] Original position:', chainNode.position)
 
-                      // Position each chain relative to AI Agent
-                      const chainXOffset = 300 * (chainIndex + 1) // Space chains horizontally
+                      const nodeData = {
+                        type: chainNode.type || 'unknown',
+                        title: chainNode.title || 'Action',
+                        description: chainNode.description || '',
+                        providerId: chainNode.providerId,
+                        config: chainNode.config || {},
+                        isAIAgentChild: true,
+                        parentAIAgentId: aiAgentNodeId,
+                        parentChainIndex: chainNode.parentChainIndex || 0,
+                        // Add handlers
+                        onConfigure: () => handleConfigureNode(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`),
+                        onDelete: () => handleDeleteNodeWithConfirmation(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`)
+                      }
 
-                      chainNodes.forEach((chainNode: any, nodeIndex: number) => {
-                        console.log('📦 [Chain Node] Original node from chainsLayout:', chainNode)
-                        console.log('📦 [Chain Node] Node type:', chainNode.type)
-                        console.log('📦 [Chain Node] Node title:', chainNode.title)
-                        console.log('📦 [Chain Node] Original position:', chainNode.position)
+                      const newNodeId = `${aiAgentNodeId}-${chainNode.id}-${timestamp}`
+                      const newNode = {
+                        ...chainNode,
+                        id: newNodeId,
+                        type: 'custom', // ReactFlow node type
+                        position: {
+                          // Use exact position from chain builder with offset applied
+                          x: (chainNode.position?.x || 0) + offsetX,
+                          y: (chainNode.position?.y || 0) + offsetY
+                        },
+                        data: nodeData
+                      }
 
-                        // Use relative positioning from chain builder
-                        const nodeData = {
-                          type: chainNode.type || 'unknown',
-                          title: chainNode.title || 'Action',
-                          description: chainNode.description || '',
-                          providerId: chainNode.providerId,
-                          config: chainNode.config || {},
-                          isAIAgentChild: true,
-                          parentAIAgentId: aiAgentNodeId,
-                          parentChainIndex: chainIndex,
-                          // Add handlers
-                          onConfigure: () => handleConfigureNode(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`),
-                          onDelete: () => handleDeleteNodeWithConfirmation(`${aiAgentNodeId}-${chainNode.id}-${timestamp}`)
-                        }
+                      console.log('📦 [Chain Node] New node created at position:', newNode.position)
+                      allChainNodes.push(newNode)
 
-                        const newNodeId = `${aiAgentNodeId}-${chainNode.id}-${timestamp}`
-                        const newNode = {
-                          ...chainNode,
-                          id: newNodeId,
-                          type: 'custom', // ReactFlow node type
+                      // Check if this is the last node in its chain
+                      const chainIndex = chainNode.parentChainIndex || 0
+                      const chainNodes = nodesByChain.get(chainIndex) || []
+                      const isLastInChain = chainNodes[chainNodes.length - 1]?.id === chainNode.id
+
+                      if (isLastInChain) {
+                        const addActionId = `add-action-${newNodeId}`
+                        const addActionNode = {
+                          id: addActionId,
+                          type: 'addAction',
                           position: {
-                            // Use the position from chain builder relative to AI Agent
-                            x: aiAgentNode.position.x + (chainNode.position?.x || chainXOffset),
-                            y: aiAgentNode.position.y + 200 + (nodeIndex * 120) // Stack nodes vertically in chain
+                            x: newNode.position.x,
+                            y: newNode.position.y + 150  // Added spacing between nodes
                           },
-                          data: nodeData
-                        }
-
-                        console.log('📦 [Chain Node] New node created:', newNode)
-                        allChainNodes.push(newNode)
-
-                        // Add an AddAction node after the last node in each chain
-                        if (nodeIndex === chainNodes.length - 1) {
-                          const addActionId = `add-action-${newNodeId}`
-                          const addActionNode = {
-                            id: addActionId,
-                            type: 'addAction',
-                            position: {
-                              x: newNode.position.x,
-                              y: newNode.position.y + 120
-                            },
-                            data: {
-                              parentId: newNodeId,
-                              parentAIAgentId: aiAgentNodeId,
-                              parentChainIndex: chainIndex,
-                              onClick: () => {
-                                // This will be handled by the workflow builder
-                                console.log('Add action to chain', chainIndex, 'after', newNodeId)
-                              }
+                          data: {
+                            parentId: newNodeId,
+                            parentAIAgentId: aiAgentNodeId,
+                            parentChainIndex: chainIndex,
+                            onClick: () => {
+                              // This will be handled by the workflow builder
+                              console.log('Add action to chain', chainIndex, 'after', newNodeId)
                             }
                           }
-                          addActionNodes.push(addActionNode)
                         }
-                      })
+                        addActionNodes.push(addActionNode)
+                      }
                     })
 
                     console.log('🟢 [AI Agent Save] Adding', allChainNodes.length, 'chain nodes and', addActionNodes.length, 'add action nodes')
@@ -567,6 +629,8 @@ function WorkflowBuilderContent() {
             initialData={configuringNode.config}
             onActionSelect={aiAgentActionCallback ? (action) => aiAgentActionCallback(action.type, action.providerId, action.config) : undefined}
           />
+            )
+          })()
         ) : (
           <ConfigurationModal
             isOpen={!!configuringNode}
