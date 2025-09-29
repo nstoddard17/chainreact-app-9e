@@ -267,12 +267,19 @@ export function useIntegrationSelection() {
     searchQuery: string
   ) => {
     if (!selectedIntegration) return []
-    
-    return selectedIntegration.triggers.filter(trigger =>
-      !searchQuery || 
-      trigger.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (trigger.description && trigger.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
+
+    return selectedIntegration.triggers.filter(trigger => {
+      if (!trigger) return false
+
+      const triggerName = trigger.name || trigger.title || ''
+      const triggerDescription = trigger.description || ''
+
+      if (!searchQuery) return true
+
+      const query = searchQuery.toLowerCase()
+      return triggerName.toLowerCase().includes(query) ||
+             triggerDescription.toLowerCase().includes(query)
+    })
   }, [])
 
   const getDisplayedActions = useCallback((
@@ -280,12 +287,19 @@ export function useIntegrationSelection() {
     searchQuery: string
   ) => {
     if (!selectedIntegration) return []
-    
-    return selectedIntegration.actions.filter(action =>
-      !searchQuery || 
-      action.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (action.description && action.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
+
+    return selectedIntegration.actions.filter(action => {
+      if (!action) return false
+
+      const actionName = action.name || action.title || ''
+      const actionDescription = action.description || ''
+
+      if (!searchQuery) return true
+
+      const query = searchQuery.toLowerCase()
+      return actionName.toLowerCase().includes(query) ||
+             actionDescription.toLowerCase().includes(query)
+    })
   }, [])
 
   const renderLogo = useCallback((integrationId: string, name?: string) => {

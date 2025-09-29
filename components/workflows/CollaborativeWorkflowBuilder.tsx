@@ -270,6 +270,7 @@ function WorkflowBuilderContent() {
               handleAddAction,
               handleSave
             )}
+            workflowData={{ nodes, edges, id: currentWorkflow?.id }}
             currentNodeId={configuringNode.id}
             initialData={configuringNode.config}
             onActionSelect={aiAgentActionCallback ? (action) => aiAgentActionCallback(action.type, action.providerId, action.config) : undefined}
@@ -283,7 +284,7 @@ function WorkflowBuilderContent() {
               const isPendingTrigger = configuringNode.id === 'pending-trigger'
               const isPendingAction = configuringNode.id === 'pending-action'
               setConfiguringNode(null)
-              
+
               if (isPendingTrigger) {
                 setShowTriggerDialog(true)
               } else if (isPendingAction) {
@@ -293,6 +294,8 @@ function WorkflowBuilderContent() {
             nodeInfo={configuringNode.nodeComponent}
             integrationName={configuringNode.integration?.name || ''}
             initialData={configuringNode.config}
+            workflowData={{ nodes, edges, id: currentWorkflow?.id }}
+            currentNodeId={configuringNode.id}
             onSave={(config) => handleSaveConfiguration(
               { id: configuringNode.id },
               config,
