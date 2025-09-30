@@ -1481,7 +1481,7 @@ export function useWorkflowBuilder() {
               type: 'position',
               position: {
                 x: change.position.x,
-                y: change.position.y + 120 // Keep 120px below parent
+                y: change.position.y + 160 // Keep 160px below parent (consistent with node creation)
               }
             })
           }

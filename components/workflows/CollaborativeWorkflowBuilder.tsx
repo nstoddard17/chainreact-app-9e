@@ -827,7 +827,7 @@ function WorkflowBuilderContent() {
                           type: 'addAction',
                           position: {
                             x: newNode.position.x,
-                            y: newNode.position.y + 150  // Added spacing between nodes
+                            y: newNode.position.y + 160  // Consistent 160px spacing for all Add Action nodes
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {

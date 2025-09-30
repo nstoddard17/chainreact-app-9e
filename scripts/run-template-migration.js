@@ -61,6 +61,7 @@ async function runMigration() {
               isTrigger: true
             },
             title: "New Discord Message",
+            description: "Triggers when a new message is posted in a Discord channel.",
             config: {
               channelId: "",
               includeBot: false
@@ -74,10 +75,11 @@ async function runMigration() {
         {
           id: "ai-agent-1",
           type: "custom",
-          position: { x: 750, y: 220 },
+          position: { x: 750, y: 280 },
           data: {
             type: "ai_agent",
             title: "AI Customer Service Agent",
+            description: "An AI agent that can use other integrations as tools to accomplish goals",
             config: {
               model: "gpt-4o-mini",
               temperature: 0.7,
@@ -132,10 +134,11 @@ async function runMigration() {
         {
           id: "chain-1-airtable-create",
           type: "custom",
-          position: { x: 200, y: 450 },
+          position: { x: 200, y: 530 },
           data: {
             type: "airtable_action_create_record",
             title: "Create Support Ticket",
+            description: "Create a new record in a table",
             parentChainIndex: 0,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
@@ -160,10 +163,11 @@ async function runMigration() {
         {
           id: "chain-1-discord-notify",
           type: "custom",
-          position: { x: 200, y: 650 },
+          position: { x: 200, y: 730 },
           data: {
             type: "discord_action_send_message",
             title: "Notify Support Team",
+            description: "Sends a message to a Discord channel.",
             parentChainIndex: 0,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
@@ -180,10 +184,11 @@ async function runMigration() {
         {
           id: "chain-2-airtable-create",
           type: "custom",
-          position: { x: 750, y: 450 },
+          position: { x: 750, y: 530 },
           data: {
             type: "airtable_action_create_record",
             title: "Store Feedback",
+            description: "Create a new record in a table",
             parentChainIndex: 1,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
@@ -208,10 +213,11 @@ async function runMigration() {
         {
           id: "chain-2-discord-notify",
           type: "custom",
-          position: { x: 750, y: 650 },
+          position: { x: 750, y: 730 },
           data: {
             type: "discord_action_send_message",
             title: "Notify Feedback Team",
+            description: "Sends a message to a Discord channel.",
             parentChainIndex: 1,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
@@ -228,10 +234,11 @@ async function runMigration() {
         {
           id: "chain-3-airtable-create",
           type: "custom",
-          position: { x: 1300, y: 450 },
+          position: { x: 1300, y: 530 },
           data: {
             type: "airtable_action_create_record",
             title: "Add to Newsletter",
+            description: "Create a new record in a table",
             parentChainIndex: 2,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
@@ -256,10 +263,11 @@ async function runMigration() {
         {
           id: "chain-3-gmail-send",
           type: "custom",
-          position: { x: 1300, y: 650 },
+          position: { x: 1300, y: 730 },
           data: {
-            type: "gmail_action_send",
+            type: "gmail_action_send_email",
             title: "Send Welcome Email",
+            description: "Compose and send an email through your Gmail account",
             parentChainIndex: 2,
             parentAIAgentId: "ai-agent-1",
             isAIAgentChild: true,
