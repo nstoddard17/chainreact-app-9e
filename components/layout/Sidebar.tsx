@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import {
   LayoutDashboard,
-  Workflow,
   Puzzle,
   BarChart3,
   Building2,
@@ -23,14 +22,16 @@ import {
   Webhook,
   Clock,
   MessageSquare,
-  LifeBuoy,
   Sparkles,
-  UsersRound,
+  Headphones,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/authStore"
+import { WorkflowsIcon } from "@/components/icons/WorkflowsIcon"
+import { TeamsIcon } from "@/components/icons/TeamsIcon"
+import { CommunityIcon } from "@/components/icons/CommunityIcon"
 import { canAccessPage, type UserRole, getRoleInfo, hasPermission } from "@/lib/utils/roles"
 import { Badge } from "@/components/ui/badge"
 import { UpgradeOverlay } from "@/components/ui/upgrade-overlay"
@@ -51,18 +52,18 @@ interface SidebarProps {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, minRole: 'free' },
   { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles, minRole: 'free', comingSoon: true },
-  { name: "Workflows", href: "/workflows", icon: Workflow, minRole: 'free' },
+  { name: "Workflows", href: "/workflows", icon: WorkflowsIcon, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
   { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro', comingSoon: true },
   { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro', comingSoon: true },
-  { name: "Teams", href: "/teams", icon: UsersRound, minRole: 'business' },
+  { name: "Teams", href: "/teams", icon: TeamsIcon, minRole: 'business' },
   { name: "Enterprise", href: "/enterprise", icon: Shield, minRole: 'enterprise' },
 ]
 
 const supportNavigation = [
   { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free', comingSoon: true },
-  { name: "Community", href: "/community", icon: MessageSquare, minRole: 'free', comingSoon: true },
-  { name: "Support", href: "/support", icon: LifeBuoy, minRole: 'free' },
+  { name: "Community", href: "/community", icon: CommunityIcon, minRole: 'free', comingSoon: true },
+  { name: "Support", href: "/support", icon: Headphones, minRole: 'free' },
 ]
 
 const adminNavigation = [

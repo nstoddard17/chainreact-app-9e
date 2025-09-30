@@ -304,21 +304,21 @@ export function ActionSelectionDialog({
                   const isConnected = isIntegrationConnected(integration.id)
                   const integrationData = getIntegrationByProvider(integration.id)
                   const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
-                  
-                  // Debug logging for all integrations
-                  console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, needsReauth: ${needsReauth}, status: ${integrationData?.status}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
-                  
-                  // Special debug for Discord
-                  if (integration.id === 'discord') {
-                    console.log('Discord integration details:', {
-                      id: integration.id,
-                      isConnected,
-                      needsReauth,
-                      status: integrationData?.status,
-                      isSystemIntegration: ['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id),
-                      showConnectButton: (!isConnected || needsReauth) && !['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id)
-                    })
-                  }
+
+                  // Debug logging (commented out to reduce console noise)
+                  // console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, needsReauth: ${needsReauth}, status: ${integrationData?.status}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
+
+                  // Special debug for Discord (commented out to reduce console noise)
+                  // if (integration.id === 'discord') {
+                  //   console.log('Discord integration details:', {
+                  //     id: integration.id,
+                  //     isConnected,
+                  //     needsReauth,
+                  //     status: integrationData?.status,
+                  //     isSystemIntegration: ['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id),
+                  //     showConnectButton: (!isConnected || needsReauth) && !['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id)
+                  //   })
+                  // }
                   
                   return (
                     <div
