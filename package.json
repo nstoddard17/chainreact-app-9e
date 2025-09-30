@@ -24,7 +24,7 @@
     "@ai-sdk/openai": "latest",
     "@anthropic-ai/sdk": "^0.64.0",
     "@aws-sdk/client-rds-data": "latest",
-    "@cloudflare/workers-types": "latest",
+    "@cloudflare/workers-types": "4.20250909.0",
     "@electric-sql/pglite": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@libsql/client": "latest",
