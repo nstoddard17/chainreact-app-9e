@@ -146,6 +146,10 @@ function WorkflowBuilderContent() {
     handleRedo,
     canUndo,
     canRedo,
+
+    // Navigation handlers
+    handleSaveAndNavigate,
+    handleNavigateWithoutSaving,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -1177,8 +1181,8 @@ function WorkflowBuilderContent() {
       <UnsavedChangesModal
         open={showUnsavedChangesModal}
         onOpenChange={setShowUnsavedChangesModal}
-        onSave={() => handleSave().then(() => setShowUnsavedChangesModal(false))}
-        onDiscard={() => setShowUnsavedChangesModal(false)}
+        onSave={handleSaveAndNavigate(handleSave)}
+        onDiscard={handleNavigateWithoutSaving}
       />
 
       {/* Node Deletion Modal */}
