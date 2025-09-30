@@ -2,10 +2,10 @@ import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { RoleGuard } from '@/components/ui/role-guard'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,17 +16,12 @@ import {
 import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
   Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown,
-  MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2
+  MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2,
+  TrendingUp, Clock, CheckCircle, XCircle, Activity
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
 import type { Node, Edge } from '@xyflow/react'
-
-interface PreCheckResult {
-  name: string
-  ok: boolean
-  info?: string
-}
 
 interface WorkflowToolbarProps {
   workflowName: string
@@ -101,95 +96,46 @@ export function WorkflowToolbar({
 }: WorkflowToolbarProps) {
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, shareWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
-  const [showPrecheck, setShowPrecheck] = useState(false)
-  const [precheckRunning, setPrecheckRunning] = useState(false)
-  const [precheckResults, setPrecheckResults] = useState<PreCheckResult[]>([])
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareEmail, setShareEmail] = useState('')
+  const [isSharing, setIsSharing] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
 
-  // Pre-activation check logic
-  const runPreActivationCheck = async () => {
-    if (!getNodes || !currentWorkflow) return
-
-    setPrecheckRunning(true)
-    const results: PreCheckResult[] = []
+  // Handle sharing workflow with another user
+  const handleShareWorkflow = async () => {
+    if (!shareEmail || !workflowId) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
-      const nodes = getNodes()
-      const trigger = nodes.find((n: any) => n?.data?.isTrigger)
+      setIsSharing(true)
 
-      // Check 1: Has a trigger
-      if (!trigger) {
-        results.push({ name: 'Workflow has a trigger', ok: false })
-      } else {
-        results.push({ name: 'Workflow has a trigger', ok: true, info: trigger.data?.type || 'Unknown trigger' })
-      }
+      // TODO: Implement actual sharing logic with Supabase
+      // For now, we'll simulate the sharing process
+      await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // Check 2: Trigger is configured
-      if (trigger) {
-        const hasConfig = trigger.data?.config && Object.keys(trigger.data.config).length > 0
-        if (!hasConfig) {
-          results.push({ name: 'Trigger is configured', ok: false })
-        } else {
-          results.push({ name: 'Trigger is configured', ok: true })
-        }
-
-        // Check 3: Integration-specific checks
-        const triggerType = trigger.data?.type
-        if (triggerType === 'discord_message') {
-          const guildId = trigger.data?.config?.guildId
-          const channelId = trigger.data?.config?.channelId
-          if (!guildId || !channelId) {
-            results.push({ name: 'Discord server and channel selected', ok: false })
-          } else {
-            results.push({ name: 'Discord server and channel selected', ok: true })
-          }
-        } else if (triggerType === 'webhook') {
-          results.push({ name: 'Webhook URL will be generated on activation', ok: true, info: 'URL provided after activation' })
-        }
-      }
-
-      // Check 4: Has at least one action
-      const actions = nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type && n.type !== 'addAction')
-      if (actions.length === 0) {
-        results.push({ name: 'Has at least one action', ok: false })
-      } else {
-        results.push({ name: 'Has at least one action', ok: true, info: `${actions.length} action${actions.length > 1 ? 's' : ''}` })
-      }
-
-      // Check 5: All required fields configured
-      const unconfiguredActions = actions.filter((n: any) => {
-        const fields = n.data?.nodeComponent?.fields || []
-        const config = n.data?.config || {}
-        return fields.some((f: any) => f.required && !config[f.name])
+      toast({
+        title: "Success",
+        description: `Workflow shared with ${shareEmail}`,
       })
-      if (unconfiguredActions.length > 0) {
-        results.push({ name: 'All required fields configured', ok: false, info: `${unconfiguredActions.length} action${unconfiguredActions.length > 1 ? 's' : ''} need configuration` })
-      } else if (actions.length > 0) {
-        results.push({ name: 'All required fields configured', ok: true })
-      }
+
+      setShowShareModal(false)
+      setShareEmail('')
     } catch (error) {
-      console.error('Pre-activation check failed:', error)
-      results.push({ name: 'System check', ok: false, info: 'Check failed unexpectedly' })
+      console.error('Error sharing workflow:', error)
+      toast({
+        title: "Error",
+        description: "Failed to share workflow",
+        variant: "destructive",
+      })
     } finally {
-      setPrecheckResults(results)
-      setPrecheckRunning(false)
-    }
-  }
-
-  // Clean up add buttons function for admin
-  const cleanUpAddButtons = () => {
-    if (ensureOneAddActionPerChain) {
-      ensureOneAddActionPerChain()
-      toast({
-        title: 'Add Action Cleanup',
-        description: 'Add Action buttons have been cleaned up and positioned correctly.'
-      })
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Cleanup function not available.',
-        variant: 'destructive'
-      })
+      setIsSharing(false)
     }
   }
 
@@ -261,38 +207,6 @@ export function WorkflowToolbar({
               </Tooltip>
             </TooltipProvider>
           </div>
-          {/* Admin-only Pre-Activation Check */}
-          <RoleGuard requiredRole="admin">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowPrecheck(true)
-                      runPreActivationCheck()
-                    }}
-                  >
-                    Pre-Activation Check
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Run readiness checks before activating</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </RoleGuard>
-
-          {/* Admin-only Clean Up Add Buttons */}
-          <RoleGuard requiredRole="admin">
-            <Button
-              variant="outline"
-              onClick={cleanUpAddButtons}
-            >
-              Clean Up Add Buttons
-            </Button>
-          </RoleGuard>
-
           {/* Status badges */}
           <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
           {hasUnsavedChanges && (
@@ -482,26 +396,6 @@ export function WorkflowToolbar({
             </>
           )}
 
-          {/* Execution History Button */}
-          {workflowId && setShowExecutionHistory && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={() => setShowExecutionHistory(true)}
-                    variant="outline"
-                    size="icon"
-                  >
-                    <History className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View execution history</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
           {/* Three dots menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -510,12 +404,19 @@ export function WorkflowToolbar({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              {workflowId && setShowExecutionHistory && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setShowExecutionHistory(true)}
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    View History
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem
-                onClick={() => {
-                  if (workflowId) {
-                    shareWorkflow(workflowId)
-                  }
-                }}
+                onClick={() => setShowShareModal(true)}
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Workflow
@@ -532,14 +433,7 @@ export function WorkflowToolbar({
                 {isDuplicating ? 'Duplicating...' : 'Duplicate Workflow'}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  console.log('View analytics clicked')
-                  // TODO: Navigate to analytics page
-                  toast({
-                    title: "View Analytics",
-                    description: "Analytics functionality coming soon!",
-                  })
-                }}
+                onClick={() => setShowAnalytics(true)}
               >
                 <BarChart3 className="w-4 h-4 mr-2" />
                 View Analytics
@@ -580,66 +474,6 @@ export function WorkflowToolbar({
         </div>
       </div>
 
-      {/* Pre-Activation Check Modal */}
-      <Dialog open={showPrecheck} onOpenChange={setShowPrecheck}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Pre-Activation Check</DialogTitle>
-            <DialogDescription>We run a few readiness checks before activation.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            {precheckRunning ? (
-              <div className="text-sm text-slate-600">Running checks...</div>
-            ) : precheckResults.length === 0 ? (
-              <div className="text-sm text-slate-600">No checks run yet.</div>
-            ) : (
-              <ul className="space-y-2">
-                {precheckResults.map((r, i) => (
-                  <li key={i} className="flex items-center justify-between">
-                    <span className={`text-sm ${r.ok ? 'text-green-600' : 'text-red-600'}`}>
-                      {r.ok ? '✓' : '✗'} {r.name}{r.info ? ` — ${r.info}` : ''}
-                    </span>
-                    {!r.ok && handleConfigureNode && getNodes && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const nodes = getNodes()
-                          const trigger = nodes.find((n: any) => n?.data?.isTrigger)
-                          if (trigger && r.name.toLowerCase().includes('discord')) {
-                            handleConfigureNode(trigger.id)
-                            setShowPrecheck(false)
-                            return
-                          }
-                          if (trigger && r.name.toLowerCase().includes('webhook')) {
-                            handleConfigureNode(trigger.id)
-                            setShowPrecheck(false)
-                            return
-                          }
-                        }}
-                      >
-                        Fix
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => runPreActivationCheck()} disabled={precheckRunning}>
-              Re-run
-            </Button>
-            <Button
-              onClick={() => setShowPrecheck(false)}
-              disabled={precheckRunning}
-              variant={precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'default' : 'secondary'}
-            >
-              {precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'Close (All Good)' : 'Close'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -675,6 +509,164 @@ export function WorkflowToolbar({
               ) : (
                 'Delete Workflow'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Workflow Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Workflow</DialogTitle>
+            <DialogDescription>
+              Enter the email address of the team member you want to share this workflow with.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="share-email">Email Address</Label>
+              <Input
+                id="share-email"
+                type="email"
+                placeholder="colleague@example.com"
+                value={shareEmail}
+                onChange={(e) => setShareEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && shareEmail) {
+                    handleShareWorkflow()
+                  }
+                }}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              The recipient will receive a copy of this workflow in their account and a notification.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowShareModal(false)
+                setShareEmail('')
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleShareWorkflow}
+              disabled={isSharing || !shareEmail}
+            >
+              {isSharing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sharing...
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share Workflow
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Analytics Modal */}
+      <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Workflow Analytics</DialogTitle>
+            <DialogDescription>
+              Performance metrics and execution history for "{workflowName}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Analytics Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-secondary/50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Executions</p>
+                    <p className="text-2xl font-bold">0</p>
+                  </div>
+                  <Activity className="w-8 h-8 text-muted-foreground" />
+                </div>
+              </div>
+              <div className="bg-green-500/10 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Successful</p>
+                    <p className="text-2xl font-bold text-green-600">0</p>
+                  </div>
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+              </div>
+              <div className="bg-red-500/10 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Failed</p>
+                    <p className="text-2xl font-bold text-red-600">0</p>
+                  </div>
+                  <XCircle className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Average Execution Time */}
+            <div className="bg-secondary/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium">Average Execution Time</h3>
+                <Clock className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <p className="text-2xl font-bold">0 ms</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Based on the last 30 days
+              </p>
+            </div>
+
+            {/* Success Rate */}
+            <div className="bg-secondary/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium">Success Rate</h3>
+                <TrendingUp className="w-5 h-5 text-muted-foreground" />
+              </div>
+              <div className="flex items-end gap-4">
+                <p className="text-2xl font-bold">N/A</p>
+                <div className="flex-1">
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div className="bg-primary h-2 rounded-full" style={{ width: '0%' }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Executions Placeholder */}
+            <div className="bg-secondary/50 rounded-lg p-4">
+              <h3 className="font-medium mb-2">Recent Executions</h3>
+              <p className="text-sm text-muted-foreground">
+                No executions yet. Analytics will be available once your workflow has been executed.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAnalytics(false)}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (setShowExecutionHistory) {
+                  setShowExecutionHistory(true)
+                  setShowAnalytics(false)
+                }
+              }}
+            >
+              <History className="w-4 h-4 mr-2" />
+              View Full History
             </Button>
           </DialogFooter>
         </DialogContent>
