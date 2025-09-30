@@ -20,15 +20,36 @@ export async function executeAIAgentWithChains(
   try {
     const { userId, config, input, workflowContext } = params
 
-    console.log('🤖 AI Agent with chains execution started')
-    console.log('📋 Config:', JSON.stringify(config, null, 2))
-    console.log('📥 Input data:', JSON.stringify(input, null, 2))
+
+    // Get API key - try user's key first, fallback to platform key
+    let apiKey = process.env.OPENAI_API_KEY || '' // Platform key as default
+    let usingUserKey = false
+
+    if (config.selectedApiKeyId) {
+      // User has explicitly selected their own API key
+      const { getUserAPIKey } = await import('@/app/api/user/ai-api-keys/route')
+      const userApiKey = await getUserAPIKey(userId, config.selectedApiKeyId)
+
+      if (userApiKey) {
+        apiKey = userApiKey
+        usingUserKey = true
+      }
+    }
+
+    if (!apiKey) {
+      console.error('No API key available (neither user nor platform)')
+      return {
+        success: false,
+        error: 'No OpenAI API key available. Please configure platform API key or add your own in Settings.'
+      }
+    }
+
+    console.log(`🔑 Using ${usingUserKey ? 'user' : 'platform'} API key for AI Agent execution`)
 
     // Check AI usage limits
     const { checkUsageLimit, trackUsage } = await import('@/lib/usageTracking')
     const usageCheck = await checkUsageLimit(userId, 'ai_agent')
     if (!usageCheck.allowed) {
-      console.log('❌ AI usage limit exceeded for user:', userId)
       return {
         success: false,
         error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI agent executions this month. Please upgrade your plan for more AI usage.`
@@ -37,7 +58,6 @@ export async function executeAIAgentWithChains(
 
     // Validate chains are configured
     if (!config.chainsLayout?.chains || config.chainsLayout.chains.length === 0) {
-      console.log('⚠️ No chains configured for AI agent')
       return {
         success: false,
         error: 'No action chains configured. Please add chains to the AI agent.'
@@ -71,11 +91,10 @@ export async function executeAIAgentWithChains(
         conditions: chain.conditions
       })),
       config: {
-        model: config.model || 'gpt-4',
+        model: config.model || 'gpt-4o-mini',
         prompt: config.prompt || config.masterPrompt,
         temperature: config.temperature || 0.7,
-        apiSource: config.apiSource || 'chainreact',
-        apiKey: config.apiKey,
+        apiKey: apiKey, // Use user's key if provided, otherwise platform key
         autoSelectChain: config.autoSelectChain !== false,
         parallelExecution: config.parallelExecution || false
       },
@@ -88,41 +107,23 @@ export async function executeAIAgentWithChains(
       }
     }
 
-    console.log('🔧 Execution context built:', {
-      chains: context.chains.length,
-      nodes: context.chains.reduce((sum, c) => sum + c.nodes.length, 0),
-      model: context.config.model,
-      parallel: context.config.parallelExecution
-    })
 
     // Initialize components
     const decisionMaker = new AIDecisionMaker(context)
     const executionEngine = new ChainExecutionEngine(context)
 
     // Step 1: AI analyzes input and selects chains
-    console.log('🧠 Step 1: Analyzing input and selecting chains...')
     const chainSelection = await decisionMaker.analyzeAndRoute()
 
-    console.log('📊 Chain selection result:', {
-      selected: chainSelection.selectedChains.length,
-      unselected: chainSelection.unselectedChains.length,
-      parallel: chainSelection.executionPlan.parallel
-    })
+    console.log(`AI Agent selected ${chainSelection.selectedChains.length} chain(s) for execution`)
 
-    // Log reasoning for each selection
+    // Log only selected chains with reasoning
     chainSelection.selectedChains.forEach(chain => {
-      console.log(`  ✅ Selected: ${chain.chainId} (confidence: ${chain.confidence})`)
-      console.log(`     Reason: ${chain.reasoning}`)
-    })
-
-    chainSelection.unselectedChains.forEach(chain => {
-      console.log(`  ⏭️ Skipped: ${chain.chainId}`)
-      console.log(`     Reason: ${chain.reasoning}`)
+      console.log(`  ✅ ${chain.chainId}: ${chain.reasoning}`)
     })
 
     // Check if any chains were selected
     if (chainSelection.selectedChains.length === 0) {
-      console.log('⚠️ No chains selected for execution')
       return {
         success: true,
         output: {
@@ -134,17 +135,9 @@ export async function executeAIAgentWithChains(
     }
 
     // Step 2: Execute selected chains
-    console.log('⚡ Step 2: Executing selected chains...')
     const executionResult = await executionEngine.executeChains(chainSelection)
 
-    console.log('📋 Execution result:', {
-      successful: executionResult.chains.filter(c => c.success).length,
-      failed: executionResult.chains.filter(c => !c.success).length,
-      errors: executionResult.errors.length
-    })
-
     // Step 3: Generate summary
-    console.log('📝 Step 3: Generating execution summary...')
     const summary = await decisionMaker.summarizeExecution(executionResult, context)
 
     // Track AI usage
@@ -154,7 +147,7 @@ export async function executeAIAgentWithChains(
     })
 
     const executionTime = Date.now() - startTime
-    console.log(`✅ AI Agent execution completed in ${executionTime}ms`)
+    console.log(`AI Agent execution completed in ${executionTime}ms`)
 
     // Return results
     return {

@@ -9,6 +9,7 @@ import { Settings, CreditCard, Bell, Shield, Key, Trash2, Sparkles } from "lucid
 import BillingContent from "@/components/billing/BillingContent"
 import DataDeletionSettings from "./DataDeletionSettings"
 import AIUsageContent from "./AIUsageContent"
+import AIAPISettings from "./AIAPISettings"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
@@ -129,8 +130,8 @@ export default function SettingsContent() {
       subtitle: "Manage your privacy and data settings"
     },
     api: {
-      title: "API Keys",
-      subtitle: "Manage your API keys for programmatic access"
+      title: "AI API Configuration",
+      subtitle: "Manage your OpenAI API keys and model preferences"
     }
   }
 
@@ -164,7 +165,7 @@ export default function SettingsContent() {
             </TabsTrigger>
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
-              API Keys
+              AI API
             </TabsTrigger>
           </TabsList>
 
@@ -193,14 +194,7 @@ export default function SettingsContent() {
           </TabsContent>
 
           <TabsContent value="api" className="mt-6">
-            <Card className="bg-card rounded-2xl shadow-lg border border-border">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-card-foreground">API Keys</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Manage your API keys for programmatic access.</p>
-              </CardContent>
-            </Card>
+            <AIAPISettings />
           </TabsContent>
         </Tabs>
       </div>

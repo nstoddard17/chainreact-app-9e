@@ -49,6 +49,7 @@ import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
+import { APIKeySelector, ModelSelector } from './APIKeySelector'
 
 interface AIAgentConfigModalProps {
   isOpen: boolean
@@ -234,8 +235,7 @@ export function AIAgentConfigModal({
       title: 'AI Agent',
       systemPrompt: '',
       model: 'gpt-4o-mini',
-      apiSource: 'chainreact',
-      customApiKey: '',
+      selectedApiKeyId: '', // ID of the selected API key from user settings
       tone: 'professional',
       temperature: 0.7,
       maxTokens: 2000,
@@ -434,7 +434,7 @@ export function AIAgentConfigModal({
       estimatedCost,
       estimatedLatency
     }
-    
+
     const blob = new Blob([JSON.stringify(log, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -442,11 +442,79 @@ export function AIAgentConfigModal({
     a.download = `ai-agent-test-${Date.now()}.json`
     a.click()
     URL.revokeObjectURL(url)
-    
+
     toast({
       title: "Log Exported",
       description: "Test log downloaded successfully"
     })
+  }
+
+  /**
+   * Auto-generate master prompt from chains
+   * This creates a comprehensive prompt that explains what each chain does
+   */
+  const generateMasterPromptFromChains = (chainsLayout: any): string => {
+    if (!chainsLayout?.chains || chainsLayout.chains.length === 0) {
+      return "You are an AI agent that analyzes workflow data and determines the appropriate actions to take."
+    }
+
+    const chains = chainsLayout.chains || []
+    const nodes = chainsLayout.nodes || []
+
+    let prompt = "You are an intelligent AI agent that analyzes incoming workflow data and decides which action chains to execute.\n\n"
+    prompt += "## Available Action Chains:\n\n"
+
+    chains.forEach((chain: any, index: number) => {
+      const chainNumber = index + 1
+      const chainName = chain.name || `Chain ${chainNumber}`
+      const chainDesc = chain.description || ""
+
+      // Find nodes that belong to this chain
+      const chainNodes = nodes.filter((n: any) =>
+        n.data?.parentChainIndex === index
+      )
+
+      prompt += `### ${chainNumber}. ${chainName}\n`
+      if (chainDesc) {
+        prompt += `**Purpose:** ${chainDesc}\n`
+      }
+
+      // Describe the actions in this chain
+      if (chainNodes.length > 0) {
+        prompt += `**Actions:**\n`
+        chainNodes.forEach((node: any, nodeIndex: number) => {
+          const nodeType = node.data?.type || 'unknown'
+          const nodeTitle = node.data?.title || node.data?.nodeComponent?.title || nodeType
+
+          // Get node description from ALL_NODE_COMPONENTS
+          const nodeComponent = ALL_NODE_COMPONENTS.find(nc => nc.type === nodeType)
+          const nodeDescription = nodeComponent?.description || ""
+
+          prompt += `  ${nodeIndex + 1}. **${nodeTitle}**: ${nodeDescription}\n`
+        })
+      }
+
+      // Add selection criteria if provided
+      if (chain.conditions && chain.conditions.length > 0) {
+        prompt += `**When to use:** When `
+        const conditionStrings = chain.conditions.map((cond: any) =>
+          `${cond.field} ${cond.operator} "${cond.value}"`
+        )
+        prompt += conditionStrings.join(" AND ")
+        prompt += "\n"
+      }
+
+      prompt += "\n"
+    })
+
+    prompt += "## Your Task:\n\n"
+    prompt += "1. Analyze the incoming trigger data and workflow context\n"
+    prompt += "2. Determine which action chain(s) are most appropriate based on the data\n"
+    prompt += "3. Select one or more chains that should be executed\n"
+    prompt += "4. Provide clear reasoning for your selection\n\n"
+    prompt += "**Important:** You can select multiple chains if the situation requires it. Be specific and confident in your decisions."
+
+    return prompt
   }
 
   const handleTemplateSelect = (template: typeof QUICK_START_TEMPLATES[0]) => {
@@ -464,28 +532,27 @@ export function AIAgentConfigModal({
   }
 
   const handleSave = async () => {
-    console.log('🔵 [AIAgentConfigModal] handleSave called')
-    console.log('🔵 [AIAgentConfigModal] Current full config:', config)
-    console.log('🔵 [AIAgentConfigModal] config.chainsLayout:', config.chainsLayout)
-    console.log('🔵 [AIAgentConfigModal] Full layout data:', config.chainsLayout)
     
     // Validation
     // In guided mode, the master prompt is optional (AI will auto-determine actions)
     // In advanced mode, we still allow empty prompt for automatic mode
     // So we removed the systemPrompt validation entirely
-    
-    if (config.apiSource === 'custom' && !config.customApiKey) {
-      setErrors({ customApiKey: 'API key is required for custom source' })
-      setActiveTab('model')
-      return
-    }
+
+    // API key is now optional - will use platform key if not provided
+    // This validation is removed to allow using platform API key by default
 
     setIsSaving(true)
     try {
-      console.log('🤖 [AIAgentConfigModal] Saving AI Agent configuration:', config)
-      console.log('🤖 [AIAgentConfigModal] onSave function exists:', !!onSave)
-      await onSave(config)
-      console.log('✅ [AIAgentConfigModal] AI Agent configuration saved successfully')
+      // Auto-generate master prompt from chains if not manually set
+      const finalConfig = { ...config }
+      if (config.chainsLayout?.chains && config.chainsLayout.chains.length > 0) {
+        // Generate master prompt that describes all available chains
+        const autoGeneratedPrompt = generateMasterPromptFromChains(config.chainsLayout)
+        finalConfig.masterPrompt = autoGeneratedPrompt
+        finalConfig.systemPrompt = autoGeneratedPrompt // Keep both for compatibility
+      }
+
+      await onSave(finalConfig)
       setHasUnsavedChanges(false)
       toast({
         title: "Configuration Saved",
@@ -880,7 +947,7 @@ export function AIAgentConfigModal({
                        MODEL_GROUPS.other.find(m => m.id === config.model)?.name}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {config.apiSource === 'custom' ? '🔑 Custom' : '⚡ ChainReact'}
+                      {config.selectedApiKeyId ? '🔑 Your API Key' : '⚡ Platform API'}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
                       {TONE_SAMPLES[config.tone]?.icon} {config.tone}
@@ -1306,55 +1373,32 @@ export function AIAgentConfigModal({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="api-source" className="text-sm">
-                          API Source
+                      {/* OpenAI API Key Selection - Optional */}
+                      <div className="space-y-2">
+                        <Label className="text-sm flex items-center gap-2">
+                          OpenAI API Key
+                          <Badge variant="secondary" className="text-xs">Optional</Badge>
                         </Label>
-                        <Select
-                          value={config.apiSource}
-                          onValueChange={(value) => setConfig(prev => ({ ...prev, apiSource: value }))}
-                        >
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="chainreact">
-                              <div className="flex items-center gap-2">
-                                <Zap className="w-4 h-4" />
-                                ChainReact API
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="custom">
-                              <div className="flex items-center gap-2">
-                                <Key className="w-4 h-4" />
-                                Custom API Key
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <APIKeySelector
+                          value={config.selectedApiKeyId}
+                          onChange={(keyId) => setConfig(prev => ({ ...prev, selectedApiKeyId: keyId }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          By default, uses our platform API key. Add your own key in settings to bypass usage limits.
+                        </p>
                       </div>
 
-                      {config.apiSource === 'custom' && (
-                        <div className="space-y-2">
-                          <Label htmlFor="api-key" className="text-sm">
-                            API Key
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              Your key won't count against plan limits
-                            </span>
-                          </Label>
-                          <Input
-                            id="api-key"
-                            type="password"
-                            value={config.customApiKey}
-                            onChange={(e) => setConfig(prev => ({ ...prev, customApiKey: e.target.value }))}
-                            placeholder="sk-..."
-                            className={errors.customApiKey ? "border-red-500" : ""}
-                          />
-                          {errors.customApiKey && (
-                            <p className="text-xs text-red-500">{errors.customApiKey}</p>
-                          )}
-                        </div>
-                      )}
+                      {/* Model Selection */}
+                      <div className="space-y-2">
+                        <Label className="text-sm">
+                          OpenAI Model
+                        </Label>
+                        <ModelSelector
+                          value={config.model}
+                          onChange={(model) => setConfig(prev => ({ ...prev, model }))}
+                          showDetails={true}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
 
