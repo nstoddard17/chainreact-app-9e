@@ -53,7 +53,7 @@ async function runMigration() {
         {
           id: "discord-trigger-1",
           type: "custom",
-          position: { x: 700, y: 50 },
+          position: { x: 750, y: 50 },
           data: {
             type: "discord_trigger_new_message",
             nodeComponent: {
@@ -74,7 +74,7 @@ async function runMigration() {
         {
           id: "ai-agent-1",
           type: "custom",
-          position: { x: 700, y: 220 },
+          position: { x: 750, y: 220 },
           data: {
             type: "ai_agent",
             title: "AI Customer Service Agent",
@@ -132,7 +132,7 @@ async function runMigration() {
         {
           id: "chain-1-airtable-create",
           type: "custom",
-          position: { x: 300, y: 450 },
+          position: { x: 200, y: 450 },
           data: {
             type: "airtable_action_create_record",
             title: "Create Support Ticket",
@@ -160,7 +160,7 @@ async function runMigration() {
         {
           id: "chain-1-discord-notify",
           type: "custom",
-          position: { x: 300, y: 700 },
+          position: { x: 200, y: 650 },
           data: {
             type: "discord_action_send_message",
             title: "Notify Support Team",
@@ -180,7 +180,7 @@ async function runMigration() {
         {
           id: "chain-2-airtable-create",
           type: "custom",
-          position: { x: 700, y: 450 },
+          position: { x: 750, y: 450 },
           data: {
             type: "airtable_action_create_record",
             title: "Store Feedback",
@@ -208,7 +208,7 @@ async function runMigration() {
         {
           id: "chain-2-discord-notify",
           type: "custom",
-          position: { x: 700, y: 700 },
+          position: { x: 750, y: 650 },
           data: {
             type: "discord_action_send_message",
             title: "Notify Feedback Team",
@@ -228,7 +228,7 @@ async function runMigration() {
         {
           id: "chain-3-airtable-create",
           type: "custom",
-          position: { x: 1100, y: 450 },
+          position: { x: 1300, y: 450 },
           data: {
             type: "airtable_action_create_record",
             title: "Add to Newsletter",
@@ -256,7 +256,7 @@ async function runMigration() {
         {
           id: "chain-3-gmail-send",
           type: "custom",
-          position: { x: 1100, y: 700 },
+          position: { x: 1300, y: 650 },
           data: {
             type: "gmail_action_send",
             title: "Send Welcome Email",

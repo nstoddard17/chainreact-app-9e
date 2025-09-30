@@ -17,10 +17,18 @@ export function AIFieldNodeIndicator({
   config: Record<string, any>
   className?: string
 }) {
-  // Check if any field uses AI
-  const hasAIFields = Object.values(config || {}).some(value =>
-    typeof value === 'string' && value.includes('{{AI_FIELD:')
-  )
+  // Recursively check if any field uses AI (including nested objects)
+  const checkForAIFields = (obj: any): boolean => {
+    if (typeof obj === 'string') {
+      return obj.includes('{{AI_FIELD:')
+    }
+    if (typeof obj === 'object' && obj !== null) {
+      return Object.values(obj).some(value => checkForAIFields(value))
+    }
+    return false
+  }
+
+  const hasAIFields = checkForAIFields(config)
 
   if (!hasAIFields) return null
 
@@ -116,11 +124,20 @@ export function hasAICapabilities(node: any): boolean {
   // Check if it's an AI agent node
   if (node.data?.type === 'ai_agent') return true
 
+  // Recursively check if any field uses AI (including nested objects)
+  const checkForAIFields = (obj: any): boolean => {
+    if (typeof obj === 'string') {
+      return obj.includes('{{AI_FIELD:')
+    }
+    if (typeof obj === 'object' && obj !== null) {
+      return Object.values(obj).some(value => checkForAIFields(value))
+    }
+    return false
+  }
+
   // Check if it has AI fields
   const config = node.data?.config || {}
-  const hasAIFields = Object.values(config).some(value =>
-    typeof value === 'string' && value.includes('{{AI_FIELD:')
-  )
+  const hasAIFields = checkForAIFields(config)
 
   // Check if it's part of an AI chain
   const isInAIChain = node.data?.parentAIAgentId || node.data?.parentChainIndex !== undefined
@@ -133,9 +150,19 @@ export function hasAICapabilities(node: any): boolean {
  */
 export function NodeAIIndicator({ node }: { node: any }) {
   const isAIAgent = node.data?.type === 'ai_agent'
-  const hasAIFields = Object.values(node.data?.config || {}).some(value =>
-    typeof value === 'string' && value.includes('{{AI_FIELD:')
-  )
+
+  // Recursively check if any field uses AI (including nested objects)
+  const checkForAIFields = (obj: any): boolean => {
+    if (typeof obj === 'string') {
+      return obj.includes('{{AI_FIELD:')
+    }
+    if (typeof obj === 'object' && obj !== null) {
+      return Object.values(obj).some(value => checkForAIFields(value))
+    }
+    return false
+  }
+
+  const hasAIFields = checkForAIFields(node.data?.config || {})
   const isInChain = node.data?.parentChainIndex !== undefined
 
   // Don't show anything if no AI features
