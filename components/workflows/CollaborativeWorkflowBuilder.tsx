@@ -140,6 +140,16 @@ function WorkflowBuilderContent() {
     handleNodeDelete,
     handleAddNodeBetween,
     ensureOneAddActionPerChain,
+
+    // Undo/Redo
+    handleUndo,
+    handleRedo,
+    canUndo,
+    canRedo,
+
+    // Navigation handlers
+    handleSaveAndNavigate,
+    handleNavigateWithoutSaving,
   } = useWorkflowBuilder()
 
   const getWorkflowStatus = () => {
@@ -187,6 +197,10 @@ function WorkflowBuilderContent() {
         setEdges={setEdges}
         handleConfigureNode={handleConfigureNode}
         ensureOneAddActionPerChain={ensureOneAddActionPerChain}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
 
       {nodes.length === 0 ? (
@@ -910,17 +924,50 @@ function WorkflowBuilderContent() {
                   }
 
                   // Fit view after adding all nodes and edges
-                  setTimeout(() => {
-                    if (fitView) {
-                      fitView({
-                        padding: 0.2,
-                        includeHiddenNodes: false,
-                        duration: 400,
-                        maxZoom: 1,
-                        minZoom: 0.5
+                  // Wait for React Flow to fully render and then center the view
+                  const performChainsFitView = () => {
+                    // Multiple requestAnimationFrames to ensure React Flow has fully updated
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        const allNodes = getNodes()
+                        const chainNodes = allNodes.filter(n =>
+                          n.data?.isAIAgentChild === true ||
+                          n.data?.parentAIAgentId === aiAgentNodeId ||
+                          (typeof n.id === 'string' && n.id.startsWith(`${aiAgentNodeId}-`))
+                        )
+
+                        console.log('📌 [AI Agent Save] Performing fitView with', allNodes.length, 'total nodes and', chainNodes.length, 'chain nodes')
+
+                        if (fitView) {
+                          // First call without animation to immediately position
+                          fitView({
+                            padding: 0.2,
+                            includeHiddenNodes: false,
+                            duration: 0,
+                            maxZoom: 1.0,
+                            minZoom: 0.1
+                          })
+
+                          // Then call with animation for smooth transition
+                          setTimeout(() => {
+                            fitView({
+                              padding: 0.15,
+                              includeHiddenNodes: false,
+                              duration: 400,
+                              maxZoom: 1.0,
+                              minZoom: 0.1
+                            })
+                            console.log('✅ [AI Agent Save] fitView completed for chains')
+                          }, 50)
+                        }
                       })
-                    }
-                  }, 300) // Small delay to ensure nodes are rendered
+                    })
+                  }
+
+                  // Wait longer to ensure all state updates are complete
+                  setTimeout(() => {
+                    performChainsFitView()
+                  }, 500)
                 }, 100) // 100ms delay to ensure AI Agent node is created
               } else {
                 // No chains at all - add a chain placeholder for the AI Agent
@@ -1032,17 +1079,50 @@ function WorkflowBuilderContent() {
                   }
 
                   // Fit view after adding chain placeholder
-                  setTimeout(() => {
-                    if (fitView) {
-                      fitView({
-                        padding: 0.2,
-                        includeHiddenNodes: false,
-                        duration: 400,
-                        maxZoom: 1,
-                        minZoom: 0.5
+                  // Wait for React Flow to fully render and then center the view
+                  const performFitView = () => {
+                    // Multiple requestAnimationFrames to ensure React Flow has fully updated
+                    requestAnimationFrame(() => {
+                      requestAnimationFrame(() => {
+                        const allNodes = getNodes()
+                        console.log('📌 [AI Agent Save] Performing fitView with nodes:', allNodes.length)
+
+                        // Check if we have both the AI Agent and chain placeholder
+                        const hasAIAgent = allNodes.some(n => n.data?.type === 'ai_agent')
+                        const hasChainPlaceholder = allNodes.some(n => n.type === 'chainPlaceholder')
+
+                        console.log('📌 [AI Agent Save] Has AI Agent:', hasAIAgent, 'Has Chain Placeholder:', hasChainPlaceholder)
+
+                        if (fitView) {
+                          // First call without animation to immediately position
+                          fitView({
+                            padding: 0.2,
+                            includeHiddenNodes: false,
+                            duration: 0,
+                            maxZoom: 1.0,
+                            minZoom: 0.1
+                          })
+
+                          // Then call with animation for smooth transition
+                          setTimeout(() => {
+                            fitView({
+                              padding: 0.15,
+                              includeHiddenNodes: false,
+                              duration: 400,
+                              maxZoom: 1.0,
+                              minZoom: 0.1
+                            })
+                            console.log('✅ [AI Agent Save] fitView completed for chain placeholder')
+                          }, 50)
+                        }
                       })
-                    }
-                  }, 100) // Small delay to ensure rendering is complete
+                    })
+                  }
+
+                  // Wait longer to ensure all state updates are complete
+                  setTimeout(() => {
+                    performFitView()
+                  }, 500)
                 }, delayTime) // Use same delay as nodes
               }
             }}
@@ -1101,8 +1181,8 @@ function WorkflowBuilderContent() {
       <UnsavedChangesModal
         open={showUnsavedChangesModal}
         onOpenChange={setShowUnsavedChangesModal}
-        onSave={() => handleSave().then(() => setShowUnsavedChangesModal(false))}
-        onDiscard={() => setShowUnsavedChangesModal(false)}
+        onSave={handleSaveAndNavigate(handleSave)}
+        onDiscard={handleNavigateWithoutSaving}
       />
 
       {/* Node Deletion Modal */}

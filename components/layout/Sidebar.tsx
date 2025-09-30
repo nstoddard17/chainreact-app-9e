@@ -22,6 +22,10 @@ import {
   HelpCircle,
   Webhook,
   Clock,
+  MessageSquare,
+  LifeBuoy,
+  Sparkles,
+  UsersRound,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -46,21 +50,19 @@ interface SidebarProps {
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, minRole: 'free' },
-  { name: "AI Assistant", href: "/ai-assistant", icon: Bot, minRole: 'free', comingSoon: true },
+  { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles, minRole: 'free', comingSoon: true },
   { name: "Workflows", href: "/workflows", icon: Workflow, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
   { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro', comingSoon: true },
   { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro', comingSoon: true },
-  { name: "Teams", href: "/teams", icon: Building2, minRole: 'business' },
-  { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free', comingSoon: true },
-  { name: "Community", href: "/community", icon: Users, minRole: 'free', comingSoon: true },
+  { name: "Teams", href: "/teams", icon: UsersRound, minRole: 'business' },
   { name: "Enterprise", href: "/enterprise", icon: Shield, minRole: 'enterprise' },
-  {
-    name: "Support",
-    href: "/support",
-    icon: HelpCircle,
-    minRole: "free"
-  }
+]
+
+const supportNavigation = [
+  { name: "Learn", href: "/learn", icon: GraduationCap, minRole: 'free', comingSoon: true },
+  { name: "Community", href: "/community", icon: MessageSquare, minRole: 'free', comingSoon: true },
+  { name: "Support", href: "/support", icon: LifeBuoy, minRole: 'free' },
 ]
 
 const adminNavigation = [
@@ -180,13 +182,14 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {/* Main Navigation */}
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
             const RoleIcon = roleIcons[item.minRole as keyof typeof roleIcons]
             const showRoleBadge = item.minRole !== 'free'
             const canAccess = canAccessPage(userRole, item.href)
             const isComingSoon = item.comingSoon && !isAdmin
-            
+
             return (
               <PrefetchLink
                 key={item.name}
@@ -234,7 +237,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     </TooltipProvider>
                   </>
                 )}
-                
+
                 {/* Role Badge - show for all non-free roles (but not if coming soon is shown) */}
                 {!isCollapsed && showRoleBadge && !isComingSoon && (
                   <Badge
@@ -248,6 +251,70 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     {RoleIcon && <RoleIcon className="w-2.5 h-2.5 mr-1" />}
                     {getRoleInfo(item.minRole as UserRole).displayName}
                   </Badge>
+                )}
+              </PrefetchLink>
+            )
+          })}
+
+          {/* Support Section - Learn, Community, Support */}
+          <div className="pt-4 border-t border-border">
+            {!isCollapsed && (
+              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Resources
+              </div>
+            )}
+          </div>
+          {supportNavigation.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const canAccess = canAccessPage(userRole, item.href)
+            const isComingSoon = item.comingSoon && !isAdmin
+
+            return (
+              <PrefetchLink
+                key={item.name}
+                href={canAccess && !isComingSoon ? item.href : "#"}
+                onClick={(e) => handleNavigationClick(item, e)}
+                className={cn(
+                  "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group",
+                  isCollapsed && "justify-center px-2",
+                  isActive && !isComingSoon
+                    ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
+                    : canAccess && !isComingSoon
+                    ? "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground/50 hover:bg-muted/50 cursor-pointer opacity-75",
+                )}
+                title={isCollapsed ? item.name : undefined}
+              >
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                </div>
+
+                {/* Coming Soon Badge for non-admins */}
+                {!isCollapsed && isComingSoon && (
+                  <>
+                    {/* Full badge when there's enough space */}
+                    <Badge
+                      variant="secondary"
+                      className="hidden xl:flex text-[11px] px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
+                    >
+                      Coming Soon
+                    </Badge>
+
+                    {/* Icon with tooltip on smaller screens or when text is long */}
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="xl:hidden ml-auto mr-1 p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
+                            <Clock className="w-3.5 h-3.5 text-yellow-800 dark:text-yellow-300" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>Coming Soon</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </>
                 )}
               </PrefetchLink>
             )

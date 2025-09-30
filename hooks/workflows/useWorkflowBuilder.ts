@@ -14,6 +14,7 @@ import { useWorkflowExecution } from './useWorkflowExecution'
 import { useWorkflowDialogs } from './useWorkflowDialogs'
 import { useIntegrationSelection } from './useIntegrationSelection'
 import { useNodeConfiguration } from './useNodeConfiguration'
+import { useWorkflowHistory } from './useWorkflowHistory'
 
 // Utils
 import { supabase } from '@/utils/supabaseClient'
@@ -113,6 +114,7 @@ export function useWorkflowBuilder() {
   const executionHook = useWorkflowExecution()
   const dialogsHook = useWorkflowDialogs()
   const integrationHook = useIntegrationSelection()
+  const historyHook = useWorkflowHistory()
   const configHook = useNodeConfiguration(
     currentWorkflow?.id,
     nodes,
@@ -249,11 +251,27 @@ export function useWorkflowBuilder() {
       if (node.data?.type === 'ai_agent') {
         return false
       }
+      // Include triggers and actions that have no outgoing connections to real nodes
+      // Check multiple properties for trigger detection to handle different trigger structures
+      const isTrigger = Boolean(node.data?.isTrigger || node.data?.nodeComponent?.isTrigger)
+      const hasType = Boolean(node.data?.type)
+
+      // Only consider nodes that are actual workflow nodes (triggers or actions)
+      if (!isTrigger && !hasType) {
+        return false
+      }
+
       // A leaf node has no outgoing connections to real nodes
       return !nodesWithOutgoingConnections.has(node.id)
     })
 
-    console.log('Leaf nodes for cleanup:', leafNodes.map(n => ({ id: n.id, type: n.data?.type })))
+    console.log('Leaf nodes for cleanup:', leafNodes.map(n => ({
+      id: n.id,
+      type: n.data?.type,
+      'data.isTrigger': n.data?.isTrigger,
+      'nodeComponent.isTrigger': n.data?.nodeComponent?.isTrigger,
+      nodeType: n.type
+    })))
 
     // Get all existing Add Action nodes
     const existingAddActions = currentNodes.filter(node => node.type === 'addAction')
@@ -355,11 +373,106 @@ export function useWorkflowBuilder() {
     }, 300)
   }, [getNodes, getEdges, setNodes, setEdges, handleAddActionClick])
 
+  // Now we can define the actual undo/redo implementation
+  useEffect(() => {
+    handleUndoRef.current = () => {
+      const previousState = historyHook.undo()
+      if (previousState) {
+        // Restore nodes and edges from history
+        setNodes(previousState.nodes)
+        setEdges(previousState.edges)
+
+        // Re-add UI nodes after restoring
+        setTimeout(() => {
+          ensureOneAddActionPerChain()
+        }, 50)
+
+        setHasUnsavedChanges(true)
+        toast({
+          title: "Undo",
+          description: "Action undone",
+        })
+      }
+    }
+
+    handleRedoRef.current = () => {
+      const nextState = historyHook.redo()
+      if (nextState) {
+        // Restore nodes and edges from history
+        setNodes(nextState.nodes)
+        setEdges(nextState.edges)
+
+        // Re-add UI nodes after restoring
+        setTimeout(() => {
+          ensureOneAddActionPerChain()
+        }, 50)
+
+        setHasUnsavedChanges(true)
+        toast({
+          title: "Redo",
+          description: "Action redone",
+        })
+      }
+    }
+  }, [historyHook, setNodes, setEdges, ensureOneAddActionPerChain, toast, setHasUnsavedChanges])
+
+  // Track changes for undo/redo
+  const trackChange = useCallback((newNodes?: Node[], newEdges?: Edge[]) => {
+    const nodesToTrack = newNodes || nodes
+    const edgesToTrack = newEdges || edges
+    historyHook.pushState(nodesToTrack, edgesToTrack)
+  }, [nodes, edges, historyHook])
+
+  // Set trackChange ref
+  useEffect(() => {
+    trackChangeRef.current = trackChange
+  }, [trackChange])
+
+  // We'll define these handlers later after ensureOneAddActionPerChain is available
+  // For now, just create placeholder functions that will be updated
+  const handleUndo = useCallback(() => {
+    if (!handleUndoRef.current) {
+      console.log('Undo handler not yet initialized')
+      return
+    }
+    handleUndoRef.current()
+  }, [])
+
+  const handleRedo = useCallback(() => {
+    if (!handleRedoRef.current) {
+      console.log('Redo handler not yet initialized')
+      return
+    }
+    handleRedoRef.current()
+  }, [])
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
+
+      if (ctrlOrCmd && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      } else if ((ctrlOrCmd && e.key === 'y') || (ctrlOrCmd && e.shiftKey && e.key === 'z')) {
+        e.preventDefault()
+        handleRedo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleUndo, handleRedo])
+
   // Load workflow when ID changes
   useEffect(() => {
     if (workflowId && workflows && workflows.length > 0) {
       const workflow = workflows.find(w => w.id === workflowId)
       if (workflow) {
+        // Clear history when loading a new workflow
+        historyHook.clearHistory()
+
         setCurrentWorkflow(workflow)
         setWorkflowName(workflow.name)
         setWorkflowDescription(workflow.description || "")
@@ -452,11 +565,25 @@ export function useWorkflowBuilder() {
             if (node.data?.type === 'ai_agent') {
               return false
             }
+            // Include triggers and actions that have no outgoing connections to real nodes
+            const isTrigger = Boolean(node.data?.isTrigger)
+            const hasType = Boolean(node.data?.type)
+
+            // Only consider nodes that are actual workflow nodes (triggers or actions)
+            if (!isTrigger && !hasType) {
+              return false
+            }
+
             // A leaf node is one that has no outgoing connections to real nodes
             return !nodesWithOutgoingConnections.has(node.id)
           })
 
-          console.log('Leaf nodes found:', leafNodes.map((n: any) => ({ id: n.id, type: n.data?.type })))
+          console.log('Leaf nodes found:', leafNodes.map((n: any) => ({
+            id: n.id,
+            type: n.data?.type,
+            isTrigger: n.data?.isTrigger,
+            nodeType: n.type
+          })))
 
           // Add Add Action button after each leaf node
           const addActionNodes: Node[] = []
@@ -607,7 +734,16 @@ export function useWorkflowBuilder() {
           
           setEdges(flowEdges)
         }
-        
+
+        // Push initial state to history after loading
+        setTimeout(() => {
+          const currentNodes = getNodes()
+          const currentEdges = getEdges()
+          if (currentNodes.length > 0) {
+            historyHook.pushState(currentNodes, currentEdges)
+          }
+        }, 200)
+
         // Join collaboration
         joinCollaboration(workflowId)
         
@@ -774,10 +910,15 @@ export function useWorkflowBuilder() {
     }
   }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast])
 
+  // Use refs for undo/redo handlers to avoid initialization issues
+  const handleUndoRef = useRef<(() => void) | null>(null)
+  const handleRedoRef = useRef<(() => void) | null>(null)
+  const trackChangeRef = useRef<((newNodes?: Node[], newEdges?: Edge[]) => void) | null>(null)
+
   // Handle node connection
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target) return
-    
+
     const newEdge: Edge = {
       id: `${params.source}-${params.target}`,
       source: params.source,
@@ -786,10 +927,15 @@ export function useWorkflowBuilder() {
       animated: false,
       style: { stroke: "#d1d5db", strokeWidth: 1 }
     }
-    
-    setEdges((eds) => [...eds, newEdge])
+
+    setEdges((eds) => {
+      const newEdges = [...eds, newEdge]
+      // Track change after edge is added
+      setTimeout(() => trackChangeRef.current?.(nodes, newEdges), 100)
+      return newEdges
+    })
     setHasUnsavedChanges(true)
-  }, [setEdges])
+  }, [setEdges, nodes, trackChange])
 
   // Process edges to add handleAddNodeBetween
   const processedEdges = useMemo(() => {
@@ -1243,6 +1389,13 @@ export function useWorkflowBuilder() {
       }
     })
     
+    // Track change after adding action
+    setTimeout(() => {
+      const currentNodes = getNodes()
+      const currentEdges = getEdges()
+      trackChangeRef.current?.(currentNodes, currentEdges)
+    }, 100)
+
     // Update edges
     setEdges(eds => {
       // Check if we're inserting between nodes
@@ -1420,13 +1573,56 @@ export function useWorkflowBuilder() {
       return
     }
 
-    const placeholderId = `add-action-${nodeId}`
     const currentEdges = getEdges()
     const currentNodes = getNodes()
 
-    // Find incoming and outgoing edges for the deleted node
-    const incomingEdges = currentEdges.filter((edge) => edge.target === nodeId)
-    const outgoingEdges = currentEdges.filter((edge) => edge.source === nodeId)
+    // Check if this is an AI Agent node
+    const isAIAgent = nodeToDelete.data?.type === 'ai_agent'
+
+    // Build list of all nodes to delete
+    let nodesToDelete = new Set([nodeId])
+    let placeholdersToDelete = new Set([`add-action-${nodeId}`])
+
+    if (isAIAgent) {
+      console.log('🗑️ Deleting AI Agent and all its chains')
+
+      // Find all nodes that are children of this AI Agent
+      currentNodes.forEach(n => {
+        // Check various ways a node could be a child of this AI Agent
+        if (n.data?.parentAIAgentId === nodeId ||
+            n.data?.parentId === nodeId ||
+            (typeof n.id === 'string' && n.id.startsWith(`${nodeId}-`))) {
+          nodesToDelete.add(n.id)
+          placeholdersToDelete.add(`add-action-${n.id}`)
+        }
+
+        // Also check for chain placeholders
+        if (n.type === 'chainPlaceholder' &&
+            (n.data?.parentAIAgentId === nodeId || n.data?.parentId === nodeId)) {
+          nodesToDelete.add(n.id)
+        }
+
+        // Also check for add action nodes that belong to this AI Agent
+        if (n.type === 'addAction' && n.data?.parentAIAgentId === nodeId) {
+          nodesToDelete.add(n.id)
+        }
+      })
+
+      console.log(`🗑️ Deleting AI Agent ${nodeId} with ${nodesToDelete.size - 1} related nodes`)
+    }
+
+    // Convert sets to arrays for easier use
+    const nodeIdsToDelete = Array.from(nodesToDelete)
+    const placeholderIdsToDelete = Array.from(placeholdersToDelete)
+
+    // Clear all handlers for deleted placeholders
+    placeholderIdsToDelete.forEach(id => {
+      delete addActionHandlersRef.current[id]
+    })
+
+    // Find edges for the main deleted node (not for AI Agent children)
+    const incomingEdges = isAIAgent ? [] : currentEdges.filter((edge) => edge.target === nodeId)
+    const outgoingEdges = isAIAgent ? [] : currentEdges.filter((edge) => edge.source === nodeId)
 
     // Get parent IDs (nodes that connect TO the deleted node)
     const parentIds = Array.from(new Set(incomingEdges.map((edge) => edge.source)))
@@ -1435,29 +1631,33 @@ export function useWorkflowBuilder() {
     const parentAIAgentId = nodeToDelete.data?.parentAIAgentId
     const nodeSpacing = parentAIAgentId ? 120 : 160
 
-    delete addActionHandlersRef.current[placeholderId]
-
     // Track nodes that need to move up after deletion
     const deletedNodeY = nodeToDelete.position.y
     const deletedNodeX = nodeToDelete.position.x
 
     setNodes((prevNodes) => {
-      let nextNodes = prevNodes.filter((node) => node.id !== nodeId && node.id !== placeholderId)
+      // Filter out all nodes and placeholders that need to be deleted
+      let nextNodes = prevNodes.filter((node) =>
+        !nodeIdsToDelete.includes(node.id) &&
+        !placeholderIdsToDelete.includes(node.id)
+      )
 
-      // Move nodes that were below the deleted node up
-      nextNodes = nextNodes.map(node => {
-        // Check if this node is in the same vertical chain and below the deleted node
-        if (node.position.y > deletedNodeY && Math.abs(node.position.x - deletedNodeX) < 50) {
-          return {
-            ...node,
-            position: {
-              ...node.position,
-              y: node.position.y - nodeSpacing
+      // Move nodes that were below the deleted node up (only if not deleting an AI Agent)
+      if (!isAIAgent) {
+        nextNodes = nextNodes.map(node => {
+          // Check if this node is in the same vertical chain and below the deleted node
+          if (node.position.y > deletedNodeY && Math.abs(node.position.x - deletedNodeX) < 50) {
+            return {
+              ...node,
+              position: {
+                ...node.position,
+                y: node.position.y - nodeSpacing
+              }
             }
           }
-        }
-        return node
-      })
+          return node
+        })
+      }
 
       // After deleting a node, remove ALL Add Action nodes first
       // We'll add back the correct one after edges are updated
@@ -1468,13 +1668,14 @@ export function useWorkflowBuilder() {
 
     setEdges((prevEdges) => {
       let nextEdges = prevEdges.filter((edge) => {
-        if (edge.source === nodeId || edge.target === nodeId) return false
-        if (edge.source === placeholderId || edge.target === placeholderId) return false
+        // Remove edges connected to any deleted node
+        if (nodeIdsToDelete.includes(edge.source) || nodeIdsToDelete.includes(edge.target)) return false
+        if (placeholderIdsToDelete.includes(edge.source) || placeholderIdsToDelete.includes(edge.target)) return false
         return true
       })
 
-      // Reconnect nodes that were connected through the deleted node
-      if (incomingEdges.length > 0 && outgoingEdges.length > 0) {
+      // Reconnect nodes that were connected through the deleted node (skip for AI Agent deletion)
+      if (!isAIAgent && incomingEdges.length > 0 && outgoingEdges.length > 0) {
         incomingEdges.forEach((incomingEdge) => {
           outgoingEdges.forEach((outgoingEdge) => {
             const targetNode = currentNodes.find(n => n.id === outgoingEdge.target)
@@ -1520,7 +1721,15 @@ export function useWorkflowBuilder() {
     removeNode(nodeId)
     setHasUnsavedChanges(true)
 
+    // Track change after deletion
+    setTimeout(() => {
+      const currentNodes = getNodes()
+      const currentEdges = getEdges()
+      trackChangeRef.current?.(currentNodes, currentEdges)
+    }, 100)
+
     // After edges are updated, ensure only one Add Action at the end of each chain
+    // Always call this, even for AI Agent deletion, in case there are other nodes (like triggers) remaining
     setTimeout(() => {
       ensureOneAddActionPerChain()
     }, 50)
@@ -1637,6 +1846,8 @@ export function useWorkflowBuilder() {
     handleTestSandbox,  // Override with wrapped version
     handleExecuteLive,  // Override with wrapped version
     ...dialogsHook,
+    handleSaveAndNavigate: dialogsHook.handleSaveAndNavigate,
+    handleNavigateWithoutSaving: dialogsHook.handleNavigateWithoutSaving,
     ...integrationHook,
     ...configHook,
 
@@ -1660,5 +1871,10 @@ export function useWorkflowBuilder() {
     configuringInitialData,
     cachedIntegrationStatus,
     ensureOneAddActionPerChain,
+    // Undo/redo functionality
+    handleUndo,
+    handleRedo,
+    canUndo: historyHook.canUndo,
+    canRedo: historyHook.canRedo,
   }
 }
