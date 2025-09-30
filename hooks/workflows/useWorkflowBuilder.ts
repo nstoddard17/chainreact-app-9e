@@ -251,11 +251,27 @@ export function useWorkflowBuilder() {
       if (node.data?.type === 'ai_agent') {
         return false
       }
+      // Include triggers and actions that have no outgoing connections to real nodes
+      // Check multiple properties for trigger detection to handle different trigger structures
+      const isTrigger = Boolean(node.data?.isTrigger || node.data?.nodeComponent?.isTrigger)
+      const hasType = Boolean(node.data?.type)
+
+      // Only consider nodes that are actual workflow nodes (triggers or actions)
+      if (!isTrigger && !hasType) {
+        return false
+      }
+
       // A leaf node has no outgoing connections to real nodes
       return !nodesWithOutgoingConnections.has(node.id)
     })
 
-    console.log('Leaf nodes for cleanup:', leafNodes.map(n => ({ id: n.id, type: n.data?.type })))
+    console.log('Leaf nodes for cleanup:', leafNodes.map(n => ({
+      id: n.id,
+      type: n.data?.type,
+      'data.isTrigger': n.data?.isTrigger,
+      'nodeComponent.isTrigger': n.data?.nodeComponent?.isTrigger,
+      nodeType: n.type
+    })))
 
     // Get all existing Add Action nodes
     const existingAddActions = currentNodes.filter(node => node.type === 'addAction')
@@ -549,11 +565,25 @@ export function useWorkflowBuilder() {
             if (node.data?.type === 'ai_agent') {
               return false
             }
+            // Include triggers and actions that have no outgoing connections to real nodes
+            const isTrigger = Boolean(node.data?.isTrigger)
+            const hasType = Boolean(node.data?.type)
+
+            // Only consider nodes that are actual workflow nodes (triggers or actions)
+            if (!isTrigger && !hasType) {
+              return false
+            }
+
             // A leaf node is one that has no outgoing connections to real nodes
             return !nodesWithOutgoingConnections.has(node.id)
           })
 
-          console.log('Leaf nodes found:', leafNodes.map((n: any) => ({ id: n.id, type: n.data?.type })))
+          console.log('Leaf nodes found:', leafNodes.map((n: any) => ({
+            id: n.id,
+            type: n.data?.type,
+            isTrigger: n.data?.isTrigger,
+            nodeType: n.type
+          })))
 
           // Add Add Action button after each leaf node
           const addActionNodes: Node[] = []
@@ -1699,12 +1729,10 @@ export function useWorkflowBuilder() {
     }, 100)
 
     // After edges are updated, ensure only one Add Action at the end of each chain
-    // (Skip this for AI Agent deletion since all chains are removed)
-    if (!isAIAgent) {
-      setTimeout(() => {
-        ensureOneAddActionPerChain()
-      }, 50)
-    }
+    // Always call this, even for AI Agent deletion, in case there are other nodes (like triggers) remaining
+    setTimeout(() => {
+      ensureOneAddActionPerChain()
+    }, 50)
 
     if (configHook.configuringNode?.id === nodeId) {
       configHook.setConfiguringNode(null)
@@ -1818,6 +1846,8 @@ export function useWorkflowBuilder() {
     handleTestSandbox,  // Override with wrapped version
     handleExecuteLive,  // Override with wrapped version
     ...dialogsHook,
+    handleSaveAndNavigate: dialogsHook.handleSaveAndNavigate,
+    handleNavigateWithoutSaving: dialogsHook.handleNavigateWithoutSaving,
     ...integrationHook,
     ...configHook,
 
