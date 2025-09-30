@@ -37,7 +37,8 @@ export class AIDecisionMaker {
    * Initialize AI clients based on configuration
    */
   private initializeClients() {
-    if (this.context.config.apiSource === 'custom' && this.context.config.apiKey) {
+    // Always use the provided API key (from user's saved keys)
+    if (this.context.config.apiKey) {
       if (this.context.config.model.includes('gpt')) {
         this.openaiClient = new OpenAI({
           apiKey: this.context.config.apiKey
@@ -54,11 +55,8 @@ export class AIDecisionMaker {
    * Analyze input and route to appropriate chains
    */
   async analyzeAndRoute(): Promise<ChainSelectionResult> {
-    console.log('🧠 AI Decision Maker: Analyzing input for chain routing')
-
     // Check if chains are defined
     if (!this.context.chains || this.context.chains.length === 0) {
-      console.log('⚠️ No chains defined, returning empty selection')
       return {
         selectedChains: [],
         unselectedChains: [],
@@ -73,7 +71,6 @@ export class AIDecisionMaker {
     // Check for condition-based routing first
     const conditionBasedSelection = this.evaluateConditions()
     if (conditionBasedSelection.selectedChains.length > 0 && !this.context.config.autoSelectChain) {
-      console.log('✅ Using condition-based routing')
       return conditionBasedSelection
     }
 

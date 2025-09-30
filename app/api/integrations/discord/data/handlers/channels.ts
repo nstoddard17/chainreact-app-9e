@@ -3,7 +3,7 @@
  */
 
 import { DiscordIntegration, DiscordChannel, DiscordDataHandler } from '../types'
-import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
+import { makeDiscordApiRequest, validateDiscordToken } from '../utils'
 
 // Discord permission flags
 const Permissions = {
@@ -119,39 +119,33 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
     try {
       // First, get the bot's member object to check permissions
       try {
-        // Get bot's user ID from the token
-        const botUser = await fetchDiscordWithRateLimit<any>(() =>
-          fetch(`https://discord.com/api/v10/users/@me`, {
-            headers: {
-              Authorization: `Bot ${botToken}`,
-              "Content-Type": "application/json",
-            },
-          })
+        // Get bot's user ID from the token (with caching)
+        const botUser = await makeDiscordApiRequest<any>(
+          `https://discord.com/api/v10/users/@me`,
+          `Bot ${botToken}`,
+          {},
+          true // Enable caching
         )
-        
+
         if (botUser && botUser.id) {
-          // Get bot's member object in the guild
-          botMember = await fetchDiscordWithRateLimit<any>(() =>
-            fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botUser.id}`, {
-              headers: {
-                Authorization: `Bot ${botToken}`,
-                "Content-Type": "application/json",
-              },
-            })
+          // Get bot's member object in the guild (with caching)
+          botMember = await makeDiscordApiRequest<any>(
+            `https://discord.com/api/v10/guilds/${guildId}/members/${botUser.id}`,
+            `Bot ${botToken}`,
+            {},
+            true // Enable caching
           )
         }
       } catch (memberError) {
         console.log("Could not fetch bot member info, will show all channels:", memberError)
       }
-      
-      // Use improved rate limiting (no manual delays needed)
-      data = await fetchDiscordWithRateLimit<any[]>(() => 
-        fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
-          headers: {
-            Authorization: `Bot ${botToken}`,
-            "Content-Type": "application/json",
-          },
-        })
+
+      // Use makeDiscordApiRequest with caching for faster subsequent loads
+      data = await makeDiscordApiRequest<any[]>(
+        `https://discord.com/api/v10/guilds/${guildId}/channels`,
+        `Bot ${botToken}`,
+        {},
+        true // Enable caching
       )
     } catch (fetchError: any) {
       // Handle fetchDiscordWithRateLimit errors specifically

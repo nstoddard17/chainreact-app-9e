@@ -127,7 +127,7 @@ export class ChainExecutionEngine {
         )
       }
     } catch (error) {
-      console.error('❌ Chain execution failed:', error)
+      console.error('Chain execution failed:', error)
       results.errors.push(error)
     }
 
@@ -234,8 +234,6 @@ export class ChainExecutionEngine {
     const input = customInput || this.executionContext.input
 
     try {
-      console.log(`🔗 Executing chain: ${chain.chainId}`)
-
       // Find chain definition
       const chainDef = this.executionContext.chains.find(c => c.id === chain.chainId)
       if (!chainDef) {
@@ -252,7 +250,7 @@ export class ChainExecutionEngine {
         executionTime: Date.now() - startTime
       }
     } catch (error) {
-      console.error(`❌ Chain execution failed: ${chain.chainId}`, error)
+      console.error(`Chain execution failed: ${chain.chainId}`, error)
       return {
         chainId: chain.chainId,
         success: false,
@@ -275,7 +273,6 @@ export class ChainExecutionEngine {
 
     for (const node of executionOrder) {
       try {
-        console.log(`  📦 Executing node: ${node.id} (${node.data?.type})`)
 
         // Resolve AI fields in configuration
         const resolvedConfig = await this.resolveAIFields(
@@ -308,7 +305,7 @@ export class ChainExecutionEngine {
         nodeResults[node.id] = result
 
       } catch (error) {
-        console.error(`  ❌ Node execution failed: ${node.id}`, error)
+        console.error(`Node execution failed: ${node.id}`, error)
         nodeResults[node.id] = {
           success: false,
           error: error.message || 'Node execution failed'
