@@ -15,9 +15,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
-  Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown
+  Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown,
+  MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
 import type { Node, Edge } from '@xyflow/react'
 
 interface PreCheckResult {
@@ -92,11 +94,17 @@ export function WorkflowToolbar({
   setEdges,
   handleConfigureNode,
   ensureOneAddActionPerChain,
+  handleUndo,
+  handleRedo,
+  canUndo = false,
+  canRedo = false,
 }: WorkflowToolbarProps) {
   const { toast } = useToast()
+  const { duplicateWorkflow, deleteWorkflow, shareWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
   const [showPrecheck, setShowPrecheck] = useState(false)
   const [precheckRunning, setPrecheckRunning] = useState(false)
   const [precheckResults, setPrecheckResults] = useState<PreCheckResult[]>([])
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Pre-activation check logic
   const runPreActivationCheck = async () => {
@@ -214,6 +222,45 @@ export function WorkflowToolbar({
         </div>
 
         <div className="flex items-center space-x-2 flex-shrink-0">
+          {/* Undo/Redo Buttons */}
+          <div className="flex items-center gap-1 border-r pr-2 mr-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleUndo}
+                    disabled={!canUndo}
+                    className="h-8 w-8"
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Undo (Ctrl+Z)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRedo}
+                    disabled={!canRedo}
+                    className="h-8 w-8"
+                  >
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Redo (Ctrl+Y)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           {/* Admin-only Pre-Activation Check */}
           <RoleGuard requiredRole="admin">
             <TooltipProvider>
@@ -455,6 +502,60 @@ export function WorkflowToolbar({
             </TooltipProvider>
           )}
 
+          {/* Three dots menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="w-5 h-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => {
+                  if (workflowId) {
+                    shareWorkflow(workflowId)
+                  }
+                }}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Workflow
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (workflowId) {
+                    duplicateWorkflow(workflowId)
+                  }
+                }}
+                disabled={isDuplicating}
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                {isDuplicating ? 'Duplicating...' : 'Duplicate Workflow'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  console.log('View analytics clicked')
+                  // TODO: Navigate to analytics page
+                  toast({
+                    title: "View Analytics",
+                    description: "Analytics functionality coming soon!",
+                  })
+                }}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Analytics
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isDeleting ? 'Deleting...' : 'Delete Workflow'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {/* Emergency reset button */}
           {(isSaving || isExecuting) && (
             <TooltipProvider>
@@ -535,6 +636,45 @@ export function WorkflowToolbar({
               variant={precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'default' : 'secondary'}
             >
               {precheckResults.every(r => r.ok) && precheckResults.length > 0 ? 'Close (All Good)' : 'Close'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Workflow</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{workflowName}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirm(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (workflowId) {
+                  deleteWorkflow(workflowId)
+                  setShowDeleteConfirm(false)
+                }
+              }}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Workflow'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
