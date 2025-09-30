@@ -519,9 +519,9 @@ function WorkflowBuilderContent() {
                 }
               }
 
-              console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
-              console.log('🔵 [AI Agent Open] Reconstructed chains:', chains)
-              console.log('🔵 [AI Agent Open] Initial data with chainsLayout:', initialData)
+              // console.log('🔵 [AI Agent Open] Extracted chain data:', workflowData)
+              // console.log('🔵 [AI Agent Open] Reconstructed chains:', chains)
+              console.log('🔵 [AI Agent Open] Opened with', chains.length, 'chains')
             } else {
               // For new AI Agents (pending-action), just include the trigger node
               if (triggerNode) {
@@ -540,7 +540,7 @@ function WorkflowBuilderContent() {
                   }],
                   edges: []
                 }
-                console.log('🔵 [AI Agent Open] New AI Agent with trigger:', workflowData)
+                // console.log('🔵 [AI Agent Open] New AI Agent with trigger:', workflowData)
               }
             }
 
@@ -552,13 +552,10 @@ function WorkflowBuilderContent() {
                 workflowData={workflowData}
                 currentNodeId={configuringNode.id}
                 onSave={async (config) => {
-              console.log('🔴 [AI Agent Save] Config received:', config)
-              console.log('🔴 [AI Agent Save] Config keys:', Object.keys(config))
-              console.log('🔴 [AI Agent Save] chainsLayout:', config.chainsLayout)
-              console.log('🔴 [AI Agent Save] chainsLayout type:', typeof config.chainsLayout)
-              console.log('🔴 [AI Agent Save] chainsLayout?.nodes:', config.chainsLayout?.nodes)
-              console.log('🔴 [AI Agent Save] pendingNode:', pendingNode)
-              console.log('🔴 [AI Agent Save] configuringNode.id:', configuringNode.id)
+              console.log('🔴 [AI Agent Save] Saving with', config.chainsLayout?.nodes?.length || 0, 'nodes in', (config.chainsLayout?.edges?.length || 0) > 0 ? 'chains' : 'placeholder mode')
+              // console.log('🔴 [AI Agent Save] Config keys:', Object.keys(config))
+              // console.log('🔴 [AI Agent Save] chainsLayout:', config.chainsLayout)
+              // console.log('🔴 [AI Agent Save] pendingNode:', pendingNode)
 
               // Check if this is a pending node (new AI Agent being added)
               const isPendingNode = configuringNode.id === 'pending-action' && pendingNode?.type === 'action'
@@ -597,22 +594,51 @@ function WorkflowBuilderContent() {
               // Then process the chains if they exist OR add a chain placeholder
               // We need to do this after a small delay to ensure the AI Agent node has been created
               const chainsLayoutNodes = config.chainsLayout?.nodes
-              const hasChains = chainsLayoutNodes && Array.isArray(chainsLayoutNodes) && chainsLayoutNodes.length > 0
+
+              // Filter out placeholder nodes - we only want actual action nodes
+              const actualActionNodes = chainsLayoutNodes?.filter((n: any) => {
+                // Check if it's an actual action node (not a placeholder or UI node)
+                const isPlaceholder = n.type === 'chain_placeholder' ||
+                                    n.type === 'chainPlaceholder' ||
+                                    n.data?.type === 'chain_placeholder' ||
+                                    n.id?.includes('placeholder')
+                const isUINode = n.type === 'trigger' || n.type === 'ai-agent' || n.type === 'addAction'
+                const isValidActionNode = n.type && !isPlaceholder && !isUINode
+
+                // Debug log for each node being evaluated
+                if (n.type || n.data?.type) {
+                  console.log('🔍 [AI Agent Save] Node filter check:', {
+                    id: n.id,
+                    type: n.type,
+                    dataType: n.data?.type,
+                    isPlaceholder,
+                    isUINode,
+                    isValidActionNode
+                  })
+                }
+
+                return isValidActionNode
+              }) || []
+
+              const hasChains = actualActionNodes.length > 0
               const aiAgentNodeId = finalNodeId
 
               console.log('🔵 [AI Agent Save] Processing after save:', {
                 hasChains,
-                chainsLayoutNodes,
+                chainsLayoutNodes: chainsLayoutNodes,
                 chainsLayoutNodesLength: chainsLayoutNodes?.length,
-                isArray: Array.isArray(chainsLayoutNodes),
+                actualActionNodesLength: actualActionNodes.length,
+                actualActionNodes: actualActionNodes.map((n: any) => ({ id: n.id, type: n.type })),
                 aiAgentNodeId,
-                isPendingNode,
-                finalNodeId,
-                shouldAddPlaceholder: !hasChains
+                shouldAddPlaceholder: !hasChains,
+                configKeys: Object.keys(config),
+                chainsLayoutExists: !!config.chainsLayout
               })
 
+              console.log(`📊 [AI Agent Save] Branch decision: ${hasChains ? 'HAS CHAINS (if block)' : 'NO CHAINS (else block - will add placeholder and fitView)'}`)
+
               if (hasChains) {
-                console.log('🔵 [AI Agent Save] Processing chains from chainsLayout')
+                console.log('✅ [AI Agent Save] Entering IF BLOCK - Adding', actualActionNodes.length, 'actual action nodes (excluding placeholders)')
                 const chainsLayout = config.chainsLayout
                 const timestamp = Date.now()
 
@@ -626,14 +652,10 @@ function WorkflowBuilderContent() {
                     n.type !== null
                   )
 
-                  console.log('🔵 [AI Agent Save] Filtering nodes from chainsLayout:')
-                  console.log('  - Total nodes:', chainsLayout.nodes.length)
-                  console.log('  - Action nodes (non-placeholders):', actualActionNodes.length)
-                  console.log('  - Filtered placeholder nodes:', chainsLayout.nodes.length - actualActionNodes.length)
+                  // console.log('🔵 [AI Agent Save] Filtering nodes:', chainsLayout.nodes.length, 'total,', actualActionNodes.length, 'action nodes')
 
                   if (actualActionNodes.length === 0) {
-                    console.log('⚠️ [AI Agent Save] No action nodes to add (only placeholders found)')
-                    console.log('📌 [AI Agent Save] Adding chain placeholder button for AI Agent')
+                    // console.log('⚠️ [AI Agent Save] No action nodes, adding chain placeholder')
 
                     // Add a chain placeholder (Add Chain button) for the AI Agent
                     setNodes((currentNodes) => {
@@ -665,14 +687,14 @@ function WorkflowBuilderContent() {
                           parentId: aiAgentNodeId,
                           parentAIAgentId: aiAgentNodeId,
                           onClick: () => {
-                            console.log('Chain placeholder clicked for AI Agent:', aiAgentNodeId)
+                            // console.log('Chain placeholder clicked for AI Agent:', aiAgentNodeId)
                             // Open the action selection dialog
                             handleAddActionClick(chainPlaceholderId, aiAgentNodeId)
                           }
                         }
                       }
 
-                      console.log('✅ [AI Agent Save] Added chain placeholder at position:', chainPlaceholderNode.position)
+                      console.log('✅ [AI Agent Save] Added chain placeholder')
                       return [...filteredNodes, chainPlaceholderNode]
                     })
 
@@ -714,7 +736,7 @@ function WorkflowBuilderContent() {
                       return currentNodes
                     }
 
-                    console.log('🟢 [AI Agent Save] Found AI Agent node:', aiAgentNode.id)
+                    // console.log('🟢 [AI Agent Save] Found AI Agent node:', aiAgentNode.id)
 
                     // Remove any existing chain nodes for this AI Agent
                     const filteredNodes = currentNodes.filter(n => {
@@ -731,10 +753,7 @@ function WorkflowBuilderContent() {
                     const offsetX = aiAgentNode.position.x - aiAgentPositionInBuilder.x
                     const offsetY = aiAgentNode.position.y - aiAgentPositionInBuilder.y
 
-                    console.log('🎯 [AI Agent Save] Position offset calculation:')
-                    console.log('  - AI Agent in workflow:', aiAgentNode.position)
-                    console.log('  - AI Agent in builder:', aiAgentPositionInBuilder)
-                    console.log('  - Offset:', { x: offsetX, y: offsetY })
+                    // console.log('🎯 [AI Agent Save] Offset:', { x: offsetX, y: offsetY })
 
                     // Group nodes by chain index to identify last node in each chain
                     const nodesByChain = new Map<number, any[]>()
@@ -756,8 +775,7 @@ function WorkflowBuilderContent() {
                     const addActionNodes: any[] = []
 
                     actualActionNodes.forEach((chainNode: any) => {
-                      console.log('📦 [Chain Node] Original node from chainsLayout:', chainNode)
-                      console.log('📦 [Chain Node] Original position:', chainNode.position)
+                      // console.log('📦 [Chain Node] Original position:', chainNode.position)
 
                       // Find the nodeComponent for this node type
                       const nodeType = chainNode.type || chainNode.data?.type || 'unknown'
@@ -794,7 +812,7 @@ function WorkflowBuilderContent() {
                         data: nodeData
                       }
 
-                      console.log('📦 [Chain Node] New node created at position:', newNode.position)
+                      // console.log('📦 [Chain Node] New node created at position:', newNode.position)
                       allChainNodes.push(newNode)
 
                       // Check if this is the last node in its chain
@@ -809,7 +827,7 @@ function WorkflowBuilderContent() {
                           type: 'addAction',
                           position: {
                             x: newNode.position.x,
-                            y: newNode.position.y + 150  // Added spacing between nodes
+                            y: newNode.position.y + 160  // Consistent 160px spacing for all Add Action nodes
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
@@ -826,7 +844,7 @@ function WorkflowBuilderContent() {
                       }
                     })
 
-                    console.log('🟢 [AI Agent Save] Adding', allChainNodes.length, 'chain nodes and', addActionNodes.length, 'add action nodes')
+                    // console.log('🟢 [AI Agent Save] Adding', allChainNodes.length, 'chain nodes and', addActionNodes.length, 'add action nodes')
 
                     // Remove the AddAction node that's directly after the AI Agent
                     const nodesWithoutAIAgentAddAction = filteredNodes.filter(n =>
@@ -864,10 +882,7 @@ function WorkflowBuilderContent() {
                         return sourceIsValid && targetIsValid && !sourceIsPlaceholder && !targetIsPlaceholder
                       })
 
-                      console.log('🔵 [AI Agent Save] Filtering edges:')
-                      console.log('  - Total edges:', chainsLayout.edges.length)
-                      console.log('  - Valid edges (non-placeholder):', validEdges.length)
-                      console.log('  - Filtered edges:', chainsLayout.edges.length - validEdges.length)
+                      // console.log('🔵 [AI Agent Save] Filtering edges:', validEdges.length, 'valid edges')
 
                       // Add new edges from chainsLayout
                       const chainEdges = validEdges.map((edge: any) => {
@@ -878,20 +893,25 @@ function WorkflowBuilderContent() {
                           ? `${aiAgentNodeId}-${edge.target}-${timestamp}`
                           : edge.target === 'ai-agent' ? aiAgentNodeId : edge.target
 
+                        // Don't add insert button if target is an Add Action node
+                        const isTargetAddAction = targetId.startsWith('add-action-')
+
                         return {
                           ...edge,
                           id: `${aiAgentNodeId}-edge-${edge.id}-${timestamp}`,
                           source: sourceId,
                           target: targetId,
                           type: edge.type || 'custom',
-                          // Add the onAddNode handler for edges between action nodes
+                          // Only add onAddNode handler if target is not an Add Action node
                           data: {
                             ...edge.data,
-                            onAddNode: () => {
-                              // Open the action dialog to add a node between sourceId and targetId
-                              console.log('Add node between', sourceId, 'and', targetId)
-                              handleAddNodeBetween(sourceId, targetId)
-                            }
+                            ...(isTargetAddAction ? {} : {
+                              onAddNode: () => {
+                                // Open the action dialog to add a node between sourceId and targetId
+                                // console.log('Add node between', sourceId, 'and', targetId)
+                                handleAddNodeBetween(sourceId, targetId)
+                              }
+                            })
                           }
                         }
                       })
@@ -918,73 +938,106 @@ function WorkflowBuilderContent() {
                           }
                         })
 
-                      console.log('🟢 [AI Agent Save] Adding', chainEdges.length, 'chain edges and', addActionEdges.length, 'add action edges')
+                      // console.log('🟢 [AI Agent Save] Adding', chainEdges.length, 'chain edges and', addActionEdges.length, 'add action edges')
                       return [...filteredEdges, ...chainEdges, ...addActionEdges]
                     })
                   }
 
                   // Fit view after adding all nodes and edges
-                  // Wait for React Flow to fully render and then center the view
+                  // Enhanced fitView with better timing and verification for chains
                   const performChainsFitView = () => {
-                    // Multiple requestAnimationFrames to ensure React Flow has fully updated
-                    requestAnimationFrame(() => {
-                      requestAnimationFrame(() => {
-                        const allNodes = getNodes()
-                        const chainNodes = allNodes.filter(n =>
-                          n.data?.isAIAgentChild === true ||
-                          n.data?.parentAIAgentId === aiAgentNodeId ||
-                          (typeof n.id === 'string' && n.id.startsWith(`${aiAgentNodeId}-`))
-                        )
+                    let attempts = 0
+                    const maxAttempts = 10
 
-                        console.log('📌 [AI Agent Save] Performing fitView with', allNodes.length, 'total nodes and', chainNodes.length, 'chain nodes')
+                    const attemptFitView = () => {
+                      attempts++
+                      const allNodes = getNodes()
 
-                        if (fitView) {
-                          // First call without animation to immediately position
-                          fitView({
-                            padding: 0.2,
-                            includeHiddenNodes: false,
-                            duration: 0,
-                            maxZoom: 1.0,
-                            minZoom: 0.1
-                          })
+                      // Check if we have the AI Agent and at least one chain node
+                      const hasAIAgent = allNodes.some(n => n.id === aiAgentNodeId || n.data?.type === 'ai_agent')
+                      const chainNodes = allNodes.filter(n =>
+                        n.data?.isAIAgentChild === true ||
+                        n.data?.parentAIAgentId === aiAgentNodeId ||
+                        (typeof n.id === 'string' && n.id.startsWith(`${aiAgentNodeId}-`))
+                      )
+                      const hasChainNodes = chainNodes.length > 0
 
-                          // Then call with animation for smooth transition
-                          setTimeout(() => {
+                      console.log(`🔍 [AI Agent Save] Chains FitView attempt ${attempts}: AI Agent: ${hasAIAgent}, Chain nodes: ${chainNodes.length}, Total nodes: ${allNodes.length}`)
+
+                      if (hasAIAgent && hasChainNodes && fitView) {
+                        // Nodes are ready, perform fitView
+                        requestAnimationFrame(() => {
+                          requestAnimationFrame(() => {
+                            // Focus on the AI Agent and its chains
+                            const relevantNodes = allNodes.filter(n =>
+                              n.data?.type === 'ai_agent' ||
+                              n.data?.isAIAgentChild === true ||
+                              n.data?.parentAIAgentId === aiAgentNodeId ||
+                              (typeof n.id === 'string' && n.id.startsWith(`${aiAgentNodeId}-`)) ||
+                              n.type === 'addAction' ||
+                              n.data?.isTrigger
+                            )
+
                             fitView({
-                              padding: 0.15,
+                              padding: 0.25,
                               includeHiddenNodes: false,
-                              duration: 400,
-                              maxZoom: 1.0,
-                              minZoom: 0.1
+                              minZoom: 0.3,
+                              maxZoom: 1.5,
+                              duration: 800, // Smooth animation
+                              nodes: relevantNodes.length > 0 ? relevantNodes : undefined
                             })
-                            console.log('✅ [AI Agent Save] fitView completed for chains')
-                          }, 50)
+                            console.log('✅ [AI Agent Save] fitView completed successfully for chains')
+                          })
+                        })
+                      } else if (attempts < maxAttempts) {
+                        // Nodes not ready yet, try again
+                        setTimeout(attemptFitView, 100)
+                      } else {
+                        console.warn('⚠️ [AI Agent Save] Could not perform fitView - chain nodes not ready after', maxAttempts, 'attempts')
+                        // Fallback: try fitView anyway
+                        if (fitView) {
+                          fitView({
+                            padding: 0.3,
+                            includeHiddenNodes: false,
+                            minZoom: 0.3,
+                            maxZoom: 1.5,
+                            duration: 500
+                          })
                         }
-                      })
-                    })
+                      }
+                    }
+
+                    // Start attempting fitView
+                    attemptFitView()
                   }
 
-                  // Wait longer to ensure all state updates are complete
+                  // Start the fitView process with a shorter initial delay
+                  // since we now have retry logic
                   setTimeout(() => {
                     performChainsFitView()
-                  }, 500)
+                  }, 150) // Reduced from 300ms since we have retry logic
                 }, 100) // 100ms delay to ensure AI Agent node is created
               } else {
                 // No chains at all - add a chain placeholder for the AI Agent
-                console.log('📌 [AI Agent Save] ELSE BLOCK REACHED - No chains provided')
-                console.log('📌 [AI Agent Save] Adding chain placeholder for AI Agent:', aiAgentNodeId)
+                console.log('📌 [AI Agent Save] ELSE BLOCK: No chains - adding placeholder')
+                console.log('📌 [AI Agent Save] aiAgentNodeId:', aiAgentNodeId)
                 console.log('📌 [AI Agent Save] isPendingNode:', isPendingNode)
                 console.log('📌 [AI Agent Save] finalNodeId:', finalNodeId)
+                console.log('📌 [AI Agent Save] fitView available:', !!fitView)
+                console.log('📌 [AI Agent Save] getNodes available:', !!getNodes)
 
                 // Use a longer delay for new nodes to ensure they're fully integrated into the workflow
                 const delayTime = isPendingNode ? 300 : 100
-                console.log('📌 [AI Agent Save] Using delay time:', delayTime)
+                console.log('📌 [AI Agent Save] Using delay time:', delayTime, 'ms')
 
                 setTimeout(() => {
-                  console.log('📌 [AI Agent Save] setTimeout executed after', delayTime, 'ms')
+                  console.log('📌 [AI Agent Save] TIMEOUT FIRED after', delayTime, 'ms')
+
                   // Add a chain placeholder (Add Chain button) for the AI Agent
                   setNodes((currentNodes) => {
-                    console.log('📌 [Chain Placeholder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.type })))
+                    console.log('📌 [Chain Placeholder] setNodes called')
+                    console.log('📌 [Chain Placeholder] Current nodes count:', currentNodes.length)
+                    console.log('📌 [Chain Placeholder] Current nodes:', currentNodes.map(n => ({ id: n.id, type: n.type, dataType: n.data?.type })))
                     console.log('📌 [Chain Placeholder] Looking for AI Agent with ID:', aiAgentNodeId)
 
                     // Get the AI Agent node - try both the ID and look for ai_agent type as fallback
@@ -994,6 +1047,7 @@ function WorkflowBuilderContent() {
                     if (!aiAgentNode && isPendingNode) {
                       console.log('📌 [Chain Placeholder] Pending node - looking for AI Agent by type')
                       const aiAgentNodes = currentNodes.filter(n => n.data?.type === 'ai_agent')
+                      console.log('📌 [Chain Placeholder] Found', aiAgentNodes.length, 'AI Agent nodes')
                       if (aiAgentNodes.length > 0) {
                         // Get the most recently added AI Agent (highest Y position typically)
                         aiAgentNode = aiAgentNodes[aiAgentNodes.length - 1]
@@ -1004,6 +1058,7 @@ function WorkflowBuilderContent() {
                     if (!aiAgentNode) {
                       console.error('❌ [Chain Placeholder] AI Agent node not found! Looking for:', aiAgentNodeId)
                       console.error('❌ [Chain Placeholder] Available node IDs:', currentNodes.map(n => n.id))
+                      console.error('❌ [Chain Placeholder] Available node types:', currentNodes.map(n => n.data?.type))
                       console.error('❌ [Chain Placeholder] Was pending node:', isPendingNode)
                       return currentNodes
                     }
@@ -1033,29 +1088,35 @@ function WorkflowBuilderContent() {
                         parentId: actualAIAgentId,
                         parentAIAgentId: actualAIAgentId,
                         onClick: () => {
-                          console.log('Chain placeholder clicked for AI Agent:', actualAIAgentId)
+                          // console.log('Chain placeholder clicked for AI Agent:', actualAIAgentId)
                           // Open the action selection dialog
                           handleAddActionClick(chainPlaceholderId, actualAIAgentId)
                         }
                       }
                     }
 
-                    console.log('✅ [AI Agent Save] Added chain placeholder at position:', chainPlaceholderNode.position)
+                    console.log('✅ [Chain Placeholder] Added chain placeholder node successfully')
+                    console.log('✅ [Chain Placeholder] Final nodes count:', [...filteredNodes, chainPlaceholderNode].length)
                     return [...filteredNodes, chainPlaceholderNode]
                   })
 
                   // Add edge from AI Agent to chain placeholder
+                  console.log('📌 [AI Agent Save] About to add edge, setEdges available:', !!setEdges)
                   if (setEdges) {
                     setEdges((currentEdges) => {
+                      console.log('📌 [Edge] setEdges called')
                       // Need to get the actual AI Agent ID again since this is a different closure
                       const allNodes = getNodes()
+                      console.log('📌 [Edge] All nodes count:', allNodes.length)
                       let actualAIAgentId = aiAgentNodeId
 
                       // If it was a pending node, find the actual AI Agent
                       if (isPendingNode) {
                         const aiAgentNodes = allNodes.filter(n => n.data?.type === 'ai_agent')
+                        console.log('📌 [Edge] Found', aiAgentNodes.length, 'AI Agent nodes for edge')
                         if (aiAgentNodes.length > 0) {
                           actualAIAgentId = aiAgentNodes[aiAgentNodes.length - 1].id
+                          console.log('📌 [Edge] Using AI Agent ID for edge:', actualAIAgentId)
                         }
                       }
 
@@ -1074,57 +1135,100 @@ function WorkflowBuilderContent() {
                         style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
                       }
 
+                      console.log('✅ [Edge] Added edge successfully:', edgeId)
                       return [...filteredEdges, newEdge]
                     })
+                  } else {
+                    console.warn('⚠️ [AI Agent Save] setEdges is not available!')
                   }
 
                   // Fit view after adding chain placeholder
-                  // Wait for React Flow to fully render and then center the view
+                  // Enhanced fitView with better timing and verification
+                  console.log('📌 [AI Agent Save] Setting up performFitView function')
                   const performFitView = () => {
-                    // Multiple requestAnimationFrames to ensure React Flow has fully updated
-                    requestAnimationFrame(() => {
-                      requestAnimationFrame(() => {
-                        const allNodes = getNodes()
-                        console.log('📌 [AI Agent Save] Performing fitView with nodes:', allNodes.length)
+                    console.log('🎯 [FitView] performFitView called')
+                    let attempts = 0
+                    const maxAttempts = 10
 
-                        // Check if we have both the AI Agent and chain placeholder
-                        const hasAIAgent = allNodes.some(n => n.data?.type === 'ai_agent')
-                        const hasChainPlaceholder = allNodes.some(n => n.type === 'chainPlaceholder')
+                    const attemptFitView = () => {
+                      attempts++
+                      console.log(`🔄 [FitView] Attempt ${attempts}/${maxAttempts}`)
+                      const allNodes = getNodes()
+                      console.log(`🔄 [FitView] Total nodes available:`, allNodes.length)
 
-                        console.log('📌 [AI Agent Save] Has AI Agent:', hasAIAgent, 'Has Chain Placeholder:', hasChainPlaceholder)
+                      // Get the actual AI Agent ID (might be different if it was a pending node)
+                      const aiAgentNodes = allNodes.filter(n => n.data?.type === 'ai_agent')
+                      const currentAIAgentId = aiAgentNodes.length > 0 ? aiAgentNodes[aiAgentNodes.length - 1].id : aiAgentNodeId
 
-                        if (fitView) {
-                          // First call without animation to immediately position
-                          fitView({
-                            padding: 0.2,
-                            includeHiddenNodes: false,
-                            duration: 0,
-                            maxZoom: 1.0,
-                            minZoom: 0.1
-                          })
+                      // Check if we have the AI Agent and chain placeholder
+                      const hasAIAgent = allNodes.some(n => n.id === currentAIAgentId || n.data?.type === 'ai_agent')
+                      const hasChainPlaceholder = allNodes.some(n => n.type === 'chainPlaceholder')
 
-                          // Then call with animation for smooth transition
-                          setTimeout(() => {
+                      console.log(`🔍 [FitView] Status check:`)
+                      console.log(`  - AI Agent present: ${hasAIAgent}`)
+                      console.log(`  - Chain Placeholder present: ${hasChainPlaceholder}`)
+                      console.log(`  - fitView function available: ${!!fitView}`)
+                      console.log(`  - Current AI Agent ID: ${currentAIAgentId}`)
+                      console.log(`  - All node types:`, allNodes.map(n => n.type || n.data?.type))
+
+                      if (hasAIAgent && hasChainPlaceholder && fitView) {
+                        console.log('✅ [FitView] All conditions met, performing fitView')
+                        // Both nodes are present, perform fitView
+                        const relevantNodes = allNodes.filter(n =>
+                          n.data?.type === 'ai_agent' ||
+                          n.type === 'chainPlaceholder' ||
+                          n.data?.isTrigger
+                        )
+                        console.log('✅ [FitView] Focusing on', relevantNodes.length, 'relevant nodes')
+
+                        requestAnimationFrame(() => {
+                          requestAnimationFrame(() => {
+                            console.log('🎬 [FitView] Calling fitView with params')
                             fitView({
-                              padding: 0.15,
+                              padding: 0.25,
                               includeHiddenNodes: false,
-                              duration: 400,
-                              maxZoom: 1.0,
-                              minZoom: 0.1
+                              minZoom: 0.3,
+                              maxZoom: 1.5,
+                              duration: 800, // Smooth animation
+                              nodes: relevantNodes // Focus on relevant nodes
                             })
-                            console.log('✅ [AI Agent Save] fitView completed for chain placeholder')
-                          }, 50)
+                            console.log('✅ [FitView] fitView completed successfully for chain placeholder')
+                          })
+                        })
+                      } else if (attempts < maxAttempts) {
+                        console.log(`⏳ [FitView] Conditions not met yet, retrying in 100ms`)
+                        // Nodes not ready yet, try again
+                        setTimeout(attemptFitView, 100)
+                      } else {
+                        console.warn('⚠️ [AI Agent Save] Could not perform fitView - nodes not ready after', maxAttempts, 'attempts')
+                        // Fallback: try fitView anyway
+                        if (fitView) {
+                          fitView({
+                            padding: 0.3,
+                            includeHiddenNodes: false,
+                            minZoom: 0.3,
+                            maxZoom: 1.5,
+                            duration: 500
+                          })
                         }
-                      })
-                    })
+                      }
+                    }
+
+                    // Start attempting fitView
+                    console.log('🚀 [FitView] Starting attemptFitView')
+                    attemptFitView()
                   }
 
-                  // Wait longer to ensure all state updates are complete
+                  // Start the fitView process with a shorter initial delay
+                  // since we now have retry logic
+                  console.log('⏰ [AI Agent Save] Setting timeout to call performFitView in 150ms')
                   setTimeout(() => {
+                    console.log('⏰ [AI Agent Save] Timeout fired, calling performFitView')
                     performFitView()
-                  }, 500)
+                  }, 150) // Reduced from 300ms since we have retry logic
                 }, delayTime) // Use same delay as nodes
               }
+              console.log('🏁 [AI Agent Save] End of else block (no chains case)')
             }}
             currentNodeId={configuringNode.id}
             initialData={configuringNode.config}
@@ -1156,14 +1260,14 @@ function WorkflowBuilderContent() {
             onSave={(config) => {
               // Check if this is a pending action (new node being added)
               const isPendingAction = configuringNode.id === 'pending-action' && pendingNode?.type === 'action'
-              console.log('🟡 [ConfigurationModal] onSave called:', {
-                configuringNodeId: configuringNode.id,
-                isPendingAction,
-                willPassHandleAddAction: isPendingAction,
-                pendingNode: pendingNode,
-                pendingNodeSourceNodeInfo: pendingNode?.sourceNodeInfo,
-                sourceNodeInfoKeys: pendingNode?.sourceNodeInfo ? Object.keys(pendingNode.sourceNodeInfo) : []
-              })
+              // console.log('🟡 [ConfigurationModal] onSave called:', {
+              //   configuringNodeId: configuringNode.id,
+              //   isPendingAction,
+              //   willPassHandleAddAction: isPendingAction,
+              //   pendingNode: pendingNode,
+              //   pendingNodeSourceNodeInfo: pendingNode?.sourceNodeInfo,
+              //   sourceNodeInfoKeys: pendingNode?.sourceNodeInfo ? Object.keys(pendingNode.sourceNodeInfo) : []
+              // })
 
               handleSaveConfiguration(
                 { id: configuringNode.id },

@@ -380,7 +380,7 @@ export async function validateDiscordToken(integration: any): Promise<{ success:
     // Decrypt the access token
     const { decrypt } = await import('@/lib/security/encryption')
     const decryptedToken = decrypt(integration.access_token)
-    
+
     if (!decryptedToken) {
       return {
         success: false,

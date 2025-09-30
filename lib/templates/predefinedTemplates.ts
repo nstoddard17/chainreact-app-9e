@@ -14,8 +14,275 @@ export interface PredefinedTemplate {
 }
 
 export const predefinedTemplates: PredefinedTemplate[] = [
+  // ============== AI AGENT TESTING TEMPLATES ==============
+
+  // AI Agent Complete Test Workflow
+  {
+    id: "ai-agent-test-workflow",
+    name: "AI Agent Test Workflow - Customer Service",
+    description: "Complete test workflow with AI Agent handling support requests, feedback, and newsletter signups across Airtable, Discord, and Gmail",
+    category: "AI Agent Testing",
+    tags: ["ai-agent", "test", "airtable", "discord", "gmail", "complete"],
+    integrations: ["airtable", "discord", "gmail"],
+    difficulty: "advanced",
+    estimatedTime: "5 mins",
+    workflow_json: {
+      nodes: [
+        // Discord Trigger
+        {
+          id: "discord-trigger-1",
+          type: "discord_trigger_new_message",
+          position: { x: 100, y: 300 },
+          data: {
+            type: "discord_trigger_new_message",
+            nodeComponent: {
+              type: "discord_trigger_new_message",
+              isTrigger: true
+            },
+            title: "New Discord Message",
+            config: {
+              channelId: "",
+              includeBot: false
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+
+        // AI Agent Node
+        {
+          id: "ai-agent-1",
+          type: "ai_agent",
+          position: { x: 400, y: 300 },
+          data: {
+            type: "ai_agent",
+            title: "AI Customer Service Agent",
+            config: {
+              model: "gpt-4o-mini",
+              temperature: 0.7,
+              autoSelectChain: true,
+              parallelExecution: false,
+              prompt: "Analyze the customer message and route to the appropriate chains based on the content. Look for support requests, feedback, and newsletter signups.",
+              chainsLayout: {
+                chains: [
+                  {
+                    id: "chain-support-request",
+                    name: "Support Request Chain",
+                    description: "Handles customer support inquiries",
+                    conditions: [
+                      {
+                        field: "message.content",
+                        operator: "contains",
+                        value: "help"
+                      }
+                    ]
+                  },
+                  {
+                    id: "chain-process-feedback",
+                    name: "Process Feedback Chain",
+                    description: "Processes customer feedback",
+                    conditions: [
+                      {
+                        field: "message.content",
+                        operator: "contains",
+                        value: "feedback"
+                      }
+                    ]
+                  },
+                  {
+                    id: "chain-newsletter-signup",
+                    name: "Newsletter Signup Chain",
+                    description: "Handles newsletter subscriptions",
+                    conditions: [
+                      {
+                        field: "message.content",
+                        operator: "contains",
+                        value: "newsletter"
+                      }
+                    ]
+                  }
+                ],
+                nodes: [],
+                edges: []
+              }
+            }
+          }
+        },
+
+        // Chain 1: Support Request - Airtable Create
+        {
+          id: "chain-1-airtable-create",
+          type: "airtable_action_create_record",
+          position: { x: 700, y: 100 },
+          data: {
+            type: "airtable_action_create_record",
+            title: "Create Support Ticket",
+            parentChainIndex: 0,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              baseId: "",
+              tableName: "",
+              fields: {
+                "Ticket ID": "{{AI_FIELD:ticket_id}}",
+                "Customer Email": "{{AI_FIELD:customer_email}}",
+                "Issue Description": "{{AI_FIELD:issue_description}}",
+                "Priority": "{{AI_FIELD:priority}}",
+                "Status": "Open",
+                "Created Date": "{{AI_FIELD:created_date}}",
+                "Assigned To": "{{AI_FIELD:assigned_to}}"
+              }
+            },
+            needsConfiguration: true
+          }
+        },
+
+        // Chain 1: Support Request - Discord Notification
+        {
+          id: "chain-1-discord-notify",
+          type: "discord_action_send_message",
+          position: { x: 1000, y: 100 },
+          data: {
+            type: "discord_action_send_message",
+            title: "Notify Support Team",
+            parentChainIndex: 0,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              webhookUrl: "",
+              message: "{{AI_FIELD:support_notification_message}}",
+              username: "Support Bot"
+            },
+            needsConfiguration: true
+          }
+        },
+
+        // Chain 2: Process Feedback - Airtable Create
+        {
+          id: "chain-2-airtable-create",
+          type: "airtable_action_create_record",
+          position: { x: 700, y: 300 },
+          data: {
+            type: "airtable_action_create_record",
+            title: "Store Feedback",
+            parentChainIndex: 1,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              baseId: "",
+              tableName: "",
+              fields: {
+                "Feedback ID": "{{AI_FIELD:feedback_id}}",
+                "Customer Name": "{{AI_FIELD:customer_name}}",
+                "Feedback Type": "{{AI_FIELD:feedback_type}}",
+                "Feedback Content": "{{AI_FIELD:feedback_content}}",
+                "Rating": "{{AI_FIELD:rating}}",
+                "Submitted Date": "{{AI_FIELD:submitted_date}}",
+                "Response Status": "Pending"
+              }
+            },
+            needsConfiguration: true
+          }
+        },
+
+        // Chain 2: Process Feedback - Discord Notification
+        {
+          id: "chain-2-discord-notify",
+          type: "discord_action_send_message",
+          position: { x: 1000, y: 300 },
+          data: {
+            type: "discord_action_send_message",
+            title: "Notify Feedback Team",
+            parentChainIndex: 1,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              webhookUrl: "",
+              message: "{{AI_FIELD:feedback_notification_message}}",
+              username: "Feedback Bot"
+            },
+            needsConfiguration: true
+          }
+        },
+
+        // Chain 3: Newsletter Signup - Airtable Create
+        {
+          id: "chain-3-airtable-create",
+          type: "airtable_action_create_record",
+          position: { x: 700, y: 500 },
+          data: {
+            type: "airtable_action_create_record",
+            title: "Add to Newsletter",
+            parentChainIndex: 2,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              baseId: "",
+              tableName: "",
+              fields: {
+                "Subscriber ID": "{{AI_FIELD:subscriber_id}}",
+                "Email": "{{AI_FIELD:subscriber_email}}",
+                "Name": "{{AI_FIELD:subscriber_name}}",
+                "Signup Date": "{{AI_FIELD:signup_date}}",
+                "Preferences": "{{AI_FIELD:preferences}}",
+                "Status": "Active",
+                "Welcome Email Sent": false
+              }
+            },
+            needsConfiguration: true
+          }
+        },
+
+        // Chain 3: Newsletter Signup - Gmail Welcome
+        {
+          id: "chain-3-gmail-send",
+          type: "gmail_action_send",
+          position: { x: 1000, y: 500 },
+          data: {
+            type: "gmail_action_send",
+            title: "Send Welcome Email",
+            parentChainIndex: 2,
+            parentAIAgentId: "ai-agent-1",
+            isAIAgentChild: true,
+            config: {
+              to: "{{AI_FIELD:welcome_email_to}}",
+              subject: "{{AI_FIELD:welcome_email_subject}}",
+              body: "{{AI_FIELD:welcome_email_body}}"
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        {
+          id: "main-edge-1",
+          source: "discord-trigger-1",
+          target: "ai-agent-1"
+        },
+        // Chain 1 edges
+        {
+          id: "chain-1-edge-1",
+          source: "chain-1-airtable-create",
+          target: "chain-1-discord-notify"
+        },
+        // Chain 2 edges
+        {
+          id: "chain-2-edge-1",
+          source: "chain-2-airtable-create",
+          target: "chain-2-discord-notify"
+        },
+        // Chain 3 edges
+        {
+          id: "chain-3-edge-1",
+          source: "chain-3-airtable-create",
+          target: "chain-3-gmail-send"
+        }
+      ]
+    }
+  },
+
   // ============== CUSTOMER SERVICE TEMPLATES ==============
-  
+
   // Discord Customer Support
   {
     id: "discord-customer-support",
@@ -1193,6 +1460,10 @@ export function getTemplatesByIntegration(integration: string): PredefinedTempla
 }
 
 // Helper function to search templates
+export function getTemplateById(id: string): PredefinedTemplate | undefined {
+  return predefinedTemplates.find(t => t.id === id)
+}
+
 export function searchTemplates(query: string): PredefinedTemplate[] {
   const lowerQuery = query.toLowerCase()
   return predefinedTemplates.filter(t => 

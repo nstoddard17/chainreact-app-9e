@@ -188,6 +188,7 @@ interface WorkflowActions {
   updateWorkflowStatus: (id: string) => Promise<void>
   clearAllData: () => void
   recalculateWorkflowValidation: (workflow: Workflow) => Workflow
+  addWorkflowToStore: (workflow: Workflow) => void
 }
 
 export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, get) => ({
@@ -891,5 +892,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         lastUpdatedAt: workflow.updated_at,
       },
     }
+  },
+
+  addWorkflowToStore: (workflow: Workflow) => {
+    console.log('[WorkflowStore] Adding workflow to store:', workflow.id)
+    set((state) => ({
+      workflows: [workflow, ...state.workflows],
+    }))
   },
 }))

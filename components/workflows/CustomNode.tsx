@@ -263,6 +263,31 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const hasValidationIssues = Boolean(validationState?.missingRequired?.length)
 
+  // Convert technical field names to human-readable labels
+  const getFieldLabel = (fieldName: string): string => {
+    const labelMap: Record<string, string> = {
+      // Common fields
+      'channelId': 'Channel',
+      'webhookUrl': 'Webhook URL',
+      'baseId': 'Base',
+      'tableName': 'Table',
+      'to': 'To',
+      'subject': 'Subject',
+      'body': 'Body',
+      'message': 'Message',
+      'username': 'Username',
+      'email': 'Email',
+      'name': 'Name',
+      'recordId': 'Record ID',
+      // Add more mappings as needed
+    }
+
+    return labelMap[fieldName] || fieldName
+      .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+      .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+      .trim()
+  }
+
   return (
     <div
       className={`relative w-[400px] bg-card rounded-lg shadow-sm border group ${
@@ -299,11 +324,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
       {!error && hasValidationIssues && (
-        <div className="bg-red-50 border-b border-red-100 px-4 py-2">
+        <div className="bg-red-50 border-b border-red-100 px-4 py-2 pt-7">
           <p className="text-sm text-red-600 font-medium">
             {validationState?.missingRequired?.length === 1
-              ? `Missing required field: ${validationState.missingRequired[0]}`
-              : `Missing ${validationState?.missingRequired?.length || 0} required fields`}
+              ? `Required field: ${getFieldLabel(validationState.missingRequired[0])}`
+              : `Required fields: ${validationState?.missingRequired?.map(getFieldLabel).join(', ')}`}
           </p>
         </div>
       )}
@@ -368,7 +393,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 />
               ) : (
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-medium text-foreground">
+                  <h3 className="text-xl font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                     {title || (component && component.title) || 'Unnamed Action'}
                   </h3>
                   <Button

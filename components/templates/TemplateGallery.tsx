@@ -18,6 +18,7 @@ import { Search, Copy, Eye, Loader2, Edit } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthStore } from "@/stores/authStore"
+import { useWorkflowStore } from "@/stores/workflowStore"
 
 interface Template {
   id: string
@@ -38,6 +39,7 @@ interface Template {
 
 const categories = [
   "all",
+  "AI Agent Testing",
   "Customer Service",
   "Sales & CRM",
   "Social Media",
@@ -63,6 +65,7 @@ export function TemplateGallery() {
   const router = useRouter()
   const { toast } = useToast()
   const { profile } = useAuthStore()
+  const { addWorkflowToStore } = useWorkflowStore()
   const isAdmin = profile?.role === 'admin'
 
   useEffect(() => {
@@ -115,26 +118,43 @@ export function TemplateGallery() {
   const handleCopyTemplate = async (templateId: string) => {
     try {
       setCopying(templateId)
+      console.log(`Copying template ${templateId}...`)
+
       const response = await fetch(`/api/templates/${templateId}/copy`, {
         method: "POST",
       })
 
       const data = await response.json()
+      console.log("Copy response:", data)
 
-      if (data.workflow) {
+      if (!response.ok) {
+        console.error("Copy failed with status:", response.status, data)
+        throw new Error(data.error || `Failed to copy template (${response.status})`)
+      }
+
+      if (data.workflow && data.workflow.id) {
+        console.log(`Workflow created with ID: ${data.workflow.id}, adding to store...`)
+
+        // Add the workflow to the store immediately to avoid cache issues
+        addWorkflowToStore(data.workflow)
+
         toast({
           title: "Success",
           description: "Template copied to your workflows",
         })
+
+        console.log(`Navigating to workflow builder...`)
         router.push(`/workflows/builder?id=${data.workflow.id}`)
       } else {
-        throw new Error(data.error || "Failed to copy template")
+        console.error("No workflow ID in response:", data)
+        throw new Error(data.error || "Failed to copy template - no workflow ID returned")
       }
     } catch (error) {
       console.error("Error copying template:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to copy template"
       toast({
         title: "Error",
-        description: "Failed to copy template",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -153,7 +173,21 @@ export function TemplateGallery() {
     return matchesSearch && matchesCategory
   })
 
-  const allTemplates = showPredefined ? [...predefinedTemplates, ...filteredTemplates] : filteredTemplates
+  // Deduplicate templates by ID to avoid duplicate key errors
+  const deduplicateTemplates = (templates: Template[]) => {
+    const seen = new Set<string>()
+    return templates.filter(template => {
+      if (seen.has(template.id)) {
+        return false
+      }
+      seen.add(template.id)
+      return true
+    })
+  }
+
+  const allTemplates = deduplicateTemplates(
+    showPredefined ? [...predefinedTemplates, ...filteredTemplates] : filteredTemplates
+  )
 
   return (
     <div className="space-y-6">
