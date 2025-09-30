@@ -250,21 +250,38 @@ export function MicrosoftExcelConfiguration({
     if (!nodeInfo?.configSchema) return [];
 
     return nodeInfo.configSchema.filter((field: any) => {
-      // Always show required top-level fields
-      if (['workbookId', 'worksheetName', 'action'].includes(field.name)) {
-        return true;
+      // Skip advanced fields and hidden type fields
+      if (field.advanced || field.type === 'hidden') return false;
+
+      // Check if field depends on another field
+      if (field.dependsOn) {
+        const dependencyValue = values[field.dependsOn];
+        if (!dependencyValue) {
+          console.log(`📋 [Excel] Field "${field.name}" hidden - depends on "${field.dependsOn}" which has no value`);
+          return false; // Hide field if dependency has no value
+        }
       }
 
-      // Show fields based on conditions
+      // Check if field should be shown based on showIf condition
       if (field.showIf && typeof field.showIf === 'function') {
-        return field.showIf(values);
+        const shouldShow = field.showIf(values);
+        console.log(`📋 [Excel] Field "${field.name}" showIf evaluated:`, shouldShow, 'with values:', values);
+        return shouldShow;
       }
 
-      // Hide fields that are marked as hidden
-      if (field.hidden === true) {
-        return false;
+      // If field is marked as hidden but has showIf, evaluate showIf
+      if (field.hidden && field.showIf) {
+        if (typeof field.showIf === 'function') {
+          const shouldShow = field.showIf(values);
+          console.log(`📋 [Excel] Hidden field "${field.name}" showIf evaluated:`, shouldShow);
+          return shouldShow;
+        }
       }
 
+      // If field is hidden and no showIf, hide it
+      if (field.hidden) return false;
+
+      // Otherwise show the field
       return true;
     });
   };

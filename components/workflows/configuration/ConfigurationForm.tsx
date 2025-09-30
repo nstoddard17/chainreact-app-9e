@@ -550,6 +550,13 @@ function ConfigurationForm({
         loadOptions('spreadsheetId', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Microsoft Excel workbookId
+      const workbookIdField = fieldsToLoad.find((f: any) => f.name === 'workbookId');
+      if (workbookIdField && nodeInfo?.providerId === 'microsoft-excel') {
+        console.log(`🚀 [ConfigForm] Loading Microsoft Excel workbookId immediately with cache`);
+        loadOptions('workbookId', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -571,6 +578,10 @@ function ConfigurationForm({
             return;
           }
           if (field.name === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'workbookId' && nodeInfo?.providerId === 'microsoft-excel') {
             // Already loaded above
             return;
           }
