@@ -32,7 +32,7 @@ VALUES (
       {
         "id": "discord-trigger-1",
         "type": "custom",
-        "position": { "x": 100, "y": 300 },
+        "position": { "x": 700, "y": 50 },
         "data": {
           "type": "discord_trigger_new_message",
           "nodeComponent": {
@@ -53,7 +53,7 @@ VALUES (
       {
         "id": "ai-agent-1",
         "type": "custom",
-        "position": { "x": 400, "y": 300 },
+        "position": { "x": 700, "y": 220 },
         "data": {
           "type": "ai_agent",
           "title": "AI Customer Service Agent",
@@ -111,7 +111,7 @@ VALUES (
       {
         "id": "chain-1-airtable-create",
         "type": "custom",
-        "position": { "x": 700, "y": 100 },
+        "position": { "x": 300, "y": 450 },
         "data": {
           "type": "airtable_action_create_record",
           "title": "Create Support Ticket",
@@ -139,7 +139,7 @@ VALUES (
       {
         "id": "chain-1-discord-notify",
         "type": "custom",
-        "position": { "x": 1000, "y": 100 },
+        "position": { "x": 300, "y": 700 },
         "data": {
           "type": "discord_action_send_message",
           "title": "Notify Support Team",
@@ -159,7 +159,7 @@ VALUES (
       {
         "id": "chain-2-airtable-create",
         "type": "custom",
-        "position": { "x": 700, "y": 300 },
+        "position": { "x": 700, "y": 450 },
         "data": {
           "type": "airtable_action_create_record",
           "title": "Store Feedback",
@@ -187,7 +187,7 @@ VALUES (
       {
         "id": "chain-2-discord-notify",
         "type": "custom",
-        "position": { "x": 1000, "y": 300 },
+        "position": { "x": 700, "y": 700 },
         "data": {
           "type": "discord_action_send_message",
           "title": "Notify Feedback Team",
@@ -207,7 +207,7 @@ VALUES (
       {
         "id": "chain-3-airtable-create",
         "type": "custom",
-        "position": { "x": 700, "y": 500 },
+        "position": { "x": 1100, "y": 450 },
         "data": {
           "type": "airtable_action_create_record",
           "title": "Add to Newsletter",
@@ -235,7 +235,7 @@ VALUES (
       {
         "id": "chain-3-gmail-send",
         "type": "custom",
-        "position": { "x": 1000, "y": 500 },
+        "position": { "x": 1100, "y": 700 },
         "data": {
           "type": "gmail_action_send",
           "title": "Send Welcome Email",
@@ -255,6 +255,21 @@ VALUES (
         "id": "main-edge-1",
         "source": "discord-trigger-1",
         "target": "ai-agent-1"
+      },
+      {
+        "id": "ai-agent-to-chain-1",
+        "source": "ai-agent-1",
+        "target": "chain-1-airtable-create"
+      },
+      {
+        "id": "ai-agent-to-chain-2",
+        "source": "ai-agent-1",
+        "target": "chain-2-airtable-create"
+      },
+      {
+        "id": "ai-agent-to-chain-3",
+        "source": "ai-agent-1",
+        "target": "chain-3-airtable-create"
       },
       {
         "id": "chain-1-edge-1",
