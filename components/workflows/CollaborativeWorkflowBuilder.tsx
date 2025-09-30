@@ -893,20 +893,25 @@ function WorkflowBuilderContent() {
                           ? `${aiAgentNodeId}-${edge.target}-${timestamp}`
                           : edge.target === 'ai-agent' ? aiAgentNodeId : edge.target
 
+                        // Don't add insert button if target is an Add Action node
+                        const isTargetAddAction = targetId.startsWith('add-action-')
+
                         return {
                           ...edge,
                           id: `${aiAgentNodeId}-edge-${edge.id}-${timestamp}`,
                           source: sourceId,
                           target: targetId,
                           type: edge.type || 'custom',
-                          // Add the onAddNode handler for edges between action nodes
+                          // Only add onAddNode handler if target is not an Add Action node
                           data: {
                             ...edge.data,
-                            onAddNode: () => {
-                              // Open the action dialog to add a node between sourceId and targetId
-                              // console.log('Add node between', sourceId, 'and', targetId)
-                              handleAddNodeBetween(sourceId, targetId)
-                            }
+                            ...(isTargetAddAction ? {} : {
+                              onAddNode: () => {
+                                // Open the action dialog to add a node between sourceId and targetId
+                                // console.log('Add node between', sourceId, 'and', targetId)
+                                handleAddNodeBetween(sourceId, targetId)
+                              }
+                            })
                           }
                         }
                       })

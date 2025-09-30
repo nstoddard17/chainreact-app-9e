@@ -939,36 +939,43 @@ export function useWorkflowBuilder() {
   const processedEdges = useMemo(() => {
     return edges.map(edge => {
       if (edge.type === 'custom') {
+        // Don't add insert button if target is an Add Action node
+        const targetNode = nodes.find(n => n.id === edge.target)
+        const isTargetAddAction = targetNode?.type === 'addAction'
+
         return {
           ...edge,
           data: {
             ...edge.data,
-            onAddNode: () => {
-              // Use the edge's source and target directly
-              const sourceId = edge.source
-              const targetId = edge.target
+            // Only add onAddNode handler if target is not an Add Action node
+            ...(isTargetAddAction ? {} : {
+              onAddNode: () => {
+                // Use the edge's source and target directly
+                const sourceId = edge.source
+                const targetId = edge.target
 
-              // console.log('🔶 [Edge Button] Add node between', sourceId, 'and', targetId)
+                // console.log('🔶 [Edge Button] Add node between', sourceId, 'and', targetId)
 
-              // This would open the action dialog with the appropriate context
-              dialogsHook.setSourceAddNode({
-                id: `insert-${Date.now()}`,
-                parentId: sourceId,
-                insertBefore: targetId
-              })
-              dialogsHook.setSelectedIntegration(null)
-              dialogsHook.setSelectedAction(null)
-              dialogsHook.setSearchQuery("")
-              dialogsHook.setShowActionDialog(true)
+                // This would open the action dialog with the appropriate context
+                dialogsHook.setSourceAddNode({
+                  id: `insert-${Date.now()}`,
+                  parentId: sourceId,
+                  insertBefore: targetId
+                })
+                dialogsHook.setSelectedIntegration(null)
+                dialogsHook.setSelectedAction(null)
+                dialogsHook.setSearchQuery("")
+                dialogsHook.setShowActionDialog(true)
 
-              // console.log('Dialog should now be open, showActionDialog:', dialogsHook.showActionDialog)
-            }
+                // console.log('Dialog should now be open, showActionDialog:', dialogsHook.showActionDialog)
+              }
+            })
           }
         }
       }
       return edge
     })
-  }, [edges, dialogsHook])
+  }, [edges, nodes, dialogsHook])
 
   // Determine loading state with timeout protection
   const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null)
