@@ -43,7 +43,8 @@ function decryptKey(encryptedKey: string): string {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Get the authenticated user
     const {
@@ -96,7 +97,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Get the authenticated user
     const {
@@ -189,7 +191,8 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Get the authenticated user
     const {
@@ -240,7 +243,8 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     // Get the authenticated user
     const {
@@ -310,7 +314,8 @@ export async function DELETE(request: NextRequest) {
  */
 export async function getUserAPIKey(userId: string, keyId?: string): Promise<string | null> {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     const { data: profile, error } = await supabase
       .from("user_profiles")
