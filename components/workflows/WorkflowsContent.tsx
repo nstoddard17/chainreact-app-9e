@@ -61,6 +61,7 @@ export default function WorkflowsContent() {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiModel, setAiModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini')
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
+  const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set())
   const [aiDebugMode, setAiDebugMode] = useState(false)
   const [aiStrictMode, setAiStrictMode] = useState(true)
   const [aiDebugData, setAiDebugData] = useState<any | null>(null)
@@ -395,13 +396,20 @@ export default function WorkflowsContent() {
   const handleDeleteWorkflow = async () => {
     if (!deleteConfirmation.workflowId) return
 
+    const workflowId = deleteConfirmation.workflowId
+
+    // Add to deleting set
+    setDeletingWorkflows(prev => new Set(prev).add(workflowId))
+
+    // Close dialog immediately to show loading state on card
+    setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
+
     try {
-      await deleteWorkflowById(deleteConfirmation.workflowId)
+      await deleteWorkflowById(workflowId)
       toast({
         title: "Success",
         description: "Workflow deleted successfully",
       })
-      setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
     } catch (error) {
       console.error("Failed to delete workflow:", error)
       toast({
@@ -409,7 +417,12 @@ export default function WorkflowsContent() {
         description: "Failed to delete workflow",
         variant: "destructive",
       })
-      setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
+      // Remove from deleting set on error so user can try again
+      setDeletingWorkflows(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(workflowId)
+        return newSet
+      })
     }
   }
 
@@ -765,7 +778,16 @@ export default function WorkflowsContent() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {workflows.map((workflow) => (
-                  <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-200 group flex flex-col h-full">
+                  <Card key={workflow.id} className="overflow-hidden border-border hover:border-primary/40 hover:shadow-lg transition-all duration-200 group flex flex-col h-full relative">
+                    {/* Loading overlay for deleting workflow */}
+                    {deletingWorkflows.has(workflow.id) && (
+                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <LightningLoader size="sm" />
+                          <p className="text-sm text-muted-foreground">Deleting workflow...</p>
+                        </div>
+                      </div>
+                    )}
                     <CardHeader className="pb-3 flex-shrink-0">
                       <div className="space-y-2">
                         {/* Workflow Name and Edit Button */}

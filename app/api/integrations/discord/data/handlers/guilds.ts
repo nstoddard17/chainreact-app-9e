@@ -3,7 +3,7 @@
  */
 
 import { DiscordIntegration, DiscordGuild, DiscordDataHandler } from '../types'
-import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
+import { makeDiscordApiRequest, validateDiscordToken } from '../utils'
 
 /**
  * Verify that the Discord bot is actually a member of the specified guild
@@ -109,18 +109,17 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
   try {
     // Validate and get token
     const tokenValidation = await validateDiscordToken(integration)
-    
+
     if (!tokenValidation.success) {
       throw new Error(tokenValidation.error || "Token validation failed")
     }
-    
-    const data = await fetchDiscordWithRateLimit<any[]>(() => 
-      fetch("https://discord.com/api/v10/users/@me/guilds", {
-        headers: {
-          Authorization: `Bearer ${tokenValidation.token}`,
-          "Content-Type": "application/json",
-        },
-      })
+
+    // Use makeDiscordApiRequest which includes 10-minute caching
+    const data = await makeDiscordApiRequest<any[]>(
+      "https://discord.com/api/v10/users/@me/guilds",
+      tokenValidation.token,
+      {},
+      true // Enable caching
     )
 
     // Process guilds and add bot status checking

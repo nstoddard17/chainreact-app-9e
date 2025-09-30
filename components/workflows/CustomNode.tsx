@@ -393,7 +393,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 />
               ) : (
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-medium text-foreground">
+                  <h3 className="text-xl font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                     {title || (component && component.title) || 'Unnamed Action'}
                   </h3>
                   <Button
