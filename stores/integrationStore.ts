@@ -702,15 +702,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
         return v === 'connected' || v === 'authorized' || v === 'active' || v === 'valid' || v === 'ok' || v === 'ready'
       }
 
-      // Debug log
-      console.log('🔍 [getConnectedProviders] Checking integrations:', {
-        totalIntegrations: integrations.length,
-        integrations: integrations.map(i => ({
-          provider: i.provider,
-          status: i.status,
-          isConnected: isConnectedStatus(i.status)
-        }))
-      })
+      // Debug log (commented out to reduce console noise)
+      // console.log('🔍 [getConnectedProviders] Checking integrations:', {
+      //   totalIntegrations: integrations.length,
+      //   integrations: integrations.map(i => ({
+      //     provider: i.provider,
+      //     status: i.status,
+      //     isConnected: isConnectedStatus(i.status)
+      //   }))
+      // })
 
       // Return all integrations that are connected (status === "connected")
       // Other statuses like expired or needs_reauthorization should show as disconnected
@@ -737,7 +737,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive) each need
       // their own OAuth connection and should not be considered connected just because one is connected
 
-      console.log('🔍 [getConnectedProviders] Final result:', connectedProviders)
+      // console.log('🔍 [getConnectedProviders] Final result:', connectedProviders)
       return connectedProviders
     },
 
