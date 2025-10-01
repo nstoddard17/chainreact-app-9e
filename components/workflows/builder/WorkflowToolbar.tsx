@@ -40,6 +40,7 @@ interface WorkflowToolbarProps {
   isUpdatingStatus?: boolean
   currentWorkflow?: any
   workflowId?: string | null
+  editTemplateId?: string | null
   // New props for missing buttons
   handleTestSandbox?: () => void
   handleExecuteLive?: () => void
@@ -75,6 +76,7 @@ export function WorkflowToolbar({
   isUpdatingStatus = false,
   currentWorkflow,
   workflowId,
+  editTemplateId,
   handleTestSandbox,
   handleExecuteLive,
   isStepMode = false,
@@ -151,19 +153,26 @@ export function WorkflowToolbar({
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div className="flex flex-col space-y-1 flex-1 min-w-0">
-            <Input
-              value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              onBlur={handleSave}
-              className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full"
-              style={{
-                boxShadow: "none",
-                width: `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`
-              }}
-              placeholder="Untitled Workflow"
-              title={workflowName || "Untitled Workflow"}
-            />
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="flex flex-col space-y-1 flex-1 min-w-0">
+              <Input
+                value={workflowName}
+                onChange={(e) => setWorkflowName(e.target.value)}
+                onBlur={handleSave}
+                className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full"
+                style={{
+                  boxShadow: "none",
+                  width: `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`
+                }}
+                placeholder="Untitled Workflow"
+                title={workflowName || "Untitled Workflow"}
+              />
+            </div>
+            {editTemplateId && (
+              <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 flex-shrink-0">
+                Editing Template
+              </Badge>
+            )}
           </div>
         </div>
 
