@@ -34,6 +34,7 @@ export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: 
       .map((label: any): GmailLabel => ({
         id: label.id,
         name: label.name,
+        label: label.name, // Add label property for dropdown compatibility
         value: label.id,
         type: label.type,
         messages_total: label.messagesTotal,

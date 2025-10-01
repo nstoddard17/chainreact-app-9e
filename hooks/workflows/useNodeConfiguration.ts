@@ -175,18 +175,13 @@ export function useNodeConfiguration(
             ...((__validationState) ? { validationState: __validationState } : {})
           }
 
-          // If it's an AI Agent with chains, remove the onAddChain button
-          if (isAIAgent && hasChains) {
+          // Update AI Agent chain metadata but keep onAddChain button for adding more chains
+          if (isAIAgent) {
             const updatedDataAny = updatedData as any;
-            updatedDataAny.onAddChain = undefined;
-            updatedDataAny.hasChains = true;
+            updatedDataAny.hasChains = hasChains;
             updatedDataAny.chainCount = chainsArray.length;
-            console.log('Removing onAddChain from AI Agent node with', chainsArray.length, 'chains');
-          } else if (isAIAgent) {
-            const updatedDataAny = updatedData as any;
-            const nodeDataAny = node.data as any;
-            updatedDataAny.hasChains = nodeDataAny.hasChains || false;
-            updatedDataAny.chainCount = nodeDataAny.chainCount || 0;
+            // Keep onAddChain so users can add multiple chains
+            console.log('AI Agent has', chainsArray.length, 'chains, keeping onAddChain button');
           }
 
           return { ...node, data: updatedData }

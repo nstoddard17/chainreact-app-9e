@@ -44,7 +44,9 @@ function decryptKey(encryptedKey: string): string {
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient({
+      cookies: () => cookieStore
+    })
 
     // Get the authenticated user
     const {
@@ -53,6 +55,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      // User not authenticated - this is expected, return 401 silently
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

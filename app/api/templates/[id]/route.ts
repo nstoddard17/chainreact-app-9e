@@ -37,11 +37,27 @@ export async function PUT(
     const templateId = params.id
     const { nodes, connections } = await request.json()
 
+    // Filter out UI-only placeholder nodes (Add Action buttons, etc.)
+    const filteredNodes = nodes.filter((node: any) => {
+      const nodeType = node.data?.type || node.type
+      const hasAddButton = node.data?.hasAddButton
+      const isPlaceholder = node.data?.isPlaceholder
+
+      // Remove addAction, insertAction, and chain placeholder nodes
+      return nodeType !== 'addAction'
+        && nodeType !== 'insertAction'
+        && nodeType !== 'chain_placeholder'
+        && !hasAddButton
+        && !isPlaceholder
+    })
+
+    console.log(`Template update: Filtered ${nodes.length - filteredNodes.length} placeholder nodes`)
+
     // Update the template with new nodes and connections
     const { data: template, error } = await supabase
       .from("templates")
       .update({
-        nodes,
+        nodes: filteredNodes,
         connections,
         updated_at: new Date().toISOString(),
       })

@@ -23,6 +23,7 @@ import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 // import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
+import { GmailLabelSelector } from "./GmailLabelSelector";
 import { useAuthStore } from "@/stores/authStore";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -579,6 +580,27 @@ export function FieldRenderer({
               />
             );
         }
+
+      case "gmail-label-selector":
+        // Special Gmail label selector that allows creating new labels
+        return (
+          <GmailLabelSelector
+            value={Array.isArray(value) ? value : (value ? [value] : [])}
+            onChange={(newValue) => {
+              // Store as array for consistency
+              onChange(newValue)
+            }}
+            options={fieldOptions}
+            onRefresh={() => {
+              if (onDynamicLoad) {
+                onDynamicLoad(field.name, field.dynamic || field.name, true)
+              }
+            }}
+            fieldName={field.name}
+            placeholder={field.placeholder}
+            isLoading={loadingDynamic && fieldOptions.length === 0}
+          />
+        );
 
       case "text":
       case "email":
