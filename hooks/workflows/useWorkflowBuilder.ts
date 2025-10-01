@@ -109,7 +109,15 @@ export function useWorkflowBuilder() {
   const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const isProcessingChainsRef = useRef(false)
+  const justSavedRef = useRef(false)
   const isCleaningAddActionsRef = useRef(false)
+
+  // Wrapper to safely set unsaved changes (ignores changes right after save)
+  const markAsUnsaved = useCallback(() => {
+    if (!justSavedRef.current) {
+      setHasUnsavedChanges(true)
+    }
+  }, [])
 
   // Custom hooks
   const executionHook = useWorkflowExecution()
@@ -830,6 +838,15 @@ export function useWorkflowBuilder() {
         connections: workflowConnections,
       })
 
+      // Set flag to prevent immediate re-triggering of unsaved changes
+      justSavedRef.current = true
+      setHasUnsavedChanges(false)
+
+      // Clear the flag after a short delay to allow for any immediate state updates
+      setTimeout(() => {
+        justSavedRef.current = false
+      }, 500)
+
       // If editing a template, also update the template
       if (editTemplateId) {
         try {
@@ -867,8 +884,6 @@ export function useWorkflowBuilder() {
           description: "Workflow saved successfully",
         })
       }
-
-      setHasUnsavedChanges(false)
     } catch (error) {
       console.error('Error saving workflow:', error)
       toast({
@@ -966,8 +981,8 @@ export function useWorkflowBuilder() {
       setTimeout(() => trackChangeRef.current?.(nodes, newEdges), 100)
       return newEdges
     })
-    setHasUnsavedChanges(true)
-  }, [setEdges, nodes, trackChange])
+    markAsUnsaved()
+  }, [setEdges, nodes, trackChange, markAsUnsaved])
 
   // Process edges to add handleAddNodeBetween
   const processedEdges = useMemo(() => {

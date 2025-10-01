@@ -378,6 +378,8 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The row number to delete (2 = first data row)",
         helpText: "Row 1 is usually headers, so data starts at row 2"
       },
+      // Note: deleteSearchColumn, deleteSearchValue, and deleteAll fields are handled
+      // in the MicrosoftExcelDeleteConfirmation component (not in the schema)
       // === DATA PREVIEW (Shows for update or delete by column) ===
       {
         name: "dataPreview",
@@ -428,6 +430,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     producesOutput: true,
+    hideInActionSelection: true, // Hidden for now - will be fixed later
     configSchema: [
       {
         name: "workbookId",
