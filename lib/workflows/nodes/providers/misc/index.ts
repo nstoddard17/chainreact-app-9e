@@ -44,108 +44,6 @@ const manychatActionTagSubscriber: NodeComponent = {
   isTrigger: false,
 }
 
-// Beehiiv Nodes
-const beehiivTriggerNewSubscriber: NodeComponent = {
-  type: "beehiiv_trigger_new_subscriber",
-  title: "New Subscriber",
-  description: "Triggers when a new subscriber is added",
-  icon: Users,
-  providerId: "beehiiv",
-  category: "Communication",
-  isTrigger: true,
-  producesOutput: true,
-  comingSoon: true,
-}
-
-const beehiivActionAddSubscriber: NodeComponent = {
-  type: "beehiiv_action_add_subscriber",
-  title: "Add Subscriber",
-  description: "Add a new subscriber",
-  icon: Plus,
-  providerId: "beehiiv",
-  category: "Communication",
-  isTrigger: false,
-}
-
-const beehiivActionSendNewsletter: NodeComponent = {
-  type: "beehiiv_action_send_newsletter",
-  title: "Send Newsletter",
-  description: "Send a newsletter to your subscribers",
-  icon: Send,
-  providerId: "beehiiv",
-  category: "Communication",
-  isTrigger: false,
-}
-
-// Blackbaud Nodes
-const blackbaudTriggerNewDonor: NodeComponent = {
-  type: "blackbaud_trigger_new_donor",
-  title: "New Donor",
-  description: "Triggers when a new donor is added to the system",
-  icon: UserPlus,
-  providerId: "blackbaud",
-  category: "Other",
-  isTrigger: true,
-  comingSoon: true,
-  configSchema: [
-    { name: "constituentType", label: "Constituent Type", type: "select", required: false, options: [
-      { value: "Individual", label: "Individual" },
-      { value: "Organization", label: "Organization" }
-    ]}
-  ]
-}
-
-const blackbaudTriggerNewDonation: NodeComponent = {
-  type: "blackbaud_trigger_new_donation",
-  title: "New Donation",
-  description: "Triggers when a new donation is received",
-  icon: DollarSign,
-  providerId: "blackbaud",
-  category: "Other",
-  isTrigger: true,
-  comingSoon: true,
-  configSchema: [
-    { name: "minimumAmount", label: "Minimum Amount", type: "number", required: false, placeholder: "Minimum donation amount" },
-    { name: "fundId", label: "Fund ID", type: "text", required: false, placeholder: "Specific fund ID to monitor" }
-  ]
-}
-
-const blackbaudActionCreateConstituent: NodeComponent = {
-  type: "blackbaud_action_create_constituent",
-  title: "Create Constituent",
-  description: "Create a new constituent in Blackbaud",
-  icon: UserPlus,
-  providerId: "blackbaud",
-  requiredScopes: [],
-  category: "Other",
-  isTrigger: false,
-  configSchema: [
-    { name: "firstName", label: "First Name", type: "text", required: true, placeholder: "Enter first name" },
-    { name: "lastName", label: "Last Name", type: "text", required: true, placeholder: "Enter last name" },
-    { name: "email", label: "Email", type: "email", required: false, placeholder: "Enter email address" },
-    { name: "phone", label: "Phone", type: "text", required: false, placeholder: "Enter phone number" },
-    { name: "address", label: "Address", type: "textarea", required: false, placeholder: "Enter address" }
-  ]
-}
-
-const blackbaudActionCreateDonation: NodeComponent = {
-  type: "blackbaud_action_create_donation",
-  title: "Create Donation",
-  description: "Create a new donation record in Blackbaud",
-  icon: DollarSign,
-  providerId: "blackbaud",
-  requiredScopes: [],
-  category: "Other",
-  isTrigger: false,
-  configSchema: [
-    { name: "constituentId", label: "Constituent ID", type: "text", required: true, placeholder: "Enter constituent ID" },
-    { name: "amount", label: "Amount", type: "number", required: true, placeholder: "Enter donation amount" },
-    { name: "fundId", label: "Fund ID", type: "text", required: false, placeholder: "Enter fund ID" },
-    { name: "date", label: "Donation Date", type: "date", required: true },
-    { name: "notes", label: "Notes", type: "textarea", required: false, placeholder: "Additional notes" }
-  ]
-}
-
 // Gumroad Nodes
 const gumroadTriggerNewSale: NodeComponent = {
   type: "gumroad_trigger_new_sale",
@@ -223,17 +121,6 @@ export const miscNodes: NodeComponent[] = [
   manychatTriggerNewSubscriber,
   manychatActionSendMessage,
   manychatActionTagSubscriber,
-  
-  // Beehiiv (3)
-  beehiivTriggerNewSubscriber,
-  beehiivActionAddSubscriber,
-  beehiivActionSendNewsletter,
-  
-  // Blackbaud (4)
-  blackbaudTriggerNewDonor,
-  blackbaudTriggerNewDonation,
-  blackbaudActionCreateConstituent,
-  blackbaudActionCreateDonation,
   
   // Gumroad (4)
   gumroadTriggerNewSale,

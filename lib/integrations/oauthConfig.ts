@@ -556,20 +556,6 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/mailchimp/callback",
   },
-  blackbaud: {
-    id: "blackbaud",
-    name: "Blackbaud",
-    clientIdEnv: "BLACKBAUD_CLIENT_ID",
-    clientSecretEnv: "BLACKBAUD_CLIENT_SECRET",
-    authEndpoint: "https://login.blackbaud.com/oauth2/authorize",
-    tokenEndpoint: "https://login.blackbaud.com/oauth2/token",
-    refreshRequiresClientAuth: true,
-    authMethod: "body",
-    refreshTokenExpirationSupported: false,
-    accessTokenExpiryBuffer: 30,
-    sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/blackbaud/callback",
-  },
 };
 
 /**

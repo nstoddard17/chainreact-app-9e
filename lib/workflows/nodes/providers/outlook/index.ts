@@ -17,6 +17,11 @@ const outlookTriggerNewEmail: NodeComponent = {
   isTrigger: true,
   requiredScopes: ["Mail.Read"],
   producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
   configSchema: [
     {
       name: "from",
