@@ -257,24 +257,19 @@ export function MicrosoftExcelConfiguration({
       if (field.dependsOn) {
         const dependencyValue = values[field.dependsOn];
         if (!dependencyValue) {
-          console.log(`📋 [Excel] Field "${field.name}" hidden - depends on "${field.dependsOn}" which has no value`);
           return false; // Hide field if dependency has no value
         }
       }
 
       // Check if field should be shown based on showIf condition
       if (field.showIf && typeof field.showIf === 'function') {
-        const shouldShow = field.showIf(values);
-        console.log(`📋 [Excel] Field "${field.name}" showIf evaluated:`, shouldShow, 'with values:', values);
-        return shouldShow;
+        return field.showIf(values);
       }
 
       // If field is marked as hidden but has showIf, evaluate showIf
       if (field.hidden && field.showIf) {
         if (typeof field.showIf === 'function') {
-          const shouldShow = field.showIf(values);
-          console.log(`📋 [Excel] Hidden field "${field.name}" showIf evaluated:`, shouldShow);
-          return shouldShow;
+          return field.showIf(values);
         }
       }
 
@@ -335,8 +330,8 @@ export function MicrosoftExcelConfiguration({
               value={values[field.name]}
               onChange={(value) => setValueWithColumnTracking(field.name, value)}
               error={validationErrors[field.name] || errors[field.name]}
-              dynamicOptions={dynamicOptions[field.name] || []}
-              loading={loadingDynamic || loadingFields.has(field.name)}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingDynamic || loadingFields.has(field.name)}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
               values={values}
