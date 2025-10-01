@@ -600,6 +600,109 @@ export function AirtableConfiguration({
     }
   }, []); // Only run on mount
 
+  // Track if we've already set AI fields for this schema to prevent duplicate processing
+  const processedSchemaRef = React.useRef<string | null>(null);
+
+  // Log component mount and initial state
+  useEffect(() => {
+    console.log('🔍 [AirtableConfig] Component mounted/updated:', {
+      nodeType: nodeInfo?.type,
+      hasAllFieldsAI: !!values._allFieldsAI,
+      allFieldsAIValue: values._allFieldsAI,
+      hasSchema: !!airtableTableSchema,
+      schemaFieldCount: airtableTableSchema?.fields?.length || 0,
+      baseId: values.baseId,
+      tableName: values.tableName,
+      currentAiFieldsCount: Object.keys(aiFields).length,
+      aiFields: aiFields,
+      allValuesKeys: Object.keys(values),
+      allValues: values
+    });
+  }, [values._allFieldsAI, airtableTableSchema]);
+
+  // Auto-set AI mode for dynamically loaded fields
+  useEffect(() => {
+    console.log('🔍 [AirtableConfig] Auto-AI useEffect triggered:', {
+      hasAllFieldsAI: !!values._allFieldsAI,
+      allFieldsAIValue: values._allFieldsAI,
+      hasSchema: !!airtableTableSchema,
+      hasFields: !!airtableTableSchema?.fields,
+      fieldCount: airtableTableSchema?.fields?.length || 0,
+      baseId: values.baseId,
+      tableName: values.tableName
+    });
+
+    // Check if _allFieldsAI flag is set and table schema has been loaded
+    if (values._allFieldsAI && airtableTableSchema?.fields) {
+      // Create a unique key for this schema
+      const schemaKey = `${values.baseId}-${values.tableName}-${airtableTableSchema.fields.length}`;
+
+      console.log('🔍 [AirtableConfig] Schema detected:', {
+        schemaKey,
+        previousSchemaKey: processedSchemaRef.current,
+        alreadyProcessed: processedSchemaRef.current === schemaKey
+      });
+
+      // Skip if we've already processed this exact schema
+      if (processedSchemaRef.current === schemaKey) {
+        console.log('⏭️ [AirtableConfig] Skipping - already processed this schema');
+        return;
+      }
+
+      console.log('🤖 [AirtableConfig] Auto-setting AI mode for dynamic fields');
+
+      const dynamicFields = getDynamicFields();
+      console.log('🔍 [AirtableConfig] Dynamic fields:', dynamicFields.map((f: any) => f.name));
+
+      const newAiFields: Record<string, boolean> = { ...aiFields };
+      let hasChanges = false;
+
+      // Selector fields that should NOT be auto-set to AI mode
+      const selectorFields = new Set(['baseId', 'tableName', 'viewName', 'recordId', 'id']);
+
+      // Set all dynamic Airtable fields to AI mode
+      dynamicFields.forEach((field: any) => {
+        // field.name is already in format "airtable_field_Draft Name", don't add prefix again
+        const fieldName = field.name;
+        // Extract the raw field name (without prefix) for checking selectors
+        const rawFieldName = fieldName.replace('airtable_field_', '');
+        const isSelector = selectorFields.has(rawFieldName);
+        const alreadySet = aiFields[fieldName];
+
+        console.log('🔍 [AirtableConfig] Processing field:', {
+          fieldName,
+          rawFieldName,
+          isSelector,
+          alreadySet,
+          willSet: !isSelector && !alreadySet
+        });
+
+        if (!isSelector && !alreadySet) {
+          newAiFields[fieldName] = true;
+          // Also set the value to the AI placeholder using the raw field name
+          setValue(fieldName, `{{AI_FIELD:${rawFieldName}}}`);
+          hasChanges = true;
+          console.log('✅ [AirtableConfig] Set field to AI mode:', fieldName);
+        }
+      });
+
+      // Update aiFields state only if there are changes
+      if (hasChanges) {
+        console.log('🤖 [AirtableConfig] Setting aiFields for', Object.keys(newAiFields).length, 'fields');
+        console.log('🔍 [AirtableConfig] New aiFields:', newAiFields);
+        setAiFields(newAiFields);
+        processedSchemaRef.current = schemaKey;
+      } else {
+        console.log('⚠️ [AirtableConfig] No changes to make');
+      }
+    } else {
+      console.log('⚠️ [AirtableConfig] Conditions not met:', {
+        hasAllFieldsAI: !!values._allFieldsAI,
+        hasSchema: !!airtableTableSchema?.fields
+      });
+    }
+  }, [airtableTableSchema, values._allFieldsAI, values.baseId, values.tableName]);
+
   // Combine loading logic to prevent duplicate API calls
   // Use refs to track previous values and prevent infinite loops
   const prevTableName = React.useRef(values.tableName);

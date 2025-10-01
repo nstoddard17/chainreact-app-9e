@@ -112,9 +112,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     console.log(`Creating workflow with ${nodes.length} nodes and ${connections.length} connections`)
 
-    // Keep ALL nodes in the main workflow (including chain nodes)
+    // Filter out UI-only placeholder nodes (Add Action buttons, etc.)
+    const filteredNodes = nodes.filter(node => {
+      const nodeType = node.data?.type || node.type
+      const hasAddButton = node.data?.hasAddButton
+      const isPlaceholder = node.data?.isPlaceholder
+
+      // Remove addAction, insertAction, and chain placeholder nodes
+      return nodeType !== 'addAction'
+        && nodeType !== 'insertAction'
+        && nodeType !== 'chain_placeholder'
+        && !hasAddButton
+        && !isPlaceholder
+    })
+
+    console.log(`Filtered ${nodes.length - filteredNodes.length} placeholder nodes, ${filteredNodes.length} nodes remaining`)
+
+    // Keep ALL remaining nodes in the main workflow (including chain nodes)
     // Chain nodes should be visible on the canvas with their metadata intact
-    const processedNodes = nodes.map(node => {
+    const processedNodes = filteredNodes.map(node => {
       // Ensure all nodes use type: "custom" for React Flow compatibility
       return {
         ...node,

@@ -133,12 +133,14 @@ function WorkflowBuilderContent() {
     getDisplayedActions,
     loadingIntegrations,
     refreshIntegrations,
+    comingSoonIntegrations,
     confirmDeleteNode,
 
     // Node operations (needed for chain nodes)
     handleDeleteNodeWithConfirmation,
     handleNodeConfigure,
     handleNodeDelete,
+    handleNodeAddChain,
     handleAddNodeBetween,
     ensureOneAddActionPerChain,
 
@@ -320,9 +322,13 @@ function WorkflowBuilderContent() {
             if (configuringNode.id !== 'pending-action') {
               // Find chain nodes for this AI Agent
               // First get nodes explicitly marked as children
+              // Filter out UI nodes (addAction, chainPlaceholder)
               const explicitChainNodes = nodes.filter(n =>
                 n.data?.parentAIAgentId === configuringNode.id &&
-                n.data?.type !== 'addAction'
+                n.data?.type !== 'addAction' &&
+                n.data?.type !== 'chain_placeholder' &&
+                n.type !== 'addAction' &&
+                n.type !== 'chainPlaceholder'
               )
 
               // Also find nodes that are connected after the AI Agent (might not have parentAIAgentId)
@@ -337,7 +343,10 @@ function WorkflowBuilderContent() {
                   const targetNode = nodes.find(n => n.id === edge.target)
                   if (targetNode &&
                       targetNode.data?.type !== 'addAction' &&
+                      targetNode.data?.type !== 'chain_placeholder' &&
                       targetNode.data?.type !== 'ai_agent' &&
+                      targetNode.type !== 'addAction' &&
+                      targetNode.type !== 'chainPlaceholder' &&
                       !targetNode.data?.isTrigger) {
                     // Include this node if it's not already in explicit chain nodes
                     if (!explicitChainNodes.some(n => n.id === targetNode.id)) {
@@ -412,15 +421,49 @@ function WorkflowBuilderContent() {
 
               // Group chain nodes by chain index to reconstruct chains
               const chainGroups = new Map<number, any[]>()
-              chainNodes.forEach(node => {
-                // If node doesn't have a chainIndex, assign it based on its position
-                let chainIndex = node.data?.parentChainIndex
-                if (chainIndex === undefined) {
-                  // Assign chain index 0 for nodes without explicit chain index
-                  chainIndex = 0
-                  // Update the node data to include this for consistency
-                  node.data = { ...node.data, parentChainIndex: 0 }
+
+              // First, determine chain indices by tracing edges from AI Agent
+              const chainIndexMap = new Map<string, number>()
+              const aiAgentEdges = edges.filter(e => e.source === configuringNode.id)
+
+              // Sort edges by X position of target node to determine chain order (left to right)
+              const sortedAIAgentEdges = aiAgentEdges
+                .map(edge => {
+                  const targetNode = nodes.find(n => n.id === edge.target)
+                  return { edge, targetNode, x: targetNode?.position?.x || 0 }
+                })
+                .sort((a, b) => a.x - b.x)
+
+              // Assign chain indices based on sorted order
+              sortedAIAgentEdges.forEach(({ edge }, index) => {
+                // Walk through the chain starting from this edge
+                let currentNodeId = edge.target
+                let visited = new Set<string>()
+
+                while (currentNodeId && !visited.has(currentNodeId)) {
+                  visited.add(currentNodeId)
+                  chainIndexMap.set(currentNodeId, index)
+
+                  // Find next node in chain
+                  const nextEdge = edges.find(e =>
+                    e.source === currentNodeId &&
+                    !e.target.includes('add-action') &&
+                    e.target !== configuringNode.id
+                  )
+                  currentNodeId = nextEdge?.target || null
                 }
+              })
+
+              // Group nodes using determined chain indices
+              chainNodes.forEach(node => {
+                // Use the chain index from our map, fallback to node data, then to 0
+                let chainIndex = chainIndexMap.get(node.id) ?? node.data?.parentChainIndex ?? 0
+
+                // Update node data to include the determined chain index
+                if (node.data?.parentChainIndex !== chainIndex) {
+                  node.data = { ...node.data, parentChainIndex: chainIndex }
+                }
+
                 if (!chainGroups.has(chainIndex)) {
                   chainGroups.set(chainIndex, [])
                 }
@@ -553,6 +596,7 @@ function WorkflowBuilderContent() {
                 initialData={initialData}
                 workflowData={workflowData}
                 currentNodeId={configuringNode.id}
+                autoOpenActionSelector={configuringNode.autoOpenActionSelector}
                 onSave={async (config) => {
               console.log('🔴 [AI Agent Save] Saving with', config.chainsLayout?.nodes?.length || 0, 'nodes in', (config.chainsLayout?.edges?.length || 0) > 0 ? 'chains' : 'placeholder mode')
               // console.log('🔴 [AI Agent Save] Config keys:', Object.keys(config))
@@ -679,7 +723,7 @@ function WorkflowBuilderContent() {
                         id: chainPlaceholderId,
                         type: 'chainPlaceholder',
                         position: {
-                          x: aiAgentNode.position.x,
+                          x: aiAgentNode.position.x, // Same width (480px) as AI Agent - no offset needed
                           y: aiAgentNode.position.y + 160
                         },
                         draggable: false,
@@ -828,8 +872,8 @@ function WorkflowBuilderContent() {
                           id: addActionId,
                           type: 'addAction',
                           position: {
-                            x: newNode.position.x,
-                            y: newNode.position.y + 160  // Consistent 160px spacing for all Add Action nodes
+                            x: newNode.position.x + 40, // Center Add Action (400px) below parent (480px)
+                            y: newNode.position.y + 220
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
@@ -1235,6 +1279,30 @@ function WorkflowBuilderContent() {
             currentNodeId={configuringNode.id}
             initialData={configuringNode.config}
             onActionSelect={aiAgentActionCallback ? (action) => aiAgentActionCallback(action.type, action.providerId, action.config) : undefined}
+            // Action dialog props - shared with workflow builder
+            showActionDialog={showActionDialog}
+            setShowActionDialog={setShowActionDialog}
+            selectedIntegration={selectedIntegration}
+            setSelectedIntegration={setSelectedIntegration}
+            selectedAction={selectedAction}
+            setSelectedAction={setSelectedAction}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filterCategory={filterCategory}
+            setFilterCategory={setFilterCategory}
+            showConnectedOnly={showConnectedOnly}
+            setShowConnectedOnly={setShowConnectedOnly}
+            availableIntegrations={availableIntegrations}
+            categories={categories}
+            renderLogo={renderLogo}
+            isIntegrationConnected={isIntegrationConnected}
+            comingSoonIntegrations={comingSoonIntegrations}
+            handleActionSelect={handleActionSelect}
+            filterIntegrations={filterIntegrations}
+            getDisplayedActions={getDisplayedActions}
+            handleActionDialogClose={handleActionDialogClose}
+            loadingIntegrations={loadingIntegrations}
+            refreshIntegrations={refreshIntegrations}
           />
             )
           })()

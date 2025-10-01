@@ -17,6 +17,7 @@ export interface GmailIntegration {
 export interface GmailLabel {
   id: string
   name: string
+  label: string // For dropdown compatibility
   value: string
   type: 'system' | 'user'
   messages_total?: number
