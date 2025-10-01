@@ -264,6 +264,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         type: "select",
         dynamic: "microsoft-excel_workbooks",
         required: true,
+        loadOnMount: true,
         placeholder: "Select a workbook",
         description: "The Excel file you want to work with",
         helpText: "Start typing to search through your workbooks"
@@ -275,8 +276,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
         dynamic: "microsoft-excel_worksheets",
         required: true,
         dependsOn: "workbookId",
-        hidden: true,
-        showIf: (values: any) => values.workbookId,
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook",
         helpText: "Select which worksheet tab to work with"
@@ -288,8 +287,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "What do you want to do?",
         type: "select",
         required: true,
-        hidden: true,
-        showIf: (values: any) => values.worksheetName,
+        dependsOn: "worksheetName",
         placeholder: "Select an action...",
         options: [
           { value: "add", label: "➕ Add new row" },

@@ -959,6 +959,8 @@ export class IntegrationNodeHandlers {
 
       case "microsoft_excel_action_manage_data":
       case "microsoft-excel_action_manage_data":
+      case "microsoft_excel_unified_action":
+      case "microsoft-excel_unified_action":
         // Use the unified action handler for manage data
         const { executeMicrosoftExcelUnifiedAction } = await import("@/lib/workflows/actions/microsoft-excel")
         const manageDataResult = await executeMicrosoftExcelUnifiedAction(
