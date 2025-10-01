@@ -304,8 +304,14 @@ export function useIntegrationSelection() {
   ) => {
     if (!selectedIntegration) return []
 
-    return selectedIntegration.actions.filter(action => {
+    const filtered = selectedIntegration.actions.filter(action => {
       if (!action) return false
+
+      // Hide actions marked with hideInActionSelection
+      if (action.hideInActionSelection) {
+        console.log(`Hiding action: ${action.title || action.type}`)
+        return false
+      }
 
       const actionName = action.name || action.title || ''
       const actionDescription = action.description || ''
@@ -316,6 +322,14 @@ export function useIntegrationSelection() {
       return actionName.toLowerCase().includes(query) ||
              actionDescription.toLowerCase().includes(query)
     })
+
+    console.log(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
+      total: selectedIntegration.actions.length,
+      filtered: filtered.length,
+      actions: filtered.map(a => a.title || a.type)
+    })
+
+    return filtered
   }, [])
 
   const renderLogo = useCallback((integrationId: string, name?: string) => {

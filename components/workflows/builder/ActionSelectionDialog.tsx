@@ -194,18 +194,12 @@ export function ActionSelectionDialog({
 
   const displayedActions = useMemo(() => {
     if (!selectedIntegration) return []
-    
-    const trigger = nodes.find(node => node.data?.isTrigger)
+
     const actions = getDisplayedActions(selectedIntegration, searchQuery)
-    
-    // Filter out incompatible actions
-    return actions.filter(action => {
-      if (action.providerId === 'gmail' && trigger && trigger.data?.providerId !== 'gmail') {
-        return false
-      }
-      return true
-    })
-  }, [selectedIntegration, searchQuery, getDisplayedActions, nodes])
+
+    // Note: Removed Gmail-specific filter - Gmail actions should work with any trigger
+    return actions
+  }, [selectedIntegration, searchQuery, getDisplayedActions])
 
   const handleActionSelectClick = () => {
     if (selectedIntegration && selectedAction && onActionSelect) {
