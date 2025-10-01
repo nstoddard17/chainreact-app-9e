@@ -149,23 +149,9 @@ export function useWorkflowExecution() {
       })
       setExecutionResults(resetResults)
 
-      const workflowNodes: WorkflowNode[] = nodes.map(node => ({
-        id: node.id,
-        type: node.type || 'custom',
-        position: node.position,
-        data: node.data,
-      }))
-
-      const workflowConnections = edges.map(edge => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-      }))
-
-      await updateWorkflow(currentWorkflow.id, {
-        nodes: workflowNodes,
-        connections: workflowConnections,
-      })
+      // Note: Workflow is already saved when user clicks Save button
+      // No need to save again before execution - just execute with current workflow state
+      console.log('🚀 [Workflow Execution] Starting execution (using saved workflow from database)...');
 
       const executionResults = await executeWorkflow(currentWorkflow.id, {
         executionMode: 'live',

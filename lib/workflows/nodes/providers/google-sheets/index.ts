@@ -333,6 +333,7 @@ export const googleSheetsNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     producesOutput: true,
+    hideInActionSelection: true, // Hidden for now - will be fixed later
     configSchema: [
       {
         name: "spreadsheetId",
