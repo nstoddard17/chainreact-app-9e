@@ -86,8 +86,11 @@ function ConfigurationForm({
     const { __dynamicOptions, __validationState, ...configValues } = initialData || {};
     console.log('🔄 [ConfigForm] Initializing values with initialData:', {
       nodeType: nodeInfo?.type,
+      providerId: nodeInfo?.providerId,
       currentNodeId,
       initialData: configValues,
+      hasAllFieldsAI: !!configValues?._allFieldsAI,
+      allFieldsAIValue: configValues?._allFieldsAI,
       hasGuildId: !!configValues?.guildId,
       hasChannelId: !!initialData?.channelId,
       hasMessage: !!initialData?.message
@@ -316,10 +319,6 @@ function ConfigurationForm({
       const allFieldsAI = initialData._allFieldsAI === true;
       
       Object.entries(initialData).forEach(([key, value]) => {
-        if (key === '_allFieldsAI') {
-          // Don't include the flag itself in values
-          return;
-        }
         if (value !== undefined) {
           initialValues[key] = value;
         }
@@ -327,9 +326,26 @@ function ConfigurationForm({
       
       // If _allFieldsAI is set, initialize all fields with AI placeholders
       if (allFieldsAI) {
+        // Fields that should NOT be set to AI mode (user needs to select these)
+        const selectorFields = new Set([
+          'baseId', 'tableName', 'viewName',
+          'spreadsheetId', 'sheetName',
+          'workbookId', 'worksheetName',
+          'guildId', 'channelId',
+          'workspace', 'databaseId', 'pageId',
+          'boardId', 'listId', 'objectType',
+          'recordId', 'id'
+        ]);
+
         nodeInfo.configSchema.forEach((field: any) => {
-          // Don't set AI placeholders for non-editable fields
-          if (!field.computed && !field.autoNumber && !field.formula && !field.readOnly) {
+          // Don't set AI placeholders for selector fields, non-editable fields
+          if (
+            !selectorFields.has(field.name) &&
+            !field.computed &&
+            !field.autoNumber &&
+            !field.formula &&
+            !field.readOnly
+          ) {
             if (initialValues[field.name] === undefined || initialValues[field.name] === '') {
               initialValues[field.name] = `{{AI_FIELD:${field.name}}}`;
             }
@@ -348,10 +364,78 @@ function ConfigurationForm({
     }
     
     console.log('🔄 [ConfigForm] Setting form values to:', initialValues);
+    console.log('🔍 [ConfigForm] _allFieldsAI in initialValues:', initialValues._allFieldsAI);
+    console.log('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
     setValues(initialValues);
     setIsInitialLoading(false);
   }, [nodeInfo, initialData]);
-  
+
+  // Sync aiFields state with values that contain AI placeholders
+  useEffect(() => {
+    // Fields that should NOT be set to AI mode (user needs to select these)
+    const selectorFields = new Set([
+      // Airtable selectors
+      'baseId', 'tableName', 'viewName',
+      // Google Sheets selectors
+      'spreadsheetId', 'sheetName',
+      // Microsoft Excel selectors
+      'workbookId', 'worksheetName',
+      // Discord selectors
+      'guildId', 'channelId',
+      // Slack selectors
+      'channelId', 'workspace',
+      // Notion selectors
+      'databaseId', 'pageId',
+      // Trello selectors
+      'boardId', 'listId',
+      // HubSpot selectors
+      'objectType',
+      // Generic selectors
+      'recordId', 'id'
+    ]);
+
+    const newAiFields: Record<string, boolean> = {};
+
+    // Check if _allFieldsAI flag is set
+    if (initialData?._allFieldsAI === true) {
+      newAiFields._allFieldsAI = true;
+      // Mark all fields as AI fields EXCEPT selector fields
+      if (nodeInfo?.configSchema) {
+        nodeInfo.configSchema.forEach((field: any) => {
+          // Skip selector fields, computed fields, and read-only fields
+          if (
+            !selectorFields.has(field.name) &&
+            !field.computed &&
+            !field.autoNumber &&
+            !field.formula &&
+            !field.readOnly
+          ) {
+            newAiFields[field.name] = true;
+          }
+        });
+      }
+    } else {
+      // Check individual field values for AI placeholders
+      Object.entries(values).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) {
+          newAiFields[key] = true;
+        }
+      });
+    }
+
+    // Only update if there are changes
+    const hasChanges = Object.keys(newAiFields).some(
+      key => newAiFields[key] !== aiFields[key]
+    ) || Object.keys(aiFields).some(
+      key => !newAiFields[key] && aiFields[key]
+    );
+
+    if (hasChanges && Object.keys(newAiFields).length > 0) {
+      console.log('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
+      setAiFields(newAiFields);
+    }
+  }, [values, initialData, nodeInfo, aiFields]);
+
   // Track if we've already loaded on mount to prevent duplicate calls
   const hasLoadedOnMount = useRef(false);
   const previousNodeKeyRef = useRef<string | null>(null);

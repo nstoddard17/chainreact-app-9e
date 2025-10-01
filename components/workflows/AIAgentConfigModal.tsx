@@ -48,6 +48,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { ActionSelectionDialog } from './builder/ActionSelectionDialog'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 import { APIKeySelector, ModelSelector } from './APIKeySelector'
 
@@ -59,9 +60,31 @@ interface AIAgentConfigModalProps {
   initialData?: Record<string, any>
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
-  onOpenActionDialog?: () => void
-  onActionSelect?: (action: any) => void
-  onAddActionToWorkflow?: (action: any, config: any) => void
+  autoOpenActionSelector?: boolean
+  // Action dialog props - passed from parent workflow builder
+  showActionDialog?: boolean
+  setShowActionDialog?: (show: boolean) => void
+  selectedIntegration?: any
+  setSelectedIntegration?: (integration: any) => void
+  selectedAction?: any
+  setSelectedAction?: (action: any) => void
+  searchQuery?: string
+  setSearchQuery?: (query: string) => void
+  filterCategory?: string
+  setFilterCategory?: (category: string) => void
+  showConnectedOnly?: boolean
+  setShowConnectedOnly?: (show: boolean) => void
+  availableIntegrations?: any[]
+  categories?: string[]
+  renderLogo?: (id: string, name: string) => React.ReactNode
+  isIntegrationConnected?: (id: string) => boolean
+  comingSoonIntegrations?: Set<string>
+  handleActionSelect?: (integration: any, action: any) => void
+  filterIntegrations?: (integrations: any[], query: string, category: string, connected: boolean) => any[]
+  getDisplayedActions?: (integration: any | null, query: string) => any[]
+  handleActionDialogClose?: () => void
+  loadingIntegrations?: boolean
+  refreshIntegrations?: () => void
 }
 
 // Group models by recommendation
@@ -212,21 +235,45 @@ export function AIAgentConfigModal({
   initialData,
   workflowData,
   currentNodeId,
-  onOpenActionDialog,
-  onActionSelect,
-  onAddActionToWorkflow
+  autoOpenActionSelector,
+  // Action dialog props
+  showActionDialog,
+  setShowActionDialog,
+  selectedIntegration,
+  setSelectedIntegration,
+  selectedAction,
+  setSelectedAction,
+  searchQuery,
+  setSearchQuery,
+  filterCategory,
+  setFilterCategory,
+  showConnectedOnly,
+  setShowConnectedOnly,
+  availableIntegrations,
+  categories,
+  renderLogo,
+  isIntegrationConnected,
+  comingSoonIntegrations,
+  handleActionSelect,
+  filterIntegrations,
+  getDisplayedActions,
+  handleActionDialogClose,
+  loadingIntegrations,
+  refreshIntegrations
 }: AIAgentConfigModalProps) {
   const { toast } = useToast()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const nodes = workflowData?.nodes || []
-  const { comingSoonIntegrations, isIntegrationConnected, availableIntegrations, categories } = useIntegrationSelection()
   
   // Progressive disclosure state
   const [isAdvancedMode, setIsAdvancedMode] = useState(false)
   const [activeTab, setActiveTab] = useState('prompt')
-  
+
   // Collapsible sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+
+  // Remount key for chain builder to force re-initialization on modal open
+  const [chainBuilderKey, setChainBuilderKey] = useState(0)
   
   // Configuration state
   const [config, setConfig] = useState(() => {
@@ -249,20 +296,17 @@ export function AIAgentConfigModal({
       chainsLayout: null as any // Add chainsLayout to store full layout data
     }
     
-    // Merge with initial data if provided
+    // Merge with initial data if provided (for non-chain config like model, prompt, etc.)
     if (initialData) {
       Object.assign(baseConfig, initialData)
       // Ensure chains is always an array
       if (initialData.chains && !Array.isArray(initialData.chains)) {
         baseConfig.chains = []
       }
-      // Preserve chainsLayout if it exists
-      baseConfig.chainsLayout = initialData.chainsLayout || null
     }
 
-    // If workflowData is provided, convert it to chainsLayout format
-    // This happens when reopening an existing AI Agent with chain nodes in the workflow
-    // BUT NOT for new AI Agents that only have a trigger node
+    // ALWAYS prioritize workflowData if it contains chain nodes
+    // This ensures changes made in the main workflow builder are reflected in the modal
     if (workflowData && workflowData.nodes && workflowData.nodes.length > 0) {
       // Check if this is just a trigger node (new AI Agent)
       const onlyHasTrigger = workflowData.nodes.length === 1 &&
@@ -270,7 +314,7 @@ export function AIAgentConfigModal({
                                workflowData.nodes[0].id === 'trigger')
 
       if (!onlyHasTrigger) {
-        console.log('🔄 [AIAgentConfigModal] Converting workflowData to chainsLayout:', workflowData)
+        console.log('🔄 [AIAgentConfigModal] Building chainsLayout from current workflow state:', workflowData)
 
         // Group nodes by chain index
         const chainGroups = new Map<number, any[]>()
@@ -297,10 +341,14 @@ export function AIAgentConfigModal({
           aiAgentPosition: { x: 400, y: 200 } // Default position for AI Agent in chain builder
         }
 
-        console.log('🔄 [AIAgentConfigModal] Initialized with chainsLayout:', baseConfig.chainsLayout)
+        console.log('🔄 [AIAgentConfigModal] Using current workflow state for chainsLayout')
       } else {
         console.log('🔄 [AIAgentConfigModal] New AI Agent with only trigger - skipping chainsLayout creation')
       }
+    } else if (initialData?.chainsLayout) {
+      // Only fallback to saved chainsLayout if workflowData is not available
+      baseConfig.chainsLayout = initialData.chainsLayout
+      console.log('🔄 [AIAgentConfigModal] Fallback: using saved chainsLayout from config')
     }
 
     return baseConfig
@@ -313,13 +361,8 @@ export function AIAgentConfigModal({
   const [isTestingModel, setIsTestingModel] = useState(false)
   const [isDiscovering, setIsDiscovering] = useState(false)
   
-  // Action selector state
+  // Action selector state - isAIMode defaults to true for AI Agent chains
   const [isAIMode, setIsAIMode] = useState(true)
-  const [actionSearchQuery, setActionSearchQuery] = useState('')
-  const [actionFilterCategory, setActionFilterCategory] = useState('all')
-  const [showComingSoon, setShowComingSoon] = useState(false) // Hide coming soon by default
-  const [selectedActionIntegration, setSelectedActionIntegration] = useState<any>(null)
-  const [selectedActionInModal, setSelectedActionInModal] = useState<any>(null)
   const [discoveredActions, setDiscoveredActions] = useState<any[]>([])
   const [testResults, setTestResults] = useState<any>(null)
   const [showVariablePanel, setShowVariablePanel] = useState(true)
@@ -329,7 +372,6 @@ export function AIAgentConfigModal({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showWizard, setShowWizard] = useState(false)
   const pendingActionCallbackRef = useRef<any>(null)
-  const [showActionSelector, setShowActionSelector] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [configuringNodeId, setConfiguringNodeId] = useState<string | null>(null)
   const [configuringNodeData, setConfiguringNodeData] = useState<any>(null)
@@ -364,7 +406,24 @@ export function AIAgentConfigModal({
       }))
     }
   }, [initialData, isOpen])
-  
+
+  // Auto-open action selector when modal opens with the flag
+  useEffect(() => {
+    if (isOpen && autoOpenActionSelector && setShowActionDialog) {
+      // Small delay to ensure modal is fully rendered
+      setTimeout(() => {
+        setShowActionDialog(true)
+      }, 100)
+    }
+  }, [isOpen, autoOpenActionSelector, setShowActionDialog])
+
+  // Force chain builder to remount when modal opens to ensure fresh initialization
+  useEffect(() => {
+    if (isOpen) {
+      setChainBuilderKey(prev => prev + 1)
+    }
+  }, [isOpen])
+
   // Note: Removed the useEffect that was overriding onActionSelect - it was causing issues with callback handling
 
   const toggleSection = (section: string) => {
@@ -571,106 +630,7 @@ export function AIAgentConfigModal({
     }
   }
 
-  // Helper function to capitalize category names
-  const formatCategoryName = (category: string): string => {
-    if (category === 'all') return 'All Categories';
-    if (category === 'ai') return 'AI';
-    if (category === 'crm') return 'CRM';
-    // Capitalize each word
-    return category
-      .split(/[\s-_]+/)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
-  // Get available integrations for action selector
-  const getFilteredIntegrations = () => {
-    // Get unique integrations from ALL_NODE_COMPONENTS
-    const integrationMap = new Map()
-
-    ALL_NODE_COMPONENTS.filter(node =>
-      !node.isTrigger &&  // Properly exclude triggers
-      node.type !== 'ai_agent' &&
-      !node.type.includes('trigger')
-    ).forEach(node => {
-      const providerId = node.providerId || node.type.split('-')[0]
-      if (!integrationMap.has(providerId)) {
-        // Get the proper integration name from INTEGRATION_CONFIGS
-        const integrationConfig = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
-        const integrationName = integrationConfig?.name || providerId.charAt(0).toUpperCase() + providerId.slice(1)
-
-        integrationMap.set(providerId, {
-          id: providerId,
-          name: integrationName,
-          actions: []
-        })
-      }
-      integrationMap.get(providerId).actions.push(node)
-    })
-
-    let integrations = Array.from(integrationMap.values())
-
-    // Filter out coming soon integrations by default
-    if (!showComingSoon) {
-      integrations = integrations.filter(int => !comingSoonIntegrations.has(int.id));
-    }
-    
-    // Apply category filter
-    if (actionFilterCategory !== 'all') {
-      integrations = integrations.filter(int => {
-        // Simple category mapping based on provider
-        const categoryMap: Record<string, string> = {
-          'gmail': 'Communication',
-          'slack': 'Communication',
-          'discord': 'Communication',
-          'notion': 'Productivity',
-          'airtable': 'Data',
-          'sheets': 'Data',
-          'openai': 'AI',
-          'anthropic': 'AI'
-        }
-        return categoryMap[int.id] === actionFilterCategory
-      })
-    }
-    
-    // Apply search filter
-    if (actionSearchQuery) {
-      const query = actionSearchQuery.toLowerCase()
-      integrations = integrations.filter(int => 
-        int.name.toLowerCase().includes(query) ||
-        int.actions.some((action: any) => 
-          action.title?.toLowerCase().includes(query) ||
-          action.description?.toLowerCase().includes(query)
-        )
-      )
-    }
-
-    // Sort integrations to put core first, then logic, then AI Agent, then alphabetically
-    return integrations.sort((a, b) => {
-      if (a.id === 'core') return -1
-      if (b.id === 'core') return 1
-      if (a.id === 'logic') return -1
-      if (b.id === 'logic') return 1
-      if (a.id === 'ai') return -1
-      if (b.id === 'ai') return 1
-      return a.name.localeCompare(b.name)
-    })
-  }
-  
-  // Render integration logo - matching main workflow builder
-  const renderIntegrationLogo = (integrationId: string, integrationName: string) => {
-    // Extract provider name from integrationId (e.g., "slack_action_send_message" -> "slack")
-    const providerId = integrationId.split('_')[0]
-    const config = INTEGRATION_CONFIGS[providerId as keyof typeof INTEGRATION_CONFIGS]
-    return <img 
-      src={config?.logo || `/integrations/${providerId}.svg`} 
-      alt={`${integrationName} logo`} 
-      className="w-10 h-10 object-contain" 
-      style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
-    />
-  }
-  
-  // Handle action selection
+  // Handle action selection (node configuration)
   const handleConfigureNode = useCallback((nodeId: string) => {
     console.log('⚙️ [AIAgentConfigModal] Configure node requested:', nodeId)
 
@@ -829,11 +789,10 @@ export function AIAgentConfigModal({
         }, aiConfig)
       }
       
-      // Close dialog and reset state
-      setShowActionSelector(false)
-      setSelectedActionIntegration(null)
-      setSelectedActionInModal(null)
-      setActionSearchQuery('')
+      // Close dialog
+      if (setShowActionDialog) {
+        setShowActionDialog(false)
+      }
 
       // Special toast for Discord actions
       if (action.providerId === 'discord') {
@@ -860,8 +819,10 @@ export function AIAgentConfigModal({
       }
     } else {
       // In Manual mode, we need to add the action and open config
-      setShowActionSelector(false)
-      
+      if (setShowActionDialog) {
+        setShowActionDialog(false)
+      }
+
       // Add to chain via callback for visual builder (manual mode)
       if (pendingActionCallbackRef.current) {
         console.log('📤 [AIAgentConfigModal] (manual) pendingActionCallback exists, getting actual callback')
@@ -876,17 +837,17 @@ export function AIAgentConfigModal({
         pendingActionCallbackRef.current = null
         setHasUnsavedChanges(true)
       }
-      
+
       // Add to the main workflow with manual config flag
-      if (onAddActionToWorkflow) {
-        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedActionIntegration?.id))
+      if (onAddActionToWorkflow && availableIntegrations) {
+        const integrationInfo = availableIntegrations.find(i => i.id === (action.providerId || selectedIntegration?.id))
         onAddActionToWorkflow({
           ...action,
           integration: integrationInfo,
           needsConfiguration: true
         }, {})
       }
-      
+
       toast({
         title: "Manual Configuration",
         description: "Configure the action in the workflow builder"
@@ -1086,6 +1047,7 @@ export function AIAgentConfigModal({
                     </div>
                     
                     <AIAgentVisualChainBuilderWrapper
+                      key={chainBuilderKey}
                       chains={config.chainsLayout?.chains || config.chains || []}
                       chainsLayout={config.chainsLayout}
                       workflowData={workflowData}
@@ -1103,7 +1065,9 @@ export function AIAgentConfigModal({
                       }}
                       onOpenActionDialog={() => {
                         console.log('🚀 [AIAgentConfigModal] onOpenActionDialog called')
-                        setShowActionSelector(true)
+                        if (setShowActionDialog) {
+                          setShowActionDialog(true)
+                        }
                       }}
                       onActionSelect={(callback) => {
                         console.log('🚀 [AIAgentConfigModal] onActionSelect called with callback:', typeof callback)
@@ -2078,352 +2042,37 @@ export function AIAgentConfigModal({
           </AnimatePresence>
         </div>
       </DialogContentWithoutClose>
-      
-      {/* Action Selector Dialog - Matching Main Workflow Builder Design */}
-      {showActionSelector && (
-        <Dialog open={showActionSelector} onOpenChange={setShowActionSelector}>
-          <DialogContent className="sm:max-w-[900px] h-[90vh] max-h-[90vh] w-full bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl flex flex-col overflow-hidden" style={{ paddingRight: '2rem' }}>
-            <DialogHeader className="pb-3 border-b border-slate-200">
-              <div className="flex items-center justify-between w-full">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                      Select an Action
-                      <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">AI Chain</Badge>
-                    </DialogTitle>
-                    <DialogDescription className="text-sm text-slate-600 mt-1">
-                      Choose an action to add to your AI agent chain.
-                    </DialogDescription>
-                  </div>
-                </div>
-                
-                {/* AI/Manual Toggle */}
-                <div className="flex items-center gap-2 mr-8">
-                  <Label htmlFor="ai-mode-toggle" className="text-sm font-medium">
-                    Configuration:
-                  </Label>
-                  <div className="flex items-center bg-muted rounded-lg p-1">
-                    <Button
-                      id="ai-mode"
-                      variant={isAIMode ? "default" : "ghost"}
-                      size="sm"
-                      className="px-3 py-1 h-7"
-                      onClick={() => setIsAIMode(true)}
-                    >
-                      <Bot className="w-3 h-3 mr-1" />
-                      AI
-                    </Button>
-                    <Button
-                      id="manual-mode"
-                      variant={!isAIMode ? "default" : "ghost"}
-                      size="sm"
-                      className="px-3 py-1 h-7"
-                      onClick={() => setIsAIMode(false)}
-                    >
-                      <Settings className="w-3 h-3 mr-1" />
-                      Manual
-                    </Button>
-                  </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p className="text-xs">
-                        <strong>AI Mode:</strong> Action fields will be automatically configured by AI at runtime.<br/>
-                        <strong>Manual Mode:</strong> Configure action fields yourself with specific values.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            </DialogHeader>
-            
-            <div className="pt-3 pb-3 border-b border-slate-200">
-              <div className="flex flex-col space-y-3">
-                <div className="flex items-center space-x-4">
-                  <div className="relative flex-grow">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input
-                      placeholder="Search integrations or actions..."
-                      className="pl-10"
-                      value={actionSearchQuery}
-                      onChange={(e) => setActionSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <Select value={actionFilterCategory} onValueChange={setActionFilterCategory}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Filter by category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(cat => (
-                        <SelectItem key={cat} value={cat}>{formatCategoryName(cat)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-end">
-                  <label className="flex items-center space-x-2 text-sm text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showComingSoon}
-                      onChange={(e) => setShowComingSoon(e.target.checked)}
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <span>Show Coming Soon</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex-1 flex min-h-0 overflow-hidden">
-              <ScrollArea className="w-2/5 border-r border-border flex-1" style={{ scrollbarGutter: 'stable' }}>
-                <div className="pt-2 pb-3 pl-3 pr-5">
-                  {/* Integration List */}
-                  {getFilteredIntegrations().map((integration, index) => {
-                    const isConnected = isIntegrationConnected(integration.id)
-                    const isComingSoon = comingSoonIntegrations.has(integration.id)
-                    
-                    return (
-                      <div
-                        key={`${integration.id}-${index}`}
-                        className={`flex items-center p-3 rounded-md ${
-                          isComingSoon
-                            ? 'cursor-not-allowed opacity-60'
-                            : 'cursor-pointer'
-                        } ${
-                          selectedActionIntegration?.id === integration.id 
-                            ? 'bg-primary/10 ring-1 ring-primary/20' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => {
-                          if (!isComingSoon) {
-                            setSelectedActionIntegration(integration)
-                          }
-                        }}
-                      >
-                        {renderIntegrationLogo(integration.id, integration.name)}
-                        <span className="font-semibold ml-4 flex-grow truncate">
-                          {integration.name}
-                        </span>
-                        {isComingSoon ? (
-                          <Badge variant="secondary" className="ml-2 shrink-0">
-                            Coming soon
-                          </Badge>
-                        ) : !isConnected && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(integration.id) ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="ml-2 shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
-                              if (config?.oauthUrl) {
-                                window.location.href = config.oauthUrl
-                              }
-                            }}
-                          >
-                            <LinkIcon className="w-3 h-3 mr-1" />
-                            Connect
-                          </Button>
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                </div>
-              </ScrollArea>
-              
-              <div className="w-3/5 flex-1">
-                <ScrollArea className="h-full" style={{ scrollbarGutter: 'stable' }}>
-                  <div className="p-4">
-                    {/* Add instruction for double-click */}
-                    {selectedActionIntegration && (isIntegrationConnected(selectedActionIntegration.id) || ['logic', 'core', 'manual', 'schedule', 'webhook'].includes(selectedActionIntegration.id)) && (
-                      <div className="mb-3 text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">
-                        💡 <strong>Tip:</strong> Double-click an action to select it
-                      </div>
-                    )}
-                    
-                    {selectedActionIntegration ? (
-                      !isIntegrationConnected(selectedActionIntegration.id) && !['logic', 'core', 'manual', 'schedule', 'webhook'].includes(selectedActionIntegration.id) ? (
-                        // Show message for unconnected integrations
-                        <div className="flex flex-col items-center justify-center h-full text-center">
-                          <div className="text-muted-foreground mb-4">
-                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                          </div>
-                          <h3 className="text-lg font-semibold mb-2">Connect {selectedActionIntegration.name}</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            You need to connect your {selectedActionIntegration.name} account to use these actions.
-                          </p>
-                          <Button
-                            variant="default"
-                            onClick={() => {
-                              const config = INTEGRATION_CONFIGS[selectedActionIntegration.id as keyof typeof INTEGRATION_CONFIGS]
-                              if (config?.oauthUrl) {
-                                window.location.href = config.oauthUrl
-                              }
-                            }}
-                          >
-                            <LinkIcon className="w-4 h-4 mr-2" />
-                            Connect {selectedActionIntegration.name}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="h-full">
-                          <div className="grid grid-cols-1 gap-3">
-                            {selectedActionIntegration.actions
-                            .filter((action: any) => {
-                              if (actionSearchQuery) {
-                                const query = actionSearchQuery.toLowerCase()
-                                return (
-                                  (action.title?.toLowerCase() || '').includes(query) || 
-                                  (action.description?.toLowerCase() || '').includes(query)
-                                )
-                              }
-                              return true
-                            })
-                            .map((action: any) => {
-                              const isComingSoon = action.comingSoon
-                              
-                              return (
-                                <div
-                                  key={action.type}
-                                  className={`p-4 border rounded-lg transition-all ${
-                                    isComingSoon
-                                      ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60' 
-                                      : selectedActionInModal?.type === action.type
-                                        ? 'border-primary bg-primary/10 ring-1 ring-primary/20'
-                                        : 'border-border hover:border-muted-foreground hover:shadow-sm cursor-pointer'
-                                  }`}
-                                  onClick={() => {
-                                    if (isComingSoon) return
-                                    // Single click just selects the action
-                                    setSelectedActionInModal(action)
-                                  }}
-                                  onDoubleClick={() => {
-                                    if (isComingSoon) return
-                                    console.log('🎯 [AIAgentConfigModal] Action double-clicked:', {
-                                      type: action.type,
-                                      title: action.title,
-                                      hasTitle: !!action.title,
-                                      description: action.description,
-                                      providerId: action.providerId,
-                                      allKeys: Object.keys(action)
-                                    })
-                                    setSelectedActionInModal(action)
-                                    handleActionSelection(action)
-                                  }}
-                                >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <p className={`font-medium ${isComingSoon ? 'text-muted-foreground' : ''}`}>
-                                        {action.title || 'Unnamed Action'}
-                                      </p>
-                                      <p className="text-sm text-muted-foreground mt-1">
-                                        {action.description || 'No description available'}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2 ml-2">
-                                      {isAIMode && !isComingSoon && (
-                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                          AI Config
-                                        </span>
-                                      )}
-                                      {action.isAIEnabled && !isComingSoon && (
-                                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
-                                          AI Ready
-                                        </span>
-                                      )}
-                                      {isComingSoon && (
-                                        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
-                                          {/* Icon only on extra small screens */}
-                                          <span className="inline sm:hidden">⏳</span>
-                                          {/* "Soon" on small screens */}
-                                          <span className="hidden sm:inline md:hidden">Soon</span>
-                                          {/* "Coming Soon" on medium and larger screens */}
-                                          <span className="hidden md:inline">Coming Soon</span>
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <p>Select an integration to see its actions</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-            
-            {/* Footer with selection info and buttons - matching main workflow builder */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50/50">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="text-sm text-muted-foreground">
-                    {selectedActionIntegration && (
-                      <>
-                        <span className="font-medium">Integration:</span> {selectedActionIntegration.name}
-                        {selectedActionInModal && (
-                          <>
-                            <span className="mx-2">•</span>
-                            <span className="font-medium">Action:</span> {selectedActionInModal.title}
-                          </>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {isAIMode ? (
-                      <span className="text-blue-600 font-medium">
-                        <Bot className="w-3 h-3 inline mr-1" />
-                        AI will configure all fields
-                      </span>
-                    ) : (
-                      <span className="text-orange-600 font-medium">
-                        <Settings className="w-3 h-3 inline mr-1" />
-                        Manual configuration required
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowActionSelector(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    disabled={!selectedActionIntegration || !selectedActionInModal}
-                    onClick={() => {
-                      if (selectedActionIntegration && selectedActionInModal) {
-                        // Handle the action selection
-                        if (isAIMode) {
-                          handleAddActionWithAI(selectedActionInModal)
-                        } else {
-                          handleAddAction(selectedActionInModal)
-                        }
-                      }
-                    }}
-                  >
-                    Continue →
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+
+      {/* Action Selector Dialog - Using shared ActionSelectionDialog component */}
+      {showActionDialog && availableIntegrations && categories && renderLogo && isIntegrationConnected && filterIntegrations && getDisplayedActions && (
+        <ActionSelectionDialog
+          open={showActionDialog}
+          onOpenChange={setShowActionDialog || (() => {})}
+          selectedIntegration={selectedIntegration || null}
+          setSelectedIntegration={setSelectedIntegration || (() => {})}
+          selectedAction={selectedAction || null}
+          setSelectedAction={setSelectedAction || (() => {})}
+          searchQuery={searchQuery || ''}
+          setSearchQuery={setSearchQuery || (() => {})}
+          filterCategory={filterCategory || 'all'}
+          setFilterCategory={setFilterCategory || (() => {})}
+          showConnectedOnly={showConnectedOnly || false}
+          setShowConnectedOnly={setShowConnectedOnly || (() => {})}
+          availableIntegrations={availableIntegrations}
+          categories={categories}
+          renderLogo={renderLogo}
+          isIntegrationConnected={isIntegrationConnected}
+          filterIntegrations={filterIntegrations}
+          getDisplayedActions={getDisplayedActions}
+          onActionSelect={(integration, action) => {
+            // Use local handleActionSelection which respects isAIMode (defaulted to true)
+            handleActionSelection(action)
+          }}
+          handleActionDialogClose={handleActionDialogClose}
+          nodes={nodes}
+          loadingIntegrations={loadingIntegrations}
+          refreshIntegrations={refreshIntegrations}
+        />
       )}
 
       {/* Node Configuration Dialog */}
