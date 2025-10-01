@@ -823,6 +823,7 @@ export default function WorkflowsContent() {
                         {/* Validation warnings for all workflows */}
                         {(() => {
                           const validationIssues: string[] = []
+                          const disconnectedIntegrations: Set<string> = new Set()
                           const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
                           const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
                           const hasConnections = workflow.connections?.length > 0
@@ -831,6 +832,35 @@ export default function WorkflowsContent() {
                           if (!hasTrigger) validationIssues.push('Missing trigger')
                           if (!hasAction) validationIssues.push('Missing action')
                           if (workflow.nodes?.length > 1 && !hasConnections) validationIssues.push('Missing connections')
+
+                          // Check for disconnected integrations
+                          workflow.nodes?.forEach(node => {
+                            if (!node.data) return
+
+                            const providerId = node.data.providerId
+                            // Skip system/internal node types
+                            if (!providerId || ['logic', 'core', 'manual', 'schedule', 'webhook', 'ai'].includes(providerId)) return
+
+                            // Special case: Excel uses OneDrive's OAuth connection
+                            const actualProvider = providerId === 'microsoft-excel' ? 'onedrive' : providerId
+
+                            // Check if integration is connected
+                            const isConnected = integrations.some(
+                              integration => integration.provider === actualProvider && integration.status === 'connected'
+                            )
+
+                            if (!isConnected) {
+                              disconnectedIntegrations.add(providerId)
+                            }
+                          })
+
+                          // Add disconnected integration warnings
+                          if (disconnectedIntegrations.size > 0) {
+                            const integrationNames = Array.from(disconnectedIntegrations)
+                              .map(id => id.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '))
+                              .join(', ')
+                            validationIssues.push(`Integration disconnected: ${integrationNames}`)
+                          }
 
                           // Check for missing required fields in nodes
                           workflow.nodes?.forEach(node => {
