@@ -184,9 +184,9 @@ export function MicrosoftExcelDataPreview({
                           />
                         </TableHead>
                         <TableHead className="w-[80px]">Row</TableHead>
-                        {columns.map((col) => (
+                        {columns.map((col, colIndex) => (
                           <TableHead
-                            key={col}
+                            key={`header-${col}-${colIndex}`}
                             className="cursor-pointer hover:bg-gray-50"
                             onClick={() => {
                               if (microsoftExcelSortField === col) {
@@ -215,10 +215,15 @@ export function MicrosoftExcelDataPreview({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedData.map((row) => (
+                      {paginatedData.map((row, rowIndex) => (
                         <TableRow
                           key={row.id}
-                          className={`hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''} ${microsoftExcelSelectedRows.has(row.id) ? 'bg-blue-50' : ''}`}
+                          className={`
+                            ${rowIndex % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-900'}
+                            hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-gray-900 dark:hover:text-gray-100
+                            ${onRowClick ? 'cursor-pointer' : ''}
+                            ${microsoftExcelSelectedRows.has(row.id) ? 'bg-blue-100 dark:bg-blue-900/50' : ''}
+                          `}
                           onClick={() => onRowClick?.(row)}
                         >
                           <TableCell>
@@ -233,8 +238,8 @@ export function MicrosoftExcelDataPreview({
                           <TableCell className="font-mono text-xs">
                             {row.rowNumber || row.id}
                           </TableCell>
-                          {columns.map((col) => (
-                            <TableCell key={col} className="max-w-[200px] truncate">
+                          {columns.map((col, colIndex) => (
+                            <TableCell key={`${row.id}-${col}-${colIndex}`} className="max-w-[200px] truncate">
                               {row.fields?.[col] || ''}
                             </TableCell>
                           ))}

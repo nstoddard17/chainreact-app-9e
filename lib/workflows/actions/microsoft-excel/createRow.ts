@@ -30,32 +30,36 @@ export async function createMicrosoftExcelRow(
       throw new Error('Field mapping is required')
     }
 
-    // Prepare the data row
-    const values: any[] = []
-    const headers: string[] = []
-
-    // Sort field mappings by column name to ensure proper order
-    const sortedMappings = Object.entries(fieldMapping).sort(([a], [b]) => a.localeCompare(b))
-
-    for (const [column, value] of sortedMappings) {
-      headers.push(column)
-      values.push(value || '')
-    }
-
     // Microsoft Graph API base URL
     const baseUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${workbookId}/workbook`
 
+    // The fieldMapping should already be in the correct order from the column mapper UI
+    // Extract values in the order they appear in the mapping object
+    const values: any[] = []
+
+    console.log('📊 [Excel Create Row] Field mapping received:', fieldMapping)
+    console.log('📊 [Excel Create Row] Mapping order:', Object.keys(fieldMapping))
+
+    for (const [columnName, value] of Object.entries(fieldMapping)) {
+      values.push(value || '')
+      console.log(`  Column "${columnName}" -> value: "${value}"`)
+    }
+
+    console.log('📊 [Excel Create Row] Final values array (length:', values.length, '):', values)
+
     // Determine where to insert the row
     let rangeAddress = ''
+    const columnCount = values.length
+    const endColumn = String.fromCharCode(65 + columnCount - 1) // A=65, so A+0=A, A+1=B, etc.
+
     if (insertPosition === 'append') {
       // Append at the end of the data
       rangeAddress = `${worksheetName}!A:A` // Will find the last row automatically
     } else if (insertPosition === 'prepend') {
       // Insert at row 2 (after headers)
-      rangeAddress = `${worksheetName}!A2:${String.fromCharCode(65 + headers.length - 1)}2`
+      rangeAddress = `${worksheetName}!A2:${endColumn}2`
     } else if (insertPosition === 'specific_row' && specificRow) {
       // Insert at specific row
-      const endColumn = String.fromCharCode(65 + headers.length - 1)
       rangeAddress = `${worksheetName}!A${specificRow}:${endColumn}${specificRow}`
     }
 
@@ -80,12 +84,10 @@ export async function createMicrosoftExcelRow(
         if (match) {
           const lastRow = parseInt(match[2])
           const nextRow = lastRow + 1
-          const endColumn = String.fromCharCode(65 + headers.length - 1)
           rangeAddress = `${worksheetName}!A${nextRow}:${endColumn}${nextRow}`
         }
       } else {
         // If no used range, start at row 2
-        const endColumn = String.fromCharCode(65 + headers.length - 1)
         rangeAddress = `${worksheetName}!A2:${endColumn}2`
       }
     }

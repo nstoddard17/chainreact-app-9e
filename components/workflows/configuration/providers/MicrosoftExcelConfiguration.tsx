@@ -78,6 +78,9 @@ export function MicrosoftExcelConfiguration({
   // Track column update values separately to ensure they're captured
   const [columnUpdateValues, setColumnUpdateValues] = useState<Record<string, any>>({});
 
+  // Track the column order from the Excel sheet
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+
   // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
     console.log(`🔧 [Excel] Setting value: ${key} = ${value}`);
@@ -130,17 +133,41 @@ export function MicrosoftExcelConfiguration({
 
     setLoadingPreview(true);
     try {
-      const { loadIntegrationData } = useIntegrationStore.getState();
-      const data = await loadIntegrationData(
-        'microsoft-excel_data_preview',
-        'microsoft-excel',
-        {
-          workbookId,
-          worksheetName,
-          hasHeaders
-        },
-        true
-      );
+      // Get the Microsoft Excel integration (which uses OneDrive)
+      const { getIntegrationByProvider } = useIntegrationStore.getState();
+      const excelIntegration = getIntegrationByProvider('microsoft-excel') || getIntegrationByProvider('onedrive');
+
+      if (!excelIntegration) {
+        console.error('Microsoft Excel/OneDrive integration not found');
+        setPreviewData([]);
+        setLoadingPreview(false);
+        return;
+      }
+
+      const response = await fetch('/api/integrations/microsoft-excel/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId: excelIntegration.id,
+          dataType: 'data_preview',
+          options: {
+            workbookId,
+            worksheetName,
+            hasHeaders
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to fetch Excel data preview:', errorData);
+        setPreviewData([]);
+        setLoadingPreview(false);
+        return;
+      }
+
+      const result = await response.json();
+      const data = result.data;
 
       if (data) {
         setPreviewData(data);
@@ -148,6 +175,11 @@ export function MicrosoftExcelConfiguration({
         // For add action, automatically create fields for each column
         if (values.action === 'add' && hasHeaders) {
           const columns = data[0]?.fields ? Object.keys(data[0].fields).filter(key => !key.startsWith('_')) : [];
+
+          // Store the column order
+          setColumnOrder(columns);
+          console.log('📊 [Excel] Stored column order:', columns);
+
           columns.forEach(col => {
             if (!values[`newRow_${col}`]) {
               setValueWithColumnTracking(`newRow_${col}`, '');
@@ -231,14 +263,27 @@ export function MicrosoftExcelConfiguration({
     // Add new row values for add action
     if (values.action === 'add') {
       const newRowValues: Record<string, any> = {};
-      Object.entries(values).forEach(([key, value]) => {
-        if (key.startsWith('newRow_') && value !== undefined && value !== '') {
-          const columnName = key.replace('newRow_', '');
-          newRowValues[columnName] = value;
-        }
-      });
+
+      // Use the stored column order to preserve the Excel column sequence
+      if (columnOrder.length > 0) {
+        columnOrder.forEach(columnName => {
+          const fieldKey = `newRow_${columnName}`;
+          const value = values[fieldKey];
+          newRowValues[columnName] = value !== undefined ? value : '';
+        });
+        console.log('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
+      } else {
+        // Fallback: iterate over values (may not preserve order)
+        Object.entries(values).forEach(([key, value]) => {
+          if (key.startsWith('newRow_') && value !== undefined && value !== '') {
+            const columnName = key.replace('newRow_', '');
+            newRowValues[columnName] = value;
+          }
+        });
+        console.log('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
+      }
+
       finalValues.columnMapping = newRowValues;
-      console.log('🔧 [Excel] Prepared column mapping for add:', newRowValues);
     }
 
     console.log('🔧 [Excel] Final values to submit:', finalValues);
