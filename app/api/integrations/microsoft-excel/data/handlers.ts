@@ -276,7 +276,7 @@ const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
  * Preview worksheet data
  */
 const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
-  const { workbookId, worksheetName } = options
+  const { workbookId, worksheetName, hasHeaders = true } = options
 
   if (!workbookId || !worksheetName) {
     throw new Error('Workbook ID and worksheet name are required')
@@ -285,23 +285,66 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
   const accessToken = await getAccessToken(integration)
 
   try {
-    // Get first 10 rows of data
-    const url = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/range(address='A1:Z10')`
+    // First get the used range to know actual data extent
+    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
 
-    const response = await fetch(url, {
+    const usedRangeResponse = await fetch(usedRangeUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Failed to fetch data preview: ${error}`)
+    if (!usedRangeResponse.ok) {
+      const error = await usedRangeResponse.text()
+      throw new Error(`Failed to fetch used range: ${error}`)
     }
 
-    const data = await response.json()
-    return data.values || []
+    const usedRangeData = await usedRangeResponse.json()
+    const rawValues = usedRangeData.values || []
+
+    if (rawValues.length === 0) {
+      return []
+    }
+
+    // Limit to 100 rows max for performance
+    const limitedValues = rawValues.slice(0, Math.min(rawValues.length, 100))
+
+    // Format the data based on whether headers exist
+    if (hasHeaders && limitedValues.length > 0) {
+      const headers = limitedValues[0]
+      const dataRows = limitedValues.slice(1)
+
+      return dataRows.map((row, index) => {
+        const fields: Record<string, any> = {}
+        headers.forEach((header: string, colIndex: number) => {
+          if (header) {
+            fields[header] = row[colIndex] || ''
+          }
+        })
+
+        return {
+          id: `row_${index + 2}`, // Row 2 is first data row (1 is headers)
+          rowNumber: index + 2,
+          fields
+        }
+      }).filter(row => Object.keys(row.fields).length > 0) // Filter out empty rows
+    } else {
+      // No headers - use column letters as field names
+      return limitedValues.map((row, index) => {
+        const fields: Record<string, any> = {}
+        row.forEach((value: any, colIndex: number) => {
+          const columnLetter = String.fromCharCode(65 + colIndex) // A, B, C, etc.
+          fields[columnLetter] = value || ''
+        })
+
+        return {
+          id: `row_${index + 1}`,
+          rowNumber: index + 1,
+          fields
+        }
+      }).filter(row => Object.keys(row.fields).length > 0)
+    }
 
   } catch (error) {
     console.error('Error fetching data preview:', error)

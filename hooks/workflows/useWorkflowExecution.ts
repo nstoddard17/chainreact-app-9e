@@ -67,7 +67,7 @@ export function useWorkflowExecution() {
       const result = await response.json()
 
       // Handle callbacks if provided
-      if (result.results) {
+      if (result.results && Array.isArray(result.results)) {
         result.results.forEach((nodeResult: any) => {
           if (nodeResult.success) {
             options?.onNodeComplete?.(nodeResult.nodeId)
