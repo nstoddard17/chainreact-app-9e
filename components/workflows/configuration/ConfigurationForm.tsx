@@ -464,6 +464,12 @@ function ConfigurationForm({
       resetOptions('boardId');
     }
 
+    // For Microsoft Excel, always clear workbooks to get fresh data
+    if (nodeInfo?.providerId === 'microsoft-excel' && isNewNode) {
+      console.log('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on modal reopen');
+      resetOptions('workbookId');
+    }
+
     // For Airtable, don't reset bases as they rarely change
     // Only reset if it's a completely different node
     if (nodeInfo?.providerId === 'airtable') {
