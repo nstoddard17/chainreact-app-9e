@@ -103,16 +103,14 @@ export function MicrosoftExcelConfiguration({
     }
   }, [setValue]);
 
-  // Track which row is selected for update
+  // Track which row is selected for update (no modal needed - show inline like Google Sheets)
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   // Handle row click for update action
   const handleRowClick = useCallback((row: any) => {
     if (values.action === 'update') {
       setSelectedRow(row);
       setValueWithColumnTracking('updateRowNumber', row.rowNumber || row.id);
-      setShowUpdateModal(true);
 
       // Pre-populate column values with current row data
       if (row.fields) {
@@ -186,6 +184,15 @@ export function MicrosoftExcelConfiguration({
             }
           });
         }
+
+        // For update action, restore the selected row if updateRowNumber exists
+        if (values.action === 'update' && values.updateRowNumber && !selectedRow) {
+          const rowToSelect = data.find((row: any) => row.rowNumber === values.updateRowNumber);
+          if (rowToSelect) {
+            setSelectedRow(rowToSelect);
+            console.log('📊 [Excel] Restored selected row:', rowToSelect);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load worksheet data:', error);
@@ -251,13 +258,37 @@ export function MicrosoftExcelConfiguration({
 
     // Add column update values for update action
     if (values.action === 'update') {
-      // Merge in the column update values
+      const updateMapping: Record<string, any> = {};
+
+      // Convert column_ fields to updateMapping and preserve them in finalValues
       Object.entries(columnUpdateValues).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
+        if (key.startsWith('column_') && value !== undefined && value !== '') {
+          const columnName = key.replace('column_', '');
+          updateMapping[columnName] = value;
+          // Also preserve the column_ field itself for form display
           finalValues[key] = value;
         }
       });
-      console.log('🔧 [Excel] Merged column values for update:', columnUpdateValues);
+
+      // Also check main values for any column_ fields
+      Object.entries(values).forEach(([key, value]) => {
+        if (key.startsWith('column_') && value !== undefined && value !== '') {
+          const columnName = key.replace('column_', '');
+          updateMapping[columnName] = value;
+          // Preserve the column_ field for form display
+          finalValues[key] = value;
+        }
+      });
+
+      finalValues.updateMapping = updateMapping;
+
+      // Map updateRowNumber to rowNumber if it exists, and preserve it
+      if (values.updateRowNumber) {
+        finalValues.rowNumber = values.updateRowNumber;
+        finalValues.updateRowNumber = values.updateRowNumber; // Keep both for compatibility
+      }
+
+      console.log('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
     }
 
     // Add new row values for add action
@@ -450,24 +481,17 @@ export function MicrosoftExcelConfiguration({
           loadingPreview={loadingPreview}
         />
 
-        {/* Update Row Modal */}
-        <MicrosoftExcelUpdateFields
-          values={values}
-          setValue={setValueWithColumnTracking}
-          previewData={previewData}
-          hasHeaders={microsoftExcelHasHeaders}
-          action={values.action}
-          selectedRow={selectedRow}
-          showUpdateModal={showUpdateModal}
-          onCloseUpdateModal={() => {
-            setShowUpdateModal(false);
-            setSelectedRow(null);
-          }}
-          onConfirmUpdate={() => {
-            setShowUpdateModal(false);
-            console.log('🔧 [Excel] Update confirmed with values:', columnUpdateValues);
-          }}
-        />
+        {/* Update Row Fields - shown inline below preview */}
+        {values.action === 'update' && selectedRow && (
+          <MicrosoftExcelUpdateFields
+            values={values}
+            setValue={setValueWithColumnTracking}
+            previewData={previewData}
+            hasHeaders={microsoftExcelHasHeaders}
+            action={values.action}
+            selectedRow={selectedRow}
+          />
+        )}
 
         {/* Delete Confirmation Modal */}
         <MicrosoftExcelDeleteConfirmation

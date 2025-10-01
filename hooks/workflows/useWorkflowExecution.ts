@@ -85,6 +85,13 @@ export function useWorkflowExecution() {
   }, [])
 
   const handleExecute = useCallback(async (nodes: Node[], edges: Edge[]) => {
+    // Prevent duplicate executions
+    if (isExecuting) {
+      console.log('⚠️ [Workflow Execution] Already executing, ignoring duplicate request');
+      return
+    }
+
+    // Validate workflow is saved
     if (!currentWorkflow?.id) {
       toast({
         title: "Error",
@@ -94,6 +101,17 @@ export function useWorkflowExecution() {
       return
     }
 
+    // Validate nodes are loaded
+    if (!nodes || nodes.length === 0) {
+      toast({
+        title: "Error",
+        description: "Workflow nodes not loaded yet, please wait a moment",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate trigger exists
     const triggerNode = nodes.find(n => n.data?.isTrigger)
     if (!triggerNode) {
       toast({
@@ -104,6 +122,7 @@ export function useWorkflowExecution() {
       return
     }
 
+    // Validate trigger is configured
     const hasConfiguration = triggerNode.data?.config && Object.keys(triggerNode.data.config).length > 0
     if (!hasConfiguration) {
       toast({
@@ -116,6 +135,7 @@ export function useWorkflowExecution() {
 
     try {
       setIsExecuting(true)
+      console.log('🚀 [Workflow Execution] Starting execution for workflow:', currentWorkflow.id);
       clearErrorsForWorkflow(currentWorkflow.id)
       
       const resetResults: Record<string, ExecutionResult> = {}
@@ -222,7 +242,7 @@ export function useWorkflowExecution() {
         setExecutionResults({})
       }, 5000)
     }
-  }, [currentWorkflow, updateWorkflow, executeWorkflow, clearErrorsForWorkflow, addError, toast, router])
+  }, [currentWorkflow, updateWorkflow, executeWorkflow, clearErrorsForWorkflow, addError, toast, router, isExecuting])
 
   const handleResetLoadingStates = useCallback(() => {
     setIsExecuting(false)
