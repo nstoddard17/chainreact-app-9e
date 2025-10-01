@@ -3,11 +3,12 @@
 import React, { memo, useState, useRef, useEffect } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Plus, Edit2, Layers } from "lucide-react"
+import { Settings, Trash2, TestTube, Plus, Edit2, Layers, Unplug } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { NodeAIIndicator } from "./nodes/AINodeIndicators"
 
 // The data object passed to the node will now contain these callbacks.
@@ -79,11 +80,30 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
-  
+
   // Check if this node has test data available
   const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
+
+  // Check if integration is disconnected
+  const { integrations } = useIntegrationStore()
+  const isIntegrationDisconnected = (() => {
+    // Skip check for system/internal node types
+    if (!providerId || ['logic', 'core', 'manual', 'schedule', 'webhook', 'ai'].includes(providerId)) {
+      return false
+    }
+
+    // Special case: Excel uses OneDrive's OAuth connection
+    const actualProvider = providerId === 'microsoft-excel' ? 'onedrive' : providerId
+
+    // Check if integration is connected
+    const isConnected = integrations.some(
+      integration => integration.provider === actualProvider && integration.status === 'connected'
+    )
+
+    return !isConnected
+  })()
   
   // Handle title editing
   useEffect(() => {
@@ -296,16 +316,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative w-[480px] bg-card rounded-lg shadow-sm border group ${
+      className={`relative w-[400px] bg-card rounded-lg shadow-sm border-2 group ${
         selected
           ? "border-primary"
-          : error
-            ? "border-destructive"
-            : hasValidationIssues
-              ? "border-red-400"
-              : "border-border"
+          : isIntegrationDisconnected
+            ? "border-red-500"
+            : error
+              ? "border-destructive"
+              : hasValidationIssues
+                ? "border-red-400"
+                : "border-border"
       } ${
-        hasValidationIssues ? "shadow-[0_0_0_2px_rgba(248,113,113,0.35)]" : ""
+        isIntegrationDisconnected ? "shadow-[0_0_0_3px_rgba(239,68,68,0.4)]" : hasValidationIssues ? "shadow-[0_0_0_2px_rgba(248,113,113,0.35)]" : ""
       } hover:shadow-md transition-all duration-200 ${
         nodeHasConfiguration() ? "cursor-pointer" : ""
       } ${getExecutionStatusStyle()}`}
@@ -319,17 +341,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {getExecutionStatusIndicator()}
       {/* Error label */}
       {getErrorLabel()}
-      {hasValidationIssues && (
+      {!isIntegrationDisconnected && hasValidationIssues && (
         <div className="absolute top-1 left-1 bg-red-500 text-white text-[10px] px-2 py-[2px] rounded-sm font-semibold uppercase tracking-wide shadow-sm">
           Incomplete
         </div>
       )}
-      {error && (
+      {error && !isIntegrationDisconnected && (
         <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
           <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
       )}
-      {!error && hasValidationIssues && (
+      {!error && !isIntegrationDisconnected && hasValidationIssues && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-2 pt-7">
           <p className="text-sm text-red-600 font-medium">
             {validationState?.missingRequired?.length === 1
@@ -402,6 +424,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   <h3 className="text-xl font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                     {title || (component && component.title) || 'Unnamed Action'}
                   </h3>
+                  {isIntegrationDisconnected && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex-shrink-0">
+                            <Unplug className="h-4 w-4 text-red-500" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p>Integration disconnected. Reconnect {providerId?.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} to use this node.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"

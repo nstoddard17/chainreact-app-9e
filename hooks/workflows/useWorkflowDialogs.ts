@@ -71,6 +71,8 @@ export function useWorkflowDialogs() {
     return async () => {
       try {
         await onSave()
+        // Small delay to ensure hasUnsavedChanges state update completes
+        await new Promise(resolve => setTimeout(resolve, 100))
         setShowUnsavedChangesModal(false)
         if (pendingNavigation) {
           window.location.href = pendingNavigation
