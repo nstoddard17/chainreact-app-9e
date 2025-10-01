@@ -9,6 +9,8 @@ export async function updateMicrosoftExcelRow(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
+    console.log('📊 [Excel Update Row] Starting with config:', config);
+
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, { input })
     const {
@@ -20,6 +22,14 @@ export async function updateMicrosoftExcelRow(
       updateMapping,
       updateMultiple = false
     } = resolvedConfig
+
+    console.log('📊 [Excel Update Row] Resolved config:', {
+      workbookId,
+      worksheetName,
+      rowNumber,
+      updateMapping,
+      updateMappingKeys: updateMapping ? Object.keys(updateMapping) : 'undefined'
+    });
 
     // Get access token for OneDrive (Microsoft Graph API)
     const accessToken = await getDecryptedAccessToken(userId, 'onedrive')
@@ -33,6 +43,11 @@ export async function updateMicrosoftExcelRow(
     }
     if (!worksheetName) {
       throw new Error('Worksheet name is required')
+    }
+
+    // Validate updateMapping
+    if (!updateMapping || Object.keys(updateMapping).length === 0) {
+      throw new Error('No fields to update. Please modify at least one field value.')
     }
 
     // Microsoft Graph API base URL
@@ -100,9 +115,9 @@ export async function updateMicrosoftExcelRow(
     // Update each row
     for (const row of rowsToUpdate) {
       if (updateMapping && Object.keys(updateMapping).length > 0) {
-        // Get headers to find column positions
-        const headersResponse = await fetch(
-          `${baseUrl}/worksheets('${worksheetName}')/range(address='1:1')`,
+        // Get headers to find column positions - use usedRange to ensure we get data
+        const usedRangeResponse = await fetch(
+          `${baseUrl}/worksheets('${worksheetName}')/usedRange`,
           {
             method: 'GET',
             headers: {
@@ -112,25 +127,31 @@ export async function updateMicrosoftExcelRow(
           }
         )
 
-        if (!headersResponse.ok) {
-          throw new Error('Failed to fetch headers')
+        if (!usedRangeResponse.ok) {
+          throw new Error('Failed to fetch worksheet data')
         }
 
-        const headersData = await headersResponse.json()
-        const headers = headersData.values?.[0] || []
+        const usedRangeData = await usedRangeResponse.json()
+        const allRows = usedRangeData.values || []
+        const headers = allRows[0] || []
 
         // Prepare updates for each column
+        console.log('📊 [Excel Update Row] Processing updateMapping:', updateMapping);
+        console.log('📊 [Excel Update Row] Headers found:', headers);
+
         for (const [column, value] of Object.entries(updateMapping)) {
           const columnIndex = headers.findIndex((h: string) => h === column)
 
           if (columnIndex === -1) {
-            console.warn(`Column "${column}" not found, skipping`)
+            console.warn(`❌ Column "${column}" not found in headers, skipping`)
             continue
           }
 
           // Convert column index to letter (0 -> A, 1 -> B, etc.)
           const columnLetter = String.fromCharCode(65 + columnIndex)
           const cellAddress = `${worksheetName}!${columnLetter}${row}`
+
+          console.log(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
 
           // Update the cell
           const updateResponse = await fetch(
@@ -149,8 +170,9 @@ export async function updateMicrosoftExcelRow(
 
           if (!updateResponse.ok) {
             const error = await updateResponse.text()
-            console.error(`Failed to update cell ${cellAddress}:`, error)
+            console.error(`❌ Failed to update cell ${cellAddress}:`, error)
           } else {
+            console.log(`✅ Successfully updated cell ${cellAddress}`);
             updatedRanges.push(cellAddress)
           }
         }
