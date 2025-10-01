@@ -150,23 +150,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     additionalInfo: "🎯 Includes Microsoft Excel integration for creating, editing, and managing spreadsheets",
   },
 
-  "microsoft-excel": {
-    id: "microsoft-excel",
-    name: "Microsoft Excel",
-    description: "Create, edit, and manage spreadsheets with Microsoft Excel Online",
-    category: "productivity",
-    capabilities: ["Create Workbooks", "Add/Update Rows", "Export Data", "Delete Rows", "Manage Worksheets"],
-    scopes: ["Files.ReadWrite"],
-    isAvailable: true, // Always show it, but it requires OneDrive connection
-    requiresClientId: "ONEDRIVE_CLIENT_ID", // Uses OneDrive's OAuth
-    requiresClientSecret: "ONEDRIVE_CLIENT_SECRET", // Uses OneDrive's OAuth
-    color: "#217346",
-    docsUrl: "https://docs.microsoft.com/en-us/graph/api/resources/excel",
-    authType: "oauth",
-    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "rows", "columns", "cells"],
-    additionalInfo: "Requires OneDrive connection for access to Excel workbooks",
-  },
-
   // Communication Platforms
   slack: {
     id: "slack",
@@ -483,21 +466,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  blackbaud: {
-    id: "blackbaud",
-    name: "Blackbaud",
-    description: "Cloud software for social good",
-    category: "other",
-    capabilities: ["Donor Management", "Fundraising", "Grant Management", "Financial Management"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "BLACKBAUD_CLIENT_ID",
-    requiresClientSecret: "BLACKBAUD_CLIENT_SECRET",
-    color: "#000000",
-    docsUrl: "https://developer.blackbaud.com/skyapi/",
-    authType: "oauth",
-  },
-
   gumroad: {
     id: "gumroad",
     name: "Gumroad",
@@ -525,21 +493,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "",
     color: "#007AFF",
     docsUrl: "https://api.manychat.com/swagger",
-    authType: "apiKey",
-  },
-
-  beehiiv: {
-    id: "beehiiv",
-    name: "beehiiv",
-    description: "The newsletter platform built for growth",
-    category: "communication",
-    capabilities: ["Manage Publications", "Manage Posts", "Subscriber Data"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "BEEHIIV_API_KEY",
-    requiresClientSecret: "",
-    color: "#FFD000",
-    docsUrl: "https://developers.beehiiv.com/docs/getting-started",
     authType: "apiKey",
   },
 

@@ -188,14 +188,14 @@ export function useNodeConfiguration(
         }
         return node
       }))
-      
-      // Mark the workflow as having unsaved changes
-      setHasUnsavedChanges(true)
-      
+
+      // Don't mark as unsaved since we're auto-saving below
+      // setHasUnsavedChanges(true)
+
       // Show success message
-      toast({ 
-        title: "Configuration Updated", 
-        description: "Node configuration has been updated. Remember to save the workflow." 
+      toast({
+        title: "Configuration Updated",
+        description: "Node configuration saved automatically."
       })
       
       // Save to persistence layer
