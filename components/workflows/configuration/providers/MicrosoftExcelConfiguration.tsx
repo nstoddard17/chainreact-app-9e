@@ -78,6 +78,9 @@ export function MicrosoftExcelConfiguration({
   // Track column update values separately to ensure they're captured
   const [columnUpdateValues, setColumnUpdateValues] = useState<Record<string, any>>({});
 
+  // Track the column order from the Excel sheet
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+
   // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
     console.log(`🔧 [Excel] Setting value: ${key} = ${value}`);
@@ -100,16 +103,14 @@ export function MicrosoftExcelConfiguration({
     }
   }, [setValue]);
 
-  // Track which row is selected for update
+  // Track which row is selected for update (no modal needed - show inline like Google Sheets)
   const [selectedRow, setSelectedRow] = useState<any | null>(null);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   // Handle row click for update action
   const handleRowClick = useCallback((row: any) => {
     if (values.action === 'update') {
       setSelectedRow(row);
       setValueWithColumnTracking('updateRowNumber', row.rowNumber || row.id);
-      setShowUpdateModal(true);
 
       // Pre-populate column values with current row data
       if (row.fields) {
@@ -130,17 +131,41 @@ export function MicrosoftExcelConfiguration({
 
     setLoadingPreview(true);
     try {
-      const { loadIntegrationData } = useIntegrationStore.getState();
-      const data = await loadIntegrationData(
-        'microsoft-excel_data_preview',
-        'microsoft-excel',
-        {
-          workbookId,
-          worksheetName,
-          hasHeaders
-        },
-        true
-      );
+      // Get the Microsoft Excel integration (which uses OneDrive)
+      const { getIntegrationByProvider } = useIntegrationStore.getState();
+      const excelIntegration = getIntegrationByProvider('microsoft-excel') || getIntegrationByProvider('onedrive');
+
+      if (!excelIntegration) {
+        console.error('Microsoft Excel/OneDrive integration not found');
+        setPreviewData([]);
+        setLoadingPreview(false);
+        return;
+      }
+
+      const response = await fetch('/api/integrations/microsoft-excel/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          integrationId: excelIntegration.id,
+          dataType: 'data_preview',
+          options: {
+            workbookId,
+            worksheetName,
+            hasHeaders
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to fetch Excel data preview:', errorData);
+        setPreviewData([]);
+        setLoadingPreview(false);
+        return;
+      }
+
+      const result = await response.json();
+      const data = result.data;
 
       if (data) {
         setPreviewData(data);
@@ -148,11 +173,25 @@ export function MicrosoftExcelConfiguration({
         // For add action, automatically create fields for each column
         if (values.action === 'add' && hasHeaders) {
           const columns = data[0]?.fields ? Object.keys(data[0].fields).filter(key => !key.startsWith('_')) : [];
+
+          // Store the column order
+          setColumnOrder(columns);
+          console.log('📊 [Excel] Stored column order:', columns);
+
           columns.forEach(col => {
             if (!values[`newRow_${col}`]) {
               setValueWithColumnTracking(`newRow_${col}`, '');
             }
           });
+        }
+
+        // For update action, restore the selected row if updateRowNumber exists
+        if (values.action === 'update' && values.updateRowNumber && !selectedRow) {
+          const rowToSelect = data.find((row: any) => row.rowNumber === values.updateRowNumber);
+          if (rowToSelect) {
+            setSelectedRow(rowToSelect);
+            console.log('📊 [Excel] Restored selected row:', rowToSelect);
+          }
         }
       }
     } catch (error) {
@@ -219,26 +258,63 @@ export function MicrosoftExcelConfiguration({
 
     // Add column update values for update action
     if (values.action === 'update') {
-      // Merge in the column update values
+      const updateMapping: Record<string, any> = {};
+
+      // Convert column_ fields to updateMapping and preserve them in finalValues
       Object.entries(columnUpdateValues).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
+        if (key.startsWith('column_') && value !== undefined && value !== '') {
+          const columnName = key.replace('column_', '');
+          updateMapping[columnName] = value;
+          // Also preserve the column_ field itself for form display
           finalValues[key] = value;
         }
       });
-      console.log('🔧 [Excel] Merged column values for update:', columnUpdateValues);
+
+      // Also check main values for any column_ fields
+      Object.entries(values).forEach(([key, value]) => {
+        if (key.startsWith('column_') && value !== undefined && value !== '') {
+          const columnName = key.replace('column_', '');
+          updateMapping[columnName] = value;
+          // Preserve the column_ field for form display
+          finalValues[key] = value;
+        }
+      });
+
+      finalValues.updateMapping = updateMapping;
+
+      // Map updateRowNumber to rowNumber if it exists, and preserve it
+      if (values.updateRowNumber) {
+        finalValues.rowNumber = values.updateRowNumber;
+        finalValues.updateRowNumber = values.updateRowNumber; // Keep both for compatibility
+      }
+
+      console.log('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
     }
 
     // Add new row values for add action
     if (values.action === 'add') {
       const newRowValues: Record<string, any> = {};
-      Object.entries(values).forEach(([key, value]) => {
-        if (key.startsWith('newRow_') && value !== undefined && value !== '') {
-          const columnName = key.replace('newRow_', '');
-          newRowValues[columnName] = value;
-        }
-      });
+
+      // Use the stored column order to preserve the Excel column sequence
+      if (columnOrder.length > 0) {
+        columnOrder.forEach(columnName => {
+          const fieldKey = `newRow_${columnName}`;
+          const value = values[fieldKey];
+          newRowValues[columnName] = value !== undefined ? value : '';
+        });
+        console.log('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
+      } else {
+        // Fallback: iterate over values (may not preserve order)
+        Object.entries(values).forEach(([key, value]) => {
+          if (key.startsWith('newRow_') && value !== undefined && value !== '') {
+            const columnName = key.replace('newRow_', '');
+            newRowValues[columnName] = value;
+          }
+        });
+        console.log('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
+      }
+
       finalValues.columnMapping = newRowValues;
-      console.log('🔧 [Excel] Prepared column mapping for add:', newRowValues);
     }
 
     console.log('🔧 [Excel] Final values to submit:', finalValues);
@@ -250,21 +326,33 @@ export function MicrosoftExcelConfiguration({
     if (!nodeInfo?.configSchema) return [];
 
     return nodeInfo.configSchema.filter((field: any) => {
-      // Always show required top-level fields
-      if (['workbookId', 'worksheetName', 'action'].includes(field.name)) {
-        return true;
+      // Skip advanced fields and hidden type fields
+      if (field.advanced || field.type === 'hidden') return false;
+
+      // Check if field depends on another field
+      if (field.dependsOn) {
+        const dependencyValue = values[field.dependsOn];
+        if (!dependencyValue) {
+          return false; // Hide field if dependency has no value
+        }
       }
 
-      // Show fields based on conditions
+      // Check if field should be shown based on showIf condition
       if (field.showIf && typeof field.showIf === 'function') {
         return field.showIf(values);
       }
 
-      // Hide fields that are marked as hidden
-      if (field.hidden === true) {
-        return false;
+      // If field is marked as hidden but has showIf, evaluate showIf
+      if (field.hidden && field.showIf) {
+        if (typeof field.showIf === 'function') {
+          return field.showIf(values);
+        }
       }
 
+      // If field is hidden and no showIf, hide it
+      if (field.hidden) return false;
+
+      // Otherwise show the field
       return true;
     });
   };
@@ -318,8 +406,8 @@ export function MicrosoftExcelConfiguration({
               value={values[field.name]}
               onChange={(value) => setValueWithColumnTracking(field.name, value)}
               error={validationErrors[field.name] || errors[field.name]}
-              dynamicOptions={dynamicOptions[field.name] || []}
-              loading={loadingDynamic || loadingFields.has(field.name)}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingDynamic || loadingFields.has(field.name)}
               workflowData={workflowData}
               currentNodeId={currentNodeId}
               values={values}
@@ -393,24 +481,17 @@ export function MicrosoftExcelConfiguration({
           loadingPreview={loadingPreview}
         />
 
-        {/* Update Row Modal */}
-        <MicrosoftExcelUpdateFields
-          values={values}
-          setValue={setValueWithColumnTracking}
-          previewData={previewData}
-          hasHeaders={microsoftExcelHasHeaders}
-          action={values.action}
-          selectedRow={selectedRow}
-          showUpdateModal={showUpdateModal}
-          onCloseUpdateModal={() => {
-            setShowUpdateModal(false);
-            setSelectedRow(null);
-          }}
-          onConfirmUpdate={() => {
-            setShowUpdateModal(false);
-            console.log('🔧 [Excel] Update confirmed with values:', columnUpdateValues);
-          }}
-        />
+        {/* Update Row Fields - shown inline below preview */}
+        {values.action === 'update' && selectedRow && (
+          <MicrosoftExcelUpdateFields
+            values={values}
+            setValue={setValueWithColumnTracking}
+            previewData={previewData}
+            hasHeaders={microsoftExcelHasHeaders}
+            action={values.action}
+            selectedRow={selectedRow}
+          />
+        )}
 
         {/* Delete Confirmation Modal */}
         <MicrosoftExcelDeleteConfirmation

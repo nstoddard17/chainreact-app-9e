@@ -834,7 +834,7 @@ export async function POST(req: NextRequest) {
       dataType === 'microsoft-excel_columns' ||
       dataType === 'microsoft-excel_column_values' ||
       dataType === 'microsoft-excel_folders' ||
-      dataType === 'microsoft_excel_data_preview' ||
+      dataType === 'microsoft-excel_data_preview' ||
       dataType.startsWith('microsoft-excel_')
     )) {
       console.log(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
