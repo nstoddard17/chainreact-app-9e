@@ -150,23 +150,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     additionalInfo: "🎯 Includes Microsoft Excel integration for creating, editing, and managing spreadsheets",
   },
 
-  "microsoft-excel": {
-    id: "microsoft-excel",
-    name: "Microsoft Excel",
-    description: "Create, edit, and manage spreadsheets with Microsoft Excel Online",
-    category: "productivity",
-    capabilities: ["Create Workbooks", "Add/Update Rows", "Export Data", "Delete Rows", "Manage Worksheets"],
-    scopes: ["Files.ReadWrite"],
-    isAvailable: true, // Always show it, but it requires OneDrive connection
-    requiresClientId: "ONEDRIVE_CLIENT_ID", // Uses OneDrive's OAuth
-    requiresClientSecret: "ONEDRIVE_CLIENT_SECRET", // Uses OneDrive's OAuth
-    color: "#217346",
-    docsUrl: "https://docs.microsoft.com/en-us/graph/api/resources/excel",
-    authType: "oauth",
-    searchKeywords: ["excel", "microsoft", "spreadsheet", "workbook", "worksheet", "rows", "columns", "cells"],
-    additionalInfo: "Requires OneDrive connection for access to Excel workbooks",
-  },
-
   // Communication Platforms
   slack: {
     id: "slack",
