@@ -51,6 +51,7 @@ function WorkflowBuilderContent() {
     workflowDescription,
     setWorkflowDescription,
     currentWorkflow,
+    editTemplateId,
 
     // Loading/saving states
     isSaving,
@@ -183,6 +184,7 @@ function WorkflowBuilderContent() {
         isUpdatingStatus={isUpdatingStatus}
         currentWorkflow={currentWorkflow}
         workflowId={currentWorkflow?.id}
+        editTemplateId={editTemplateId}
         handleTestSandbox={handleTestSandbox}
         handleExecuteLive={handleExecuteLive}
         isStepMode={isStepMode}
