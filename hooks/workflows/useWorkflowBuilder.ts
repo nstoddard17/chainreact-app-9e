@@ -39,6 +39,7 @@ export function useWorkflowBuilder() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
+  const editTemplateId = searchParams.get("editTemplate")
   const { toast } = useToast()
 
   // Store hooks
@@ -829,12 +830,45 @@ export function useWorkflowBuilder() {
         connections: workflowConnections,
       })
 
+      // If editing a template, also update the template
+      if (editTemplateId) {
+        try {
+          const response = await fetch(`/api/templates/${editTemplateId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nodes: workflowNodes,
+              connections: workflowConnections,
+            }),
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Failed to update template')
+          }
+
+          toast({
+            title: "Success",
+            description: "Workflow and template saved successfully",
+          })
+        } catch (templateError) {
+          console.error('Error updating template:', templateError)
+          toast({
+            title: "Warning",
+            description: "Workflow saved, but failed to update template",
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Success",
+          description: "Workflow saved successfully",
+        })
+      }
+
       setHasUnsavedChanges(false)
-      
-      toast({
-        title: "Success",
-        description: "Workflow saved successfully",
-      })
     } catch (error) {
       console.error('Error saving workflow:', error)
       toast({
@@ -845,7 +879,7 @@ export function useWorkflowBuilder() {
     } finally {
       setIsSaving(false)
     }
-  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast])
+  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast, editTemplateId])
 
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -1818,6 +1852,7 @@ export function useWorkflowBuilder() {
     setWorkflowDescription,
     currentWorkflow,
     workflowId,
+    editTemplateId,
     workflows,
     
     // Loading/saving states

@@ -6,19 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Search, Copy, Eye, Loader2, Edit } from "lucide-react"
+import { Search, Copy, Eye, Loader2, Edit, ArrowRight, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthStore } from "@/stores/authStore"
 import { useWorkflowStore } from "@/stores/workflowStore"
+import { TemplatePreviewWithProvider } from "./TemplatePreview"
+import { TemplatePreviewModal } from "./TemplatePreviewModal"
 
 interface Template {
   id: string
@@ -26,7 +20,9 @@ interface Template {
   description: string
   category: string
   tags: string[]
-  workflow_json: any
+  workflow_json?: any
+  nodes?: any[]
+  connections?: any[]
   created_at: string
   creator?: {
     email: string
@@ -53,6 +49,71 @@ const categories = [
   "Finance",
 ]
 
+// Helper function to properly capitalize tags
+const capitalizeTag = (tag: string): string => {
+  const tagMap: Record<string, string> = {
+    'ai-agent': 'AI Agent',
+    'ai agent': 'AI Agent',
+    'gmail': 'Gmail',
+    'email': 'Email',
+    'airtable': 'Airtable',
+    'discord': 'Discord',
+    'slack': 'Slack',
+    'notion': 'Notion',
+    'hubspot': 'HubSpot',
+    'salesforce': 'Salesforce',
+    'stripe': 'Stripe',
+    'shopify': 'Shopify',
+    'google-sheets': 'Google Sheets',
+    'google sheets': 'Google Sheets',
+    'google-drive': 'Google Drive',
+    'google drive': 'Google Drive',
+    'onedrive': 'OneDrive',
+    'dropbox': 'Dropbox',
+    'trello': 'Trello',
+    'asana': 'Asana',
+    'leads': 'Leads',
+    'crm': 'CRM',
+    'sales automation': 'Sales Automation',
+    'email automation': 'Email Automation',
+    'test': 'Test',
+    'advanced': 'Advanced',
+    'intermediate': 'Intermediate',
+    'beginner': 'Beginner',
+  }
+
+  const lowerTag = tag.toLowerCase()
+  return tagMap[lowerTag] || tag.split(' ').map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ')
+}
+
+// Helper function to get nodes and connections from template (handles both formats)
+const getTemplateWorkflowData = (template: Template) => {
+  // Try direct nodes/connections first
+  if (template.nodes && template.connections) {
+    console.log('Using direct nodes/connections:', template.nodes.length, template.connections.length)
+    return {
+      nodes: template.nodes,
+      connections: template.connections
+    }
+  }
+
+  // Try workflow_json
+  if (template.workflow_json) {
+    const nodes = template.workflow_json.nodes || []
+    const connections = template.workflow_json.connections || template.workflow_json.edges || []
+    console.log('Using workflow_json:', nodes.length, connections.length)
+    return {
+      nodes,
+      connections
+    }
+  }
+
+  console.log('No workflow data found for template')
+  return { nodes: [], connections: [] }
+}
+
 export function TemplateGallery() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [predefinedTemplates, setPredefinedTemplates] = useState<Template[]>([])
@@ -62,6 +123,7 @@ export function TemplateGallery() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [showPredefined, setShowPredefined] = useState(true)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const { profile } = useAuthStore()
@@ -232,27 +294,38 @@ export function TemplateGallery() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {allTemplates.map((template) => (
-            <Card key={template.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-start gap-2">
-                      <CardTitle className="text-lg">{template.name}</CardTitle>
+            <Card key={template.id} className="hover:shadow-lg transition-shadow flex flex-col">
+              <CardHeader className="flex-shrink-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2 mb-2">
+                      <CardTitle className="text-lg leading-tight">{template.name}</CardTitle>
                       {template.is_predefined && (
-                        <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
+                        <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 flex-shrink-0">
                           Official
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="mt-1">{template.description}</CardDescription>
+                    <CardDescription className="mt-2 line-clamp-2">{template.description}</CardDescription>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 mt-3">
+                {/* Mini workflow preview */}
+                <div className="mt-4 rounded-lg overflow-hidden border bg-gray-50" style={{ height: '200px', width: '100%' }}>
+                  <TemplatePreviewWithProvider
+                    nodes={getTemplateWorkflowData(template).nodes}
+                    connections={getTemplateWorkflowData(template).connections}
+                    interactive={false}
+                    showControls={false}
+                    className=""
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-4">
                   <Badge variant="secondary">{template.category}</Badge>
                   {template.difficulty && (
                     <Badge variant="outline" className="text-xs">
-                      {template.difficulty}
+                      {capitalizeTag(template.difficulty)}
                     </Badge>
                   )}
                   {template.estimatedTime && (
@@ -262,85 +335,75 @@ export function TemplateGallery() {
                   )}
                   {template.tags?.slice(0, 2).map((tag, index) => (
                     <Badge key={index} variant="outline" className="text-xs">
-                      {tag}
+                      {capitalizeTag(tag)}
                     </Badge>
                   ))}
                 </div>
               </CardHeader>
 
-              <CardContent>
-                <div className="flex items-center justify-between">
+              <CardContent className="mt-auto pt-0">
+                <div className="flex items-center justify-between pt-4 border-t">
                   <div className="text-sm text-gray-500">
-                    by {template.creator?.email?.split("@")[0] || "Anonymous"}
+                    by {template.creator?.email?.split("@")[0] || "ChainReact"}
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-shrink-0">
                     {isAdmin && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => {
-                          // Create a copy of the template and open in workflow builder for editing
-                          router.push(`/workflows/builder?template=${template.id}&edit=true`)
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            // Copy template to create a workflow that can be edited
+                            const response = await fetch(`/api/templates/${template.id}/copy`, {
+                              method: "POST",
+                            })
+                            const data = await response.json()
+
+                            if (data.workflow && data.workflow.id) {
+                              // Add to store
+                              addWorkflowToStore(data.workflow)
+                              // Navigate to builder with editTemplate flag to save back to template
+                              router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${template.id}`)
+                            } else {
+                              throw new Error("Failed to create workflow from template")
+                            }
+                          } catch (error) {
+                            console.error("Error editing template:", error)
+                            toast({
+                              title: "Error",
+                              description: "Failed to open template for editing",
+                              variant: "destructive",
+                            })
+                          }
                         }}
                         title="Edit Template"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                     )}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedTemplate(template)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>{selectedTemplate?.name}</DialogTitle>
-                          <DialogDescription>{selectedTemplate?.description}</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <h4 className="font-medium mb-2">Workflow Structure</h4>
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                              <p className="text-sm text-gray-600">
-                                {selectedTemplate?.workflow_json?.nodes?.length || 0} nodes,{" "}
-                                {selectedTemplate?.workflow_json?.connections?.length || 0} connections
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => selectedTemplate && handleCopyTemplate(selectedTemplate.id)}
-                              disabled={copying === selectedTemplate?.id}
-                              className="flex-1"
-                            >
-                              {copying === selectedTemplate?.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Copying...
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  Use Template
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedTemplate(template)
+                        setShowPreviewModal(true)
+                      }}
+                      title="Preview Template"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
 
                     <Button
                       size="sm"
                       onClick={() => handleCopyTemplate(template.id)}
                       disabled={copying === template.id}
+                      title="Use Template"
                     >
                       {copying === template.id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Play className="h-4 w-4" />
                       )}
                     </Button>
                   </div>
@@ -357,6 +420,16 @@ export function TemplateGallery() {
           <p className="text-sm text-gray-400">Try adjusting your search criteria or browse all templates</p>
         </div>
       )}
+
+      {/* Interactive Preview Modal */}
+      <TemplatePreviewModal
+        template={selectedTemplate ? {
+          ...selectedTemplate,
+          ...getTemplateWorkflowData(selectedTemplate)
+        } : null}
+        open={showPreviewModal}
+        onOpenChange={setShowPreviewModal}
+      />
     </div>
   )
 }
