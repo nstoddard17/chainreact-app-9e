@@ -237,9 +237,7 @@ export function MicrosoftExcelConfiguration({
       if (values.deleteRowBy === 'row_number' && !values.deleteRowNumber) {
         validationErrors.deleteRowNumber = 'Row number is required';
       }
-      if (values.deleteRowBy === 'column_value' && (!values.deleteSearchColumn || !values.deleteSearchValue)) {
-        validationErrors.deleteSearchColumn = 'Column and value are required for deletion';
-      }
+      // column_value fields are handled in the confirmation modal, so don't validate them here
       if (values.deleteRowBy === 'range' && (!values.startRow || !values.endRow)) {
         validationErrors.startRow = 'Start and end row are required';
       }
@@ -329,20 +327,30 @@ export function MicrosoftExcelConfiguration({
 
   const handleConfirmDelete = useCallback(async () => {
     setShowDeleteConfirmation(false);
-    // Set confirmDelete to true when the user confirms the deletion
+
+    // Map UI field names to handler field names and set confirmDelete
     const confirmedValues = {
       ...values,
-      confirmDelete: true
+      confirmDelete: true,
+      // Map deleteRowBy → deleteBy
+      deleteBy: values.deleteRowBy,
+      // Map deleteSearchColumn → matchColumn
+      matchColumn: values.deleteSearchColumn,
+      // Map deleteSearchValue → matchValue
+      matchValue: values.deleteSearchValue,
+      // Map deleteRowNumber → rowNumber
+      rowNumber: values.deleteRowNumber
     };
 
     console.log('🗑️ [Excel] Delete confirmation - mapped values:', {
-      deleteRowBy: confirmedValues.deleteRowBy,
-      deleteRowNumber: confirmedValues.deleteRowNumber,
-      deleteColumn: confirmedValues.deleteColumn,
-      deleteValue: confirmedValues.deleteValue,
+      deleteBy: confirmedValues.deleteBy,
+      rowNumber: confirmedValues.rowNumber,
+      startRow: confirmedValues.startRow,
+      endRow: confirmedValues.endRow,
+      matchColumn: confirmedValues.matchColumn,
+      matchValue: confirmedValues.matchValue,
       deleteAll: confirmedValues.deleteAll,
-      confirmDelete: confirmedValues.confirmDelete,
-      action: confirmedValues.action
+      confirmDelete: confirmedValues.confirmDelete
     });
 
     await onSubmit(confirmedValues);
@@ -520,28 +528,13 @@ export function MicrosoftExcelConfiguration({
           />
         )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Delete Configuration (Inline) */}
         <MicrosoftExcelDeleteConfirmation
           values={values}
           setValue={setValueWithColumnTracking}
           previewData={previewData}
           hasHeaders={microsoftExcelHasHeaders}
           action={values.action}
-          showDeleteConfirmation={showDeleteConfirmation}
-          onCloseDeleteModal={() => setShowDeleteConfirmation(false)}
-          onConfirmDelete={async () => {
-            setShowDeleteConfirmation(false);
-            console.log('🔧 [Excel] Delete confirmed, submitting with confirmDelete: true');
-
-            // Submit with confirmDelete flag
-            const confirmedValues = {
-              ...values,
-              confirmDelete: true
-            };
-
-            // Call onSubmit directly with confirmed values
-            await onSubmit(confirmedValues);
-          }}
         />
 
         {/* Validation errors */}
@@ -556,6 +549,51 @@ export function MicrosoftExcelConfiguration({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmation} onOpenChange={setShowDeleteConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ Confirm Delete Action</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <div>
+                  This action will permanently delete rows from your Excel worksheet. This cannot be undone.
+                </div>
+                {values.deleteRowBy === 'row_number' && values.deleteRowNumber && (
+                  <div className="font-medium">
+                    • Row {values.deleteRowNumber} will be deleted
+                  </div>
+                )}
+                {values.deleteRowBy === 'column_value' && values.deleteSearchValue && (
+                  <div>
+                    <div className="font-medium">Delete criteria:</div>
+                    <ul className="ml-4 mt-1 space-y-1 text-sm">
+                      <li>• Column: {values.deleteSearchColumn}</li>
+                      <li>• Value: {values.deleteSearchValue}</li>
+                      <li>• Mode: {values.deleteAll ? 'Delete ALL matching rows' : 'Delete FIRST matching row'}</li>
+                    </ul>
+                  </div>
+                )}
+                {values.deleteRowBy === 'range' && values.startRow && values.endRow && (
+                  <div className="font-medium">
+                    • Rows {values.startRow} to {values.endRow} will be deleted ({values.endRow - values.startRow + 1} rows)
+                  </div>
+                )}
+                <div className="text-red-600 font-semibold mt-3">
+                  Are you sure you want to proceed?
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700">
+              Yes, Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ConfigurationContainer>
   );
 }

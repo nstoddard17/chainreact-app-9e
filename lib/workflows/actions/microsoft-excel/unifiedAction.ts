@@ -86,15 +86,19 @@ export async function executeMicrosoftExcelUnifiedAction(
         const deleteConfig = {
           workbookId: config.workbookId,
           worksheetName: config.worksheetName,
-          deleteBy: config.deleteRowBy,
-          rowNumber: config.deleteRowNumber,
+          // Support both old and new field names for backwards compatibility
+          deleteBy: config.deleteBy || config.deleteRowBy,
+          rowNumber: config.rowNumber || config.deleteRowNumber,
           startRow: config.startRow,
           endRow: config.endRow,
-          matchColumn: config.deleteColumn,
-          matchValue: config.deleteValue,
+          // Support both deleteSearchColumn and deleteColumn for backwards compatibility
+          matchColumn: config.matchColumn || config.deleteSearchColumn || config.deleteColumn,
+          matchValue: config.matchValue || config.deleteSearchValue || config.deleteValue,
           deleteAll: config.deleteAll,
           confirmDelete: config.confirmDelete
         }
+
+        console.log('🗑️ [Excel Unified Action] Delete config being passed:', deleteConfig)
         const deleteResult = await deleteMicrosoftExcelRow(deleteConfig, userId, input)
 
         // Add action type to the output

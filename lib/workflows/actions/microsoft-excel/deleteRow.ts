@@ -11,6 +11,9 @@ export async function deleteMicrosoftExcelRow(
   try {
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, { input })
+
+    console.log('🗑️ [Excel Delete] Resolved config:', JSON.stringify(resolvedConfig, null, 2))
+
     const {
       workbookId,
       worksheetName,
@@ -23,6 +26,17 @@ export async function deleteMicrosoftExcelRow(
       deleteAll = false,
       confirmDelete = false
     } = resolvedConfig
+
+    console.log('🗑️ [Excel Delete] Extracted values:', {
+      deleteBy,
+      rowNumber,
+      startRow,
+      endRow,
+      matchColumn,
+      matchValue,
+      deleteAll,
+      confirmDelete
+    })
 
     // Get access token for OneDrive (Microsoft Graph API)
     const accessToken = await getDecryptedAccessToken(userId, 'onedrive')
