@@ -253,6 +253,12 @@ export function MicrosoftExcelConfiguration({
     // Clear validation errors if everything is valid
     setValidationErrors({});
 
+    // Show confirmation dialog for delete action
+    if (values.action === 'delete') {
+      setShowDeleteConfirmation(true);
+      return;
+    }
+
     // Prepare final values
     const finalValues = { ...values };
 
@@ -319,7 +325,28 @@ export function MicrosoftExcelConfiguration({
 
     console.log('🔧 [Excel] Final values to submit:', finalValues);
     await onSubmit(finalValues);
-  }, [values, columnUpdateValues, onSubmit]);
+  }, [values, columnUpdateValues, onSubmit, columnOrder]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    setShowDeleteConfirmation(false);
+    // Set confirmDelete to true when the user confirms the deletion
+    const confirmedValues = {
+      ...values,
+      confirmDelete: true
+    };
+
+    console.log('🗑️ [Excel] Delete confirmation - mapped values:', {
+      deleteRowBy: confirmedValues.deleteRowBy,
+      deleteRowNumber: confirmedValues.deleteRowNumber,
+      deleteColumn: confirmedValues.deleteColumn,
+      deleteValue: confirmedValues.deleteValue,
+      deleteAll: confirmedValues.deleteAll,
+      confirmDelete: confirmedValues.confirmDelete,
+      action: confirmedValues.action
+    });
+
+    await onSubmit(confirmedValues);
+  }, [values, onSubmit]);
 
   // Get visible fields based on current state
   const getVisibleFields = () => {
@@ -502,9 +529,18 @@ export function MicrosoftExcelConfiguration({
           action={values.action}
           showDeleteConfirmation={showDeleteConfirmation}
           onCloseDeleteModal={() => setShowDeleteConfirmation(false)}
-          onConfirmDelete={() => {
+          onConfirmDelete={async () => {
             setShowDeleteConfirmation(false);
-            console.log('🔧 [Excel] Delete confirmed');
+            console.log('🔧 [Excel] Delete confirmed, submitting with confirmDelete: true');
+
+            // Submit with confirmDelete flag
+            const confirmedValues = {
+              ...values,
+              confirmDelete: true
+            };
+
+            // Call onSubmit directly with confirmed values
+            await onSubmit(confirmedValues);
           }}
         />
 
