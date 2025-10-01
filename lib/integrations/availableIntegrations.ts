@@ -483,21 +483,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  blackbaud: {
-    id: "blackbaud",
-    name: "Blackbaud",
-    description: "Cloud software for social good",
-    category: "other",
-    capabilities: ["Donor Management", "Fundraising", "Grant Management", "Financial Management"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "BLACKBAUD_CLIENT_ID",
-    requiresClientSecret: "BLACKBAUD_CLIENT_SECRET",
-    color: "#000000",
-    docsUrl: "https://developer.blackbaud.com/skyapi/",
-    authType: "oauth",
-  },
-
   gumroad: {
     id: "gumroad",
     name: "Gumroad",
@@ -525,21 +510,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "",
     color: "#007AFF",
     docsUrl: "https://api.manychat.com/swagger",
-    authType: "apiKey",
-  },
-
-  beehiiv: {
-    id: "beehiiv",
-    name: "beehiiv",
-    description: "The newsletter platform built for growth",
-    category: "communication",
-    capabilities: ["Manage Publications", "Manage Posts", "Subscriber Data"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "BEEHIIV_API_KEY",
-    requiresClientSecret: "",
-    color: "#FFD000",
-    docsUrl: "https://developers.beehiiv.com/docs/getting-started",
     authType: "apiKey",
   },
 
