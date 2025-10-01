@@ -344,7 +344,7 @@ export function TemplateGallery() {
               <CardContent className="mt-auto pt-0">
                 <div className="flex items-center justify-between pt-4 border-t">
                   <div className="text-sm text-gray-500">
-                    by {template.creator?.email?.split("@")[0] || "ChainReact"}
+                    by ChainReact
                   </div>
 
                   <div className="flex gap-2 flex-shrink-0">

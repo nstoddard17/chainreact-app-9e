@@ -123,7 +123,7 @@ export function TemplatePreviewModal({
               connections={template.connections || []}
               interactive={true}
               showControls={true}
-              showMiniMap={true}
+              showMiniMap={false}
               className=""
             />
           </div>

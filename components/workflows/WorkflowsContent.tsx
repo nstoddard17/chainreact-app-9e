@@ -810,7 +810,7 @@ export default function WorkflowsContent() {
                             </Button>
                           </PermissionGuard>
                         </div>
-                        
+
                         {/* Workflow Description */}
                         <div>
                           {workflow.description ? (
@@ -819,6 +819,69 @@ export default function WorkflowsContent() {
                             <p className="text-sm text-slate-400 italic">No description</p>
                           )}
                         </div>
+
+                        {/* Validation warnings for all workflows */}
+                        {(() => {
+                          const validationIssues: string[] = []
+                          const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
+                          const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
+                          const hasConnections = workflow.connections?.length > 0
+
+                          // Check for basic workflow structure
+                          if (!hasTrigger) validationIssues.push('Missing trigger')
+                          if (!hasAction) validationIssues.push('Missing action')
+                          if (workflow.nodes?.length > 1 && !hasConnections) validationIssues.push('Missing connections')
+
+                          // Check for missing required fields in nodes
+                          workflow.nodes?.forEach(node => {
+                            if (!node.data) return
+
+                            // Check for validation state
+                            if (node.data.validationState?.missingRequired?.length > 0) {
+                              validationIssues.push(`${node.data.title || 'Node'}: incomplete configuration`)
+                            }
+
+                            // Special checks for specific node types
+                            const nodeType = node.data.type || node.type
+                            if (nodeType === 'discord_trigger_new_message') {
+                              if (!node.data.config?.guildId || !node.data.config?.channelId) {
+                                validationIssues.push('Discord trigger needs server and channel')
+                              }
+                            }
+                            if (nodeType === 'gmail_send_email') {
+                              if (!node.data.config?.to || !node.data.config?.subject) {
+                                validationIssues.push('Gmail action missing recipient or subject')
+                              }
+                            }
+                            if (nodeType === 'airtable_create_record') {
+                              if (!node.data.config?.baseId || !node.data.config?.tableName) {
+                                validationIssues.push('Airtable action missing base or table')
+                              }
+                            }
+                          })
+
+                          if (validationIssues.length === 0) return null
+
+                          // If more than 3 issues, show generic message
+                          if (validationIssues.length > 3) {
+                            return (
+                              <div className="mt-2 text-xs text-amber-700 bg-amber-50 px-2 py-1.5 rounded border border-amber-200">
+                                ⚠️ {validationIssues.length} configuration issues need attention
+                              </div>
+                            )
+                          }
+
+                          // Show specific issues if 3 or fewer
+                          return (
+                            <div className="mt-2 space-y-1">
+                              {validationIssues.map((issue, idx) => (
+                                <div key={idx} className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                                  ⚠️ {issue}
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })()}
                       </div>
                     </CardHeader>
                     
@@ -834,35 +897,6 @@ export default function WorkflowsContent() {
                                 ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
                                 : "bg-slate-100 text-slate-800 border border-slate-200"
                             }`}
-                            title={
-                              workflow.status === "draft" 
-                                ? (() => {
-                                    const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
-                                    const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
-                                    const hasConnections = workflow.connections?.length > 0
-                                    
-                                    // Debug logging for trigger detection
-                                    console.log('🔍 Workflow trigger detection:', {
-                                      workflowId: workflow.id,
-                                      nodes: workflow.nodes?.map(n => ({ 
-                                        id: n.id, 
-                                        type: n.type,
-                                        isTrigger: n.data?.isTrigger,
-                                        title: n.data?.title,
-                                        providerId: n.data?.providerId
-                                      })),
-                                      hasTrigger,
-                                      hasAction,
-                                      hasConnections
-                                    })
-                                    
-                                    if (!hasTrigger) return 'Missing trigger'
-                                    if (!hasAction) return 'Missing action'
-                                    if (!hasConnections) return 'Missing connections'
-                                    return 'Ready to activate'
-                                  })()
-                                : undefined
-                            }
                           >
                             {workflow.status === "active" ? (
                               <>
@@ -881,40 +915,6 @@ export default function WorkflowsContent() {
                               </>
                             )}
                           </div>
-                          
-                          {/* Only show issue badges if there are actual problems */}
-                          {workflow.status === "draft" && (() => {
-                            const hasTrigger = workflow.nodes?.some(n => n.data?.isTrigger)
-                            const hasAction = workflow.nodes?.some(n => !n.data?.isTrigger && n.type !== 'addAction')
-                            const hasConnections = workflow.connections?.length > 0
-                            const discordTrigger = workflow.nodes?.find(n => n.data?.type === 'discord_trigger_new_message')
-                            const needsDiscordConfig = !!(discordTrigger && (!discordTrigger.data?.config?.guildId || !discordTrigger.data?.config?.channelId))
-                            
-                            return (
-                              <>
-                                {!hasTrigger && (
-                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                    ⚠️ Missing trigger
-                                  </div>
-                                )}
-                                {hasTrigger && !hasAction && (
-                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                    ⚠️ Missing action
-                                  </div>
-                                )}
-                                {workflow.nodes?.length > 1 && !hasConnections && (
-                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                    ⚠️ Missing connections
-                                  </div>
-                                )}
-                                {needsDiscordConfig && (
-                                  <div className="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded border border-yellow-200" title="Select your Discord server and channel in the trigger">
-                                    ⚠️ Select Discord server and channel
-                                  </div>
-                                )}
-                              </>
-                            )
-                          })()}
                         </div>
                         {/* Metadata section with dates and creator */}
                         <div className="border-t border-slate-100 pt-2 mt-2 space-y-1">
