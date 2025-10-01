@@ -35,6 +35,16 @@ export const newEmailTriggerSchema: NodeComponent = {
       defaultValue: "any",
       description: "Filter emails based on attachment presence"
     },
+    {
+      name: "labelIds",
+      label: "Label",
+      type: "gmail-label-selector",
+      dynamic: "gmail_labels",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select or create a label",
+      description: "Filter emails by label. You can select an existing label or create a new one."
+    },
   ],
   outputSchema: [
     {

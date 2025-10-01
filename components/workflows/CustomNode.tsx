@@ -39,6 +39,9 @@ interface CustomNodeData {
   isListening?: boolean
   errorMessage?: string
   errorTimestamp?: string
+  parentChainIndex?: number
+  isAIAgentChild?: boolean
+  parentAIAgentId?: string
 }
 
 function CustomNode({ id, data, selected }: NodeProps) {
@@ -68,6 +71,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
     isListening,
     errorMessage,
     errorTimestamp,
+    parentChainIndex,
+    isAIAgentChild,
+    parentAIAgentId,
     debugListeningMode,
     debugExecutionStatus,
   } = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
@@ -328,8 +334,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
       data-testid={`node-${id}`}
       onDoubleClick={handleDoubleClick}
     >
-      {/* AI indicators for AI-powered nodes */}
-      <NodeAIIndicator node={{ id, data: { ...data, config, type } }} />
+      {/* AI indicators for AI-powered nodes (includes chain badges) */}
+      <NodeAIIndicator node={{ id, data: { ...data, config, type, parentChainIndex, isAIAgentChild, parentAIAgentId } }} />
 
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}

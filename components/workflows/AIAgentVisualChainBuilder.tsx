@@ -144,7 +144,7 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
 
   return (
     <div
-      className={`relative w-[400px] bg-card rounded-lg shadow-sm border ${
+      className={`relative w-[480px] bg-card rounded-lg shadow-sm border ${
         selected ? "border-primary" : error ? "border-destructive" : "border-border"
       } hover:shadow-md transition-all duration-200 ${
         nodeHasConfiguration() ? "cursor-pointer" : ""
@@ -1371,7 +1371,7 @@ function AIAgentVisualChainBuilder({
     const defaultChainId = 'chain-default'
 
     // Try to get AI Agent from workflow data to use its actual position
-    let aiAgentPosition = { x: centerX, y: 250 }
+    let aiAgentPosition = { x: centerX, y: 280 }
     if (workflowData?.nodes) {
       const workflowAIAgent = workflowData.nodes.find(n => n.data?.type === 'ai_agent' || n.id === currentNodeId)
       if (workflowAIAgent?.position) {
@@ -1452,7 +1452,7 @@ function AIAgentVisualChainBuilder({
       {
         id: defaultChainId,
         type: 'chainPlaceholder',
-        position: { x: centerX, y: 450 },
+        position: { x: centerX, y: 460 },
         draggable: false,
         selectable: false,
         data: {
@@ -1674,7 +1674,7 @@ function AIAgentVisualChainBuilder({
       }
 
       // Use exact positions from workflow without any offset
-      const workflowAIAgentPos = chainsLayout.aiAgentPosition || { x: 400, y: 200 }
+      const workflowAIAgentPos = chainsLayout.aiAgentPosition || { x: 400, y: 280 }
       const chainBuilderAIAgentPosition = { ...workflowAIAgentPos }
 
       console.log('📍 [Position Sync] Using exact workflow positions:', {

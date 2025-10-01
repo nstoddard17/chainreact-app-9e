@@ -12,6 +12,7 @@ type ChainPlaceholderNodeData = {
 
 export function ChainPlaceholderNode({ data }: NodeProps) {
   const nodeData = data as any
+  const chainIndex = nodeData.parentChainIndex ?? 0
 
   console.log('🔵 ChainPlaceholderNode rendering with data:', nodeData)
 
@@ -20,8 +21,15 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
       {/* Connection line from AI Agent */}
       <div className="absolute left-1/2 -translate-x-1/2 -top-4 w-px h-4 bg-border" />
 
+      {/* Chain badge */}
+      <div className="absolute -top-3 right-4 z-10">
+        <span className="bg-purple-100 text-purple-900 border border-purple-300 text-xs font-medium px-2 py-0.5 rounded-full">
+          Chain #{chainIndex + 1}
+        </span>
+      </div>
+
       <div
-        className="w-[400px] bg-background border-2 border-dashed border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-colors"
+        className="w-[480px] bg-background border-2 border-dashed border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-colors"
         style={{
           pointerEvents: 'auto',
           cursor: 'default'
@@ -36,7 +44,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
                   Chain Placeholder
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Click to add first action to this chain
+                  Click to add first action to chain #{chainIndex + 1}
                 </p>
               </div>
             </div>

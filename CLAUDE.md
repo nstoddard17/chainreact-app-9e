@@ -644,6 +644,159 @@ Key areas that must remain synchronized:
 
 When updating any integration selection behavior, search for and update all locations to maintain consistency across the application.
 
+## Template Management
+
+**IMPORTANT**: When creating or editing workflow templates, refer to the comprehensive documentation for proper structure and best practices.
+
+### Template Documentation
+
+**Complete Guide**: `/learning/docs/template-management-supabase-guide.md`
+- Full database schema with all fields explained
+- 3 methods to create templates (Workflow Builder, Supabase Dashboard, API)
+- Step-by-step instructions for each method
+- Node structure and positioning guidelines
+- Troubleshooting common issues
+- Security considerations (what NOT to include)
+- Complete example template JSON
+- Validation checklist
+- Bulk import instructions
+
+**Quick Reference**: `/learning/docs/template-quick-reference.md`
+- Required fields minimal example
+- Valid categories list
+- Common node types (triggers, actions, logic)
+- Provider IDs reference
+- Node positioning guide with examples
+- SQL commands (INSERT, UPDATE, DELETE)
+- Common tags by category
+- Difficulty and time estimate guidelines
+
+### Template Database Schema
+
+Templates are stored in the `templates` table with these key fields:
+
+**Required:**
+- `name` - Template display name
+- `description` - What the template does
+- `category` - Must be one of the valid categories (see docs)
+- `nodes` - Array of workflow nodes (jsonb)
+- `connections` - Array of connections between nodes (jsonb)
+- `is_public` - Whether template is visible to all users
+- `is_predefined` - Whether template is "official" ChainReact template
+- `created_by` - User ID who created the template
+
+**Optional but Recommended:**
+- `tags` - Array of searchable tags
+- `difficulty` - "Beginner", "Intermediate", or "Advanced"
+- `estimatedTime` - Time estimate (e.g., "5 min", "10-15 min")
+- `integrations` - List of integrations used (for display)
+
+### Creating Templates
+
+**Method 1: Via Workflow Builder (Admin Only)**
+1. Create or edit a workflow
+2. Click the "Edit" button in template gallery
+3. Make changes in workflow builder
+4. Changes save back to template
+
+**Method 2: Supabase Dashboard**
+1. Access templates table in Supabase
+2. Insert new row with all required fields
+3. Ensure JSON is valid for nodes/connections
+4. Test the template after creation
+
+**Method 3: API Endpoint**
+```
+POST /api/templates
+```
+
+### Template Best Practices
+
+✅ **DO:**
+- Use clear, descriptive names and descriptions
+- Include helpful tags for discoverability
+- Set reasonable default configurations
+- Test templates after creation
+- Follow node positioning guidelines (see docs)
+- Add difficulty and time estimates
+
+❌ **DON'T:**
+- Include sensitive data (API keys, passwords, personal info)
+- Use user-specific IDs in configurations
+- Create templates requiring too many configurations
+- Forget to set `is_public` to true for public templates
+- Use deprecated node types
+
+### Node Structure Guidelines
+
+Each node must include:
+```json
+{
+  "id": "unique-node-id",
+  "type": "custom",
+  "position": { "x": 400, "y": 100 },
+  "data": {
+    "title": "Human-readable name",
+    "description": "What this node does",
+    "type": "actual_node_type",
+    "providerId": "provider_name",
+    "isTrigger": false,
+    "config": {}
+  }
+}
+```
+
+### Node Positioning
+- Start at: `x: 400, y: 100` for first node
+- Vertical spacing: 160-200px between nodes
+- Horizontal spacing: 400px for parallel branches
+- Keep the layout readable and organized
+
+### Valid Categories
+
+Templates must use one of these categories:
+```
+AI Agent Testing, Customer Service, Sales & CRM,
+Social Media, Productivity, Data Sync, E-commerce,
+Notifications, HR, DevOps, Marketing, Finance
+```
+
+### Template Security
+
+🔒 **Never include in templates:**
+- API keys or access tokens
+- Passwords or credentials
+- User-specific IDs (unless generic)
+- Email addresses or phone numbers
+- Any personal data
+
+### Testing Templates
+
+Before publishing, verify:
+- [ ] All required fields are filled
+- [ ] Category is valid
+- [ ] Tags are relevant and helpful
+- [ ] Nodes have valid types and configurations
+- [ ] Connections link valid node IDs
+- [ ] Preview renders correctly in UI
+- [ ] Template can be copied successfully
+- [ ] No sensitive data in configurations
+- [ ] Description is clear and helpful
+
+### AI Agent Testing Documentation
+
+**Test Email Templates**: `/learning/test-emails/ai-agent-test-emails.md`
+- 10 subtle test email templates for AI classification
+- Designed to challenge AI context understanding
+- Includes expected classifications and success criteria
+
+**Setup Guide**: `/learning/docs/ai-agent-testing-setup-guide.md`
+- Complete walkthrough for testing AI agent workflows
+- Step-by-step configuration instructions
+- Testing protocols and validation steps
+
+For complete details on template management, refer to the documentation files listed above.
+
 ## Code Refactoring Guide
 
 **CRITICAL**: When refactoring large files or modules, ALWAYS follow `/learning/docs/refactoring-guide.md` to ensure proper cleanup of legacy code and maintain functionality.

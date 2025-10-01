@@ -60,12 +60,34 @@ export async function POST(request: NextRequest) {
 
     const { name, description, workflow_json, category, tags, is_public } = await request.json()
 
+    // Filter out UI-only placeholder nodes if workflow_json contains nodes
+    let cleanedWorkflowJson = workflow_json
+    if (workflow_json && workflow_json.nodes) {
+      const filteredNodes = workflow_json.nodes.filter((node: any) => {
+        const nodeType = node.data?.type || node.type
+        const hasAddButton = node.data?.hasAddButton
+        const isPlaceholder = node.data?.isPlaceholder
+
+        // Remove addAction, insertAction, and chain placeholder nodes
+        return nodeType !== 'addAction'
+          && nodeType !== 'insertAction'
+          && nodeType !== 'chain_placeholder'
+          && !hasAddButton
+          && !isPlaceholder
+      })
+      cleanedWorkflowJson = {
+        ...workflow_json,
+        nodes: filteredNodes
+      }
+      console.log(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
+    }
+
     const { data: template, error } = await supabase
       .from("templates")
       .insert({
         name,
         description,
-        workflow_json,
+        workflow_json: cleanedWorkflowJson,
         category,
         tags,
         is_public: is_public || false,

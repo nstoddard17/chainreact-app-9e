@@ -151,35 +151,38 @@ export function hasAICapabilities(node: any): boolean {
 export function NodeAIIndicator({ node }: { node: any }) {
   const isAIAgent = node.data?.type === 'ai_agent'
 
-  // Recursively check if any field uses AI (including nested objects)
-  const checkForAIFields = (obj: any): boolean => {
+  // Recursively count AI fields (including nested objects)
+  const countAIFields = (obj: any): number => {
+    let count = 0
     if (typeof obj === 'string') {
-      return obj.includes('{{AI_FIELD:')
+      if (obj.includes('{{AI_FIELD:')) count++
+    } else if (typeof obj === 'object' && obj !== null) {
+      Object.values(obj).forEach(value => {
+        count += countAIFields(value)
+      })
     }
-    if (typeof obj === 'object' && obj !== null) {
-      return Object.values(obj).some(value => checkForAIFields(value))
-    }
-    return false
+    return count
   }
 
-  const hasAIFields = checkForAIFields(node.data?.config || {})
+  const aiFieldCount = countAIFields(node.data?.config || {})
+  const hasAIFields = aiFieldCount > 0
   const isInChain = node.data?.parentChainIndex !== undefined
 
   // Don't show anything if no AI features
   if (!isAIAgent && !hasAIFields && !isInChain) return null
 
   return (
-    <div className="absolute -top-3 right-0 flex items-center gap-1">
+    <div className="absolute -top-3 right-0 flex items-center gap-1 z-10">
       {isAIAgent && (
         <Badge className="bg-purple-600 text-white text-xs">
           <Brain className="w-3 h-3 mr-1" />
           AI Agent
         </Badge>
       )}
-      {hasAIFields && !isAIAgent && (
+      {hasAIFields && (
         <Badge className="bg-blue-600 text-white text-xs">
           <Bot className="w-3 h-3 mr-1" />
-          AI Fields
+          {aiFieldCount} AI {aiFieldCount === 1 ? 'Field' : 'Fields'}
         </Badge>
       )}
       {isInChain && (
