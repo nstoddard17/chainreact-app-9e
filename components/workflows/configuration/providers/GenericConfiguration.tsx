@@ -415,21 +415,73 @@ export function GenericConfiguration({
     });
   }, [aiFields, setAiFields]);
 
+  // Helper to check if a field should be excluded from AI mode
+  const isFieldExcludedFromAI = useCallback((fieldName: string) => {
+    // Fields that should NEVER use AI mode (user needs to select these)
+    const selectorFields = new Set([
+      // Airtable selectors
+      'baseId', 'tableName', 'viewName',
+      // Google Sheets selectors
+      'spreadsheetId', 'sheetName',
+      // Microsoft Excel selectors
+      'workbookId', 'worksheetName',
+      // Discord selectors
+      'guildId', 'channelId',
+      // Slack selectors
+      'channel', 'workspace', 'asUser',
+      // Notion selectors
+      'databaseId', 'pageId', 'database',
+      // Trello selectors
+      'boardId', 'listId',
+      // HubSpot selectors
+      'objectType',
+      // Generic selectors
+      'recordId', 'id'
+    ]);
+
+    // Check if it's in the global selector fields list
+    if (selectorFields.has(fieldName)) {
+      return true;
+    }
+
+    // Explicit check for Slack send message fields
+    const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
+    if (isSlackSendMessage && (fieldName === 'channel' || fieldName === 'asUser')) {
+      return true;
+    }
+
+    // Explicit check for Notion create page database fields
+    const isNotionCreatePage = nodeInfo?.type === 'notion_action_create_page';
+    if (isNotionCreatePage && (fieldName === 'database' || fieldName === 'databaseId')) {
+      return true;
+    }
+
+    return false;
+  }, [nodeInfo]);
+
   // Render fields helper
   const renderFields = (fields: any[]) => {
     return fields.map((field, index) => {
       // Use AIFieldWrapper when connected to AI Agent, otherwise use FieldRenderer
       const shouldUseAIWrapper = isConnectedToAIAgent === true;
+
+      // Determine if AI should be enabled for this field
+      // If field is explicitly excluded, AI should never be enabled
+      // Otherwise, check if field is individually set OR if _allFieldsAI is true
+      const isExcluded = isFieldExcludedFromAI(field.name);
+      const isAIEnabled = isExcluded ? false : (aiFields[field.name] || aiFields._allFieldsAI || false);
+
       console.log('🤖 [GenericConfig] Rendering field:', {
         fieldName: field.name,
         isConnectedToAIAgent,
         shouldUseAIWrapper,
         typeofIsConnected: typeof isConnectedToAIAgent,
         aiFields,
-        isAIEnabled: aiFields[field.name] || aiFields._allFieldsAI || false
+        isExcluded,
+        isAIEnabled
       });
       const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
-      
+
       return (
         <React.Fragment key={`field-${field.name}-${index}`}>
           <Component
@@ -458,7 +510,7 @@ export function GenericConfiguration({
             parentValues={values}
             setFieldValue={setValue}
             // Props specific to AIFieldWrapper
-            isAIEnabled={aiFields[field.name] || aiFields._allFieldsAI || false}
+            isAIEnabled={isAIEnabled}
             onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
           />
         </React.Fragment>

@@ -345,15 +345,20 @@ function ConfigurationForm({
           // For Slack send message, clear AI placeholders from channel and asUser fields
           const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
           const isSlackSelectorField = isSlackSendMessage && (key === 'channel' || key === 'asUser');
+
+          // For Notion create page, clear AI placeholders from database fields
+          const isNotionCreatePage = nodeInfo?.type === 'notion_action_create_page';
+          const isNotionDatabaseField = isNotionCreatePage && (key === 'database' || key === 'databaseId');
+
           const hasAIPlaceholder = typeof value === 'string' && value.startsWith('{{AI_FIELD:');
 
-          if (isSlackSelectorField && hasAIPlaceholder) {
-            console.log(`🚫 [ConfigForm] Clearing AI placeholder from Slack selector field: ${key}`);
+          if ((isSlackSelectorField || isNotionDatabaseField) && hasAIPlaceholder) {
+            console.log(`🚫 [ConfigForm] Clearing AI placeholder from selector field: ${key}`);
             initialValues[key] = ''; // Clear the AI placeholder
 
             // Mark as manually cleared to prevent any restoration
             clearedFieldsRef.current.add(key);
-            console.log(`🚫 [ConfigForm] Marked Slack selector field as cleared: ${key}`);
+            console.log(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
 
             // Also ensure this field is not marked as an AI field
             if (aiFields[key]) {
@@ -370,6 +375,21 @@ function ConfigurationForm({
           initialValues[key] = value;
         }
       });
+
+      // For Slack send message, ALWAYS mark channel and asUser as cleared to prevent AI mode
+      // This must happen regardless of whether they have values in initialData
+      if (nodeInfo?.type === 'slack_action_send_message') {
+        clearedFieldsRef.current.add('channel');
+        clearedFieldsRef.current.add('asUser');
+        console.log('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared to prevent AI mode');
+      }
+
+      // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
+      if (nodeInfo?.type === 'notion_action_create_page') {
+        clearedFieldsRef.current.add('database');
+        clearedFieldsRef.current.add('databaseId');
+        console.log('🚫 [ConfigForm] Pre-marked Notion database fields as cleared to prevent AI mode');
+      }
 
       // If connected to AI Agent and _allFieldsAI not explicitly set, add it
       if (isConnectedToAIAgent && initialData._allFieldsAI === undefined) {
@@ -392,7 +412,7 @@ function ConfigurationForm({
           // Slack selectors
           'channel', 'workspace', 'asUser',
           // Notion selectors
-          'databaseId', 'pageId',
+          'databaseId', 'pageId', 'database',
           // Trello selectors
           'boardId', 'listId',
           // HubSpot selectors
@@ -406,15 +426,21 @@ function ConfigurationForm({
           const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
           const isSlackSelectorField = isSlackSendMessage && (field.name === 'channel' || field.name === 'asUser');
 
+          // Explicit check for Notion create page fields
+          const isNotionCreatePage = nodeInfo?.type === 'notion_action_create_page';
+          const isNotionDatabaseField = isNotionCreatePage && (field.name === 'database' || field.name === 'databaseId');
+
           // Don't set AI placeholders for:
           // - selector fields
           // - manually cleared fields
           // - Slack selector fields
+          // - Notion database fields
           // - non-editable fields
           if (
             !selectorFields.has(field.name) &&
             !clearedFieldsRef.current.has(field.name) &&
             !isSlackSelectorField &&
+            !isNotionDatabaseField &&
             !field.computed &&
             !field.autoNumber &&
             !field.formula &&
@@ -425,6 +451,8 @@ function ConfigurationForm({
             }
           } else if (isSlackSelectorField) {
             console.log(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
+          } else if (isNotionDatabaseField) {
+            console.log(`🚫 [ConfigForm] Skipping AI mode for Notion database field: ${field.name}`);
           } else if (clearedFieldsRef.current.has(field.name)) {
             console.log(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
           }
@@ -435,6 +463,20 @@ function ConfigurationForm({
       if (isConnectedToAIAgent) {
         initialValues._allFieldsAI = true;
         console.log('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
+      }
+
+      // For Slack send message, ALWAYS mark channel and asUser as cleared to prevent AI mode
+      if (nodeInfo?.type === 'slack_action_send_message') {
+        clearedFieldsRef.current.add('channel');
+        clearedFieldsRef.current.add('asUser');
+        console.log('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared (no initial data)');
+      }
+
+      // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
+      if (nodeInfo?.type === 'notion_action_create_page') {
+        clearedFieldsRef.current.add('database');
+        clearedFieldsRef.current.add('databaseId');
+        console.log('🚫 [ConfigForm] Pre-marked Notion database fields as cleared (no initial data)');
       }
     }
 
@@ -471,7 +513,7 @@ function ConfigurationForm({
       // Slack selectors
       'channel', 'workspace', 'asUser',
       // Notion selectors
-      'databaseId', 'pageId',
+      'databaseId', 'pageId', 'database',
       // Trello selectors
       'boardId', 'listId',
       // HubSpot selectors
@@ -494,16 +536,22 @@ function ConfigurationForm({
           const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
           const isSlackSelectorField = isSlackSendMessage && (field.name === 'channel' || field.name === 'asUser');
 
+          // Explicit check for Notion create page fields
+          const isNotionCreatePage = nodeInfo?.type === 'notion_action_create_page';
+          const isNotionDatabaseField = isNotionCreatePage && (field.name === 'database' || field.name === 'databaseId');
+
           // Skip:
           // - selector fields
           // - manually cleared fields
           // - Slack selector fields
+          // - Notion database fields
           // - computed fields
           // - read-only fields
           if (
             !selectorFields.has(field.name) &&
             !clearedFieldsRef.current.has(field.name) &&
             !isSlackSelectorField &&
+            !isNotionDatabaseField &&
             !field.computed &&
             !field.autoNumber &&
             !field.formula &&
@@ -520,9 +568,14 @@ function ConfigurationForm({
           // For Slack send message, don't mark channel or asUser as AI fields even if they have the placeholder
           const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
           const isSlackSelectorField = isSlackSendMessage && (key === 'channel' || key === 'asUser');
+
+          // For Notion create page, don't mark database fields as AI fields even if they have the placeholder
+          const isNotionCreatePage = nodeInfo?.type === 'notion_action_create_page';
+          const isNotionDatabaseField = isNotionCreatePage && (key === 'database' || key === 'databaseId');
+
           const isManuallyClearedField = clearedFieldsRef.current.has(key);
 
-          if (!isSlackSelectorField && !isManuallyClearedField) {
+          if (!isSlackSelectorField && !isNotionDatabaseField && !isManuallyClearedField) {
             newAiFields[key] = true;
           }
         }
