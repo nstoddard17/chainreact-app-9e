@@ -799,111 +799,245 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
       if (triggerNodes.length > 0) {
         // For OneDrive triggers, apply per-node config filters before executing
         const onedriveNodes = triggerNodes.filter((n: any) =>
+
           n?.data?.type === 'onedrive_trigger_new_file' ||
+
           n?.data?.type === 'onedrive_trigger_file_modified'
-        )
-        const otherNodes = triggerNodes.filter((n: any) =>
-          n?.data?.type !== 'onedrive_trigger_new_file' &&
-          n?.data?.type !== 'onedrive_trigger_file_modified'
+
         )
 
-        console.log('🔍 OneDrive trigger check:', {
-          onedriveNodeCount: onedriveNodes.length,
-          otherNodeCount: otherNodes.length,
-          eventType: event.type
+        const outlookNodes = triggerNodes.filter((n: any) => {
+
+          const nodeType = n?.data?.type || n?.type
+
+          return nodeType === 'microsoft-outlook_trigger_new_email' ||
+
+                 nodeType === 'microsoft-outlook_trigger_email_sent'
+
         })
 
+        const otherNodes = triggerNodes.filter((n: any) => {
+
+          const nodeType = n?.data?.type || n?.type
+
+          return nodeType !== 'onedrive_trigger_new_file' &&
+
+                 nodeType !== 'onedrive_trigger_file_modified' &&
+
+                 nodeType !== 'microsoft-outlook_trigger_new_email' &&
+
+                 nodeType !== 'microsoft-outlook_trigger_email_sent'
+
+        })
+
+
+
+        console.log('dY"? Trigger type distribution:', {
+
+          onedriveNodeCount: onedriveNodes.length,
+
+          outlookNodeCount: outlookNodes.length,
+
+          otherNodeCount: otherNodes.length,
+
+          eventType: event.type,
+
+          eventAction: event.action
+
+        })
+
+
+
         const shouldTriggerFromOneDrive = async (): Promise<boolean> => {
+
           if (onedriveNodes.length === 0) return false
+
           if (event.type !== 'onedrive_item') return false
 
+
+
           const payload = event.originalPayload || {}
+
           const itemPath: string | null = payload?.parentReference?.path && payload?.name
+
             ? `${payload.parentReference.path}/${payload.name}`
+
             : null
 
-          console.log('📁 Checking OneDrive item:', {
+
+
+          console.log('dY"? Checking OneDrive item:', {
+
             itemPath,
+
             isFile: Boolean(payload?.file),
+
             isFolder: Boolean(payload?.folder),
+
             createdAt: payload?.createdDateTime,
+
             modifiedAt: payload?.lastModifiedDateTime
+
           })
 
+
+
           for (const node of onedriveNodes) {
+
             const cfg = node?.data?.config || {}
+
             const folderId: string | undefined = cfg.folderId
+
             const includeSubfolders: boolean = cfg.includeSubfolders !== false
+
             const watchType: string = cfg.watchType || 'any'
+
             const fileType: string = cfg.fileType || 'any'
+
             const triggerOnUpdates: boolean = cfg.triggerOnUpdates === true
 
-            // Resolve folder path if specified
+
+
             let folderPath: string | null = null
+
             if (folderId && client) {
+
               if (folderPathCache.has(folderId)) {
+
                 folderPath = folderPathCache.get(folderId)!
+
               } else {
+
                 try {
+
                   const folderInfo: any = await client.request(`/me/drive/items/${folderId}`)
+
                   const basePath: string | null = folderInfo?.parentReference?.path || null
+
                   folderPath = basePath && folderInfo?.name ? `${basePath}/${folderInfo.name}` : null
+
                   if (folderPath) folderPathCache.set(folderId, folderPath)
+
                 } catch {
+
                   folderPath = null
+
                 }
+
               }
+
             }
 
-            // Path filter
+
+
             if (folderPath && itemPath) {
-              const withinFolder = includeSubfolders ? itemPath.startsWith(folderPath) : (itemPath === folderPath)
+
+              const withinFolder = includeSubfolders ? itemPath.startsWith(folderPath) : itemPath === folderPath
+
               if (!withinFolder) continue
+
             } else if (folderPath && !itemPath) {
+
               continue
+
             }
 
-            // Type filter
+
+
             const isFile = Boolean(payload?.file)
+
             const isFolder = Boolean(payload?.folder)
+
             if (watchType === 'files' && !isFile) continue
+
             if (watchType === 'folders' && !isFolder) continue
 
-            // MIME/fileType filter (basic)
+
+
             if (isFile && fileType && fileType !== 'any') {
+
               const mime: string = payload?.file?.mimeType || ''
+
               const matches =
+
                 (fileType === 'images' && mime.startsWith('image/')) ||
+
                 (fileType === 'audio' && mime.startsWith('audio/')) ||
+
                 (fileType === 'video' && mime.startsWith('video/')) ||
+
                 (fileType === 'pdf' && mime === 'application/pdf') ||
+
                 (fileType === 'documents' && (mime.startsWith('text/') || mime.includes('word') || mime.includes('pdf'))) ||
+
                 (fileType === 'spreadsheets' && mime.includes('sheet')) ||
+
                 (fileType === 'presentations' && mime.includes('presentation')) ||
+
                 (fileType === 'archives' && (mime.includes('zip') || mime.includes('x-tar') || mime.includes('rar')))
+
               if (!matches) continue
+
             }
 
-            // For file_modified trigger, always trigger on updates
-            // For file_created trigger, only trigger on new files
+
+
             const nodeType = node?.data?.type
-            if (nodeType === 'onedrive_trigger_file_created') {
-              const created = payload?.createdDateTime ? new Date(payload.createdDateTime).getTime() : null
-              const modified = payload?.lastModifiedDateTime ? new Date(payload.lastModifiedDateTime).getTime() : null
-              if (!created || !modified) continue
-              const isNew = Math.abs(modified - created) < 5000 // 5s tolerance as heuristic
-              if (!isNew) continue
-            }
-            // For file_modified trigger, we want all file updates, so no filtering needed
 
-            // Matched at least one onedrive node
+            if (nodeType === 'onedrive_trigger_file_created') {
+
+              const created = payload?.createdDateTime ? new Date(payload.createdDateTime).getTime() : null
+
+              const modified = payload?.lastModifiedDateTime ? new Date(payload.lastModifiedDateTime).getTime() : null
+
+              if (!created || !modified) continue
+
+              const isNew = Math.abs(modified - created) < 5000
+
+              if (!isNew) continue
+
+            }
+
+
+
             return true
+
           }
+
+
+
           return false
+
         }
 
-        const shouldTrigger = otherNodes.length > 0 || (await shouldTriggerFromOneDrive())
-        if (!shouldTrigger) continue
+
+
+        const matchesOutlookConfig = shouldTriggerFromOutlook(outlookNodes, event)
+
+        console.log('dY"? Outlook trigger evaluation:', {
+
+          matchesOutlookConfig,
+
+          outlookNodeCount: outlookNodes.length
+
+        })
+
+
+
+        const shouldTrigger = otherNodes.length > 0 || matchesOutlookConfig || (await shouldTriggerFromOneDrive())
+
+        if (!shouldTrigger) {
+
+          console.log('?s??,? Skipping workflow execution after applying provider-specific filters')
+
+          continue
+
+        }
+
+
+        }
+
+        }
 
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
 
@@ -937,6 +1071,312 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     }
   }
 }
+
+
+
+function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
+
+  if (!Array.isArray(nodes) || nodes.length === 0) return false
+
+  if (!event || event.type !== 'outlook_mail') return false
+
+
+
+  const payload = event.originalPayload || {}
+
+  const eventFrom = normalizeOutlookEmail(event.from || payload?.from?.emailAddress?.address)
+
+  const eventSubjectSource = event.subject ?? payload?.subject
+
+  const eventSubject = typeof eventSubjectSource === 'string' ? eventSubjectSource.trim().toLowerCase() : ''
+
+  const eventHasAttachments = typeof event.hasAttachments === 'boolean'
+
+    ? event.hasAttachments
+
+    : Boolean(payload?.hasAttachments || (Array.isArray(payload?.attachments) && payload.attachments.length > 0))
+
+  const eventImportanceSource = event.importance ?? payload?.importance
+
+  const eventImportance = typeof eventImportanceSource === 'string' ? eventImportanceSource.trim().toLowerCase() : ''
+
+  const eventFolderId = typeof payload?.parentFolderId === 'string' ? payload.parentFolderId.trim().toLowerCase() : ''
+
+
+
+  for (const node of nodes) {
+
+    const nodeType = node?.data?.type || node?.type
+
+    if (nodeType === 'microsoft-outlook_trigger_new_email') {
+
+      if (!(event.action === 'created' || event.action === 'draft')) continue
+
+    } else if (nodeType === 'microsoft-outlook_trigger_email_sent') {
+
+      if (!(event.action === 'sent' || event.action === 'created')) continue
+
+    } else {
+
+      continue
+
+    }
+
+
+
+    const config = node?.data?.config || node?.data?.triggerConfig || {}
+
+    const fromFilters = normalizeOutlookEmailList(config.from)
+
+    if (fromFilters.length > 0) {
+
+      if (!eventFrom || !fromFilters.includes(eventFrom)) {
+
+        console.log('dY"? Outlook trigger skipped (sender filter mismatch)', {
+
+          nodeType,
+
+          expected: fromFilters,
+
+          actual: eventFrom
+
+        })
+
+        continue
+
+      }
+
+    }
+
+
+
+    const subjectFilter = typeof config.subject === 'string' ? config.subject.trim().toLowerCase() : ''
+
+    if (subjectFilter) {
+
+      if (!eventSubject || !eventSubject.includes(subjectFilter)) {
+
+        console.log('dY"? Outlook trigger skipped (subject filter mismatch)', {
+
+          nodeType,
+
+          subjectFilter,
+
+          eventSubject
+
+        })
+
+        continue
+
+      }
+
+    }
+
+
+
+    const attachmentConfig = config.hasAttachment ?? config.hasAttachments ?? 'any'
+
+    const attachmentFilter = typeof attachmentConfig === 'string' ? attachmentConfig.trim().toLowerCase() : 'any'
+
+    if (attachmentFilter === 'yes' && !eventHasAttachments) {
+
+      console.log('dY"? Outlook trigger skipped (attachment filter requires attachments)', {
+
+        nodeType
+
+      })
+
+      continue
+
+    }
+
+    if (attachmentFilter === 'no' && eventHasAttachments) {
+
+      console.log('dY"? Outlook trigger skipped (attachment filter excludes attachments)', {
+
+        nodeType
+
+      })
+
+      continue
+
+    }
+
+
+
+    const importanceFilter = typeof config.importance === 'string' ? config.importance.trim().toLowerCase() : 'any'
+
+    if (importanceFilter && importanceFilter !== 'any') {
+
+      if (!eventImportance || eventImportance !== importanceFilter) {
+
+        console.log('dY"? Outlook trigger skipped (importance filter mismatch)', {
+
+          nodeType,
+
+          importanceFilter,
+
+          eventImportance
+
+        })
+
+        continue
+
+      }
+
+    }
+
+
+
+    const folderConfig = typeof config.folder === 'string' ? config.folder.trim().toLowerCase() : ''
+
+    if (folderConfig && folderConfig !== 'inbox' && folderConfig !== 'default' && folderConfig !== 'any') {
+
+      if (!eventFolderId || eventFolderId !== folderConfig) {
+
+        console.log('dY"? Outlook trigger skipped (folder filter mismatch)', {
+
+          nodeType,
+
+          folderConfig,
+
+          eventFolderId
+
+        })
+
+        continue
+
+      }
+
+    }
+
+
+
+    console.log('dY"? Outlook trigger matched node configuration', {
+
+      nodeType,
+
+      fromFilters,
+
+      subjectFilter,
+
+      attachmentFilter,
+
+      importanceFilter,
+
+      eventFrom,
+
+      eventSubject
+
+    })
+
+    return true
+
+  }
+
+
+
+  return false
+
+}
+
+
+
+function normalizeOutlookEmailList(value: any): string[] {
+
+  if (!value) return []
+
+  if (Array.isArray(value)) {
+
+    return value.map(normalizeOutlookEmail).filter(Boolean)
+
+  }
+
+  if (typeof value === 'string') {
+
+    const trimmed = value.trim()
+
+    if (!trimmed) return []
+
+    if (trimmed.startsWith('[')) {
+
+      try {
+
+        const parsed = JSON.parse(trimmed)
+
+        if (Array.isArray(parsed)) {
+
+          return parsed.map(normalizeOutlookEmail).filter(Boolean)
+
+        }
+
+      } catch {
+
+        // ignore JSON parse issues
+
+      }
+
+    }
+
+    return trimmed.split(',').map(normalizeOutlookEmail).filter(Boolean)
+
+  }
+
+  if (typeof value === 'object') {
+
+    const candidate = value?.value ?? value?.email ?? value?.address
+
+    if (candidate) {
+
+      return normalizeOutlookEmailList(candidate)
+
+    }
+
+  }
+
+  return []
+
+}
+
+
+
+function normalizeOutlookEmail(value: any): string {
+
+  if (!value) return ''
+
+  if (typeof value === 'string') {
+
+    let trimmed = value.trim()
+
+    const angleStart = trimmed.lastIndexOf('<')
+
+    const angleEnd = trimmed.lastIndexOf('>')
+
+    if (angleStart !== -1 && angleEnd !== -1 && angleEnd > angleStart) {
+
+      trimmed = trimmed.slice(angleStart + 1, angleEnd)
+
+    }
+
+    return trimmed.trim().toLowerCase()
+
+  }
+
+  if (typeof value === 'object') {
+
+    if (typeof value.address === 'string') return normalizeOutlookEmail(value.address)
+
+    if (typeof value.email === 'string') return normalizeOutlookEmail(value.email)
+
+    if (typeof value.value === 'string') return normalizeOutlookEmail(value.value)
+
+  }
+
+  return ''
+
+}
+
+
 
 async function fetchOneDriveChanges(payload: any, userId: string): Promise<any[]> {
   const { accessToken, refreshToken, integrationId } = await resolveOneDriveTokens(userId)
