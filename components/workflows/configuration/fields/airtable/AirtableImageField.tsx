@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ImageIcon, Upload, X, Eye, Trash2 } from "lucide-react";
+import { ImageIcon, Upload, X, Eye, Trash2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AirtableImageFieldProps {
@@ -10,29 +10,38 @@ interface AirtableImageFieldProps {
   value: any;
   onChange: (value: any) => void;
   error?: string;
+  aiFields?: Record<string, boolean>;
+  setAiFields?: (fields: Record<string, boolean>) => void;
 }
 
 /**
  * Airtable image field component that shows preview and allows upload
+ * Also supports AI mode where the AI can provide file URLs from previous nodes
  */
 export function AirtableImageField({
   field,
   value,
   onChange,
   error,
+  aiFields,
+  setAiFields,
 }: AirtableImageFieldProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Parse the value - it could be:
+  // Check if field is in AI mode
+  const isAIMode = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+
+  // Parse the value - must be called before any conditional returns to maintain hook order
+  // This could be:
   // 1. Array of attachment objects from Airtable
   // 2. A file object from local upload
   // 3. A base64 string
   // 4. null/undefined
   const images = React.useMemo(() => {
     if (!value) return [];
-    
+
     if (Array.isArray(value)) {
       // Airtable attachment format
       return value.map(img => ({
@@ -43,7 +52,7 @@ export function AirtableImageField({
         type: img.type
       }));
     }
-    
+
     if (typeof value === 'object' && value.url) {
       // Single attachment object
       return [{
@@ -66,6 +75,46 @@ export function AirtableImageField({
 
     return [];
   }, [value]);
+
+  // If in AI mode, show the AI UI
+  if (isAIMode) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            {field.label || field.name}
+            {field.required && <span className="text-red-500">*</span>}
+          </label>
+        </div>
+        <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-gray-400" />
+          <span className="text-sm flex-1">
+            Defined automatically by the model
+          </span>
+          <span className="text-xs text-gray-400">
+            (AI can use file URLs from previous nodes)
+          </span>
+          {setAiFields && (
+            <button
+              type="button"
+              onClick={() => {
+                // Remove from AI fields
+                const newAiFields = { ...aiFields };
+                delete newAiFields[field.name];
+                setAiFields(newAiFields);
+                // Clear the value
+                onChange(null);
+              }}
+              className="text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      </div>
+    );
+  }
 
   const handleFileSelect = () => {
     // When replacing an image (images already exist), ensure we're ready for a clean replacement

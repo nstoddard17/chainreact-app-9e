@@ -10,6 +10,7 @@ import { useDragDrop } from "@/hooks/use-drag-drop";
 import { FullscreenTextArea } from "../FullscreenTextEditor";
 import { formatVariableForDisplay } from "@/lib/utils/variableDisplay";
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
+import { Bot, X } from "lucide-react";
 
 interface GenericTextInputProps {
   field: any;
@@ -19,11 +20,14 @@ interface GenericTextInputProps {
   dynamicOptions?: Array<{value: string; label: string;}>;
   onDynamicLoad?: (fieldName: string) => void;
   workflowNodes?: any[];
+  aiFields?: Record<string, boolean>;
+  setAiFields?: (fields: Record<string, boolean>) => void;
+  isConnectedToAIAgent?: boolean;
 }
 
 /**
  * Generic text input field for basic text, email, number, and textarea fields
- * Supports drag and drop for variables
+ * Supports drag and drop for variables and AI mode
  */
 export function GenericTextInput({
   field,
@@ -33,18 +37,24 @@ export function GenericTextInput({
   dynamicOptions,
   onDynamicLoad,
   workflowNodes,
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
 }: GenericTextInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<Array<{value: string; label: string;}>>([]);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  
+
+  // Check if this field is in AI mode
+  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+
   // Format variable for display - convert workflow nodes to the format expected by formatVariableForDisplay
   const nodeInfo = workflowNodes?.map((node: any) => {
     // Get the node component definition to access outputSchema
     const nodeComponent = ALL_NODE_COMPONENTS.find(comp => comp.type === node.data?.type);
-    
+
     return {
       id: node.id,
       title: node.data?.title || node.data?.label || nodeComponent?.title || 'Custom',
@@ -148,9 +158,47 @@ export function GenericTextInput({
     ),
   };
 
+  // If in AI mode, show the "Defined by AI" UI
+  if (isAIEnabled) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            {field.label || field.name}
+            {field.required && <span className="text-red-500">*</span>}
+          </label>
+        </div>
+        <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-gray-400" />
+          <span className="text-sm flex-1">
+            Defined automatically by the model
+          </span>
+          {setAiFields && (
+            <button
+              type="button"
+              onClick={() => {
+                // Remove from AI fields
+                const newAiFields = { ...aiFields };
+                delete newAiFields[field.name];
+                setAiFields(newAiFields);
+                // Clear the value
+                onChange('');
+              }}
+              className="text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  // Render field content (normal mode)
   switch (field.type) {
-    case "textarea":
-      return (
+      case "textarea":
+        return (
         <FullscreenTextArea
           value={value || ""}
           onChange={onChange}
