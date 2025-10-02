@@ -165,10 +165,11 @@ const dropboxActionGetFile: NodeComponent = {
       type: "select",
       dynamic: "dropbox-files",
       required: true,
+      loadOnMount: true,
       placeholder: "Select a file",
       description: "Choose the file to retrieve",
       dependsOn: "path"
-      // NOTE: Do NOT use loadOnMount with dependsOn - it will load automatically when parent changes
+      // loadOnMount loads files from root on mount, dependsOn reloads when folder is selected
     },
     {
       name: "downloadContent",

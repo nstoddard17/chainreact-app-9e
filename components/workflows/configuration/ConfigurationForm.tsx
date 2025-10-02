@@ -654,7 +654,12 @@ function ConfigurationForm({
         loadOptions('path', undefined, undefined, false); // Use cache for better performance
       }
 
-      // DO NOT load filePath here - it has dependsOn: 'path' so it will load automatically when path changes
+      // Load immediately for Dropbox filePath field (loads files from root)
+      const dropboxFilePathField = fieldsToLoad.find((f: any) => f.name === 'filePath');
+      if (dropboxFilePathField && nodeInfo?.providerId === 'dropbox') {
+        console.log(`🚀 [ConfigForm] Loading Dropbox filePath (files from root) immediately with cache`);
+        loadOptions('filePath', undefined, undefined, false); // Use cache for better performance
+      }
 
       // Load immediately for Box folderId
       const boxFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
@@ -663,7 +668,12 @@ function ConfigurationForm({
         loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
       }
 
-      // DO NOT load Box fileId here - it has dependsOn: 'folderId' so it will load automatically when folderId changes
+      // Load immediately for Box fileId field (loads files from root)
+      const boxFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
+      if (boxFileIdField && nodeInfo?.providerId === 'box') {
+        console.log(`🚀 [ConfigForm] Loading Box fileId (files from root) immediately with cache`);
+        loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
+      }
 
       // Load immediately for OneDrive folderId
       const onedriveFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
@@ -672,7 +682,12 @@ function ConfigurationForm({
         loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
       }
 
-      // DO NOT load OneDrive fileId here - it has dependsOn: 'folderId' so it will load automatically when folderId changes
+      // Load immediately for OneDrive fileId field (loads files from root)
+      const onedriveFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
+      if (onedriveFileIdField && nodeInfo?.providerId === 'onedrive') {
+        console.log(`🚀 [ConfigForm] Loading OneDrive fileId (files from root) immediately with cache`);
+        loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
+      }
 
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
@@ -706,17 +721,26 @@ function ConfigurationForm({
             // Already loaded above
             return;
           }
-          // filePath has dependsOn: 'path' so it should NOT be loaded on mount - it will load when path changes
+          if (field.name === 'filePath' && nodeInfo?.providerId === 'dropbox') {
+            // Already loaded above
+            return;
+          }
           if (field.name === 'folderId' && nodeInfo?.providerId === 'box') {
             // Already loaded above
             return;
           }
-          // Box fileId has dependsOn: 'folderId' so it should NOT be loaded on mount
+          if (field.name === 'fileId' && nodeInfo?.providerId === 'box') {
+            // Already loaded above
+            return;
+          }
           if (field.name === 'folderId' && nodeInfo?.providerId === 'onedrive') {
             // Already loaded above
             return;
           }
-          // OneDrive fileId has dependsOn: 'folderId' so it should NOT be loaded on mount
+          if (field.name === 'fileId' && nodeInfo?.providerId === 'onedrive') {
+            // Already loaded above
+            return;
+          }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
           // Ensure Google Drive folders force-load on mount to avoid stale cache
           // BUT only if we don't have saved options for it already
