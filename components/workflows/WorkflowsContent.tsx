@@ -97,6 +97,7 @@ export default function WorkflowsContent() {
   })
   const { toast } = useToast()
   const hasWorkflows = Array.isArray(workflows) && workflows.length > 0
+  const [forceShowContent, setForceShowContent] = useState(false)
 
   // Use the new timeout loading hook for fast, reliable loading
   // NON-BLOCKING - page renders immediately
@@ -114,6 +115,19 @@ export default function WorkflowsContent() {
     },
     dependencies: [] // Only load on mount
   })
+
+  // Add a fallback timeout to force show content if loading gets stuck
+  // This ensures the page never stays in infinite loading state
+  useEffect(() => {
+    const fallbackTimeout = setTimeout(() => {
+      if (loading && !hasWorkflows) {
+        console.warn('⚠️ Workflows page stuck in loading state - forcing content display')
+        setForceShowContent(true)
+      }
+    }, 8000) // 8 second fallback (longer than useTimeoutLoading)
+
+    return () => clearTimeout(fallbackTimeout)
+  }, [loading, hasWorkflows])
 
   // Load integrations on mount
   const safeFetchIntegrations = useCallback(async (force = false) => {
@@ -613,7 +627,7 @@ export default function WorkflowsContent() {
     )
   }
 
-  if (loading && !hasWorkflows) {
+  if (loading && !hasWorkflows && !forceShowContent) {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">

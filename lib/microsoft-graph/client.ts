@@ -169,25 +169,43 @@ export class MicrosoftGraphClient {
   }
 
   private normalizeMailDelta(response: OutlookMailDeltaResponse): OutlookMailDeltaResponse {
+    console.log('📧 Normalizing mail delta response:', {
+      messageCount: response.value.length,
+      hasDeltaLink: !!response['@odata.deltaLink'],
+      hasNextLink: !!response['@odata.nextLink']
+    })
+    
     return {
       ...response,
-      value: response.value.map(message => ({
-        ...message,
-        // Normalize to internal event format
-        _normalized: {
+      value: response.value.map(message => {
+        console.log('📧 Processing mail message:', {
           id: message.id,
-          type: 'outlook_mail',
-          action: 'created', // New emails are always "created" events
           subject: message.subject,
-          from: message.from?.emailAddress?.address,
           receivedDateTime: message.receivedDateTime,
-          importance: message.importance,
-          hasAttachments: message.hasAttachments,
           isRead: message.isRead,
-          webLink: message.webLink,
-          originalPayload: message
+          hasAttachments: message.hasAttachments
+        })
+        
+        return {
+          ...message,
+          // Normalize to internal event format
+          _normalized: {
+            id: message.id,
+            type: 'outlook_mail',
+            action: message.isDraft ? 'draft' : 'created', // Detect if it's a draft or new email
+            subject: message.subject,
+            from: message.from?.emailAddress?.address,
+            receivedDateTime: message.receivedDateTime,
+            sentDateTime: message.sentDateTime,
+            importance: message.importance,
+            hasAttachments: message.hasAttachments,
+            isRead: message.isRead,
+            isDraft: message.isDraft,
+            webLink: message.webLink,
+            originalPayload: message
+          }
         }
-      }))
+      })
     }
   }
 
