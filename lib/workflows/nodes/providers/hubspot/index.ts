@@ -7,7 +7,8 @@ import {
   DollarSign,
   Plus,
   Users,
-  Edit
+  Edit,
+  Search
 } from "lucide-react"
 
 // HubSpot Triggers
@@ -863,7 +864,7 @@ const hubspotActionCreateCompany: NodeComponent = {
   configSchema: [
     // Primary Identifiers
     { name: "name", label: "Company Name", type: "text", required: true, placeholder: "Acme Corporation" },
-    { name: "domain", label: "Website Domain", type: "text", required: false, placeholder: "example.com", description: "Primary unique identifier to avoid duplicates" },
+    { name: "domain", label: "Website Domain", type: "text", required: true, placeholder: "example.com", description: "Primary unique identifier to avoid duplicates" },
     
     // Contact Information
     { name: "phone", label: "Phone Number", type: "text", required: false, placeholder: "+1-555-123-4567" },
@@ -1094,6 +1095,153 @@ const hubspotActionUpdateDeal: NodeComponent = {
   ]
 }
 
+const hubspotActionGetContacts: NodeComponent = {
+  type: "hubspot_action_get_contacts",
+  title: "Get Contacts",
+  description: "Retrieve contacts from HubSpot with optional filtering",
+  icon: Search,
+  providerId: "hubspot",
+  requiredScopes: ["crm.objects.contacts.read"],
+  category: "CRM",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "limit",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "Number of contacts to retrieve (max 100)"
+    },
+    {
+      name: "filterProperty",
+      label: "Filter by Property (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "e.g., email, firstname, lifecyclestage"
+    },
+    {
+      name: "filterValue",
+      label: "Filter Value",
+      type: "text",
+      required: false,
+      placeholder: "Value to match"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "contacts",
+      label: "Contacts",
+      type: "array",
+      description: "Array of contacts from HubSpot"
+    },
+    {
+      name: "count",
+      label: "Count",
+      type: "number",
+      description: "Number of contacts retrieved"
+    }
+  ]
+}
+
+const hubspotActionGetCompanies: NodeComponent = {
+  type: "hubspot_action_get_companies",
+  title: "Get Companies",
+  description: "Retrieve companies from HubSpot with optional filtering",
+  icon: Search,
+  providerId: "hubspot",
+  requiredScopes: ["crm.objects.companies.read"],
+  category: "CRM",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "limit",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "Number of companies to retrieve (max 100)"
+    },
+    {
+      name: "filterProperty",
+      label: "Filter by Property (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "e.g., name, domain, industry"
+    },
+    {
+      name: "filterValue",
+      label: "Filter Value",
+      type: "text",
+      required: false,
+      placeholder: "Value to match"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "companies",
+      label: "Companies",
+      type: "array",
+      description: "Array of companies from HubSpot"
+    },
+    {
+      name: "count",
+      label: "Count",
+      type: "number",
+      description: "Number of companies retrieved"
+    }
+  ]
+}
+
+const hubspotActionGetDeals: NodeComponent = {
+  type: "hubspot_action_get_deals",
+  title: "Get Deals",
+  description: "Retrieve deals from HubSpot with optional filtering",
+  icon: Search,
+  providerId: "hubspot",
+  requiredScopes: ["crm.objects.deals.read"],
+  category: "CRM",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "limit",
+      label: "Maximum Results",
+      type: "number",
+      required: false,
+      defaultValue: 100,
+      placeholder: "Number of deals to retrieve (max 100)"
+    },
+    {
+      name: "filterProperty",
+      label: "Filter by Property (Optional)",
+      type: "text",
+      required: false,
+      placeholder: "e.g., dealname, dealstage, amount"
+    },
+    {
+      name: "filterValue",
+      label: "Filter Value",
+      type: "text",
+      required: false,
+      placeholder: "Value to match"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "deals",
+      label: "Deals",
+      type: "array",
+      description: "Array of deals from HubSpot"
+    },
+    {
+      name: "count",
+      label: "Count",
+      type: "number",
+      description: "Number of deals retrieved"
+    }
+  ]
+}
+
 // Import dynamic nodes
 import { hubspotDynamicNodes } from './dynamicNodes'
 // Import enhanced contact nodes
@@ -1112,12 +1260,15 @@ export const hubspotNodes: NodeComponent[] = [
   hubspotTriggerDealUpdated,
   hubspotTriggerDealDeleted,
 
-  // Actions (5 - one not marked as comingSoon, 4 marked as comingSoon)
+  // Actions (8)
   hubspotActionCreateContact,
   hubspotActionCreateCompany,
   hubspotActionCreateDeal,
   hubspotActionAddContactToList,
   hubspotActionUpdateDeal,
+  hubspotActionGetContacts,
+  hubspotActionGetCompanies,
+  hubspotActionGetDeals,
 
   // Dynamic actions (4)
   ...hubspotDynamicNodes,

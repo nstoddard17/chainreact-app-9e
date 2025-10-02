@@ -22,6 +22,7 @@ interface CustomNodeData {
   savedDynamicOptions?: Record<string, any[]>
   validationState?: {
     missingRequired?: string[]
+    allRequiredFields?: string[]
     lastValidatedAt?: string
     lastUpdatedAt?: string
     isValid?: boolean
@@ -354,9 +355,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {!error && !isIntegrationDisconnected && hasValidationIssues && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-2 pt-7">
           <p className="text-sm text-red-600 font-medium">
-            {validationState?.missingRequired?.length === 1
-              ? `Required field: ${getFieldLabel(validationState.missingRequired[0])}`
-              : `Required fields: ${validationState?.missingRequired?.map(getFieldLabel).join(', ')}`}
+            {validationState?.allRequiredFields?.length === 1
+              ? `Required field: ${getFieldLabel(validationState.allRequiredFields[0])}`
+              : `Required fields: ${validationState?.allRequiredFields?.map(getFieldLabel).join(', ')}`}
           </p>
         </div>
       )}

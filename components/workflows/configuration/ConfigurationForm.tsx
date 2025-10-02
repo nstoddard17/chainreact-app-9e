@@ -132,7 +132,7 @@ function ConfigurationForm({
   const [airtableRecords, setAirtableRecords] = useState<any[]>([]);
   const [airtableTableSchema, setAirtableTableSchema] = useState<any>(null);
 
-  const { validateRequiredFields, getMissingRequiredFields } = useFieldValidation({ nodeInfo, values });
+  const { validateRequiredFields, getMissingRequiredFields, getAllRequiredFields } = useFieldValidation({ nodeInfo, values });
   
   const { getIntegrationByProvider, connectIntegration, fetchIntegrations } = useIntegrationStore();
   const { currentWorkflow, updateNode } = useWorkflowStore();
@@ -647,6 +647,33 @@ function ConfigurationForm({
         loadOptions('workbookId', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Dropbox path field
+      const dropboxPathField = fieldsToLoad.find((f: any) => f.name === 'path');
+      if (dropboxPathField && nodeInfo?.providerId === 'dropbox') {
+        console.log(`🚀 [ConfigForm] Loading Dropbox path (folders) immediately with cache`);
+        loadOptions('path', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // DO NOT load filePath here - it has dependsOn: 'path' so it will load automatically when path changes
+
+      // Load immediately for Box folderId
+      const boxFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
+      if (boxFolderIdField && nodeInfo?.providerId === 'box') {
+        console.log(`🚀 [ConfigForm] Loading Box folderId immediately with cache`);
+        loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // DO NOT load Box fileId here - it has dependsOn: 'folderId' so it will load automatically when folderId changes
+
+      // Load immediately for OneDrive folderId
+      const onedriveFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
+      if (onedriveFolderIdField && nodeInfo?.providerId === 'onedrive') {
+        console.log(`🚀 [ConfigForm] Loading OneDrive folderId immediately with cache`);
+        loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // DO NOT load OneDrive fileId here - it has dependsOn: 'folderId' so it will load automatically when folderId changes
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -675,6 +702,21 @@ function ConfigurationForm({
             // Already loaded above
             return;
           }
+          if (field.name === 'path' && nodeInfo?.providerId === 'dropbox') {
+            // Already loaded above
+            return;
+          }
+          // filePath has dependsOn: 'path' so it should NOT be loaded on mount - it will load when path changes
+          if (field.name === 'folderId' && nodeInfo?.providerId === 'box') {
+            // Already loaded above
+            return;
+          }
+          // Box fileId has dependsOn: 'folderId' so it should NOT be loaded on mount
+          if (field.name === 'folderId' && nodeInfo?.providerId === 'onedrive') {
+            // Already loaded above
+            return;
+          }
+          // OneDrive fileId has dependsOn: 'folderId' so it should NOT be loaded on mount
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
           // Ensure Google Drive folders force-load on mount to avoid stale cache
           // BUT only if we don't have saved options for it already
@@ -751,6 +793,12 @@ function ConfigurationForm({
         return false;
       }
 
+      // Skip if field is currently loading
+      if (loadingFields.has(field.name)) {
+        console.log(`⏭️ [ConfigForm] Skipping ${field.name} - already loading`);
+        return false;
+      }
+
       // Check if options are already loaded
       const fieldOptions = dynamicOptions[field.name];
       const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
@@ -796,6 +844,11 @@ function ConfigurationForm({
       // Always load for dependent fields if parent has value, even if options exist
       // This ensures the saved value displays correctly
       if (field.dependsOn && values[field.dependsOn]) {
+        // Skip if field is already loading (checked above but double-check here)
+        if (loadingFields.has(field.name)) {
+          return false;
+        }
+
         // For dependent fields, check if the saved value exists in current options
         if (hasOptions) {
           // Handle multi-select fields (saved value is an array)
@@ -890,9 +943,15 @@ function ConfigurationForm({
           return false;
         }
 
-        // OneDrive fileId is now handled by the field change handler when folder is selected
-        // Skip auto-loading it here to prevent duplicate loads
+        // Storage provider file fields are handled by the field change handler when folder/path is selected
+        // Skip auto-loading them here to prevent duplicate loads
         if (nodeInfo?.providerId === 'onedrive' && field.name === 'fileId') {
+          return false;
+        }
+        if (nodeInfo?.providerId === 'dropbox' && field.name === 'filePath') {
+          return false;
+        }
+        if (nodeInfo?.providerId === 'box' && field.name === 'fileId') {
           return false;
         }
 
@@ -983,9 +1042,11 @@ function ConfigurationForm({
       
       // Include dynamicOptions with the saved values so they can be stored with the node
       const missingRequiredFields = getMissingRequiredFields();
+      const allRequiredFields = getAllRequiredFields();
 
       const validationState = {
         missingRequired: missingRequiredFields,
+        allRequiredFields: allRequiredFields,
         lastValidatedAt: new Date().toISOString(),
         lastUpdatedAt: new Date().toISOString(),
         isValid: missingRequiredFields.length === 0

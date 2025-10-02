@@ -4,6 +4,7 @@ import { NodeComponent } from "../../types"
 // Import action schemas
 import { sendMessageActionSchema } from "./actions/sendMessage.schema"
 import { createChannelActionSchema } from "./actions/createChannel.schema"
+import { getMessagesActionSchema } from "./actions/getMessages.schema"
 
 // Import trigger schemas
 import { newMessageChannelTriggerSchema } from "./triggers/newMessageChannel.schema"
@@ -18,6 +19,11 @@ const sendMessage: NodeComponent = {
 const createChannel: NodeComponent = {
   ...createChannelActionSchema,
   icon: Hash
+}
+
+const getMessages: NodeComponent = {
+  ...getMessagesActionSchema,
+  icon: MessageCircle
 }
 
 // Apply icons to trigger schemas
@@ -47,6 +53,7 @@ export const slackNodes: NodeComponent[] = [
   // Actions
   sendMessage,
   createChannel,
+  getMessages,
 
   // Triggers
   newMessageChannel,
@@ -59,6 +66,7 @@ export const slackNodes: NodeComponent[] = [
 export {
   sendMessage,
   createChannel,
+  getMessages,
   newMessageChannel,
   reactionAdded,
 }

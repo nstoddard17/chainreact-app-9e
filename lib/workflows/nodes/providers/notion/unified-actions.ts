@@ -842,5 +842,97 @@ export const notionUnifiedActions: NodeComponent[] = [
         description: "List of comments (for retrieve operation)"
       }
     ]
+  },
+
+  // ============= GET PAGES FROM DATABASE =============
+  {
+    type: "notion_action_get_pages",
+    title: "Get Pages from Database",
+    description: "Retrieve pages from a specific Notion database with filtering and sorting",
+    icon: Layers,
+    providerId: "notion",
+    requiredScopes: ["content.read"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        placeholder: "Select Notion workspace",
+        loadOnMount: true
+      },
+      {
+        name: "database",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select a database",
+        dependsOn: "workspace"
+      },
+      {
+        name: "filterProperty",
+        label: "Filter by Property (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Property name to filter by"
+      },
+      {
+        name: "filterValue",
+        label: "Filter Value",
+        type: "text",
+        required: false,
+        placeholder: "Value to match"
+      },
+      {
+        name: "sortProperty",
+        label: "Sort by Property (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Property name to sort by"
+      },
+      {
+        name: "sortDirection",
+        label: "Sort Direction",
+        type: "select",
+        required: false,
+        options: [
+          { value: "ascending", label: "Ascending" },
+          { value: "descending", label: "Descending" }
+        ],
+        defaultValue: "ascending"
+      },
+      {
+        name: "limit",
+        label: "Maximum Results",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "Maximum number of pages to retrieve"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "pages",
+        label: "Pages",
+        type: "array",
+        description: "Array of pages from the database"
+      },
+      {
+        name: "count",
+        label: "Count",
+        type: "number",
+        description: "Number of pages retrieved"
+      },
+      {
+        name: "hasMore",
+        label: "Has More",
+        type: "boolean",
+        description: "Whether there are more pages available"
+      }
+    ]
   }
 ];

@@ -290,7 +290,7 @@ export const discordNodes: NodeComponent[] = [
   },
   {
     type: "discord_action_fetch_messages",
-    title: "Fetch Messages",
+    title: "Get Messages",
     description: "List recent messages from a Discord channel with optional filters.",
     icon: MessageSquare,
     providerId: "discord",

@@ -16,7 +16,7 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
         placeholder: "Select a board"
       },
@@ -55,7 +55,7 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
         placeholder: "Select a board"
       },
@@ -492,6 +492,63 @@ export const trelloNodes: NodeComponent[] = [
         { value: "top", label: "Top" },
         { value: "bottom", label: "Bottom" }
       ] }
+    ]
+  },
+  {
+    type: "trello_action_get_cards",
+    title: "Get Cards",
+    description: "Retrieve cards from a Trello board with optional filtering",
+    icon: Briefcase,
+    providerId: "trello",
+    requiredScopes: ["read"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "boardId",
+        label: "Board",
+        type: "select",
+        required: true,
+        dynamic: "trello_boards",
+        placeholder: "Select a board",
+        loadOnMount: true
+      },
+      {
+        name: "listId",
+        label: "List (Optional)",
+        type: "select",
+        required: false,
+        dynamic: "trello_lists",
+        dependsOn: "boardId",
+        placeholder: "Select a list to filter by",
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+      },
+      {
+        name: "filter",
+        label: "Card Status",
+        type: "select",
+        required: false,
+        defaultValue: "open",
+        options: [
+          { value: "all", label: "All Cards" },
+          { value: "open", label: "Open Cards" },
+          { value: "closed", label: "Archived Cards" }
+        ],
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+      },
+      {
+        name: "limit",
+        label: "Maximum Results",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "Maximum number of cards to retrieve",
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }
+      }
+    ],
+    outputSchema: [
+      { name: "cards", label: "Cards", type: "array", description: "Array of cards from the board" },
+      { name: "count", label: "Count", type: "number", description: "Number of cards retrieved" }
     ]
   },
 ]

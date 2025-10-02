@@ -1,7 +1,8 @@
 import { NodeComponent } from "../../types"
 import {
   Upload,
-  FileText
+  FileText,
+  Download
 } from "lucide-react"
 
 // OneDrive Triggers
@@ -239,6 +240,91 @@ const onedriveActionUploadFile: NodeComponent = {
   ],
 }
 
+const onedriveActionGetFile: NodeComponent = {
+  type: "onedrive_action_get_file",
+  title: "Get File",
+  description: "Retrieve file details and download a file from OneDrive",
+  icon: Download,
+  providerId: "onedrive",
+  requiredScopes: ["Files.Read"],
+  category: "Storage",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "folderId",
+      label: "Folder",
+      type: "select",
+      dynamic: "onedrive-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a folder (optional)",
+      description: "Choose a folder to browse files from"
+    },
+    {
+      name: "fileId",
+      label: "File",
+      type: "select",
+      dynamic: "onedrive-files",
+      required: true,
+      placeholder: "Select a file",
+      description: "Choose the file to retrieve",
+      dependsOn: "folderId"
+      // NOTE: Do NOT use loadOnMount with dependsOn - it will load automatically when parent changes
+    },
+    {
+      name: "downloadContent",
+      label: "Download File Content",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, downloads the file content. When disabled, only retrieves file metadata."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "The unique ID of the file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "The name of the file"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "url",
+      label: "File URL",
+      type: "string",
+      description: "Direct download URL for the file"
+    },
+    {
+      name: "content",
+      label: "File Content",
+      type: "string",
+      description: "The file content (base64 encoded if binary)"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "The MIME type of the file"
+    },
+    {
+      name: "modifiedAt",
+      label: "Last Modified",
+      type: "string",
+      description: "When the file was last modified"
+    }
+  ]
+}
+
 // Export all OneDrive nodes
 export const onedriveNodes: NodeComponent[] = [
   // Triggers
@@ -247,4 +333,5 @@ export const onedriveNodes: NodeComponent[] = [
 
   // Actions
   onedriveActionUploadFile,
+  onedriveActionGetFile,
 ]
