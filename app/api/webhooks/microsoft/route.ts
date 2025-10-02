@@ -101,15 +101,34 @@ export async function POST(request: NextRequest) {
       // Resolve user from subscription
       let userId: string | null = null
       if (subId) {
-        const { data: subscription } = await supabase
+        console.log('🔍 Looking up subscription:', subId)
+        const { data: subscription, error: subError } = await supabase
           .from('microsoft_graph_subscriptions')
           .select('user_id')
           .eq('id', subId)
           .single()
+
+        if (subError) {
+          console.error('❌ Error fetching subscription:', subError)
+        }
+
         userId = subscription?.user_id || null
+        console.log('👤 Resolved user from subscription:', {
+          subscriptionId: subId,
+          userId,
+          subscriptionFound: !!subscription
+        })
       }
 
       // Enqueue processing for this notification
+      console.log('📥 Inserting into queue:', {
+        userId,
+        subscriptionId: subId,
+        resource,
+        changeType,
+        hasPayload: !!change
+      })
+
       const { data: queueItem, error: queueError } = await supabase.from('microsoft_webhook_queue').insert({
         user_id: userId,
         subscription_id: subId,
@@ -119,21 +138,34 @@ export async function POST(request: NextRequest) {
         headers,
         status: 'pending'
       }).select().single()
-      
+
       if (queueError) {
-        console.error('❌ Failed to queue notification:', queueError)
+        console.error('❌ Failed to queue notification:', {
+          error: queueError,
+          code: queueError.code,
+          message: queueError.message,
+          details: queueError.details
+        })
       } else {
-        console.log('✅ Notification queued successfully:', queueItem?.id)
+        console.log('✅ Notification queued successfully:', {
+          queueId: queueItem?.id,
+          userId: queueItem?.user_id,
+          status: queueItem?.status
+        })
       }
     }
 
     // Kick off background worker to process the queue immediately (best-effort)
     try {
       const base = getWebhookBaseUrl()
+      const workerUrl = `${base}/api/microsoft-graph/worker`
+      console.log('🚀 Triggering background worker:', workerUrl)
       // Fire-and-forget; do not await to keep webhook fast
-      fetch(`${base}/api/microsoft-graph/worker`, { method: 'POST' }).catch(() => {})
-    } catch {
-      // ignore worker trigger errors
+      fetch(workerUrl, { method: 'POST' })
+        .then(res => console.log('✅ Worker triggered, status:', res.status))
+        .catch(err => console.error('❌ Worker trigger failed:', err))
+    } catch (error) {
+      console.error('❌ Worker trigger error:', error)
     }
 
     // Log the webhook execution

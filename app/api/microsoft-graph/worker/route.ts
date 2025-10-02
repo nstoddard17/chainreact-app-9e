@@ -20,31 +20,62 @@ let workerCallCount = 0
 
 export async function POST(_req: NextRequest) {
   workerCallCount++
-  console.log(`\n🏃 Worker called (call #${workerCallCount})`)
+  const startTime = Date.now()
+  console.log(`\n🏃 Worker called (call #${workerCallCount}) at ${new Date().toISOString()}`)
+
+  // Check total queue count first
+  const { count: totalCount } = await supabase
+    .from('microsoft_webhook_queue')
+    .select('id', { count: 'exact', head: true })
+
+  console.log(`📊 Total items in queue: ${totalCount || 0}`)
+
+  // Get status breakdown
+  const { data: statusBreakdown } = await supabase
+    .from('microsoft_webhook_queue')
+    .select('status')
+    .limit(100)
+
+  const statusCounts = (statusBreakdown || []).reduce((acc, item) => {
+    acc[item.status] = (acc[item.status] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  console.log('📈 Queue status breakdown:', statusCounts)
 
   // Simple pull worker: process oldest pending items
-  const { data: rows } = await supabase
+  const { data: rows, error: queryError } = await supabase
     .from('microsoft_webhook_queue')
     .select('*')
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(25)
 
+  if (queryError) {
+    console.error('❌ Error querying queue:', queryError)
+  }
+
   console.log('🔍 Worker queue check:', {
     pendingItems: rows?.length || 0,
-    totalInQueue: (await supabase.from('microsoft_webhook_queue').select('id', { count: 'exact' })).count || 0,
+    totalInQueue: totalCount || 0,
     recentItems: rows?.slice(0, 3).map(r => ({
       id: r.id,
       resource: r.resource,
       changeType: r.change_type,
       status: r.status,
-      createdAt: r.created_at
+      createdAt: r.created_at,
+      userId: r.user_id
     })) || []
   })
 
   if (!rows || rows.length === 0) {
-    console.log('⚠️ No events to process from webhook')
-    return NextResponse.json({ processed: 0 })
+    console.log('⚠️ No pending events to process')
+    console.log(`⏱️ Worker completed in ${Date.now() - startTime}ms`)
+    return NextResponse.json({
+      processed: 0,
+      total_in_queue: totalCount || 0,
+      status_breakdown: statusCounts
+    })
   }
 
   let processed = 0
