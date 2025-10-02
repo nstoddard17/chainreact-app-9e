@@ -3,6 +3,7 @@
 import React from "react";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
+import { Bot, X } from "lucide-react";
 
 interface GenericSelectFieldProps {
   field: any;
@@ -16,6 +17,9 @@ interface GenericSelectFieldProps {
   selectedValues?: string[]; // Values that already have bubbles
   parentValues?: Record<string, any>; // Parent form values for dependency resolution
   workflowNodes?: any[]; // All workflow nodes for variable context
+  aiFields?: Record<string, boolean>;
+  setAiFields?: (fields: Record<string, boolean>) => void;
+  isConnectedToAIAgent?: boolean;
 }
 
 /**
@@ -50,7 +54,7 @@ function getEmptyMessage(fieldName: string, fieldLabel?: string): string {
 
 /**
  * Generic select field for non-integration-specific dropdowns
- * Handles basic select and multi-select functionality
+ * Handles basic select and multi-select functionality with AI mode support
  */
 export function GenericSelectField({
   field,
@@ -64,7 +68,13 @@ export function GenericSelectField({
   selectedValues = [],
   parentValues = {},
   workflowNodes = [],
+  aiFields,
+  setAiFields,
+  isConnectedToAIAgent,
 }: GenericSelectFieldProps) {
+  // Check if this field is in AI mode
+  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+
   // Store the display label for the selected value
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
   const [isDragOver, setIsDragOver] = React.useState(false);
@@ -444,7 +454,45 @@ export function GenericSelectField({
   const shouldShowLoading = field.dynamic && isLoading && (
     field.name === 'filterValue' || processedOptions.length === 0
   );
-  
+
+  // If in AI mode, show the "Defined by AI" UI
+  if (isAIEnabled) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            {field.label || field.name}
+            {field.required && <span className="text-red-500">*</span>}
+          </label>
+        </div>
+        <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+          <Bot className="h-4 w-4 text-gray-400" />
+          <span className="text-sm flex-1">
+            Defined automatically by the model
+          </span>
+          {setAiFields && (
+            <button
+              type="button"
+              onClick={() => {
+                // Remove from AI fields
+                const newAiFields = { ...aiFields };
+                delete newAiFields[field.name];
+                setAiFields(newAiFields);
+                // Clear the value
+                onChange('');
+              }}
+              className="text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  // Render field content (normal mode)
   if (shouldShowLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -525,31 +573,31 @@ export function GenericSelectField({
 
   // Default fallback: Use Combobox for all remaining select fields to support variables
   return (
-      <Combobox
-        value={value ?? ""}
-        onChange={(newValue) => {
-          onChange(newValue);
-          // Clear display label when value is cleared
-          if (!newValue) {
-            setDisplayLabel(null);
-          } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
-            // Set friendly label for variables
-            const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
-            setDisplayLabel(friendlyLabel);
-          }
-        }}
-        options={processedOptions}
-        placeholder={placeholderText}
-        searchPlaceholder="Search options..."
-        emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
-        disabled={false}
-        creatable={true} // Always allow custom input for variables
-        onOpenChange={handleFieldOpen}
-        selectedValues={effectiveSelectedValues}
-        displayLabel={displayLabel}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      />
+    <Combobox
+      value={value ?? ""}
+      onChange={(newValue) => {
+        onChange(newValue);
+        // Clear display label when value is cleared
+        if (!newValue) {
+          setDisplayLabel(null);
+        } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+          // Set friendly label for variables
+          const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
+          setDisplayLabel(friendlyLabel);
+        }
+      }}
+      options={processedOptions}
+      placeholder={placeholderText}
+      searchPlaceholder="Search options..."
+      emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
+      disabled={false}
+      creatable={true} // Always allow custom input for variables
+      onOpenChange={handleFieldOpen}
+      selectedValues={effectiveSelectedValues}
+      displayLabel={displayLabel}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    />
   );
 }

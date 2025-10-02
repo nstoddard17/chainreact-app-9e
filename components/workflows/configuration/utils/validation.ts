@@ -15,12 +15,17 @@ export const validateRequiredField = (
     return undefined;
   }
 
-  // Check if the field has a value
+  // Check if field has AI-generated value ({{AI_FIELD:fieldName}})
+  const hasAIValue = typeof value === 'string' && /^\{\{AI_FIELD:.+\}\}$/.test(value);
+
+  // Check if the field has a value (AI-generated values count as having a value)
   if (
-    value === undefined ||
-    value === null ||
-    value === "" ||
-    (Array.isArray(value) && value.length === 0)
+    !hasAIValue && (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      (Array.isArray(value) && value.length === 0)
+    )
   ) {
     return `${field.label || field.name} is required`;
   }
