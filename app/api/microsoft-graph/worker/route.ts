@@ -87,18 +87,36 @@ export async function POST(_req: NextRequest) {
       const payload = row.payload
       const resourceType = getResourceType(payload.resource)
       console.log('🔍 Processing webhook for resource type:', resourceType, 'from resource:', payload.resource)
+      console.log('📋 Webhook payload details:', {
+        resource: payload.resource,
+        changeType: payload.changeType,
+        subscriptionId: payload.subscriptionId,
+        resourceData: payload.resourceData
+      })
 
       let events: any[] = []
-      if (resourceType === 'onedrive') {
+      
+      // Check if this is an individual resource (not a collection)
+      const isIndividualResource = isIndividualMessageResource(payload.resource) || 
+                                   isIndividualDriveResource(payload.resource) ||
+                                   isIndividualEventResource(payload.resource)
+      
+      if (isIndividualResource) {
+        console.log('🎯 Individual resource detected, fetching directly')
+        events = await fetchIndividualResource(payload, userToken.access_token)
+      } else if (resourceType === 'onedrive') {
         events = await fetchOneDriveChanges(payload, userToken.user_id)
       } else {
         // Fallback to generic handler for other resource types
+        console.log('🔄 Using generic handler for resource type:', resourceType)
         events = await fetchResourceChanges(resourceType, payload, userToken.access_token)
       }
 
       console.log('📊 Fetched events:', {
         count: events?.length || 0,
-        eventTypes: events?.map(e => ({ type: e.type, action: e.action, name: e.name }))
+        eventTypes: events?.map(e => ({ type: e.type, action: e.action, name: e.name })),
+        resourceType,
+        resource: payload.resource
       })
 
       // Store normalized events
@@ -154,9 +172,9 @@ export async function POST(_req: NextRequest) {
         const msg = typeof e?.message === 'string' ? e.message : ''
         if (msg.includes('InvalidAuthenticationToken') || msg.includes('No valid Microsoft Graph')) {
           await flagIntegrationWorkflows({
-            integrationId: null,
+            integrationId: undefined,
             provider: 'onedrive',
-            userId: row?.user_id || null,
+            userId: row?.user_id || undefined,
             reason: 'Microsoft authentication expired while processing OneDrive webhook'
           })
         }
@@ -177,20 +195,133 @@ export async function POST(_req: NextRequest) {
 
 // Helper functions
 function getResourceType(resource: string): string {
+  console.log('🔍 Determining resource type for:', resource)
+  
   if (resource.includes('/drive/') || resource.includes('/drives/')) {
+    console.log('📁 Detected OneDrive resource')
     return 'onedrive'
   } else if (resource.includes('/messages')) {
+    console.log('📧 Detected mail resource')
     return 'mail'
   } else if (resource.includes('/events')) {
+    console.log('📅 Detected calendar resource')
     return 'calendar'
   } else if (resource.includes('/teams/') || resource.includes('/channels/')) {
+    console.log('💬 Detected Teams resource')
     return 'teams'
   } else if (resource.includes('/chats/')) {
+    console.log('💬 Detected chat resource')
     return 'chat'
   } else if (resource.includes('/onenote/')) {
+    console.log('📝 Detected OneNote resource')
     return 'onenote'
   }
+  
+  console.log('❓ Unknown resource type')
   return 'unknown'
+}
+
+function isIndividualMessageResource(resource: string): boolean {
+  // Check if it's a specific message ID (not the collection)
+  const messageIdMatch = resource.match(/\/me\/messages\/([^\/]+)$/)
+  const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/)
+  return !!(messageIdMatch || folderMessageMatch)
+}
+
+function isIndividualDriveResource(resource: string): boolean {
+  // Check if it's a specific drive item ID (not the collection)
+  const driveItemMatch = resource.match(/\/me\/drive\/items\/([^\/]+)$/)
+  const driveItemPathMatch = resource.match(/\/drives\/[^\/]+\/items\/([^\/]+)$/)
+  return !!(driveItemMatch || driveItemPathMatch)
+}
+
+function isIndividualEventResource(resource: string): boolean {
+  // Check if it's a specific event ID (not the collection)
+  const eventMatch = resource.match(/\/me\/events\/([^\/]+)$/)
+  const calendarEventMatch = resource.match(/\/me\/calendars\/[^\/]+\/events\/([^\/]+)$/)
+  return !!(eventMatch || calendarEventMatch)
+}
+
+async function fetchIndividualResource(payload: any, accessToken: string): Promise<any[]> {
+  const client = new MicrosoftGraphClient({ accessToken })
+  const resource = payload.resource
+  const changeType = payload.changeType
+  
+  console.log('🎯 Fetching individual resource:', resource, 'changeType:', changeType)
+  
+  try {
+    // For individual resources, fetch the specific item directly
+    const item: any = await client.request(resource)
+    
+    if (!item) {
+      console.log('⚠️ No item found for resource:', resource)
+      return []
+    }
+    
+    // Normalize based on resource type
+    let normalizedEvent: any = null
+    
+    if (resource.includes('/messages')) {
+      // Mail message
+      normalizedEvent = {
+        id: item.id,
+        type: 'outlook_mail',
+        action: changeType === 'deleted' ? 'deleted' : (item.isDraft ? 'draft' : 'created'),
+        subject: item.subject,
+        from: item.from?.emailAddress?.address,
+        receivedDateTime: item.receivedDateTime,
+        sentDateTime: item.sentDateTime,
+        importance: item.importance,
+        hasAttachments: item.hasAttachments,
+        isRead: item.isRead,
+        isDraft: item.isDraft,
+        webLink: item.webLink,
+        originalPayload: item
+      }
+    } else if (resource.includes('/drive/items') || resource.includes('/drives/')) {
+      // OneDrive item
+      normalizedEvent = {
+        id: item.id,
+        type: 'onedrive_item',
+        action: item.deleted ? 'deleted' : (item.file ? 'file_updated' : 'folder_updated'),
+        name: item.name,
+        path: item.parentReference?.path ? `${item.parentReference.path}/${item.name}` : item.name,
+        lastModified: item.lastModifiedDateTime,
+        createdBy: item.createdBy?.user?.displayName,
+        size: item.size,
+        webUrl: item.webUrl,
+        originalPayload: item
+      }
+    } else if (resource.includes('/events')) {
+      // Calendar event
+      normalizedEvent = {
+        id: item.id,
+        type: 'outlook_calendar',
+        action: item.isCancelled ? 'cancelled' : (changeType === 'deleted' ? 'deleted' : (item.isNewEvent ? 'created' : 'updated')),
+        subject: item.subject,
+        start: item.start?.dateTime,
+        end: item.end?.dateTime,
+        organizer: item.organizer?.emailAddress?.address,
+        location: item.location?.displayName,
+        webLink: item.webLink,
+        originalPayload: item
+      }
+    }
+    
+    if (normalizedEvent) {
+      console.log('✅ Individual resource normalized:', {
+        type: normalizedEvent.type,
+        action: normalizedEvent.action,
+        id: normalizedEvent.id
+      })
+      return [normalizedEvent]
+    }
+    
+    return []
+  } catch (error) {
+    console.error('❌ Error fetching individual resource:', error)
+    return []
+  }
 }
 
 async function fetchResourceChanges(
@@ -216,22 +347,79 @@ async function fetchResourceChanges(
   let newDeltaToken: string | undefined
 
   try {
+    console.log('🔄 Processing resource type:', resourceType, 'with delta token:', deltaToken?.token ? 'present' : 'none')
+    
     switch (resourceType) {
       case 'onedrive': {
         // Extract drive ID if present
         const driveIdMatch = payload.resource.match(/drives\/([^/]+)/)
         const driveId = driveIdMatch ? driveIdMatch[1] : undefined
         
+        console.log('📁 OneDrive delta query for drive:', driveId)
         const response = await client.getOneDriveDelta(driveId, deltaToken?.token)
         events = response.value.filter(item => item._normalized).map(item => item._normalized!)
         newDeltaToken = response['@odata.deltaLink']?.split('token=')[1]
+        console.log('📁 OneDrive events found:', events.length)
         break
       }
       
       case 'mail': {
+        console.log('📧 Mail delta query starting...')
         const response = await client.getMailDelta(deltaToken?.token)
+        console.log('📧 Mail delta response:', {
+          totalMessages: response.value.length,
+          hasDeltaLink: !!response['@odata.deltaLink'],
+          hasNextLink: !!response['@odata.nextLink']
+        })
+        
         events = response.value.filter(item => item._normalized).map(item => item._normalized!)
-        newDeltaToken = response['@odata.deltaLink']?.split('$deltatoken=')[1]
+        
+        // If no events from delta query, try to get recent messages as fallback
+        if (events.length === 0 && !deltaToken?.token) {
+          console.log('📧 No events from delta query, trying recent messages fallback...')
+          try {
+            const recentResponse: any = await client.request('/me/messages?$top=10&$orderby=receivedDateTime desc')
+            if (recentResponse.value && recentResponse.value.length > 0) {
+              console.log('📧 Found recent messages:', recentResponse.value.length)
+              // Normalize recent messages
+              const normalizedRecent = recentResponse.value.map((message: any) => ({
+                id: message.id,
+                type: 'outlook_mail',
+                action: message.isDraft ? 'draft' : 'created',
+                subject: message.subject,
+                from: message.from?.emailAddress?.address,
+                receivedDateTime: message.receivedDateTime,
+                sentDateTime: message.sentDateTime,
+                importance: message.importance,
+                hasAttachments: message.hasAttachments,
+                isRead: message.isRead,
+                isDraft: message.isDraft,
+                webLink: message.webLink,
+                originalPayload: message
+              }))
+              events = normalizedRecent
+            }
+          } catch (fallbackError) {
+            console.log('📧 Recent messages fallback failed:', fallbackError)
+          }
+        }
+        
+        // Parse delta token from the delta link
+        const deltaLink = response['@odata.deltaLink']
+        if (deltaLink) {
+          const tokenMatch = deltaLink.match(/\$deltatoken=([^&]+)/)
+          newDeltaToken = tokenMatch ? tokenMatch[1] : undefined
+        }
+        console.log('📧 Mail events found:', events.length)
+        console.log('📧 New delta token:', newDeltaToken ? 'present' : 'none')
+        if (events.length > 0) {
+          console.log('📧 Sample mail event:', {
+            type: events[0].type,
+            action: events[0].action,
+            subject: events[0].subject,
+            from: events[0].from
+          })
+        }
         break
       }
       
@@ -581,12 +769,12 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         // ChainReact Outlook email trigger support
         if (nodeType === 'microsoft-outlook_trigger_new_email') {
           console.log('✅ Found matching Outlook email trigger node:', nodeType)
-          return event.type === 'outlook_mail' && event.action === 'created'
+          return event.type === 'outlook_mail' && (event.action === 'created' || event.action === 'draft')
         }
 
         if (nodeType === 'microsoft-outlook_trigger_email_sent') {
           console.log('✅ Found matching Outlook email sent trigger node:', nodeType)
-          return event.type === 'outlook_mail' && event.action === 'sent'
+          return event.type === 'outlook_mail' && (event.action === 'sent' || event.action === 'created')
         }
 
         return false

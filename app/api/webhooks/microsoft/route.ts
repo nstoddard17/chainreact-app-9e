@@ -69,14 +69,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Dedup per notification
-      const dedupKey = `${subId || 'unknown'}:${resource || 'unknown'}:${changeType || 'unknown'}:${requestId || ''}`
+      // Enhanced dedup per notification with better key generation
+      const resourceId = change?.resourceData?.['@odata.id'] || resource || 'unknown'
+      const dedupKey = `${subId || 'unknown'}:${resourceId}:${changeType || 'unknown'}:${requestId || Date.now()}`
       const { data: dedupHit } = await supabase
         .from('microsoft_webhook_dedup')
         .select('dedup_key')
         .eq('dedup_key', dedupKey)
         .maybeSingle()
       if (dedupHit) {
+        console.log('⏭️ Skipping duplicate notification:', dedupKey)
         continue
       }
       await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: dedupKey })
