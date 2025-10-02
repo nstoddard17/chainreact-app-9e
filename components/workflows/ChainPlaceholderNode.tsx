@@ -13,11 +13,13 @@ type ChainPlaceholderNodeData = {
 export function ChainPlaceholderNode({ data }: NodeProps) {
   const nodeData = data as any
   const chainIndex = nodeData.parentChainIndex ?? 0
+  // Use width from data, default to 400px for main workflow
+  const nodeWidth = nodeData.width || 400
 
   console.log('🔵 ChainPlaceholderNode rendering with data:', nodeData)
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ width: `${nodeWidth}px` }}>
       {/* Connection line from AI Agent */}
       <div className="absolute left-1/2 -translate-x-1/2 -top-4 w-px h-4 bg-border" />
 
@@ -29,7 +31,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
       </div>
 
       <div
-        className="w-[480px] bg-background border-2 border-dashed border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-colors"
+        className="w-full bg-background border-2 border-dashed border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-colors"
         style={{
           pointerEvents: 'auto',
           cursor: 'default'
@@ -77,6 +79,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
           type="target"
           position={Position.Top}
           className="!w-3 !h-3 !-top-1.5 !bg-purple-500/50 !border-purple-500"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
           isConnectable={false}
         />
       </div>

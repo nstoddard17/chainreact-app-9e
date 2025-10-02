@@ -66,7 +66,7 @@ export function AddActionNode({ data }: NodeProps) {
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-0 !h-0 !-top-1 !bg-transparent !border-none"
+        className="!w-3 !h-3 !-top-1 !bg-transparent !border-none !opacity-0"
         style={{ pointerEvents: 'none' }}
         isConnectable={false}
       />

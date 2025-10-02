@@ -140,17 +140,22 @@ export function useFieldValidation({ nodeInfo, values }: UseFieldValidationProps
       
       if (isRequired) {
         const fieldValue = values[field.name];
-        
+
+        // Check if field has AI-generated value ({{AI_FIELD:fieldName}})
+        const hasAIValue = typeof fieldValue === 'string' && /^\{\{AI_FIELD:.+\}\}$/.test(fieldValue);
+
         // Check if field is empty
-        const isEmpty = 
-          fieldValue === undefined || 
-          fieldValue === null || 
-          fieldValue === '' || 
-          (Array.isArray(fieldValue) && fieldValue.length === 0) ||
-          (typeof fieldValue === 'object' && 
-           !Array.isArray(fieldValue) && 
-           Object.keys(fieldValue).length === 0);
-        
+        const isEmpty =
+          !hasAIValue && (
+            fieldValue === undefined ||
+            fieldValue === null ||
+            fieldValue === '' ||
+            (Array.isArray(fieldValue) && fieldValue.length === 0) ||
+            (typeof fieldValue === 'object' &&
+             !Array.isArray(fieldValue) &&
+             Object.keys(fieldValue).length === 0)
+          );
+
         if (isEmpty) {
           errors[field.name] = `${field.label || field.name} is required`;
           isValid = false;

@@ -3,7 +3,7 @@
  */
 
 import { DiscordIntegration, DiscordGuild, DiscordDataHandler } from '../types'
-import { makeDiscordApiRequest, validateDiscordToken } from '../utils'
+import { makeDiscordApiRequest, validateDiscordToken, fetchDiscordWithRateLimit } from '../utils'
 
 /**
  * Verify that the Discord bot is actually a member of the specified guild
