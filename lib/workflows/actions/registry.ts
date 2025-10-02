@@ -206,6 +206,23 @@ import {
 // AI Agent action
 import { executeAIAgent } from '../aiAgent'
 
+// New "Get" actions with ExecutionContext pattern
+import { notionGetPages } from './notion/getPages'
+import { getTrelloCards } from './trello/getCards'
+import { getSlackMessages } from './slack/getMessages'
+import { getOnedriveFile } from './onedrive/getFile'
+import { getDropboxFile } from './dropbox/getFile'
+import { getBoxFile } from './box/getFile'
+import { hubspotGetContacts } from './hubspot/getContacts'
+import { hubspotGetCompanies } from './hubspot/getCompanies'
+import { hubspotGetDeals } from './hubspot/getDeals'
+import { mailchimpGetSubscribers } from './mailchimp/getSubscribers'
+import { stripeGetCustomers } from './stripe/getCustomers'
+import { stripeGetPayments } from './stripe/getPayments'
+
+// Import resolveValue for wrapper functions
+import { resolveValue as resolveValueCore } from './core/resolveValue'
+
 /**
  * Wrapper function for AI agent execution that adapts to the executeAction signature
  */
@@ -256,6 +273,34 @@ function resolveValue(value: any, input: Record<string, any>): any {
     return key.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
   }
   return value
+}
+
+/**
+ * Helper to create ExecutionContext wrapper for actions using that pattern
+ */
+function createExecutionContextWrapper(handler: Function) {
+  return async (params: { config: any; userId: string; input: Record<string, any> }): Promise<ActionResult> => {
+    // Create a mock ExecutionContext with a dataFlowManager that uses resolveValue
+    const context = {
+      userId: params.userId,
+      workflowId: params.input?.workflowId || 'unknown',
+      testMode: params.input?.testMode || false,
+      dataFlowManager: {
+        resolveVariable: (value: any) => resolveValueCore(value, params.input)
+      }
+    }
+
+    try {
+      return await handler(params.config, context)
+    } catch (error: any) {
+      console.error('Action execution error:', error)
+      return {
+        success: false,
+        output: {},
+        message: error.message || 'Action execution failed'
+      }
+    }
+  }
 }
 
 /**
@@ -388,7 +433,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_duplicate_page": notionDuplicatePage,
   "notion_action_sync_database_entries": notionSyncDatabaseEntries,
   "notion_action_get_page_details": notionGetPageDetails,
-  
+  "notion_action_get_pages": createExecutionContextWrapper(notionGetPages),
+
   // GitHub actions
   "github_action_create_issue": createGitHubIssue,
   "github_action_create_repository": createGitHubRepository,
@@ -406,7 +452,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_update_object": updateHubSpotObject,
   "hubspot_action_upsert_object": upsertHubSpotObject,
   "hubspot_action_refresh_properties": refreshHubSpotProperties,
-  
+
+  // HubSpot Get actions
+  "hubspot_action_get_contacts": createExecutionContextWrapper(hubspotGetContacts),
+  "hubspot_action_get_companies": createExecutionContextWrapper(hubspotGetCompanies),
+  "hubspot_action_get_deals": createExecutionContextWrapper(hubspotGetDeals),
+
   // Microsoft OneNote actions
   "microsoft-onenote_action_create_page": onenoteCreatePage,
   "microsoft-onenote_action_create_notebook": onenoteCreateNotebook,
@@ -420,6 +471,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // OneDrive actions
   "onedrive_action_upload_file": uploadFileToOneDrive,
+  "onedrive_action_get_file": createExecutionContextWrapper(getOnedriveFile),
 
   // Facebook actions
   "facebook_action_create_post": createFacebookPost,
@@ -433,6 +485,23 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // Dropbox actions
   "dropbox_action_upload_file": uploadDropboxFile,
+  "dropbox_action_get_file": createExecutionContextWrapper(getDropboxFile),
+
+  // Box actions
+  "box_action_get_file": createExecutionContextWrapper(getBoxFile),
+
+  // Slack Get actions
+  "slack_action_get_messages": createExecutionContextWrapper(getSlackMessages),
+
+  // Trello Get actions
+  "trello_action_get_cards": createExecutionContextWrapper(getTrelloCards),
+
+  // Mailchimp actions
+  "mailchimp_action_get_subscribers": createExecutionContextWrapper(mailchimpGetSubscribers),
+
+  // Stripe actions
+  "stripe_action_get_customers": createExecutionContextWrapper(stripeGetCustomers),
+  "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
 
   // Twitter actions
   "twitter_action_post_tweet": postTweetHandler,

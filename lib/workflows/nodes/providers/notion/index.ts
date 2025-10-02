@@ -20,8 +20,8 @@ export const notionNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false },
-      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: false, dependsOn: "workspace" }
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
     ],
     outputSchema: [
       { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
@@ -41,8 +41,8 @@ export const notionNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false },
-      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: false, dependsOn: "workspace" }
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
     ],
     outputSchema: [
       { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
@@ -63,7 +63,7 @@ export const notionNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: false }
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true }
     ],
     outputSchema: [
       { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },

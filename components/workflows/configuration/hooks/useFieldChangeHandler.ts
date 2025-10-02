@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useAirtableFieldHandler } from './providers/useAirtableFieldHandler';
 import { useDiscordFieldHandler } from './providers/useDiscordFieldHandler';
 import { useGoogleSheetsFieldHandler } from './providers/useGoogleSheetsFieldHandler';
@@ -71,6 +71,11 @@ export function useFieldChangeHandler({
   originalBubbleValues,
   loadedFieldsWithValues
 }: UseFieldChangeHandlerProps) {
+  // Track which fields are actively loading to prevent duplicate loads
+  const activelyLoadingFields = useRef<Set<string>>(new Set());
+
+  // Track which field changes are currently being processed to prevent duplicate handleGenericDependentField calls
+  const processingFieldChanges = useRef<Set<string>>(new Set());
 
   /**
    * Helper: Clear all fields that depend on a parent field
@@ -690,10 +695,23 @@ export function useFieldChangeHandler({
       return false;
     }
 
+    // Create a unique key for this field change
+    const changeKey = `${fieldName}-${value}`;
+
+    // Check if this exact change is already being processed
+    if (processingFieldChanges.current.has(changeKey)) {
+      console.log(`🚫 Already processing change for ${fieldName} = ${value}, skipping duplicate call`);
+      return true;
+    }
+
+    // Mark this change as being processed
+    processingFieldChanges.current.add(changeKey);
+
     console.log('🔍 Generic dependent field change:', {
       fieldName,
       value,
-      dependentFields: dependentFields.map((f: any) => f.name)
+      dependentFields: dependentFields.map((f: any) => f.name),
+      changeKey
     });
 
     // Clear all dependent fields
@@ -722,68 +740,98 @@ export function useFieldChangeHandler({
 
     // Load options for dependent fields if value is provided
     if (value) {
+      // Check if any dependent fields are already loading BEFORE creating setTimeout
+      const fieldsToLoad = dependentFields.filter((depField: any) => {
+        if (depField.type === 'dynamic_fields') return false;
+        if (!depField.dynamic && !depField.dynamicOptions) return false;
+
+        // Check if already loading
+        if (activelyLoadingFields.current.has(depField.name)) {
+          console.log(`⏭️ Skipping ${depField.name} - already loading`);
+          return false;
+        }
+
+        return true;
+      });
+
+      // If no fields to load, skip the setTimeout entirely
+      if (fieldsToLoad.length === 0) {
+        console.log(`⏭️ No dependent fields to load - all already loading or not dynamic`);
+        return true;
+      }
+
+      // Mark all fields as actively loading BEFORE setTimeout
+      fieldsToLoad.forEach((depField: any) => {
+        activelyLoadingFields.current.add(depField.name);
+      });
+
       setTimeout(async () => {
-        for (const depField of dependentFields) {
-          // Skip dynamic_fields type - they handle their own data loading
-          if (depField.type === 'dynamic_fields') {
-            console.log(`⏭️ Skipping loading for dynamic_fields type field: ${depField.name}`);
-            continue;
-          }
+        for (const depField of fieldsToLoad) {
+          try {
+            // Special handling for preview fields (textareas that show dynamic content)
+            if (depField.name === 'filePreview' && nodeInfo?.providerId === 'google-drive') {
+              // For preview fields, fetch the preview and set it directly as the value
+              // Import supabase at the top of the function to get the session
+              const { supabase } = await import('@/utils/supabaseClient');
+              const { data: { session } } = await supabase.auth.getSession();
 
-          if (depField.dynamic || depField.dynamicOptions) {
-            try {
-              // Special handling for preview fields (textareas that show dynamic content)
-              if (depField.name === 'filePreview' && nodeInfo?.providerId === 'google-drive') {
-                // For preview fields, fetch the preview and set it directly as the value
-                // Import supabase at the top of the function to get the session
-                const { supabase } = await import('@/utils/supabaseClient');
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                const headers: HeadersInit = {
-                  'Content-Type': 'application/json'
-                };
-                
-                if (session?.access_token) {
-                  headers['Authorization'] = `Bearer ${session.access_token}`;
-                }
-                
-                const response = await fetch(`/api/integrations/google-drive/file-preview`, {
-                  method: 'POST',
-                  headers,
-                  body: JSON.stringify({ fileId: value })
-                });
+              const headers: HeadersInit = {
+                'Content-Type': 'application/json'
+              };
 
-                if (response.ok) {
-                  const data = await response.json();
-                  setValue(depField.name, data.preview || 'No preview available');
-                }
-                
-                setLoadingFields((prev: Set<string>) => {
-                  const newSet = new Set(prev);
-                  newSet.delete(depField.name);
-                  return newSet;
-                });
-              } else {
-                // Regular dynamic field loading
-                await loadOptions(depField.name, fieldName, value, true).finally(() => {
-                  setLoadingFields((prev: Set<string>) => {
-                    const newSet = new Set(prev);
-                    newSet.delete(depField.name);
-                    return newSet;
-                  });
-                });
+              if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
               }
-            } catch (error) {
-              console.error(`Error loading dependent field ${depField.name}:`, error);
+
+              const response = await fetch(`/api/integrations/google-drive/file-preview`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ fileId: value })
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                setValue(depField.name, data.preview || 'No preview available');
+              }
+
               setLoadingFields((prev: Set<string>) => {
                 const newSet = new Set(prev);
                 newSet.delete(depField.name);
                 return newSet;
               });
+              // Remove from actively loading
+              activelyLoadingFields.current.delete(depField.name);
+            } else {
+              // Regular dynamic field loading - use cache to prevent API spam
+              try {
+                await loadOptions(depField.name, fieldName, value, false);
+              } finally {
+                setLoadingFields((prev: Set<string>) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(depField.name);
+                  return newSet;
+                });
+                // Remove from actively loading
+                activelyLoadingFields.current.delete(depField.name);
+              }
             }
+          } catch (error) {
+            console.error(`Error loading dependent field ${depField.name}:`, error);
+            setLoadingFields((prev: Set<string>) => {
+              const newSet = new Set(prev);
+              newSet.delete(depField.name);
+              return newSet;
+            });
+            // Remove from actively loading
+            activelyLoadingFields.current.delete(depField.name);
           }
         }
       }, 10);
+
+      // Remove from processing after setTimeout is created - the activelyLoadingFields protection takes over
+      setTimeout(() => {
+        processingFieldChanges.current.delete(changeKey);
+      }, 100); // Wait 100ms to ensure concurrent calls are blocked
     } else {
       // If no value, just clear the loading states
       dependentFields.forEach((depField: any) => {
@@ -795,6 +843,9 @@ export function useFieldChangeHandler({
           });
         }
       });
+
+      // Clean up processing key
+      processingFieldChanges.current.delete(changeKey);
     }
 
     return true;

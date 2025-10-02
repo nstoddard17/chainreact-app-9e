@@ -87,6 +87,9 @@ const slackMappings: Record<string, FieldMapping> = {
     workspace: "slack_workspaces",
     addPeople: "slack_users",
   },
+  slack_action_get_messages: {
+    channel: "slack_channels",
+  },
   slack_trigger_message_channels: {
     channel: "slack_channels",
   },
@@ -144,6 +147,10 @@ const trelloMappings: Record<string, FieldMapping> = {
   trello_action_move_card: {
     boardId: "trello_boards",
     cardId: "trello_cards",
+    listId: "trello_lists",
+  },
+  trello_action_get_cards: {
+    boardId: "trello_boards",
     listId: "trello_lists",
   },
 };
@@ -309,6 +316,10 @@ const dropboxMappings: Record<string, FieldMapping> = {
   dropbox_trigger_new_file: {
     path: "dropbox-folders",
   },
+  dropbox_action_get_file: {
+    path: "dropbox-folders",
+    filePath: "dropbox-files",
+  },
 };
 
 // Microsoft Outlook field mappings
@@ -456,6 +467,10 @@ const onedriveMappings: Record<string, FieldMapping> = {
     folderId: "onedrive-folders",
     fileId: "onedrive-files",
   },
+  "onedrive_action_get_file": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+  },
 };
 
 // Microsoft Excel field mappings
@@ -514,6 +529,45 @@ const facebookMappings: Record<string, FieldMapping> = {
   facebook_action_comment_on_post: {
     pageId: "facebook_pages",
     postId: "facebook_posts",
+  },
+};
+
+// Box field mappings
+const boxMappings: Record<string, FieldMapping> = {
+  box_action_get_file: {
+    folderId: "box-folders",
+    fileId: "box-files",
+  },
+  box_action_upload_file: {
+    path: "box-folders",
+  },
+};
+
+// Mailchimp field mappings
+const mailchimpMappings: Record<string, FieldMapping> = {
+  mailchimp_action_get_subscribers: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_add_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_update_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_remove_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_add_tag: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_remove_tag: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_create_campaign: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_send_campaign: {
+    campaign_id: "mailchimp_campaigns",
   },
 };
 
@@ -692,6 +746,10 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
+  notion_action_get_pages: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
 };
 
 // Default field mappings for unmapped fields
@@ -726,6 +784,8 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...onedriveMappings,
   ...microsoftExcelMappings,
   ...facebookMappings,
+  ...boxMappings,
+  ...mailchimpMappings,
   ...hubspotMappings,
   ...notionMappings,
   ...aiMappings,

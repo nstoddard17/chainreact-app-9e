@@ -1,5 +1,5 @@
 import { NodeComponent } from "../../types"
-import { Upload } from "lucide-react"
+import { Upload, Download } from "lucide-react"
 
 // Dropbox Triggers
 const dropboxTriggerNewFile: NodeComponent = {
@@ -139,11 +139,97 @@ const dropboxActionUploadFile: NodeComponent = {
   ],
 }
 
+const dropboxActionGetFile: NodeComponent = {
+  type: "dropbox_action_get_file",
+  title: "Get File",
+  description: "Retrieve file details and download a file from Dropbox",
+  icon: Download,
+  providerId: "dropbox",
+  requiredScopes: ["files.content.read", "files.metadata.read"],
+  category: "Storage",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "path",
+      label: "Folder",
+      type: "select",
+      dynamic: "dropbox-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a folder (optional)",
+      description: "Choose a folder to browse files from"
+    },
+    {
+      name: "filePath",
+      label: "File",
+      type: "select",
+      dynamic: "dropbox-files",
+      required: true,
+      placeholder: "Select a file",
+      description: "Choose the file to retrieve",
+      dependsOn: "path"
+      // NOTE: Do NOT use loadOnMount with dependsOn - it will load automatically when parent changes
+    },
+    {
+      name: "downloadContent",
+      label: "Download File Content",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, downloads the file content. When disabled, only retrieves file metadata."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "The unique ID of the file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "The name of the file"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "path",
+      label: "File Path",
+      type: "string",
+      description: "Full path to the file in Dropbox"
+    },
+    {
+      name: "content",
+      label: "File Content",
+      type: "string",
+      description: "The file content (base64 encoded if binary)"
+    },
+    {
+      name: "modifiedAt",
+      label: "Last Modified",
+      type: "string",
+      description: "When the file was last modified"
+    },
+    {
+      name: "shareableUrl",
+      label: "Shareable URL",
+      type: "string",
+      description: "Public shareable URL for the file"
+    }
+  ]
+}
+
 // Export all Dropbox nodes
 export const dropboxNodes: NodeComponent[] = [
   // Triggers (1)
   dropboxTriggerNewFile,
 
-  // Actions (1 - consolidated upload file action)
+  // Actions (2)
   dropboxActionUploadFile,
+  dropboxActionGetFile,
 ]

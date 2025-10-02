@@ -421,8 +421,8 @@ export const microsoftExcelNodes: NodeComponent[] = [
   },
   {
     type: "microsoft-excel_action_export_sheet",
-    title: "Export Worksheet",
-    description: "Export and filter data from a Microsoft Excel worksheet",
+    title: "Get Rows",
+    description: "Retrieve and filter rows from a Microsoft Excel worksheet",
     icon: Search,
     providerId: "microsoft-excel",
     requiredIntegration: "onedrive",
@@ -430,7 +430,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
     category: "Productivity",
     isTrigger: false,
     producesOutput: true,
-    hideInActionSelection: true, // Hidden for now - will be fixed later
     configSchema: [
       {
         name: "workbookId",

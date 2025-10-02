@@ -186,6 +186,18 @@ export function useFieldValidation({ nodeInfo, values }: UseFieldValidationProps
   };
 
   /**
+   * Gets ALL required fields from the schema (regardless of visibility)
+   * Used for displaying complete required fields list
+   */
+  const getAllRequiredFields = (): string[] => {
+    if (!nodeInfo?.configSchema) return [];
+
+    return nodeInfo.configSchema
+      .filter((field: Field) => field.required || field.validation?.required)
+      .map((field: Field) => field.name);
+  };
+
+  /**
    * Checks if form can be submitted (all visible required fields have values)
    */
   const canSubmit = (): boolean => {
@@ -199,6 +211,7 @@ export function useFieldValidation({ nodeInfo, values }: UseFieldValidationProps
     validateRequiredFields,
     shouldValidateField,
     getMissingRequiredFields,
+    getAllRequiredFields,
     canSubmit
   };
 }

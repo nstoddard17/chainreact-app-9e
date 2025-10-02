@@ -1,4 +1,4 @@
-import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List } from "lucide-react"
+import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List, Search } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const mailchimpNodes: NodeComponent[] = [
@@ -55,7 +55,7 @@ export const mailchimpNodes: NodeComponent[] = [
     configSchema: [
       { name: "audience_id", label: "Audience", type: "select", required: true, dynamic: "mailchimp_audiences", placeholder: "Select an audience" },
       { name: "email", label: "Email Address", type: "email", required: true, placeholder: "subscriber@example.com" },
-      { name: "status", label: "Status", type: "select", required: false, options: [
+      { name: "status", label: "Status", type: "select", required: true, options: [
         { value: "subscribed", label: "Subscribed" },
         { value: "pending", label: "Pending" },
         { value: "unsubscribed", label: "Unsubscribed" },
@@ -140,6 +140,62 @@ export const mailchimpNodes: NodeComponent[] = [
       { name: "reply_to", label: "Reply To Email", type: "email", required: true, placeholder: "reply@example.com" },
       { name: "html_content", label: "HTML Content", type: "textarea", required: false, placeholder: "Your email HTML content" },
       { name: "text_content", label: "Plain Text Content", type: "textarea", required: false, placeholder: "Your email plain text content" }
+    ]
+  },
+  {
+    type: "mailchimp_action_get_subscribers",
+    title: "Get Subscribers",
+    description: "Retrieve subscribers from a Mailchimp audience with optional filtering",
+    icon: Search,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "audience_id",
+        label: "Audience",
+        type: "select",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        placeholder: "Select an audience",
+        loadOnMount: true
+      },
+      {
+        name: "status",
+        label: "Subscriber Status",
+        type: "select",
+        required: false,
+        defaultValue: "subscribed",
+        options: [
+          { value: "subscribed", label: "Subscribed" },
+          { value: "unsubscribed", label: "Unsubscribed" },
+          { value: "cleaned", label: "Cleaned" },
+          { value: "pending", label: "Pending" },
+          { value: "transactional", label: "Transactional" }
+        ]
+      },
+      {
+        name: "limit",
+        label: "Maximum Results",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "Number of subscribers to retrieve (max 1000)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "subscribers",
+        label: "Subscribers",
+        type: "array",
+        description: "Array of subscribers from the audience"
+      },
+      {
+        name: "count",
+        label: "Count",
+        type: "number",
+        description: "Number of subscribers retrieved"
+      }
     ]
   }
 ]

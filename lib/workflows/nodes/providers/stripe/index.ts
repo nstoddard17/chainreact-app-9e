@@ -1,12 +1,13 @@
-import { 
-  ShoppingCart, 
-  Users, 
-  UserPlus, 
-  CreditCard, 
-  Repeat, 
-  XCircle, 
-  AlertTriangle, 
-  FileText 
+import {
+  ShoppingCart,
+  Users,
+  UserPlus,
+  CreditCard,
+  Repeat,
+  XCircle,
+  AlertTriangle,
+  FileText,
+  Search
 } from "lucide-react"
 import { NodeComponent } from "../../types"
 
@@ -177,6 +178,90 @@ export const stripeNodes: NodeComponent[] = [
       { name: "customerId", label: "Customer ID", type: "text", required: true, placeholder: "cus_1234567890" },
       { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890" },
       { name: "trialPeriodDays", label: "Trial Period (days)", type: "number", required: false, placeholder: "7" }
+    ]
+  },
+  {
+    type: "stripe_action_get_customers",
+    title: "Get Customers",
+    description: "Retrieve customers from Stripe with optional filtering",
+    icon: Search,
+    providerId: "stripe",
+    requiredScopes: ["read"],
+    category: "Finance",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "email",
+        label: "Filter by Email (Optional)",
+        type: "email",
+        required: false,
+        placeholder: "customer@example.com",
+        description: "Filter customers by email address"
+      },
+      {
+        name: "limit",
+        label: "Maximum Results",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "Number of customers to retrieve (max 100)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "customers",
+        label: "Customers",
+        type: "array",
+        description: "Array of customers from Stripe"
+      },
+      {
+        name: "count",
+        label: "Count",
+        type: "number",
+        description: "Number of customers retrieved"
+      }
+    ]
+  },
+  {
+    type: "stripe_action_get_payments",
+    title: "Get Payments",
+    description: "Retrieve payment intents from Stripe with optional filtering",
+    icon: Search,
+    providerId: "stripe",
+    requiredScopes: ["read"],
+    category: "Finance",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "customerId",
+        label: "Filter by Customer (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "cus_1234567890",
+        description: "Filter payments by customer ID"
+      },
+      {
+        name: "limit",
+        label: "Maximum Results",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        placeholder: "Number of payments to retrieve (max 100)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "payments",
+        label: "Payments",
+        type: "array",
+        description: "Array of payment intents from Stripe"
+      },
+      {
+        name: "count",
+        label: "Count",
+        type: "number",
+        description: "Number of payments retrieved"
+      }
     ]
   },
 ]

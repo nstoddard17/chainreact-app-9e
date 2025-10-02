@@ -357,7 +357,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
 
 const outlookActionGetEmails: NodeComponent = {
   type: "microsoft-outlook_action_fetch_emails",
-  title: "Get Email",
+  title: "Get Emails",
   description: "Find emails in Outlook matching specific search criteria",
   icon: Search,
   providerId: "microsoft-outlook",

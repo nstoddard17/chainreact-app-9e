@@ -1,5 +1,5 @@
 import { NodeComponent } from "../../types"
-import { Upload, MessageSquare, FolderPlus, Share } from "lucide-react"
+import { Upload, MessageSquare, FolderPlus, Share, Download } from "lucide-react"
 
 // Box Triggers
 const boxTriggerNewFile: NodeComponent = {
@@ -110,14 +110,100 @@ const boxActionShareFile: NodeComponent = {
   ]
 }
 
+const boxActionGetFile: NodeComponent = {
+  type: "box_action_get_file",
+  title: "Get File",
+  description: "Retrieve file details and download a file from Box",
+  icon: Download,
+  providerId: "box",
+  requiredScopes: ["root_readwrite"],
+  category: "Storage",
+  isTrigger: false,
+  configSchema: [
+    {
+      name: "folderId",
+      label: "Folder",
+      type: "select",
+      dynamic: "box-folders",
+      required: false,
+      loadOnMount: true,
+      placeholder: "Select a folder (optional)",
+      description: "Choose a folder to browse files from"
+    },
+    {
+      name: "fileId",
+      label: "File",
+      type: "select",
+      dynamic: "box-files",
+      required: true,
+      placeholder: "Select a file",
+      description: "Choose the file to retrieve",
+      dependsOn: "folderId"
+      // NOTE: Do NOT use loadOnMount with dependsOn - it will load automatically when parent changes
+    },
+    {
+      name: "downloadContent",
+      label: "Download File Content",
+      type: "boolean",
+      defaultValue: true,
+      description: "When enabled, downloads the file content. When disabled, only retrieves file metadata."
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "File ID",
+      type: "string",
+      description: "The unique ID of the file"
+    },
+    {
+      name: "name",
+      label: "File Name",
+      type: "string",
+      description: "The name of the file"
+    },
+    {
+      name: "size",
+      label: "File Size",
+      type: "number",
+      description: "Size of the file in bytes"
+    },
+    {
+      name: "url",
+      label: "File URL",
+      type: "string",
+      description: "Download URL for the file"
+    },
+    {
+      name: "content",
+      label: "File Content",
+      type: "string",
+      description: "The file content (base64 encoded if binary)"
+    },
+    {
+      name: "mimeType",
+      label: "MIME Type",
+      type: "string",
+      description: "The MIME type of the file"
+    },
+    {
+      name: "modifiedAt",
+      label: "Last Modified",
+      type: "string",
+      description: "When the file was last modified"
+    }
+  ]
+}
+
 // Export all Box nodes
 export const boxNodes: NodeComponent[] = [
   // Triggers (2)
   boxTriggerNewFile,
   boxTriggerNewComment,
-  
-  // Actions (3)
+
+  // Actions (4)
   boxActionUploadFile,
   boxActionCreateFolder,
   boxActionShareFile,
+  boxActionGetFile,
 ]
