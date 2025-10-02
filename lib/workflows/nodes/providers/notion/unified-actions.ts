@@ -1,4 +1,4 @@
-import { FileText, Database, Search, Users, MessageSquare, Layers } from "lucide-react"
+import { FileText, Database, Search, Users, MessageSquare, Layers, Plus } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -7,6 +7,57 @@ import { NodeComponent } from "../../types"
  */
 
 export const notionUnifiedActions: NodeComponent[] = [
+  // ============= SIMPLE CREATE PAGE (for backwards compatibility with templates) =============
+  {
+    type: "notion_action_create_page",
+    title: "Create Page",
+    description: "Create a new page in Notion workspace",
+    icon: Plus,
+    providerId: "notion",
+    requiredScopes: ["content.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "databaseId",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database",
+        loadOnMount: true,
+        tooltip: "Select the Notion database where the page will be created"
+      },
+      {
+        name: "title",
+        label: "Page Title",
+        type: "text",
+        required: true,
+        placeholder: "Enter page title"
+      },
+      {
+        name: "content",
+        label: "Page Content",
+        type: "rich-text",
+        required: false,
+        placeholder: "Enter page content"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "pageId",
+        label: "Page ID",
+        type: "string",
+        description: "The unique ID of the created page"
+      },
+      {
+        name: "url",
+        label: "Page URL",
+        type: "string",
+        description: "The web URL of the created page"
+      }
+    ]
+  },
   // ============= UNIFIED PAGE MANAGEMENT =============
   {
     type: "notion_action_manage_page",

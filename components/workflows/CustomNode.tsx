@@ -355,9 +355,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {!error && !isIntegrationDisconnected && hasValidationIssues && (
         <div className="bg-red-50 border-b border-red-100 px-4 py-2 pt-7">
           <p className="text-sm text-red-600 font-medium">
-            {validationState?.allRequiredFields?.length === 1
-              ? `Required field: ${getFieldLabel(validationState.allRequiredFields[0])}`
-              : `Required fields: ${validationState?.allRequiredFields?.map(getFieldLabel).join(', ')}`}
+            {(() => {
+              // Use allRequiredFields if available, otherwise fall back to missingRequired
+              const fieldsToShow = validationState?.allRequiredFields || validationState?.missingRequired || [];
+
+              if (fieldsToShow.length === 0) {
+                return 'Required fields missing';
+              }
+
+              if (fieldsToShow.length === 1) {
+                return `Required field: ${getFieldLabel(fieldsToShow[0])}`;
+              }
+
+              return `Required fields: ${fieldsToShow.map(getFieldLabel).join(', ')}`;
+            })()}
           </p>
         </div>
       )}

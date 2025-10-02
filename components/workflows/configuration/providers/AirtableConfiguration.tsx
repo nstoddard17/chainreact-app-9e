@@ -383,7 +383,30 @@ export function AirtableConfiguration({
   const getDynamicFields = () => {
     if (!airtableTableSchema?.fields) return [];
 
-    return airtableTableSchema.fields.map((field: any) => {
+    // Filter out fields that are computed or read-only
+    // These fields are managed by Airtable and should not be editable
+    const readOnlyFieldTypes = new Set([
+      'createdTime',
+      'lastModifiedTime',
+      'createdBy',
+      'lastModifiedBy',
+      'autoNumber',
+      'formula',
+      'rollup',
+      'count',
+      'lookup'
+    ]);
+
+    return airtableTableSchema.fields
+      .filter((field: any) => {
+        // Filter out read-only/computed field types
+        if (readOnlyFieldTypes.has(field.type)) {
+          console.log('🚫 [AirtableConfig] Excluding read-only field:', field.name, field.type);
+          return false;
+        }
+        return true;
+      })
+      .map((field: any) => {
       // Check if this field should use dynamic dropdown data
       const fieldNameLower = field.name.toLowerCase();
       const shouldUseDynamicDropdown =
@@ -602,6 +625,17 @@ export function AirtableConfiguration({
 
   // Track if we've already set AI fields for this schema to prevent duplicate processing
   const processedSchemaRef = React.useRef<string | null>(null);
+
+  // Reset processed schema ref and clear aiFields when table changes so AI fields can be re-applied
+  useEffect(() => {
+    console.log('🔄 [AirtableConfig] Table changed, resetting processedSchemaRef and clearing aiFields');
+    processedSchemaRef.current = null;
+    // Clear aiFields so all fields in the new table can be set to AI mode
+    setAiFields({});
+    // Also clear the schema to ensure we don't apply AI fields with stale schema
+    setAirtableTableSchema?.(null);
+    console.log('✅ [AirtableConfig] Cleared schema to force reload for new table');
+  }, [values.tableName, setAiFields, setAirtableTableSchema]);
 
   // Log component mount and initial state
   useEffect(() => {

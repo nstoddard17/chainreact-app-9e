@@ -3,7 +3,9 @@
 import React from "react";
 import { Combobox, MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
-import { Bot, X } from "lucide-react";
+import { Bot, X, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GenericSelectFieldProps {
   field: any;
@@ -72,12 +74,37 @@ export function GenericSelectField({
   setAiFields,
   isConnectedToAIAgent,
 }: GenericSelectFieldProps) {
-  // Check if this field is in AI mode
-  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
-
+  // All hooks must be at the top level before any conditional returns
   // Store the display label for the selected value
   const [displayLabel, setDisplayLabel] = React.useState<string | null>(null);
   const [isDragOver, setIsDragOver] = React.useState(false);
+
+  // State for refresh button - must be at top level before any returns
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Track if we've attempted to load for this field to prevent repeated attempts
+  const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
+  const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
+
+  // Refresh handler - must be at top level before any conditional returns
+  const handleRefresh = React.useCallback(async () => {
+    if (!field.dynamic || !onDynamicLoad || isRefreshing) return;
+
+    setIsRefreshing(true);
+    try {
+      const dependencyValue = field.dependsOn ? parentValues[field.dependsOn] : undefined;
+      if (field.dependsOn && dependencyValue) {
+        await onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
+      } else if (!field.dependsOn) {
+        await onDynamicLoad(field.name, undefined, undefined, true);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [field.dynamic, field.name, field.dependsOn, parentValues, onDynamicLoad, isRefreshing]);
+
+  // Check if this field is in AI mode
+  const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
   // Debug logging for board field
   if (field.name === 'boardId') {
     console.log('[GenericSelectField] Board field props:', {
@@ -102,10 +129,6 @@ export function GenericSelectField({
       effectiveSelectedValues = bubbleValues.map((b: any) => b.value);
     }
   }
-
-  // Track if we've attempted to load for this field to prevent repeated attempts
-  const [hasAttemptedLoad, setHasAttemptedLoad] = React.useState(false);
-  const [lastLoadTimestamp, setLastLoadTimestamp] = React.useState(0);
 
   // Function to extract friendly label from variable syntax
   const getFriendlyVariableLabel = React.useCallback((variableStr: string, workflowNodes?: any[]): string | null => {
@@ -295,11 +318,17 @@ export function GenericSelectField({
 
   // When value changes, update the display label if we find the option or it's a variable
   React.useEffect(() => {
+    // If value is empty, clear the display label
+    if (!value || value === '') {
+      setDisplayLabel(null);
+      return;
+    }
+
     // Check if value is a variable
-    if (value && typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
+    if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
       const friendlyLabel = getFriendlyVariableLabel(value, workflowNodes)
       setDisplayLabel(friendlyLabel)
-    } else if (value && options?.length > 0) {
+    } else if (options?.length > 0) {
       const option = options.find((opt: any) => {
         const optValue = opt.value || opt.id;
         return String(optValue) === String(value);
@@ -307,6 +336,9 @@ export function GenericSelectField({
       if (option) {
         const label = option.label || option.name || option.value || option.id;
         setDisplayLabel(label);
+      } else {
+        // Value exists but no matching option found - clear display label
+        setDisplayLabel(null);
       }
     }
   }, [value, options, getFriendlyVariableLabel, workflowNodes]);
@@ -511,24 +543,49 @@ export function GenericSelectField({
        field.airtableFieldType === 'multipleSelects' ||
        field.airtableFieldType === 'singleRecordLink' ||
        field.multiple); // Any Airtable field marked as multiple uses bubbles
-    
+
     return (
-      <MultiCombobox
-        value={Array.isArray(value) ? value : (value ? [value] : [])}
-        onChange={onChange}
-        options={processedOptions}
-        placeholder={placeholderText}
-        emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
-        searchPlaceholder="Search options..."
-        disabled={false}
-        creatable={true} // Always allow custom input for variables
-        onOpenChange={handleFieldOpen}
-        selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
-        hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-      />
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <MultiCombobox
+            value={Array.isArray(value) ? value : (value ? [value] : [])}
+            onChange={onChange}
+            options={processedOptions}
+            placeholder={placeholderText}
+            emptyPlaceholder={isLoading ? loadingPlaceholder : "No options available"}
+            searchPlaceholder="Search options..."
+            disabled={false}
+            creatable={true} // Always allow custom input for variables
+            onOpenChange={handleFieldOpen}
+            selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
+            hideSelectedBadges={isAirtableLinkedField} // Hide badges for Airtable fields with bubbles
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          />
+        </div>
+        {field.dynamic && onDynamicLoad && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  className="flex-shrink-0"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh options</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     );
   }
 
@@ -542,7 +599,65 @@ export function GenericSelectField({
   // Variables can be entered using {{variable_name}} syntax
   if (field.type === 'select' && !field.multiple) {
     return (
-      <Combobox
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <Combobox
+            value={value ?? ""}
+            onChange={(newValue) => {
+              onChange(newValue);
+              // Clear display label when value is cleared
+              if (!newValue) {
+                setDisplayLabel(null);
+              } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
+                // Set friendly label for variables
+                const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
+                setDisplayLabel(friendlyLabel);
+              }
+            }}
+            options={processedOptions}
+            placeholder={placeholderText}
+            searchPlaceholder="Search options..."
+            emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
+            disabled={false}
+            creatable={true} // Always allow custom input for variables
+            onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
+            selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
+            displayLabel={displayLabel} // Pass the saved display label
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          />
+        </div>
+        {field.dynamic && onDynamicLoad && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  className="flex-shrink-0"
+                >
+                  <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh options</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    );
+  }
+
+  // Default fallback: Use Combobox for all remaining select fields to support variables
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1">
+        <Combobox
           value={value ?? ""}
           onChange={(newValue) => {
             onChange(newValue);
@@ -558,46 +673,38 @@ export function GenericSelectField({
           options={processedOptions}
           placeholder={placeholderText}
           searchPlaceholder="Search options..."
-          emptyPlaceholder={isLoading ? loadingPlaceholder : "No options found"}
+          emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
           disabled={false}
           creatable={true} // Always allow custom input for variables
-          onOpenChange={handleFieldOpen} // Add missing onOpenChange handler
-          selectedValues={effectiveSelectedValues} // Pass selected values for checkmarks
-          displayLabel={displayLabel} // Pass the saved display label
+          onOpenChange={handleFieldOpen}
+          selectedValues={effectiveSelectedValues}
+          displayLabel={displayLabel}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         />
-    );
-  }
-
-  // Default fallback: Use Combobox for all remaining select fields to support variables
-  return (
-    <Combobox
-      value={value ?? ""}
-      onChange={(newValue) => {
-        onChange(newValue);
-        // Clear display label when value is cleared
-        if (!newValue) {
-          setDisplayLabel(null);
-        } else if (newValue.startsWith('{{') && newValue.endsWith('}}')) {
-          // Set friendly label for variables
-          const friendlyLabel = getFriendlyVariableLabel(newValue, workflowNodes);
-          setDisplayLabel(friendlyLabel);
-        }
-      }}
-      options={processedOptions}
-      placeholder={placeholderText}
-      searchPlaceholder="Search options..."
-      emptyPlaceholder={isLoading ? loadingPlaceholder : getEmptyMessage(field.name, field.label)}
-      disabled={false}
-      creatable={true} // Always allow custom input for variables
-      onOpenChange={handleFieldOpen}
-      selectedValues={effectiveSelectedValues}
-      displayLabel={displayLabel}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    />
+      </div>
+      {field.dynamic && onDynamicLoad && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                className="flex-shrink-0"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh options</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
   );
 }
