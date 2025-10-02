@@ -12,6 +12,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
           try {

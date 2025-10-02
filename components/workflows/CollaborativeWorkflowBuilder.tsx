@@ -724,7 +724,7 @@ function WorkflowBuilderContent() {
                         type: 'chainPlaceholder',
                         position: {
                           x: aiAgentNode.position.x, // Same width (480px) as AI Agent - no offset needed
-                          y: aiAgentNode.position.y + 160
+                          y: aiAgentNode.position.y + 180
                         },
                         draggable: false,
                         selectable: false,
@@ -760,7 +760,7 @@ function WorkflowBuilderContent() {
                           id: edgeId,
                           source: aiAgentNodeId,
                           target: chainPlaceholderId,
-                          type: 'custom',
+                          type: 'straight',
                           animated: false,
                           style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
                         }
@@ -872,8 +872,8 @@ function WorkflowBuilderContent() {
                           id: addActionId,
                           type: 'addAction',
                           position: {
-                            x: newNode.position.x + 40, // Center Add Action (400px) below parent (480px)
-                            y: newNode.position.y + 220
+                            x: newNode.position.x, // Keep same X for vertical alignment
+                            y: newNode.position.y + 180
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
@@ -978,7 +978,7 @@ function WorkflowBuilderContent() {
                             id: `e-${nodeId}-${addActionId}`,
                             source: nodeId,
                             target: addActionId,
-                            type: 'custom',
+                            type: 'straight',
                             animated: false,
                             style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
                           }
@@ -1125,7 +1125,7 @@ function WorkflowBuilderContent() {
                       type: 'chainPlaceholder',
                       position: {
                         x: aiAgentNode.position.x,
-                        y: aiAgentNode.position.y + 160
+                        y: aiAgentNode.position.y + 180
                       },
                       draggable: false,
                       selectable: false,
@@ -1176,7 +1176,7 @@ function WorkflowBuilderContent() {
                         id: edgeId,
                         source: actualAIAgentId,
                         target: chainPlaceholderId,
-                        type: 'custom',
+                        type: 'straight',
                         animated: false,
                         style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
                       }

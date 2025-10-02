@@ -23,6 +23,7 @@ import { AddActionNode } from '@/components/workflows/AddActionNode'
 import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNode'
 import InsertActionNode from '@/components/workflows/InsertActionNode'
 import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeWithButton'
+import { SimpleStraightEdge } from '@/components/workflows/builder/SimpleStraightEdge'
 import { ALL_NODE_COMPONENTS, type NodeComponent } from '@/lib/workflows/nodes'
 import { validateWorkflowNodes } from '@/lib/workflows/validation/workflow'
 
@@ -144,6 +145,7 @@ export function useWorkflowBuilder() {
   
   const edgeTypes = useMemo(() => ({
     custom: CustomEdgeWithButton,
+    straight: SimpleStraightEdge,
   }), [])
 
   // Load initial data in parallel with proper error handling
@@ -349,8 +351,8 @@ export function useWorkflowBuilder() {
       // Use the Y position of the first node in the first chain
       yPosition = firstChainFirstNode.position.y
     } else {
-      // If no nodes in chain 0, use default position below AI Agent
-      yPosition = aiAgentNode.position.y + 160
+      // If no nodes in chain 0, use default position below AI Agent (consistent with addAction spacing)
+      yPosition = aiAgentNode.position.y + 180
     }
 
     // Find the first node in the highest numbered existing chain to calculate X position
@@ -510,13 +512,13 @@ export function useWorkflowBuilder() {
 
         // Create new Add Action
         // Center Add Action node (400px wide) below parent node (480px wide)
-        // Offset by (480 - 400) / 2 = 40px to align centers
+        // Keep same X position for vertical alignment
         nodesToAdd.push({
           id: addActionId,
           type: 'addAction',
           position: {
-            x: leafNode.position.x + 40,
-            y: leafNode.position.y + 220
+            x: leafNode.position.x,
+            y: leafNode.position.y + 180
           },
           draggable: false,
           selectable: false,
@@ -539,7 +541,7 @@ export function useWorkflowBuilder() {
             id: edgeId,
             source: leafNode.id,
             target: addActionId,
-            type: 'custom',
+            type: 'straight',
             animated: false,
             style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
           })
@@ -799,8 +801,8 @@ export function useWorkflowBuilder() {
               id: addActionId,
               type: 'addAction',
               position: {
-                x: leafNode.position.x + 40, // Center Add Action (400px) below parent (480px)
-                y: leafNode.position.y + 220
+                x: leafNode.position.x, // Keep same X for vertical alignment
+                y: leafNode.position.y + 180
               },
               draggable: false,
               selectable: false,
@@ -918,7 +920,7 @@ export function useWorkflowBuilder() {
                   id: edgeData.id,
                   source: edgeData.source,
                   target: edgeData.target,
-                  type: 'custom',
+                  type: 'straight',
                   animated: false,
                   style: {
                     stroke: "#d1d5db",
@@ -1695,8 +1697,8 @@ export function useWorkflowBuilder() {
             id: addActionId,
             type: 'addAction',
             position: {
-              x: newNode.position.x + 40, // Center Add Action (400px) below parent (480px)
-              y: newNode.position.y + 220
+              x: newNode.position.x, // Keep same X for vertical alignment
+              y: newNode.position.y + 180
             },
             draggable: false,
             selectable: false,
@@ -1826,8 +1828,8 @@ export function useWorkflowBuilder() {
               id: addActionId,
               type: 'position',
               position: {
-                x: change.position.x + 40, // Center Add Action (400px) below parent (480px)
-                y: change.position.y + 220 // Keep 220px below parent (consistent with node creation)
+                x: change.position.x, // Keep same X for vertical alignment
+                y: change.position.y + 180 // Keep 180px below parent (consistent with node creation)
               }
             })
           }

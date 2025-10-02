@@ -60,25 +60,32 @@ export function ConfigurationContainer({
 
       {/* Footer */}
       {showFooter && (
-        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-          <div className="flex justify-end gap-3">
-            {onBack && (
-              <Button type="button" variant="outline" onClick={onBack}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back
+        <div className="border-t border-border px-6 py-4">
+          <div className="flex justify-between items-center">
+            {/* Back button on the left */}
+            <div>
+              {onBack && (
+                <Button type="button" variant="outline" onClick={onBack}>
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+              )}
+            </div>
+
+            {/* Cancel and Save buttons on the right */}
+            <div className="flex gap-3">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancel
               </Button>
-            )}
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              onClick={() => {
-                console.log('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
-              }}
-            >
-              {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}
-            </Button>
+              <Button
+                type="submit"
+                onClick={() => {
+                  console.log('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
+                }}
+              >
+                {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}
+              </Button>
+            </div>
           </div>
         </div>
       )}

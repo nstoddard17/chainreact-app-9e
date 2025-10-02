@@ -669,15 +669,26 @@ export function AirtableConfiguration({
         const isSelector = selectorFields.has(rawFieldName);
         const alreadySet = aiFields[fieldName];
 
+        // Check if field is non-editable (computed, formula, auto-number, or read-only Airtable types)
+        const readOnlyAirtableTypes = ['createdTime', 'lastModifiedTime', 'createdBy', 'lastModifiedBy',
+                                        'autoNumber', 'rollup', 'count', 'lookup'];
+        const isNonEditable = field.computed ||
+                             field.autoNumber ||
+                             field.formula ||
+                             readOnlyAirtableTypes.includes(field.airtableFieldType);
+
         console.log('🔍 [AirtableConfig] Processing field:', {
           fieldName,
           rawFieldName,
+          fieldType: field.type,
+          airtableFieldType: field.airtableFieldType,
           isSelector,
+          isNonEditable,
           alreadySet,
-          willSet: !isSelector && !alreadySet
+          willSet: !isSelector && !alreadySet && !isNonEditable
         });
 
-        if (!isSelector && !alreadySet) {
+        if (!isSelector && !alreadySet && !isNonEditable) {
           newAiFields[fieldName] = true;
           // Also set the value to the AI placeholder using the raw field name
           setValue(fieldName, `{{AI_FIELD:${rawFieldName}}}`);
@@ -1368,6 +1379,8 @@ export function AirtableConfiguration({
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}
           selectedValues={selectedBubbleValues}
+          aiFields={aiFields}
+          setAiFields={setAiFields}
         />
         
         {/* Bubble display for multi-select fields */}
@@ -1806,12 +1819,14 @@ export function AirtableConfiguration({
         </div>
       </div>
       
-      <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onBack || onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
+      <div className="border-t border-border px-6 py-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <Button type="button" variant="outline" onClick={onBack || onCancel}>
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
+          </div>
           <Button type="submit">
             {isEditMode ? 'Update' : 'Save'} Configuration
           </Button>

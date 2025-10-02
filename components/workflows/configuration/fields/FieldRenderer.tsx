@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap } from "lucide-react";
+import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
@@ -676,8 +676,8 @@ export function FieldRenderer({
           const airtableFieldType = (field as any).airtableFieldType;
           
           // Handle attachment/image fields
-          if (airtableFieldType === 'multipleAttachments' || 
-              airtableFieldType === 'attachment' || 
+          if (airtableFieldType === 'multipleAttachments' ||
+              airtableFieldType === 'attachment' ||
               airtableFieldType === 'image') {
             return (
               <AirtableImageField
@@ -685,6 +685,8 @@ export function FieldRenderer({
                 value={value}
                 onChange={onChange}
                 error={error}
+                aiFields={aiFields}
+                setAiFields={setAiFields}
               />
             );
           }
@@ -711,6 +713,9 @@ export function FieldRenderer({
                 selectedValues={selectedValues}
                 parentValues={parentValues}
                 workflowNodes={workflowData?.nodes}
+                aiFields={aiFields}
+                setAiFields={setAiFields}
+                isConnectedToAIAgent={isConnectedToAIAgent}
               />
             );
           }
@@ -803,6 +808,9 @@ export function FieldRenderer({
                 selectedValues={selectedValues}
                 parentValues={parentValues}
                 workflowNodes={workflowData?.nodes}
+                aiFields={aiFields}
+                setAiFields={setAiFields}
+                isConnectedToAIAgent={isConnectedToAIAgent}
               />
               {(field as any).showManageButton && (
                 <GmailLabelManager
@@ -832,15 +840,18 @@ export function FieldRenderer({
             selectedValues={selectedValues}
             parentValues={parentValues}
             workflowNodes={workflowData?.nodes}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
 
       case "multi_select":
         // Multi-select fields (especially for Airtable)
-        const multiSelectOptions = Array.isArray(field.options) 
+        const multiSelectOptions = Array.isArray(field.options)
           ? field.options.map((opt: any) => typeof opt === 'string' ? { value: opt, label: opt } : opt)
           : fieldOptions;
-        
+
         return (
           <GenericSelectField
             field={{
@@ -858,6 +869,9 @@ export function FieldRenderer({
             selectedValues={selectedValues}
             parentValues={parentValues}
             workflowNodes={workflowData?.nodes}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
           />
         );
 
@@ -991,32 +1005,69 @@ export function FieldRenderer({
           </div>
         );
 
-      case "date":
+      case "date": {
         // Handle single date selection with native HTML date input
-        const dateValue = useMemo(() => {
-          if (!value) return '';
+        // Check if field is in AI mode first
+        const isDateFieldInAIMode = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+
+        if (isDateFieldInAIMode) {
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  {field.label || field.name}
+                  {field.required && <span className="text-red-500">*</span>}
+                </label>
+              </div>
+              <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+                <Bot className="h-4 w-4 text-gray-400" />
+                <span className="text-sm flex-1">
+                  Defined automatically by the model
+                </span>
+                {setAiFields && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Remove from AI fields
+                      const newAiFields = { ...aiFields };
+                      delete newAiFields[field.name];
+                      setAiFields(newAiFields);
+                      // Clear the value
+                      onChange('');
+                    }}
+                    className="text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            </div>
+          );
+        }
+
+        // Format date value for input
+        let formattedDateValue = '';
+        if (value) {
           if (value instanceof Date) {
-            return value.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-          }
-          if (typeof value === 'string' && value) {
+            formattedDateValue = value.toISOString().split('T')[0];
+          } else if (typeof value === 'string') {
             const date = new Date(value);
             if (!isNaN(date.getTime())) {
-              return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+              formattedDateValue = date.toISOString().split('T')[0];
             }
           }
-          return '';
-        }, [value]);
-        
+        }
+
         const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const newValue = e.target.value;
-          // Use YYYY-MM-DD format to match Airtable's date format
           onChange(newValue || null);
         };
-        
+
         return (
           <Input
             type="date"
-            value={dateValue}
+            value={formattedDateValue}
             onChange={handleDateChange}
             placeholder={field.placeholder || "Select date..."}
             disabled={field.disabled}
@@ -1026,6 +1077,7 @@ export function FieldRenderer({
             )}
           />
         );
+      }
 
       case "daterange":
         // Handle date range with two native HTML date inputs

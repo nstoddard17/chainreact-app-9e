@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const type = searchParams.get('type')
   const workflowId = searchParams.get('workflowId')
 
-  const supabase = createRouteHandlerClient({ cookies })
+  const supabase = await createSupabaseRouteHandlerClient()
 
   // Get the current user
   const { data: { user } } = await supabase.auth.getUser()

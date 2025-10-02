@@ -392,12 +392,14 @@ export function ScheduleConfiguration({
         </ScrollArea>
       </div>
 
-      <div className="border-t border-slate-200 dark:border-slate-700 px-8 py-4 bg-white dark:bg-slate-900">
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Cancel
-          </Button>
+      <div className="border-t border-border px-8 py-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Cancel
+            </Button>
+          </div>
           <Button type="submit" disabled={isLoading}>
             {isEditMode ? 'Update' : 'Save'} Configuration
           </Button>

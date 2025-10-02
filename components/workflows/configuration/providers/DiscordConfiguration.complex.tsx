@@ -532,12 +532,14 @@ export function DiscordConfiguration({
           </ScrollArea>
         </div>
         
-        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onBack || onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
+        <div className="border-t border-border px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <Button type="button" variant="outline" onClick={onBack || onCancel}>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
             <Button type="submit">
               {isEditMode ? 'Update' : 'Save'} Configuration
             </Button>
@@ -619,12 +621,14 @@ export function DiscordConfiguration({
           />
         )}
         
-        <div className="border-t border-slate-200 dark:border-slate-700 px-6 py-4 bg-white dark:bg-slate-900">
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onBack || onCancel}>
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
-            </Button>
+        <div className="border-t border-border px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <Button type="button" variant="outline" onClick={onBack || onCancel}>
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            </div>
             <Button type="submit">
               {isEditMode ? 'Update' : 'Save'} Configuration
             </Button>
