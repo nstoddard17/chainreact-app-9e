@@ -111,15 +111,14 @@ export function useWorkflows(): UseWorkflowsReturn {
     // Don't set global loading for individual workflow updates - let the UI handle it locally
     setError(null)
     try {
-      await storeUpdateWorkflow(id, updates)
-      // Return the updated workflow
-      const updated = workflows.find(w => w.id === id)
-      return updated || currentWorkflow as Workflow
+      const updatedWorkflow = await storeUpdateWorkflow(id, updates)
+      // Return the updated workflow from the store (which comes from API)
+      return updatedWorkflow
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update workflow')
       throw err
     }
-  }, [storeUpdateWorkflow, workflows, currentWorkflow])
+  }, [storeUpdateWorkflow])
   
   // Delete a workflow
   const deleteWorkflowById = useCallback(async (id: string) => {

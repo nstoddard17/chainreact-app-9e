@@ -76,8 +76,9 @@ export class MicrosoftGraphClient {
   /**
    * Get Outlook mail delta changes
    */
-  async getMailDelta(deltaToken?: string): Promise<OutlookMailDeltaResponse> {
-    const endpoint = `/me/messages/delta${deltaToken ? `?$deltatoken=${deltaToken}` : ''}`
+  async getMailDelta(deltaToken?: string, options?: { basePath?: string }): Promise<OutlookMailDeltaResponse> {
+    const basePath = this.resolveMailMessagesBase(options?.basePath)
+    const endpoint = `${basePath}/delta${deltaToken ? `?$deltatoken=${encodeURIComponent(deltaToken)}` : ''}`
     const response = await this.request<OutlookMailDeltaResponse>(endpoint)
     return this.normalizeMailDelta(response)
   }
