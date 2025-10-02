@@ -180,7 +180,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   useEffect(() => {
     if (!user) return
 
-    // Initialize everything in parallel for faster loading - NON-BLOCKING
+    // Initialize everything in parallel for faster loading
     const initializeData = async () => {
       // Prevent duplicate initialization
       if (isInitializing) return
@@ -188,52 +188,53 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       try {
         setIsInitializing(true)
 
-        // Start operations in parallel but DON'T block the UI
-        // Each operation has its own error handling
-
-        // Initialize providers if not already loaded - fire and forget
+        // Initialize providers first (required for UI) and WAIT for it
+        // This ensures providers are available before rendering cards
         if (providers.length === 0) {
-          initializeProviders().catch(error => {
-            console.warn("Provider initialization failed (non-critical):", error)
-            // Don't block - providers will load eventually or show empty
+          await initializeProviders().catch(error => {
+            console.warn("Provider initialization failed:", error)
+            // Still continue - will show empty state
           })
         }
 
-        // Fetch integrations - fire and forget
-        refreshIntegrations(true).catch(error => {
-          console.warn("Integration fetch failed (non-critical):", error)
-          // Don't block - integrations will load eventually or show empty
+        // After providers are loaded, fetch integrations and metrics in parallel
+        // These can be non-blocking since cards will show "Connect" state
+        Promise.all([
+          refreshIntegrations(true).catch(error => {
+            console.warn("Integration fetch failed (non-critical):", error)
+          }),
+          fetchMetrics().catch(error => {
+            console.warn("Metrics fetch failed (non-critical):", error)
+          })
+        ]).finally(() => {
+          setInitialFetchSettled(true)
         })
 
-        // Fetch metrics - fire and forget
-        fetchMetrics().catch(error => {
-          console.warn("Metrics fetch failed (non-critical):", error)
-          // Don't block - metrics are non-critical
-        })
-
-        // Don't wait for promises to complete - let them run in background
-        // This prevents blocking navigation
-
-        // Reset initializing flag after a short delay
-        setTimeout(() => {
-          setIsInitializing(false)
-        }, 500)
+        // Reset initializing flag after providers are loaded
+        setIsInitializing(false)
 
       } catch (error) {
-        console.error("Error starting integration initialization:", error)
+        console.error("Error during integration initialization:", error)
         setIsInitializing(false)
+        setInitialFetchSettled(true)
       }
     }
 
-    // Use setTimeout to make initialization truly non-blocking
-    setTimeout(() => {
-      initializeData()
-      // Fallback settle in case store flags get stuck
-      setTimeout(() => setInitialFetchSettled(true), 3000)
-    }, 0)
+    // Start initialization immediately
+    initializeData()
+
+    // Fallback settle in case something gets stuck
+    const fallbackTimeout = setTimeout(() => {
+      setInitialFetchSettled(true)
+      if (isInitializing) {
+        setIsInitializing(false)
+      }
+    }, 5000) // 5 second fallback
+
+    return () => clearTimeout(fallbackTimeout)
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, refreshIntegrations]) // Only depend on user to avoid re-running
+  }, [user]) // Only depend on user to avoid re-running
 
   // Add a fallback to prevent infinite loading for both fetches and connections
   useEffect(() => {

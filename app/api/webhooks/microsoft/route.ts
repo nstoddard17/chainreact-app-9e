@@ -48,6 +48,14 @@ export async function POST(request: NextRequest) {
 
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
+    console.log('📋 Webhook payload analysis:', {
+      hasValue: !!payload?.value,
+      valueIsArray: Array.isArray(payload?.value),
+      notificationCount: notifications.length,
+      payloadKeys: Object.keys(payload || {}),
+      sampleNotification: notifications[0] || null
+    })
+    
     if (notifications.length === 0) {
       console.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
       return NextResponse.json({ success: true, empty: true })
@@ -56,6 +64,13 @@ export async function POST(request: NextRequest) {
     const requestId = headers['request-id'] || headers['client-request-id'] || undefined
 
     for (const change of notifications) {
+      console.log('🔍 Processing notification:', {
+        subscriptionId: change?.subscriptionId,
+        changeType: change?.changeType,
+        resource: change?.resource,
+        hasClientState: !!change?.clientState,
+        resourceData: change?.resourceData
+      })
       const subId: string | undefined = change?.subscriptionId
       const changeType: string | undefined = change?.changeType
       const resource: string | undefined = change?.resource
@@ -69,14 +84,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Dedup per notification
-      const dedupKey = `${subId || 'unknown'}:${resource || 'unknown'}:${changeType || 'unknown'}:${requestId || ''}`
+      // Enhanced dedup per notification with better key generation
+      const resourceId = change?.resourceData?.['@odata.id'] || resource || 'unknown'
+      const dedupKey = `${subId || 'unknown'}:${resourceId}:${changeType || 'unknown'}:${requestId || Date.now()}`
       const { data: dedupHit } = await supabase
         .from('microsoft_webhook_dedup')
         .select('dedup_key')
         .eq('dedup_key', dedupKey)
         .maybeSingle()
       if (dedupHit) {
+        console.log('⏭️ Skipping duplicate notification:', dedupKey)
         continue
       }
       await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: dedupKey })
@@ -93,7 +110,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Enqueue processing for this notification
-      await supabase.from('microsoft_webhook_queue').insert({
+      const { data: queueItem, error: queueError } = await supabase.from('microsoft_webhook_queue').insert({
         user_id: userId,
         subscription_id: subId,
         resource: resource,
@@ -101,7 +118,13 @@ export async function POST(request: NextRequest) {
         payload: change,
         headers,
         status: 'pending'
-      })
+      }).select().single()
+      
+      if (queueError) {
+        console.error('❌ Failed to queue notification:', queueError)
+      } else {
+        console.log('✅ Notification queued successfully:', queueItem?.id)
+      }
     }
 
     // Kick off background worker to process the queue immediately (best-effort)
