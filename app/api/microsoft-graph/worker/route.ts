@@ -30,7 +30,20 @@ export async function POST(_req: NextRequest) {
     .order('created_at', { ascending: true })
     .limit(25)
 
+  console.log('🔍 Worker queue check:', {
+    pendingItems: rows?.length || 0,
+    totalInQueue: (await supabase.from('microsoft_webhook_queue').select('id', { count: 'exact' })).count || 0,
+    recentItems: rows?.slice(0, 3).map(r => ({
+      id: r.id,
+      resource: r.resource,
+      changeType: r.change_type,
+      status: r.status,
+      createdAt: r.created_at
+    })) || []
+  })
+
   if (!rows || rows.length === 0) {
+    console.log('⚠️ No events to process from webhook')
     return NextResponse.json({ processed: 0 })
   }
 
