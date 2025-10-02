@@ -155,15 +155,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Kick off background worker to process the queue immediately (best-effort)
+    // Kick off background worker to process the queue immediately
+    // We need to wait a bit to ensure database writes are committed
     try {
       const base = getWebhookBaseUrl()
       const workerUrl = `${base}/api/microsoft-graph/worker`
       console.log('🚀 Triggering background worker:', workerUrl)
-      // Fire-and-forget; do not await to keep webhook fast
-      fetch(workerUrl, { method: 'POST' })
-        .then(res => console.log('✅ Worker triggered, status:', res.status))
-        .catch(err => console.error('❌ Worker trigger failed:', err))
+
+      // Small delay to ensure queue items are committed
+      setTimeout(async () => {
+        try {
+          const res = await fetch(workerUrl, { method: 'POST' })
+          console.log('✅ Worker triggered, status:', res.status)
+        } catch (err) {
+          console.error('❌ Worker trigger failed:', err)
+        }
+      }, 100) // 100ms delay to ensure DB commit
     } catch (error) {
       console.error('❌ Worker trigger error:', error)
     }
