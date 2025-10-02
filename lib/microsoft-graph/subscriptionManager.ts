@@ -48,6 +48,33 @@ export class MicrosoftGraphSubscriptionManager {
         expirationMinutes = 4320 // Default to 3 days
       } = request
 
+      // Check for existing active subscription to the same resource
+      const { data: existingSubscriptions } = await supabase
+        .from('microsoft_graph_subscriptions')
+        .select('id, resource, status')
+        .eq('user_id', userId)
+        .eq('resource', resource)
+        .eq('status', 'active')
+
+      if (existingSubscriptions && existingSubscriptions.length > 0) {
+        console.log('⚠️ Active subscription already exists for resource:', resource)
+        // Return the existing subscription instead of creating a duplicate
+        const existing = existingSubscriptions[0]
+        return {
+          id: existing.id,
+          resource: resource,
+          changeType: changeType,
+          notificationUrl: notificationUrl,
+          expirationDateTime: new Date(Date.now() + 4320 * 60 * 1000).toISOString(),
+          clientState: '',
+          userId: userId,
+          accessToken: accessToken,
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      }
+
       // Validate expiration time
       const actualExpirationMinutes = Math.min(expirationMinutes, this.maxExpirationMinutes)
       
