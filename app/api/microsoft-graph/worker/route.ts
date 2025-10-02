@@ -1034,11 +1034,6 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         }
 
-
-        }
-
-        }
-
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
 
         console.log('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
