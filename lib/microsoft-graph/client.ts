@@ -79,10 +79,60 @@ export class MicrosoftGraphClient {
   async getMailDelta(deltaToken?: string, options?: { basePath?: string }): Promise<OutlookMailDeltaResponse> {
     const basePath = this.resolveMailMessagesBase(options?.basePath)
     const endpoint = `${basePath}/delta${deltaToken ? `?$deltatoken=${encodeURIComponent(deltaToken)}` : ''}`
+
     const response = await this.request<OutlookMailDeltaResponse>(endpoint)
-    return this.normalizeMailDelta(response)
+    const normalized = this.normalizeMailDelta(response)
+
+    const messages = [...normalized.value]
+    let nextLink = normalized['@odata.nextLink']
+    let deltaLink = normalized['@odata.deltaLink']
+
+    while (nextLink) {
+      const nextResponse = await this.request<OutlookMailDeltaResponse>(nextLink)
+      const normalizedNext = this.normalizeMailDelta(nextResponse)
+      messages.push(...normalizedNext.value)
+      deltaLink = normalizedNext['@odata.deltaLink'] || deltaLink
+      nextLink = normalizedNext['@odata.nextLink']
+    }
+
+    return {
+      ...normalized,
+      value: messages,
+      '@odata.deltaLink': deltaLink,
+      '@odata.nextLink': undefined
+    }
   }
 
+
+  private resolveMailMessagesBase(basePath?: string): string {
+    if (!basePath) return '/me/messages'
+
+    let normalized = basePath.startsWith('https://')
+      ? basePath.replace(/^https:\/\/graph\.microsoft\.com\/v1\.0\//i, '')
+      : basePath
+
+    normalized = normalized.replace(/^\/+/, '')
+
+    if (!normalized) return '/me/messages'
+
+    normalized = normalized.replace(/^users\/[^/]+\//i, '')
+    normalized = normalized.replace(/^users\([^)]*\)\//i, '')
+    if (!normalized.startsWith('me/')) {
+      normalized = `me/${normalized}`
+    }
+
+    normalized = normalized.replace(/\/messages\([^)]*\)$/i, '/messages')
+    normalized = normalized.replace(/\/messages\/[^/]+$/i, '/messages')
+    if (normalized.includes('/messages(')) {
+      normalized = normalized.split('/messages(')[0] + '/messages'
+    } else if (normalized.includes('/messages/')) {
+      normalized = normalized.split('/messages/')[0] + '/messages'
+    } else if (!normalized.endsWith('/messages')) {
+      normalized = normalized.replace(/\/+$/, '') + '/messages'
+    }
+
+    return '/' + normalized.replace(/^\/+/, '').replace(/\/+$/, '')
+  }
   /**
    * Get Calendar events delta
    */
