@@ -33,6 +33,7 @@ interface UseFieldChangeHandlerProps {
   fieldSuggestions?: Record<string, string>;
   originalBubbleValues?: Record<string, any>;
   loadedFieldsWithValues?: React.MutableRefObject<Set<string>>;
+  clearedFieldsRef?: React.MutableRefObject<Set<string>>;
 }
 
 /**
@@ -69,7 +70,8 @@ export function useFieldChangeHandler({
   activeBubbles,
   fieldSuggestions,
   originalBubbleValues,
-  loadedFieldsWithValues
+  loadedFieldsWithValues,
+  clearedFieldsRef
 }: UseFieldChangeHandlerProps) {
   // Track which fields are actively loading to prevent duplicate loads
   const activelyLoadingFields = useRef<Set<string>>(new Set());
@@ -141,7 +143,8 @@ export function useFieldChangeHandler({
     setAirtableTableSchema,
     setShowPreviewData,
     setPreviewData,
-    selectedRecord
+    selectedRecord,
+    clearedFieldsRef
   });
 
   const { handleFieldChange: handleDiscordField } = useDiscordFieldHandler({
@@ -941,6 +944,15 @@ export function useFieldChangeHandler({
       });
     }
 
+    // If user is manually setting a value (non-empty), remove it from cleared fields list
+    // This allows it to be restored from initialData next time the modal opens
+    if (value !== '' && value !== null && value !== undefined && clearedFieldsRef?.current) {
+      if (clearedFieldsRef.current.has(fieldName)) {
+        console.log(`✅ [handleFieldChange] Removing ${fieldName} from cleared fields (user manually set value)`);
+        clearedFieldsRef.current.delete(fieldName);
+      }
+    }
+
     // Always set the value first
     // (providers handle side effects but don't set the main value)
     setValue(fieldName, value);
@@ -952,7 +964,7 @@ export function useFieldChangeHandler({
         console.log('✅ Field handled by provider logic:', fieldName);
       }
     });
-  }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues]);
+  }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues, clearedFieldsRef]);
 
   return {
     handleFieldChange,

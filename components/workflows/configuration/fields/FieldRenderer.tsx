@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfigField, NodeField } from "@/lib/workflows/nodes";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X } from "lucide-react";
+import { HelpCircle, Mail, Hash, Calendar, FileText, Link, User, MessageSquare, Bell, Zap, Bot, X, RefreshCw } from "lucide-react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { cn } from "@/lib/utils";
 import { SimpleVariablePicker } from "./SimpleVariablePicker";
@@ -140,6 +140,26 @@ export function FieldRenderer({
     }
     return 'upload';
   });
+
+  // State for refresh button - must be at top level of component
+  const [isRefreshingField, setIsRefreshingField] = useState(false);
+
+  // Refresh handler for dynamic fields - must be at top level of component
+  const handleRefreshField = async () => {
+    if (!field.dynamic || !onDynamicLoad || isRefreshingField) return;
+
+    setIsRefreshingField(true);
+    try {
+      const dependencyValue = field.dependsOn ? parentValues?.[field.dependsOn] : undefined;
+      if (field.dependsOn && dependencyValue) {
+        await onDynamicLoad(field.name, field.dependsOn, dependencyValue, true);
+      } else if (!field.dependsOn) {
+        await onDynamicLoad(field.name, undefined, undefined, true);
+      }
+    } finally {
+      setIsRefreshingField(false);
+    }
+  };
 
   // Prepare field options for select/combobox fields
   const fieldOptions = field.options ||
@@ -893,76 +913,101 @@ export function FieldRenderer({
               <p className="text-xs text-muted-foreground">{field.description}</p>
             )}
             {/* Always show Combobox, even while loading, so saved values are visible */}
-            <Combobox
-              value={value || ""}
-              onChange={onChange}
-              options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions}  // Show existing options while loading new ones
-              placeholder={
-                loadingDynamic && field.dynamic && !value
-                  ? `Loading ${field.label?.toLowerCase() || 'options'}...`
-                  : (field.placeholder || `Select ${field.label || field.name}...`)
-              }
-              searchPlaceholder={`Search ${field.label || field.name}...`}
-              emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
-              disabled={false}  // Don't disable during loading so dropdown can stay open
-              creatable={field.creatable || false}
-                onOpenChange={(open) => {
-                  // Only trigger load on actual open (not close)
-                  if (!open) return;
-
-                  // Check if this is a dynamic field
-                  if (!field.dynamic || !onDynamicLoad) return;
-
-                  // For certain fields like parentPage, always refresh when opened
-                  // This ensures users see the most up-to-date list
-                  const shouldRefreshOnOpen = ['parentPage', 'parentDatabase', 'page'].includes(field.name);
-
-                  // Use a ref-based approach to track loading state
-                  const loadKey = `combobox_loading_${field.name}_${parentValues?.[field.dependsOn] || 'no-dep'}`;
-                  const lastRefreshKey = `combobox_last_refresh_${field.name}`;
-
-                  // Check if we're already loading this specific combination
-                  if (window[loadKey]) {
-                    console.log('🔄 [FieldRenderer] Already loading options for:', field.name);
-                    return;
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Combobox
+                  value={value || ""}
+                  onChange={onChange}
+                  options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions}  // Show existing options while loading new ones
+                  placeholder={
+                    loadingDynamic && field.dynamic && !value
+                      ? `Loading ${field.label?.toLowerCase() || 'options'}...`
+                      : (field.placeholder || `Select ${field.label || field.name}...`)
                   }
+                  searchPlaceholder={`Search ${field.label || field.name}...`}
+                  emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
+                  disabled={false}  // Don't disable during loading so dropdown can stay open
+                  creatable={field.creatable || false}
+                    onOpenChange={(open) => {
+                      // Only trigger load on actual open (not close)
+                      if (!open) return;
 
-                  // For refresh fields, check if enough time has passed since last refresh (5 seconds)
-                  if (shouldRefreshOnOpen && comboboxOptions.length > 0) {
-                    const lastRefresh = window[lastRefreshKey] || 0;
-                    const timeSinceRefresh = Date.now() - lastRefresh;
-                    if (timeSinceRefresh < 5000) {
-                      console.log('⏱️ [FieldRenderer] Skipping refresh, too soon since last refresh:', field.name);
-                      return;
-                    }
-                  }
+                      // Check if this is a dynamic field
+                      if (!field.dynamic || !onDynamicLoad) return;
 
-                  // Skip loading if we already have options, unless it's a field that should refresh
-                  if (comboboxOptions.length > 0 && !shouldRefreshOnOpen) {
-                    return;
-                  }
+                      // For certain fields like parentPage, always refresh when opened
+                      // This ensures users see the most up-to-date list
+                      const shouldRefreshOnOpen = ['parentPage', 'parentDatabase', 'page'].includes(field.name);
 
-                  // Determine if this is a refresh (has options) or initial load
-                  const isRefresh = comboboxOptions.length > 0;
+                      // Use a ref-based approach to track loading state
+                      const loadKey = `combobox_loading_${field.name}_${parentValues?.[field.dependsOn] || 'no-dep'}`;
+                      const lastRefreshKey = `combobox_last_refresh_${field.name}`;
 
-                  console.log('🔄 [FieldRenderer] ' + (isRefresh ? 'Refreshing' : 'Loading') + ' options for combobox:', field.name);
-                  window[loadKey] = true;
+                      // Check if we're already loading this specific combination
+                      if (window[loadKey]) {
+                        console.log('🔄 [FieldRenderer] Already loading options for:', field.name);
+                        return;
+                      }
 
-                  // Track refresh time
-                  if (shouldRefreshOnOpen) {
-                    window[lastRefreshKey] = Date.now();
-                  }
+                      // For refresh fields, check if enough time has passed since last refresh (5 seconds)
+                      if (shouldRefreshOnOpen && comboboxOptions.length > 0) {
+                        const lastRefresh = window[lastRefreshKey] || 0;
+                        const timeSinceRefresh = Date.now() - lastRefresh;
+                        if (timeSinceRefresh < 5000) {
+                          console.log('⏱️ [FieldRenderer] Skipping refresh, too soon since last refresh:', field.name);
+                          return;
+                        }
+                      }
 
-                  // Trigger the load with forceRefresh for fields that should always update
-                  const loadPromise = field.dependsOn && parentValues?.[field.dependsOn]
-                    ? onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], shouldRefreshOnOpen)
-                    : onDynamicLoad(field.name, undefined, undefined, shouldRefreshOnOpen);
+                      // Skip loading if we already have options, unless it's a field that should refresh
+                      if (comboboxOptions.length > 0 && !shouldRefreshOnOpen) {
+                        return;
+                      }
 
-                  loadPromise.finally(() => {
-                    delete window[loadKey];
-                  });
-                }}
-              />
+                      // Determine if this is a refresh (has options) or initial load
+                      const isRefresh = comboboxOptions.length > 0;
+
+                      console.log('🔄 [FieldRenderer] ' + (isRefresh ? 'Refreshing' : 'Loading') + ' options for combobox:', field.name);
+                      window[loadKey] = true;
+
+                      // Track refresh time
+                      if (shouldRefreshOnOpen) {
+                        window[lastRefreshKey] = Date.now();
+                      }
+
+                      // Trigger the load with forceRefresh for fields that should always update
+                      const loadPromise = field.dependsOn && parentValues?.[field.dependsOn]
+                        ? onDynamicLoad(field.name, field.dependsOn, parentValues[field.dependsOn], shouldRefreshOnOpen)
+                        : onDynamicLoad(field.name, undefined, undefined, shouldRefreshOnOpen);
+
+                      loadPromise.finally(() => {
+                        delete window[loadKey];
+                      });
+                    }}
+                  />
+              </div>
+              {field.dynamic && onDynamicLoad && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRefreshField}
+                        disabled={isRefreshingField || loadingDynamic}
+                        className="flex-shrink-0"
+                      >
+                        <RefreshCw className={cn("h-4 w-4", isRefreshingField && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Refresh options</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
             {error && (
               <p className="text-xs text-red-500 mt-1">{error}</p>
             )}

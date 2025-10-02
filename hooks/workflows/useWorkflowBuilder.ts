@@ -991,33 +991,9 @@ export function useWorkflowBuilder() {
       const currentNodes = getNodes()
       const currentEdges = getEdges()
 
-      // Check if AI Agent is present and validate nodes
-      const hasAIAgent = currentNodes.some((node: Node) => node.data?.type === 'ai_agent')
-      if (hasAIAgent) {
-        const workflow = {
-          id: currentWorkflow.id,
-          name: workflowName,
-          nodes: currentNodes as WorkflowNode[],
-          edges: currentEdges as WorkflowConnection[],
-        } as Workflow
-
-        const validationResult = validateWorkflowNodes(workflow, ALL_NODE_COMPONENTS)
-
-        if (validationResult.invalidNodeIds.length > 0) {
-          const invalidNodes = currentNodes.filter((node: Node) =>
-            validationResult.invalidNodeIds.includes(node.id)
-          )
-          const nodeNames = invalidNodes.map((node: Node) => node.data?.title || 'Unnamed').join(', ')
-
-          toast({
-            title: "Cannot Save Workflow",
-            description: `The following nodes have missing required fields: ${nodeNames}. Please configure all required fields or set them to AI mode.`,
-            variant: "destructive",
-          })
-          setIsSaving(false)
-          return
-        }
-      }
+      // Validation is no longer required for saving - workflows can be saved with missing required fields
+      // They just cannot be activated until all required fields are configured
+      // The validation check now happens in handleToggleLive instead
 
       // Remove UI-only placeholder nodes (AddAction and ChainPlaceholder) before saving
       const placeholderNodeIds = new Set(
@@ -1139,6 +1115,33 @@ export function useWorkflowBuilder() {
       return
     }
 
+    // Check for nodes with missing required fields (only when activating, not deactivating)
+    if (currentWorkflow.status !== 'active') {
+      const nodesWithErrors = nodes.filter(node => {
+        const validationState = node.data?.validationState
+        if (!validationState || validationState.isValid) return false
+
+        // Check if there are missing required fields
+        const missingFields = validationState.missingRequired || []
+        const allRequiredFields = validationState.allRequiredFields || []
+
+        return missingFields.length > 0 || allRequiredFields.length > 0
+      })
+
+      if (nodesWithErrors.length > 0) {
+        const nodeNames = nodesWithErrors
+          .map(n => n.data?.title || n.data?.type || 'Unknown')
+          .join(', ')
+
+        toast({
+          title: "Missing Required Fields",
+          description: `Cannot activate workflow. The following nodes have missing required fields: ${nodeNames}. Please configure all required fields before activating.`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     try {
       setIsUpdatingStatus(true)
       
@@ -1176,7 +1179,7 @@ export function useWorkflowBuilder() {
     } finally {
       setIsUpdatingStatus(false)
     }
-  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast])
+  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes])
 
   // Use refs for undo/redo handlers to avoid initialization issues
   const handleUndoRef = useRef<(() => void) | null>(null)

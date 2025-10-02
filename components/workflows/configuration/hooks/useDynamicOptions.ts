@@ -11,6 +11,7 @@ interface UseDynamicOptionsProps {
   providerId?: string;
   workflowId?: string | null;
   onLoadingChange?: (fieldName: string, isLoading: boolean) => void;
+  onOptionsUpdated?: (updatedOptions: DynamicOptionsState) => void;
   getFormValues?: () => Record<string, any>;
   initialOptions?: DynamicOptionsState;
 }
@@ -29,17 +30,93 @@ interface DynamicOption {
 let authErrorRetryCount = 0;
 const MAX_AUTH_RETRIES = 1;
 
-export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingChange, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
-  // Store callback in ref to avoid dependency issues
+// Cache TTL: 1 hour (in milliseconds)
+const CACHE_TTL = 60 * 60 * 1000;
+
+/**
+ * Get cached options from localStorage
+ */
+function getCachedOptions(providerId: string, nodeType: string): DynamicOptionsState | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const cacheKey = `dynamicOptions_${providerId}_${nodeType}`;
+    const cached = localStorage.getItem(cacheKey);
+
+    if (!cached) return null;
+
+    const { options, timestamp } = JSON.parse(cached);
+
+    // Check if cache is still valid (within TTL)
+    if (Date.now() - timestamp > CACHE_TTL) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+
+    return options;
+  } catch (error) {
+    console.error('Error reading from localStorage cache:', error);
+    return null;
+  }
+}
+
+/**
+ * Save options to localStorage cache
+ */
+function setCachedOptions(providerId: string, nodeType: string, options: DynamicOptionsState): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const cacheKey = `dynamicOptions_${providerId}_${nodeType}`;
+    const cacheData = {
+      options,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    console.log(`💾 [useDynamicOptions] Saved to localStorage cache:`, cacheKey);
+  } catch (error) {
+    console.error('Error writing to localStorage cache:', error);
+  }
+}
+
+export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingChange, onOptionsUpdated, getFormValues, initialOptions }: UseDynamicOptionsProps) => {
+  // Store callbacks in refs to avoid dependency issues
   const onLoadingChangeRef = useRef(onLoadingChange);
   onLoadingChangeRef.current = onLoadingChange;
-  // State - initialize with initial options if provided
-  const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>(initialOptions || {});
+  const onOptionsUpdatedRef = useRef(onOptionsUpdated);
+  onOptionsUpdatedRef.current = onOptionsUpdated;
+
+  // Initialize with cached options from localStorage if available, otherwise use initialOptions
+  const [dynamicOptions, setDynamicOptions] = useState<DynamicOptionsState>(() => {
+    if (providerId && nodeType) {
+      const cached = getCachedOptions(providerId, nodeType);
+      if (cached && Object.keys(cached).length > 0) {
+        console.log(`📦 [useDynamicOptions] Loaded from localStorage cache:`, Object.keys(cached));
+        return cached;
+      }
+    }
+    return initialOptions || {};
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(false);
-  
+
   // Integration store methods
   const { getIntegrationByProvider, loadIntegrationData, fetchIntegrations } = useIntegrationStore();
+
+  // Notify parent when options are updated AND save to localStorage cache
+  useEffect(() => {
+    if (Object.keys(dynamicOptions).length > 0) {
+      // Save to parent (for node config persistence)
+      if (onOptionsUpdatedRef.current) {
+        onOptionsUpdatedRef.current(dynamicOptions);
+      }
+
+      // Save to localStorage (for global cache across page refreshes)
+      if (providerId && nodeType) {
+        setCachedOptions(providerId, nodeType, dynamicOptions);
+      }
+    }
+  }, [dynamicOptions, providerId, nodeType]);
   
   // Enhanced loading prevention with request deduplication
   const loadingFields = useRef<Set<string>>(new Set());

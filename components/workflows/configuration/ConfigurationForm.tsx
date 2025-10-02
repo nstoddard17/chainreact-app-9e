@@ -76,6 +76,10 @@ function ConfigurationForm({
 }: ConfigurationFormProps) {
   // FIRST: All hooks must be called before any conditional returns
 
+  // Track fields that have been manually cleared by provider-specific handlers
+  // This prevents the initialization logic from restoring old values after they've been cleared
+  const clearedFieldsRef = useRef<Set<string>>(new Set());
+
   // Get workflow ID from URL params
   const searchParams = useSearchParams()
   const workflowId = searchParams.get('id')
@@ -193,6 +197,15 @@ function ConfigurationForm({
     nodeType: nodeInfo?.type,
     providerId: nodeInfo?.providerId || provider,
     workflowId,
+    onOptionsUpdated: useCallback((updatedOptions: Record<string, any>) => {
+      // Update the form values with the latest dynamic options
+      // This ensures they persist between modal opens
+      console.log('📝 [ConfigForm] Dynamic options updated, saving to form values:', Object.keys(updatedOptions));
+      setValues(prev => ({
+        ...prev,
+        __dynamicOptions: updatedOptions
+      }));
+    }, []),
     onLoadingChange: (fieldName: string, isLoading: boolean) => {
       console.log(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
 
@@ -274,7 +287,8 @@ function ConfigurationForm({
     setAirtableTableSchema,
     currentNodeId,
     selectedRecord,
-    loadedFieldsWithValues // Pass the tracking ref
+    loadedFieldsWithValues, // Pass the tracking ref
+    clearedFieldsRef // Pass ref to track manually cleared fields
   });
 
   // Use the consolidated handler as setValue (except for Discord which uses setValueBase directly)
@@ -303,44 +317,104 @@ function ConfigurationForm({
   // Initialize values from initial data or defaults
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
-    
+
     console.log('🔄 [ConfigForm] Initializing form values:', {
       nodeType: nodeInfo?.type,
       initialData,
       hasInitialData: !!initialData && Object.keys(initialData).length > 0,
-      initialDataKeys: initialData ? Object.keys(initialData) : []
+      initialDataKeys: initialData ? Object.keys(initialData) : [],
+      isConnectedToAIAgent
     });
-    
+
     const initialValues: Record<string, any> = {};
-    
+
     // Set initial data first
     if (initialData && Object.keys(initialData).length > 0) {
       // Check if _allFieldsAI is set (for AI-generated workflows)
-      const allFieldsAI = initialData._allFieldsAI === true;
-      
+      // OR if this node is connected to an AI Agent (auto-enable for AI chains)
+      const allFieldsAI = initialData._allFieldsAI === true || (isConnectedToAIAgent && initialData._allFieldsAI !== false);
+
       Object.entries(initialData).forEach(([key, value]) => {
         if (value !== undefined) {
+          // Check if this field was manually cleared by a provider handler
+          if (clearedFieldsRef.current.has(key)) {
+            console.log(`🚫 [ConfigForm] Skipping restore of ${key} because it was manually cleared by provider handler`);
+            return;
+          }
+
+          // For Slack send message, clear AI placeholders from channel and asUser fields
+          const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
+          const isSlackSelectorField = isSlackSendMessage && (key === 'channel' || key === 'asUser');
+          const hasAIPlaceholder = typeof value === 'string' && value.startsWith('{{AI_FIELD:');
+
+          if (isSlackSelectorField && hasAIPlaceholder) {
+            console.log(`🚫 [ConfigForm] Clearing AI placeholder from Slack selector field: ${key}`);
+            initialValues[key] = ''; // Clear the AI placeholder
+
+            // Mark as manually cleared to prevent any restoration
+            clearedFieldsRef.current.add(key);
+            console.log(`🚫 [ConfigForm] Marked Slack selector field as cleared: ${key}`);
+
+            // Also ensure this field is not marked as an AI field
+            if (aiFields[key]) {
+              setAiFields(prev => {
+                const newFields = { ...prev };
+                delete newFields[key];
+                return newFields;
+              });
+            }
+            return;
+          }
+
+          // Always restore if not manually cleared
           initialValues[key] = value;
         }
       });
-      
+
+      // If connected to AI Agent and _allFieldsAI not explicitly set, add it
+      if (isConnectedToAIAgent && initialData._allFieldsAI === undefined) {
+        initialValues._allFieldsAI = true;
+        console.log('🤖 [ConfigForm] Auto-enabling _allFieldsAI for AI Agent chain');
+      }
+
       // If _allFieldsAI is set, initialize all fields with AI placeholders
       if (allFieldsAI) {
         // Fields that should NOT be set to AI mode (user needs to select these)
         const selectorFields = new Set([
+          // Airtable selectors
           'baseId', 'tableName', 'viewName',
+          // Google Sheets selectors
           'spreadsheetId', 'sheetName',
+          // Microsoft Excel selectors
           'workbookId', 'worksheetName',
+          // Discord selectors
           'guildId', 'channelId',
-          'workspace', 'databaseId', 'pageId',
-          'boardId', 'listId', 'objectType',
+          // Slack selectors
+          'channel', 'workspace', 'asUser',
+          // Notion selectors
+          'databaseId', 'pageId',
+          // Trello selectors
+          'boardId', 'listId',
+          // HubSpot selectors
+          'objectType',
+          // Generic selectors
           'recordId', 'id'
         ]);
 
         nodeInfo.configSchema.forEach((field: any) => {
-          // Don't set AI placeholders for selector fields, non-editable fields
+          // Explicit check for Slack send message fields
+          const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
+          const isSlackSelectorField = isSlackSendMessage && (field.name === 'channel' || field.name === 'asUser');
+
+          // Don't set AI placeholders for:
+          // - selector fields
+          // - manually cleared fields
+          // - Slack selector fields
+          // - non-editable fields
           if (
             !selectorFields.has(field.name) &&
+            !clearedFieldsRef.current.has(field.name) &&
+            !isSlackSelectorField &&
             !field.computed &&
             !field.autoNumber &&
             !field.formula &&
@@ -349,30 +423,42 @@ function ConfigurationForm({
             if (initialValues[field.name] === undefined || initialValues[field.name] === '') {
               initialValues[field.name] = `{{AI_FIELD:${field.name}}}`;
             }
+          } else if (isSlackSelectorField) {
+            console.log(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
+          } else if (clearedFieldsRef.current.has(field.name)) {
+            console.log(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
           }
         });
       }
+    } else {
+      // No initial data - if connected to AI Agent, auto-enable AI mode
+      if (isConnectedToAIAgent) {
+        initialValues._allFieldsAI = true;
+        console.log('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
+      }
     }
-    
+
     // Set defaults for missing fields (only if not using AI for all fields)
-    if (!initialData?._allFieldsAI) {
+    if (!initialValues._allFieldsAI) {
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.defaultValue !== undefined && initialValues[field.name] === undefined) {
           initialValues[field.name] = field.defaultValue;
         }
       });
     }
-    
+
     console.log('🔄 [ConfigForm] Setting form values to:', initialValues);
     console.log('🔍 [ConfigForm] _allFieldsAI in initialValues:', initialValues._allFieldsAI);
     console.log('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
+    console.log('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
     setValues(initialValues);
     setIsInitialLoading(false);
-  }, [nodeInfo, initialData]);
+  }, [nodeInfo, initialData, isConnectedToAIAgent]);
 
   // Sync aiFields state with values that contain AI placeholders
   useEffect(() => {
     // Fields that should NOT be set to AI mode (user needs to select these)
+    // Updated: Added Slack selectors (channel, workspace, asUser)
     const selectorFields = new Set([
       // Airtable selectors
       'baseId', 'tableName', 'viewName',
@@ -383,7 +469,7 @@ function ConfigurationForm({
       // Discord selectors
       'guildId', 'channelId',
       // Slack selectors
-      'channelId', 'workspace',
+      'channel', 'workspace', 'asUser',
       // Notion selectors
       'databaseId', 'pageId',
       // Trello selectors
@@ -396,15 +482,28 @@ function ConfigurationForm({
 
     const newAiFields: Record<string, boolean> = {};
 
-    // Check if _allFieldsAI flag is set
-    if (initialData?._allFieldsAI === true) {
+    // Check if _allFieldsAI flag is set OR if connected to AI Agent
+    const shouldEnableAllAI = initialData?._allFieldsAI === true || values._allFieldsAI === true || isConnectedToAIAgent;
+
+    if (shouldEnableAllAI) {
       newAiFields._allFieldsAI = true;
-      // Mark all fields as AI fields EXCEPT selector fields
+      // Mark all fields as AI fields EXCEPT selector fields and manually cleared fields
       if (nodeInfo?.configSchema) {
         nodeInfo.configSchema.forEach((field: any) => {
-          // Skip selector fields, computed fields, and read-only fields
+          // Explicit check for Slack send message fields
+          const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
+          const isSlackSelectorField = isSlackSendMessage && (field.name === 'channel' || field.name === 'asUser');
+
+          // Skip:
+          // - selector fields
+          // - manually cleared fields
+          // - Slack selector fields
+          // - computed fields
+          // - read-only fields
           if (
             !selectorFields.has(field.name) &&
+            !clearedFieldsRef.current.has(field.name) &&
+            !isSlackSelectorField &&
             !field.computed &&
             !field.autoNumber &&
             !field.formula &&
@@ -418,7 +517,14 @@ function ConfigurationForm({
       // Check individual field values for AI placeholders
       Object.entries(values).forEach(([key, value]) => {
         if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) {
-          newAiFields[key] = true;
+          // For Slack send message, don't mark channel or asUser as AI fields even if they have the placeholder
+          const isSlackSendMessage = nodeInfo?.type === 'slack_action_send_message';
+          const isSlackSelectorField = isSlackSendMessage && (key === 'channel' || key === 'asUser');
+          const isManuallyClearedField = clearedFieldsRef.current.has(key);
+
+          if (!isSlackSelectorField && !isManuallyClearedField) {
+            newAiFields[key] = true;
+          }
         }
       });
     }
@@ -434,7 +540,7 @@ function ConfigurationForm({
       console.log('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
       setAiFields(newAiFields);
     }
-  }, [values, initialData, nodeInfo, aiFields]);
+  }, [values, initialData, nodeInfo, aiFields, isConnectedToAIAgent]);
 
   // Track if we've already loaded on mount to prevent duplicate calls
   const hasLoadedOnMount = useRef(false);
@@ -768,18 +874,12 @@ function ConfigurationForm({
             loadOptions('folderId', undefined, undefined, shouldForceRefresh);
             return;
           }
-          // Only force refresh for specific fields that need it (like Trello boards)
-          // Don't force refresh for Airtable bases as they don't change frequently
-          // Explicitly prevent force refresh for Airtable baseId to avoid constant reloading
-          const forceRefresh = field.name === 'boardId' && nodeInfo?.providerId !== 'airtable';
+          // Always force refresh for loadOnMount fields to ensure fresh data
+          // The 5-second cache in useDynamicOptions will prevent API spam
+          const forceRefresh = true;
 
-          // For Airtable baseId, use cached data if available
-          if (field.name === 'baseId' && nodeInfo?.providerId === 'airtable') {
-            console.log('🔄 [ConfigForm] Loading Airtable baseId with cache (no force refresh)');
-            loadOptions('baseId', undefined, undefined, false);
-          } else {
-            loadOptions(field.name, undefined, undefined, forceRefresh);
-          }
+          console.log(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`);
+          loadOptions(field.name, undefined, undefined, forceRefresh);
         });
       }, 150); // Slightly longer delay to ensure reset has completed
 

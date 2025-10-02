@@ -13,6 +13,7 @@ interface UseAirtableFieldHandlerProps {
   setShowPreviewData?: (show: boolean) => void;
   setPreviewData?: (data: any[]) => void;
   selectedRecord?: any;
+  clearedFieldsRef?: React.MutableRefObject<Set<string>>;
 }
 
 /**
@@ -31,7 +32,8 @@ export function useAirtableFieldHandler({
   setAirtableTableSchema,
   setShowPreviewData,
   setPreviewData,
-  selectedRecord
+  selectedRecord,
+  clearedFieldsRef
 }: UseAirtableFieldHandlerProps) {
 
   /**
@@ -61,17 +63,24 @@ export function useAirtableFieldHandler({
    */
   const handleBaseIdChange = useCallback(async (value: any) => {
     console.log('🔍 Airtable baseId changed:', value);
-    
-    // Clear ALL dependent fields
-    setValue('tableName', '');
-    setValue('recordId', '');
-    setValue('filterField', '');
-    setValue('filterValue', '');
-    
+
+    // Mark dependent fields as manually cleared to prevent restoration from initialData
+    const fieldsToMark = ['tableName', 'recordId', 'filterField', 'filterValue'];
+    fieldsToMark.forEach(field => {
+      clearedFieldsRef?.current.add(field);
+    });
+    console.log('🚫 [Airtable] Marked fields as cleared:', fieldsToMark);
+
+    // Clear ALL dependent fields - set to empty string to override any saved values
+    setValue('tableName', '', { shouldValidate: false });
+    setValue('recordId', '', { shouldValidate: false });
+    setValue('filterField', '', { shouldValidate: false });
+    setValue('filterValue', '', { shouldValidate: false });
+
     // Clear state and dynamic fields
     clearAirtableState();
     clearDynamicFields();
-    
+
     if (value) {
       // Set loading state for tableName
       setLoadingFields((prev: Set<string>) => {
@@ -79,11 +88,11 @@ export function useAirtableFieldHandler({
         newSet.add('tableName');
         return newSet;
       });
-      
-      // Reset cached options
+
+      // Reset cached options to ensure fresh load
       resetOptions('tableName');
-      
-      // Load tables with delay
+
+      // Load tables with delay - force refresh to ensure we get latest data
       setTimeout(() => {
         loadOptions('tableName', 'baseId', value, true).finally(() => {
           setLoadingFields((prev: Set<string>) => {
