@@ -533,12 +533,38 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           nodes
         )
         if (result.errors.length > 0) {
-          console.warn('⚠️ Some trigger activations failed:', result.errors)
+          console.error('❌ Trigger activation failed:', result.errors)
+          // Rollback workflow status to previous state
+          await serviceClient
+            .from('workflows')
+            .update({
+              status: 'paused',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.id)
+
+          return NextResponse.json({
+            error: 'Failed to activate workflow triggers',
+            details: result.errors
+          }, { status: 500 })
         } else {
           console.log('✅ All lifecycle-managed triggers activated successfully')
         }
       } catch (lifecycleErr) {
         console.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
+        // Rollback workflow status to previous state
+        await serviceClient
+          .from('workflows')
+          .update({
+            status: 'paused',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', data.id)
+
+        return NextResponse.json({
+          error: 'Failed to activate workflow triggers',
+          details: lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr)
+        }, { status: 500 })
       }
 
       // DEPRECATED: Old webhook registration loop removed

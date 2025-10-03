@@ -98,3 +98,5 @@ console.log('✅ Trigger lifecycle providers registered:', triggerLifecycleManag
 // Export the manager for use in workflow activation/deactivation
 export { triggerLifecycleManager } from './TriggerLifecycleManager'
 export * from './types'
+
+// Force rebuild - token decryption fix
