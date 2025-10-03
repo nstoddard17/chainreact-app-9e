@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -44,6 +45,15 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Shopify integration not found for user')
     }
 
+    // Decrypt access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      throw new Error('Failed to decrypt Shopify access token')
+    }
+
     const shopDomain = integration.metadata?.shop_domain
     if (!shopDomain) {
       throw new Error('Shopify shop domain not found in integration metadata')
@@ -65,7 +75,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
     const response = await fetch(`https://${shopDomain}/admin/api/2024-10/webhooks.json`, {
       method: 'POST',
       headers: {
-        'X-Shopify-Access-Token': integration.access_token,
+        'X-Shopify-Access-Token': accessToken,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -146,6 +156,21 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
+    // Decrypt access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      console.warn(`⚠️ Failed to decrypt Shopify access token, marking webhooks as deleted`)
+      await supabase
+        .from('trigger_resources')
+        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'shopify')
+      return
+    }
+
     const shopDomain = integration.metadata?.shop_domain
     if (!shopDomain) {
       console.warn(`⚠️ Shop domain not found, marking webhooks as deleted`)
@@ -167,7 +192,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
           {
             method: 'DELETE',
             headers: {
-              'X-Shopify-Access-Token': integration.access_token
+              'X-Shopify-Access-Token': accessToken
             }
           }
         )
