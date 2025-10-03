@@ -1219,6 +1219,31 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         }
 
+        // Check if this workflow has already been triggered for this event (prevent race condition duplicates)
+        const eventUniqueKey = `${workflow.id}-${event.id}-${event.type}-${event.action}`
+        const recentExecutionWindow = 60000 // 60 seconds
+
+        const { data: recentExecutions } = await supabase
+          .from('workflow_execution_sessions')
+          .select('id, created_at')
+          .eq('workflow_id', workflow.id)
+          .eq('user_id', userId)
+          .gte('created_at', new Date(Date.now() - recentExecutionWindow).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        // Check if any recent execution has the same event in its context
+        const isDuplicate = recentExecutions?.some(session => {
+          // Check created_at to ensure it's very recent (within last 60 seconds)
+          const sessionAge = Date.now() - new Date(session.created_at).getTime()
+          return sessionAge < recentExecutionWindow
+        })
+
+        if (isDuplicate) {
+          console.log(`⏭️ Skipping duplicate workflow execution for event ${event.id} on workflow ${workflow.id}`)
+          continue
+        }
+
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
 
         console.log('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
@@ -1233,7 +1258,8 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
               ...event,
               source: 'microsoft-graph-worker',
               timestamp: new Date().toISOString()
-            }
+            },
+            eventUniqueKey // Store this for future deduplication
           }
         )
 
