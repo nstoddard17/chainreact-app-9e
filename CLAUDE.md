@@ -19,6 +19,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This ensures we're building with the same architectural rigor as the best apps in the world, not just implementing the first solution that comes to mind.
 
+## Coding Best Practices - MANDATORY
+
+**CRITICAL**: Follow these best practices for ALL code changes to maintain a world-class codebase:
+
+### File Organization & Separation of Concerns
+1. **Create new files proactively** - Don't let files grow beyond 500 lines
+2. **One responsibility per file** - Each file should have a single, clear purpose
+3. **Extract utilities early** - Move reusable logic to dedicated utility files
+4. **Use proper directory structure** - Group related files by feature/domain
+
+### Code Quality Standards
+1. **No duplication** - Always delegate to existing implementations rather than copying code
+2. **Method size limit** - Keep methods under 50 lines; extract helper functions
+3. **DRY principle** - Don't Repeat Yourself; extract common patterns
+4. **Clear naming** - Use descriptive names that reveal intent
+
+### Security & Maintainability
+1. **Dependency injection** - Pass dependencies rather than creating them
+2. **Type safety first** - Use TypeScript strictly; avoid `any` types
+3. **Error handling** - Use try-catch with specific error types
+4. **Logging strategy** - Consistent, structured logging
+
+### When to Refactor (Do This Proactively)
+- **File > 500 lines** - Split into multiple files
+- **Method > 50 lines** - Extract helper methods
+- **Switch statement with >3 cases** - Use registry pattern
+- **Duplicated code in 2+ places** - Extract to shared utility
+- **Hardcoded provider logic** - Use plugin/strategy pattern
+
+### Architecture Patterns to Follow
+1. **Registry Pattern** - For extensible handler systems (see `actionHandlerRegistry`)
+2. **Strategy Pattern** - For different execution modes (sandbox, live, etc.)
+3. **Delegation** - Always delegate to specialized implementations
+4. **Single Source of Truth** - One authoritative implementation per concern
+
 ## Overview
 
 ChainReact is a workflow automation platform built with Next.js 15, TypeScript, and Supabase. The application allows users to create, manage, and execute automated workflows that integrate with various third-party services like Gmail, Discord, Notion, Slack, and more.

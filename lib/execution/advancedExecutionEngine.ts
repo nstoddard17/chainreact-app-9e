@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
-import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { GmailService } from "@/lib/integrations/gmail"
-import { sendGmail } from "@/lib/workflows/actions/gmail/sendGmail"
-import { sendDiscordMessage, addDiscordRole } from "@/lib/workflows/actions/discord"
+import { executeAction } from "@/lib/workflows/executeNode"
+import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -685,11 +683,12 @@ export class AdvancedExecutionEngine {
     return currentData;
   }
 
+  /**
+   * Execute a single workflow node
+   * Delegates to the centralized executeNode.ts implementation
+   */
   private async executeNode(node: any, workflow: any, context: any): Promise<any> {
     try {
-      // Create unique execution key for this node in this session
-      const nodeExecutionKey = `${context.session.id}_${node.id}`;
-      
       // Check if this node has already been executed in this session
       const { data: existingNodeExecution } = await this.supabase
         .from('live_execution_events')
@@ -699,505 +698,48 @@ export class AdvancedExecutionEngine {
         .eq('event_type', 'node_completed')
         .limit(1)
         .maybeSingle()
-        
+
       if (existingNodeExecution) {
         console.log(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
         return context.data
       }
-      
-      await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type });
-      console.log(`🎯 Executing node: ${node.id} (${node.data.type})`);
-      
-      // Placeholder for fetching integration-specific API clients and handling auth
-      // This would involve fetching stored credentials and handling OAuth token refreshes.
-      const apiClient = await this.getApiClientForNode(node.data.providerId, context.session.user_id);
 
-      let result = context.data;
+      await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type })
+      console.log(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
 
-      // Placeholder for handling different node types
-      switch (node.data.type) {
-        case 'custom_script':
-          // Execute custom script
-          break;
-        case 'ai_agent':
-          // Handle AI agent execution - doesn't need integration credentials
-          console.log(`🤖 Executing AI agent node: ${node.id}`);
-          try {
-            // Check if this AI agent has chains configured
-            const hasChains = node.data.config?.chainsLayout?.chains &&
-                            node.data.config.chainsLayout.chains.length > 0;
+      // Delegate to the centralized executeAction from executeNode.ts
+      // This ensures consistency across all execution paths and leverages the registry pattern
+      const actionResult = await executeAction({
+        node,
+        input: context.data,
+        userId: context.session.user_id,
+        workflowId: workflow.id,
+        testMode: context.testMode || false,
+        executionMode: context.testMode ? 'sandbox' : 'live'
+      })
 
-            if (hasChains) {
-              // Use new chain-based execution
-              console.log(`🔗 Using chain-based execution for AI agent`);
-              const { executeAIAgentWithChains } = await import('@/lib/workflows/ai/aiAgentWithChains')
-
-              const aiResult = await executeAIAgentWithChains({
-                userId: context.session.user_id,
-                config: node.data.config || {},
-                input: {
-                  ...context.data,
-                  triggerData: context.data.originalPayload || context.data,
-                  workflowData: context.data
-                },
-                workflowContext: {
-                  nodes: workflow.nodes || [],
-                  previousResults: context.data,
-                  workflowId: workflow.id,
-                  testMode: context.testMode || false
-                }
-              });
-
-              console.log(`🤖 AI Agent chain execution result:`, JSON.stringify(aiResult, null, 2));
-
-              if (aiResult && aiResult.success) {
-                result = {
-                  ...context.data,
-                  [node.id]: {
-                    success: true,
-                    output: aiResult.output,
-                    message: aiResult.message || "AI Agent chain execution completed",
-                    steps: aiResult.steps
-                  }
-                };
-              } else {
-                result = {
-                  ...context.data,
-                  [node.id]: {
-                    success: false,
-                    error: aiResult.error || "AI Agent chain execution failed"
-                  }
-                };
-              }
-            } else {
-              // Use legacy single-step execution
-              console.log(`📝 Using legacy single-step execution for AI agent`);
-              const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
-
-              const aiResult = await executeAIAgent({
-                userId: context.session.user_id,
-                config: node.data.config || {},
-                input: {
-                  ...context.data,
-                  triggerData: context.data.originalPayload || context.data,
-                  workflowData: context.data
-                },
-                workflowContext: {
-                  nodes: [],
-                  previousResults: context.data
-                }
-              });
-
-              console.log(`🤖 AI Agent result:`, JSON.stringify(aiResult, null, 2));
-
-              if (aiResult && aiResult.success) {
-                result = {
-                  ...context.data,
-                  [node.id]: {
-                    success: true,
-                    output: {
-                      output: aiResult.output || "",
-                      subject: aiResult.subject || "Re: Your Message",
-                      body: aiResult.body || aiResult.output || ""
-                    },
-                    message: aiResult.message || "AI Agent execution completed"
-                  }
-                };
-              } else {
-                result = {
-                  ...context.data,
-                  [node.id]: {
-                    success: false,
-                    error: aiResult.error || "AI Agent execution failed"
-                  }
-                };
-              }
-            }
-          } catch (error: any) {
-            console.error(`❌ AI Agent execution failed:`, error);
-            result = {
-              ...context.data,
-              [node.id]: {
-                success: false,
-                error: error.message || "AI Agent execution failed"
-              }
-            };
-          }
-          break;
-
-        // Other generic node types...
-
-        default: {
-          const providerId = node.data.providerId
-
-          if (node.data.isTrigger) {
-            console.log(`🎯 Trigger node ${node.id} completed - passing through data`)
-            result = context.data
-            break
-          }
-
-          if (!providerId) {
-            console.warn(`⚠️ Node ${node.id} has no providerId and no trigger - skipping execution`)
-            break
-          }
-
-          const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data.type)
-          const mappedParams = nodeComponent?.actionParamsSchema
-            ? this.mapWorkflowData(context.data, node.data.config)
-            : node.data.config || {}
-
-          console.log(`🔧 Provider ${providerId} mapped params for ${node.data.type}:`, JSON.stringify(mappedParams, null, 2))
-
-          if (providerId === 'discord') {
-            console.log(`💬 Executing Discord action for node ${node.id}`)
-            let discordResult
-
-            if (node.data.type === 'discord_action_assign_role') {
-              // Ensure we have numeric user id
-              let targetUserId = mappedParams.userId
-              const fallbackUserId =
-                context.data?.memberId ||
-                context.data?.trigger?.output?.memberId ||
-                context.data?.trigger?.output?.member_id ||
-                context.data?.trigger?.memberId ||
-                context.data?.trigger?.member_id ||
-                null
-
-              if (!targetUserId || !/^[0-9]+$/.test(String(targetUserId))) {
-                if (fallbackUserId) {
-                  mappedParams.userId = fallbackUserId
-                }
-              }
-
-              if (!mappedParams.guildId && context.data?.guildId) {
-                mappedParams.guildId = context.data.guildId
-              }
-
-              console.log('🔧 [Discord] Final assign role params', mappedParams)
-              discordResult = await addDiscordRole(mappedParams, context.session.user_id, context.data)
-            } else {
-              discordResult = await sendDiscordMessage(mappedParams, context.session.user_id, context.data)
-            }
-
-            console.log(`   Discord send result: ${discordResult.success ? '✅ Success' : '❌ Failed'}`)
-            if (!discordResult.success) {
-              console.log(`   Discord error: ${discordResult.message}`)
-            }
-
-            result = { ...context.data, [node.id]: discordResult }
-
-            if (!discordResult.success) {
-              throw new Error(discordResult.message || 'Failed to send Discord message')
-            }
-            break
-          }
-
-          // Gmail action handling
-          console.log(`📧 Gmail check - providerId: ${providerId}, hasApiClient: ${!!apiClient}, hasSchema: ${!!nodeComponent?.actionParamsSchema}, nodeType: ${node.data.type}`);
-
-          if (providerId === 'gmail' && apiClient && nodeComponent?.actionParamsSchema) {
-            console.log(`📧 Executing Gmail action: ${node.data.type}`);
-            if (node.data.type === 'gmail_action_send_email') {
-              const actionResult = await sendGmail(mappedParams, context.session.user_id, context.data)
-              result = { ...context.data, [node.id]: actionResult }
-              console.log(`📧 Gmail action result:`, actionResult);
-            }
-            break
-          }
-
-          if (providerId === 'gmail' && !apiClient) {
-            console.error(`❌ Gmail action failed - no API client (integration may not be connected or token invalid)`);
-          }
-
-          if (apiClient && nodeComponent?.actionParamsSchema) {
-            console.warn(`⚠️ Provider ${providerId} not explicitly handled in advanced engine yet`)
-            break
-          }
-
-          console.warn(`⚠️ No API client available for provider ${providerId} on node ${node.id}`)
-        }
+      // Build the result in the expected format for the execution engine
+      const result = {
+        ...context.data,
+        [node.id]: actionResult
       }
 
-      await this.logExecutionEvent(context.session.id, "node_completed", node.id, { 
-        success: true, 
-        result: result[node.id] || "completed" 
-      });
-      console.log(`✅ Node completed: ${node.id}`);
-      return result;
-      
+      await this.logExecutionEvent(context.session.id, "node_completed", node.id, {
+        success: actionResult.success,
+        result: actionResult.output || actionResult
+      })
+      console.log(`✅ Node completed: ${node.id}`)
+
+      return result
     } catch (error) {
-      console.error(`❌ Node failed: ${node.id}`, error);
-      await this.logExecutionEvent(context.session.id, "node_error", node.id, { 
-        error: error instanceof Error ? error.message : "Unknown error" 
-      });
-      throw error;
+      console.error(`❌ Node failed: ${node.id}`, error)
+      await this.logExecutionEvent(context.session.id, "node_error", node.id, {
+        error: error instanceof Error ? error.message : "Unknown error"
+      })
+      throw error
     }
   }
 
-  private async getApiClientForNode(providerId: string | undefined, userId: string): Promise<any | null> {
-    if (!providerId) return null;
-
-    console.log(`🔑 getApiClientForNode called - providerId: ${providerId}, userId: ${userId}`);
-
-    // AI agents don't need OAuth integrations - they use global OpenAI API key
-    if (providerId === 'ai') {
-      return { provider: 'ai', type: 'global' };
-    }
-
-    // Map virtual provider IDs to actual integration provider names
-    const providerMapping: Record<string, string> = {
-      'microsoft-excel': 'onedrive',
-      'microsoft-outlook': 'microsoft',
-      'microsoft-onenote': 'onenote'
-    };
-
-    const actualProvider = providerMapping[providerId] || providerId;
-
-    console.log(`🔑 Resolving integration: ${providerId} → ${actualProvider}`);
-
-    // Query without status filter to match test mode behavior (executeNode.ts line 168-173)
-    const { data: integration, error } = await this.supabase
-      .from('integrations')
-      .select('id, access_token, refresh_token, expires_at, status')
-      .eq('user_id', userId)
-      .eq('provider', actualProvider)
-      .single();
-
-    console.log(`🔑 Integration query result:`, {
-      found: !!integration,
-      error: error?.message,
-      integrationId: integration?.id,
-      hasAccessToken: !!integration?.access_token,
-      expiresAt: integration?.expires_at
-    });
-
-    if (error || !integration) {
-      console.error(`❌ No integration found for provider ${providerId} (mapped to ${actualProvider}) for user ${userId}:`, error);
-      return null;
-    }
-
-    let accessToken = integration.access_token;
-    const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
-
-    console.log(`🔑 Token status:`, {
-      hasToken: !!accessToken,
-      tokenLength: accessToken?.length,
-      expiresAt: new Date(expiresAt).toISOString(),
-      isExpired: Date.now() >= expiresAt - 5 * 60 * 1000,
-      providerId
-    });
-
-    // Check if the token is expired or will expire soon (e.g., within 5 minutes)
-    if (Date.now() >= expiresAt - 5 * 60 * 1000) {
-      console.log(`⚠️ Token expired or expiring soon, refreshing for ${providerId}`);
-      if (providerId === 'gmail') {
-        accessToken = await GmailService.refreshToken(userId, integration.id);
-        if (!accessToken) {
-          // TODO: Handle re-authorization flow
-          throw new Error('Failed to refresh Gmail token.');
-        }
-        console.log(`✅ Token refreshed successfully for Gmail`);
-      }
-      // TODO: Add refresh logic for other providers
-    }
-
-    if (!accessToken) {
-      console.error(`❌ No valid access token for ${providerId}`);
-      throw new Error(`No valid access token for ${providerId}`);
-    }
-
-    if (providerId === 'gmail') {
-      console.log(`✅ Creating GmailService instance with token length: ${accessToken.length}`);
-      const gmailClient = new GmailService(accessToken);
-      console.log(`✅ GmailService instance created:`, !!gmailClient);
-      return gmailClient;
-    }
-
-    console.log(`⚠️ No API client handler for provider: ${providerId}`);
-    return null;
-  }
-
-  private mapWorkflowData(data: any, mapping: Record<string, string>): any {
-    const mappedData: Record<string, any> = {};
-
-    for (const [targetKey, sourcePath] of Object.entries(mapping)) {
-      mappedData[targetKey] = this.replaceTemplateVariables(sourcePath, data)
-    }
-
-    return mappedData;
-  }
-
-  private replaceTemplateVariables(template: string, data: any): any {
-    if (typeof template !== 'string') return template;
-    
-    console.log(`🔧 Replacing variables in template: "${template}"`)
-    console.log(`🔧 Available data:`, JSON.stringify(data, null, 2))
-    
-    // Special debug for message content
-    if (template.includes('Message Content')) {
-      console.log(`🔧 🚨 MESSAGE CONTENT DEBUG:`)
-      console.log(`🔧   - template contains: ${template}`)
-      console.log(`🔧   - data.message: ${JSON.stringify(data?.message, null, 2)}`)
-      console.log(`🔧   - data.message.content: "${data?.message?.content}"`)
-    }
-    
-    // Handle template syntax like {{New Message in Channel.Message Content}}
-    return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-      const trimmedPath = path.trim()
-      console.log(`🔧 Processing variable path: "${trimmedPath}"`)
-      
-      // Handle "New Message in Channel.Field Name" format
-      if (trimmedPath.includes('.')) {
-        const parts = trimmedPath.split('.')
-        const nodeName = parts[0].trim()
-        const fieldName = parts.slice(1).join('.').trim()
-        
-        console.log(`🔧 Node: "${nodeName}", Field: "${fieldName}"`)
-        
-        // Map Discord trigger fields to actual data paths
-        if (nodeName === 'New Message in Channel') {
-          switch (fieldName) {
-            case 'Message Content':
-              const content = data?.message?.content || ''
-              console.log(`🔧 Found Message Content: "${content}"`)
-              return content
-            case 'Channel Name':
-              const channelName = data?.message?.channelName || data?.message?.channelId || ''
-              console.log(`🔧 Found Channel Name: "${channelName}"`)
-              return channelName
-            case 'Author Name':
-              const authorName = data?.message?.authorName || data?.message?.authorDisplayName || data?.message?.authorId || ''
-              console.log(`🔧 Found Author Name: "${authorName}"`)
-              return authorName
-            case 'Guild Name':
-              const guildName = data?.message?.guildName || data?.message?.guildId || ''
-              console.log(`🔧 Found Guild Name: "${guildName}"`)
-              return guildName
-            case 'Message ID':
-              const messageId = data?.message?.messageId || ''
-              console.log(`🔧 Found Message ID: "${messageId}"`)
-              return messageId
-            case 'Timestamp':
-              const timestamp = data?.message?.timestamp || ''
-              console.log(`🔧 Found Timestamp: "${timestamp}"`)
-              return timestamp
-            default:
-              console.log(`🔧 Unknown field: "${fieldName}"`)
-              return match
-          }
-        }
-
-        // Handle Discord member join trigger fields
-        if (nodeName === 'User Joined Server') {
-          const joinFieldMap: Record<string, string> = {
-            'Member ID': 'memberId',
-            'Member Tag': 'memberTag',
-            'Member Username': 'memberUsername',
-            'Member Discriminator': 'memberDiscriminator',
-            'Member Avatar': 'memberAvatar',
-            'Server ID': 'guildId',
-            'Server Name': 'guildName',
-            'Guild ID': 'guildId',
-            'Guild Name': 'guildName',
-            'Join Time': 'joinedAt',
-            'Joined At': 'joinedAt',
-            'Invite Code': 'inviteCode',
-            'Invite URL': 'inviteUrl',
-            'Inviter Tag': 'inviterTag',
-            'Inviter ID': 'inviterId',
-            'Invite Uses': 'inviteUses',
-            'Invite Max Uses': 'inviteMaxUses',
-            'Timestamp': 'timestamp',
-            'Event Time': 'timestamp',
-          }
-
-          const joinKey = joinFieldMap[fieldName] || joinFieldMap[fieldName.trim()]
-
-          if (joinKey) {
-            const candidatePaths = [
-              joinKey,
-              `trigger.${joinKey}`,
-              `trigger.output.${joinKey}`,
-            ]
-
-            for (const candidate of candidatePaths) {
-              const resolved = this.getNestedValue(data, candidate)
-              if (resolved !== undefined && resolved !== null) {
-                console.log(`🔧 Found User Joined Server field "${fieldName}": "${resolved}"`)
-                return resolved
-              }
-            }
-          }
-
-          console.log(`🔧 User Joined Server output not found for field: "${fieldName}"`)
-          return match
-        }
-
-        // Handle AI Agent variables like {{AI Agent.AI Agent Output}}
-        if (nodeName === 'AI Agent' || nodeName.includes('AI')) {
-          console.log(`🔧 Looking for AI Agent output in data:`, Object.keys(data))
-          
-          // Look for any node result that might be an AI agent
-          for (const [key, value] of Object.entries(data)) {
-            if (value && typeof value === 'object' && (value as any).output) {
-              const nodeResult = value as any
-              console.log(`🔧 Checking node result ${key}:`, JSON.stringify(nodeResult, null, 2))
-              
-              // Check if this looks like an AI agent result
-              if (nodeResult.output) {
-                // Handle specific field requests
-                if (fieldName === 'Email Subject' && nodeResult.output.subject) {
-                  console.log(`🔧 Found AI Agent subject: "${nodeResult.output.subject}"`)
-                  return nodeResult.output.subject
-                }
-                if (fieldName === 'Email Body' && nodeResult.output.body) {
-                  console.log(`🔧 Found AI Agent body: "${nodeResult.output.body}"`)
-                  return nodeResult.output.body
-                }
-                if ((fieldName === 'AI Agent Output' || fieldName === 'output') && nodeResult.output.output) {
-                  console.log(`🔧 Found AI Agent output: "${nodeResult.output.output}"`)
-                  return nodeResult.output.output
-                }
-              }
-            }
-          }
-          
-          console.log(`🔧 AI Agent output not found for field: "${fieldName}"`)
-          return match
-        }
-      }
-      
-      // Fallback to direct path resolution
-      const value = this.getNestedValue(data, trimmedPath)
-      console.log(`🔧 Direct path result: "${value}"`)
-      return value !== undefined ? value : match
-    })
-  }
-
-  private getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : undefined
-    }, obj)
-  }
-
-  private evaluateExpression(expression: string, context: any): any {
-    try {
-      // Simple evaluation - in production, use a safer evaluator
-      const func = new Function("data", "variables", "context", `return ${expression}`)
-      return func(context.data, context.variables, context)
-    } catch (error) {
-      return expression // Return as literal if evaluation fails
-    }
-  }
-
-  private evaluateCondition(condition: string, context: any): boolean {
-    try {
-      const func = new Function("data", "variables", "context", `return ${condition}`)
-      return !!func(context.data, context.variables, context)
-    } catch (error) {
-      return false
-    }
-  }
 
   private async getExecutionSession(sessionId: string): Promise<ExecutionSession | null> {
     const { data, error } = await this.supabase
