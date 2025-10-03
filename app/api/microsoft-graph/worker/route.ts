@@ -275,9 +275,11 @@ function getResourceType(resource: string): string {
 
 function isIndividualMessageResource(resource: string): boolean {
   // Check if it's a specific message ID (not the collection)
-  const messageIdMatch = resource.match(/\/me\/messages\/([^\/]+)$/)
-  const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/)
-  return !!(messageIdMatch || folderMessageMatch)
+  const messageIdMatch = resource.match(/\/me\/messages\/([^\/]+)$/i)
+  const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
+  const userMessageMatch = resource.match(/\/users\/[^\/]+\/messages\/([^\/]+)$/i)
+  const userFolderMessageMatch = resource.match(/\/users\/[^\/]+\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
+  return !!(messageIdMatch || folderMessageMatch || userMessageMatch || userFolderMessageMatch)
 }
 
 function isIndividualDriveResource(resource: string): boolean {
@@ -298,12 +300,18 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
   const client = new MicrosoftGraphClient({ accessToken })
   const resource = payload.resource
   const changeType = payload.changeType
+  const requestPathBase = resource.startsWith('/') ? resource : `/${resource}`
+  const requestPath = requestPathBase
+    .replace(/^\/Users\//i, '/users/')
+    .replace(/\/Messages\//g, '/messages/')
+    .replace(/\/MailFolders\//g, '/mailFolders/')
+  const resourceLower = requestPath.toLowerCase()
   
   console.log('🎯 Fetching individual resource:', resource, 'changeType:', changeType)
   
   try {
     // For individual resources, fetch the specific item directly
-    const item: any = await client.request(resource)
+    const item: any = await client.request(requestPath)
     
     if (!item) {
       console.log('⚠️ No item found for resource:', resource)
@@ -313,7 +321,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
     // Normalize based on resource type
     let normalizedEvent: any = null
     
-    if (resource.includes('/messages')) {
+    if (resourceLower.includes('/messages')) {
       // Mail message
       normalizedEvent = {
         id: item.id,
@@ -330,7 +338,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
         webLink: item.webLink,
         originalPayload: item
       }
-    } else if (resource.includes('/drive/items') || resource.includes('/drives/')) {
+    } else if (resourceLower.includes('/drive/items') || resourceLower.includes('/drives/')) {
       // OneDrive item
       normalizedEvent = {
         id: item.id,
@@ -344,7 +352,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
         webUrl: item.webUrl,
         originalPayload: item
       }
-    } else if (resource.includes('/events')) {
+    } else if (resourceLower.includes('/events')) {
       // Calendar event
       normalizedEvent = {
         id: item.id,
