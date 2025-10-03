@@ -1621,8 +1621,8 @@ async function resolveProviderTokens(userId: string, resourceType: string): Prom
   // Map resource type to provider name
   const providerMap: Record<string, string> = {
     'onedrive': 'onedrive',
-    'mail': 'microsoft',
-    'calendar': 'microsoft',
+    'mail': 'microsoft-outlook',
+    'calendar': 'microsoft-outlook',
     'teams': 'microsoft-teams',
     'chat': 'microsoft-teams',
     'onenote': 'microsoft-onenote'
