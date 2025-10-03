@@ -80,7 +80,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
     // Mark triggers as deleted (no external cleanup needed)
     await supabase
       .from('trigger_resources')
-      .update({ status: 'deleted', updated_at: new Date().toISOString() })
+      .delete()
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'slack')
       .eq('status', 'active')

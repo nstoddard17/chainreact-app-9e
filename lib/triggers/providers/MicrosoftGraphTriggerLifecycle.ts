@@ -138,11 +138,11 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
-      console.warn(`⚠️ Microsoft integration not found, marking subscriptions as deleted`)
-      // Mark as deleted even if we can't clean up in Microsoft Graph
+      console.warn(`⚠️ Microsoft integration not found, deleting subscription records`)
+      // Delete even if we can't clean up in Microsoft Graph
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'microsoft')
       return
@@ -154,10 +154,10 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       : null
 
     if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Microsoft access token, marking subscriptions as deleted`)
+      console.warn(`⚠️ Failed to decrypt Microsoft access token, deleting subscription records`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'microsoft')
       return
@@ -173,16 +173,16 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           accessToken
         )
 
-        // Mark as deleted in trigger_resources
+        // Delete from trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
         console.log(`✅ Deleted Microsoft Graph subscription: ${resource.external_id}`)
       } catch (error) {
         console.error(`❌ Failed to delete subscription ${resource.external_id}:`, error)
-        // Mark as error but continue with others
+        // Mark as error but keep the record for debugging
         await supabase
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })

@@ -133,7 +133,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Stripe integration not found, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'stripe')
       return
@@ -148,7 +148,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Failed to decrypt Stripe access token, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'stripe')
       return
@@ -169,7 +169,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
         // Mark as deleted in trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
         console.log(`✅ Deleted Stripe webhook endpoint: ${resource.external_id}`)
@@ -179,7 +179,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
         if (error.statusCode === 404) {
           await supabase
             .from('trigger_resources')
-            .update({ status: 'deleted', updated_at: new Date().toISOString() })
+            .delete()
             .eq('id', resource.id)
         } else {
           await supabase

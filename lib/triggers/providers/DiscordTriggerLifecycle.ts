@@ -212,7 +212,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         // Mark as deleted in trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
       } catch (error) {

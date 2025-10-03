@@ -150,7 +150,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Shopify integration not found, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'shopify')
       return
@@ -165,7 +165,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Failed to decrypt Shopify access token, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'shopify')
       return
@@ -176,7 +176,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Shop domain not found, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'shopify')
       return
@@ -204,7 +204,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
         // Mark as deleted in trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
         console.log(`✅ Deleted Shopify webhook: ${resource.external_id}`)

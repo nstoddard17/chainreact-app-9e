@@ -232,7 +232,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Google integration not found, marking subscriptions as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .like('provider_id', 'google%')
       return
@@ -250,7 +250,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .like('provider_id', 'google%')
       return
@@ -290,7 +290,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         // Mark as deleted in trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
         console.log(`✅ Stopped Google ${api} subscription: ${channelId}`)

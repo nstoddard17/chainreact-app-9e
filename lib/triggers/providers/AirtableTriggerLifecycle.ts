@@ -160,7 +160,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       // Mark as deleted even if we can't clean up in Airtable
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'airtable')
       return
@@ -175,7 +175,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       console.warn(`⚠️ Failed to decrypt Airtable access token, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
-        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .delete()
         .eq('workflow_id', workflowId)
         .eq('provider_id', 'airtable')
       return
@@ -206,7 +206,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
         // Mark as deleted in trigger_resources
         await supabase
           .from('trigger_resources')
-          .update({ status: 'deleted', updated_at: new Date().toISOString() })
+          .delete()
           .eq('id', resource.id)
 
         console.log(`✅ Deleted Airtable webhook: ${webhookId}`)
