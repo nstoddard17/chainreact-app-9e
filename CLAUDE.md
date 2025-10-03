@@ -94,8 +94,11 @@ interface TriggerLifecycle {
 ### Adding New Trigger Providers
 1. Create lifecycle implementation in `/lib/triggers/providers/`
 2. Implement `TriggerLifecycle` interface
-3. Register in `/lib/triggers/index.ts`
-4. Resources are automatically managed by workflow activation/deactivation
+3. **CRITICAL**: Register with EXACT provider ID from node definition (check `/lib/workflows/nodes/providers/{provider}/index.ts`)
+4. Register in `/lib/triggers/index.ts`
+5. Resources are automatically managed by workflow activation/deactivation
+
+**⚠️ Common Issue**: If workflows activate but no resources appear in `trigger_resources` table, you likely have a provider ID mismatch. See troubleshooting guide in `/learning/docs/action-trigger-implementation-guide.md#troubleshooting`
 
 ### Database Schema
 All trigger resources are tracked in `trigger_resources` table with:
@@ -687,9 +690,12 @@ Essential steps that MUST be completed:
 4. Add field mappings for ALL dynamic fields
 5. Implement and register data handlers for dropdowns
 6. Handle special UI behavior if needed
-7. Test complete flow from UI to execution
+7. **For triggers with external resources**: Implement trigger lifecycle (see section above)
+8. Test complete flow from UI to execution
 
 ⚠️ **WARNING**: Missing ANY of these steps will cause runtime failures. The guides ensure uniform structure across all workflow nodes.
+
+**🔍 Troubleshooting**: If implementing a trigger and resources aren't being created when workflow activates, check the **Troubleshooting** section in `/learning/docs/action-trigger-implementation-guide.md#troubleshooting` - this is almost always a provider ID mismatch issue.
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 

@@ -667,13 +667,87 @@ When implementing actions that depend on another integration (like Excel needing
 - **Complex action** (previews, conditional fields, multiple operations): 2-4 hours
 - **New provider setup** (OAuth, first action): 4-6 hours
 
+## Troubleshooting
+
+### Trigger Resources Not Being Created (Provider ID Mismatch)
+
+**⚠️ CRITICAL: Check this if workflows activate but nothing appears in `trigger_resources` table!**
+
+#### Symptoms
+When activating a workflow with a trigger, check the logs for:
+```
+⚠️ No lifecycle registered for provider: {providerId}
+ℹ️ No lifecycle for {providerId}, skipping (no external resources needed)
+```
+
+**Result**: No rows created in `trigger_resources` table when workflow activated.
+
+#### Root Cause
+The trigger lifecycle manager is registered with a different provider ID than what the workflow node uses.
+
+#### Common Mismatches
+| Node Provider ID | Common Mistake | Correct Registration |
+|-----------------|----------------|---------------------|
+| `microsoft-outlook` | Registered as `microsoft` | Must be `microsoft-outlook` |
+| `teams` | Registered as `microsoft-teams` | Must be `teams` (no prefix!) |
+| `microsoft-onenote` | Registered as `microsoft` | Must be `microsoft-onenote` |
+
+#### How to Fix
+1. **Find the actual provider ID** in `/lib/workflows/nodes/providers/{provider}/index.ts`
+   - Look for `providerId: "..."` in the node definition
+   - Example: `providerId: "microsoft-outlook"` or `providerId: "teams"`
+
+2. **Check registration** in `/lib/triggers/index.ts`
+   - Ensure provider ID matches EXACTLY what's in the node definition
+   - Example: If node uses `"teams"`, register as `"teams"` not `"microsoft-teams"`
+
+3. **Update registration** if mismatched
+   ```typescript
+   // BAD - won't match node with providerId: "microsoft-outlook"
+   const microsoftProviders = ['microsoft']
+
+   // GOOD - matches exactly
+   const microsoftProviders = ['microsoft-outlook', 'teams', 'microsoft-onenote', 'onedrive']
+   ```
+
+4. **Restart dev server** to reload provider registrations
+
+5. **Test**: Deactivate and reactivate workflow, check logs for:
+   ```
+   ✅ Activated trigger: microsoft-outlook/microsoft-outlook_trigger_new_email for workflow {id}
+   ```
+
+#### How to Verify Fix
+```sql
+-- After activating workflow, check database:
+SELECT * FROM trigger_resources WHERE workflow_id = 'your-workflow-id';
+
+-- Should see row with:
+-- - provider_id: matching your node's providerId
+-- - external_id: ID from external service (e.g., Microsoft Graph subscription ID)
+-- - status: 'active'
+```
+
+#### Prevention
+- **ALWAYS check the node definition** before registering a provider lifecycle
+- **Test immediately** after adding a new provider to lifecycle manager
+- **Look for warning logs** - they tell you exactly what's wrong
+- **Verify all provider variants** - some services have multiple naming patterns (e.g., `google-sheets` vs `google_sheets`)
+
+See `/learning/docs/trigger-lifecycle-audit.md` for complete provider ID reference.
+
+---
+
 ## Notes
 
 - This guide applies to both actions and triggers
 - Triggers may have additional webhook handling requirements
 - Some providers may need special authentication handling
 - **This is a living document** - Update when discovering new patterns or requirements
-- Last major update: January 2025 (Microsoft Excel implementation)
+- Last major update: October 2025 (Provider ID Mismatch Troubleshooting)
+  - Added troubleshooting section for trigger lifecycle provider registration issues
+  - Documented Microsoft provider naming mismatches (teams vs microsoft-teams)
+- Previous update: January 2025 (Microsoft Excel implementation)
   - Added Excel actions that replicate Google Sheets functionality
   - Documented pattern for integrations that depend on other integrations (Excel → OneDrive)
   - Added tips for using Microsoft Graph API for Office integrations

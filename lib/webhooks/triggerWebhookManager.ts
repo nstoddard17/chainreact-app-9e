@@ -901,7 +901,7 @@ export class TriggerWebhookManager {
     // List of providers now managed by TriggerLifecycleManager (skip registration here)
     const lifecycleManagedProviders = [
       'microsoft-outlook',
-      'microsoft-teams',
+      'teams',              // NOTE: Teams uses 'teams' not 'microsoft-teams'
       'microsoft-onenote',
       'onedrive',
       'gmail',
