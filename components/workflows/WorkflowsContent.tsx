@@ -345,6 +345,18 @@ export default function WorkflowsContent() {
         updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
         console.log(`✅ Workflow update completed:`, updatedWorkflow)
 
+        // Check if trigger activation failed
+        if ((updatedWorkflow as any)?.triggerActivationError) {
+          const error = (updatedWorkflow as any).triggerActivationError
+          console.error('❌ Trigger activation failed:', error)
+          toast({
+            title: "Failed to activate workflow",
+            description: error.message || "Could not activate triggers",
+            variant: "destructive",
+          })
+          return // Exit early, status was already rolled back
+        }
+
         // The store already updates the workflows array, no need to refresh
         // Just verify the update took effect
         const verifyWorkflow = (workflows || []).find(w => w.id === id)
