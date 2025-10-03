@@ -83,6 +83,7 @@ interface FieldProps {
   setAiFields?: (fields: Record<string, boolean>) => void; // Update AI fields
   isConnectedToAIAgent?: boolean; // Whether an AI agent exists in the workflow
   setFieldValue?: (field: string, value: any) => void; // Update other form fields
+  aiToggleButton?: React.ReactNode; // AI toggle button to render alongside label
 }
 
 /**
@@ -127,6 +128,7 @@ export function FieldRenderer({
   setAiFields,
   isConnectedToAIAgent,
   setFieldValue,
+  aiToggleButton,
 }: FieldProps) {
   // State for file-with-toggle mode - moved outside of render function to prevent infinite loop
   const [inputMode, setInputMode] = useState(() => {
@@ -273,6 +275,13 @@ export function FieldRenderer({
 
         {field.required && (
           <span className="text-xs text-red-500 font-medium">Required</span>
+        )}
+
+        {/* AI Toggle Button - rendered alongside label */}
+        {aiToggleButton && (
+          <div className="ml-auto">
+            {aiToggleButton}
+          </div>
         )}
       </div>
     );
@@ -1450,7 +1459,7 @@ export function FieldRenderer({
   return (
     <Card className="transition-all duration-200 w-full" style={{ maxWidth: '100%' }}>
       <CardContent className="p-4 overflow-hidden">
-        {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && renderLabel()}
+        {field.type !== "button-toggle" && field.type !== "combobox" && field.type !== "boolean" && !field.hideLabel && renderLabel()}
         <div className="min-w-0 overflow-hidden w-full">
           {fieldContent}
         </div>

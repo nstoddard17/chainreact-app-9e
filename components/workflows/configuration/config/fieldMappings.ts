@@ -690,14 +690,10 @@ const notionMappings: Record<string, FieldMapping> = {
   notion_action_search_pages: {
     filter: "notion_filter_types",
   },
-  // Deprecated - replaced by notion_action_manage_page
-  // notion_action_create_page: {
-  //   workspace: "notion_workspaces",
-  //   database: "notion_databases",
-  //   databaseProperties: "notion_database_properties",
-  //   template: "notion_templates",
-  //   page: "notion_pages",
-  // },
+  // Simple create page action (for backwards compatibility with templates)
+  notion_action_create_page: {
+    databaseId: "notion_databases",
+  },
   // Deprecated - replaced by notion_action_manage_page
   // notion_action_append_to_page: {
   //   workspace: "notion_workspaces",
