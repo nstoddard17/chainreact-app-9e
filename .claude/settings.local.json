@@ -87,7 +87,8 @@
       "Bash(supabase db:*)",
       "Bash(del nul)",
       "Read(//c/Users/marcu/source/repos/**)",
-      "Read(//c/**)"
+      "Read(//c/**)",
+      "Bash(psql:*)"
     ],
     "defaultMode": "acceptEdits"
   }
