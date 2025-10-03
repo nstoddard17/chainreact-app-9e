@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -45,8 +46,17 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Stripe integration not found for user')
     }
 
+    // Decrypt access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      throw new Error('Failed to decrypt Stripe access token')
+    }
+
     // Initialize Stripe client
-    const stripe = new Stripe(integration.access_token, {
+    const stripe = new Stripe(accessToken, {
       apiVersion: '2024-11-20.acacia'
     })
 
@@ -129,8 +139,23 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
+    // Decrypt access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      console.warn(`⚠️ Failed to decrypt Stripe access token, marking webhooks as deleted`)
+      await supabase
+        .from('trigger_resources')
+        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'stripe')
+      return
+    }
+
     // Initialize Stripe client
-    const stripe = new Stripe(integration.access_token, {
+    const stripe = new Stripe(accessToken, {
       apiVersion: '2024-11-20.acacia'
     })
 

@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
+import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -49,6 +50,15 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Microsoft integration not found for user')
     }
 
+    // Decrypt the access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      throw new Error('Failed to decrypt Microsoft access token')
+    }
+
     // Determine resource based on trigger type
     const resource = this.getResourceForTrigger(triggerType)
     const changeType = this.getChangeTypeForTrigger(triggerType)
@@ -68,7 +78,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       resource,
       changeType,
       userId,
-      accessToken: integration.access_token
+      accessToken: accessToken
     })
 
     // Store in trigger_resources table
@@ -142,6 +152,21 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
+    // Decrypt the access token
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+
+    if (!accessToken) {
+      console.warn(`⚠️ Failed to decrypt Microsoft access token, marking subscriptions as deleted`)
+      await supabase
+        .from('trigger_resources')
+        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'microsoft')
+      return
+    }
+
     // Delete each subscription
     for (const resource of resources) {
       if (!resource.external_id) continue
@@ -149,7 +174,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       try {
         await this.subscriptionManager.deleteSubscription(
           resource.external_id,
-          integration.access_token
+          accessToken
         )
 
         // Mark as deleted in trigger_resources

@@ -10,6 +10,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
+import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -49,14 +50,26 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Google integration not found for user (provider: ${providerId})`)
     }
 
+    // Decrypt tokens
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+    const refreshToken = typeof integration.refresh_token === 'string'
+      ? safeDecrypt(integration.refresh_token)
+      : null
+
+    if (!accessToken) {
+      throw new Error('Failed to decrypt Google access token')
+    }
+
     // Initialize OAuth client
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET
     )
     oauth2Client.setCredentials({
-      access_token: integration.access_token,
-      refresh_token: integration.refresh_token
+      access_token: accessToken,
+      refresh_token: refreshToken
     })
 
     // Get resource and API info based on trigger type
@@ -225,14 +238,32 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
+    // Decrypt tokens
+    const accessToken = typeof integration.access_token === 'string'
+      ? safeDecrypt(integration.access_token)
+      : null
+    const refreshToken = typeof integration.refresh_token === 'string'
+      ? safeDecrypt(integration.refresh_token)
+      : null
+
+    if (!accessToken) {
+      console.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
+      await supabase
+        .from('trigger_resources')
+        .update({ status: 'deleted', updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .like('provider_id', 'google%')
+      return
+    }
+
     // Initialize OAuth client
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET
     )
     oauth2Client.setCredentials({
-      access_token: integration.access_token,
-      refresh_token: integration.refresh_token
+      access_token: accessToken,
+      refresh_token: refreshToken
     })
 
     // Stop each subscription

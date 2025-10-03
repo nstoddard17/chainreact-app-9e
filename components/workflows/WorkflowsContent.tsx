@@ -254,11 +254,10 @@ export default function WorkflowsContent() {
       newStatus = "active"
     }
     
+    // Set loading state for this specific workflow
+    setUpdatingWorkflows(prev => new Set(prev).add(id))
+
     try {
-      // Set loading state for this specific workflow
-      setUpdatingWorkflows(prev => new Set(prev).add(id))
-
-
       // Get the workflow to update
       const workflowToUpdate = (workflows || []).find((w: any) => w.id === id)
       if (!workflowToUpdate) {
@@ -267,11 +266,6 @@ export default function WorkflowsContent() {
           title: "Error",
           description: "Workflow not found",
           variant: "destructive",
-        })
-        setUpdatingWorkflows(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(id)
-          return newSet
         })
         return
       }
@@ -299,11 +293,6 @@ export default function WorkflowsContent() {
                 title: `${providerId.charAt(0).toUpperCase() + providerId.slice(1)} not connected`,
                 description: `Please connect your ${providerId.charAt(0).toUpperCase() + providerId.slice(1)} account before activating this workflow.`,
                 variant: "destructive",
-              })
-              setUpdatingWorkflows(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(id)
-                return newSet
               })
               return
             }
@@ -372,13 +361,6 @@ export default function WorkflowsContent() {
 
       console.log(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
 
-      // Clear loading state immediately after successful update
-      setUpdatingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(id)
-        return newSet
-      })
-
       toast({
         title: "Success",
         description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`,
@@ -392,17 +374,18 @@ export default function WorkflowsContent() {
     } catch (error) {
       console.error("Failed to update workflow status:", error)
 
-      // Clear loading state on error too
-      setUpdatingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(id)
-        return newSet
-      })
-
       toast({
         title: "Error",
         description: "Failed to update workflow status",
         variant: "destructive",
+      })
+    } finally {
+      // Always clear loading state in finally block to guarantee cleanup
+      console.log(`🧹 Clearing loading state for workflow ${id}`)
+      setUpdatingWorkflows(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(id)
+        return newSet
       })
     }
   }
