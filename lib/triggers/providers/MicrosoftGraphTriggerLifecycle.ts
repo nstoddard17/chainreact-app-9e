@@ -35,12 +35,15 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Get user's Microsoft integration
-    const { data: integration } = await supabase
+    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
+    const { data: integrations } = await supabase
       .from('integrations')
-      .select('access_token')
+      .select('access_token, provider')
       .eq('user_id', userId)
-      .eq('provider', 'microsoft')
-      .single()
+      .or('provider.like.microsoft%,provider.eq.onedrive')
+
+    // Find first connected Microsoft integration
+    const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
       throw new Error('Microsoft integration not found for user')
@@ -118,12 +121,15 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get user's access token
-    const { data: integration } = await supabase
+    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
+    const { data: integrations } = await supabase
       .from('integrations')
-      .select('access_token')
+      .select('access_token, provider')
       .eq('user_id', userId)
-      .eq('provider', 'microsoft')
-      .single()
+      .or('provider.like.microsoft%,provider.eq.onedrive')
+
+    // Find first connected Microsoft integration
+    const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
       console.warn(`⚠️ Microsoft integration not found, marking subscriptions as deleted`)
