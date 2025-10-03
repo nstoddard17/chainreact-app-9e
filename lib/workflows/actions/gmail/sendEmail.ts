@@ -9,10 +9,9 @@ import { google } from 'googleapis'
  * Enhanced Gmail send email with all field support
  */
 export async function sendGmailEmail(
-  config: any,
-  userId: string,
-  input: Record<string, any>
+  params: { config: any; userId: string; input: Record<string, any> }
 ): Promise<ActionResult> {
+  const { config, userId, input } = params
   const cleanupPaths = new Set<string>()
 
   try {
