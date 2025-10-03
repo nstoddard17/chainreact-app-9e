@@ -222,27 +222,38 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Map trigger type to Microsoft Graph resource
+   * Handles both formats: "microsoft-outlook_trigger_new_email" and "trigger_new_email"
    */
   private getResourceForTrigger(triggerType: string): string | null {
+    // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft-onenote|teams|onedrive)_/, '')
+
     const resourceMap: Record<string, string> = {
-      // Outlook
-      'outlook_trigger_new_email': '/me/messages',
-      'outlook_trigger_email_received': '/me/messages',
-      'outlook_trigger_calendar_event': '/me/events',
+      // Email triggers
+      'trigger_new_email': '/me/messages',
+      'trigger_email_received': '/me/messages',
+      'trigger_email_sent': '/me/mailFolders/SentItems/messages',
 
-      // Teams
-      'teams_trigger_message_sent': '/me/chats/getAllMessages',
-      'teams_trigger_channel_message': '/teams/{teamId}/channels/{channelId}/messages',
+      // Calendar triggers
+      'trigger_calendar_event': '/me/events',
+      'trigger_event_created': '/me/events',
+      'trigger_event_updated': '/me/events',
 
-      // OneDrive
-      'onedrive_trigger_file_created': '/me/drive/root',
-      'onedrive_trigger_file_modified': '/me/drive/root',
+      // Teams triggers
+      'trigger_message_sent': '/me/chats/getAllMessages',
+      'trigger_channel_message': '/teams/{teamId}/channels/{channelId}/messages',
 
-      // OneNote
-      'onenote_trigger_note_created': '/me/onenote/notebooks'
+      // OneDrive triggers
+      'trigger_file_created': '/me/drive/root',
+      'trigger_file_modified': '/me/drive/root',
+      'trigger_file_shared': '/me/drive/root',
+
+      // OneNote triggers
+      'trigger_note_created': '/me/onenote/notebooks',
+      'trigger_note_updated': '/me/onenote/notebooks'
     }
 
-    return resourceMap[triggerType] || null
+    return resourceMap[simplifiedType] || null
   }
 
   /**
