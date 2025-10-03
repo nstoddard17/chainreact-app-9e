@@ -85,7 +85,9 @@
       "Bash(supabase migration:*)",
       "Bash(where:*)",
       "Bash(supabase db:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Read(//c/Users/marcu/source/repos/**)",
+      "Read(//c/**)"
     ],
     "defaultMode": "acceptEdits"
   }
