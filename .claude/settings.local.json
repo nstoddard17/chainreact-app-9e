@@ -83,7 +83,8 @@
       "Bash(dir:*)",
       "Bash(npx supabase db execute:*)",
       "Bash(supabase migration:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(supabase db:*)"
     ],
     "defaultMode": "acceptEdits"
   }

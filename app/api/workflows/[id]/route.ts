@@ -488,15 +488,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const shouldUnregisterWebhooks = data && statusProvided && wasActive && !isActiveNow
 
     if (shouldRegisterWebhooks) {
-      // If it was previously active, clean up existing webhooks first to avoid duplicates
+      // If it was previously active, clean up existing resources first to avoid duplicates
       if (wasActive) {
         try {
+          // Clean up legacy webhooks
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
           await webhookManager.unregisterWorkflowWebhooks(data.id)
           console.log('♻️ Unregistered existing webhooks before re-registering (active workflow save)')
+
+          // Clean up managed trigger resources (Microsoft Graph, etc.)
+          const { triggerLifecycleManager } = await import('@/lib/triggers')
+          await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
+          console.log('♻️ Deactivated existing trigger resources before re-activating')
         } catch (cleanupErr) {
-          console.warn('⚠️ Failed to unregister existing webhooks prior to re-register:', cleanupErr)
+          console.warn('⚠️ Failed to cleanup existing resources prior to re-register:', cleanupErr)
         }
       }
       // Get the full workflow data including nodes if not present in the update result
@@ -505,7 +511,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       // If nodes are not in the update result (e.g., when only status was updated),
       // fetch the full workflow to get nodes
       if (nodes.length === 0 && !body.nodes) {
-        console.log('📋 Fetching full workflow data to check for webhook triggers...')
+        console.log('📋 Fetching full workflow data to check for triggers...')
         const { data: fullWorkflow } = await serviceClient
           .from("workflows")
           .select("nodes")
@@ -518,121 +524,45 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       }
 
-      // Check all webhook-based triggers in this workflow
-      const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
-
-      console.log(`🔍 Webhook trigger check:`, {
-        nodesCount: nodes.length,
-        triggerCount: triggerNodes.length,
-        triggers: triggerNodes.map((n: any) => ({ type: n?.data?.type, providerId: n?.data?.providerId }))
-      })
-
-      // List of providers that use webhooks
-      const webhookProviders = [
-        'airtable',
-        'discord',
-        'gmail',
-        'google-calendar',
-        'google-drive',
-        'google-docs',
-        'google-sheets',
-        'google_sheets',
-        'microsoft-outlook',
-        'microsoft-teams',
-        'microsoft-onenote',
-        'onedrive',
-        'dropbox',
-        'trello',
-        'slack',
-        'stripe',
-        'shopify',
-        'hubspot'
-      ]
-
-      for (const node of triggerNodes) {
-        const providerId = node?.data?.providerId
-        const triggerType = node?.data?.type
-        if (!providerId || !webhookProviders.includes(providerId)) continue
-
-        const triggerConfig = node?.data?.config || {}
-
-      console.log(`🔗 Registering ${providerId} webhook trigger for workflow save`, {
-          providerId,
-          triggerType,
-          config: triggerConfig,
-          hasBaseId: !!triggerConfig.baseId,
-          hasTableName: !!triggerConfig.tableName,
-          tableName: triggerConfig.tableName || 'all tables'
-        })
-
-        try {
-          const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
-          const webhookManager = new TriggerWebhookManager()
-
-          // If this is a Discord slash command trigger, ensure the command exists in the selected guild
-          if (providerId === 'discord' && triggerType === 'discord_trigger_slash_command') {
-            try {
-              const botToken = process.env.DISCORD_BOT_TOKEN
-              const appId = process.env.DISCORD_CLIENT_ID
-              const guildId: string | undefined = triggerConfig?.guildId
-              const commandName: string | undefined = triggerConfig?.command
-              const commandDescription: string = (triggerConfig?.commandDescription || 'Custom command created by ChainReact workflow')
-              const commandOptions: any[] = Array.isArray(triggerConfig?.commandOptions) ? triggerConfig?.commandOptions : []
-              if (botToken && appId && guildId && commandName) {
-                const listUrl = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
-                const existing = await fetch(listUrl, { headers: { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' } })
-                  .then(r => r.ok ? r.json() : [])
-                  .catch(() => [])
-                const exists = Array.isArray(existing) && existing.some((c: any) => c?.name === commandName)
-                if (!exists) {
-                  await fetch(listUrl, {
-                    method: 'POST',
-                    headers: { Authorization: `Bot ${botToken}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      name: commandName,
-                      description: commandDescription || 'Custom command created by ChainReact workflow',
-                      type: 1,
-                      options: commandOptions
-                    })
-                  }).catch(() => null)
-                }
-              }
-            } catch (cmdErr) {
-              console.warn('⚠️ Failed to ensure Discord slash command exists:', cmdErr)
-            }
-          }
-
-          const webhookUrl = getWebhookUrl(providerId)
-
-          await webhookManager.registerWebhook({
-            workflowId: data.id,
-            userId: user.id,
-            triggerType: triggerType,
-            providerId: providerId,
-            config: triggerConfig,
-            webhookUrl
-          })
-
-          console.log(`✅ Webhook registered for ${providerId} trigger: ${triggerType}`)
-        } catch (webhookError) {
-          console.error('Failed to register webhook on activation:', webhookError)
+      // FIRST: Use new TriggerLifecycleManager for providers that support it
+      try {
+        const { triggerLifecycleManager } = await import('@/lib/triggers')
+        const result = await triggerLifecycleManager.activateWorkflowTriggers(
+          data.id,
+          user.id,
+          nodes
+        )
+        if (result.errors.length > 0) {
+          console.warn('⚠️ Some trigger activations failed:', result.errors)
+        } else {
+          console.log('✅ All lifecycle-managed triggers activated successfully')
         }
+      } catch (lifecycleErr) {
+        console.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
       }
+
+      // DEPRECATED: Old webhook registration loop removed
+      // All triggers now managed by TriggerLifecycleManager (see above)
+      // This ensures proper workflow_id tracking and unified lifecycle management
     }
 
     if (shouldUnregisterWebhooks) {
-      console.log('🔗 Workflow deactivated/paused - unregistering webhooks')
+      console.log('🔗 Workflow deactivated/paused - unregistering all trigger resources')
 
       try {
+        // Deactivate lifecycle-managed triggers (Microsoft Graph, etc.)
+        const { triggerLifecycleManager } = await import('@/lib/triggers')
+        await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
+        console.log('✅ Lifecycle-managed triggers deactivated')
+
+        // Unregister legacy webhooks
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
         const webhookManager = new TriggerWebhookManager()
-
-        // Unregister any webhooks for this workflow
         await webhookManager.unregisterWorkflowWebhooks(data.id)
+        console.log('✅ Legacy webhooks unregistered')
 
-        console.log('✅ Webhooks unregistered for non-active workflow state')
       } catch (webhookError) {
-        console.error('Failed to unregister webhooks on deactivation:', webhookError)
+        console.error('Failed to unregister triggers on deactivation:', webhookError)
       }
     }
 
@@ -684,12 +614,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     try {
+      // Delete lifecycle-managed trigger resources (Microsoft Graph, etc.)
+      const { triggerLifecycleManager } = await import('@/lib/triggers')
+      await triggerLifecycleManager.deleteWorkflowTriggers(workflowId, user.id)
+      console.log('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
+
+      // Unregister legacy webhooks
       const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.unregisterWorkflowWebhooks(workflowId)
-      console.log('♻️ Unregistered webhooks before deleting workflow', { workflowId })
+      console.log('♻️ Unregistered legacy webhooks before deleting workflow', { workflowId })
     } catch (unregisterError) {
-      console.warn('⚠️ Failed to unregister webhooks before deletion:', unregisterError)
+      console.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
     }
 
     const { error } = await supabase

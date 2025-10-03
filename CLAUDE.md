@@ -53,6 +53,61 @@ This ensures we're building with the same architectural rigor as the best apps i
 2. **Strategy Pattern** - For different execution modes (sandbox, live, etc.)
 3. **Delegation** - Always delegate to specialized implementations
 4. **Single Source of Truth** - One authoritative implementation per concern
+5. **Lifecycle Pattern** - For resource management (see `TriggerLifecycleManager`)
+
+## Trigger Lifecycle Pattern - MANDATORY
+
+**CRITICAL**: ALL triggers MUST follow this lifecycle pattern for proper resource management:
+
+### Core Principle
+Resources needed for triggers (webhooks, subscriptions, polling jobs) should ONLY be created when workflows are activated, and MUST be cleaned up when workflows are deactivated or deleted.
+
+### The Pattern
+```
+1. User connects integration → Save OAuth credentials ONLY (no resource creation)
+2. User creates workflow with trigger → No resource creation yet
+3. User ACTIVATES workflow → CREATE all trigger resources (webhooks, subscriptions, etc.)
+4. User DEACTIVATES workflow → DELETE all trigger resources
+5. User REACTIVATES workflow → CREATE resources fresh again
+6. User DELETES workflow → DELETE all trigger resources
+```
+
+### Implementation
+All trigger providers MUST implement the `TriggerLifecycle` interface:
+
+```typescript
+interface TriggerLifecycle {
+  onActivate(context: TriggerActivationContext): Promise<void>
+  onDeactivate(context: TriggerDeactivationContext): Promise<void>
+  onDelete(context: TriggerDeactivationContext): Promise<void>
+  checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus>
+}
+```
+
+### Key Files
+- **Interface**: `/lib/triggers/types.ts`
+- **Manager**: `/lib/triggers/TriggerLifecycleManager.ts`
+- **Example**: `/lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts`
+- **Registry**: `/lib/triggers/index.ts`
+- **Usage**: `/app/api/workflows/[id]/route.ts` (PUT and DELETE handlers)
+
+### Adding New Trigger Providers
+1. Create lifecycle implementation in `/lib/triggers/providers/`
+2. Implement `TriggerLifecycle` interface
+3. Register in `/lib/triggers/index.ts`
+4. Resources are automatically managed by workflow activation/deactivation
+
+### Database Schema
+All trigger resources are tracked in `trigger_resources` table with:
+- `workflow_id` - Which workflow owns this resource (cascades delete)
+- `external_id` - ID in external system (e.g., Microsoft Graph subscription ID)
+- `expires_at` - When resource needs renewal
+- `status` - active, expired, deleted, error
+
+### Migration Path
+Existing triggers using old patterns should be gradually migrated to use `TriggerLifecycleManager`. The workflow activation/deactivation code supports both old and new patterns during the transition.
+
+See `/learning/docs/trigger-lifecycle-audit.md` for complete audit and migration plan.
 
 ## Overview
 

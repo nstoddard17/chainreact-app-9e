@@ -1,3 +1,30 @@
+/**
+ * ⚠️ DEPRECATED FILE (2025-10-03)
+ *
+ * This file is deprecated and should no longer be used for new code.
+ *
+ * REASON: Airtable triggers now use the unified TriggerLifecycleManager system
+ * which provides proper workflow tracking and lifecycle management.
+ *
+ * OLD SYSTEM (this file):
+ * - Stores webhooks in airtable_webhooks table (no workflow_id tracking)
+ * - Manual webhook management
+ * - No integration with workflow activation/deactivation
+ *
+ * NEW SYSTEM (replacement):
+ * - File: /lib/triggers/providers/AirtableTriggerLifecycle.ts
+ * - Stores in: trigger_resources table (with workflow_id tracking)
+ * - Automatic lifecycle: create on activate, delete on deactivate
+ * - Unified management via TriggerLifecycleManager
+ *
+ * MIGRATION PATH:
+ * - New workflows automatically use new system
+ * - This file kept for backward compatibility only
+ * - Will be removed after all existing webhooks migrated
+ *
+ * SEE: /learning/docs/trigger-lifecycle-audit.md
+ */
+
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { decrypt } from "@/lib/security/encryption"
@@ -8,7 +35,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/**
+ * @deprecated Use AirtableTriggerLifecycle instead
+ */
 export async function ensureAirtableWebhooksForUser(userId: string) {
+  console.warn('⚠️ DEPRECATED: ensureAirtableWebhooksForUser() is deprecated. Use AirtableTriggerLifecycle instead.')
   // Fetch Airtable integration access token
   const { data: integ } = await supabase
     .from("integrations")
@@ -36,7 +67,11 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
   }
 }
 
+/**
+ * @deprecated Use AirtableTriggerLifecycle instead
+ */
 export async function ensureAirtableWebhookForBase(userId: string, baseId: string, notificationUrl: string, tableName?: string) {
+  console.warn('⚠️ DEPRECATED: ensureAirtableWebhookForBase() is deprecated. Use AirtableTriggerLifecycle instead.')
   // Fetch Airtable integration access token
   const { data: integ } = await supabase
     .from("integrations")
@@ -504,7 +539,11 @@ export function validateAirtableSignature(body: string, signatureHeader: string 
   }
 }
 
+/**
+ * @deprecated Use AirtableTriggerLifecycle instead
+ */
 export async function unregisterAirtableWebhook(userId: string, baseId: string) {
+  console.warn('⚠️ DEPRECATED: unregisterAirtableWebhook() is deprecated. Use AirtableTriggerLifecycle instead.')
   try {
     // Get webhook details
     const { data: webhook } = await supabase
@@ -600,7 +639,11 @@ export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: st
   }
 }
 
+/**
+ * @deprecated Use AirtableTriggerLifecycle instead
+ */
 export async function refreshAirtableWebhook(userId: string, baseId: string) {
+  console.warn('⚠️ DEPRECATED: refreshAirtableWebhook() is deprecated. Use AirtableTriggerLifecycle instead.')
   try {
     // Get existing webhook
     const { data: webhook } = await supabase
@@ -652,7 +695,11 @@ export async function refreshAirtableWebhook(userId: string, baseId: string) {
   }
 }
 
+/**
+ * @deprecated Use AirtableTriggerLifecycle instead
+ */
 export async function cleanupInactiveAirtableWebhooks() {
+  console.warn('⚠️ DEPRECATED: cleanupInactiveAirtableWebhooks() is deprecated. Use AirtableTriggerLifecycle instead.')
   try {
     // Get all expired webhooks
     const now = new Date()
