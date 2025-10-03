@@ -205,6 +205,13 @@ export class MicrosoftGraphSubscriptionManager {
       })
 
       if (!response.ok) {
+        // 404 means subscription doesn't exist (already deleted or expired) - treat as success
+        if (response.status === 404) {
+          console.log('ℹ️ Subscription not found in Microsoft Graph (already deleted/expired):', subscriptionId)
+          await this.markSubscriptionAsDeleted(subscriptionId)
+          return
+        }
+
         const errorText = await response.text()
         console.error('❌ Failed to delete subscription:', {
           status: response.status,
