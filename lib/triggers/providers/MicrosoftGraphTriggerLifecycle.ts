@@ -93,19 +93,15 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       config: {
         resource,
         changeType,
+        clientState: subscription.clientState, // Store for webhook verification
+        notificationUrl: subscription.notificationUrl,
         ...config
       },
       status: 'active',
       expires_at: subscription.expirationDateTime
     })
 
-    // Also update microsoft_graph_subscriptions table with workflow_id
-    await supabase
-      .from('microsoft_graph_subscriptions')
-      .update({ workflow_id: workflowId })
-      .eq('id', subscription.id)
-
-    console.log(`✅ Microsoft Graph subscription created: ${subscription.id}`)
+    console.log(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
   }
 
   /**

@@ -54,32 +54,41 @@ async function processNotifications(
       const resource: string | undefined = change?.resource
       const bodyClientState: string | undefined = change?.clientState
 
-      if (subId && bodyClientState) {
-        const isValid = await subscriptionManager.verifyClientState(bodyClientState, subId)
-        if (!isValid) {
-          console.warn('⚠️ Invalid clientState for notification, skipping', { subId })
-          continue
-        }
-      }
-
-      // Resolve user from subscription FIRST (needed for dedup key)
+      // Resolve user and verify clientState from trigger_resources
       let userId: string | null = null
+      let workflowId: string | null = null
       if (subId) {
         console.log('🔍 Looking up subscription:', subId)
         const { data: subscription, error: subError } = await supabase
-          .from('microsoft_graph_subscriptions')
-          .select('user_id')
-          .eq('id', subId)
+          .from('trigger_resources')
+          .select('user_id, workflow_id, config')
+          .eq('external_id', subId)
+          .eq('resource_type', 'subscription')
+          .like('provider_id', 'microsoft%')
           .single()
 
         if (subError) {
           console.error('❌ Error fetching subscription:', subError)
         }
 
+        // Verify clientState if present
+        if (bodyClientState && subscription?.config?.clientState) {
+          if (bodyClientState !== subscription.config.clientState) {
+            console.warn('⚠️ Invalid clientState for notification, skipping', {
+              subId,
+              expected: subscription.config.clientState,
+              received: bodyClientState
+            })
+            continue
+          }
+        }
+
         userId = subscription?.user_id || null
+        workflowId = subscription?.workflow_id || null
         console.log('👤 Resolved user from subscription:', {
           subscriptionId: subId,
           userId,
+          workflowId,
           subscriptionFound: !!subscription
         })
       }

@@ -8,10 +8,12 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-    // Get all subscriptions
+    // Get all subscriptions from trigger_resources
     const { data: subscriptions, error } = await supabase
-      .from('microsoft_graph_subscriptions')
+      .from('trigger_resources')
       .select('*')
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -26,16 +28,17 @@ export async function GET() {
         return {
           ...sub,
           user_email: user?.user?.email || 'unknown',
-          is_expired: new Date(sub.expiration_date_time) < new Date()
+          is_expired: sub.expires_at ? new Date(sub.expires_at) < new Date() : false
         }
       })
     )
 
-    // Group by resource type
+    // Group by resource type (from config)
     const byType = subscriptionsWithUsers.reduce((acc, sub) => {
-      const type = sub.resource.includes('messages') ? 'mail' :
-                   sub.resource.includes('drive') ? 'onedrive' :
-                   sub.resource.includes('events') ? 'calendar' : 'other'
+      const resource = sub.config?.resource || ''
+      const type = resource.includes('messages') ? 'mail' :
+                   resource.includes('drive') ? 'onedrive' :
+                   resource.includes('events') ? 'calendar' : 'other'
 
       if (!acc[type]) acc[type] = []
       acc[type].push(sub)

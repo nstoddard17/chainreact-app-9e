@@ -84,7 +84,8 @@
       "Bash(npx supabase db execute:*)",
       "Bash(supabase migration:*)",
       "Bash(where:*)",
-      "Bash(supabase db:*)"
+      "Bash(supabase db:*)",
+      "Bash(del nul)"
     ],
     "defaultMode": "acceptEdits"
   }
