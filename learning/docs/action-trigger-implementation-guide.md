@@ -3,6 +3,117 @@
 ## Overview
 This document provides a comprehensive checklist for implementing workflow actions and triggers from UI to backend execution. Following this guide ensures actions/triggers work completely end-to-end and maintain uniform structure across the codebase.
 
+## 🚨 CRITICAL: Trigger Lifecycle Pattern
+
+**MANDATORY FOR ALL TRIGGERS**: If you're implementing a trigger that requires external resources (webhooks, subscriptions, polling), you MUST follow the Trigger Lifecycle Pattern.
+
+### When Does This Apply?
+- ✅ **YES** - Triggers that need webhooks (Airtable, Discord, Slack)
+- ✅ **YES** - Triggers that need subscriptions (Microsoft Graph, Google APIs)
+- ✅ **YES** - Triggers that need external registration of any kind
+- ❌ **NO** - Schedule triggers (cron-based, no external resources)
+- ❌ **NO** - Manual triggers (user-initiated, no external resources)
+- ❌ **NO** - Generic webhook triggers (passive receiver, no registration)
+
+### The Lifecycle Rule
+Resources for triggers should ONLY be created when workflows are **activated**, and MUST be cleaned up when workflows are **deactivated** or **deleted**.
+
+```
+✅ CORRECT Flow:
+1. User connects integration → Save OAuth credentials ONLY
+2. User creates workflow → Just configuration (no resources)
+3. User ACTIVATES workflow → CREATE webhook/subscription
+4. User DEACTIVATES workflow → DELETE webhook/subscription
+5. User DELETES workflow → DELETE all resources
+
+❌ WRONG Flow:
+1. User connects integration → Creates webhook/subscription immediately
+   (This is what we used to do - wastes resources!)
+```
+
+### Implementation Steps for Trigger Providers
+
+#### Step 1: Create Lifecycle Implementation
+**Location:** `/lib/triggers/providers/[Provider]TriggerLifecycle.ts`
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+import {
+  TriggerLifecycle,
+  TriggerActivationContext,
+  TriggerDeactivationContext,
+  TriggerHealthStatus
+} from '../types'
+
+export class YourProviderTriggerLifecycle implements TriggerLifecycle {
+
+  async onActivate(context: TriggerActivationContext): Promise<void> {
+    // 1. Get user's access token
+    // 2. Create webhook/subscription in external system
+    // 3. Store in trigger_resources table
+    // 4. Link to workflow_id
+  }
+
+  async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
+    // 1. Find resources for this workflow
+    // 2. Delete from external system
+    // 3. Mark as 'deleted' in trigger_resources table
+  }
+
+  async onDelete(context: TriggerDeactivationContext): Promise<void> {
+    // Usually same as onDeactivate
+    return this.onDeactivate(context)
+  }
+
+  async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
+    // Check if webhook/subscription is still valid
+    // Return health status
+  }
+}
+```
+
+**See complete example:** `/lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts`
+
+#### Step 2: Register Provider
+**Location:** `/lib/triggers/index.ts`
+
+```typescript
+import { YourProviderTriggerLifecycle } from './providers/YourProviderTriggerLifecycle'
+
+triggerLifecycleManager.registerProvider({
+  providerId: 'your-provider',
+  lifecycle: new YourProviderTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Your provider webhooks/subscriptions'
+})
+```
+
+#### Step 3: Database Schema
+Resources are automatically tracked in `trigger_resources` table:
+
+```sql
+-- Already exists - migration: 20251003_create_trigger_resources_table.sql
+-- Tracks: workflow_id, provider_id, trigger_type, external_id, status, expires_at
+```
+
+#### Step 4: Test the Lifecycle
+1. ❌ Connect integration → NO resources created
+2. ❌ Create workflow → NO resources created
+3. ✅ Activate workflow → Resources CREATED
+4. ✅ Send test → Workflow executes
+5. ✅ Deactivate workflow → Resources DELETED
+6. ❌ Send test → Workflow does NOT execute
+7. ✅ Delete workflow → All cleanup done
+
+### Resources
+- **Full Architecture**: `/learning/docs/trigger-lifecycle-audit.md`
+- **Migration Guide**: `/learning/walkthroughs/trigger-lifecycle-refactoring.md`
+- **Types**: `/lib/triggers/types.ts`
+- **Manager**: `/lib/triggers/TriggerLifecycleManager.ts`
+- **Database**: `/supabase/migrations/20251003_create_trigger_resources_table.sql`
+
+---
+
 ## Critical Implementation Checklist
 
 ### 1. Define Node in availableNodes.ts or Provider-Specific Nodes File

@@ -1,3 +1,32 @@
+/**
+ * ⚠️ PARTIALLY DEPRECATED FILE (2025-10-03)
+ *
+ * IMPORTANT: This file is PARTIALLY deprecated as of the trigger lifecycle refactoring.
+ *
+ * DEPRECATED PROVIDERS (now managed by TriggerLifecycleManager):
+ * - Microsoft (Outlook, Teams, OneDrive, OneNote) - see MicrosoftGraphTriggerLifecycle
+ * - Google (Gmail, Calendar, Drive, Sheets, Docs) - see GoogleApisTriggerLifecycle
+ * - Airtable - see AirtableTriggerLifecycle
+ * - Discord - see DiscordTriggerLifecycle
+ * - Slack - see SlackTriggerLifecycle
+ * - Stripe - see StripeTriggerLifecycle
+ * - Shopify - see ShopifyTriggerLifecycle
+ *
+ * STILL ACTIVE PROVIDERS (not yet migrated):
+ * - Trello
+ * - Dropbox
+ * - GitHub
+ * - Notion
+ * - HubSpot
+ *
+ * MIGRATION STATUS:
+ * - registerWithExternalService() now skips lifecycle-managed providers
+ * - unregisterFromExternalService() still handles cleanup for both old and new systems
+ * - This file will be fully deprecated once all providers are migrated
+ *
+ * SEE: /learning/docs/trigger-lifecycle-audit.md
+ */
+
 import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getWebhookBaseUrl, getWebhookUrl } from '@/lib/utils/getBaseUrl'
@@ -864,11 +893,38 @@ export class TriggerWebhookManager {
 
   /**
    * Register webhook with external service
+   *
+   * NOTE: Many providers are now managed by TriggerLifecycleManager and are skipped here.
+   * See file header for list of deprecated providers.
    */
   private async registerWithExternalService(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    // List of providers now managed by TriggerLifecycleManager (skip registration here)
+    const lifecycleManagedProviders = [
+      'microsoft-outlook',
+      'microsoft-teams',
+      'microsoft-onenote',
+      'onedrive',
+      'gmail',
+      'google-calendar',
+      'google-drive',
+      'google-sheets',
+      'google_sheets',
+      'google-docs',
+      'airtable',
+      'discord',
+      'slack',
+      'stripe',
+      'shopify'
+    ]
+
+    if (lifecycleManagedProviders.includes(config.providerId)) {
+      console.log(`⏭️ Skipping webhook registration for ${config.providerId} - now managed by TriggerLifecycleManager`)
+      return
+    }
+
     // This integrates with external APIs to register webhooks
     console.log('🔗 registerWithExternalService called for provider:', config.providerId)
-    
+
     switch (config.providerId) {
       case 'discord':
         // Discord webhooks are automatically created via Discord API
