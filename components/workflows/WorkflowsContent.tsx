@@ -37,7 +37,6 @@ export default function WorkflowsContent() {
   const { integrations, fetchIntegrations } = useIntegrationStore()
   const {
     workflows,
-    loading,
     error,
     loadAllWorkflows,
     updateWorkflowById,
@@ -102,17 +101,27 @@ export default function WorkflowsContent() {
 
   // Use the new timeout loading hook for fast, reliable loading
   // NON-BLOCKING - page renders immediately
-  useTimeoutLoading({
+  const { refresh: refreshWorkflows } = useTimeoutLoading({
     loadFunction: async (force) => {
-      // Always fetch fresh data for workflows to ensure deleted ones don't appear
-      return await loadAllWorkflows(true)
+      if (force) {
+        setForceShowContent(false)
+      }
+      setRefreshing(true)
+      try {
+        return await loadAllWorkflows(force ?? true)
+      } finally {
+        setRefreshing(false)
+      }
     },
-    isLoading: loading,
+    isLoading: refreshing,
     timeout: 5000, // 5 second timeout
     forceRefreshOnMount: true, // Always refresh workflows on mount
     onError: (error) => {
       // Don't show toast for timeouts - just log
       console.warn('Workflow loading error (non-blocking):', error)
+    },
+    onSuccess: () => {
+      setForceShowContent(false)
     },
     dependencies: [] // Only load on mount
   })
@@ -120,15 +129,20 @@ export default function WorkflowsContent() {
   // Add a fallback timeout to force show content if loading gets stuck
   // This ensures the page never stays in infinite loading state
   useEffect(() => {
+    if (!refreshing) {
+      setForceShowContent(false)
+      return
+    }
+
     const fallbackTimeout = setTimeout(() => {
-      if (loading && !hasWorkflows) {
+      if (refreshing && !hasWorkflows) {
         console.warn('⚠️ Workflows page stuck in loading state - forcing content display')
         setForceShowContent(true)
       }
     }, 8000) // 8 second fallback (longer than useTimeoutLoading)
 
     return () => clearTimeout(fallbackTimeout)
-  }, [loading, hasWorkflows])
+  }, [refreshing, hasWorkflows])
 
   // Load integrations on mount
   const safeFetchIntegrations = useCallback(async (force = false) => {
@@ -613,7 +627,7 @@ export default function WorkflowsContent() {
     )
   }
 
-  if (loading && !hasWorkflows && !forceShowContent) {
+  if (refreshing && !hasWorkflows && !forceShowContent) {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
@@ -628,7 +642,7 @@ export default function WorkflowsContent() {
       <AppLayout title="Workflows">
         <div className="flex flex-col items-center justify-center h-64">
           <div className="text-red-500 mb-4">Error loading workflows: {error}</div>
-          <Button onClick={() => loadAllWorkflows(true)}>Retry</Button>
+          <Button onClick={() => { setForceShowContent(false); refreshWorkflows(); }}>Retry</Button>
         </div>
       </AppLayout>
     )
@@ -637,7 +651,7 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
-        {loading && hasWorkflows && (
+        {refreshing && hasWorkflows && (
           <div className="flex items-center justify-between rounded border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
             <span>Refreshing workflows…</span>
             <LightningLoader size="sm" />
