@@ -13,8 +13,10 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       const fieldToDataTypeMap: Record<string, string> = {
         'workspace': 'workspaces',
         'database': 'databases',
+        'databaseId': 'databases', // Added for notion_action_create_page
         'parentDatabase': 'databases',
         'page': 'pages',
+        'pageId': 'pages', // Added for consistency
         'parentPage': 'pages',
         'page_id': 'pages',
         'databaseProperties': 'properties',

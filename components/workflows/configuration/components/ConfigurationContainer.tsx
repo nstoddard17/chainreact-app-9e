@@ -7,7 +7,7 @@ import { ChevronLeft } from "lucide-react";
 interface ConfigurationContainerProps {
   children: React.ReactNode;
   onSubmit: (e: React.FormEvent) => void;
-  onCancel: () => void;
+  onCancel?: () => void; // Kept for backwards compatibility but not used
   onBack?: () => void;
   isEditMode?: boolean;
   submitLabel?: string;
@@ -72,11 +72,8 @@ export function ConfigurationContainer({
               )}
             </div>
 
-            {/* Cancel and Save buttons on the right */}
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={onCancel}>
-                Cancel
-              </Button>
+            {/* Save button on the right */}
+            <div>
               <Button
                 type="submit"
                 onClick={() => {

@@ -87,102 +87,79 @@ export function AIFieldWrapper({
     }
   };
 
+  // Render AI toggle button (to be passed to FieldRenderer)
+  const aiToggleButtonElement = supportsAI ? (
+    <button
+      type="button"
+      onClick={handleAIToggle}
+      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+      title="Use AI to fill this field"
+    >
+      <Bot className="h-4 w-4" />
+    </button>
+  ) : null;
+
   return (
     <div className={cn(
       "relative",
       isLocked && "opacity-60"
     )}>
-      <div className="flex items-start gap-2">
-        <div className="flex-1">
-          {isAIMode ? (
-            // AI Mode Display - styled like the reference image
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  {isLocked && <Lock className="h-3 w-3" />}
-                  {field.label || field.name}
-                  {field.required && <span className="text-red-500">*</span>}
-                </label>
-              </div>
-              <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
-                <Bot className="h-4 w-4 text-gray-400" />
-                <span className="text-sm flex-1">
-                  Defined automatically by the model
-                </span>
-                {supportsAI && (
-                  <button
-                    type="button"
-                    onClick={handleAIToggle}
-                    className="text-gray-400 hover:text-gray-200 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {field.description && (
-                <p className="text-xs text-slate-500">{field.description}</p>
-              )}
-            </div>
-          ) : (
-            // Normal Field Display
-            <div className="space-y-2">
-              {/* Field Label */}
-              <div className="flex items-center gap-2 mb-1">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  {isLocked && (
-                    <EnhancedTooltip content={
-                      field.computed ? "This field is computed automatically" :
-                      field.autoNumber ? "This field is auto-numbered" :
-                      field.formula ? "This field is calculated by a formula" :
-                      "This field cannot be edited"
-                    }>
-                      <Lock className="h-3 w-3" />
-                    </EnhancedTooltip>
-                  )}
-                  {field.label || field.name}
-                  {field.required && <span className="text-red-500">*</span>}
-                </label>
-                {supportsAI && (
-                  <button
-                    type="button"
-                    onClick={handleAIToggle}
-                    className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                    title="Use AI to fill this field"
-                  >
-                    <Bot className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              
-              {/* Field Renderer */}
-              <div className={cn(isLocked && "pointer-events-none")}>
-                <FieldRenderer
-                  field={{
-                    ...field,
-                    readOnly: field.readOnly || isRecordIdField || isLocked,
-                    disabled: isLocked
-                  }}
-                  value={value}
-                  onChange={onChange}
-                  error={error}
-                  workflowData={workflowData}
-                  currentNodeId={currentNodeId}
-                  dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingDynamic}
-                  nodeInfo={nodeInfo}
-                  onDynamicLoad={onDynamicLoad}
-                  parentValues={parentValues}
-                  setFieldValue={setFieldValue}
-                />
-              </div>
-            </div>
+      {isAIMode ? (
+        // AI Mode Display - styled like the reference image
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium flex items-center gap-2">
+              {isLocked && <Lock className="h-3 w-3" />}
+              {field.label || field.name}
+              {field.required && <span className="text-red-500">*</span>}
+            </label>
+          </div>
+          <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
+            <Bot className="h-4 w-4 text-gray-400" />
+            <span className="text-sm flex-1">
+              Defined automatically by the model
+            </span>
+            {supportsAI && (
+              <button
+                type="button"
+                onClick={handleAIToggle}
+                className="text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {field.description && (
+            <p className="text-xs text-slate-500">{field.description}</p>
+          )}
+          {/* Error Display */}
+          {error && (
+            <p className="text-xs text-red-500 mt-1">{error}</p>
           )}
         </div>
-      </div>
-      
-      {/* Error Display */}
-      {error && (
-        <p className="text-xs text-red-500 mt-1">{error}</p>
+      ) : (
+        // Normal Field Display - let FieldRenderer handle everything including label
+        <div className={cn(isLocked && "pointer-events-none")}>
+          <FieldRenderer
+            field={{
+              ...field,
+              readOnly: field.readOnly || isRecordIdField || isLocked,
+              disabled: isLocked
+            }}
+            value={value}
+            onChange={onChange}
+            error={error}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingDynamic={loadingDynamic}
+            nodeInfo={nodeInfo}
+            onDynamicLoad={onDynamicLoad}
+            parentValues={parentValues}
+            setFieldValue={setFieldValue}
+            aiToggleButton={aiToggleButtonElement}
+          />
+        </div>
       )}
     </div>
   );

@@ -848,6 +848,13 @@ function ConfigurationForm({
         loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Notion databaseId
+      const notionDatabaseIdField = fieldsToLoad.find((f: any) => f.name === 'databaseId');
+      if (notionDatabaseIdField && nodeInfo?.providerId === 'notion') {
+        console.log(`🚀 [ConfigForm] Loading Notion databaseId immediately with cache`);
+        loadOptions('databaseId', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -897,6 +904,10 @@ function ConfigurationForm({
             return;
           }
           if (field.name === 'fileId' && nodeInfo?.providerId === 'onedrive') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'databaseId' && nodeInfo?.providerId === 'notion') {
             // Already loaded above
             return;
           }

@@ -317,7 +317,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative w-[400px] bg-card rounded-lg shadow-sm border-2 group ${
+      className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group ${
         selected
           ? "border-primary"
           : isIntegrationDisconnected
@@ -392,16 +392,16 @@ function CustomNode({ id, data, selected }: NodeProps) {
       )}
       
 
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start space-x-2.5 flex-1 min-w-0">
             {type === 'chain_placeholder' ? (
-              <Layers className="h-8 w-8 text-muted-foreground" />
+              <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0 mt-0.5" />
             ) : providerId ? (
               <img
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
-                className="w-8 h-8 object-contain"
+                className="w-7 h-7 object-contain flex-shrink-0 mt-0.5"
                 onError={(e) => {
                   console.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                   // Fallback to icon if image fails
@@ -417,9 +417,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 onLoad={() => console.log(`Successfully loaded logo for ${providerId}`)}
               />
             ) : (
-              component?.icon && React.createElement(component.icon, { className: "h-8 w-8 text-foreground" })
+              component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0 mt-0.5" })
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pr-2">
               {isEditingTitle ? (
                 <input
                   ref={titleInputRef}
@@ -428,47 +428,49 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   onChange={(e) => setEditedTitle(e.target.value)}
                   onKeyDown={handleTitleKeyPress}
                   onBlur={handleSaveTitle}
-                  className="text-xl font-medium text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
+                  className="text-lg font-semibold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-medium text-foreground whitespace-nowrap overflow-hidden text-ellipsis">
-                    {title || (component && component.title) || 'Unnamed Action'}
-                  </h3>
-                  {isIntegrationDisconnected && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex-shrink-0">
-                            <Unplug className="h-4 w-4 text-red-500" />
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>Integration disconnected. Reconnect {providerId?.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} to use this node.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-lg font-semibold text-foreground whitespace-nowrap overflow-hidden text-ellipsis flex-1">
+                      {title || (component && component.title) || 'Unnamed Action'}
+                    </h3>
+                    {isIntegrationDisconnected && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex-shrink-0">
+                              <Unplug className="h-4 w-4 text-red-500" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Integration disconnected. Reconnect {providerId?.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} to use this node.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleStartEditTitle()
+                      }}
+                      className="h-5 w-5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {description && (
+                    <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{description || (component && component.description)}</p>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleStartEditTitle()
-                    }}
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Edit2 className="h-3 w-3" />
-                  </Button>
                 </div>
-              )}
-              {description && !isEditingTitle && (
-                <p className="text-muted-foreground">{description || (component && component.description)}</p>
               )}
             </div>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-start space-x-0.5 flex-shrink-0 mt-0.5">
             {type === 'ai_agent' && onAddChain && (
               <TooltipProvider>
                 <Tooltip>
@@ -480,9 +482,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         e.stopPropagation()
                         onAddChain(id)
                       }}
-                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      className="h-7 w-7 text-muted-foreground hover:text-primary flex-shrink-0"
                     >
-                      <Plus />
+                      <Plus className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">Add New Chain</TooltipContent>
@@ -497,9 +499,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       variant="ghost"
                       size="icon"
                       onClick={handleConfigure}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground flex-shrink-0"
                     >
-                      <Settings />
+                      <Settings className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">Configure {title} (or double-click)</TooltipContent>
@@ -515,9 +517,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       variant="ghost"
                       size="icon"
                       onClick={handleDelete}
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
                     >
-                      <Trash2 />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">Delete {title}</TooltipContent>
