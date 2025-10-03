@@ -84,16 +84,30 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Enhanced dedup per notification with better key generation
-      const resourceId = change?.resourceData?.['@odata.id'] || resource || 'unknown'
-      const dedupKey = `${subId || 'unknown'}:${resourceId}:${changeType || 'unknown'}:${requestId || Date.now()}`
+      // Enhanced dedup per notification - use message/resource ID to prevent duplicate processing across multiple subscriptions
+      const messageId = change?.resourceData?.id || change?.resourceData?.['@odata.id'] || resource || 'unknown'
+      const userId_temp = userId || 'unknown' // Use temp variable for dedup key
+      // Deduplicate based on user + message + changeType (ignore subscription ID to catch duplicates across multiple subscriptions)
+      const dedupKey = `${userId_temp}:${messageId}:${changeType || 'unknown'}`
+
+      console.log('🔑 Deduplication check:', {
+        dedupKey,
+        messageId,
+        changeType,
+        subscriptionId: subId
+      })
+
       const { data: dedupHit } = await supabase
         .from('microsoft_webhook_dedup')
         .select('dedup_key')
         .eq('dedup_key', dedupKey)
         .maybeSingle()
       if (dedupHit) {
-        console.log('⏭️ Skipping duplicate notification:', dedupKey)
+        console.log('⏭️ Skipping duplicate notification (message already processed):', {
+          dedupKey,
+          messageId,
+          subscriptionId: subId
+        })
         continue
       }
       await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: dedupKey })
