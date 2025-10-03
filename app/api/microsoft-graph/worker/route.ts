@@ -240,27 +240,29 @@ export async function POST(_req: NextRequest) {
 // Helper functions
 function getResourceType(resource: string): string {
   console.log('🔍 Determining resource type for:', resource)
-  
-  if (resource.includes('/drive/') || resource.includes('/drives/')) {
+
+  const resourceLower = resource.toLowerCase()
+
+  if (resourceLower.includes('/drive/') || resourceLower.includes('/drives/')) {
     console.log('📁 Detected OneDrive resource')
     return 'onedrive'
-  } else if (resource.includes('/messages')) {
+  } else if (resourceLower.includes('/messages')) {
     console.log('📧 Detected mail resource')
     return 'mail'
-  } else if (resource.includes('/events')) {
+  } else if (resourceLower.includes('/events')) {
     console.log('📅 Detected calendar resource')
     return 'calendar'
-  } else if (resource.includes('/teams/') || resource.includes('/channels/')) {
+  } else if (resourceLower.includes('/teams/') || resourceLower.includes('/channels/')) {
     console.log('💬 Detected Teams resource')
     return 'teams'
-  } else if (resource.includes('/chats/')) {
+  } else if (resourceLower.includes('/chats/')) {
     console.log('💬 Detected chat resource')
     return 'chat'
-  } else if (resource.includes('/onenote/')) {
+  } else if (resourceLower.includes('/onenote/')) {
     console.log('📝 Detected OneNote resource')
     return 'onenote'
   }
-  
+
   console.log('❓ Unknown resource type')
   return 'unknown'
 }
