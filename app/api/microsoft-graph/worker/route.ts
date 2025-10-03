@@ -139,21 +139,47 @@ export async function POST(_req: NextRequest) {
       })
 
       let events: any[] = []
-      
+
       // Check if this is an individual resource (not a collection)
-      const isIndividualResource = isIndividualMessageResource(payload.resource) || 
-                                   isIndividualDriveResource(payload.resource) ||
-                                   isIndividualEventResource(payload.resource)
+      const isIndividualMessage = isIndividualMessageResource(payload.resource)
+      const isIndividualDrive = isIndividualDriveResource(payload.resource)
+      const isIndividualEvent = isIndividualEventResource(payload.resource)
+      const isIndividualResource = isIndividualMessage || isIndividualDrive || isIndividualEvent
+
+      console.log('🔍 Individual resource detection:', {
+        resource: payload.resource,
+        isIndividualMessage,
+        isIndividualDrive,
+        isIndividualEvent,
+        isIndividualResource,
+        resourceLength: payload.resource?.length,
+        resourceStartsWith: payload.resource?.substring(0, 20),
+        resourceEndsWith: payload.resource?.substring(payload.resource.length - 20)
+      })
+
+      // Force individual resource detection for mail if it contains a message ID
+      const isMailWithMessageId = resourceType === 'mail' && 
+        (payload.resource.includes('/messages/') || payload.resource.includes('/Messages/'))
       
-      if (isIndividualResource) {
-        console.log('🎯 Individual resource detected, fetching directly')
-        events = await fetchIndividualResource(payload, userToken.access_token)
+      if (isIndividualResource || isMailWithMessageId) {
+        console.log('🎯 Individual resource detected, fetching directly', { 
+          isIndividualResource, 
+          isMailWithMessageId,
+          resourceType 
+        })
+        // For individual resources, get fresh token from integrations table
+        const { accessToken } = await resolveProviderTokens(actualUserId, resourceType)
+        events = await fetchIndividualResource(payload, accessToken)
       } else if (resourceType === 'onedrive') {
-        events = await fetchOneDriveChanges(payload, userToken.user_id)
+        events = await fetchOneDriveChanges(payload, actualUserId)
+      } else if (resourceType === 'mail' || resourceType === 'calendar') {
+        // Use fresh tokens from integrations table for mail and calendar
+        events = await fetchOutlookChanges(payload, actualUserId, resourceType)
       } else {
         // Fallback to generic handler for other resource types
         console.log('🔄 Using generic handler for resource type:', resourceType)
-        events = await fetchResourceChanges(resourceType, payload, userToken.access_token)
+        const { accessToken } = await resolveProviderTokens(actualUserId, resourceType)
+        events = await fetchResourceChanges(resourceType, payload, accessToken)
       }
 
       console.log('📊 Fetched events:', {
@@ -240,36 +266,52 @@ export async function POST(_req: NextRequest) {
 // Helper functions
 function getResourceType(resource: string): string {
   console.log('🔍 Determining resource type for:', resource)
-  
-  if (resource.includes('/drive/') || resource.includes('/drives/')) {
+
+  const resourceLower = resource.toLowerCase()
+
+  if (resourceLower.includes('/drive/') || resourceLower.includes('/drives/')) {
     console.log('📁 Detected OneDrive resource')
     return 'onedrive'
-  } else if (resource.includes('/messages')) {
+  } else if (resourceLower.includes('/messages')) {
     console.log('📧 Detected mail resource')
     return 'mail'
-  } else if (resource.includes('/events')) {
+  } else if (resourceLower.includes('/events')) {
     console.log('📅 Detected calendar resource')
     return 'calendar'
-  } else if (resource.includes('/teams/') || resource.includes('/channels/')) {
+  } else if (resourceLower.includes('/teams/') || resourceLower.includes('/channels/')) {
     console.log('💬 Detected Teams resource')
     return 'teams'
-  } else if (resource.includes('/chats/')) {
+  } else if (resourceLower.includes('/chats/')) {
     console.log('💬 Detected chat resource')
     return 'chat'
-  } else if (resource.includes('/onenote/')) {
+  } else if (resourceLower.includes('/onenote/')) {
     console.log('📝 Detected OneNote resource')
     return 'onenote'
   }
-  
+
   console.log('❓ Unknown resource type')
   return 'unknown'
 }
 
 function isIndividualMessageResource(resource: string): boolean {
   // Check if it's a specific message ID (not the collection)
-  const messageIdMatch = resource.match(/\/me\/messages\/([^\/]+)$/)
-  const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/)
-  return !!(messageIdMatch || folderMessageMatch)
+  const messageIdMatch = resource.match(/\/me\/messages\/([^\/]+)$/i)
+  const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
+  const userMessageMatch = resource.match(/\/users\/[^\/]+\/messages\/([^\/]+)$/i)
+  const userFolderMessageMatch = resource.match(/\/users\/[^\/]+\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
+  
+  const isIndividual = !!(messageIdMatch || folderMessageMatch || userMessageMatch || userFolderMessageMatch)
+  
+  console.log('📧 Message resource check:', {
+    resource,
+    messageIdMatch: !!messageIdMatch,
+    folderMessageMatch: !!folderMessageMatch,
+    userMessageMatch: !!userMessageMatch,
+    userFolderMessageMatch: !!userFolderMessageMatch,
+    isIndividual
+  })
+  
+  return isIndividual
 }
 
 function isIndividualDriveResource(resource: string): boolean {
@@ -290,12 +332,18 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
   const client = new MicrosoftGraphClient({ accessToken })
   const resource = payload.resource
   const changeType = payload.changeType
+  const requestPathBase = resource.startsWith('/') ? resource : `/${resource}`
+  const requestPath = requestPathBase
+    .replace(/^\/Users\//i, '/users/')
+    .replace(/\/Messages\//g, '/messages/')
+    .replace(/\/MailFolders\//g, '/mailFolders/')
+  const resourceLower = requestPath.toLowerCase()
   
   console.log('🎯 Fetching individual resource:', resource, 'changeType:', changeType)
   
   try {
     // For individual resources, fetch the specific item directly
-    const item: any = await client.request(resource)
+    const item: any = await client.request(requestPath)
     
     if (!item) {
       console.log('⚠️ No item found for resource:', resource)
@@ -305,7 +353,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
     // Normalize based on resource type
     let normalizedEvent: any = null
     
-    if (resource.includes('/messages')) {
+    if (resourceLower.includes('/messages')) {
       // Mail message
       normalizedEvent = {
         id: item.id,
@@ -322,7 +370,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
         webLink: item.webLink,
         originalPayload: item
       }
-    } else if (resource.includes('/drive/items') || resource.includes('/drives/')) {
+    } else if (resourceLower.includes('/drive/items') || resourceLower.includes('/drives/')) {
       // OneDrive item
       normalizedEvent = {
         id: item.id,
@@ -336,7 +384,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
         webUrl: item.webUrl,
         originalPayload: item
       }
-    } else if (resource.includes('/events')) {
+    } else if (resourceLower.includes('/events')) {
       // Calendar event
       normalizedEvent = {
         id: item.id,
@@ -449,68 +497,130 @@ async function fetchResourceChanges(
         break
       }
       
-      case 'mail': {
-        console.log('dY" Mail delta query starting...')
-        const mailBasePath = resolveMailMessagesBasePath(payload.resource)
-        console.log('dY" Mail delta path:', mailBasePath)
-        const response = await client.getMailDelta(deltaToken?.token, { basePath: mailBasePath })
-        console.log('dY" Mail delta response:', {
-          totalMessages: response.value.length,
-          hasDeltaLink: !!response['@odata.deltaLink'],
-          hasNextLink: !!response['@odata.nextLink']
-        })
-
-        events = response.value.filter(item => item._normalized).map(item => item._normalized!)
-
-        // If no events from delta query, try to get recent messages as fallback
-        if (events.length === 0 && !deltaToken?.token) {
-          console.log('dY" No events from delta query, trying recent messages fallback...')
-          try {
-            const recentResponse: any = await client.request(`${mailBasePath}?$top=10&$orderby=receivedDateTime desc`)
-            if (recentResponse.value && recentResponse.value.length > 0) {
-              console.log('dY" Found recent messages:', recentResponse.value.length)
-              // Normalize recent messages
-              const normalizedRecent = recentResponse.value.map((message: any) => ({
-                id: message.id,
-                type: 'outlook_mail',
-                action: message.isDraft ? 'draft' : 'created',
-                subject: message.subject,
-                from: message.from?.emailAddress?.address,
-                receivedDateTime: message.receivedDateTime,
-                sentDateTime: message.sentDateTime,
-                importance: message.importance,
-                hasAttachments: message.hasAttachments,
-                isRead: message.isRead,
-                isDraft: message.isDraft,
-                webLink: message.webLink,
-                originalPayload: message
-              }))
-              events = normalizedRecent
-            }
-          } catch (fallbackError) {
-            console.log('dY" Recent messages fallback failed:', fallbackError)
-          }
-        }
-
-        // Parse delta token from the delta link
-        const deltaLink = response['@odata.deltaLink']
-        if (deltaLink) {
-          const tokenMatch = deltaLink.match(/\$deltatoken=([^&]+)/)
-          newDeltaToken = tokenMatch ? tokenMatch[1] : undefined
-        }
-        console.log('dY" Mail events found:', events.length)
-        console.log('dY" New delta token:', newDeltaToken ? 'present' : 'none')
-        if (events.length > 0) {
-          console.log('dY" Sample mail event:', {
-            type: events[0].type,
-            action: events[0].action,
-            subject: events[0].subject,
-            from: events[0].from
-          })
-        }
-        break
-      }
-
+      case 'mail': {
+
+        console.log('dY" Mail delta query starting...')
+
+        const mailBasePath = resolveMailMessagesBasePath(payload.resource)
+
+        console.log('dY" Mail delta path:', mailBasePath)
+
+        const response = await client.getMailDelta(deltaToken?.token, { basePath: mailBasePath })
+
+        console.log('dY" Mail delta response:', {
+
+          totalMessages: response.value.length,
+
+          hasDeltaLink: !!response['@odata.deltaLink'],
+
+          hasNextLink: !!response['@odata.nextLink']
+
+        })
+
+
+
+        events = response.value.filter(item => item._normalized).map(item => item._normalized!)
+
+
+
+        // If no events from delta query, try to get recent messages as fallback
+
+        if (events.length === 0 && !deltaToken?.token) {
+
+          console.log('dY" No events from delta query, trying recent messages fallback...')
+
+          try {
+
+            const recentResponse: any = await client.request(`${mailBasePath}?$top=10&$orderby=receivedDateTime desc`)
+
+            if (recentResponse.value && recentResponse.value.length > 0) {
+
+              console.log('dY" Found recent messages:', recentResponse.value.length)
+
+              // Normalize recent messages
+
+              const normalizedRecent = recentResponse.value.map((message: any) => ({
+
+                id: message.id,
+
+                type: 'outlook_mail',
+
+                action: message.isDraft ? 'draft' : 'created',
+
+                subject: message.subject,
+
+                from: message.from?.emailAddress?.address,
+
+                receivedDateTime: message.receivedDateTime,
+
+                sentDateTime: message.sentDateTime,
+
+                importance: message.importance,
+
+                hasAttachments: message.hasAttachments,
+
+                isRead: message.isRead,
+
+                isDraft: message.isDraft,
+
+                webLink: message.webLink,
+
+                originalPayload: message
+
+              }))
+
+              events = normalizedRecent
+
+            }
+
+          } catch (fallbackError) {
+
+            console.log('dY" Recent messages fallback failed:', fallbackError)
+
+          }
+
+        }
+
+
+
+        // Parse delta token from the delta link
+
+        const deltaLink = response['@odata.deltaLink']
+
+        if (deltaLink) {
+
+          const tokenMatch = deltaLink.match(/\$deltatoken=([^&]+)/)
+
+          newDeltaToken = tokenMatch ? tokenMatch[1] : undefined
+
+        }
+
+        console.log('dY" Mail events found:', events.length)
+
+        console.log('dY" New delta token:', newDeltaToken ? 'present' : 'none')
+
+        if (events.length > 0) {
+
+          console.log('dY" Sample mail event:', {
+
+            type: events[0].type,
+
+            action: events[0].action,
+
+            subject: events[0].subject,
+
+            from: events[0].from
+
+          })
+
+        }
+
+        break
+
+      }
+
+
+
       case 'calendar': {
         const response = await client.getCalendarDelta(deltaToken?.token)
         events = response.value.filter(item => item._normalized).map(item => item._normalized!)
@@ -1582,5 +1692,158 @@ async function updateOneDriveTokens(
 
   if (error) {
     console.error('Failed to update OneDrive integration tokens:', error)
+  }
+}
+
+// Outlook/Mail token resolution (similar to OneDrive)
+async function fetchOutlookChanges(payload: any, userId: string, resourceType: string): Promise<any[]> {
+  const { accessToken, refreshToken, integrationId } = await resolveProviderTokens(userId, resourceType)
+
+  try {
+    return await fetchResourceChanges(resourceType, payload, accessToken)
+  } catch (error: any) {
+    const message = error?.message || ''
+    if (!refreshToken || (!message.includes('InvalidAuthenticationToken') && !message.includes('expired'))) {
+      throw error
+    }
+
+    // Attempt refresh
+    const refreshed = await refreshMicrosoftAccessToken(refreshToken)
+    if (!refreshed?.accessToken) {
+      throw error
+    }
+
+    await updateMicrosoftTokens(integrationId, refreshed)
+    return await fetchResourceChanges(resourceType, payload, refreshed.accessToken)
+  }
+}
+
+// Generic token resolver for any Microsoft provider
+async function resolveProviderTokens(userId: string, resourceType: string): Promise<{ accessToken: string; refreshToken?: string; integrationId: string }> {
+  // Map resource type to provider name
+  const providerMap: Record<string, string> = {
+    'onedrive': 'onedrive',
+    'mail': 'microsoft-outlook',
+    'calendar': 'microsoft-outlook',
+    'teams': 'microsoft-teams',
+    'chat': 'microsoft-teams',
+    'onenote': 'microsoft-onenote'
+  }
+
+  const provider = providerMap[resourceType] || 'microsoft'
+
+  console.log('🔑 Resolving tokens for resource type:', resourceType, '→ provider:', provider)
+
+  const { data: integration } = await supabase
+    .from('integrations')
+    .select('id, access_token, refresh_token, status')
+    .eq('user_id', userId)
+    .eq('provider', provider)
+    .eq('status', 'connected')
+    .maybeSingle()
+
+  if (!integration) {
+    throw new Error(`${provider} integration not found or not connected`)
+  }
+
+  const decryptedAccess = integration.access_token ? safeDecrypt(integration.access_token) : null
+  const decryptedRefresh = integration.refresh_token ? safeDecrypt(integration.refresh_token) : undefined
+
+  if (decryptedAccess && decryptedAccess.includes('.')) {
+    console.log('✅ Found valid access token for provider:', provider)
+    return {
+      accessToken: decryptedAccess,
+      refreshToken: decryptedRefresh,
+      integrationId: integration.id
+    }
+  }
+
+  if (decryptedRefresh) {
+    console.log('🔄 Access token invalid, refreshing for provider:', provider)
+    const refreshed = await refreshMicrosoftAccessToken(decryptedRefresh)
+    if (refreshed?.accessToken) {
+      await updateMicrosoftTokens(integration.id, refreshed)
+      return {
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken || decryptedRefresh,
+        integrationId: integration.id
+      }
+    }
+  }
+
+  throw new Error(`No valid Microsoft Graph access token available for ${provider}`)
+}
+
+async function refreshMicrosoftAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number; tokenType?: string }> {
+  const clientId = process.env.MICROSOFT_CLIENT_ID
+  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Microsoft OAuth credentials not configured')
+  }
+
+  const response = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+      scope: 'https://graph.microsoft.com/.default'
+    })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => 'Unknown error')
+    throw new Error(`Failed to refresh Microsoft token: ${errorText}`)
+  }
+
+  const tokenJson = await response.json()
+  return {
+    accessToken: tokenJson.access_token,
+    refreshToken: tokenJson.refresh_token,
+    expiresIn: tokenJson.expires_in,
+    tokenType: tokenJson.token_type
+  }
+}
+
+async function updateMicrosoftTokens(
+  integrationId: string,
+  tokens: { accessToken: string; refreshToken?: string; expiresIn?: number; tokenType?: string }
+): Promise<void> {
+  const updateData: Record<string, any> = {
+    access_token: encrypt(tokens.accessToken),
+    updated_at: new Date().toISOString()
+  }
+
+  if (tokens.refreshToken) {
+    updateData.refresh_token = encrypt(tokens.refreshToken)
+  }
+
+  if (typeof tokens.expiresIn === 'number') {
+    updateData.expires_at = new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
+  }
+
+  if (tokens.tokenType) {
+    const { data: existing } = await supabase
+      .from('integrations')
+      .select('metadata')
+      .eq('id', integrationId)
+      .single()
+
+    const metadata = existing?.metadata || {}
+    updateData.metadata = { ...metadata, token_type: tokens.tokenType }
+  }
+
+  const { error } = await supabase
+    .from('integrations')
+    .update(updateData)
+    .eq('id', integrationId)
+
+  if (error) {
+    console.error('Failed to update Microsoft integration tokens:', error)
   }
 }
