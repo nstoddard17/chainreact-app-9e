@@ -57,39 +57,47 @@ async function processNotifications(
       // Resolve user and verify clientState from trigger_resources
       let userId: string | null = null
       let workflowId: string | null = null
+      let triggerResourceId: string | null = null
       if (subId) {
         console.log('🔍 Looking up subscription:', subId)
-        const { data: subscription, error: subError } = await supabase
+
+        const { data: triggerResource, error: resourceError } = await supabase
           .from('trigger_resources')
-          .select('user_id, workflow_id, config')
+          .select('id, user_id, workflow_id, config')
           .eq('external_id', subId)
           .eq('resource_type', 'subscription')
           .like('provider_id', 'microsoft%')
-          .single()
+          .maybeSingle()
 
-        if (subError) {
-          console.error('❌ Error fetching subscription:', subError)
+        if (!triggerResource) {
+          console.error('❌ Subscription not found in trigger_resources:', {
+            subId,
+            error: resourceError
+          })
+          continue
         }
 
+        userId = triggerResource.user_id
+        workflowId = triggerResource.workflow_id
+        triggerResourceId = triggerResource.id
+
         // Verify clientState if present
-        if (bodyClientState && subscription?.config?.clientState) {
-          if (bodyClientState !== subscription.config.clientState) {
+        if (bodyClientState && triggerResource.config?.clientState) {
+          if (bodyClientState !== triggerResource.config.clientState) {
             console.warn('⚠️ Invalid clientState for notification, skipping', {
               subId,
-              expected: subscription.config.clientState,
+              expected: triggerResource.config.clientState,
               received: bodyClientState
             })
             continue
           }
         }
 
-        userId = subscription?.user_id || null
-        workflowId = subscription?.workflow_id || null
-        console.log('👤 Resolved user from subscription:', {
+        console.log('✅ Resolved from trigger_resources:', {
           subscriptionId: subId,
           userId,
           workflowId,
-          subscriptionFound: !!subscription
+          triggerResourceId
         })
       }
 
@@ -125,12 +133,13 @@ async function processNotifications(
       console.log('📥 Inserting into queue:', {
         userId,
         subscriptionId: subId,
+        triggerResourceId,
         resource,
         changeType,
         hasPayload: !!change
       })
 
-      const { data: queueItem, error: queueError } = await supabase.from('microsoft_webhook_queue').insert({
+      const queueData: any = {
         user_id: userId,
         subscription_id: subId,
         resource: resource,
@@ -138,7 +147,18 @@ async function processNotifications(
         payload: change,
         headers,
         status: 'pending'
-      }).select().single()
+      }
+
+      // Add trigger_resource_id if available (new architecture)
+      if (triggerResourceId) {
+        queueData.trigger_resource_id = triggerResourceId
+      }
+
+      const { data: queueItem, error: queueError } = await supabase
+        .from('microsoft_webhook_queue')
+        .insert(queueData)
+        .select()
+        .single()
 
       if (queueError) {
         console.error('❌ Failed to queue notification:', {
