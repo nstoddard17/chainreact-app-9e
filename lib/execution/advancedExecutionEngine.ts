@@ -892,12 +892,21 @@ export class AdvancedExecutionEngine {
             break
           }
 
+          // Gmail action handling
+          console.log(`📧 Gmail check - providerId: ${providerId}, hasApiClient: ${!!apiClient}, hasSchema: ${!!nodeComponent?.actionParamsSchema}, nodeType: ${node.data.type}`);
+
           if (providerId === 'gmail' && apiClient && nodeComponent?.actionParamsSchema) {
+            console.log(`📧 Executing Gmail action: ${node.data.type}`);
             if (node.data.type === 'gmail_action_send_email') {
               const actionResult = await sendGmail(mappedParams, context.session.user_id, context.data)
               result = { ...context.data, [node.id]: actionResult }
+              console.log(`📧 Gmail action result:`, actionResult);
             }
             break
+          }
+
+          if (providerId === 'gmail' && !apiClient) {
+            console.error(`❌ Gmail action failed - no API client (integration may not be connected or token invalid)`);
           }
 
           if (apiClient && nodeComponent?.actionParamsSchema) {
@@ -927,47 +936,84 @@ export class AdvancedExecutionEngine {
 
   private async getApiClientForNode(providerId: string | undefined, userId: string): Promise<any | null> {
     if (!providerId) return null;
-    
+
+    console.log(`🔑 getApiClientForNode called - providerId: ${providerId}, userId: ${userId}`);
+
     // AI agents don't need OAuth integrations - they use global OpenAI API key
     if (providerId === 'ai') {
       return { provider: 'ai', type: 'global' };
     }
 
+    // Map virtual provider IDs to actual integration provider names
+    const providerMapping: Record<string, string> = {
+      'microsoft-excel': 'onedrive',
+      'microsoft-outlook': 'microsoft',
+      'microsoft-onenote': 'onenote'
+    };
+
+    const actualProvider = providerMapping[providerId] || providerId;
+
+    console.log(`🔑 Resolving integration: ${providerId} → ${actualProvider}`);
+
+    // Query without status filter to match test mode behavior (executeNode.ts line 168-173)
     const { data: integration, error } = await this.supabase
       .from('integrations')
-      .select('id, access_token, refresh_token, expires_at')
+      .select('id, access_token, refresh_token, expires_at, status')
       .eq('user_id', userId)
-      .eq('provider', providerId)
+      .eq('provider', actualProvider)
       .single();
 
+    console.log(`🔑 Integration query result:`, {
+      found: !!integration,
+      error: error?.message,
+      integrationId: integration?.id,
+      hasAccessToken: !!integration?.access_token,
+      expiresAt: integration?.expires_at
+    });
+
     if (error || !integration) {
-      console.error(`No integration found for provider ${providerId} for user ${userId}`);
+      console.error(`❌ No integration found for provider ${providerId} (mapped to ${actualProvider}) for user ${userId}:`, error);
       return null;
     }
 
     let accessToken = integration.access_token;
     const expiresAt = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
 
+    console.log(`🔑 Token status:`, {
+      hasToken: !!accessToken,
+      tokenLength: accessToken?.length,
+      expiresAt: new Date(expiresAt).toISOString(),
+      isExpired: Date.now() >= expiresAt - 5 * 60 * 1000,
+      providerId
+    });
+
     // Check if the token is expired or will expire soon (e.g., within 5 minutes)
     if (Date.now() >= expiresAt - 5 * 60 * 1000) {
+      console.log(`⚠️ Token expired or expiring soon, refreshing for ${providerId}`);
       if (providerId === 'gmail') {
         accessToken = await GmailService.refreshToken(userId, integration.id);
         if (!accessToken) {
           // TODO: Handle re-authorization flow
           throw new Error('Failed to refresh Gmail token.');
         }
+        console.log(`✅ Token refreshed successfully for Gmail`);
       }
       // TODO: Add refresh logic for other providers
     }
 
     if (!accessToken) {
+      console.error(`❌ No valid access token for ${providerId}`);
       throw new Error(`No valid access token for ${providerId}`);
     }
 
     if (providerId === 'gmail') {
-      return new GmailService(accessToken);
+      console.log(`✅ Creating GmailService instance with token length: ${accessToken.length}`);
+      const gmailClient = new GmailService(accessToken);
+      console.log(`✅ GmailService instance created:`, !!gmailClient);
+      return gmailClient;
     }
 
+    console.log(`⚠️ No API client handler for provider: ${providerId}`);
     return null;
   }
 
