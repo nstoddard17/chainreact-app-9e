@@ -22,17 +22,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
     }
 
-    // Get all subscriptions for user
-    const subscriptions = await manager.getUserSubscriptions(userId)
-    
-    // Get user token
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('access_token, refresh_token')
+    // Get all subscriptions for user from trigger_resources
+    const { data: subscriptions } = await supabase
+      .from('trigger_resources')
+      .select('*')
       .eq('user_id', userId)
-      .eq('provider', 'microsoft')
-      .single()
-      
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
+      .eq('status', 'active')
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({ message: 'No active Microsoft Graph subscriptions found for user' })
+    }
+
+    // Get user token (check multiple Microsoft providers)
+    const { data: integrations } = await supabase
+      .from('integrations')
+      .select('access_token, refresh_token, provider')
+      .eq('user_id', userId)
+      .or('provider.like.microsoft%,provider.eq.onedrive')
+
+    const integration = integrations?.find(i => i.access_token)
+
     if (!integration) {
       await notifySubscriptionIssue(userId, 'No Microsoft integration found')
       return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
@@ -48,20 +59,22 @@ export async function POST(req: NextRequest) {
 
     for (const sub of subscriptions) {
       results.checked++
-      
+
       try {
         // Check if subscription is expiring soon (within 24 hours)
-        const expirationDate = new Date(sub.expirationDateTime)
+        const expirationDate = sub.expires_at ? new Date(sub.expires_at) : null
+        if (!expirationDate) continue
+
         const now = new Date()
         const hoursUntilExpiration = (expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-        
-        if (hoursUntilExpiration < 24) {
-          await manager.renewSubscription(sub.id, integration.access_token)
+
+        if (hoursUntilExpiration < 24 && sub.external_id) {
+          await manager.renewSubscription(sub.external_id, integration.access_token)
           results.renewed++
         }
       } catch (error: any) {
         results.failed++
-        results.errors.push(`Failed to renew subscription ${sub.id}: ${error.message}`)
+        results.errors.push(`Failed to renew subscription ${sub.external_id}: ${error.message}`)
       }
     }
 
@@ -92,12 +105,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all active subscriptions across users
+    // Get all active subscriptions across users from trigger_resources
     const { data: subscriptions } = await supabase
-      .from('microsoft_graph_subscriptions')
-      .select('id, user_id, expiration_date_time')
+      .from('trigger_resources')
+      .select('external_id, user_id, expires_at')
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
       .eq('status', 'active')
-    
+
     if (!subscriptions || subscriptions.length === 0) {
       return NextResponse.json({ message: 'No active subscriptions found' })
     }
@@ -123,14 +138,15 @@ export async function GET(req: NextRequest) {
     for (const [userId, subs] of Object.entries(userSubscriptions)) {
       results.usersChecked++
       
-      // Get user token
-      const { data: integration } = await supabase
+      // Get user token (check multiple Microsoft providers)
+      const { data: integrations } = await supabase
         .from('integrations')
-        .select('access_token')
+        .select('access_token, provider')
         .eq('user_id', userId)
-        .eq('provider', 'microsoft')
-        .single()
-        
+        .or('provider.like.microsoft%,provider.eq.onedrive')
+
+      const integration = integrations?.find(i => i.access_token)
+
       if (!integration) {
         results.errors.push(`User ${userId} has no Microsoft integration`)
         continue
@@ -139,21 +155,23 @@ export async function GET(req: NextRequest) {
       // Check each subscription
       for (const sub of subs) {
         results.subscriptionsChecked++
-        
+
         try {
           // Check if subscription is expiring soon (within 24 hours)
-          const expirationDate = new Date(sub.expiration_date_time)
+          const expirationDate = sub.expires_at ? new Date(sub.expires_at) : null
+          if (!expirationDate) continue
+
           const now = new Date()
           const hoursUntilExpiration = (expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-          
-          if (hoursUntilExpiration < 24) {
-            await manager.renewSubscription(sub.id, integration.access_token)
+
+          if (hoursUntilExpiration < 24 && sub.external_id) {
+            await manager.renewSubscription(sub.external_id, integration.access_token)
             results.subscriptionsRenewed++
           }
         } catch (error: any) {
           results.subscriptionsFailed++
-          results.errors.push(`Failed to renew subscription ${sub.id} for user ${userId}: ${error.message}`)
-          
+          results.errors.push(`Failed to renew subscription ${sub.external_id} for user ${userId}: ${error.message}`)
+
           // Notify user of issue
           await notifySubscriptionIssue(userId, `Failed to renew Microsoft Graph subscription: ${error.message}`)
         }
