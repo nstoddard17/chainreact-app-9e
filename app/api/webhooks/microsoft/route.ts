@@ -222,20 +222,19 @@ export async function POST(request: NextRequest) {
 
     const requestId = headers['request-id'] || headers['client-request-id'] || undefined
 
-    // Fast 202 ACK - process in background to avoid Microsoft retries
+    // Process notifications synchronously (fast enough for serverless)
     const startTime = Date.now()
-    queueMicrotask(async () => {
-      try {
-        await processNotifications(notifications, headers, requestId)
-        await logWebhookExecution('microsoft-graph', payload, headers, 'queued', Date.now() - startTime)
-      } catch (error) {
-        console.error('❌ Background notification processing error:', error)
-        await logWebhookExecution('microsoft-graph', payload, headers, 'error', Date.now() - startTime)
-      }
-    })
+    try {
+      await processNotifications(notifications, headers, requestId)
+      await logWebhookExecution('microsoft-graph', payload, headers, 'queued', Date.now() - startTime)
 
-    // Return 202 immediately
-    return new NextResponse(null, { status: 202 })
+      // Return 202 after processing
+      return new NextResponse(null, { status: 202 })
+    } catch (error) {
+      console.error('❌ Notification processing error:', error)
+      await logWebhookExecution('microsoft-graph', payload, headers, 'error', Date.now() - startTime)
+      return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
+    }
 
   } catch (error: any) {
     console.error('❌ Microsoft Graph webhook error:', error)
