@@ -205,3 +205,48 @@ For each trigger type:
 - Duplicate notification issues
 - User experience (workflows triggering when they shouldn't)
 - Billing (if you charge for workflow executions)
+
+---
+
+## Implementation Issues Found (2025-10-03)
+
+### Issue: Provider ID Mismatch
+
+**Problem**: Trigger lifecycle providers were registered with incorrect provider IDs, causing workflows to fail activation.
+
+**Root Cause**:
+- TriggerLifecycleManager was registered with generic/incorrect provider IDs
+- Workflow nodes use specific hyphenated provider IDs
+- Example: Registered as `'microsoft'` but nodes use `'microsoft-outlook'`
+
+**Symptoms**:
+```
+⚠️ No lifecycle registered for provider: microsoft-outlook
+ℹ️ No lifecycle for microsoft-outlook, skipping (no external resources needed)
+```
+Result: No rows created in `trigger_resources` table when workflow activated.
+
+**Fix Applied**: Updated provider registration in `/lib/triggers/index.ts`
+
+**Provider ID Corrections**:
+| Service | Node providerId | Was Registered As | Fixed To |
+|---------|----------------|-------------------|----------|
+| Microsoft Outlook | `microsoft-outlook` | `microsoft` | `microsoft-outlook` ✅ |
+| Microsoft Teams | `teams` | `microsoft-teams` | `teams` ✅ |
+| Microsoft OneNote | `microsoft-onenote` | `microsoft` | `microsoft-onenote` ✅ |
+| OneDrive | `onedrive` | `onedrive` | No change ✅ |
+| Gmail | `gmail` | `gmail` | No change ✅ |
+| Google Calendar | `google-calendar` | `google-calendar` | No change ✅ |
+| Google Drive | `google-drive` | `google-drive` | No change ✅ |
+| Google Sheets | `google-sheets` | `google-sheets` | No change ✅ |
+| Airtable | `airtable` | `airtable` | No change ✅ |
+| Discord | `discord` | `discord` | No change ✅ |
+| Slack | `slack` | `slack` | No change ✅ |
+| Stripe | `stripe` | `stripe` | No change ✅ |
+| Shopify | `shopify` | `shopify` | No change ✅ |
+
+**Lesson Learned**: When adding new provider lifecycle implementations:
+1. Always check the ACTUAL `providerId` value in workflow node definitions
+2. Node definitions are in `/lib/workflows/nodes/providers/{provider}/index.ts`
+3. Register the EXACT provider ID that nodes use
+4. Test activation immediately to verify registration worked

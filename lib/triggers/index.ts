@@ -14,12 +14,23 @@ import { GoogleApisTriggerLifecycle } from './providers/GoogleApisTriggerLifecyc
 import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 
-// Register Microsoft Graph provider
-triggerLifecycleManager.registerProvider({
-  providerId: 'microsoft',
-  lifecycle: new MicrosoftGraphTriggerLifecycle(),
-  requiresExternalResources: true,
-  description: 'Microsoft Graph subscriptions for Outlook, Teams, OneDrive, OneNote'
+// Register Microsoft Graph provider (all Microsoft services use same lifecycle)
+const microsoftLifecycle = new MicrosoftGraphTriggerLifecycle()
+const microsoftProviders = [
+  'microsoft',
+  'microsoft-outlook',
+  'teams',              // NOTE: Teams uses 'teams' not 'microsoft-teams'
+  'microsoft-onenote',
+  'onedrive'
+]
+
+microsoftProviders.forEach(providerId => {
+  triggerLifecycleManager.registerProvider({
+    providerId,
+    lifecycle: microsoftLifecycle, // All Microsoft providers share same lifecycle
+    requiresExternalResources: true,
+    description: `Microsoft Graph subscriptions for ${providerId}`
+  })
 })
 
 // Register Airtable provider
