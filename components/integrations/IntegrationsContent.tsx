@@ -128,7 +128,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [wasHidden, fetchIntegrations, fetchMetrics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wasHidden]); // Removed fetchIntegrations, fetchMetrics - they're stable from Zustand
 
   // Listen for OAuth completion events to immediately refresh integrations
   useEffect(() => {
@@ -162,7 +163,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('message', handleOAuthComplete);
       broadcastChannel?.close();
     };
-  }, [fetchIntegrations, fetchMetrics]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - fetchIntegrations and fetchMetrics are stable from Zustand
 
   // Initialize providers and integrations on mount if user is authenticated
   useEffect(() => {
@@ -271,7 +273,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
       return () => clearTimeout(timeout)
     }
-  }, [loading, loadingStates, user, setLoading, fetchIntegrations, toast])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadingStates, user]) // Removed setLoading, fetchIntegrations, toast - they're stable
 
   // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
   useEffect(() => {
@@ -283,7 +286,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
       return () => clearTimeout(timeoutId)
     }
-  }, [integrations.length, user, fetchMetrics]) // Only depend on length, not the whole array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [integrations.length, user]) // Removed fetchMetrics - it's stable from Zustand
 
   // Smart periodic refresh - only check for expiring tokens every 10 minutes
   useEffect(() => {
@@ -295,7 +299,8 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     }, 600000) // 10 minutes - less aggressive
 
     return () => clearInterval(interval)
-  }, [user, fetchMetrics])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]) // Removed fetchMetrics - it's stable from Zustand
 
   // Listen for integration change events
   useEffect(() => {
@@ -356,12 +361,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('integration-reconnected', handleIntegrationReconnected)
       window.removeEventListener('integrations-updated', handleIntegrationsUpdated)
     }
-  }, [user, fetchMetrics, toast, fetchIntegrations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]) // Removed fetchMetrics, toast, fetchIntegrations - they're stable
   
   const handleRefresh = useCallback(() => {
     fetchIntegrations(true) // Force refresh
     fetchMetrics()
-  }, [fetchIntegrations, fetchMetrics])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps - fetchIntegrations and fetchMetrics are stable from Zustand
 
   const handleConnect = useCallback(
     async (providerId: string) => {
