@@ -10,60 +10,38 @@ const supabase = createClient(
 
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
-export async function POST(request: NextRequest) {
+// Helper function - hoisted above POST handler to avoid TDZ
+async function logWebhookExecution(
+  provider: string,
+  payload: any,
+  headers: any,
+  status: string,
+  executionTime: number
+): Promise<void> {
   try {
-    const url = new URL(request.url)
-    const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
-    const body = await request.text()
-    const headers = Object.fromEntries(request.headers.entries())
-    
-    console.log('📥 Microsoft Graph webhook received:', {
-      headers: Object.keys(headers),
-      bodyLength: body.length,
-      timestamp: new Date().toISOString()
-    })
+    await supabase
+      .from('webhook_logs')
+      .insert({
+        provider: provider,
+        payload: payload,
+        headers: headers,
+        status: status,
+        execution_time: executionTime,
+        timestamp: new Date().toISOString()
+      })
+  } catch (error) {
+    console.error('Failed to log webhook execution:', error)
+  }
+}
 
-    // Handle validation request from Microsoft (either via validationToken query or text/plain body)
-    if (validationToken || headers['content-type']?.includes('text/plain')) {
-      const token = validationToken || body
-      console.log('🔍 Validation request received')
-      return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
-    }
-
-    // Handle actual webhook notifications
-    let payload: any
-
-    // Handle empty body (some Microsoft notifications are empty)
-    if (!body || body.length === 0) {
-      console.log('⚠️ Empty webhook payload received, skipping')
-      return NextResponse.json({ success: true, empty: true })
-    }
-
+// Helper function - process notifications async
+async function processNotifications(
+  notifications: any[],
+  headers: any,
+  requestId: string | undefined
+): Promise<void> {
+  for (const change of notifications) {
     try {
-      payload = JSON.parse(body)
-    } catch (error) {
-      console.error('❌ Failed to parse webhook payload:', error)
-      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
-    }
-
-    // Notifications arrive as an array in payload.value
-    const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
-    console.log('📋 Webhook payload analysis:', {
-      hasValue: !!payload?.value,
-      valueIsArray: Array.isArray(payload?.value),
-      notificationCount: notifications.length,
-      payloadKeys: Object.keys(payload || {}),
-      sampleNotification: notifications[0] || null
-    })
-    
-    if (notifications.length === 0) {
-      console.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
-      return NextResponse.json({ success: true, empty: true })
-    }
-
-    const requestId = headers['request-id'] || headers['client-request-id'] || undefined
-
-    for (const change of notifications) {
       console.log('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
@@ -167,42 +145,97 @@ export async function POST(request: NextRequest) {
           status: queueItem?.status
         })
       }
-    }
-
-    // Kick off background worker to process the queue immediately
-    // We need to wait a bit to ensure database writes are committed
-    try {
-      const base = getWebhookBaseUrl()
-      const workerUrl = `${base}/api/microsoft-graph/worker`
-      console.log('🚀 Triggering background worker:', workerUrl)
-
-      // Small delay to ensure queue items are committed
-      setTimeout(async () => {
-        try {
-          const res = await fetch(workerUrl, { method: 'POST' })
-          console.log('✅ Worker triggered, status:', res.status)
-        } catch (err) {
-          console.error('❌ Worker trigger failed:', err)
-        }
-      }, 100) // 100ms delay to ensure DB commit
     } catch (error) {
-      console.error('❌ Worker trigger error:', error)
+      console.error('❌ Error processing individual notification:', error)
+    }
+  }
+
+  // Kick off background worker after all notifications processed
+  try {
+    const base = getWebhookBaseUrl()
+    const workerUrl = `${base}/api/microsoft-graph/worker`
+    console.log('🚀 Triggering background worker:', workerUrl)
+
+    // Small delay to ensure queue items are committed
+    setTimeout(async () => {
+      try {
+        const res = await fetch(workerUrl, { method: 'POST' })
+        console.log('✅ Worker triggered, status:', res.status)
+      } catch (err) {
+        console.error('❌ Worker trigger failed:', err)
+      }
+    }, 100) // 100ms delay to ensure DB commit
+  } catch (error) {
+    console.error('❌ Worker trigger error:', error)
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const url = new URL(request.url)
+    const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
+    const body = await request.text()
+    const headers = Object.fromEntries(request.headers.entries())
+
+    console.log('📥 Microsoft Graph webhook received:', {
+      headers: Object.keys(headers),
+      bodyLength: body.length,
+      timestamp: new Date().toISOString()
+    })
+
+    // Handle validation request from Microsoft (either via validationToken query or text/plain body)
+    if (validationToken || headers['content-type']?.includes('text/plain')) {
+      const token = validationToken || body
+      console.log('🔍 Validation request received')
+      return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
-    // Log the webhook execution
-    await logWebhookExecution(
-      'microsoft-graph',
-      payload,
-      headers,
-      'queued',
-      Date.now()
-    )
+    // Handle empty body (some Microsoft notifications are empty)
+    if (!body || body.length === 0) {
+      console.log('⚠️ Empty webhook payload received, skipping')
+      return NextResponse.json({ success: true, empty: true })
+    }
 
-    return NextResponse.json({
-      success: true,
-      provider: 'microsoft-graph',
-      message: 'Webhook received and queued for processing'
+    // Parse payload
+    let payload: any
+    try {
+      payload = JSON.parse(body)
+    } catch (error) {
+      console.error('❌ Failed to parse webhook payload:', error)
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+    }
+
+    // Notifications arrive as an array in payload.value
+    const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
+    console.log('📋 Webhook payload analysis:', {
+      hasValue: !!payload?.value,
+      valueIsArray: Array.isArray(payload?.value),
+      notificationCount: notifications.length,
+      payloadKeys: Object.keys(payload || {}),
+      sampleNotification: notifications[0] || null
     })
+
+    if (notifications.length === 0) {
+      console.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
+      return NextResponse.json({ success: true, empty: true })
+    }
+
+    const requestId = headers['request-id'] || headers['client-request-id'] || undefined
+
+    // Fast 202 ACK - process in background to avoid Microsoft retries
+    const startTime = Date.now()
+    queueMicrotask(async () => {
+      try {
+        await processNotifications(notifications, headers, requestId)
+        await logWebhookExecution('microsoft-graph', payload, headers, 'queued', Date.now() - startTime)
+      } catch (error) {
+        console.error('❌ Background notification processing error:', error)
+        await logWebhookExecution('microsoft-graph', payload, headers, 'error', Date.now() - startTime)
+      }
+    })
+
+    // Return 202 immediately
+    return new NextResponse(null, { status: 202 })
 
   } catch (error: any) {
     console.error('❌ Microsoft Graph webhook error:', error)
@@ -225,27 +258,4 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     description: "Webhook endpoint for Microsoft Graph workflows. Send POST requests to trigger workflows."
   })
-}
-
-async function logWebhookExecution(
-  provider: string,
-  payload: any,
-  headers: any,
-  status: string,
-  executionTime: number
-): Promise<void> {
-  try {
-    await supabase
-      .from('webhook_logs')
-      .insert({
-        provider: provider,
-        payload: payload,
-        headers: headers,
-        status: status,
-        execution_time: executionTime,
-        timestamp: new Date().toISOString()
-      })
-  } catch (error) {
-    console.error('Failed to log webhook execution:', error)
-  }
 }
