@@ -70,9 +70,9 @@ async function processNotifications(
           .maybeSingle()
 
         if (!triggerResource) {
-          console.error('❌ Subscription not found in trigger_resources:', {
+          console.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
             subId,
-            error: resourceError
+            message: 'This subscription is not tracked in trigger_resources. Deactivate/reactivate workflow to clean up.'
           })
           continue
         }
@@ -147,11 +147,6 @@ async function processNotifications(
         payload: change,
         headers,
         status: 'pending'
-      }
-
-      // Add trigger_resource_id if available (new architecture)
-      if (triggerResourceId) {
-        queueData.trigger_resource_id = triggerResourceId
       }
 
       const { data: queueItem, error: queueError } = await supabase
@@ -241,7 +236,7 @@ export async function POST(request: NextRequest) {
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
       payloadKeys: Object.keys(payload || {}),
-      sampleNotification: notifications[0] || null
+      fullPayload: JSON.stringify(payload, null, 2)
     })
 
     if (notifications.length === 0) {

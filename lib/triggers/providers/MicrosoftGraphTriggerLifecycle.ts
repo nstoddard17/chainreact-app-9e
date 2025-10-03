@@ -172,20 +172,27 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           resource.external_id,
           accessToken
         )
+        console.log(`✅ Deleted Microsoft Graph subscription from API: ${resource.external_id}`)
+      } catch (error) {
+        console.warn(`⚠️ Failed to delete subscription from Microsoft Graph API (will delete from DB anyway): ${resource.external_id}`, error)
+        // Continue to delete from database even if API call fails
+      }
 
-        // Delete from trigger_resources
+      // ALWAYS delete from trigger_resources, even if Microsoft Graph API call failed
+      // This ensures we don't have orphaned records
+      try {
         await supabase
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
 
-        console.log(`✅ Deleted Microsoft Graph subscription: ${resource.external_id}`)
-      } catch (error) {
-        console.error(`❌ Failed to delete subscription ${resource.external_id}:`, error)
-        // Mark as error but keep the record for debugging
+        console.log(`✅ Deleted trigger resource from database: ${resource.id}`)
+      } catch (dbError) {
+        console.error(`❌ Failed to delete from database: ${resource.id}`, dbError)
+        // If we can't delete from DB, mark as error as last resort
         await supabase
           .from('trigger_resources')
-          .update({ status: 'error', updated_at: new Date().toISOString() })
+          .update({ status: 'deleted', deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
           .eq('id', resource.id)
       }
     }
