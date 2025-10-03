@@ -141,12 +141,32 @@ export async function POST(_req: NextRequest) {
       let events: any[] = []
 
       // Check if this is an individual resource (not a collection)
-      const isIndividualResource = isIndividualMessageResource(payload.resource) ||
-                                   isIndividualDriveResource(payload.resource) ||
-                                   isIndividualEventResource(payload.resource)
+      const isIndividualMessage = isIndividualMessageResource(payload.resource)
+      const isIndividualDrive = isIndividualDriveResource(payload.resource)
+      const isIndividualEvent = isIndividualEventResource(payload.resource)
+      const isIndividualResource = isIndividualMessage || isIndividualDrive || isIndividualEvent
 
-      if (isIndividualResource) {
-        console.log('🎯 Individual resource detected, fetching directly')
+      console.log('🔍 Individual resource detection:', {
+        resource: payload.resource,
+        isIndividualMessage,
+        isIndividualDrive,
+        isIndividualEvent,
+        isIndividualResource,
+        resourceLength: payload.resource?.length,
+        resourceStartsWith: payload.resource?.substring(0, 20),
+        resourceEndsWith: payload.resource?.substring(payload.resource.length - 20)
+      })
+
+      // Force individual resource detection for mail if it contains a message ID
+      const isMailWithMessageId = resourceType === 'mail' && 
+        (payload.resource.includes('/messages/') || payload.resource.includes('/Messages/'))
+      
+      if (isIndividualResource || isMailWithMessageId) {
+        console.log('🎯 Individual resource detected, fetching directly', { 
+          isIndividualResource, 
+          isMailWithMessageId,
+          resourceType 
+        })
         // For individual resources, get fresh token from integrations table
         const { accessToken } = await resolveProviderTokens(actualUserId, resourceType)
         events = await fetchIndividualResource(payload, accessToken)
@@ -279,7 +299,19 @@ function isIndividualMessageResource(resource: string): boolean {
   const folderMessageMatch = resource.match(/\/me\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
   const userMessageMatch = resource.match(/\/users\/[^\/]+\/messages\/([^\/]+)$/i)
   const userFolderMessageMatch = resource.match(/\/users\/[^\/]+\/mailFolders\/[^\/]+\/messages\/([^\/]+)$/i)
-  return !!(messageIdMatch || folderMessageMatch || userMessageMatch || userFolderMessageMatch)
+  
+  const isIndividual = !!(messageIdMatch || folderMessageMatch || userMessageMatch || userFolderMessageMatch)
+  
+  console.log('📧 Message resource check:', {
+    resource,
+    messageIdMatch: !!messageIdMatch,
+    folderMessageMatch: !!folderMessageMatch,
+    userMessageMatch: !!userMessageMatch,
+    userFolderMessageMatch: !!userFolderMessageMatch,
+    isIndividual
+  })
+  
+  return isIndividual
 }
 
 function isIndividualDriveResource(resource: string): boolean {
@@ -465,68 +497,130 @@ async function fetchResourceChanges(
         break
       }
       
-      case 'mail': {
-        console.log('dY" Mail delta query starting...')
-        const mailBasePath = resolveMailMessagesBasePath(payload.resource)
-        console.log('dY" Mail delta path:', mailBasePath)
-        const response = await client.getMailDelta(deltaToken?.token, { basePath: mailBasePath })
-        console.log('dY" Mail delta response:', {
-          totalMessages: response.value.length,
-          hasDeltaLink: !!response['@odata.deltaLink'],
-          hasNextLink: !!response['@odata.nextLink']
-        })
-
-        events = response.value.filter(item => item._normalized).map(item => item._normalized!)
-
-        // If no events from delta query, try to get recent messages as fallback
-        if (events.length === 0 && !deltaToken?.token) {
-          console.log('dY" No events from delta query, trying recent messages fallback...')
-          try {
-            const recentResponse: any = await client.request(`${mailBasePath}?$top=10&$orderby=receivedDateTime desc`)
-            if (recentResponse.value && recentResponse.value.length > 0) {
-              console.log('dY" Found recent messages:', recentResponse.value.length)
-              // Normalize recent messages
-              const normalizedRecent = recentResponse.value.map((message: any) => ({
-                id: message.id,
-                type: 'outlook_mail',
-                action: message.isDraft ? 'draft' : 'created',
-                subject: message.subject,
-                from: message.from?.emailAddress?.address,
-                receivedDateTime: message.receivedDateTime,
-                sentDateTime: message.sentDateTime,
-                importance: message.importance,
-                hasAttachments: message.hasAttachments,
-                isRead: message.isRead,
-                isDraft: message.isDraft,
-                webLink: message.webLink,
-                originalPayload: message
-              }))
-              events = normalizedRecent
-            }
-          } catch (fallbackError) {
-            console.log('dY" Recent messages fallback failed:', fallbackError)
-          }
-        }
-
-        // Parse delta token from the delta link
-        const deltaLink = response['@odata.deltaLink']
-        if (deltaLink) {
-          const tokenMatch = deltaLink.match(/\$deltatoken=([^&]+)/)
-          newDeltaToken = tokenMatch ? tokenMatch[1] : undefined
-        }
-        console.log('dY" Mail events found:', events.length)
-        console.log('dY" New delta token:', newDeltaToken ? 'present' : 'none')
-        if (events.length > 0) {
-          console.log('dY" Sample mail event:', {
-            type: events[0].type,
-            action: events[0].action,
-            subject: events[0].subject,
-            from: events[0].from
-          })
-        }
-        break
-      }
-
+      case 'mail': {
+
+        console.log('dY" Mail delta query starting...')
+
+        const mailBasePath = resolveMailMessagesBasePath(payload.resource)
+
+        console.log('dY" Mail delta path:', mailBasePath)
+
+        const response = await client.getMailDelta(deltaToken?.token, { basePath: mailBasePath })
+
+        console.log('dY" Mail delta response:', {
+
+          totalMessages: response.value.length,
+
+          hasDeltaLink: !!response['@odata.deltaLink'],
+
+          hasNextLink: !!response['@odata.nextLink']
+
+        })
+
+
+
+        events = response.value.filter(item => item._normalized).map(item => item._normalized!)
+
+
+
+        // If no events from delta query, try to get recent messages as fallback
+
+        if (events.length === 0 && !deltaToken?.token) {
+
+          console.log('dY" No events from delta query, trying recent messages fallback...')
+
+          try {
+
+            const recentResponse: any = await client.request(`${mailBasePath}?$top=10&$orderby=receivedDateTime desc`)
+
+            if (recentResponse.value && recentResponse.value.length > 0) {
+
+              console.log('dY" Found recent messages:', recentResponse.value.length)
+
+              // Normalize recent messages
+
+              const normalizedRecent = recentResponse.value.map((message: any) => ({
+
+                id: message.id,
+
+                type: 'outlook_mail',
+
+                action: message.isDraft ? 'draft' : 'created',
+
+                subject: message.subject,
+
+                from: message.from?.emailAddress?.address,
+
+                receivedDateTime: message.receivedDateTime,
+
+                sentDateTime: message.sentDateTime,
+
+                importance: message.importance,
+
+                hasAttachments: message.hasAttachments,
+
+                isRead: message.isRead,
+
+                isDraft: message.isDraft,
+
+                webLink: message.webLink,
+
+                originalPayload: message
+
+              }))
+
+              events = normalizedRecent
+
+            }
+
+          } catch (fallbackError) {
+
+            console.log('dY" Recent messages fallback failed:', fallbackError)
+
+          }
+
+        }
+
+
+
+        // Parse delta token from the delta link
+
+        const deltaLink = response['@odata.deltaLink']
+
+        if (deltaLink) {
+
+          const tokenMatch = deltaLink.match(/\$deltatoken=([^&]+)/)
+
+          newDeltaToken = tokenMatch ? tokenMatch[1] : undefined
+
+        }
+
+        console.log('dY" Mail events found:', events.length)
+
+        console.log('dY" New delta token:', newDeltaToken ? 'present' : 'none')
+
+        if (events.length > 0) {
+
+          console.log('dY" Sample mail event:', {
+
+            type: events[0].type,
+
+            action: events[0].action,
+
+            subject: events[0].subject,
+
+            from: events[0].from
+
+          })
+
+        }
+
+        break
+
+      }
+
+
+
       case 'calendar': {
         const response = await client.getCalendarDelta(deltaToken?.token)
         events = response.value.filter(item => item._normalized).map(item => item._normalized!)
