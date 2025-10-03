@@ -81,7 +81,9 @@
       "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\components\\workflows\\configuration\\providers\\gmail\")",
       "Bash(dir /b \"C:\\Users\\marcu\\source\\repos\\chainreact-app-9e-1\\lib\\workflows\")",
       "Bash(dir:*)",
-      "Bash(npx supabase db execute:*)"
+      "Bash(npx supabase db execute:*)",
+      "Bash(supabase migration:*)",
+      "Bash(where:*)"
     ],
     "defaultMode": "acceptEdits"
   }
