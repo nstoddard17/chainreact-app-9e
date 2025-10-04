@@ -106,7 +106,7 @@
     "kysely": "latest",
     "lru-cache": "^11.1.0",
     "lucia": "latest",
-    "lucide-react": "^0.454.0",
+    "lucide-react": "^0.543.0",
     "mysql2": "latest",
     "next": "^15.5.2",
     "next-themes": "latest",
