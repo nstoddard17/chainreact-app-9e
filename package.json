@@ -34,7 +34,7 @@
     "@op-engineering/op-sqlite": "latest",
     "@opentelemetry/api": "^1.9.0",
     "@planetscale/database": "latest",
-    "@prisma/client": "latest",
+    "@prisma/client": "6.15.0",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
