@@ -68,7 +68,7 @@
     "@stripe/stripe-js": "^7.8.0",
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
-    "@supabase/supabase-js": "latest",
+    "@supabase/supabase-js": "2.57.2",
     "@tidbcloud/serverless": "latest",
     "@types/better-sqlite3": "latest",
     "@types/pg": "latest",
