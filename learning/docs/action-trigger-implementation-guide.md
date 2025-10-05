@@ -3,6 +3,117 @@
 ## Overview
 This document provides a comprehensive checklist for implementing workflow actions and triggers from UI to backend execution. Following this guide ensures actions/triggers work completely end-to-end and maintain uniform structure across the codebase.
 
+## 🚨 CRITICAL: Trigger Lifecycle Pattern
+
+**MANDATORY FOR ALL TRIGGERS**: If you're implementing a trigger that requires external resources (webhooks, subscriptions, polling), you MUST follow the Trigger Lifecycle Pattern.
+
+### When Does This Apply?
+- ✅ **YES** - Triggers that need webhooks (Airtable, Discord, Slack)
+- ✅ **YES** - Triggers that need subscriptions (Microsoft Graph, Google APIs)
+- ✅ **YES** - Triggers that need external registration of any kind
+- ❌ **NO** - Schedule triggers (cron-based, no external resources)
+- ❌ **NO** - Manual triggers (user-initiated, no external resources)
+- ❌ **NO** - Generic webhook triggers (passive receiver, no registration)
+
+### The Lifecycle Rule
+Resources for triggers should ONLY be created when workflows are **activated**, and MUST be cleaned up when workflows are **deactivated** or **deleted**.
+
+```
+✅ CORRECT Flow:
+1. User connects integration → Save OAuth credentials ONLY
+2. User creates workflow → Just configuration (no resources)
+3. User ACTIVATES workflow → CREATE webhook/subscription
+4. User DEACTIVATES workflow → DELETE webhook/subscription
+5. User DELETES workflow → DELETE all resources
+
+❌ WRONG Flow:
+1. User connects integration → Creates webhook/subscription immediately
+   (This is what we used to do - wastes resources!)
+```
+
+### Implementation Steps for Trigger Providers
+
+#### Step 1: Create Lifecycle Implementation
+**Location:** `/lib/triggers/providers/[Provider]TriggerLifecycle.ts`
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+import {
+  TriggerLifecycle,
+  TriggerActivationContext,
+  TriggerDeactivationContext,
+  TriggerHealthStatus
+} from '../types'
+
+export class YourProviderTriggerLifecycle implements TriggerLifecycle {
+
+  async onActivate(context: TriggerActivationContext): Promise<void> {
+    // 1. Get user's access token
+    // 2. Create webhook/subscription in external system
+    // 3. Store in trigger_resources table
+    // 4. Link to workflow_id
+  }
+
+  async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
+    // 1. Find resources for this workflow
+    // 2. Delete from external system
+    // 3. Mark as 'deleted' in trigger_resources table
+  }
+
+  async onDelete(context: TriggerDeactivationContext): Promise<void> {
+    // Usually same as onDeactivate
+    return this.onDeactivate(context)
+  }
+
+  async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
+    // Check if webhook/subscription is still valid
+    // Return health status
+  }
+}
+```
+
+**See complete example:** `/lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts`
+
+#### Step 2: Register Provider
+**Location:** `/lib/triggers/index.ts`
+
+```typescript
+import { YourProviderTriggerLifecycle } from './providers/YourProviderTriggerLifecycle'
+
+triggerLifecycleManager.registerProvider({
+  providerId: 'your-provider',
+  lifecycle: new YourProviderTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Your provider webhooks/subscriptions'
+})
+```
+
+#### Step 3: Database Schema
+Resources are automatically tracked in `trigger_resources` table:
+
+```sql
+-- Already exists - migration: 20251003_create_trigger_resources_table.sql
+-- Tracks: workflow_id, provider_id, trigger_type, external_id, status, expires_at
+```
+
+#### Step 4: Test the Lifecycle
+1. ❌ Connect integration → NO resources created
+2. ❌ Create workflow → NO resources created
+3. ✅ Activate workflow → Resources CREATED
+4. ✅ Send test → Workflow executes
+5. ✅ Deactivate workflow → Resources DELETED
+6. ❌ Send test → Workflow does NOT execute
+7. ✅ Delete workflow → All cleanup done
+
+### Resources
+- **Full Architecture**: `/learning/docs/trigger-lifecycle-audit.md`
+- **Migration Guide**: `/learning/walkthroughs/trigger-lifecycle-refactoring.md`
+- **Types**: `/lib/triggers/types.ts`
+- **Manager**: `/lib/triggers/TriggerLifecycleManager.ts`
+- **Database**: `/supabase/migrations/20251003_create_trigger_resources_table.sql`
+
+---
+
 ## Critical Implementation Checklist
 
 ### 1. Define Node in availableNodes.ts or Provider-Specific Nodes File
@@ -556,13 +667,87 @@ When implementing actions that depend on another integration (like Excel needing
 - **Complex action** (previews, conditional fields, multiple operations): 2-4 hours
 - **New provider setup** (OAuth, first action): 4-6 hours
 
+## Troubleshooting
+
+### Trigger Resources Not Being Created (Provider ID Mismatch)
+
+**⚠️ CRITICAL: Check this if workflows activate but nothing appears in `trigger_resources` table!**
+
+#### Symptoms
+When activating a workflow with a trigger, check the logs for:
+```
+⚠️ No lifecycle registered for provider: {providerId}
+ℹ️ No lifecycle for {providerId}, skipping (no external resources needed)
+```
+
+**Result**: No rows created in `trigger_resources` table when workflow activated.
+
+#### Root Cause
+The trigger lifecycle manager is registered with a different provider ID than what the workflow node uses.
+
+#### Common Mismatches
+| Node Provider ID | Common Mistake | Correct Registration |
+|-----------------|----------------|---------------------|
+| `microsoft-outlook` | Registered as `microsoft` | Must be `microsoft-outlook` |
+| `teams` | Registered as `microsoft-teams` | Must be `teams` (no prefix!) |
+| `microsoft-onenote` | Registered as `microsoft` | Must be `microsoft-onenote` |
+
+#### How to Fix
+1. **Find the actual provider ID** in `/lib/workflows/nodes/providers/{provider}/index.ts`
+   - Look for `providerId: "..."` in the node definition
+   - Example: `providerId: "microsoft-outlook"` or `providerId: "teams"`
+
+2. **Check registration** in `/lib/triggers/index.ts`
+   - Ensure provider ID matches EXACTLY what's in the node definition
+   - Example: If node uses `"teams"`, register as `"teams"` not `"microsoft-teams"`
+
+3. **Update registration** if mismatched
+   ```typescript
+   // BAD - won't match node with providerId: "microsoft-outlook"
+   const microsoftProviders = ['microsoft']
+
+   // GOOD - matches exactly
+   const microsoftProviders = ['microsoft-outlook', 'teams', 'microsoft-onenote', 'onedrive']
+   ```
+
+4. **Restart dev server** to reload provider registrations
+
+5. **Test**: Deactivate and reactivate workflow, check logs for:
+   ```
+   ✅ Activated trigger: microsoft-outlook/microsoft-outlook_trigger_new_email for workflow {id}
+   ```
+
+#### How to Verify Fix
+```sql
+-- After activating workflow, check database:
+SELECT * FROM trigger_resources WHERE workflow_id = 'your-workflow-id';
+
+-- Should see row with:
+-- - provider_id: matching your node's providerId
+-- - external_id: ID from external service (e.g., Microsoft Graph subscription ID)
+-- - status: 'active'
+```
+
+#### Prevention
+- **ALWAYS check the node definition** before registering a provider lifecycle
+- **Test immediately** after adding a new provider to lifecycle manager
+- **Look for warning logs** - they tell you exactly what's wrong
+- **Verify all provider variants** - some services have multiple naming patterns (e.g., `google-sheets` vs `google_sheets`)
+
+See `/learning/docs/trigger-lifecycle-audit.md` for complete provider ID reference.
+
+---
+
 ## Notes
 
 - This guide applies to both actions and triggers
 - Triggers may have additional webhook handling requirements
 - Some providers may need special authentication handling
 - **This is a living document** - Update when discovering new patterns or requirements
-- Last major update: January 2025 (Microsoft Excel implementation)
+- Last major update: October 2025 (Provider ID Mismatch Troubleshooting)
+  - Added troubleshooting section for trigger lifecycle provider registration issues
+  - Documented Microsoft provider naming mismatches (teams vs microsoft-teams)
+- Previous update: January 2025 (Microsoft Excel implementation)
   - Added Excel actions that replicate Google Sheets functionality
   - Documented pattern for integrations that depend on other integrations (Excel → OneDrive)
   - Added tips for using Microsoft Graph API for Office integrations

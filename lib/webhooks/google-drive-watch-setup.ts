@@ -1,3 +1,30 @@
+/**
+ * ⚠️ DEPRECATED FILE (2025-10-03)
+ *
+ * This file is deprecated and should no longer be used for new code.
+ *
+ * REASON: Google Drive triggers now use the unified TriggerLifecycleManager system
+ * which provides proper workflow tracking and lifecycle management.
+ *
+ * OLD SYSTEM (this file):
+ * - Stores subscriptions in google_watch_subscriptions table (no workflow_id tracking)
+ * - Manual subscription management
+ * - No integration with workflow activation/deactivation
+ *
+ * NEW SYSTEM (replacement):
+ * - File: /lib/triggers/providers/GoogleApisTriggerLifecycle.ts
+ * - Stores in: trigger_resources table (with workflow_id tracking)
+ * - Automatic lifecycle: create on activate, delete on deactivate
+ * - Unified management via TriggerLifecycleManager
+ *
+ * MIGRATION PATH:
+ * - New workflows automatically use new system
+ * - This file kept for backward compatibility only
+ * - Will be removed after all existing subscriptions migrated
+ *
+ * SEE: /learning/docs/trigger-lifecycle-audit.md
+ */
+
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
@@ -25,10 +52,12 @@ interface GoogleDriveWatchConfig {
 }
 
 /**
+ * @deprecated Use GoogleApisTriggerLifecycle instead
  * Set up Google Drive watch for push notifications
  * Drive watches don't expire like Gmail (they're based on changes.watch)
  */
 export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Promise<{ channelId: string; resourceId: string; expiration: string }> {
+  console.warn('⚠️ DEPRECATED: setupGoogleDriveWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -152,9 +181,11 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
 }
 
 /**
+ * @deprecated Use GoogleApisTriggerLifecycle instead
  * Stop Google Drive watch
  */
 export async function stopGoogleDriveWatch(userId: string, integrationId: string, channelId: string, resourceId: string): Promise<void> {
+  console.warn('⚠️ DEPRECATED: stopGoogleDriveWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

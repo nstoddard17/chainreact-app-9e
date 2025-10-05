@@ -19,6 +19,99 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This ensures we're building with the same architectural rigor as the best apps in the world, not just implementing the first solution that comes to mind.
 
+## Coding Best Practices - MANDATORY
+
+**CRITICAL**: Follow these best practices for ALL code changes to maintain a world-class codebase:
+
+### File Organization & Separation of Concerns
+1. **Create new files proactively** - Don't let files grow beyond 500 lines
+2. **One responsibility per file** - Each file should have a single, clear purpose
+3. **Extract utilities early** - Move reusable logic to dedicated utility files
+4. **Use proper directory structure** - Group related files by feature/domain
+
+### Code Quality Standards
+1. **No duplication** - Always delegate to existing implementations rather than copying code
+2. **Method size limit** - Keep methods under 50 lines; extract helper functions
+3. **DRY principle** - Don't Repeat Yourself; extract common patterns
+4. **Clear naming** - Use descriptive names that reveal intent
+
+### Security & Maintainability
+1. **Dependency injection** - Pass dependencies rather than creating them
+2. **Type safety first** - Use TypeScript strictly; avoid `any` types
+3. **Error handling** - Use try-catch with specific error types
+4. **Logging strategy** - Consistent, structured logging
+
+### When to Refactor (Do This Proactively)
+- **File > 500 lines** - Split into multiple files
+- **Method > 50 lines** - Extract helper methods
+- **Switch statement with >3 cases** - Use registry pattern
+- **Duplicated code in 2+ places** - Extract to shared utility
+- **Hardcoded provider logic** - Use plugin/strategy pattern
+
+### Architecture Patterns to Follow
+1. **Registry Pattern** - For extensible handler systems (see `actionHandlerRegistry`)
+2. **Strategy Pattern** - For different execution modes (sandbox, live, etc.)
+3. **Delegation** - Always delegate to specialized implementations
+4. **Single Source of Truth** - One authoritative implementation per concern
+5. **Lifecycle Pattern** - For resource management (see `TriggerLifecycleManager`)
+
+## Trigger Lifecycle Pattern - MANDATORY
+
+**CRITICAL**: ALL triggers MUST follow this lifecycle pattern for proper resource management:
+
+### Core Principle
+Resources needed for triggers (webhooks, subscriptions, polling jobs) should ONLY be created when workflows are activated, and MUST be cleaned up when workflows are deactivated or deleted.
+
+### The Pattern
+```
+1. User connects integration → Save OAuth credentials ONLY (no resource creation)
+2. User creates workflow with trigger → No resource creation yet
+3. User ACTIVATES workflow → CREATE all trigger resources (webhooks, subscriptions, etc.)
+4. User DEACTIVATES workflow → DELETE all trigger resources
+5. User REACTIVATES workflow → CREATE resources fresh again
+6. User DELETES workflow → DELETE all trigger resources
+```
+
+### Implementation
+All trigger providers MUST implement the `TriggerLifecycle` interface:
+
+```typescript
+interface TriggerLifecycle {
+  onActivate(context: TriggerActivationContext): Promise<void>
+  onDeactivate(context: TriggerDeactivationContext): Promise<void>
+  onDelete(context: TriggerDeactivationContext): Promise<void>
+  checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus>
+}
+```
+
+### Key Files
+- **Interface**: `/lib/triggers/types.ts`
+- **Manager**: `/lib/triggers/TriggerLifecycleManager.ts`
+- **Example**: `/lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts`
+- **Registry**: `/lib/triggers/index.ts`
+- **Usage**: `/app/api/workflows/[id]/route.ts` (PUT and DELETE handlers)
+
+### Adding New Trigger Providers
+1. Create lifecycle implementation in `/lib/triggers/providers/`
+2. Implement `TriggerLifecycle` interface
+3. **CRITICAL**: Register with EXACT provider ID from node definition (check `/lib/workflows/nodes/providers/{provider}/index.ts`)
+4. Register in `/lib/triggers/index.ts`
+5. Resources are automatically managed by workflow activation/deactivation
+
+**⚠️ Common Issue**: If workflows activate but no resources appear in `trigger_resources` table, you likely have a provider ID mismatch. See troubleshooting guide in `/learning/docs/action-trigger-implementation-guide.md#troubleshooting`
+
+### Database Schema
+All trigger resources are tracked in `trigger_resources` table with:
+- `workflow_id` - Which workflow owns this resource (cascades delete)
+- `external_id` - ID in external system (e.g., Microsoft Graph subscription ID)
+- `expires_at` - When resource needs renewal
+- `status` - active, expired, deleted, error
+
+### Migration Path
+Existing triggers using old patterns should be gradually migrated to use `TriggerLifecycleManager`. The workflow activation/deactivation code supports both old and new patterns during the transition.
+
+See `/learning/docs/trigger-lifecycle-audit.md` for complete audit and migration plan.
+
 ## Overview
 
 ChainReact is a workflow automation platform built with Next.js 15, TypeScript, and Supabase. The application allows users to create, manage, and execute automated workflows that integrate with various third-party services like Gmail, Discord, Notion, Slack, and more.
@@ -597,9 +690,12 @@ Essential steps that MUST be completed:
 4. Add field mappings for ALL dynamic fields
 5. Implement and register data handlers for dropdowns
 6. Handle special UI behavior if needed
-7. Test complete flow from UI to execution
+7. **For triggers with external resources**: Implement trigger lifecycle (see section above)
+8. Test complete flow from UI to execution
 
 ⚠️ **WARNING**: Missing ANY of these steps will cause runtime failures. The guides ensure uniform structure across all workflow nodes.
+
+**🔍 Troubleshooting**: If implementing a trigger and resources aren't being created when workflow activates, check the **Troubleshooting** section in `/learning/docs/action-trigger-implementation-guide.md#troubleshooting` - this is almost always a provider ID mismatch issue.
 
 📝 **NOTE**: These implementation guides are living documents. UPDATE them when you discover new patterns, requirements, or solutions while implementing features. We are learning as we build, so capture that knowledge in the guides for future reference.
 
