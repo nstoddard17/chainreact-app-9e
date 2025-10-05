@@ -129,69 +129,70 @@ async function processNotifications(
       }
       await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: dedupKey })
 
-      // Enqueue processing for this notification
-      console.log('📥 Inserting into queue:', {
-        userId,
-        subscriptionId: subId,
-        triggerResourceId,
-        resource,
-        changeType,
-        hasPayload: !!change
-      })
-
-      const queueData: any = {
-        user_id: userId,
-        subscription_id: subId,
-        resource: resource,
-        change_type: changeType,
-        payload: change,
-        headers,
-        status: 'pending'
-      }
-
-      const { data: queueItem, error: queueError } = await supabase
-        .from('microsoft_webhook_queue')
-        .insert(queueData)
-        .select()
-        .single()
-
-      if (queueError) {
-        console.error('❌ Failed to queue notification:', {
-          error: queueError,
-          code: queueError.code,
-          message: queueError.message,
-          details: queueError.details
+      // Trigger workflow execution directly (no queue needed)
+      if (workflowId && userId) {
+        console.log('🚀 Triggering workflow execution:', {
+          workflowId,
+          userId,
+          subscriptionId: subId,
+          resource,
+          changeType
         })
+
+        try {
+          // Trigger workflow via workflow execution API
+          const base = getWebhookBaseUrl()
+          const executionUrl = `${base}/api/workflows/${workflowId}/execute`
+
+          const executionPayload = {
+            mode: 'live',
+            triggerData: {
+              source: 'microsoft-graph-webhook',
+              subscriptionId: subId,
+              resource,
+              changeType,
+              resourceData: change?.resourceData,
+              notificationPayload: change
+            }
+          }
+
+          console.log('📤 Calling execution API:', executionUrl)
+
+          const response = await fetch(executionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': userId // Pass user context
+            },
+            body: JSON.stringify(executionPayload)
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            console.log('✅ Workflow execution triggered:', {
+              workflowId,
+              executionId: result?.executionId,
+              status: result?.status
+            })
+          } else {
+            const errorText = await response.text()
+            console.error('❌ Workflow execution failed:', {
+              status: response.status,
+              error: errorText
+            })
+          }
+        } catch (execError) {
+          console.error('❌ Error triggering workflow:', execError)
+        }
       } else {
-        console.log('✅ Notification queued successfully:', {
-          queueId: queueItem?.id,
-          userId: queueItem?.user_id,
-          status: queueItem?.status
-        })
+        console.warn('⚠️ Cannot trigger workflow - missing workflowId or userId')
       }
     } catch (error) {
       console.error('❌ Error processing individual notification:', error)
     }
   }
 
-  // Kick off background worker after all notifications processed
-  try {
-    const base = getWebhookBaseUrl()
-    const workerUrl = `${base}/api/microsoft-graph/worker`
-    console.log('🚀 Triggering background worker:', workerUrl)
-
-    // Small delay to ensure queue items are committed
-    setTimeout(async () => {
-      try {
-        const res = await fetch(workerUrl, { method: 'POST' })
-        console.log('✅ Worker triggered, status:', res.status)
-      } catch (err) {
-        console.error('❌ Worker trigger failed:', err)
-      }
-    }, 100) // 100ms delay to ensure DB commit
-  } catch (error) {
-    console.error('❌ Worker trigger error:', error)
-  }
+  console.log('✅ All notifications processed')
 }
 
 export async function POST(request: NextRequest) {
