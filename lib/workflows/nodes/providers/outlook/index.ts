@@ -28,7 +28,7 @@ const outlookTriggerNewEmail: NodeComponent = {
       label: "From",
       type: "email-autocomplete",
       dynamic: "outlook-enhanced-recipients",
-      required: false,
+      required: true,
       loadOnMount: true,
       placeholder: "Enter sender email address",
       description: "Filter emails by sender address"
