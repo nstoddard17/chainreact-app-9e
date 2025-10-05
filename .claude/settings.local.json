@@ -88,7 +88,10 @@
       "Bash(del nul)",
       "Read(//c/Users/marcu/source/repos/**)",
       "Read(//c/**)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(npm run refresh-tokens:verbose:*)",
+      "Bash(choco:*)",
+      "Bash(move:*)"
     ],
     "defaultMode": "acceptEdits"
   }

@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
+import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
@@ -22,6 +23,7 @@ const supabase = createClient(
 
 export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   private subscriptionManager = new MicrosoftGraphSubscriptionManager()
+  private graphAuth = new MicrosoftGraphAuth()
 
   /**
    * Activate Microsoft Graph trigger
@@ -35,28 +37,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       config
     })
 
-    // Get user's Microsoft integration
-    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
-    const { data: integrations } = await supabase
-      .from('integrations')
-      .select('access_token, provider')
-      .eq('user_id', userId)
-      .or('provider.like.microsoft%,provider.eq.onedrive')
-
-    // Find first connected Microsoft integration
-    const integration = integrations?.find(i => i.access_token)
-
-    if (!integration) {
-      throw new Error('Microsoft integration not found for user')
-    }
-
-    // Decrypt the access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt Microsoft access token')
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await this.graphAuth.getValidAccessToken(userId)
+      console.log('✅ Retrieved valid Microsoft Graph access token')
+    } catch (error) {
+      console.error('❌ Failed to get valid Microsoft Graph token:', error)
+      throw new Error('Microsoft integration not connected or token expired. Please reconnect your Microsoft account.')
     }
 
     // Determine resource based on trigger type
@@ -126,35 +114,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
-    const { data: integrations } = await supabase
-      .from('integrations')
-      .select('access_token, provider')
-      .eq('user_id', userId)
-      .or('provider.like.microsoft%,provider.eq.onedrive')
-
-    // Find first connected Microsoft integration
-    const integration = integrations?.find(i => i.access_token)
-
-    if (!integration) {
-      console.warn(`⚠️ Microsoft integration not found, deleting subscription records`)
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await this.graphAuth.getValidAccessToken(userId)
+      console.log('✅ Retrieved valid Microsoft Graph access token for deactivation')
+    } catch (error) {
+      console.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in Microsoft Graph
-      await supabase
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'microsoft')
-      return
-    }
-
-    // Decrypt the access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Microsoft access token, deleting subscription records`)
       await supabase
         .from('trigger_resources')
         .delete()
