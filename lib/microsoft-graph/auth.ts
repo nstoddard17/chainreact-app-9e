@@ -13,8 +13,8 @@ export interface MicrosoftTokenInfo {
 }
 
 export class MicrosoftGraphAuth {
-  private clientId = process.env.MICROSOFT_CLIENT_ID!
-  private clientSecret = process.env.MICROSOFT_CLIENT_SECRET!
+  private clientId = process.env.OUTLOOK_CLIENT_ID!
+  private clientSecret = process.env.OUTLOOK_CLIENT_SECRET!
   private redirectUri = process.env.MICROSOFT_REDIRECT_URI!
 
   /**
