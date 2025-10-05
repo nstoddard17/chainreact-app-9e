@@ -37,6 +37,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   })
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [wasHidden, setWasHidden] = useState(false)
+  const [lastFetchTime, setLastFetchTime] = useState(0)
   const { toast } = useToast()
 
   // Use selective subscriptions to prevent unnecessary re-renders
@@ -56,6 +57,25 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const setLoading = useIntegrationStore(state => state.setLoading)
   const { user } = useAuthStore()
   const router = useRouter()
+
+  // Debounced fetch to prevent duplicate calls within 2 seconds
+  const debouncedFetchIntegrations = useCallback((force: boolean = false) => {
+    const now = Date.now()
+    const timeSinceLastFetch = now - lastFetchTime
+
+    // Only fetch if it's been more than 2 seconds since last fetch
+    // OR if force is true and it's been more than 500ms (allow rapid force refreshes with 500ms cooldown)
+    if (force && timeSinceLastFetch > 500) {
+      setLastFetchTime(now)
+      return fetchIntegrations(true)
+    } else if (!force && timeSinceLastFetch > 2000) {
+      setLastFetchTime(now)
+      return fetchIntegrations(false)
+    } else {
+      console.log(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
+      return Promise.resolve()
+    }
+  }, [lastFetchTime, fetchIntegrations])
 
   // Define fetchMetrics early to avoid initialization errors
   const fetchMetrics = useCallback(async () => {
@@ -115,7 +135,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // OR if user was away for more than 5 minutes (stale data)
         if (timeAway < thirtySeconds || timeAway > fiveMinutes) {
           console.log(`🔄 Refreshing integrations after ${timeAway < thirtySeconds ? 'OAuth flow' : 'extended absence'}`);
-          fetchIntegrations(true);
+          debouncedFetchIntegrations(true);
           fetchMetrics();
         }
         setWasHidden(false);
@@ -136,7 +156,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleOAuthComplete = (event: MessageEvent) => {
       if (event.data?.type === 'oauth-complete' && event.data?.success) {
         console.log(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
-        fetchIntegrations(true);
+        debouncedFetchIntegrations(true);
         fetchMetrics();
       }
     };
@@ -151,7 +171,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       broadcastChannel.onmessage = (event) => {
         if (event.data?.type === 'oauth-complete' && event.data?.success) {
           console.log(`✅ OAuth completed via BroadcastChannel for ${event.data.provider}, refreshing integrations...`);
-          fetchIntegrations(true);
+          debouncedFetchIntegrations(true);
           fetchMetrics();
         }
       };
@@ -190,7 +210,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // After providers are loaded, fetch integrations and metrics in parallel
         // These can be non-blocking since cards will show "Connect" state
         Promise.all([
-          fetchIntegrations(true).catch(error => {
+          debouncedFetchIntegrations(true).catch(error => {
             console.warn("Integration fetch failed (non-critical):", error)
           }),
           fetchMetrics().catch(error => {
@@ -262,7 +282,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
         // For fetch operations, try one recovery attempt
         if (isLoadingIntegrations || isLoadingProviders) {
-          fetchIntegrations(true).catch(() => {
+          debouncedFetchIntegrations(true).catch(() => {
             // If recovery fails, just reset states
             setLoading("integrations", false)
             setLoading("providers", false)
@@ -309,7 +329,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationConnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the new connection
-      fetchIntegrations(true)
+      debouncedFetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Connected",
@@ -321,7 +341,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationDisconnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the disconnection
-      fetchIntegrations(true)
+      debouncedFetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Disconnected",
@@ -333,7 +353,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     const handleIntegrationReconnected = (event: Event) => {
       const customEvent = event as CustomEvent
       // Immediately refresh integrations to show the reconnection
-      fetchIntegrations(true)
+      debouncedFetchIntegrations(true)
       fetchMetrics()
       toast({
         title: "Integration Reconnected",
@@ -344,7 +364,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleIntegrationsUpdated = () => {
       // Refresh both integrations and metrics
-      fetchIntegrations(true)
+      debouncedFetchIntegrations(true)
       fetchMetrics()
     }
 
@@ -365,7 +385,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [user]) // Removed fetchMetrics, toast, fetchIntegrations - they're stable
   
   const handleRefresh = useCallback(() => {
-    fetchIntegrations(true) // Force refresh
+    debouncedFetchIntegrations(true) // Force refresh
     fetchMetrics()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Empty deps - fetchIntegrations and fetchMetrics are stable from Zustand
@@ -479,7 +499,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
                 variant: "default",
               })
               // Force refresh integrations to show the new connection
-              fetchIntegrations(true)
+              debouncedFetchIntegrations(true)
               fetchMetrics()
             } else if (event.data.type === "oauth-error") {
               toast({
@@ -516,7 +536,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
       }
     },
-    [user, toast, fetchIntegrations],
+    [user, toast, debouncedFetchIntegrations, fetchMetrics],
   )
 
   const handleDisconnect = useCallback(
@@ -541,7 +561,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             title: "Disconnected",
             description: `${integration.provider} has been successfully disconnected.`,
           })
-          fetchIntegrations()
+          debouncedFetchIntegrations(false) // No force on disconnect
           fetchMetrics()
         } else {
           toast({
@@ -558,7 +578,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         })
       }
     },
-    [integrations, fetchIntegrations, toast, fetchMetrics],
+    [integrations, debouncedFetchIntegrations, toast, fetchMetrics],
   )
 
   const handleApiKeyConnect = async (providerId: string, apiKey: string) => {

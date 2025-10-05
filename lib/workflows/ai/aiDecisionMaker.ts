@@ -14,6 +14,14 @@ import {
   ExecutionPlan
 } from './chainExecutionEngine'
 
+// AI Agent logging utility - always enabled for AI agent workflows
+const AI_LOGGING_ENABLED = true
+const aiLog = (...args: any[]) => {
+  if (AI_LOGGING_ENABLED) {
+    console.log(...args)
+  }
+}
+
 // Dynamic import for Anthropic SDK (optional dependency)
 let Anthropic: any
 try {
@@ -173,19 +181,54 @@ export class AIDecisionMaker {
     const prompt = this.buildAnalysisPrompt()
     const systemPrompt = this.buildSystemPrompt()
 
-    console.log('🤖 Requesting AI decision with prompt length:', prompt.length)
+    // Enhanced debug logging for AI agent thought process
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('🧠 AI AGENT DECISION PROCESS START')
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('📊 Execution Context:', {
+      workflowId: this.context.metadata.workflowId,
+      executionId: this.context.metadata.executionId,
+      model: this.context.config.model,
+      temperature: this.context.config.temperature,
+      testMode: this.context.metadata.testMode,
+      chainsAvailable: this.context.chains.length
+    })
+    aiLog('')
+    aiLog('📥 INPUT DATA RECEIVED:')
+    aiLog(JSON.stringify(this.context.input, null, 2))
+    aiLog('')
+    aiLog('📝 SYSTEM PROMPT:')
+    aiLog(systemPrompt)
+    aiLog('')
+    aiLog('📝 USER PROMPT:')
+    aiLog(prompt)
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
     try {
+      let aiResponse: string
+
       if (this.context.config.model.includes('gpt')) {
-        return await this.getOpenAIDecision(systemPrompt, prompt)
+        aiResponse = await this.getOpenAIDecision(systemPrompt, prompt)
       } else if (this.context.config.model.includes('claude')) {
-        return await this.getClaudeDecision(systemPrompt, prompt)
+        aiResponse = await this.getClaudeDecision(systemPrompt, prompt)
       } else {
         // Use ChainReact's API
-        return await this.getChainReactDecision(systemPrompt, prompt)
+        aiResponse = await this.getChainReactDecision(systemPrompt, prompt)
       }
+
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      aiLog('🤖 AI RESPONSE RECEIVED:')
+      aiLog(aiResponse)
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+      return aiResponse
     } catch (error) {
-      console.error('AI decision request failed:', error)
+      if (AI_LOGGING_ENABLED) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.error('❌ AI DECISION REQUEST FAILED')
+        console.error('Error:', error)
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      }
       throw error
     }
   }
@@ -354,6 +397,10 @@ Provide your routing decision in the specified JSON format.`
    */
   private parseAIResponse(response: string): ChainSelectionResult {
     try {
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      aiLog('🔍 PARSING AI RESPONSE')
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
       const parsed = JSON.parse(response)
 
       // Validate and normalize the response
@@ -371,11 +418,44 @@ Provide your routing decision in the specified JSON format.`
         }
       }
 
-      console.log(`✅ AI selected ${result.selectedChains.length} chain(s) for execution`)
+      aiLog('✅ PARSED DECISION RESULT:')
+      aiLog('')
+      aiLog(`📊 Selected Chains (${result.selectedChains.length}):`)
+      result.selectedChains.forEach((chain, i) => {
+        aiLog(`  ${i + 1}. Chain: ${chain.chainId}`)
+        aiLog(`     Reasoning: ${chain.reasoning}`)
+        aiLog(`     Confidence: ${(chain.confidence * 100).toFixed(0)}%`)
+        aiLog(`     Priority: ${chain.priority}`)
+        if (chain.inputMapping && Object.keys(chain.inputMapping).length > 0) {
+          aiLog(`     Input Mapping: ${JSON.stringify(chain.inputMapping)}`)
+        }
+        aiLog('')
+      })
+
+      if (result.unselectedChains.length > 0) {
+        aiLog(`❌ Unselected Chains (${result.unselectedChains.length}):`)
+        result.unselectedChains.forEach((chain, i) => {
+          aiLog(`  ${i + 1}. Chain: ${chain.chainId}`)
+          aiLog(`     Reasoning: ${chain.reasoning}`)
+          aiLog('')
+        })
+      }
+
+      aiLog('⚙️ Execution Plan:')
+      aiLog(`  Parallel: ${result.executionPlan.parallel}`)
+      aiLog(`  Max Concurrency: ${result.executionPlan.maxConcurrency}`)
+      aiLog(`  Continue On Error: ${result.executionPlan.continueOnError}`)
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
       return result
 
     } catch (error) {
-      console.error('Failed to parse AI response:', error)
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.error('❌ FAILED TO PARSE AI RESPONSE')
+      console.error('Error:', error)
+      console.error('Raw Response:', response)
+      console.error('Falling back to default selection...')
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       return this.getDefaultSelection()
     }
   }

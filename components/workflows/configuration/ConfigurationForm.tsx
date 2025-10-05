@@ -1,5 +1,5 @@
 "use client"
-
+// FORCE REBUILD NOW
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -678,27 +678,23 @@ function ConfigurationForm({
 
   // Reset hasLoadedOnMount and clear options when modal opens (nodeInfo changes)
   useEffect(() => {
+    // Always reset to ensure fresh data loads every time
+    hasLoadedOnMount.current = false;
+    loadedFieldsWithValues.current.clear();
+
     // Store the previous node ID to check if we're opening the same node
     const prevNodeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
     const isNewNode = prevNodeKey !== previousNodeKeyRef.current;
 
-    if (isNewNode) {
-      hasLoadedOnMount.current = false;
-      loadedFieldsWithValues.current.clear(); // Clear the tracked loaded fields
-      console.log('🔄 [ConfigForm] Reset hasLoadedOnMount flag - NEW node opened', {
-        nodeId: nodeInfo?.id,
-        nodeType: nodeInfo?.type,
-        currentNodeId,
-        previousKey: previousNodeKeyRef.current,
-        newKey: prevNodeKey
-      });
-      previousNodeKeyRef.current = prevNodeKey;
-    } else {
-      console.log('🔄 [ConfigForm] Same node reopened - keeping cache', {
-        nodeId: nodeInfo?.id,
-        nodeType: nodeInfo?.type
-      });
-    }
+    console.log('🔄 [ConfigForm] Reset hasLoadedOnMount for FRESH data load', {
+      nodeId: nodeInfo?.id,
+      nodeType: nodeInfo?.type,
+      currentNodeId,
+      isNewNode,
+      previousKey: previousNodeKeyRef.current,
+      newKey: prevNodeKey
+    });
+    previousNodeKeyRef.current = prevNodeKey;
 
     // Only clear specific fields that need fresh data on each modal open
     // For Trello, always clear boards to get fresh data
@@ -718,8 +714,8 @@ function ConfigurationForm({
     if (nodeInfo?.providerId === 'airtable') {
       console.log('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
       // Don't reset baseId - let it use cached values
-    } else if (nodeInfo?.configSchema && isNewNode) {
-      // For other providers, reset loadOnMount fields only if it's a new node
+    } else if (nodeInfo?.configSchema) {
+      // For other providers, ALWAYS reset loadOnMount fields for fresh data
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.loadOnMount && field.dynamic) {
           console.log(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
@@ -755,11 +751,17 @@ function ConfigurationForm({
         // Don't check dynamicOptions or values here as it causes dependency issues
         const shouldLoad = !hasLoadedOnMount.current;
 
-        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`);
+        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
+          fieldType: field.type,
+          dynamic: field.dynamic,
+          loadOnMount: field.loadOnMount
+        });
         return shouldLoad;
       }
       return false;
     });
+
+    console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
 
     if (fieldsToLoad.length > 0) {
       console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
@@ -855,6 +857,27 @@ function ConfigurationForm({
         loadOptions('databaseId', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Slack channel
+      const slackChannelField = fieldsToLoad.find((f: any) => f.name === 'channel');
+      if (slackChannelField && nodeInfo?.providerId === 'slack') {
+        console.log(`🚀 [ConfigForm] Loading Slack channel immediately with cache`);
+        loadOptions('channel', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // Load immediately for Gmail "from" field (recent recipients)
+      const gmailFromField = fieldsToLoad.find((f: any) => f.name === 'from');
+      if (gmailFromField && nodeInfo?.providerId === 'gmail') {
+        console.log(`🚀 [ConfigForm] Loading Gmail "from" field (recent recipients) immediately with cache`);
+        loadOptions('from', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // Load immediately for Gmail "labelIds" field (labels/folders)
+      const gmailLabelIdsField = fieldsToLoad.find((f: any) => f.name === 'labelIds');
+      if (gmailLabelIdsField && nodeInfo?.providerId === 'gmail') {
+        console.log(`🚀 [ConfigForm] Loading Gmail "labelIds" field (labels) immediately with cache`);
+        loadOptions('labelIds', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -911,6 +934,18 @@ function ConfigurationForm({
             // Already loaded above
             return;
           }
+          if (field.name === 'channel' && nodeInfo?.providerId === 'slack') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'from' && nodeInfo?.providerId === 'gmail') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'labelIds' && nodeInfo?.providerId === 'gmail') {
+            // Already loaded above
+            return;
+          }
           console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
           // Ensure Google Drive folders force-load on mount to avoid stale cache
           // BUT only if we don't have saved options for it already
@@ -942,7 +977,11 @@ function ConfigurationForm({
           // The 5-second cache in useDynamicOptions will prevent API spam
           const forceRefresh = true;
 
-          console.log(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`);
+          console.log(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`, {
+            fieldType: field.type,
+            dynamic: field.dynamic,
+            provider: nodeInfo?.providerId
+          });
           loadOptions(field.name, undefined, undefined, forceRefresh);
         });
       }, 150); // Slightly longer delay to ensure reset has completed

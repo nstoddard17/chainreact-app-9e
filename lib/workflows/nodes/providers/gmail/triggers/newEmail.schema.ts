@@ -15,7 +15,7 @@ export const newEmailTriggerSchema: NodeComponent = {
       label: "From",
       type: "email-autocomplete",
       dynamic: "gmail-recent-recipients",
-      required: true,
+      required: false,
       loadOnMount: true, // Load recipients immediately when modal opens
       placeholder: "Enter sender email address",
       description: "Filter emails by sender address"
@@ -37,13 +37,21 @@ export const newEmailTriggerSchema: NodeComponent = {
     },
     {
       name: "labelIds",
-      label: "Label",
-      type: "gmail-label-selector",
+      label: "Folder / Label",
+      type: "select",
       dynamic: "gmail_labels",
       required: false,
+      multiple: true,
       loadOnMount: true,
-      placeholder: "Select or create a label",
-      description: "Filter emails by label. You can select an existing label or create a new one."
+      placeholder: "Select folders or labels",
+      description: "Filter emails by Gmail folders/labels. Matches the same picker used in the Get Email action.",
+      defaultOptions: [
+        { value: "INBOX", label: "Inbox" },
+        { value: "SENT", label: "Sent" },
+        { value: "DRAFT", label: "Drafts" },
+        { value: "SPAM", label: "Spam" },
+        { value: "TRASH", label: "Trash" }
+      ]
     },
   ],
   outputSchema: [

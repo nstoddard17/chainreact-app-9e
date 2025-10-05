@@ -437,10 +437,17 @@ async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<s
     client_id: clientId,
     response_type: "code",
     redirect_uri: `${baseUrl}/api/integrations/notion/callback`,
+    owner: "user", // Show all workspaces the user has access to
     state,
   })
 
-  return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+  const authUrl = `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
+  console.log('🔍 Notion OAuth URL Generation:')
+  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  console.log('  - Redirect URI:', `${baseUrl}/api/integrations/notion/callback`)
+  console.log('  - Owner parameter: user (shows all workspaces)')
+
+  return authUrl
 }
 
 async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<string> {

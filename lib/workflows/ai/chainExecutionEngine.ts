@@ -8,6 +8,14 @@
 import { executeNode } from '../executeNode'
 import { resolveValue } from '../actions/core/resolveValue'
 
+// AI Agent logging utility - always enabled for AI agent workflows
+const AI_LOGGING_ENABLED = true
+const aiLog = (...args: any[]) => {
+  if (AI_LOGGING_ENABLED) {
+    console.log(...args)
+  }
+}
+
 // Types
 export interface AIAgentExecutionContext {
   input: {
@@ -233,6 +241,17 @@ export class ChainExecutionEngine {
     const startTime = Date.now()
     const input = customInput || this.executionContext.input
 
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog(`⚡ EXECUTING CHAIN: ${chain.chainId}`)
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('🎯 Chain Details:')
+    aiLog(`   Reasoning: ${chain.reasoning}`)
+    aiLog(`   Confidence: ${(chain.confidence * 100).toFixed(0)}%`)
+    aiLog(`   Priority: ${chain.priority}`)
+    if (chain.inputMapping && Object.keys(chain.inputMapping).length > 0) {
+      aiLog(`   Input Mapping: ${JSON.stringify(chain.inputMapping, null, 2)}`)
+    }
+
     try {
       // Find chain definition
       const chainDef = this.executionContext.chains.find(c => c.id === chain.chainId)
@@ -240,22 +259,39 @@ export class ChainExecutionEngine {
         throw new Error(`Chain definition not found: ${chain.chainId}`)
       }
 
+      aiLog(`📋 Chain has ${chainDef.nodes.length} node(s) to execute`)
+      aiLog('')
+
       // Execute nodes in the chain
       const nodeResults = await this.executeChainNodes(chainDef, input)
+
+      const executionTime = Date.now() - startTime
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      aiLog(`✅ CHAIN COMPLETED: ${chain.chainId}`)
+      aiLog(`⏱️  Execution Time: ${executionTime}ms`)
+      aiLog(`📤 Output: ${JSON.stringify(nodeResults, null, 2)}`)
+      aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
       return {
         chainId: chain.chainId,
         success: true,
         output: nodeResults,
-        executionTime: Date.now() - startTime
+        executionTime
       }
     } catch (error) {
-      console.error(`Chain execution failed: ${chain.chainId}`, error)
+      const executionTime = Date.now() - startTime
+      if (AI_LOGGING_ENABLED) {
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.error(`❌ CHAIN EXECUTION FAILED: ${chain.chainId}`)
+        console.error(`⏱️  Execution Time: ${executionTime}ms`)
+        console.error(`Error:`, error)
+        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      }
       return {
         chainId: chain.chainId,
         success: false,
         output: {},
-        executionTime: Date.now() - startTime,
+        executionTime,
         error
       }
     }
@@ -271,14 +307,25 @@ export class ChainExecutionEngine {
     const nodeResults: Record<string, any> = {}
     const executionOrder = this.determineExecutionOrder(chain.nodes, chain.edges)
 
-    for (const node of executionOrder) {
+    aiLog(`🔗 Executing ${executionOrder.length} nodes in chain "${chain.name}"`)
+    aiLog('')
+
+    for (let i = 0; i < executionOrder.length; i++) {
+      const node = executionOrder[i]
+
       try {
+        aiLog(`  ▶ Node ${i + 1}/${executionOrder.length}: ${node.data?.title || node.data?.type || node.id}`)
+        aiLog(`    Type: ${node.data?.type}`)
 
         // Resolve AI fields in configuration
         const resolvedConfig = await this.resolveAIFields(
           node.data?.config || {},
           { ...input, nodeOutputs: nodeResults }
         )
+
+        if (Object.keys(resolvedConfig).length > 0) {
+          aiLog(`    Config: ${JSON.stringify(resolvedConfig, null, 2)}`)
+        }
 
         // Build execution context for the node
         const nodeContext = {
@@ -296,16 +343,25 @@ export class ChainExecutionEngine {
         }
 
         // Execute the node
+        const nodeStartTime = Date.now()
         const result = await executeNode(
           node,
           nodeContext,
           this.executionContext.metadata.userId
         )
+        const nodeExecutionTime = Date.now() - nodeStartTime
 
         nodeResults[node.id] = result
 
+        aiLog(`    ✅ Completed in ${nodeExecutionTime}ms`)
+        aiLog(`    Result: ${JSON.stringify(result, null, 2).substring(0, 500)}${JSON.stringify(result, null, 2).length > 500 ? '...' : ''}`)
+        aiLog('')
+
       } catch (error) {
-        console.error(`Node execution failed: ${node.id}`, error)
+        if (AI_LOGGING_ENABLED) {
+          console.error(`    ❌ Node execution failed: ${node.id}`)
+          console.error(`    Error:`, error)
+        }
         nodeResults[node.id] = {
           success: false,
           error: error.message || 'Node execution failed'

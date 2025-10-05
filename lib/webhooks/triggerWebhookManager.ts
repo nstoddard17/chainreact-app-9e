@@ -280,12 +280,26 @@ export class TriggerWebhookManager {
       if (webhookConfig) {
         // Unregister from external service
         await this.unregisterFromExternalService(webhookConfig)
-        
-        // Delete from database
+
+        // Delete webhook execution history
+        console.log('🗑️ Cleaning up webhook execution history for webhook:', webhookId)
+        const { error: executionDeleteError } = await this.supabase
+          .from('webhook_executions')
+          .delete()
+          .eq('webhook_id', webhookId)
+
+        if (executionDeleteError) {
+          console.warn('Failed to delete webhook execution history:', executionDeleteError)
+          // Don't throw - continue with webhook deletion
+        }
+
+        // Delete webhook config from database
         await this.supabase
           .from('webhook_configs')
           .delete()
           .eq('id', webhookId)
+
+        console.log('✅ Webhook unregistered and cleaned up successfully')
       }
     } catch (error) {
       console.error('Error unregistering webhook:', error)
@@ -1006,17 +1020,346 @@ export class TriggerWebhookManager {
       }
 
       case 'slack':
-        // Slack webhooks are typically configured through Slack app settings
-        console.log('Slack webhook registration would require Slack app configuration')
+        // Slack uses Event Subscriptions configured at app level
+        // We store the configuration for filtering events
+        console.log('🔗 Setting up Slack event subscription configuration')
+        await this.registerSlackWebhook(config, webhookId)
         break
 
       case 'github':
-        // GitHub webhooks are configured through repository settings
-        console.log('GitHub webhook registration would require repository webhook setup')
+        // GitHub webhooks are configured through repository API
+        console.log('🔗 Setting up GitHub webhook for repository monitoring')
+        await this.registerGithubWebhook(config, webhookId)
         break
 
       default:
         console.log(`Webhook registration for ${config.providerId} not yet implemented`)
+    }
+  }
+
+  /**
+   * Register Slack webhook (Event Subscriptions)
+   */
+  private async registerSlackWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Slack Event Subscriptions are configured at the app level in Slack's dashboard
+      // We store the configuration here for filtering events when they arrive
+      const channelId = config.config?.channelId || config.config?.channel
+      const eventTypes = config.config?.eventTypes || []
+
+      // Store the webhook configuration details for event filtering
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          metadata: {
+            channelId: channelId || null,
+            eventTypes: eventTypes,
+            triggerType: config.triggerType,
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ Slack event subscription configuration stored', {
+        channelId: channelId || 'all channels',
+        eventTypes: eventTypes.length > 0 ? eventTypes : 'all events'
+      })
+    } catch (error) {
+      console.error('Failed to register Slack webhook configuration:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register GitHub webhook for repository
+   */
+  private async registerGithubWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Get user's GitHub integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'github')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('GitHub integration not found or not connected')
+      }
+
+      const accessToken = integration.access_token ? safeDecrypt(integration.access_token) : null
+      if (!accessToken) {
+        throw new Error('GitHub access token missing for webhook registration')
+      }
+
+      const repository = config.config?.repository || config.config?.repo
+      if (!repository) {
+        throw new Error('GitHub repository is required for webhook registration')
+      }
+
+      // Parse repository (format: "owner/repo")
+      const [owner, repo] = repository.split('/')
+      if (!owner || !repo) {
+        throw new Error('Invalid repository format. Expected "owner/repo"')
+      }
+
+      // Determine which events to subscribe to based on trigger type
+      let events: string[] = []
+      switch (config.triggerType) {
+        case 'github_trigger_new_issue':
+        case 'github_trigger_issue_updated':
+          events = ['issues']
+          break
+        case 'github_trigger_new_pr':
+        case 'github_trigger_pr_updated':
+          events = ['pull_request']
+          break
+        default:
+          events = ['push', 'issues', 'pull_request']
+      }
+
+      const webhookUrl = getWebhookUrl('github')
+
+      // Create webhook via GitHub API
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/hooks`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          },
+          body: JSON.stringify({
+            name: 'web',
+            active: true,
+            events: events,
+            config: {
+              url: webhookUrl,
+              content_type: 'json',
+              insecure_ssl: '0'
+            }
+          })
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`GitHub webhook creation failed: ${errorText}`)
+      }
+
+      const webhookData = await response.json()
+
+      // Store webhook metadata
+      await this.supabase
+        .from('webhook_configs')
+        .update({
+          external_id: webhookData.id.toString(),
+          metadata: {
+            githubWebhookId: webhookData.id,
+            repository: repository,
+            owner: owner,
+            repo: repo,
+            events: events,
+            url: webhookData.url
+          }
+        })
+        .eq('id', webhookId)
+
+      console.log('✅ GitHub webhook registered successfully', {
+        repository,
+        webhookId: webhookData.id,
+        events
+      })
+    } catch (error) {
+      console.error('Failed to register GitHub webhook:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register Microsoft Teams webhook (Microsoft Graph subscription)
+   */
+  private async registerTeamsWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Load user's Teams integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'microsoft-teams')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Microsoft Teams integration not found or not connected')
+      }
+
+      const accessToken: string | null = (typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null)
+      if (!accessToken) {
+        throw new Error('Teams access token missing for webhook registration')
+      }
+
+      // Compute notification URL (use Microsoft webhook receiver)
+      const baseUrl = getWebhookBaseUrl()
+      const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+
+      // Determine resource to subscribe to based on trigger type
+      let resource = '/teams/getAllMessages'
+      let changeType = 'created'
+
+      const teamId = config.config?.teamId
+      const channelId = config.config?.channelId
+
+      if (teamId && channelId) {
+        resource = `/teams/${teamId}/channels/${channelId}/messages`
+      } else if (teamId) {
+        resource = `/teams/${teamId}/channels/getAllMessages`
+      }
+
+      if (config.triggerType === 'microsoft-teams_trigger_channel_created') {
+        resource = '/teams/getAllChannels'
+        changeType = 'created'
+      }
+
+      // Create subscription via Microsoft Graph
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      const sub = await mgr.createSubscription({
+        resource,
+        changeType,
+        userId: config.userId,
+        accessToken,
+        notificationUrl,
+      })
+
+      // Persist metadata on our webhook config
+      const metadata = {
+        subscriptionId: sub.id,
+        expirationDateTime: sub.expirationDateTime,
+        resource,
+        changeType,
+        teamId: teamId || null,
+        channelId: channelId || null,
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({ external_id: sub.id, metadata })
+        .eq('id', webhookId)
+
+      console.log('✅ Teams subscription registered', metadata)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        try {
+          await flagIntegrationWorkflows({
+            integrationId: integration?.id,
+            provider: 'microsoft-teams',
+            userId: integration?.user_id,
+            reason: 'Microsoft authentication expired while registering Teams webhook'
+          })
+        } catch (flagErr) {
+          console.warn('Failed to flag Teams integration workflows for reconnection:', flagErr)
+        }
+      }
+      console.error('Failed to register Teams webhook:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Register Microsoft OneNote webhook (Microsoft Graph subscription)
+   */
+  private async registerOneNoteWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
+    try {
+      // Load user's OneNote integration
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', config.userId)
+        .eq('provider', 'microsoft-onenote')
+        .eq('status', 'connected')
+        .single()
+
+      if (!integration) {
+        throw new Error('Microsoft OneNote integration not found or not connected')
+      }
+
+      const accessToken: string | null = (typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null)
+      if (!accessToken) {
+        throw new Error('OneNote access token missing for webhook registration')
+      }
+
+      // Compute notification URL (use Microsoft webhook receiver)
+      const baseUrl = getWebhookBaseUrl()
+      const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+
+      // Determine resource to subscribe to based on trigger type
+      let resource = '/me/onenote/pages'
+      let changeType = 'created,updated'
+
+      const notebookId = config.config?.notebookId
+      const sectionId = config.config?.sectionId
+
+      if (sectionId) {
+        resource = `/me/onenote/sections/${sectionId}/pages`
+      } else if (notebookId) {
+        resource = `/me/onenote/notebooks/${notebookId}/sections/pages`
+      }
+
+      if (config.triggerType === 'microsoft-onenote_trigger_new_note') {
+        changeType = 'created'
+      } else if (config.triggerType === 'microsoft-onenote_trigger_note_modified') {
+        changeType = 'updated'
+      }
+
+      // Create subscription via Microsoft Graph
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      const sub = await mgr.createSubscription({
+        resource,
+        changeType,
+        userId: config.userId,
+        accessToken,
+        notificationUrl,
+      })
+
+      // Persist metadata on our webhook config
+      const metadata = {
+        subscriptionId: sub.id,
+        expirationDateTime: sub.expirationDateTime,
+        resource,
+        changeType,
+        notebookId: notebookId || null,
+        sectionId: sectionId || null,
+      }
+
+      await this.supabase
+        .from('webhook_configs')
+        .update({ external_id: sub.id, metadata })
+        .eq('id', webhookId)
+
+      console.log('✅ OneNote subscription registered', metadata)
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('401')) {
+        try {
+          await flagIntegrationWorkflows({
+            integrationId: integration?.id,
+            provider: 'microsoft-onenote',
+            userId: integration?.user_id,
+            reason: 'Microsoft authentication expired while registering OneNote webhook'
+          })
+        } catch (flagErr) {
+          console.warn('Failed to flag OneNote integration workflows for reconnection:', flagErr)
+        }
+      }
+      console.error('Failed to register OneNote webhook:', error)
+      throw error
     }
   }
 
@@ -1840,6 +2183,158 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Unregister Gmail webhook
+   */
+  private async unregisterGmailWebhook(webhookConfig: any): Promise<void> {
+    try {
+      // Get metadata to find integration ID
+      let metadata: any = webhookConfig.metadata || webhookConfig.config || {}
+      if (typeof metadata === 'string') {
+        try {
+          metadata = JSON.parse(metadata)
+        } catch {
+          metadata = {}
+        }
+      }
+
+      // Try to find integration ID from metadata or look it up
+      let integrationId = metadata.integrationId || metadata.integration_id
+
+      if (!integrationId) {
+        // Look up the Gmail integration for this user
+        const { data: integration } = await this.supabase
+          .from('integrations')
+          .select('id')
+          .eq('user_id', webhookConfig.user_id)
+          .eq('provider', 'gmail')
+          .eq('status', 'connected')
+          .maybeSingle()
+
+        if (integration) {
+          integrationId = integration.id
+        }
+      }
+
+      if (!integrationId) {
+        console.log('Gmail integration not found, watch may already be stopped')
+        return
+      }
+
+      const { stopGmailWatch } = await import('./gmail-watch-setup')
+      await stopGmailWatch(webhookConfig.user_id, integrationId)
+
+      console.log('✅ Gmail watch stopped successfully')
+    } catch (error) {
+      console.error('Failed to stop Gmail watch:', error)
+      // Don't throw - watch might already be stopped
+    }
+  }
+
+  /**
+   * Unregister Google Calendar webhook
+   */
+  private async unregisterGoogleCalendarWebhook(webhookConfig: any): Promise<void> {
+    try {
+      let metadata: any = webhookConfig.metadata || {}
+      if (typeof metadata === 'string') {
+        try {
+          metadata = JSON.parse(metadata)
+        } catch {
+          metadata = {}
+        }
+      }
+
+      const channelId = metadata.channelId || metadata.channel_id
+      const resourceId = metadata.resourceId || metadata.resource_id
+      let integrationId = metadata.integrationId || metadata.integration_id
+
+      if (!channelId || !resourceId) {
+        console.log('Google Calendar watch metadata missing, watch may already be stopped')
+        return
+      }
+
+      if (!integrationId) {
+        const { data: integration } = await this.supabase
+          .from('integrations')
+          .select('id')
+          .eq('user_id', webhookConfig.user_id)
+          .eq('provider', 'google-calendar')
+          .eq('status', 'connected')
+          .maybeSingle()
+
+        if (integration) {
+          integrationId = integration.id
+        }
+      }
+
+      if (!integrationId) {
+        console.log('Google Calendar integration not found, watch may already be stopped')
+        return
+      }
+
+      const { stopGoogleCalendarWatch } = await import('./google-calendar-watch-setup')
+      await stopGoogleCalendarWatch(webhookConfig.user_id, integrationId, channelId, resourceId)
+
+      console.log('✅ Google Calendar watch stopped successfully')
+    } catch (error) {
+      console.error('Failed to stop Google Calendar watch:', error)
+      // Don't throw - watch might already be stopped
+    }
+  }
+
+  /**
+   * Unregister Google Drive webhook
+   */
+  private async unregisterGoogleDriveWebhook(webhookConfig: any): Promise<void> {
+    try {
+      let metadata: any = webhookConfig.metadata || {}
+      if (typeof metadata === 'string') {
+        try {
+          metadata = JSON.parse(metadata)
+        } catch {
+          metadata = {}
+        }
+      }
+
+      const channelId = metadata.channelId || metadata.channel_id
+      const resourceId = metadata.resourceId || metadata.resource_id
+      let integrationId = metadata.integrationId || metadata.integration_id
+
+      if (!channelId || !resourceId) {
+        console.log('Google Drive watch metadata missing, watch may already be stopped')
+        return
+      }
+
+      if (!integrationId) {
+        const { data: integration } = await this.supabase
+          .from('integrations')
+          .select('id')
+          .eq('user_id', webhookConfig.user_id)
+          .eq('provider', 'google-drive')
+          .eq('status', 'connected')
+          .maybeSingle()
+
+        if (integration) {
+          integrationId = integration.id
+        }
+      }
+
+      if (!integrationId) {
+        console.log('Google Drive integration not found, watch may already be stopped')
+        return
+      }
+
+      const { stopGoogleDriveWatch } = await import('./google-drive-watch-setup')
+      await stopGoogleDriveWatch(webhookConfig.user_id, integrationId, channelId, resourceId)
+
+      console.log('✅ Google Drive watch stopped successfully')
+    } catch (error) {
+      console.error('Failed to stop Google Drive watch:', error)
+      // Don't throw - watch might already be stopped
+    }
+  }
+
+  /**
    * Unregister Airtable webhook
    */
   private async unregisterAirtableWebhook(webhookConfig: any): Promise<void> {
@@ -1863,6 +2358,19 @@ export class TriggerWebhookManager {
   private async unregisterFromExternalService(webhookConfig: any): Promise<void> {
     // Implementation depends on the external service
     switch (webhookConfig.provider_id) {
+      case 'gmail':
+        await this.unregisterGmailWebhook(webhookConfig)
+        break
+
+      case 'google-calendar':
+        await this.unregisterGoogleCalendarWebhook(webhookConfig)
+        break
+
+      case 'google-drive':
+      case 'google-docs':
+        await this.unregisterGoogleDriveWebhook(webhookConfig)
+        break
+
       case 'discord':
         await this.unregisterDiscordWebhook(webhookConfig)
         break
@@ -1885,6 +2393,14 @@ export class TriggerWebhookManager {
 
       case 'microsoft-outlook':
         await this.unregisterOutlookWebhook(webhookConfig)
+        break
+
+      case 'slack':
+        await this.unregisterSlackWebhook(webhookConfig)
+        break
+
+      case 'github':
+        await this.unregisterGithubWebhook(webhookConfig)
         break
 
       case 'microsoft-teams':
@@ -2049,19 +2565,150 @@ export class TriggerWebhookManager {
   }
 
   /**
+   * Unregister Slack webhook
+   */
+  private async unregisterSlackWebhook(webhookConfig: any): Promise<void> {
+    try {
+      // Slack Event Subscriptions are configured at the app level
+      // We just remove our configuration metadata
+      console.log('🗑️ Clearing Slack event subscription configuration')
+      // The webhook_configs entry will be deleted by the calling function
+      console.log('✅ Slack event subscription configuration cleared')
+    } catch (error) {
+      console.warn('Failed to unregister Slack webhook:', error)
+    }
+  }
+
+  /**
+   * Unregister GitHub webhook
+   */
+  private async unregisterGithubWebhook(webhookConfig: any): Promise<void> {
+    try {
+      const githubWebhookId = webhookConfig.external_id || webhookConfig.metadata?.githubWebhookId
+      const repository = webhookConfig.metadata?.repository
+      const owner = webhookConfig.metadata?.owner
+      const repo = webhookConfig.metadata?.repo
+
+      if (!githubWebhookId || !owner || !repo) {
+        console.log('GitHub webhook metadata missing, webhook may already be deleted')
+        return
+      }
+
+      // Get GitHub integration for access token
+      const { data: integration } = await this.supabase
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'github')
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      if (!integration) {
+        console.log('GitHub integration not found, webhook may already be deleted')
+        return
+      }
+
+      const accessToken = integration.access_token ? safeDecrypt(integration.access_token) : null
+      if (!accessToken) {
+        console.log('GitHub access token missing, cannot delete webhook')
+        return
+      }
+
+      // Delete webhook via GitHub API
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/hooks/${githubWebhookId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28'
+          }
+        }
+      )
+
+      if (!response.ok && response.status !== 404) {
+        const errorText = await response.text()
+        console.warn('Failed to delete GitHub webhook:', errorText)
+      } else {
+        console.log('✅ GitHub webhook deleted successfully', { repository, webhookId: githubWebhookId })
+      }
+    } catch (error) {
+      console.error('Failed to unregister GitHub webhook:', error)
+      // Don't throw - webhook might already be deleted
+    }
+  }
+
+  /**
    * Unregister Microsoft Teams webhook
    */
   private async unregisterTeamsWebhook(webhookConfig: any): Promise<void> {
-    // Similar implementation for Teams
-    console.log('Teams webhook unregistration not yet implemented')
+    try {
+      const subscriptionId = webhookConfig.external_id || webhookConfig.metadata?.subscriptionId
+      if (!subscriptionId) {
+        console.warn('No Teams subscription ID to delete')
+        return
+      }
+
+      const integration = await this.supabase
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'microsoft-teams')
+        .eq('status', 'connected')
+        .single()
+
+      const accessToken = integration?.data?.access_token
+        ? safeDecrypt(integration.data.access_token)
+        : null
+      if (!accessToken) {
+        console.warn('Could not decrypt Teams access token to delete subscription; leaving to expire', { subscriptionId })
+        return
+      }
+
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      await mgr.deleteSubscription(subscriptionId, accessToken)
+      console.log('✅ Teams subscription deleted', { subscriptionId })
+    } catch (error) {
+      console.warn('Failed to unregister Teams subscription (will expire automatically):', error)
+    }
   }
 
   /**
    * Unregister Microsoft OneNote webhook
    */
   private async unregisterOneNoteWebhook(webhookConfig: any): Promise<void> {
-    // Similar implementation for OneNote
-    console.log('OneNote webhook unregistration not yet implemented')
+    try {
+      const subscriptionId = webhookConfig.external_id || webhookConfig.metadata?.subscriptionId
+      if (!subscriptionId) {
+        console.warn('No OneNote subscription ID to delete')
+        return
+      }
+
+      const integration = await this.supabase
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', webhookConfig.user_id)
+        .eq('provider', 'microsoft-onenote')
+        .eq('status', 'connected')
+        .single()
+
+      const accessToken = integration?.data?.access_token
+        ? safeDecrypt(integration.data.access_token)
+        : null
+      if (!accessToken) {
+        console.warn('Could not decrypt OneNote access token to delete subscription; leaving to expire', { subscriptionId })
+        return
+      }
+
+      const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
+      const mgr = new MicrosoftGraphSubscriptionManager()
+      await mgr.deleteSubscription(subscriptionId, accessToken)
+      console.log('✅ OneNote subscription deleted', { subscriptionId })
+    } catch (error) {
+      console.warn('Failed to unregister OneNote subscription (will expire automatically):', error)
+    }
   }
 
   /**
