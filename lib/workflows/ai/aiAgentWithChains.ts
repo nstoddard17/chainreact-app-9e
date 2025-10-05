@@ -9,6 +9,14 @@ import { AIAgentParams, AIAgentResult } from '../aiAgent'
 import { ChainExecutionEngine, AIAgentExecutionContext } from './chainExecutionEngine'
 import { AIDecisionMaker } from './aiDecisionMaker'
 
+// AI Agent logging utility - always enabled for AI agent workflows
+const AI_LOGGING_ENABLED = true
+const aiLog = (...args: any[]) => {
+  if (AI_LOGGING_ENABLED) {
+    console.log(...args)
+  }
+}
+
 /**
  * Execute AI Agent with chain-based routing
  */
@@ -44,7 +52,7 @@ export async function executeAIAgentWithChains(
       }
     }
 
-    console.log(`🔑 Using ${usingUserKey ? 'user' : 'platform'} API key for AI Agent execution`)
+    aiLog(`🔑 Using ${usingUserKey ? 'user' : 'platform'} API key for AI Agent execution`)
 
     // Check AI usage limits
     const { checkUsageLimit, trackUsage } = await import('@/lib/usageTracking')
@@ -115,11 +123,11 @@ export async function executeAIAgentWithChains(
     // Step 1: AI analyzes input and selects chains
     const chainSelection = await decisionMaker.analyzeAndRoute()
 
-    console.log(`AI Agent selected ${chainSelection.selectedChains.length} chain(s) for execution`)
+    aiLog(`AI Agent selected ${chainSelection.selectedChains.length} chain(s) for execution`)
 
     // Log only selected chains with reasoning
     chainSelection.selectedChains.forEach(chain => {
-      console.log(`  ✅ ${chain.chainId}: ${chain.reasoning}`)
+      aiLog(`  ✅ ${chain.chainId}: ${chain.reasoning}`)
     })
 
     // Check if any chains were selected
@@ -147,7 +155,53 @@ export async function executeAIAgentWithChains(
     })
 
     const executionTime = Date.now() - startTime
-    console.log(`AI Agent execution completed in ${executionTime}ms`)
+
+    // Enhanced final execution summary logging
+    aiLog('')
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('🎯 AI AGENT EXECUTION SUMMARY')
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('')
+    aiLog(`⏱️  Total Execution Time: ${executionTime}ms`)
+    aiLog(`📊 Overall Status: ${executionResult.errors.length === 0 ? '✅ SUCCESS' : '❌ FAILED'}`)
+    aiLog(`🔗 Chains Executed: ${executionResult.chains.length} of ${chainSelection.selectedChains.length} selected`)
+    aiLog('')
+
+    // Per-chain results
+    aiLog('📋 CHAIN RESULTS:')
+    executionResult.chains.forEach((chain, index) => {
+      const selection = chainSelection.selectedChains.find(c => c.chainId === chain.chainId)
+      aiLog(`  ${index + 1}. ${chain.chainId}`)
+      aiLog(`     Status: ${chain.success ? '✅ Success' : '❌ Failed'}`)
+      aiLog(`     Reasoning: ${selection?.reasoning || 'N/A'}`)
+      aiLog(`     Confidence: ${selection ? (selection.confidence * 100).toFixed(0) + '%' : 'N/A'}`)
+      aiLog(`     Execution Time: ${chain.executionTime}ms`)
+      if (chain.error) {
+        aiLog(`     Error: ${chain.error.message || chain.error}`)
+      }
+      aiLog('')
+    })
+
+    // AI-generated summary
+    if (summary) {
+      aiLog('💬 AI SUMMARY:')
+      aiLog(`   ${summary}`)
+      aiLog('')
+    }
+
+    // Errors if any
+    if (executionResult.errors.length > 0) {
+      aiLog('⚠️  ERRORS ENCOUNTERED:')
+      executionResult.errors.forEach((error, index) => {
+        aiLog(`   ${index + 1}. ${error.message || error}`)
+      })
+      aiLog('')
+    }
+
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('🏁 AI AGENT EXECUTION COMPLETE')
+    aiLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    aiLog('')
 
     // Return results
     return {

@@ -27,12 +27,20 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Missing required parameters' }, { status: 400 });
     }
     
-    // Route gmail-recent-recipients to Gmail data API
-    if (dataType === 'gmail-recent-recipients') {
-      console.log('🔍 [SERVER] Routing Gmail recent recipients to Gmail API, original integrationId:', integrationId);
-      
+    const gmailDataTypes = new Set([
+      'gmail-recent-recipients',
+      'gmail-enhanced-recipients',
+      'gmail_labels',
+      'gmail_recipients',
+      'gmail_signatures',
+    ]);
+
+    // Route Gmail-specific data requests (including enhanced recipients and labels) through Gmail API
+    if (gmailDataTypes.has(dataType)) {
+      console.log('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
+
       try {
-        // First, get the integration that made this request
+        // Fetch the integration initiating the request
         const { data: requestingIntegration, error: requestingError } = await supabase
           .from('integrations')
           .select('*')
@@ -44,40 +52,51 @@ export async function POST(req: NextRequest) {
           return Response.json({ error: 'Requesting integration not found' }, { status: 404 });
         }
 
-        // If the requesting integration is not Gmail, find a Gmail integration for the same user
-        let gmailIntegrationId = integrationId;
-        
-        if (requestingIntegration.provider !== 'gmail') {
-          console.log('🔍 [SERVER] Non-Gmail integration requesting Gmail data, finding Gmail integration for user:', requestingIntegration.user_id);
-          
-          const { data: gmailIntegration, error: gmailError } = await supabase
+        // Determine which Gmail integration to use
+        let gmailIntegration = requestingIntegration.provider === 'gmail' ? requestingIntegration : null;
+
+        if (!gmailIntegration) {
+          console.log('🔍 [SERVER] Resolving Gmail integration for user', {
+            userId: requestingIntegration.user_id,
+            requestingProvider: requestingIntegration.provider,
+            dataType,
+          });
+
+          const { data: resolvedGmailIntegration, error: gmailError } = await supabase
             .from('integrations')
             .select('*')
             .eq('user_id', requestingIntegration.user_id)
             .eq('provider', 'gmail')
-            .eq('status', 'connected')
-            .single();
+            .in('status', ['connected', 'active', 'authorized', 'valid', 'ready', 'ok'])
+            .maybeSingle();
 
-          if (gmailError || !gmailIntegration) {
-            console.error('❌ [SERVER] Gmail integration not found for user:', gmailError);
-            return Response.json({ error: 'Gmail integration required for recipient suggestions' }, { status: 404 });
+          if (gmailError) {
+            console.error('❌ [SERVER] Gmail integration lookup error:', gmailError);
           }
-          
-          gmailIntegrationId = gmailIntegration.id;
-          console.log('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegrationId);
+
+          if (!resolvedGmailIntegration) {
+            console.error('❌ [SERVER] Gmail integration not found for user or not connected:', {
+              userId: requestingIntegration.user_id,
+              requestingProvider: requestingIntegration.provider
+            });
+            return Response.json({ error: 'A connected Gmail integration is required to load Gmail data.' }, { status: 404 });
+          }
+
+          gmailIntegration = resolvedGmailIntegration;
+          console.log('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegration.id);
         }
-        
-        const baseUrl = req.nextUrl.origin
+
+        const baseUrl = req.nextUrl.origin;
         const gmailApiResponse = await fetch(`${baseUrl}/api/integrations/gmail/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            integrationId: gmailIntegrationId,
+            integrationId: gmailIntegration.id,
             dataType,
-            options
-          })
+            options,
+          }),
         });
 
         if (!gmailApiResponse.ok) {
@@ -90,7 +109,7 @@ export async function POST(req: NextRequest) {
         console.log(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         return Response.json(gmailResult);
-        
+
       } catch (error: any) {
         console.error(`❌ [SERVER] Gmail API routing error:`, error);
         return Response.json({ error: 'Failed to route Gmail request' }, { status: 500 });

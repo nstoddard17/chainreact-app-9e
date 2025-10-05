@@ -140,6 +140,8 @@ function WorkflowBuilderContent() {
     handleDeleteNodeWithConfirmation,
     handleNodeConfigure,
     handleNodeDelete,
+    handleNodeEditingStateChange,
+    handleNodeRename,
     handleNodeAddChain,
     handleAddNodeBetween,
     ensureOneAddActionPerChain,
@@ -724,7 +726,7 @@ function WorkflowBuilderContent() {
                         type: 'chainPlaceholder',
                         position: {
                           x: aiAgentNode.position.x, // Same width (480px) as AI Agent - no offset needed
-                          y: aiAgentNode.position.y + 180
+                          y: aiAgentNode.position.y + 160
                         },
                         draggable: false,
                         selectable: false,
@@ -842,7 +844,9 @@ function WorkflowBuilderContent() {
                         integration: chainNode.integration || chainNode.data?.integration,
                         // Add handlers - these will be called with the node ID
                         onConfigure: handleNodeConfigure,
-                        onDelete: handleNodeDelete
+                        onDelete: handleNodeDelete,
+                        onEditingStateChange: handleNodeEditingStateChange,
+                        onRename: handleNodeRename
                       }
 
                       const newNodeId = `${aiAgentNodeId}-${chainNode.id}-${timestamp}`
@@ -873,7 +877,7 @@ function WorkflowBuilderContent() {
                           type: 'addAction',
                           position: {
                             x: newNode.position.x, // Keep same X for vertical alignment
-                            y: newNode.position.y + 180
+                            y: newNode.position.y + 160
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
@@ -1125,7 +1129,7 @@ function WorkflowBuilderContent() {
                       type: 'chainPlaceholder',
                       position: {
                         x: aiAgentNode.position.x,
-                        y: aiAgentNode.position.y + 180
+                        y: aiAgentNode.position.y + 160
                       },
                       draggable: false,
                       selectable: false,
@@ -1357,6 +1361,7 @@ function WorkflowBuilderContent() {
         onOpenChange={setShowUnsavedChangesModal}
         onSave={handleSaveAndNavigate(handleSave)}
         onDiscard={handleNavigateWithoutSaving}
+        isSaving={isSaving}
       />
 
       {/* Node Deletion Modal */}
