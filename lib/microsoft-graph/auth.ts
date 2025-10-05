@@ -157,10 +157,17 @@ export class MicrosoftGraphAuth {
       throw new Error('No Microsoft integration found for user')
     }
 
-    // Prefer the specified provider, otherwise use the first one
-    const integration = preferredProvider
-      ? integrations.find(i => i.provider === preferredProvider) || integrations[0]
-      : integrations[0]
+    // Prefer the specified provider, otherwise use the first one that matches
+    let integration
+    if (preferredProvider) {
+      integration = integrations.find(i => i.provider === preferredProvider)
+      if (!integration) {
+        throw new Error(`Microsoft integration for provider '${preferredProvider}' not found`)
+      }
+    } else {
+      // If no preferred provider, use the first one (this shouldn't happen)
+      integration = integrations[0]
+    }
 
     if (!integration || !integration.access_token || !integration.refresh_token) {
       throw new Error('Microsoft integration missing access or refresh token')

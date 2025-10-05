@@ -38,13 +38,16 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Get valid access token (automatically refreshes if expired)
+    // Determine the provider based on trigger type
+    const provider = this.getProviderFromTriggerType(triggerType)
+
     let accessToken: string
     try {
-      accessToken = await this.graphAuth.getValidAccessToken(userId)
-      console.log('✅ Retrieved valid Microsoft Graph access token')
+      accessToken = await this.graphAuth.getValidAccessToken(userId, provider)
+      console.log(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
     } catch (error) {
       console.error('❌ Failed to get valid Microsoft Graph token:', error)
-      throw new Error('Microsoft integration not connected or token expired. Please reconnect your Microsoft account.')
+      throw new Error(`Microsoft ${provider} integration not connected or token expired. Please reconnect your Microsoft ${provider} account.`)
     }
 
     // Determine resource based on trigger type
@@ -53,6 +56,37 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     if (!resource) {
       throw new Error(`Unknown Microsoft Graph trigger type: ${triggerType}`)
+    }
+
+    // Test the token by calling /me and /me/messages to verify permissions
+    console.log('🧪 Testing token permissions...')
+    try {
+      const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+
+      if (!meResponse.ok) {
+        console.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
+      } else {
+        const meData = await meResponse.json()
+        console.log('✅ /me call succeeded:', meData.displayName, meData.mail || meData.userPrincipalName)
+      }
+
+      const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+
+      if (!messagesResponse.ok) {
+        const errorText = await messagesResponse.text()
+        console.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
+        console.error('   Error details:', errorText)
+        throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
+      } else {
+        console.log('✅ /me/messages call succeeded - token has mail read permission')
+      }
+    } catch (testError) {
+      console.error('❌ Token permission test failed:', testError)
+      throw testError
     }
 
     console.log(`📤 Creating Microsoft Graph subscription`, {
@@ -213,6 +247,21 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       expiresAt: nearestExpiration?.toISOString(),
       lastChecked: new Date().toISOString()
     }
+  }
+
+  /**
+   * Extract the provider from trigger type
+   * e.g., "microsoft-outlook_trigger_new_email" -> "microsoft-outlook"
+   */
+  private getProviderFromTriggerType(triggerType: string): string {
+    // Extract provider prefix from trigger type
+    if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
+    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
+    if (triggerType.startsWith('teams_')) return 'teams'
+    if (triggerType.startsWith('onedrive_')) return 'onedrive'
+
+    // Default to microsoft-outlook for generic microsoft triggers
+    return 'microsoft-outlook'
   }
 
   /**
