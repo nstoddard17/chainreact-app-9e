@@ -48,32 +48,8 @@ export class MicrosoftGraphSubscriptionManager {
         expirationMinutes = 4320 // Default to 3 days
       } = request
 
-      // Check for existing active subscription to the same resource
-      const { data: existingSubscriptions } = await supabase
-        .from('microsoft_graph_subscriptions')
-        .select('id, resource, status')
-        .eq('user_id', userId)
-        .eq('resource', resource)
-        .eq('status', 'active')
-
-      if (existingSubscriptions && existingSubscriptions.length > 0) {
-        console.log('⚠️ Active subscription already exists for resource:', resource)
-        // Return the existing subscription instead of creating a duplicate
-        const existing = existingSubscriptions[0]
-        return {
-          id: existing.id,
-          resource: resource,
-          changeType: changeType,
-          notificationUrl: notificationUrl,
-          expirationDateTime: new Date(Date.now() + 4320 * 60 * 1000).toISOString(),
-          clientState: '',
-          userId: userId,
-          accessToken: accessToken,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      }
+      // NOTE: Duplicate checking is now handled by trigger lifecycle manager
+      // which manages subscriptions in the trigger_resources table
 
       // Validate expiration time
       const actualExpirationMinutes = Math.min(expirationMinutes, this.maxExpirationMinutes)
@@ -125,7 +101,7 @@ export class MicrosoftGraphSubscriptionManager {
 
       const subscriptionData = await response.json()
 
-      // Store subscription in database
+      // Return subscription data (lifecycle manager will save to trigger_resources)
       const subscription: MicrosoftGraphSubscription = {
         id: subscriptionData.id,
         resource: resource,
@@ -134,15 +110,13 @@ export class MicrosoftGraphSubscriptionManager {
         expirationDateTime: subscriptionData.expirationDateTime,
         clientState: clientState,
         userId: userId,
-        accessToken: accessToken, // Note: In production, store refresh token instead
+        accessToken: accessToken,
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
 
-      await this.saveSubscription(subscription)
-
-      console.log('✅ Subscription created successfully:', subscription.id)
+      console.log('✅ Subscription created in Microsoft Graph:', subscription.id)
       return subscription
 
     } catch (error) {
@@ -231,6 +205,13 @@ export class MicrosoftGraphSubscriptionManager {
       })
 
       if (!response.ok) {
+        // 404 means subscription doesn't exist (already deleted or expired) - treat as success
+        if (response.status === 404) {
+          console.log('ℹ️ Subscription not found in Microsoft Graph (already deleted/expired):', subscriptionId)
+          await this.markSubscriptionAsDeleted(subscriptionId)
+          return
+        }
+
         const errorText = await response.text()
         console.error('❌ Failed to delete subscription:', {
           status: response.status,
@@ -252,14 +233,16 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   /**
-   * Get all subscriptions for a user
+   * Get all subscriptions for a user from trigger_resources
    */
   async getUserSubscriptions(userId: string): Promise<MicrosoftGraphSubscription[]> {
     try {
       const { data, error } = await supabase
-        .from('microsoft_graph_subscriptions')
+        .from('trigger_resources')
         .select('*')
         .eq('user_id', userId)
+        .eq('resource_type', 'subscription')
+        .like('provider_id', 'microsoft%')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
 
@@ -268,7 +251,19 @@ export class MicrosoftGraphSubscriptionManager {
         return []
       }
 
-      return data.map(this.mapDbSubscriptionToModel) || []
+      return (data || []).map(resource => ({
+        id: resource.external_id!,
+        resource: resource.config?.resource || '',
+        changeType: resource.config?.changeType || '',
+        notificationUrl: resource.config?.notificationUrl || '',
+        expirationDateTime: resource.expires_at || '',
+        clientState: resource.config?.clientState || '',
+        userId: resource.user_id,
+        accessToken: '', // Not stored in trigger_resources for security
+        status: 'active' as const,
+        createdAt: resource.created_at || '',
+        updatedAt: resource.updated_at || ''
+      }))
     } catch (error) {
       console.error('Error getting user subscriptions:', error)
       return []
@@ -276,7 +271,7 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   /**
-   * Get subscriptions that need renewal (expiring within 24 hours)
+   * Get subscriptions that need renewal (expiring within 24 hours) from trigger_resources
    */
   async getSubscriptionsNeedingRenewal(): Promise<MicrosoftGraphSubscription[]> {
     try {
@@ -285,17 +280,31 @@ export class MicrosoftGraphSubscriptionManager {
       renewalThreshold.setMinutes(renewalThreshold.getMinutes() + 15)
 
       const { data, error } = await supabase
-        .from('microsoft_graph_subscriptions')
+        .from('trigger_resources')
         .select('*')
+        .eq('resource_type', 'subscription')
+        .like('provider_id', 'microsoft%')
         .eq('status', 'active')
-        .lt('expiration_date_time', renewalThreshold.toISOString())
+        .lt('expires_at', renewalThreshold.toISOString())
 
       if (error) {
         console.error('Error fetching subscriptions needing renewal:', error)
         return []
       }
 
-      return data.map(this.mapDbSubscriptionToModel) || []
+      return (data || []).map(resource => ({
+        id: resource.external_id!,
+        resource: resource.config?.resource || '',
+        changeType: resource.config?.changeType || '',
+        notificationUrl: resource.config?.notificationUrl || '',
+        expirationDateTime: resource.expires_at || '',
+        clientState: resource.config?.clientState || '',
+        userId: resource.user_id,
+        accessToken: '', // Not stored in trigger_resources for security
+        status: 'active' as const,
+        createdAt: resource.created_at || '',
+        updatedAt: resource.updated_at || ''
+      }))
     } catch (error) {
       console.error('Error getting subscriptions needing renewal:', error)
       return []
@@ -303,17 +312,19 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   /**
-   * Clean up expired subscriptions
+   * Clean up expired subscriptions in trigger_resources
    */
   async cleanupExpiredSubscriptions(): Promise<void> {
     try {
       const now = new Date().toISOString()
 
       const { error } = await supabase
-        .from('microsoft_graph_subscriptions')
+        .from('trigger_resources')
         .update({ status: 'expired', updated_at: now })
+        .eq('resource_type', 'subscription')
+        .like('provider_id', 'microsoft%')
         .eq('status', 'active')
-        .lt('expiration_date_time', now)
+        .lt('expires_at', now)
 
       if (error) {
         console.error('Error cleaning up expired subscriptions:', error)
@@ -326,12 +337,19 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   /**
-   * Verify client state for webhook security
+   * Verify client state for webhook security from trigger_resources
    */
   async verifyClientState(clientState: string, subscriptionId: string): Promise<boolean> {
     try {
-      const subscription = await this.getSubscription(subscriptionId)
-      return Boolean(subscription && subscription.clientState === clientState)
+      const { data } = await supabase
+        .from('trigger_resources')
+        .select('config')
+        .eq('external_id', subscriptionId)
+        .eq('resource_type', 'subscription')
+        .like('provider_id', 'microsoft%')
+        .single()
+
+      return Boolean(data?.config?.clientState === clientState)
     } catch {
       return false
     }
@@ -407,47 +425,22 @@ export class MicrosoftGraphSubscriptionManager {
     return crypto.randomBytes(32).toString('hex')
   }
 
+  // DEPRECATED: Subscription saving is now handled by TriggerLifecycleManager
+  // This method is no longer used but kept for backward compatibility
   private async saveSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {
-    console.log('💾 Saving subscription to database with userId:', {
-      subscriptionId: subscription.id,
-      userId: subscription.userId,
-      userIdLength: subscription.userId?.length,
-      userIdType: typeof subscription.userId
-    })
-
-    const { error } = await supabase
-      .from('microsoft_graph_subscriptions')
-      .insert({
-        id: subscription.id,
-        resource: subscription.resource,
-        change_type: subscription.changeType,
-        notification_url: subscription.notificationUrl,
-        expiration_date_time: subscription.expirationDateTime,
-        client_state: subscription.clientState,
-        user_id: subscription.userId,
-        access_token: subscription.accessToken,
-        status: subscription.status,
-        created_at: subscription.createdAt,
-        updated_at: subscription.updatedAt
-      })
-
-    if (error) {
-      console.error('Error saving subscription:', error)
-      throw error
-    }
-
-    console.log('✅ Subscription saved successfully with user_id:', subscription.userId)
+    console.log('⚠️ saveSubscription called but is deprecated - lifecycle manager handles persistence')
   }
 
   private async updateSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {
     const { error } = await supabase
-      .from('microsoft_graph_subscriptions')
+      .from('trigger_resources')
       .update({
-        expiration_date_time: subscription.expirationDateTime,
-        access_token: subscription.accessToken,
+        expires_at: subscription.expirationDateTime,
         updated_at: subscription.updatedAt
       })
-      .eq('id', subscription.id)
+      .eq('external_id', subscription.id)
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
 
     if (error) {
       console.error('Error updating subscription:', error)
@@ -457,12 +450,14 @@ export class MicrosoftGraphSubscriptionManager {
 
   private async markSubscriptionAsDeleted(subscriptionId: string): Promise<void> {
     const { error } = await supabase
-      .from('microsoft_graph_subscriptions')
-      .update({ 
-        status: 'deleted', 
-        updated_at: new Date().toISOString() 
+      .from('trigger_resources')
+      .update({
+        status: 'deleted',
+        updated_at: new Date().toISOString()
       })
-      .eq('id', subscriptionId)
+      .eq('external_id', subscriptionId)
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
 
     if (error) {
       console.error('Error marking subscription as deleted:', error)
@@ -472,9 +467,11 @@ export class MicrosoftGraphSubscriptionManager {
 
   private async getSubscription(subscriptionId: string): Promise<MicrosoftGraphSubscription | null> {
     const { data, error } = await supabase
-      .from('microsoft_graph_subscriptions')
+      .from('trigger_resources')
       .select('*')
-      .eq('id', subscriptionId)
+      .eq('external_id', subscriptionId)
+      .eq('resource_type', 'subscription')
+      .like('provider_id', 'microsoft%')
       .single()
 
     if (error) {
@@ -484,22 +481,18 @@ export class MicrosoftGraphSubscriptionManager {
 
     if (!data) return null
 
-    return this.mapDbSubscriptionToModel(data)
-  }
-
-  private mapDbSubscriptionToModel(data: any): MicrosoftGraphSubscription {
     return {
-      id: data.id,
-      resource: data.resource,
-      changeType: data.change_type,
-      notificationUrl: data.notification_url,
-      expirationDateTime: data.expiration_date_time,
-      clientState: data.client_state,
+      id: data.external_id!,
+      resource: data.config?.resource || '',
+      changeType: data.config?.changeType || '',
+      notificationUrl: data.config?.notificationUrl || '',
+      expirationDateTime: data.expires_at || '',
+      clientState: data.config?.clientState || '',
       userId: data.user_id,
-      accessToken: data.access_token,
-      status: data.status,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      accessToken: '', // Not stored in trigger_resources for security
+      status: data.status as 'active' | 'expired' | 'deleted',
+      createdAt: data.created_at || '',
+      updatedAt: data.updated_at || ''
     }
   }
 }

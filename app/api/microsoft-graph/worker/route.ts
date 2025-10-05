@@ -86,46 +86,21 @@ export async function POST(_req: NextRequest) {
         .update({ status: 'processing', updated_at: new Date().toISOString() })
         .eq('id', row.id)
 
-      // Get subscription owner for API calls
-      const { data: userToken } = await supabase
-        .from('microsoft_graph_subscriptions')
-        .select('user_id, access_token')
-        .eq('id', row.subscription_id)
+      // Get subscription owner for API calls from trigger_resources
+      const { data: resource } = await supabase
+        .from('trigger_resources')
+        .select('user_id, workflow_id')
+        .eq('external_id', row.subscription_id)
+        .eq('resource_type', 'subscription')
+        .like('provider_id', 'microsoft%')
         .single()
 
-      // If no user_id in subscription, try to get from the integration
-      let actualUserId = userToken?.user_id
-      if (!actualUserId) {
-        console.log('⚠️ No user_id in subscription, attempting to find from integration...')
-        // Find the OneDrive integration that matches this subscription
-        const { data: integrations } = await supabase
-          .from('integrations')
-          .select('user_id, metadata')
-          .eq('provider', 'onedrive')
-          .eq('status', 'connected')
-
-        // Look for integration with this subscription ID in metadata
-        for (const integration of integrations || []) {
-          let metadata = integration.metadata || {}
-          if (typeof metadata === 'string') {
-            try { metadata = JSON.parse(metadata) } catch { metadata = {} }
-          }
-          if (metadata.subscriptionId === row.subscription_id) {
-            actualUserId = integration.user_id
-            console.log('✅ Found user_id from integration:', actualUserId)
-            break
-          }
-        }
-      }
-
-      if (!actualUserId) {
+      if (!resource?.user_id) {
         console.error('❌ Could not determine user_id for subscription:', row.subscription_id)
         continue
       }
 
-      if (!userToken) {
-        throw new Error('Subscription or token not found')
-      }
+      const actualUserId = resource.user_id
 
       // Process based on resource type
       const payload = row.payload
@@ -191,7 +166,7 @@ export async function POST(_req: NextRequest) {
 
       // Store normalized events
       if (events && events.length > 0) {
-        await storeNormalizedEvents(events, userToken.user_id)
+        await storeNormalizedEvents(events, actualUserId)
 
         // Emit workflow triggers for each event
         for (const event of events) {
@@ -1219,6 +1194,31 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         }
 
+        // Check if this workflow has already been triggered for this event (prevent race condition duplicates)
+        const eventUniqueKey = `${workflow.id}-${event.id}-${event.type}-${event.action}`
+        const recentExecutionWindow = 60000 // 60 seconds
+
+        const { data: recentExecutions } = await supabase
+          .from('workflow_execution_sessions')
+          .select('id, created_at')
+          .eq('workflow_id', workflow.id)
+          .eq('user_id', userId)
+          .gte('created_at', new Date(Date.now() - recentExecutionWindow).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        // Check if any recent execution has the same event in its context
+        const isDuplicate = recentExecutions?.some(session => {
+          // Check created_at to ensure it's very recent (within last 60 seconds)
+          const sessionAge = Date.now() - new Date(session.created_at).getTime()
+          return sessionAge < recentExecutionWindow
+        })
+
+        if (isDuplicate) {
+          console.log(`⏭️ Skipping duplicate workflow execution for event ${event.id} on workflow ${workflow.id}`)
+          continue
+        }
+
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
 
         console.log('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
@@ -1233,7 +1233,8 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
               ...event,
               source: 'microsoft-graph-worker',
               timestamp: new Date().toISOString()
-            }
+            },
+            eventUniqueKey // Store this for future deduplication
           }
         )
 

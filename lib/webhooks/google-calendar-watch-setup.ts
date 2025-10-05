@@ -1,3 +1,30 @@
+/**
+ * ⚠️ DEPRECATED FILE (2025-10-03)
+ *
+ * This file is deprecated and should no longer be used for new code.
+ *
+ * REASON: Google Calendar triggers now use the unified TriggerLifecycleManager system
+ * which provides proper workflow tracking and lifecycle management.
+ *
+ * OLD SYSTEM (this file):
+ * - Stores subscriptions in google_watch_subscriptions table (no workflow_id tracking)
+ * - Manual subscription management
+ * - No integration with workflow activation/deactivation
+ *
+ * NEW SYSTEM (replacement):
+ * - File: /lib/triggers/providers/GoogleApisTriggerLifecycle.ts
+ * - Stores in: trigger_resources table (with workflow_id tracking)
+ * - Automatic lifecycle: create on activate, delete on deactivate
+ * - Unified management via TriggerLifecycleManager
+ *
+ * MIGRATION PATH:
+ * - New workflows automatically use new system
+ * - This file kept for backward compatibility only
+ * - Will be removed after all existing subscriptions migrated
+ *
+ * SEE: /learning/docs/trigger-lifecycle-audit.md
+ */
+
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
@@ -37,10 +64,12 @@ interface GoogleCalendarWatchConfig {
 }
 
 /**
+ * @deprecated Use GoogleApisTriggerLifecycle instead
  * Set up Google Calendar watch for push notifications
  * Calendar watches expire after a maximum of 1 week
  */
 export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig): Promise<{ channelId: string; resourceId: string; expiration: string; syncToken?: string }> {
+  console.warn('⚠️ DEPRECATED: setupGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -180,9 +209,11 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
 }
 
 /**
+ * @deprecated Use GoogleApisTriggerLifecycle instead
  * Stop Google Calendar watch
  */
 export async function stopGoogleCalendarWatch(userId: string, integrationId: string, channelId: string, resourceId: string): Promise<void> {
+  console.warn('⚠️ DEPRECATED: stopGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

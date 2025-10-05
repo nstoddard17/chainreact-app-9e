@@ -37,7 +37,6 @@ export default function WorkflowsContent() {
   const { integrations, fetchIntegrations } = useIntegrationStore()
   const {
     workflows,
-    loading,
     error,
     loadAllWorkflows,
     updateWorkflowById,
@@ -98,20 +97,31 @@ export default function WorkflowsContent() {
   const { toast } = useToast()
   const hasWorkflows = Array.isArray(workflows) && workflows.length > 0
   const [forceShowContent, setForceShowContent] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
   // Use the new timeout loading hook for fast, reliable loading
   // NON-BLOCKING - page renders immediately
-  useTimeoutLoading({
+  const { refresh: refreshWorkflows } = useTimeoutLoading({
     loadFunction: async (force) => {
-      // Always fetch fresh data for workflows to ensure deleted ones don't appear
-      return await loadAllWorkflows(true)
+      if (force) {
+        setForceShowContent(false)
+      }
+      setRefreshing(true)
+      try {
+        return await loadAllWorkflows(force ?? true)
+      } finally {
+        setRefreshing(false)
+      }
     },
-    isLoading: loading,
+    isLoading: refreshing,
     timeout: 5000, // 5 second timeout
     forceRefreshOnMount: true, // Always refresh workflows on mount
     onError: (error) => {
       // Don't show toast for timeouts - just log
       console.warn('Workflow loading error (non-blocking):', error)
+    },
+    onSuccess: () => {
+      setForceShowContent(false)
     },
     dependencies: [] // Only load on mount
   })
@@ -119,15 +129,20 @@ export default function WorkflowsContent() {
   // Add a fallback timeout to force show content if loading gets stuck
   // This ensures the page never stays in infinite loading state
   useEffect(() => {
+    if (!refreshing) {
+      setForceShowContent(false)
+      return
+    }
+
     const fallbackTimeout = setTimeout(() => {
-      if (loading && !hasWorkflows) {
+      if (refreshing && !hasWorkflows) {
         console.warn('⚠️ Workflows page stuck in loading state - forcing content display')
         setForceShowContent(true)
       }
     }, 8000) // 8 second fallback (longer than useTimeoutLoading)
 
     return () => clearTimeout(fallbackTimeout)
-  }, [loading, hasWorkflows])
+  }, [refreshing, hasWorkflows])
 
   // Load integrations on mount
   const safeFetchIntegrations = useCallback(async (force = false) => {
@@ -204,21 +219,20 @@ export default function WorkflowsContent() {
 
   const handleToggleStatus = async (id: string, currentStatus?: string) => {
     const status = currentStatus || "draft"
+    const workflowList = workflows || []
+    const workflowToUpdate = workflowList.find((w: any) => w.id === id) || null
 
-    // Determine the new status based on current status
     let newStatus: string
     if (status === "active") {
       newStatus = "paused"
     } else if (status === "paused") {
       newStatus = "active"
     } else if (status === "draft") {
-      // For draft workflows, check if they're ready to be activated
-      const targetWorkflow = workflows?.find(w => w.id === id)
-      if (targetWorkflow) {
-        const hasTrigger = targetWorkflow.nodes?.some(n => n.data?.isTrigger)
-        const hasAction = targetWorkflow.nodes?.some(n => !n.data?.isTrigger)
-        const hasConnections = targetWorkflow.connections?.length > 0
-        
+      if (workflowToUpdate) {
+        const hasTrigger = workflowToUpdate.nodes?.some(n => n.data?.isTrigger)
+        const hasAction = workflowToUpdate.nodes?.some(n => !n.data?.isTrigger)
+        const hasConnections = workflowToUpdate.connections?.length > 0
+
         if (!hasTrigger) {
           toast({
             title: "Cannot Activate",
@@ -227,7 +241,7 @@ export default function WorkflowsContent() {
           })
           return
         }
-        
+
         if (!hasAction) {
           toast({
             title: "Cannot Activate",
@@ -236,7 +250,7 @@ export default function WorkflowsContent() {
           })
           return
         }
-        
+
         if (!hasConnections) {
           toast({
             title: "Cannot Activate",
@@ -245,7 +259,7 @@ export default function WorkflowsContent() {
           })
           return
         }
-        
+
         newStatus = "active"
       } else {
         newStatus = "active"
@@ -253,43 +267,35 @@ export default function WorkflowsContent() {
     } else {
       newStatus = "active"
     }
-    
+
+    if (!workflowToUpdate) {
+      console.error(`Workflow with id ${id} not found`)
+      toast({
+        title: "Error",
+        description: "Workflow not found",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUpdatingWorkflows(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+
+    let webhookRegistrationPromise: Promise<void> | null = null
+
     try {
-      // Set loading state for this specific workflow
-      setUpdatingWorkflows(prev => new Set(prev).add(id))
+      const workflowSnapshot = workflowList.find((w: any) => w.id === id) || workflowToUpdate
 
-
-      // Get the workflow to update
-      const workflowToUpdate = (workflows || []).find((w: any) => w.id === id)
-      if (!workflowToUpdate) {
-        console.error(`Workflow with id ${id} not found`)
-        toast({
-          title: "Error",
-          description: "Workflow not found",
-          variant: "destructive",
-        })
-        setUpdatingWorkflows(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(id)
-          return newSet
-        })
-        return
-      }
-
-      // Store webhook registration promise to execute after status update
-      let webhookRegistrationPromise: Promise<void> | null = null
-
-      // Check for required integrations before activation
       if (newStatus === 'active') {
-        const triggerNode = workflowToUpdate.nodes.find((n: any) => n?.data?.isTrigger)
+        const triggerNode = workflowSnapshot.nodes.find((n: any) => n?.data?.isTrigger)
         if (triggerNode) {
           const providerId: string | undefined = triggerNode.data?.providerId
-
-          // Providers that require an integration connection
           const integrationProviders = ['gmail', 'airtable', 'discord', 'slack', 'stripe', 'shopify', 'hubspot']
 
           if (providerId && integrationProviders.includes(providerId)) {
-            // Integration store uses 'provider'
             const integration = integrations.find(
               (int: any) => int.provider === providerId && int.status === 'connected'
             )
@@ -300,17 +306,11 @@ export default function WorkflowsContent() {
                 description: `Please connect your ${providerId.charAt(0).toUpperCase() + providerId.slice(1)} account before activating this workflow.`,
                 variant: "destructive",
               })
-              setUpdatingWorkflows(prev => {
-                const newSet = new Set(prev)
-                newSet.delete(id)
-                return newSet
-              })
               return
             }
           }
 
-          // Prepare webhook registration for Gmail (but don't execute yet)
-          const gmailTrigger = workflowToUpdate.nodes.find((n: any) =>
+          const gmailTrigger = workflowSnapshot.nodes.find((n: any) =>
             n?.data?.type === 'gmail_trigger_new_email' ||
             n?.type === 'gmail_trigger_new_email'
           )
@@ -321,7 +321,6 @@ export default function WorkflowsContent() {
             )
 
             if (gmailIntegration) {
-              // Create webhook registration promise but don't await it
               webhookRegistrationPromise = fetch('/api/workflows/webhook-registration', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -356,8 +355,17 @@ export default function WorkflowsContent() {
         updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
         console.log(`✅ Workflow update completed:`, updatedWorkflow)
 
-        // The store already updates the workflows array, no need to refresh
-        // Just verify the update took effect
+        if ((updatedWorkflow as any)?.triggerActivationError) {
+          const error = (updatedWorkflow as any).triggerActivationError
+          console.error('❌ Trigger activation failed:', error)
+          toast({
+            title: "Failed to activate workflow",
+            description: error.message || "Could not activate triggers",
+            variant: "destructive",
+          })
+          return
+        }
+
         const verifyWorkflow = (workflows || []).find(w => w.id === id)
         console.log(`✔️ Verified workflow status:`, {
           id: verifyWorkflow?.id,
@@ -372,19 +380,11 @@ export default function WorkflowsContent() {
 
       console.log(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
 
-      // Clear loading state immediately after successful update
-      setUpdatingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(id)
-        return newSet
-      })
-
       toast({
         title: "Success",
-        description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`,
+        description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`
       })
 
-      // Execute webhook registration in background if needed (non-blocking)
       if (webhookRegistrationPromise) {
         console.log('🚀 Starting Gmail webhook registration in background...')
         webhookRegistrationPromise
@@ -392,17 +392,17 @@ export default function WorkflowsContent() {
     } catch (error) {
       console.error("Failed to update workflow status:", error)
 
-      // Clear loading state on error too
-      setUpdatingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(id)
-        return newSet
-      })
-
       toast({
         title: "Error",
         description: "Failed to update workflow status",
         variant: "destructive",
+      })
+    } finally {
+      console.log(`🧹 Clearing loading state for workflow ${id}`)
+      setUpdatingWorkflows(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(id)
+        return newSet
       })
     }
   }
@@ -627,7 +627,7 @@ export default function WorkflowsContent() {
     )
   }
 
-  if (loading && !hasWorkflows && !forceShowContent) {
+  if (refreshing && !hasWorkflows && !forceShowContent) {
     return (
       <AppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
@@ -642,7 +642,7 @@ export default function WorkflowsContent() {
       <AppLayout title="Workflows">
         <div className="flex flex-col items-center justify-center h-64">
           <div className="text-red-500 mb-4">Error loading workflows: {error}</div>
-          <Button onClick={() => loadAllWorkflows(true)}>Retry</Button>
+          <Button onClick={() => { setForceShowContent(false); refreshWorkflows(); }}>Retry</Button>
         </div>
       </AppLayout>
     )
@@ -651,7 +651,7 @@ export default function WorkflowsContent() {
   return (
     <AppLayout title="Workflows">
       <div className="space-y-8 p-6">
-        {loading && hasWorkflows && (
+        {refreshing && hasWorkflows && (
           <div className="flex items-center justify-between rounded border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
             <span>Refreshing workflows…</span>
             <LightningLoader size="sm" />
