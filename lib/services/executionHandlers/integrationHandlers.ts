@@ -68,9 +68,61 @@ export class IntegrationNodeHandlers {
           // Triggers in manual execution return sample data
           // In production, webhooks would provide real data
           console.log('📧 Outlook email trigger executing in mode:', context.testMode ? 'test' : 'live')
+          console.log('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
-          // For manual workflow execution (Run Once), always return sample data
-          // Real triggers would be handled by webhooks that provide actual email data
+          // Check if we have real email data from webhook
+          if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
+            console.log('📧 Fetching real email from Microsoft Graph API')
+
+            try {
+              // Fetch the actual email using Microsoft Graph API
+              const { getDecryptedAccessToken } = await import('@/lib/workflows/actions/core/getDecryptedAccessToken')
+              const accessToken = await getDecryptedAccessToken(context.userId, 'microsoft')
+
+              const messageId = context.data.resourceData.id
+              const apiUrl = `https://graph.microsoft.com/v1.0/me/messages/${messageId}`
+
+              const response = await fetch(apiUrl, {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              })
+
+              if (!response.ok) {
+                throw new Error(`Failed to fetch email: ${response.statusText}`)
+              }
+
+              const email = await response.json()
+              console.log('📧 Fetched email:', { subject: email.subject, from: email.from?.emailAddress?.address })
+
+              return {
+                id: email.id,
+                subject: email.subject,
+                from: {
+                  name: email.from?.emailAddress?.name || '',
+                  email: email.from?.emailAddress?.address || ''
+                },
+                to: email.toRecipients?.map((r: any) => ({
+                  name: r.emailAddress?.name || '',
+                  email: r.emailAddress?.address || ''
+                })) || [],
+                body: email.body?.content || '',
+                bodyPreview: email.bodyPreview || '',
+                receivedDateTime: email.receivedDateTime,
+                hasAttachments: email.hasAttachments,
+                isRead: email.isRead,
+                importance: email.importance,
+                conversationId: email.conversationId,
+                messageId: email.internetMessageId
+              }
+            } catch (error) {
+              console.error('❌ Error fetching email from Microsoft Graph:', error)
+              // Fall through to sample data
+            }
+          }
+
+          // For manual workflow execution (Run Once), return sample data
           return {
             id: context.testMode ? 'test-email-123' : `email-${Date.now()}`,
             subject: 'Sample Email for Workflow Testing',
