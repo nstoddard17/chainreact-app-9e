@@ -107,11 +107,17 @@ export function GmailEmailField({
         value={valueArray}
         onChange={handleChange}
         options={processedOptions}
-        placeholder={isLoading ? "Loading recent recipients..." : (field.placeholder || `Select ${field.label || field.name}...`)}
+        placeholder={
+          isLoading && processedOptions.length === 0
+            ? "Loading recent recipients..."
+            : isLoading
+              ? field.placeholder || `Select ${field.label || field.name}...`
+              : field.placeholder || `Select ${field.label || field.name}...`
+        }
         searchPlaceholder={isLoading ? "Loading..." : "Search contacts..."}
         emptyPlaceholder={isLoading ? "Loading contacts..." : "No contacts found"}
-        disabled={isLoading}
-        creatable={!isLoading} // Only allow typing new addresses when not loading
+        disabled={false}
+        creatable={true} // Always allow typing email addresses
         onOpenChange={handleDropdownOpen}
         className={cn(
           error && "border-red-500",

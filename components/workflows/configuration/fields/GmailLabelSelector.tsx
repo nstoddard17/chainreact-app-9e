@@ -307,9 +307,14 @@ export function GmailLabelSelector({
           >
           <Command shouldFilter={false}>
             <CommandList>
-              {filteredOptions.length === 0 && !showCreateOption && (
+              {isLoading && filteredOptions.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading labels...
+                </div>
+              ) : filteredOptions.length === 0 && !showCreateOption ? (
                 <CommandEmpty>No labels found.</CommandEmpty>
-              )}
+              ) : null}
               <CommandGroup>
                 {filteredOptions.map((option) => (
                   <CommandItem

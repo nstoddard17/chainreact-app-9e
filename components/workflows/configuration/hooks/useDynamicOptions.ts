@@ -1,5 +1,5 @@
 "use client"
-
+// Force recompile
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { DynamicOptionsState } from '../utils/types';
@@ -30,8 +30,8 @@ interface DynamicOption {
 let authErrorRetryCount = 0;
 const MAX_AUTH_RETRIES = 1;
 
-// Cache TTL: 1 hour (in milliseconds)
-const CACHE_TTL = 60 * 60 * 1000;
+// Cache TTL: 5 minutes (in milliseconds) - Fresh data for better UX
+const CACHE_TTL = 5 * 60 * 1000;
 
 /**
  * Get cached options from localStorage
@@ -128,6 +128,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   const activeRequestIds = useRef<Map<string, number>>(new Map());
   // Throttle map to avoid rapid reloading for the same dependency key
   const lastLoadedAt = useRef<Map<string, number>>(new Map());
+  // Track provider fetch attempts to avoid spamming integration fetches
+  const integrationFetchAttempts = useRef<Map<string, number>>(new Map());
   
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
@@ -223,6 +225,18 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
     // Determine data to load based on field name (moved outside try block for error handling)
     const resourceType = getResourceTypeForField(fieldName, nodeType);
+
+    // Debug logging for Gmail fields
+    if (fieldName === 'labelIds' || fieldName === 'from') {
+      console.log(`🔍 [useDynamicOptions] Loading Gmail field ${fieldName}:`, {
+        fieldName,
+        nodeType,
+        providerId,
+        resourceType,
+        forceRefresh,
+        silent
+      });
+    }
 
     // Debug logging for Trello template field
     if (fieldName === 'template' && providerId === 'trello') {
@@ -459,52 +473,60 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Get integration for other providers
       // Handle Google services which might use different provider IDs
       let lookupProviderId = providerId;
-      // If requesting google-drive-folders, prefer the Drive integration
-      if (resourceType === 'google-drive-folders' && providerId !== 'google-drive') {
-        lookupProviderId = 'google-drive';
-      }
-      if (providerId === 'google-calendar') {
-        // Try both formats for Google Calendar
-        integration = getIntegrationByProvider('google-calendar') ||
+
+      const resolveIntegration = () => {
+        let resolved: any = null;
+        let resolvedLookup = providerId;
+
+        // If requesting google-drive-folders, prefer the Drive integration
+        if (resourceType === 'google-drive-folders' && providerId !== 'google-drive') {
+          resolvedLookup = 'google-drive';
+        }
+
+        if (providerId === 'google-calendar') {
+          resolved = getIntegrationByProvider('google-calendar') ||
                      getIntegrationByProvider('google_calendar') ||
                      getIntegrationByProvider('google');
-        console.log('🔍 [useDynamicOptions] Google Calendar integration lookup:', {
-          providerId,
-          integrationFound: !!integration,
-          integrationProvider: integration?.provider,
-          integrationId: integration?.id,
-          integrationStatus: integration?.status
-        });
-      } else if (providerId === 'google-sheets') {
-        // Try both formats for Google Sheets
-        integration = getIntegrationByProvider('google-sheets') ||
+          console.log('🔍 [useDynamicOptions] Google Calendar integration lookup:', {
+            providerId,
+            integrationFound: !!resolved,
+            integrationProvider: resolved?.provider,
+            integrationId: resolved?.id,
+            integrationStatus: resolved?.status
+          });
+        } else if (providerId === 'google-sheets') {
+          resolved = getIntegrationByProvider('google-sheets') ||
                      getIntegrationByProvider('google_sheets') ||
                      getIntegrationByProvider('google');
-      } else if (lookupProviderId === 'google-drive') {
-        // Try both formats for Google Drive
-        integration = getIntegrationByProvider('google-drive') ||
+        } else if (resolvedLookup === 'google-drive') {
+          resolved = getIntegrationByProvider('google-drive') ||
                      getIntegrationByProvider('google_drive') ||
                      getIntegrationByProvider('google');
-      } else if (providerId === 'google-docs') {
-        // Try both formats for Google Docs
-        integration = getIntegrationByProvider('google-docs') ||
+        } else if (providerId === 'google-docs') {
+          resolved = getIntegrationByProvider('google-docs') ||
                      getIntegrationByProvider('google_docs') ||
                      getIntegrationByProvider('google');
-      } else if (providerId === 'microsoft-excel') {
-        // Microsoft Excel uses OneDrive integration for authentication
-        integration = getIntegrationByProvider('onedrive') ||
+        } else if (providerId === 'microsoft-excel') {
+          resolved = getIntegrationByProvider('onedrive') ||
                      getIntegrationByProvider('microsoft-onedrive') ||
                      getIntegrationByProvider('microsoft_onedrive');
-        console.log('🔍 [useDynamicOptions] Microsoft Excel integration lookup (via OneDrive):', {
-          providerId,
-          integrationFound: !!integration,
-          integrationProvider: integration?.provider,
-          integrationId: integration?.id,
-          integrationStatus: integration?.status
-        });
-      } else {
-        integration = getIntegrationByProvider(providerId);
-      }
+          console.log('🔍 [useDynamicOptions] Microsoft Excel integration lookup (via OneDrive):', {
+            providerId,
+            integrationFound: !!resolved,
+            integrationProvider: resolved?.provider,
+            integrationId: resolved?.id,
+            integrationStatus: resolved?.status
+          });
+        } else {
+          resolved = getIntegrationByProvider(providerId);
+        }
+
+        return { resolvedIntegration: resolved, resolvedLookupProviderId: resolvedLookup };
+      };
+
+      const resolveResult = resolveIntegration();
+      integration = resolveResult.resolvedIntegration;
+      lookupProviderId = resolveResult.resolvedLookupProviderId;
 
       // Special logging for Trello template field
       if (fieldName === 'template' && providerId === 'trello') {
@@ -528,32 +550,51 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       if (!integration) {
         console.warn('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
 
-        // Special handling for Trello board templates - they don't require integration
-        if (resourceType === 'trello_board_templates') {
-          console.log('📋 [useDynamicOptions] Loading Trello templates without integration');
-          // Create a fake integration object for the templates
-          integration = {
-            id: 'trello-templates-fake',
-            provider: 'trello',
-            status: 'connected'
-          };
-        } else {
-          // Clear the field data
-          setDynamicOptions(prev => ({
-            ...prev,
-            [fieldName]: []
-          }));
-          // Only clear loading if this is still the current request
-          if (activeRequestIds.current.get(requestKey) === requestId) {
-            loadingFields.current.delete(requestKey);
-            setLoading(false);
-            activeRequestIds.current.delete(requestKey);
-            // Clear loading state via callback
-            if (!silent) {
-              onLoadingChangeRef.current?.(fieldName, false);
-            }
+        const providerKey = lookupProviderId || providerId;
+        const lastAttempt = integrationFetchAttempts.current.get(providerKey);
+
+        if (!silent && (!lastAttempt || Date.now() - lastAttempt > 5000)) {
+          integrationFetchAttempts.current.set(providerKey, Date.now());
+          try {
+            console.log('🔁 [useDynamicOptions] Fetching integrations for provider:', providerKey);
+            await fetchIntegrations(true);
+          } catch (fetchError: any) {
+            console.error('❌ [useDynamicOptions] Failed to fetch integrations for provider:', providerKey, fetchError);
           }
-          return;
+
+          const retryResult = resolveIntegration();
+          integration = retryResult.resolvedIntegration;
+          lookupProviderId = retryResult.resolvedLookupProviderId;
+        }
+
+        if (!integration) {
+          // Special handling for Trello board templates - they don't require integration
+          if (resourceType === 'trello_board_templates') {
+            console.log('📋 [useDynamicOptions] Loading Trello templates without integration');
+            // Create a fake integration object for the templates
+            integration = {
+              id: 'trello-templates-fake',
+              provider: 'trello',
+              status: 'connected'
+            };
+          } else {
+            // Clear the field data
+            setDynamicOptions(prev => ({
+              ...prev,
+              [fieldName]: []
+            }));
+            // Only clear loading if this is still the current request
+            if (activeRequestIds.current.get(requestKey) === requestId) {
+              loadingFields.current.delete(requestKey);
+              setLoading(false);
+              activeRequestIds.current.delete(requestKey);
+              // Clear loading state via callback
+              if (!silent) {
+                onLoadingChangeRef.current?.(fieldName, false);
+              }
+            }
+            return;
+          }
         }
       }
 
@@ -1747,6 +1788,40 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       console.log('✅ [useDynamicOptions] Cleanup complete');
     };
   }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
+
+  // Clear cache when workflow changes for fresh data
+  useEffect(() => {
+    if (!workflowId) return;
+
+    console.log('🔄 [useDynamicOptions] Workflow changed, clearing expired cache...', { workflowId });
+
+    // Clear all expired cache entries
+    if (typeof window !== 'undefined') {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('dynamicOptions_')) {
+          try {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { timestamp } = JSON.parse(cached);
+              if (Date.now() - timestamp > CACHE_TTL) {
+                keysToRemove.push(key);
+              }
+            }
+          } catch (error) {
+            // Invalid cache entry, remove it
+            keysToRemove.push(key);
+          }
+        }
+      }
+
+      keysToRemove.forEach(key => {
+        console.log(`🗑️ [useDynamicOptions] Removing expired cache: ${key}`);
+        localStorage.removeItem(key);
+      });
+    }
+  }, [workflowId]);
 
   // Log when initialOptions are provided
   useEffect(() => {

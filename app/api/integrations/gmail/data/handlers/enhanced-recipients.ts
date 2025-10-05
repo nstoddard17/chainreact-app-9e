@@ -32,6 +32,10 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
     // Get decrypted access token
     const accessToken = getGmailAccessToken(integration)
 
+    if (integration.scopes && Array.isArray(integration.scopes)) {
+      console.log("🔍 [Gmail API] Integration scopes:", integration.scopes);
+    }
+
     // Use a Map to store unique recipients (email as key)
     const recipients = new Map<string, EmailRecipient>()
 
@@ -76,8 +80,47 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
         })
 
         console.log(`✅ [Gmail API] Found ${connections.length} contacts from Google Contacts`)
+        const rawPreview = connections.slice(0, 10).map((person: any) => ({
+          names: person.names?.map((n: any) => n.displayName).filter(Boolean) || [],
+          emails: person.emailAddresses?.map((e: any) => e.value).filter(Boolean) || [],
+        }))
+        console.log("👥 [Gmail API] Contacts raw preview:", rawPreview)
+
+        const contactPreview = Array.from(recipients.values()).slice(0, 10).map(contact => ({
+          email: contact.email,
+          name: contact.name
+        }))
+        console.log("📬 [Gmail API] Contacts returned:", contactPreview)
         contactsFetched = true
       } else if (contactsResponse.status === 403) {
+        let errorDetails: any = null
+        try {
+          errorDetails = await contactsResponse.json()
+        } catch (parseError) {
+          try {
+            errorDetails = await contactsResponse.text()
+          } catch (textError) {
+            errorDetails = 'Unknown error'
+          }
+        }
+
+        const errorMessage = typeof errorDetails === 'string'
+          ? errorDetails
+          : errorDetails?.error?.message || errorDetails?.error || JSON.stringify(errorDetails)
+
+        console.log("⚠️ [Gmail API] Contacts request forbidden", {
+          message: errorMessage,
+          status: contactsResponse.status,
+          scopes: integration.scopes,
+        })
+
+        if (errorMessage?.toLowerCase().includes('insufficient authentication scopes')) {
+          console.log("⚠️ [Gmail API] Contacts scope missing from token - prompt user to reconnect Gmail")
+        } else if (errorMessage?.toLowerCase().includes('googleapis.com has not been used') ||
+                   errorMessage?.toLowerCase().includes('api has not been used before')) {
+          console.log("⚠️ [Gmail API] People API not enabled for this Google project")
+        }
+
         console.log("⚠️ [Gmail API] No contacts permission - falling back to recent recipients only")
       } else {
         console.log(`⚠️ [Gmail API] Could not fetch contacts: ${contactsResponse.status}`)

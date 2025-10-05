@@ -31,6 +31,7 @@ interface CustomNodeData {
   onDelete: (id: string) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void
+  onEditingStateChange?: (id: string, isEditing: boolean) => void
   onAddAction?: () => void
   hasAddButton?: boolean
   isPlaceholder?: boolean
@@ -117,19 +118,31 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const handleStartEditTitle = () => {
     setEditedTitle(title || component?.title || 'Unnamed Action')
     setIsEditingTitle(true)
+    // Communicate to parent that we're editing (will make node non-draggable)
+    if (data.onEditingStateChange) {
+      data.onEditingStateChange(id, true)
+    }
   }
-  
+
   const handleSaveTitle = () => {
     const newTitle = editedTitle.trim()
     if (newTitle && newTitle !== title && onRename) {
       onRename(id, newTitle)
     }
     setIsEditingTitle(false)
+    // Re-enable dragging
+    if (data.onEditingStateChange) {
+      data.onEditingStateChange(id, false)
+    }
   }
-  
+
   const handleCancelEdit = () => {
     setIsEditingTitle(false)
     setEditedTitle("")
+    // Re-enable dragging
+    if (data.onEditingStateChange) {
+      data.onEditingStateChange(id, false)
+    }
   }
   
   const handleTitleKeyPress = (e: React.KeyboardEvent) => {
@@ -393,7 +406,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       
 
       <div className="p-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-start space-x-2.5 flex-1 min-w-0">
             {type === 'chain_placeholder' ? (
               <Layers className="h-7 w-7 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -428,8 +441,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   onChange={(e) => setEditedTitle(e.target.value)}
                   onKeyDown={handleTitleKeyPress}
                   onBlur={handleSaveTitle}
-                  className="text-lg font-semibold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
+                  className="noDrag noPan text-lg font-semibold text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
                   onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                 />
               ) : (
                 <div className="flex flex-col gap-1">
@@ -470,7 +484,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               )}
             </div>
           </div>
-          <div className="flex items-start space-x-0.5 flex-shrink-0 mt-0.5">
+          <div className="flex items-center space-x-0.5 flex-shrink-0">
             {type === 'ai_agent' && onAddChain && (
               <TooltipProvider>
                 <Tooltip>

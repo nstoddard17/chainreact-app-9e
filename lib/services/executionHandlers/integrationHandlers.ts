@@ -584,6 +584,22 @@ export class IntegrationNodeHandlers {
 
     // Handle different Notion action types
     switch (nodeType) {
+      case "notion_action_create_page":
+        // Map create_page to manage_page with operation: 'create'
+        const { executeNotionManagePage: executeCreatePage } = await import("@/lib/workflows/actions/registry")
+
+        const createPageResult = await executeCreatePage(
+          { ...config, operation: 'create' },
+          context.userId,
+          context.data || {}
+        )
+
+        if (!createPageResult.success) {
+          throw new Error(createPageResult.message || "Failed to create Notion page")
+        }
+
+        return createPageResult.output
+
       case "notion_action_manage_page":
         // Import and use the actual Notion manage page handler
         const { executeNotionManagePage } = await import("@/lib/workflows/actions/registry")
