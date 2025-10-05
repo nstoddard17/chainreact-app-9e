@@ -301,6 +301,12 @@ export function useWorkflowBuilder() {
   const handleNodeConfigure = useCallback((id: string) => {
     const nodeToConfig = nodesRef.current.find(n => n.id === id)
     if (nodeToConfig) {
+      // Manual triggers should open the trigger selection dialog instead of config modal
+      if (nodeToConfig.data?.type === 'manual') {
+        dialogsHook.setShowTriggerDialog(true)
+        return
+      }
+
       configHook.setConfiguringNode({
         id: nodeToConfig.id,
         nodeComponent: ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfig.data?.type),
@@ -308,12 +314,43 @@ export function useWorkflowBuilder() {
         config: nodeToConfig.data?.config || {}
       })
     }
-  }, [configHook])
+  }, [configHook, dialogsHook])
 
   const handleNodeDelete = useCallback((id: string) => {
     const node = nodesRef.current.find(n => n.id === id)
     dialogsHook.setDeletingNode({ id, name: node?.data?.title || 'this node' })
   }, [dialogsHook])
+
+  const handleNodeEditingStateChange = useCallback((id: string, isEditing: boolean) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === id) {
+          return {
+            ...n,
+            draggable: !isEditing
+          }
+        }
+        return n
+      })
+    )
+  }, [setNodes])
+
+  const handleNodeRename = useCallback((id: string, newTitle: string) => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        if (n.id === id) {
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              title: newTitle
+            }
+          }
+        }
+        return n
+      })
+    )
+  }, [setNodes])
 
   const handleNodeAddChain = useCallback((nodeId: string) => {
     console.log('🔗 Add chain to AI Agent:', nodeId)
@@ -352,7 +389,7 @@ export function useWorkflowBuilder() {
       yPosition = firstChainFirstNode.position.y
     } else {
       // If no nodes in chain 0, use default position below AI Agent (consistent with addAction spacing)
-      yPosition = aiAgentNode.position.y + 180
+      yPosition = aiAgentNode.position.y + 160
     }
 
     // Find the first node in the highest numbered existing chain to calculate X position
@@ -518,7 +555,7 @@ export function useWorkflowBuilder() {
           type: 'addAction',
           position: {
             x: leafNode.position.x,
-            y: leafNode.position.y + 180
+            y: leafNode.position.y + 160
           },
           draggable: false,
           selectable: false,
@@ -730,6 +767,8 @@ export function useWorkflowBuilder() {
               })(),
               onConfigure: handleNodeConfigure,
               onDelete: handleNodeDelete,
+              onEditingStateChange: handleNodeEditingStateChange,
+              onRename: handleNodeRename,
               onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined
             }
           }))
@@ -802,7 +841,7 @@ export function useWorkflowBuilder() {
               type: 'addAction',
               position: {
                 x: leafNode.position.x, // Keep same X for vertical alignment
-                y: leafNode.position.y + 180
+                y: leafNode.position.y + 160
               },
               draggable: false,
               selectable: false,
@@ -1144,19 +1183,36 @@ export function useWorkflowBuilder() {
 
     try {
       setIsUpdatingStatus(true)
-      
-      const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
-      
-      const { error } = await supabase
-        .from('workflows')
-        .update({ 
-          status: newStatus,
-          is_enabled: newStatus === 'active',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', currentWorkflow.id)
 
-      if (error) throw error
+      const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
+
+      console.log('Updating workflow status:', {
+        workflowId: currentWorkflow.id,
+        currentStatus: currentWorkflow.status,
+        newStatus: newStatus
+      })
+
+      // Use the API endpoint instead of direct Supabase update
+      // This ensures webhook registration happens when activating
+      const response = await fetch(`/api/workflows/${currentWorkflow.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          nodes: currentWorkflow.nodes || nodes,
+          connections: currentWorkflow.connections || edges
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to update workflow status')
+      }
+
+      const data = await response.json()
+      console.log('Update result:', data)
 
       // Update the local state
       setCurrentWorkflow({
@@ -1169,17 +1225,19 @@ export function useWorkflowBuilder() {
         description: `Workflow ${newStatus === 'active' ? 'is now live' : 'has been paused'}`,
         variant: newStatus === 'active' ? 'default' : 'secondary',
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating workflow status:', error)
+      console.error('Error type:', typeof error)
+      console.error('Error keys:', error ? Object.keys(error) : 'null')
       toast({
         title: "Error",
-        description: "Failed to update workflow status",
+        description: error?.message || "Failed to update workflow status",
         variant: "destructive",
       })
     } finally {
       setIsUpdatingStatus(false)
     }
-  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes])
+  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes, edges])
 
   // Use refs for undo/redo handlers to avoid initialization issues
   const handleUndoRef = useRef<(() => void) | null>(null)
@@ -1432,7 +1490,9 @@ export function useWorkflowBuilder() {
         config,
         providerId: nodeComponent.providerId || integration.id,
         onConfigure: handleNodeConfigure,
-        onDelete: handleNodeDelete
+        onDelete: handleNodeDelete,
+        onEditingStateChange: handleNodeEditingStateChange,
+        onRename: handleNodeRename
       }
     }
     
@@ -1590,6 +1650,8 @@ export function useWorkflowBuilder() {
         integration: integration,
         onConfigure: handleNodeConfigure,
         onDelete: handleNodeDelete,
+        onEditingStateChange: handleNodeEditingStateChange,
+        onRename: handleNodeRename,
         onAddChain: nodeComponent.type === 'ai_agent' ? handleNodeAddChain : undefined,
         // Preserve AI agent chain metadata if this is part of a chain
         ...(parentAIAgentId && {
@@ -1701,7 +1763,7 @@ export function useWorkflowBuilder() {
             type: 'addAction',
             position: {
               x: newNode.position.x, // Keep same X for vertical alignment
-              y: newNode.position.y + 180
+              y: newNode.position.y + 160
             },
             draggable: false,
             selectable: false,
@@ -1832,7 +1894,7 @@ export function useWorkflowBuilder() {
               type: 'position',
               position: {
                 x: change.position.x, // Keep same X for vertical alignment
-                y: change.position.y + 180 // Keep 180px below parent (consistent with node creation)
+                y: change.position.y + 160 // Keep 160px below parent (consistent with node creation)
               }
             })
           }
@@ -2265,6 +2327,8 @@ export function useWorkflowBuilder() {
     handleAddNodeBetween,
     handleNodeConfigure,
     handleNodeDelete,
+    handleNodeEditingStateChange,
+    handleNodeRename,
     handleNodeAddChain,
     openTriggerDialog,
     getWorkflowStatus,

@@ -627,7 +627,7 @@ export function FieldRenderer({
             }}
             fieldName={field.name}
             placeholder={field.placeholder}
-            isLoading={loadingDynamic && fieldOptions.length === 0}
+            isLoading={loadingDynamic}
           />
         );
 
