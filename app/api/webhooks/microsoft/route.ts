@@ -142,11 +142,14 @@ async function processNotifications(
         try {
           // Trigger workflow via workflow execution API
           const base = getWebhookBaseUrl()
-          const executionUrl = `${base}/api/workflows/${workflowId}/execute`
+          const executionUrl = `${base}/api/workflows/execute`
 
           const executionPayload = {
-            mode: 'live',
-            triggerData: {
+            workflowId,
+            testMode: false,
+            executionMode: 'live',
+            skipTriggers: true, // Already triggered by webhook
+            inputData: {
               source: 'microsoft-graph-webhook',
               subscriptionId: subId,
               resource,
@@ -157,6 +160,7 @@ async function processNotifications(
           }
 
           console.log('📤 Calling execution API:', executionUrl)
+          console.log('📦 Execution payload:', JSON.stringify(executionPayload, null, 2))
 
           const response = await fetch(executionUrl, {
             method: 'POST',
