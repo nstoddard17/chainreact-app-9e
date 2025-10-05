@@ -91,7 +91,12 @@
       "Bash(psql:*)",
       "Bash(npm run refresh-tokens:verbose:*)",
       "Bash(choco:*)",
-      "Bash(move:*)"
+      "Bash(move:*)",
+      "Bash(npx supabase:*)",
+      "Bash(set SUPABASE_ACCESS_TOKEN=sbp_6e76ca62d7e57dc33385eac73a5d3f97b7fa5e4d)",
+      "Bash(if exist nul del nul)",
+      "Bash(git clean:*)",
+      "Bash(git rm:*)"
     ],
     "defaultMode": "acceptEdits"
   }
