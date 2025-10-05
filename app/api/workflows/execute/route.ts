@@ -86,14 +86,31 @@ export async function POST(request: Request) {
       nodesCount: workflow.nodes?.length || 0
     })
 
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      console.error("User authentication error:", userError)
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    // Get the current user - either from auth session or x-user-id header (for webhooks)
+    const userIdFromHeader = request.headers.get('x-user-id')
+    let userId: string
+
+    if (userIdFromHeader) {
+      // Webhook-triggered execution - use user ID from header
+      console.log("Using user ID from x-user-id header:", userIdFromHeader)
+      userId = userIdFromHeader
+
+      // Verify the user exists and owns the workflow
+      if (workflow.user_id !== userId) {
+        console.error("User ID mismatch:", { headerUserId: userId, workflowUserId: workflow.user_id })
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      }
+    } else {
+      // Normal authenticated execution
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.error("User authentication error:", userError)
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      }
+      userId = user.id
     }
 
-    console.log("User authenticated:", user.id)
+    console.log("User authenticated:", userId)
 
     // Parse workflow data
     const allNodes = workflowData?.nodes || workflow.nodes || []
@@ -205,7 +222,7 @@ export async function POST(request: Request) {
     const executionResult = await workflowExecutionService.executeWorkflow(
       workflow,
       inputData,
-      user.id,
+      userId,
       effectiveTestMode,
       filteredWorkflowData,
       skipTriggers
@@ -215,7 +232,7 @@ export async function POST(request: Request) {
 
     // Track beta tester activity
     await trackBetaTesterActivity({
-      userId: user.id,
+      userId: userId,
       activityType: 'workflow_executed',
       activityData: {
         workflowId: workflow.id,
