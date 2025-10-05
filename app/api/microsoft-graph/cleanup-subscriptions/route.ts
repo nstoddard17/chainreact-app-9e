@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
-import { getMicrosoftGraphToken } from '@/lib/integrations/microsoft/token-manager'
+import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
+
+const graphAuth = new MicrosoftGraphAuth()
 
 /**
  * DELETE /api/microsoft-graph/cleanup-subscriptions
@@ -20,9 +22,10 @@ export async function DELETE(request: NextRequest) {
     console.log('🧹 Starting cleanup of all Microsoft Graph subscriptions for user:', user.id)
 
     // Get access token for Microsoft Graph
-    const accessToken = await getMicrosoftGraphToken(user.id, 'microsoft-outlook')
-
-    if (!accessToken) {
+    let accessToken: string
+    try {
+      accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
+    } catch (error) {
       return NextResponse.json({
         error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
       }, { status: 400 })
@@ -146,9 +149,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get access token for Microsoft Graph
-    const accessToken = await getMicrosoftGraphToken(user.id, 'microsoft-outlook')
-
-    if (!accessToken) {
+    let accessToken: string
+    try {
+      accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
+    } catch (error) {
       return NextResponse.json({
         error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
       }, { status: 400 })
