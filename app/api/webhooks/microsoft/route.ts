@@ -114,20 +114,26 @@ async function processNotifications(
         userId
       })
 
-      const { data: dedupHit } = await supabase
+      // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
+      const { error: dedupError } = await supabase
         .from('microsoft_webhook_dedup')
-        .select('dedup_key')
-        .eq('dedup_key', dedupKey)
-        .maybeSingle()
-      if (dedupHit) {
-        console.log('⏭️ Skipping duplicate notification (message already processed):', {
-          dedupKey,
-          messageId,
-          subscriptionId: subId
-        })
-        continue
+        .insert({ dedup_key: dedupKey })
+
+      if (dedupError) {
+        // Duplicate key violation (unique constraint) or other error
+        if (dedupError.code === '23505') {
+          // PostgreSQL unique violation error code
+          console.log('⏭️ Skipping duplicate notification (already processed):', {
+            dedupKey,
+            messageId,
+            subscriptionId: subId
+          })
+          continue
+        } else {
+          // Other error, log but continue processing
+          console.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+        }
       }
-      await supabase.from('microsoft_webhook_dedup').insert({ dedup_key: dedupKey })
 
       // Trigger workflow execution directly (no queue needed)
       if (workflowId && userId) {
