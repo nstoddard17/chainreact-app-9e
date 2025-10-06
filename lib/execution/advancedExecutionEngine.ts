@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
+import { ExecutionProgressTracker } from "./executionProgressTracker"
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -48,6 +49,7 @@ export interface SubWorkflow {
 
 export class AdvancedExecutionEngine {
   private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private progressTracker: ExecutionProgressTracker
 
   async createExecutionSession(
     workflowId: string,
@@ -101,6 +103,21 @@ export class AdvancedExecutionEngine {
     // Update session status
     await this.updateSessionStatus(sessionId, "running")
 
+    // Initialize progress tracker for this execution
+    this.progressTracker = new ExecutionProgressTracker()
+    const totalNodes = (await this.supabase
+      .from("workflows")
+      .select("nodes")
+      .eq("id", session.workflow_id)
+      .single()).data?.nodes?.length || 0
+
+    await this.progressTracker.initialize(
+      sessionId,
+      session.workflow_id,
+      session.user_id,
+      totalNodes
+    )
+
     try {
       // Get workflow definition
       const { data: workflow } = await this.supabase
@@ -118,6 +135,12 @@ export class AdvancedExecutionEngine {
       const result = await this.executeWithParallelProcessing(session, workflow, executionPlan, inputData, options)
 
       await this.updateSessionStatus(sessionId, "completed", 100)
+
+      // Mark progress as completed
+      if (this.progressTracker) {
+        await this.progressTracker.complete(true)
+      }
+
       console.log('✅ AdvancedExecutionEngine execution completed', {
         sessionId,
         workflowId: session.workflow_id
@@ -128,6 +151,12 @@ export class AdvancedExecutionEngine {
       await this.logExecutionEvent(sessionId, "execution_error", null, {
         error: error instanceof Error ? error.message : "Unknown error",
       })
+
+      // Mark progress as failed
+      if (this.progressTracker) {
+        await this.progressTracker.complete(false, error instanceof Error ? error.message : "Unknown error")
+      }
+
       throw error
     }
   }
@@ -707,6 +736,15 @@ export class AdvancedExecutionEngine {
       await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type })
       console.log(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
 
+      // Update progress tracker - node started
+      if (this.progressTracker) {
+        await this.progressTracker.update({
+          currentNodeId: node.id,
+          currentNodeName: node.data?.title || node.data?.type || node.id,
+          status: 'running',
+        })
+      }
+
       // Delegate to the centralized executeAction from executeNode.ts
       // This ensures consistency across all execution paths and leverages the registry pattern
       const actionResult = await executeAction({
@@ -730,12 +768,26 @@ export class AdvancedExecutionEngine {
       })
       console.log(`✅ Node completed: ${node.id}`)
 
+      // Update progress tracker - node completed
+      if (this.progressTracker) {
+        await this.progressTracker.updateNodeCompleted(node.id, actionResult)
+      }
+
       return result
     } catch (error) {
       console.error(`❌ Node failed: ${node.id}`, error)
       await this.logExecutionEvent(context.session.id, "node_error", node.id, {
         error: error instanceof Error ? error.message : "Unknown error"
       })
+
+      // Update progress tracker - node failed
+      if (this.progressTracker) {
+        await this.progressTracker.updateNodeFailed(
+          node.id,
+          error instanceof Error ? error.message : "Unknown error"
+        )
+      }
+
       throw error
     }
   }

@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
 import { NodeExecutionService } from "./nodeExecutionService"
 import { executionHistoryService } from "./executionHistoryService"
+import { ExecutionProgressTracker } from "@/lib/execution/executionProgressTracker"
 
 export interface ExecutionContext {
   userId: string
@@ -134,6 +135,10 @@ export class WorkflowExecutionService {
     // Generate execution ID
     const executionId = `exec-${Date.now()}-${Math.random().toString(36).substring(7)}`
 
+    // Initialize progress tracker for live mode
+    const progressTracker = new ExecutionProgressTracker()
+    await progressTracker.initialize(executionId, workflow.id, userId, nodes.length)
+
     // Start execution history tracking
     let executionHistoryId: string | null = null
     try {
@@ -165,6 +170,8 @@ export class WorkflowExecutionService {
     // Execute from each starting node
     const results = []
     executionContext.interceptedActions = []
+    const completedNodeIds: string[] = []
+    const failedNodeIds: Array<{ nodeId: string; error: string }> = []
 
     console.log(`📍 Starting execution with ${startingNodes.length} starting nodes`)
     if (startingNodes.length === 0 && skipTriggers) {
@@ -183,6 +190,14 @@ export class WorkflowExecutionService {
 
     for (const startNode of startingNodes) {
       console.log(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
+
+      // Update progress: starting this node
+      await progressTracker.update({
+        currentNodeId: startNode.id,
+        currentNodeName: startNode.data.title || startNode.data.type,
+        progressPercentage: Math.round((completedNodeIds.length / nodes.length) * 100),
+      })
+
       const result = await this.nodeExecutionService.executeNode(
         startNode,
         nodes,
@@ -196,6 +211,20 @@ export class WorkflowExecutionService {
         hasResults: !!result?.results
       })
 
+      // Track completion or failure
+      if (result?.error) {
+        failedNodeIds.push({ nodeId: startNode.id, error: result.error })
+      } else {
+        completedNodeIds.push(startNode.id)
+      }
+
+      // Update progress after node completion
+      await progressTracker.update({
+        completedNodes: completedNodeIds,
+        failedNodes: failedNodeIds,
+        progressPercentage: Math.round((completedNodeIds.length / nodes.length) * 100),
+      })
+
       // Collect intercepted actions from the result tree
       this.collectInterceptedActions(result, executionContext.interceptedActions)
 
@@ -203,6 +232,10 @@ export class WorkflowExecutionService {
     }
 
     console.log(`✅ Workflow execution completed with ${results.length} results`)
+
+    // Complete progress tracking
+    const hasErrors = failedNodeIds.length > 0
+    await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow execution completed with errors' : undefined)
 
     // Complete execution history tracking
     if (executionHistoryId) {

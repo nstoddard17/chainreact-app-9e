@@ -37,6 +37,47 @@ interface IntegrationInfo {
   actions: NodeComponent[]
 }
 
+type NodeLike = {
+  position?: { x?: number }
+  data?: any
+}
+
+const ADD_ACTION_NODE_WIDTH = 400
+const DEFAULT_NODE_WIDTH = 450
+const AI_AGENT_NODE_WIDTH = 480
+
+const getNodeWidth = (node?: NodeLike) => {
+  if (!node) return DEFAULT_NODE_WIDTH
+
+  const nodeData = node.data ?? {}
+
+  if (typeof nodeData.width === 'number') {
+    return nodeData.width
+  }
+
+  if (typeof nodeData.nodeWidth === 'number') {
+    return nodeData.nodeWidth
+  }
+
+  const dimensionsWidth = nodeData?.dimensions?.width
+  if (typeof dimensionsWidth === 'number') {
+    return dimensionsWidth
+  }
+
+  if (nodeData.type === 'ai_agent') {
+    return AI_AGENT_NODE_WIDTH
+  }
+
+  return DEFAULT_NODE_WIDTH
+}
+
+const getCenteredAddActionX = (node?: NodeLike) => {
+  const baseX = node?.position?.x ?? 0
+  const parentWidth = getNodeWidth(node)
+  const offset = (parentWidth - ADD_ACTION_NODE_WIDTH) / 2
+  return baseX + offset
+}
+
 export function useWorkflowBuilder() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -187,6 +228,46 @@ export function useWorkflowBuilder() {
 
   // Track last validated node IDs to prevent infinite loops
   const lastValidatedNodesRef = useRef<string>('')
+
+  // Update nodes with execution status for live highlighting
+  useEffect(() => {
+    setNodesInternal(currentNodes => {
+      return currentNodes.map(node => {
+        // If not executing and not listening, clear all execution status
+        if (!executionHook.isExecuting && !executionHook.isListeningForWebhook) {
+          // Only update if the node has execution status to clear
+          if (node.data?.executionStatus || node.data?.isActiveExecution) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                executionStatus: undefined,
+                isActiveExecution: false,
+              }
+            }
+          }
+          return node
+        }
+
+        // Otherwise, apply execution status
+        const status = executionHook.nodeStatuses[node.id]
+        const isActive = executionHook.activeExecutionNodeId === node.id
+
+        // Highlight trigger node when listening for webhook
+        const isTriggerListening = executionHook.isListeningForWebhook && node.data?.isTrigger
+        const listeningStatus = isTriggerListening ? 'running' : null
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            executionStatus: status || listeningStatus,
+            isActiveExecution: isActive || isTriggerListening,
+          }
+        }
+      })
+    })
+  }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook])
 
   // Validate nodes when they change and an AI Agent is present
   useEffect(() => {
@@ -550,12 +631,16 @@ export function useWorkflowBuilder() {
         // Create new Add Action
         // Center Add Action node (400px wide) below parent node (480px wide)
         // Keep same X position for vertical alignment
+        // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+        const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+        const spacing = isChainNode ? 120 : 160
+
         nodesToAdd.push({
           id: addActionId,
           type: 'addAction',
           position: {
-            x: leafNode.position.x,
-            y: leafNode.position.y + 160
+            x: getCenteredAddActionX(leafNode),
+            y: leafNode.position.y + spacing
           },
           draggable: false,
           selectable: false,
@@ -772,7 +857,47 @@ export function useWorkflowBuilder() {
               onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined
             }
           }))
-          
+
+          // Normalize spacing for AI agent chain nodes
+          // This ensures consistent spacing even if workflow was saved with old spacing values
+          const aiAgentIds = new Set(
+            flowNodes.filter((n: any) => n.data?.type === 'ai_agent').map((n: any) => n.id)
+          )
+
+          // Group chain nodes by AI agent and chain index
+          const chainNodesByAgent = new Map<string, Map<number, any[]>>()
+          flowNodes.forEach((node: any) => {
+            if (node.data?.parentAIAgentId && aiAgentIds.has(node.data.parentAIAgentId)) {
+              const agentId = node.data.parentAIAgentId
+              const chainIndex = node.data.parentChainIndex ?? 0
+
+              if (!chainNodesByAgent.has(agentId)) {
+                chainNodesByAgent.set(agentId, new Map())
+              }
+              const chainMap = chainNodesByAgent.get(agentId)!
+              if (!chainMap.has(chainIndex)) {
+                chainMap.set(chainIndex, [])
+              }
+              chainMap.get(chainIndex)!.push(node)
+            }
+          })
+
+          // Recalculate positions for each chain
+          chainNodesByAgent.forEach((chainMap, agentId) => {
+            const aiAgentNode = flowNodes.find((n: any) => n.id === agentId)
+            if (!aiAgentNode) return
+
+            chainMap.forEach((chainNodes, chainIndex) => {
+              // Sort by Y position
+              chainNodes.sort((a, b) => a.position.y - b.position.y)
+
+              // Recalculate Y positions with 120px spacing
+              chainNodes.forEach((node, index) => {
+                node.position.y = aiAgentNode.position.y + 160 + (index * 120)
+              })
+            })
+          })
+
           // Add AddActionNodes only after TRUE leaf nodes (end of each chain)
           allNodes = [...flowNodes]
 
@@ -836,12 +961,16 @@ export function useWorkflowBuilder() {
             const clickHandler = () => handleAddActionClick(addActionId, leafNode.id)
             addActionHandlersRef.current[addActionId] = clickHandler
 
+            // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+            const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+            const spacing = isChainNode ? 120 : 160
+
             const addActionNode: Node = {
               id: addActionId,
               type: 'addAction',
               position: {
-                x: leafNode.position.x, // Keep same X for vertical alignment
-                y: leafNode.position.y + 160
+                x: getCenteredAddActionX(leafNode),
+                y: leafNode.position.y + spacing
               },
               draggable: false,
               selectable: false,
@@ -1510,7 +1639,10 @@ export function useWorkflowBuilder() {
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
-        position: { x: 250, y: 260 },
+        position: {
+          x: getCenteredAddActionX(newNode),
+          y: newNode.position.y + 160
+        },
         draggable: false,
         selectable: false,
         data: {
@@ -1758,12 +1890,16 @@ export function useWorkflowBuilder() {
           const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
           addActionHandlersRef.current[addActionId] = clickHandler
 
+          // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+          const isChainNode = Boolean(parentAIAgentId)
+          const spacing = isChainNode ? 120 : 160
+
           placeholderNode = {
             id: addActionId,
             type: 'addAction',
             position: {
-              x: newNode.position.x, // Keep same X for vertical alignment
-              y: newNode.position.y + 160
+              x: getCenteredAddActionX(newNode),
+              y: newNode.position.y + spacing
             },
             draggable: false,
             selectable: false,
@@ -1888,13 +2024,17 @@ export function useWorkflowBuilder() {
           const addActionNode = currentNodes.find(n => n.id === addActionId)
 
           if (addActionNode && change.position) {
+            // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+            const isChainNode = Boolean(addActionNode.data?.parentAIAgentId)
+            const spacing = isChainNode ? 120 : 160
+
             // Move the add action node with the parent
             additionalChanges.push({
               id: addActionId,
               type: 'position',
               position: {
                 x: change.position.x, // Keep same X for vertical alignment
-                y: change.position.y + 160 // Keep 160px below parent (consistent with node creation)
+                y: change.position.y + spacing
               }
             })
           }
@@ -2258,7 +2398,7 @@ export function useWorkflowBuilder() {
   const handleExecuteLive = useCallback(() => {
     const currentNodes = getNodes()
     const currentEdges = getEdges()
-    return executionHook.handleExecute(currentNodes, currentEdges)
+    return executionHook.handleExecuteLive(currentNodes, currentEdges)
   }, [getNodes, getEdges, executionHook])
 
   return {

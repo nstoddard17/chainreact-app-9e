@@ -21,6 +21,8 @@ import { ActionSelectionDialog } from "./builder/ActionSelectionDialog"
 import { EmptyWorkflowState } from "./builder/EmptyWorkflowState"
 import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
 import { NodeDeletionModal } from "./builder/NodeDeletionModal"
+import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
+import { TestModeDebugLog } from "./TestModeDebugLog"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -102,6 +104,13 @@ function WorkflowBuilderContent() {
     executionResults,
     isStepMode,
     sandboxInterceptedActions,
+    nodeStatuses,
+    isListeningForWebhook,
+    webhookTriggerType,
+    usingTestData,
+    testDataNodes,
+    stopWebhookListening,
+    skipToTestData,
 
     // Configuration
     configuringNode,
@@ -877,7 +886,7 @@ function WorkflowBuilderContent() {
                           type: 'addAction',
                           position: {
                             x: newNode.position.x, // Keep same X for vertical alignment
-                            y: newNode.position.y + 160
+                            y: newNode.position.y + 120 // Use 120px for AI agent chains
                           },
                           draggable: false, // Prevent Add Action nodes from being dragged
                           data: {
@@ -1382,6 +1391,26 @@ function WorkflowBuilderContent() {
       {/* Error and Auth Notifications */}
       <ErrorNotificationPopup workflowId={currentWorkflow?.id || ''} />
       <ReAuthNotification />
+
+      {/* Execution Status Panel */}
+      <ExecutionStatusPanel
+        isListening={isListeningForWebhook || false}
+        isExecuting={isExecuting}
+        webhookTriggerType={webhookTriggerType || null}
+        usingTestData={usingTestData || false}
+        testDataNodes={testDataNodes || new Set()}
+        nodeStatuses={nodeStatuses || {}}
+        nodes={nodes}
+        edges={edges}
+        onSkip={(nodes, edges) => skipToTestData && skipToTestData(nodes, edges)}
+        onStop={() => stopWebhookListening && stopWebhookListening()}
+      />
+
+      {/* Test Mode Debug Log */}
+      <TestModeDebugLog
+        isActive={isListeningForWebhook || isExecuting || false}
+        onClear={() => {}}
+      />
     </div>
   )
 }

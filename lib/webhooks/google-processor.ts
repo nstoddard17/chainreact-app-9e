@@ -246,6 +246,103 @@ export interface GoogleWebhookEvent {
   requestId: string
 }
 
+async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
+  const { eventData } = event
+
+  console.log('[Gmail] Webhook notification received', {
+    emailAddress: eventData.emailAddress,
+    historyId: eventData.historyId
+  })
+
+  // Gmail Pub/Sub notification contains emailAddress and historyId
+  // We need to find active test sessions or workflows waiting for this
+
+  const supabase = await createSupabaseServiceClient()
+
+  // Find active test sessions for Gmail triggers
+  const { data: testSessions, error: sessionError } = await supabase
+    .from('workflow_test_sessions')
+    .select('*, workflows!inner(id, user_id, nodes, connections, name)')
+    .eq('trigger_type', 'gmail_trigger_new_email')
+    .in('status', ['listening'])
+
+  if (sessionError) {
+    console.error('[Gmail] Failed to fetch test sessions:', sessionError)
+  }
+
+  console.log('[Gmail] Found test sessions', {
+    count: testSessions?.length || 0
+  })
+
+  if (!testSessions || testSessions.length === 0) {
+    console.log('[Gmail] No active test sessions waiting for Gmail trigger')
+    return { processed: true, eventType: 'gmail.notification', testSessions: 0 }
+  }
+
+  // Process each test session
+  for (const session of testSessions) {
+    try {
+      const workflow = session.workflows
+      if (!workflow) continue
+
+      console.log('[Gmail] Starting workflow execution for test session', {
+        sessionId: session.id,
+        workflowId: workflow.id,
+        workflowName: workflow.name
+      })
+
+      // Create execution session using the advanced execution engine
+      const executionEngine = new AdvancedExecutionEngine()
+      const executionSession = await executionEngine.createExecutionSession(
+        workflow.id,
+        workflow.user_id,
+        'webhook',
+        {
+          inputData: {
+            provider: 'gmail',
+            emailAddress: eventData.emailAddress,
+            historyId: eventData.historyId,
+            timestamp: new Date().toISOString()
+          },
+          webhookEvent: {
+            provider: 'gmail',
+            metadata,
+            event: eventData
+          }
+        }
+      )
+
+      // Update test session to executing
+      await supabase
+        .from('workflow_test_sessions')
+        .update({
+          status: 'executing',
+          execution_id: executionSession.id
+        })
+        .eq('id', session.id)
+
+      // Start workflow execution
+      await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+        provider: 'gmail',
+        emailAddress: eventData.emailAddress,
+        historyId: eventData.historyId,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log('[Gmail] Workflow execution started', {
+        sessionId: session.id,
+        workflowId: workflow.id,
+        executionId: executionSession.id
+      })
+
+    } catch (workflowError) {
+      console.error(`[Gmail] Failed to execute workflow for session ${session.id}:`, workflowError)
+    }
+  }
+
+  return { processed: true, eventType: 'gmail.notification', testSessions: testSessions.length }
+}
+
 export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any> {
   try {
     const supabase = await createSupabaseServiceClient()
@@ -280,6 +377,8 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
 
     // Process based on service
     switch (event.service) {
+      case 'gmail':
+        return await processGmailEvent(event, metadata)
       case 'drive':
         return await processGoogleDriveEvent(event, metadata)
       case 'calendar':
