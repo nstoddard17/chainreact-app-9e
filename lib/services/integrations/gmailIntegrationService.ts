@@ -104,15 +104,15 @@ export class GmailIntegrationService {
 
     // Import and use the actual Gmail send implementation directly
     const { sendGmailEmail } = await import('@/lib/workflows/actions/gmail/sendEmail')
-    
-    // Call the Gmail send function with resolved config
-    const result = await sendGmailEmail(
-      resolvedConfig,  // Pass the resolved config instead of raw config
-      context.userId,  // Pass the userId directly from context
-      context.data || {}
-    )
-    
-    return result
+
+    // Call the Gmail send function with proper params object structure
+    const result = await sendGmailEmail({
+      config: resolvedConfig,  // Pass the resolved config
+      userId: context.userId,  // Pass the userId from context
+      input: context.data || {}  // Pass context data as input
+    })
+
+    return result.output || result
   }
 
   private async executeSearchEmail(node: any, context: ExecutionContext) {

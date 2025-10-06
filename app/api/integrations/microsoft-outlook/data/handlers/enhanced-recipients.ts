@@ -235,6 +235,8 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         })
 
         console.log(`[Outlook API] Added ${contacts.length} contacts`)
+      } else {
+        console.warn(`[Outlook API] Contacts API returned status ${contactsResponse.status}`)
       }
     } catch (error) {
       console.warn('[Outlook API] Could not fetch contacts:', error)
@@ -258,6 +260,8 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         })
 
         console.log(`[Outlook API] Added ${people.length} suggested people`)
+      } else {
+        console.warn(`[Outlook API] People API returned status ${peopleResponse.status}`)
       }
     } catch (error) {
       console.warn('[Outlook API] Could not fetch people suggestions:', error)
@@ -286,6 +290,8 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         })
 
         console.log(`[Outlook API] Added recipients from ${messages.length} sent messages`)
+      } else {
+        console.warn(`[Outlook API] Sent messages API returned status ${sentResponse.status}`)
       }
     } catch (error) {
       console.warn('[Outlook API] Could not fetch sent messages:', error)
@@ -318,6 +324,8 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         })
 
         console.log(`[Outlook API] Added participants from ${messages.length} inbox messages`)
+      } else {
+        console.warn(`[Outlook API] Inbox messages API returned status ${inboxResponse.status}`)
       }
     } catch (error) {
       console.warn('[Outlook API] Could not fetch inbox messages:', error)

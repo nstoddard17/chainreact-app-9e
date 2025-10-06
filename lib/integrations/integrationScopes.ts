@@ -104,9 +104,10 @@ export const INTEGRATION_SCOPES = {
   },
   "microsoft-outlook": {
     required: [
+      "offline_access",
       "https://graph.microsoft.com/User.Read",
       "https://graph.microsoft.com/Mail.Read",
-      "https://graph.microsoft.com/Mail.ReadWrite", 
+      "https://graph.microsoft.com/Mail.ReadWrite",
       "https://graph.microsoft.com/Mail.Send",
       "https://graph.microsoft.com/Calendars.Read",
       "https://graph.microsoft.com/Calendars.ReadWrite",

@@ -306,6 +306,12 @@ export default function WorkflowsContent() {
                 description: `Please connect your ${providerId.charAt(0).toUpperCase() + providerId.slice(1)} account before activating this workflow.`,
                 variant: "destructive",
               })
+              // Clear loading state before returning
+              setUpdatingWorkflows(prev => {
+                const newSet = new Set(prev)
+                newSet.delete(id)
+                return newSet
+              })
               return
             }
           }
@@ -363,7 +369,8 @@ export default function WorkflowsContent() {
             description: error.message || "Could not activate triggers",
             variant: "destructive",
           })
-          return
+          // Don't return here - let finally block clear loading state
+          throw new Error(error.message || "Trigger activation failed")
         }
 
         const verifyWorkflow = (workflows || []).find(w => w.id === id)

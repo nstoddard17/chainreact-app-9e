@@ -878,6 +878,20 @@ function ConfigurationForm({
         loadOptions('labelIds', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for Outlook "from" field (recent recipients)
+      const outlookFromField = fieldsToLoad.find((f: any) => f.name === 'from');
+      if (outlookFromField && nodeInfo?.providerId === 'microsoft-outlook') {
+        console.log(`🚀 [ConfigForm] Loading Outlook "from" field (recent recipients) immediately with cache`);
+        loadOptions('from', undefined, undefined, false); // Use cache for better performance
+      }
+
+      // Load immediately for Outlook "folder" field (folders)
+      const outlookFolderField = fieldsToLoad.find((f: any) => f.name === 'folder');
+      if (outlookFolderField && nodeInfo?.providerId === 'microsoft-outlook') {
+        console.log(`🚀 [ConfigForm] Loading Outlook "folder" field (folders) immediately with cache`);
+        loadOptions('folder', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)

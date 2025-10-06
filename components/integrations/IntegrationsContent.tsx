@@ -37,7 +37,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   })
   const [loadingMetrics, setLoadingMetrics] = useState(false)
   const [wasHidden, setWasHidden] = useState(false)
-  const [lastFetchTime, setLastFetchTime] = useState(0)
+  const lastFetchTimeRef = React.useRef(0)
   const { toast } = useToast()
 
   // Use selective subscriptions to prevent unnecessary re-renders
@@ -58,24 +58,24 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const { user } = useAuthStore()
   const router = useRouter()
 
-  // Debounced fetch to prevent duplicate calls within 2 seconds
+  // Debounced fetch to prevent duplicate calls within 3 seconds
   const debouncedFetchIntegrations = useCallback((force: boolean = false) => {
     const now = Date.now()
-    const timeSinceLastFetch = now - lastFetchTime
+    const timeSinceLastFetch = now - lastFetchTimeRef.current
 
-    // Only fetch if it's been more than 2 seconds since last fetch
-    // OR if force is true and it's been more than 500ms (allow rapid force refreshes with 500ms cooldown)
-    if (force && timeSinceLastFetch > 500) {
-      setLastFetchTime(now)
+    // Only fetch if it's been more than 3 seconds since last fetch
+    // OR if force is true and it's been more than 1000ms (allow rapid force refreshes with 1s cooldown)
+    if (force && timeSinceLastFetch > 1000) {
+      lastFetchTimeRef.current = now
       return fetchIntegrations(true)
-    } else if (!force && timeSinceLastFetch > 2000) {
-      setLastFetchTime(now)
+    } else if (!force && timeSinceLastFetch > 3000) {
+      lastFetchTimeRef.current = now
       return fetchIntegrations(false)
     } else {
       console.log(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
       return Promise.resolve()
     }
-  }, [lastFetchTime, fetchIntegrations])
+  }, [fetchIntegrations])
 
   // Define fetchMetrics early to avoid initialization errors
   const fetchMetrics = useCallback(async () => {
@@ -119,9 +119,13 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   // Removed localStorage management for auto-refresh toggles
 
   // Smart refresh on tab focus - refresh immediately after OAuth or if away for > 5 minutes
+  // IMPORTANT: Only runs AFTER initial load (when initialFetchSettled is true)
   useEffect(() => {
+    // Don't set up listener until initial fetch is complete
+    if (!initialFetchSettled) return;
+
     let lastHiddenTime: number | null = null;
-    
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         lastHiddenTime = Date.now();
@@ -130,7 +134,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         const timeAway = Date.now() - lastHiddenTime;
         const fiveMinutes = 5 * 60 * 1000;
         const thirtySeconds = 30 * 1000;
-        
+
         // Refresh immediately if user was away for less than 30 seconds (likely OAuth flow)
         // OR if user was away for more than 5 minutes (stale data)
         if (timeAway < thirtySeconds || timeAway > fiveMinutes) {
@@ -149,10 +153,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wasHidden]); // Removed fetchIntegrations, fetchMetrics - they're stable from Zustand
+  }, [wasHidden, initialFetchSettled]); // Only activate after initial fetch
 
   // Listen for OAuth completion events to immediately refresh integrations
+  // IMPORTANT: Only runs AFTER initial load (when initialFetchSettled is true)
   useEffect(() => {
+    // Don't set up listener until initial fetch is complete
+    if (!initialFetchSettled) return;
+
     const handleOAuthComplete = (event: MessageEvent) => {
       if (event.data?.type === 'oauth-complete' && event.data?.success) {
         console.log(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
@@ -184,7 +192,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       broadcastChannel?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - fetchIntegrations and fetchMetrics are stable from Zustand
+  }, [initialFetchSettled]); // Only activate after initial fetch
 
   // Initialize providers and integrations on mount if user is authenticated
   useEffect(() => {
@@ -297,8 +305,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [loading, loadingStates, user]) // Removed setLoading, fetchIntegrations, toast - they're stable
 
   // Auto-refresh metrics when integrations change (debounced to reduce excessive calls)
+  // IMPORTANT: Only runs AFTER initial load (when initialFetchSettled is true)
   useEffect(() => {
-    if (user && integrations.length > 0) {
+    if (user && integrations.length > 0 && initialFetchSettled) {
       // Debounce metrics fetching to avoid excessive API calls
       const timeoutId = setTimeout(() => {
         fetchMetrics()
@@ -307,7 +316,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       return () => clearTimeout(timeoutId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [integrations.length, user]) // Removed fetchMetrics - it's stable from Zustand
+  }, [integrations.length, user, initialFetchSettled]) // Only activate after initial fetch
 
   // Smart periodic refresh - only check for expiring tokens every 10 minutes
   useEffect(() => {
@@ -323,8 +332,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   }, [user]) // Removed fetchMetrics - it's stable from Zustand
 
   // Listen for integration change events
+  // IMPORTANT: Only runs AFTER initial load (when initialFetchSettled is true)
   useEffect(() => {
-    if (!user) return
+    if (!user || !initialFetchSettled) return
 
     const handleIntegrationConnected = (event: Event) => {
       const customEvent = event as CustomEvent
@@ -382,7 +392,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       window.removeEventListener('integrations-updated', handleIntegrationsUpdated)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]) // Removed fetchMetrics, toast, fetchIntegrations - they're stable
+  }, [user, initialFetchSettled]) // Only activate after initial fetch
   
   const handleRefresh = useCallback(() => {
     debouncedFetchIntegrations(true) // Force refresh
