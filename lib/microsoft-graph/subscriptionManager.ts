@@ -74,10 +74,13 @@ export class MicrosoftGraphSubscriptionManager {
         resource,
         changeType,
         expirationDateTime: expirationDateTime.toISOString(),
+        notificationUrl,
         userId,
         userIdLength: userId?.length,
         userIdType: typeof userId
       })
+
+      console.log('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
 
       // Create subscription via Microsoft Graph API
       const response = await fetch(`${this.baseUrl}/subscriptions`, {

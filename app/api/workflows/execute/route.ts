@@ -1,4 +1,4 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
-    
+
     // Log the workflow data to see what nodes we're getting
     console.log("📊 [Execute Route] Workflow data received:", {
       workflowId,
@@ -43,15 +43,15 @@ export async function POST(request: Request) {
       nodesCount: workflowData?.nodes?.length || 0,
       nodeTypes: workflowData?.nodes?.map((n: any) => ({ id: n.id, type: n.data?.type })) || []
     })
-    
+
     // Determine execution mode
     // - 'sandbox': Test mode with no external calls (testMode = true)
     // - 'live': Execute with real external calls (testMode = false)
     // - undefined/legacy: Use testMode as-is for backward compatibility
-    const effectiveTestMode = executionMode === 'sandbox' ? true : 
-                             executionMode === 'live' ? false : 
+    const effectiveTestMode = executionMode === 'sandbox' ? true :
+                             executionMode === 'live' ? false :
                              testMode
-    
+
     console.log("Execution parameters:", {
       workflowId,
       testMode,
@@ -67,8 +67,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
     }
 
-    // Get the workflow from the database
-    const supabase = await createSupabaseRouteHandlerClient()
+    // Determine if this is a webhook request (has x-user-id header)
+    const isWebhookRequest = !!request.headers.get('x-user-id')
+
+    // Get the workflow from the database - use service client for webhooks to bypass RLS
+    const supabase = isWebhookRequest
+      ? await createSupabaseServiceClient()
+      : await createSupabaseRouteHandlerClient()
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
       .select("*")
@@ -86,14 +91,31 @@ export async function POST(request: Request) {
       nodesCount: workflow.nodes?.length || 0
     })
 
-    // Get the current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) {
-      console.error("User authentication error:", userError)
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    // Get the current user - either from auth session or x-user-id header (for webhooks)
+    const userIdFromHeader = request.headers.get('x-user-id')
+    let userId: string
+
+    if (userIdFromHeader) {
+      // Webhook-triggered execution - use user ID from header
+      console.log("Using user ID from x-user-id header:", userIdFromHeader)
+      userId = userIdFromHeader
+
+      // Verify the user exists and owns the workflow
+      if (workflow.user_id !== userId) {
+        console.error("User ID mismatch:", { headerUserId: userId, workflowUserId: workflow.user_id })
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+      }
+    } else {
+      // Normal authenticated execution
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        console.error("User authentication error:", userError)
+        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      }
+      userId = user.id
     }
 
-    console.log("User authenticated:", user.id)
+    console.log("User authenticated:", userId)
 
     // Parse workflow data
     const allNodes = workflowData?.nodes || workflow.nodes || []
@@ -205,7 +227,7 @@ export async function POST(request: Request) {
     const executionResult = await workflowExecutionService.executeWorkflow(
       workflow,
       inputData,
-      user.id,
+      userId,
       effectiveTestMode,
       filteredWorkflowData,
       skipTriggers
@@ -215,7 +237,7 @@ export async function POST(request: Request) {
 
     // Track beta tester activity
     await trackBetaTesterActivity({
-      userId: user.id,
+      userId: userId,
       activityType: 'workflow_executed',
       activityData: {
         workflowId: workflow.id,

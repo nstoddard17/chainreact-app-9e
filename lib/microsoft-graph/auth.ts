@@ -13,8 +13,8 @@ export interface MicrosoftTokenInfo {
 }
 
 export class MicrosoftGraphAuth {
-  private clientId = process.env.MICROSOFT_CLIENT_ID!
-  private clientSecret = process.env.MICROSOFT_CLIENT_SECRET!
+  private clientId = process.env.OUTLOOK_CLIENT_ID!
+  private clientSecret = process.env.OUTLOOK_CLIENT_SECRET!
   private redirectUri = process.env.MICROSOFT_REDIRECT_URI!
 
   /**
@@ -114,21 +114,24 @@ export class MicrosoftGraphAuth {
   }
 
   /**
-   * Store tokens for a user
+   * Store tokens for a user in integrations table
+   * Note: Tokens are encrypted before storage
    */
-  async storeTokens(userId: string, tokenInfo: MicrosoftTokenInfo): Promise<void> {
+  async storeTokens(userId: string, tokenInfo: MicrosoftTokenInfo, provider: string = 'microsoft-outlook'): Promise<void> {
+    const { safeEncrypt } = await import('@/lib/security/encryption')
+
     const { error } = await supabase
-      .from('microsoft_tokens')
-      .upsert({
-        user_id: userId,
-        access_token: tokenInfo.accessToken,
-        refresh_token: tokenInfo.refreshToken,
+      .from('integrations')
+      .update({
+        access_token: safeEncrypt(tokenInfo.accessToken),
+        refresh_token: safeEncrypt(tokenInfo.refreshToken),
         expires_at: new Date(tokenInfo.expiresAt).toISOString(),
-        scope: tokenInfo.scope,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
+        scopes: tokenInfo.scope.split(' '),
+        updated_at: new Date().toISOString(),
+        status: 'connected'
       })
+      .eq('user_id', userId)
+      .eq('provider', provider)
 
     if (error) {
       console.error('Error storing Microsoft tokens:', error)
@@ -138,34 +141,65 @@ export class MicrosoftGraphAuth {
 
   /**
    * Get valid access token for a user (refresh if needed)
+   * Supports multiple Microsoft providers (microsoft-outlook, onedrive, etc.)
    */
-  async getValidAccessToken(userId: string): Promise<string> {
-    const { data, error } = await supabase
-      .from('microsoft_tokens')
+  async getValidAccessToken(userId: string, preferredProvider?: string): Promise<string> {
+    const { safeDecrypt } = await import('@/lib/security/encryption')
+
+    // Query for any Microsoft-related integration
+    const { data: integrations, error } = await supabase
+      .from('integrations')
       .select('*')
       .eq('user_id', userId)
-      .single()
+      .or('provider.like.microsoft%,provider.eq.onedrive,provider.eq.teams')
 
-    if (error || !data) {
-      throw new Error('No Microsoft tokens found for user')
+    if (error || !integrations || integrations.length === 0) {
+      throw new Error('No Microsoft integration found for user')
+    }
+
+    // Prefer the specified provider, otherwise use the first one that matches
+    let integration
+    if (preferredProvider) {
+      integration = integrations.find(i => i.provider === preferredProvider)
+      if (!integration) {
+        throw new Error(`Microsoft integration for provider '${preferredProvider}' not found`)
+      }
+    } else {
+      // If no preferred provider, use the first one (this shouldn't happen)
+      integration = integrations[0]
+    }
+
+    if (!integration || !integration.access_token || !integration.refresh_token) {
+      throw new Error('Microsoft integration missing access or refresh token')
+    }
+
+    // Decrypt tokens
+    const accessToken = safeDecrypt(integration.access_token)
+    const refreshToken = safeDecrypt(integration.refresh_token)
+
+    if (!accessToken || !refreshToken) {
+      throw new Error('Failed to decrypt Microsoft tokens')
     }
 
     // Check if token is expired (with 5 minute buffer)
-    const expiresAt = new Date(data.expires_at).getTime()
+    const expiresAt = new Date(integration.expires_at).getTime()
     const now = Date.now()
     const buffer = 5 * 60 * 1000 // 5 minutes
 
     if (now + buffer >= expiresAt) {
       // Token is expired or will expire soon, refresh it
-      console.log('🔄 Refreshing expired Microsoft token for user:', userId)
-      
-      const newTokenInfo = await this.refreshAccessToken(data.refresh_token)
-      await this.storeTokens(userId, newTokenInfo)
-      
+      console.log('🔄 Refreshing expired Microsoft token for user:', userId, 'provider:', integration.provider)
+      console.log('🔍 Current scopes:', integration.scopes)
+
+      const newTokenInfo = await this.refreshAccessToken(refreshToken)
+      await this.storeTokens(userId, newTokenInfo, integration.provider)
+
+      console.log('✅ Token refreshed successfully. New scopes:', newTokenInfo.scope)
       return newTokenInfo.accessToken
     }
 
-    return data.access_token
+    console.log('✅ Using existing valid token. Scopes:', integration.scopes?.join(', '))
+    return accessToken
   }
 
   /**
@@ -183,38 +217,51 @@ export class MicrosoftGraphAuth {
   /**
    * Revoke tokens for a user
    */
-  async revokeTokens(userId: string): Promise<void> {
+  async revokeTokens(userId: string, provider: string = 'microsoft-outlook'): Promise<void> {
+    const { safeDecrypt } = await import('@/lib/security/encryption')
+
     const { data } = await supabase
-      .from('microsoft_tokens')
+      .from('integrations')
       .select('refresh_token')
       .eq('user_id', userId)
+      .eq('provider', provider)
       .single()
 
     if (data?.refresh_token) {
-      // Revoke the refresh token
-      const params = new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        token: data.refresh_token
-      })
+      const decryptedRefreshToken = safeDecrypt(data.refresh_token)
 
-      await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: params.toString()
-      })
+      if (decryptedRefreshToken) {
+        // Revoke the refresh token
+        const params = new URLSearchParams({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          token: decryptedRefreshToken
+        })
+
+        await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: params.toString()
+        })
+      }
     }
 
-    // Delete tokens from database
+    // Update integration status to disconnected
     const { error } = await supabase
-      .from('microsoft_tokens')
-      .delete()
+      .from('integrations')
+      .update({
+        status: 'disconnected',
+        access_token: null,
+        refresh_token: null,
+        updated_at: new Date().toISOString()
+      })
       .eq('user_id', userId)
+      .eq('provider', provider)
 
     if (error) {
-      console.error('Error deleting Microsoft tokens:', error)
+      console.error('Error revoking Microsoft tokens:', error)
       throw error
     }
   }

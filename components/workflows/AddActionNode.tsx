@@ -17,10 +17,11 @@ export function AddActionNode({ data }: NodeProps) {
 
   return (
     <div
-      className="w-[400px] flex flex-col items-center justify-center py-4"
+      className="w-[400px] flex flex-col items-start justify-center py-4"
       style={{
         pointerEvents: 'none',
-        cursor: 'default'
+        cursor: 'default',
+        paddingLeft: '200px' // Center the content by offsetting half the width
       }}
     >
       <div className="flex flex-col items-center">

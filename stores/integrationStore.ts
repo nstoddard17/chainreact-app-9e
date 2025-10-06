@@ -9,6 +9,7 @@ import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
+let ongoingFetchPromise: Promise<void> | null = null
 
 
 // This represents the structure of a connected integration
@@ -178,11 +179,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     fetchIntegrations: async (force = false) => {
-      // ADD STACK TRACE TO FIND CALLER
-      console.trace('🔍 [IntegrationStore] fetchIntegrations called', {
+      // If there's already an ongoing fetch, return that promise to prevent duplicate requests
+      if (ongoingFetchPromise) {
+        console.log('⏭️ [IntegrationStore] Fetch already in progress, returning existing promise')
+        return ongoingFetchPromise
+      }
+
+      console.log('🔍 [IntegrationStore] fetchIntegrations called', {
         force,
-        timestamp: new Date().toISOString(),
-        caller: new Error().stack?.split('\n')[2]?.trim()
+        timestamp: new Date().toISOString()
       })
         const { setLoading, currentUserId, integrations, lastFetchTime } = get()
 
@@ -199,24 +204,27 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
         currentAbortController = new AbortController()
 
-        // Set timeout for fetch operation - match the service timeout
-        const fetchTimeout = setTimeout(() => {
-          console.warn('Integration fetch timeout - aborting request')
-          if (currentAbortController) {
-            currentAbortController.abort()
-          }
-          setLoading('integrations', false)
-          // Keep existing integrations if we have them, but set error
-          const existingIntegrations = get().integrations
-          set({
-            error: 'Request timeout - please try refreshing the page',
-            integrations: existingIntegrations || [] // Keep existing data
-          })
-        }, 30000) // 30 seconds to be slightly more than service timeout
+        // Create a promise that we'll track
+        ongoingFetchPromise = (async () => {
+          // Set timeout for fetch operation - match the service timeout
+          const fetchTimeout = setTimeout(() => {
+            console.warn('Integration fetch timeout - aborting request')
+            if (currentAbortController) {
+              currentAbortController.abort()
+            }
+            setLoading('integrations', false)
+            // Keep existing integrations if we have them, but set error
+            const existingIntegrations = get().integrations
+            set({
+              error: 'Request timeout - please try refreshing the page',
+              integrations: existingIntegrations || [] // Keep existing data
+            })
+            ongoingFetchPromise = null
+          }, 30000) // 30 seconds to be slightly more than service timeout
 
-        try {
-          setLoading('integrations', true)
-          set({ error: null })
+          try {
+            setLoading('integrations', true)
+            set({ error: null })
           
           // Try to get user session, but handle auth failures gracefully
           let user;
@@ -269,26 +277,31 @@ export const useIntegrationStore = create<IntegrationStore>()(
             integrations,
             lastFetchTime: Date.now()
           })
-        } catch (error: any) {
-          clearTimeout(fetchTimeout)
+          } catch (error: any) {
+            clearTimeout(fetchTimeout)
 
-          // Check if it was aborted
-          if (error.name === 'AbortError') {
-            console.log('Integration fetch was aborted (timeout or new request)')
+            // Check if it was aborted
+            if (error.name === 'AbortError') {
+              console.log('Integration fetch was aborted (timeout or new request)')
+              setLoading('integrations', false)
+              return
+            }
+
+            console.error("Failed to fetch integrations:", error)
+            // Do NOT clear existing integrations on transient failure
             setLoading('integrations', false)
-            return
+            set({
+              error: error.message || "Failed to fetch integrations"
+            })
+          } finally {
+            // Cleanup
+            clearTimeout(fetchTimeout)
+            currentAbortController = null
+            ongoingFetchPromise = null
           }
+        })()
 
-          console.error("Failed to fetch integrations:", error)
-          // Do NOT clear existing integrations on transient failure
-          setLoading('integrations', false)
-          set({
-            error: error.message || "Failed to fetch integrations"
-          })
-        } finally {
-          // Cleanup
-          currentAbortController = null
-        }
+        return ongoingFetchPromise
     },
 
     connectIntegration: async (providerId: string) => {

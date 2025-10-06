@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
+import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
@@ -22,6 +23,7 @@ const supabase = createClient(
 
 export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   private subscriptionManager = new MicrosoftGraphSubscriptionManager()
+  private graphAuth = new MicrosoftGraphAuth()
 
   /**
    * Activate Microsoft Graph trigger
@@ -35,28 +37,17 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       config
     })
 
-    // Get user's Microsoft integration
-    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
-    const { data: integrations } = await supabase
-      .from('integrations')
-      .select('access_token, provider')
-      .eq('user_id', userId)
-      .or('provider.like.microsoft%,provider.eq.onedrive')
+    // Get valid access token (automatically refreshes if expired)
+    // Determine the provider based on trigger type
+    const provider = this.getProviderFromTriggerType(triggerType)
 
-    // Find first connected Microsoft integration
-    const integration = integrations?.find(i => i.access_token)
-
-    if (!integration) {
-      throw new Error('Microsoft integration not found for user')
-    }
-
-    // Decrypt the access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt Microsoft access token')
+    let accessToken: string
+    try {
+      accessToken = await this.graphAuth.getValidAccessToken(userId, provider)
+      console.log(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
+    } catch (error) {
+      console.error('❌ Failed to get valid Microsoft Graph token:', error)
+      throw new Error(`Microsoft ${provider} integration not connected or token expired. Please reconnect your Microsoft ${provider} account.`)
     }
 
     // Determine resource based on trigger type
@@ -65,6 +56,37 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     if (!resource) {
       throw new Error(`Unknown Microsoft Graph trigger type: ${triggerType}`)
+    }
+
+    // Test the token by calling /me and /me/messages to verify permissions
+    console.log('🧪 Testing token permissions...')
+    try {
+      const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+
+      if (!meResponse.ok) {
+        console.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
+      } else {
+        const meData = await meResponse.json()
+        console.log('✅ /me call succeeded:', meData.displayName, meData.mail || meData.userPrincipalName)
+      }
+
+      const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+
+      if (!messagesResponse.ok) {
+        const errorText = await messagesResponse.text()
+        console.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
+        console.error('   Error details:', errorText)
+        throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
+      } else {
+        console.log('✅ /me/messages call succeeded - token has mail read permission')
+      }
+    } catch (testError) {
+      console.error('❌ Token permission test failed:', testError)
+      throw testError
     }
 
     console.log(`📤 Creating Microsoft Graph subscription`, {
@@ -126,35 +148,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    // Check for any Microsoft-related provider (microsoft-outlook, microsoft-onenote, onedrive, etc.)
-    const { data: integrations } = await supabase
-      .from('integrations')
-      .select('access_token, provider')
-      .eq('user_id', userId)
-      .or('provider.like.microsoft%,provider.eq.onedrive')
-
-    // Find first connected Microsoft integration
-    const integration = integrations?.find(i => i.access_token)
-
-    if (!integration) {
-      console.warn(`⚠️ Microsoft integration not found, deleting subscription records`)
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await this.graphAuth.getValidAccessToken(userId)
+      console.log('✅ Retrieved valid Microsoft Graph access token for deactivation')
+    } catch (error) {
+      console.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in Microsoft Graph
-      await supabase
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'microsoft')
-      return
-    }
-
-    // Decrypt the access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Microsoft access token, deleting subscription records`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -246,6 +247,21 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       expiresAt: nearestExpiration?.toISOString(),
       lastChecked: new Date().toISOString()
     }
+  }
+
+  /**
+   * Extract the provider from trigger type
+   * e.g., "microsoft-outlook_trigger_new_email" -> "microsoft-outlook"
+   */
+  private getProviderFromTriggerType(triggerType: string): string {
+    // Extract provider prefix from trigger type
+    if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
+    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
+    if (triggerType.startsWith('teams_')) return 'teams'
+    if (triggerType.startsWith('onedrive_')) return 'onedrive'
+
+    // Default to microsoft-outlook for generic microsoft triggers
+    return 'microsoft-outlook'
   }
 
   /**

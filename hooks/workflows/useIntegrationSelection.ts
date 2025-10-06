@@ -284,17 +284,12 @@ export function useIntegrationSelection() {
   ) => {
     if (!selectedIntegration) return []
 
+    // Don't filter triggers by search query - the search is for finding integrations,
+    // not for filtering the triggers within a selected integration.
+    // Once an integration is selected, show ALL its triggers.
     return selectedIntegration.triggers.filter(trigger => {
       if (!trigger) return false
-
-      const triggerName = trigger.name || trigger.title || ''
-      const triggerDescription = trigger.description || ''
-
-      if (!searchQuery) return true
-
-      const query = searchQuery.toLowerCase()
-      return triggerName.toLowerCase().includes(query) ||
-             triggerDescription.toLowerCase().includes(query)
+      return true
     })
   }, [])
 
@@ -304,6 +299,9 @@ export function useIntegrationSelection() {
   ) => {
     if (!selectedIntegration) return []
 
+    // Don't filter actions by search query - the search is for finding integrations,
+    // not for filtering the actions within a selected integration.
+    // Once an integration is selected, show ALL its actions.
     const filtered = selectedIntegration.actions.filter(action => {
       if (!action) return false
 
@@ -313,14 +311,7 @@ export function useIntegrationSelection() {
         return false
       }
 
-      const actionName = action.name || action.title || ''
-      const actionDescription = action.description || ''
-
-      if (!searchQuery) return true
-
-      const query = searchQuery.toLowerCase()
-      return actionName.toLowerCase().includes(query) ||
-             actionDescription.toLowerCase().includes(query)
+      return true
     })
 
     console.log(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
