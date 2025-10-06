@@ -4,6 +4,7 @@
  */
 
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { logInfo } from '@/lib/logging/backendLogger'
 
 export interface ExecutionLogEntry {
   nodeId: string
@@ -482,8 +483,14 @@ export function formatExecutionLogEntry(entry: ExecutionLogEntry): string {
 export function storeExecutionLog(workflowId: string, entry: ExecutionLogEntry) {
   // Check if we're in a browser environment
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    // Server-side execution - skip storing logs
+    // Server-side execution - log to console and backend logger
     console.log('Execution log (server-side):', entry)
+
+    // Try to get execution context from the entry to log to backend logger
+    // We need to find a way to pass the session ID here
+    // For now, we'll just log to console as the backend logger needs a session ID
+    // The calling code should handle backend logging with proper context
+
     return
   }
   

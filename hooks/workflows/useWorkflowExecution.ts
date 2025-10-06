@@ -272,11 +272,15 @@ export function useWorkflowExecution() {
     setIsExecuting(true)
     addDebugLog('info', `Started monitoring execution ${executionId}`)
 
+    let lastLogTimestamp: string | null = null
+
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(
-          `/api/workflows/${currentWorkflow?.id}/execution-status/${executionId}`
-        )
+        const url = lastLogTimestamp
+          ? `/api/workflows/${currentWorkflow?.id}/execution-status/${executionId}?lastLogTimestamp=${lastLogTimestamp}`
+          : `/api/workflows/${currentWorkflow?.id}/execution-status/${executionId}`
+
+        const response = await fetch(url)
 
         if (!response.ok) {
           addDebugLog('error', `Failed to fetch execution status: ${response.status}`)
@@ -285,6 +289,15 @@ export function useWorkflowExecution() {
 
         const data = await response.json()
         const progress = data.progress
+
+        // Process backend logs if available
+        if (data.backendLogs && Array.isArray(data.backendLogs)) {
+          data.backendLogs.forEach((log: any) => {
+            addDebugLog(log.level, `[Backend] ${log.message}`, log.details)
+            // Update last log timestamp for incremental fetching
+            lastLogTimestamp = log.timestamp
+          })
+        }
 
         addDebugLog('info', `Execution progress update`, {
           status: progress.status,

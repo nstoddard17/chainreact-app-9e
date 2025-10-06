@@ -1,5 +1,28 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Helper to safely clone data and remove circular references
+function safeClone(obj: any, seen = new WeakSet()): any {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return new Date(obj);
+  if (obj instanceof Array) return obj.map(item => safeClone(item, seen));
+  if (seen.has(obj)) return '[Circular Reference]';
+
+  seen.add(obj);
+
+  const cloned: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      try {
+        cloned[key] = safeClone(obj[key], seen);
+      } catch (e) {
+        cloned[key] = '[Error cloning property]';
+      }
+    }
+  }
+
+  return cloned;
+}
+
 export interface ExecutionProgressUpdate {
   currentNodeId?: string
   currentNodeName?: string
@@ -35,6 +58,13 @@ export class ExecutionProgressTracker {
     totalNodes: number
   ): Promise<void> {
     try {
+      console.log('🔄 ExecutionProgressTracker.initialize called', {
+        executionId,
+        workflowId,
+        userId,
+        totalNodes
+      })
+
       const { data, error } = await this.supabase
         .from('execution_progress')
         .insert({
@@ -42,43 +72,62 @@ export class ExecutionProgressTracker {
           workflow_id: workflowId,
           user_id: userId,
           status: 'running',
+          current_node_id: null,
+          current_node_name: 'Starting execution...',
           completed_nodes: [],
           pending_nodes: [],
           failed_nodes: [],
           node_outputs: {},
           progress_percentage: 0,
           started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .select()
         .single()
 
       if (error) {
         console.error('Failed to initialize execution progress:', error)
+
+        // Check if this is a table doesn't exist error
+        if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
+          console.log('⚠️ execution_progress table does not exist. Please create it using the SQL script.')
+          console.log('Continuing without progress tracking...')
+        } else {
+          console.log('Will continue without progress tracking due to error:', error.message)
+        }
+
         return
       }
 
-      this.progressId = data.id
-
-      // Also check if this execution is part of a test session
-      const { data: testSession } = await this.supabase
-        .from('workflow_test_sessions')
-        .select('id')
-        .eq('workflow_id', workflowId)
-        .eq('status', 'listening')
-        .single()
-
-      if (testSession) {
-        // Update test session to executing status
-        await this.supabase
-          .from('workflow_test_sessions')
-          .update({
-            status: 'executing',
-            execution_id: executionId,
-          })
-          .eq('id', testSession.id)
+      if (data) {
+        this.progressId = data.id
+        console.log('✅ Execution progress tracker initialized:', this.progressId)
       }
 
-      console.log('✅ Execution progress tracker initialized:', this.progressId)
+      // Also check if this execution is part of a test session
+      try {
+        const { data: testSession } = await this.supabase
+          .from('workflow_test_sessions')
+          .select('id')
+          .eq('workflow_id', workflowId)
+          .eq('status', 'listening')
+          .single()
+
+        if (testSession) {
+          // Update test session to executing status
+          await this.supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'executing',
+              execution_id: executionId,
+            })
+            .eq('id', testSession.id)
+
+          console.log('📝 Updated test session status to executing:', testSession.id)
+        }
+      } catch (testSessionError) {
+        console.log('Test session check skipped:', testSessionError)
+      }
     } catch (error) {
       console.error('Error initializing execution progress:', error)
     }
@@ -92,6 +141,8 @@ export class ExecutionProgressTracker {
       console.warn('Progress tracker not initialized, skipping update')
       return
     }
+
+    console.log('Updating execution progress:', update)
 
     try {
       const updateData: any = {
@@ -162,7 +213,8 @@ export class ExecutionProgressTracker {
     const completedArray = Array.from(this.completedNodes)
     const nodeOutputs: Record<string, any> = {}
     if (result) {
-      nodeOutputs[nodeId] = result
+      // Use safeClone to avoid circular references when storing outputs
+      nodeOutputs[nodeId] = safeClone(result)
     }
 
     await this.update({

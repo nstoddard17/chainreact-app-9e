@@ -25,7 +25,7 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
   const { toast } = useToast()
   const logsEndRef = useRef<HTMLDivElement>(null)
 
-  // Expose global function for adding logs
+  // Expose global function for adding logs and intercept console methods
   useEffect(() => {
     const addDebugLog = (entry: Omit<DebugLogEntry, 'timestamp'>) => {
       const logEntry: DebugLogEntry = {
@@ -33,16 +33,162 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
         timestamp: new Date().toISOString(),
       }
       setLogs(prev => [...prev, logEntry])
-      console.log(`[TestMode Debug] ${entry.level.toUpperCase()}: ${entry.message}`, entry.details)
     }
 
     // Make it globally accessible
     ;(window as any).addTestModeDebugLog = addDebugLog
 
+    // Only intercept console methods when test mode is active
+    if (isActive) {
+      // Store original console methods
+      const originalConsole = {
+        error: console.error,
+        warn: console.warn,
+        log: console.log,
+        info: console.info,
+      }
+
+      // Intercept console.error - capture ALL errors without filtering
+      console.error = (...args) => {
+        originalConsole.error.apply(console, args)
+
+        // Capture ALL errors (no filtering)
+        addDebugLog({
+          level: 'error',
+          message: typeof args[0] === 'string' ? args[0] : 'Console Error',
+          details: args.length > 1 ? args.slice(1) : args[0],
+        })
+      }
+
+      // Intercept console.warn - capture ALL warnings without filtering
+      console.warn = (...args) => {
+        originalConsole.warn.apply(console, args)
+
+        // Capture ALL warnings (no filtering)
+        addDebugLog({
+          level: 'warning',
+          message: typeof args[0] === 'string' ? args[0] : 'Console Warning',
+          details: args.length > 1 ? args.slice(1) : args[0],
+        })
+      }
+
+      // Track recent logs to detect repetition
+      const recentLogs = new Map<string, { count: number; lastSeen: number; firstMessage: string }>()
+      const LOG_DEDUP_WINDOW = 2000 // 2 second window for deduplication
+
+      // Intercept console.log - capture logs but deduplicate repetitive ones
+      console.log = (...args) => {
+        originalConsole.log.apply(console, args)
+
+        const message = typeof args[0] === 'string' ? args[0] : 'Console Log'
+
+        // Create a normalized key for deduplication (remove workflow IDs for trigger logs)
+        let logKey = message
+
+        // For trigger deactivation logs, normalize to detect repetition
+        if (message.includes('Deactivating') || message.includes('Deactivated') || message.includes('No active')) {
+          // Remove workflow ID to group similar trigger logs
+          logKey = message.replace(/44[a-f0-9-]+/gi, 'WORKFLOW_ID')
+        } else {
+          logKey = message + JSON.stringify(args.length > 1 ? args.slice(1) : args[0])
+        }
+
+        const now = Date.now()
+        const existing = recentLogs.get(logKey)
+
+        if (existing && now - existing.lastSeen < LOG_DEDUP_WINDOW) {
+          // Update count and last seen time
+          existing.count++
+          existing.lastSeen = now
+
+          // If this is the second occurrence, update the first message to show repetition
+          if (existing.count === 2) {
+            // Find and update the original log entry to show it's repeating
+            setLogs(prevLogs => {
+              const lastIndex = prevLogs.findIndex(log =>
+                log.message === existing.firstMessage &&
+                log.level === 'info'
+              )
+              if (lastIndex !== -1) {
+                const updatedLogs = [...prevLogs]
+                updatedLogs[lastIndex] = {
+                  ...updatedLogs[lastIndex],
+                  message: `${existing.firstMessage} (repeating...)`
+                }
+                return updatedLogs
+              }
+              return prevLogs
+            })
+          }
+
+          // Skip adding duplicate log
+          return
+        }
+
+        // Clean up old entries
+        if (recentLogs.size > 50) {
+          for (const [key, data] of recentLogs.entries()) {
+            if (now - data.lastSeen > LOG_DEDUP_WINDOW * 2) {
+              recentLogs.delete(key)
+            }
+          }
+        }
+
+        // Track this log
+        recentLogs.set(logKey, { count: 1, lastSeen: now, firstMessage: message })
+
+        // Capture the log
+        addDebugLog({
+          level: 'info',
+          message,
+          details: args.length > 1 ? args.slice(1) : args[0],
+        })
+      }
+
+      // Intercept unhandled promise rejections
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        addDebugLog({
+          level: 'error',
+          message: 'Unhandled Promise Rejection',
+          details: {
+            reason: event.reason,
+            promise: event.promise,
+          },
+        })
+      }
+
+      // Intercept global errors
+      const handleGlobalError = (event: ErrorEvent) => {
+        addDebugLog({
+          level: 'error',
+          message: event.message || 'Global Error',
+          details: {
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            error: event.error,
+          },
+        })
+      }
+
+      window.addEventListener('unhandledrejection', handleUnhandledRejection)
+      window.addEventListener('error', handleGlobalError)
+
+      // Restore original console methods when component unmounts or test mode ends
+      return () => {
+        console.error = originalConsole.error
+        console.warn = originalConsole.warn
+        console.log = originalConsole.log
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+        window.removeEventListener('error', handleGlobalError)
+        delete (window as any).addTestModeDebugLog
+      }
+    }
+
     return () => {
       delete (window as any).addTestModeDebugLog
     }
-  }, [])
+  }, [isActive])
 
   // Auto-scroll to bottom when new logs are added
   useEffect(() => {

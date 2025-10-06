@@ -12,6 +12,7 @@ import { actionHandlerRegistry, getWaitForTimeHandler } from './actions/registry
 import { executeGenericAction } from './actions/generic'
 import { ActionResult } from './actions'
 import { createExecutionLogEntry, storeExecutionLog, formatExecutionLogEntry } from './execution/executionLogger'
+import { logInfo, logError, logSuccess } from '@/lib/logging/backendLogger'
 
 // Import AI-related functionality
 import {
@@ -310,7 +311,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   // Store and log the start
   if (workflowId) {
     storeExecutionLog(workflowId, startLogEntry)
-    console.log('[Execution Started]', formatExecutionLogEntry(startLogEntry))
+    const formattedLog = formatExecutionLogEntry(startLogEntry)
+    console.log('[Execution Started]', formattedLog)
+    // Add to backend logger for debug modal
+    if (input?.executionId) {
+      logInfo(input.executionId, '[Execution Started]', formattedLog)
+    }
   }
   
   // Process AI fields if needed
@@ -518,7 +524,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     // Store and log the success
     if (workflowId) {
       storeExecutionLog(workflowId, successLogEntry)
-      console.log('[Execution Completed]', formatExecutionLogEntry(successLogEntry))
+      const formattedLog = formatExecutionLogEntry(successLogEntry)
+      console.log('[Execution Completed]', formattedLog)
+      // Add to backend logger for debug modal
+      if (input?.executionId) {
+        logSuccess(input.executionId, '[Execution Completed]', formattedLog)
+      }
     }
     
     return result
@@ -544,7 +555,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     // Store and log the error
     if (workflowId) {
       storeExecutionLog(workflowId, errorLogEntry)
-      console.log('[Execution Error]', formatExecutionLogEntry(errorLogEntry))
+      const formattedLog = formatExecutionLogEntry(errorLogEntry)
+      console.log('[Execution Error]', formattedLog)
+      // Add to backend logger for debug modal
+      if (input?.executionId) {
+        logError(input.executionId, '[Execution Error]', formattedLog)
+      }
     }
     
     throw error

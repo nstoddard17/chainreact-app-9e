@@ -26,6 +26,7 @@ import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeW
 import { SimpleStraightEdge } from '@/components/workflows/builder/SimpleStraightEdge'
 import { ALL_NODE_COMPONENTS, type NodeComponent } from '@/lib/workflows/nodes'
 import { validateWorkflowNodes } from '@/lib/workflows/validation/workflow'
+import { getCenteredAddActionX } from '@/lib/workflows/addActionLayout'
 
 interface IntegrationInfo {
   id: string
@@ -35,47 +36,6 @@ interface IntegrationInfo {
   color: string
   triggers: NodeComponent[]
   actions: NodeComponent[]
-}
-
-type NodeLike = {
-  position?: { x?: number }
-  data?: any
-}
-
-const ADD_ACTION_NODE_WIDTH = 400
-const DEFAULT_NODE_WIDTH = 450
-const AI_AGENT_NODE_WIDTH = 480
-
-const getNodeWidth = (node?: NodeLike) => {
-  if (!node) return DEFAULT_NODE_WIDTH
-
-  const nodeData = node.data ?? {}
-
-  if (typeof nodeData.width === 'number') {
-    return nodeData.width
-  }
-
-  if (typeof nodeData.nodeWidth === 'number') {
-    return nodeData.nodeWidth
-  }
-
-  const dimensionsWidth = nodeData?.dimensions?.width
-  if (typeof dimensionsWidth === 'number') {
-    return dimensionsWidth
-  }
-
-  if (nodeData.type === 'ai_agent') {
-    return AI_AGENT_NODE_WIDTH
-  }
-
-  return DEFAULT_NODE_WIDTH
-}
-
-const getCenteredAddActionX = (node?: NodeLike) => {
-  const baseX = node?.position?.x ?? 0
-  const parentWidth = getNodeWidth(node)
-  const offset = (parentWidth - ADD_ACTION_NODE_WIDTH) / 2
-  return baseX + offset
 }
 
 export function useWorkflowBuilder() {
@@ -594,6 +554,7 @@ export function useWorkflowBuilder() {
 
     let nodesToRemove: string[] = []
     let nodesToAdd: Node[] = []
+    let nodesToUpdate: Record<string, { x: number; y: number }> = {}
     let edgesToRemove: string[] = []
     let edgesToAdd: Edge[] = []
 
@@ -634,14 +595,15 @@ export function useWorkflowBuilder() {
         // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
         const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
         const spacing = isChainNode ? 120 : 160
+        const desiredPosition = {
+          x: getCenteredAddActionX(leafNode),
+          y: leafNode.position.y + spacing
+        }
 
         nodesToAdd.push({
           id: addActionId,
           type: 'addAction',
-          position: {
-            x: getCenteredAddActionX(leafNode),
-            y: leafNode.position.y + spacing
-          },
+          position: desiredPosition,
           draggable: false,
           selectable: false,
           data: {
@@ -668,6 +630,21 @@ export function useWorkflowBuilder() {
             style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
           })
         }
+      } else {
+        // Update existing Add Action position if needed
+        const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+        const spacing = isChainNode ? 120 : 160
+        const desiredPosition = {
+          x: getCenteredAddActionX(leafNode),
+          y: leafNode.position.y + spacing
+        }
+
+        if (
+          existingAddAction.position?.x !== desiredPosition.x ||
+          existingAddAction.position?.y !== desiredPosition.y
+        ) {
+          nodesToUpdate[existingAddAction.id] = desiredPosition
+        }
       }
     })
 
@@ -676,8 +653,21 @@ export function useWorkflowBuilder() {
       // console.log(`Removing ${nodesToRemove.length} Add Actions, adding ${nodesToAdd.length}`)
       setNodes(nds => {
         let filtered = nds.filter(n => !nodesToRemove.includes(n.id))
+        filtered = filtered.map(n => {
+          const update = nodesToUpdate[n.id]
+          return update ? { ...n, position: { ...n.position, ...update } } : n
+        })
         return [...filtered, ...nodesToAdd]
       })
+    } else if (Object.keys(nodesToUpdate).length > 0) {
+      // Only updates to existing nodes required
+      setNodes(nds => nds.map(n => {
+        const update = nodesToUpdate[n.id]
+        if (update) {
+          return { ...n, position: { ...n.position, ...update } }
+        }
+        return n
+      }))
     }
 
     // Apply edge changes
@@ -2022,18 +2012,24 @@ export function useWorkflowBuilder() {
           // This is a parent node being dragged, find its add action node
           const addActionId = `add-action-${change.id}`
           const addActionNode = currentNodes.find(n => n.id === addActionId)
+          const parentNode = currentNodes.find(n => n.id === change.id)
 
           if (addActionNode && change.position) {
             // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
             const isChainNode = Boolean(addActionNode.data?.parentAIAgentId)
             const spacing = isChainNode ? 120 : 160
 
+            const centeredX = getCenteredAddActionX({
+              position: change.position,
+              data: parentNode?.data ?? addActionNode.data
+            })
+
             // Move the add action node with the parent
             additionalChanges.push({
               id: addActionId,
               type: 'position',
               position: {
-                x: change.position.x, // Keep same X for vertical alignment
+                x: centeredX,
                 y: change.position.y + spacing
               }
             })
