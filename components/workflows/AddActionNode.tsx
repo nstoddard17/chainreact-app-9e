@@ -3,6 +3,7 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { Plus } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ADD_ACTION_NODE_WIDTH } from "@/lib/workflows/layoutConstants"
 
 type AddActionNodeData = {
   onClick: () => void
@@ -17,11 +18,11 @@ export function AddActionNode({ data }: NodeProps) {
 
   return (
     <div
-      className="w-[400px] flex flex-col items-start justify-center py-4"
+      className="flex flex-col items-center justify-center py-4"
       style={{
         pointerEvents: 'none',
         cursor: 'default',
-        paddingLeft: '200px' // Center the content by offsetting half the width
+        width: ADD_ACTION_NODE_WIDTH
       }}
     >
       <div className="flex flex-col items-center">
