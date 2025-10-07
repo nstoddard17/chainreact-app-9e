@@ -13,6 +13,7 @@ import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
+import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
@@ -42,6 +43,7 @@ const RELEVANT_OUTPUTS: Record<string, string[]> = {
   // AI/OpenAI
   'openai_action_chat_completion': ['response', 'usage'],
   'ai_agent': ['output'],
+  'ai_message': ['output', 'structured_output'],
   
   // Notion Actions
   'notion_action_create_page': ['pageId', 'title', 'url'],
@@ -75,6 +77,23 @@ const RELEVANT_OUTPUTS: Record<string, string[]> = {
   'default': []
 }
 
+const formatProviderName = (providerId?: string): string => {
+  if (!providerId) return ''
+  return providerId
+    .replace(/[_-]/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+const humanizeNodeType = (type?: string): string => {
+  if (!type) return 'Step'
+  return type
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 interface VariablePickerSidePanelProps {
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
@@ -93,6 +112,22 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
+  const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
+    if (providerId) {
+      return (
+        <StaticIntegrationLogo
+          providerId={providerId}
+          providerName={providerName || providerId}
+        />
+      )
+    }
+
+    return (
+      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600">
+        <Variable className="h-3 w-3" />
+      </div>
+    )
+  }, [])
 
   // Function to get relevant AI agent outputs based on current node type
   const getRelevantAIAgentOutputs = useCallback((currentNodeType: string): string[] => {
@@ -125,7 +160,7 @@ export function VariablePickerSidePanel({
   // Function to filter outputs based on node type
   const getRelevantOutputs = useCallback((nodeType: string, allOutputs: any[]) => {
     // Special context-aware filtering for AI agent nodes based on current action type
-    if (nodeType === 'ai_agent' && currentNodeType) {
+    if ((nodeType === 'ai_agent' || nodeType === 'ai_message') && currentNodeType) {
       const relevantAIOutputs = getRelevantAIAgentOutputs(currentNodeType);
       const filteredOutputs = allOutputs.filter(output => relevantAIOutputs.includes(output.name));
       
@@ -220,33 +255,33 @@ export function VariablePickerSidePanel({
       // Filter outputs to show only relevant ones for this node type
       const relevantOutputs = getRelevantOutputs(node.data?.type || '', allOutputs)
       
-      // Determine node type and provider info
-      const nodeType = node.data?.isTrigger ? 'Trigger' : 'Action'
+      const providerId = node.data?.providerId || nodeComponent?.providerId || ''
+      const providerName = formatProviderName(providerId)
+      const title = node.data?.title?.trim() || nodeComponent?.title || humanizeNodeType(node.data?.type) || 'Untitled Step'
+      const isTrigger = Boolean(node.data?.isTrigger)
 
-      // Format provider name properly (e.g., "google-drive" -> "Google Drive")
-      const formatProviderName = (providerId: string): string => {
-        if (!providerId) return ''
-        // Split by hyphen or underscore and capitalize each word
-        return providerId
-          .split(/[-_]/)
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ')
+      const nodeTypeLabel = isTrigger
+        ? 'Trigger'
+        : (providerId === 'ai' || node.data?.type?.startsWith('ai_'))
+          ? 'AI Action'
+          : 'Action'
+
+      const subtitleParts = []
+      if (providerName) subtitleParts.push(providerName)
+      if (nodeTypeLabel && (subtitleParts.length === 0 || nodeTypeLabel !== subtitleParts[subtitleParts.length - 1])) {
+        subtitleParts.push(nodeTypeLabel)
       }
-
-      const provider = node.data?.providerId ? formatProviderName(node.data.providerId) : ''
-      const title = node.data?.title || node.data?.type || node.type || 'Unknown Node'
-
-      // Format display name: "Trigger: Gmail: New Email" or "Action: Slack: Send Message"
-      const displayTitle = provider ?
-        `${nodeType}: ${provider}: ${title}` :
-        `${nodeType}: ${title}`
+      const subtitle = subtitleParts.join(' • ')
 
       return {
         id: node.id,
-        title: displayTitle,
+        title,
+        subtitle,
+        providerId,
+        providerName,
         type: node.data?.type,
         outputs: Array.isArray(relevantOutputs) ? relevantOutputs : [],
-        isTrigger: node.data?.isTrigger || false
+        isTrigger
       }
     })
     .filter(node => {
@@ -303,11 +338,15 @@ export function VariablePickerSidePanel({
 
   // Filter nodes and outputs based on search term
   const filteredNodes = useMemo(() => {
+    const query = searchTerm.toLowerCase()
     return nodes.filter(node => {
-      const nodeMatches = node.title.toLowerCase().includes(searchTerm.toLowerCase())
+      const nodeMatches =
+        node.title.toLowerCase().includes(query) ||
+        (node.subtitle?.toLowerCase().includes(query) ?? false) ||
+        (node.providerName?.toLowerCase().includes(query) ?? false)
       const outputMatches = node.outputs.some((output: any) => 
-        output.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        output.name.toLowerCase().includes(searchTerm.toLowerCase())
+        output.label?.toLowerCase().includes(query) ||
+        output.name.toLowerCase().includes(query)
       )
       return nodeMatches || outputMatches
     })
@@ -615,16 +654,28 @@ export function VariablePickerSidePanel({
                   {/* Node Header */}
                   <CollapsibleTrigger asChild>
                     <div className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}>
-                      <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="w-4 h-4 flex items-center justify-center mt-0.5 flex-shrink-0">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="w-4 h-4 flex items-center justify-center mt-1 flex-shrink-0">
                           {isExpanded ? (
                             <ChevronDown className="h-3 w-3 text-slate-500" />
                           ) : (
                             <ChevronRight className="h-3 w-3 text-slate-500" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-slate-900 break-words whitespace-normal leading-tight block">{node.title}</span>
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <div className="mt-0.5 flex-shrink-0">
+                            {renderProviderIcon(node.providerId, node.providerName)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-slate-900 break-words whitespace-normal leading-tight block">
+                              {node.title}
+                            </span>
+                            {node.subtitle && (
+                              <span className="text-xs text-slate-500 break-words whitespace-normal block mt-0.5">
+                                {node.subtitle}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-start gap-1 flex-shrink-0 ml-2">
@@ -752,4 +803,4 @@ export function VariablePickerSidePanel({
       </div>
     </div>
   )
-} 
+}
