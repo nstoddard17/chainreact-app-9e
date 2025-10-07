@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -50,66 +50,49 @@ export function SimpleVariablePicker({
     clearTestResults
   } = useWorkflowTestStore()
 
-  // Get previous nodes from the workflow data based on edge connections
-  const getPreviousNodes = () => {
-    if (!workflowData || !currentNodeId) return [];
+  const getPreviousNodeIds = (): string[] => {
+    if (!workflowData || !currentNodeId) return []
 
-    // Function to get all nodes that come before the current node in the workflow
     const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
-      if (visited.has(nodeId)) return [];
-      visited.add(nodeId);
-      
-      // Find edges where this node is the target
-      const incomingEdges = workflowData.edges.filter(edge => edge.target === nodeId);
-      
-      // No incoming edges means no previous nodes
-      if (incomingEdges.length === 0) return [];
-      
-      // Get the source nodes from incoming edges
-      const sourceNodeIds = incomingEdges.map(edge => edge.source);
-      
-      // For each source node, also get its previous nodes
-      const allPreviousNodes: string[] = [...sourceNodeIds];
-      
-      sourceNodeIds.forEach(sourceId => {
-        const previousNodes = findPreviousNodes(sourceId, visited);
-        allPreviousNodes.push(...previousNodes);
-      });
-      
-      return allPreviousNodes;
-    };
+      if (visited.has(nodeId)) return []
+      visited.add(nodeId)
 
-    // Get all previous nodes
-    const previousNodeIds = findPreviousNodes(currentNodeId);
-    
-    // Return the nodes data for previous nodes
-    return workflowData.nodes
-      .filter((node: any) => previousNodeIds.includes(node.id))
-      .map((node: any) => ({
-        id: node.id,
-        title: node.data?.title || node.data?.type || 'Unknown Node',
-        outputs: node.data?.outputSchema || []
-      }));
-  };
+      const incomingEdges = workflowData.edges.filter(edge => edge.target === nodeId)
+      if (incomingEdges.length === 0) return []
+
+      const sourceNodeIds = incomingEdges.map(edge => edge.source)
+      const allPreviousNodes: string[] = [...sourceNodeIds]
+
+      sourceNodeIds.forEach(sourceId => {
+        const previousNodes = findPreviousNodes(sourceId, visited)
+        allPreviousNodes.push(...previousNodes)
+      })
+
+      return allPreviousNodes
+    }
+
+    return findPreviousNodes(currentNodeId)
+  }
 
   // Get nodes to display - previous nodes only when in a node config
   const allNodes = workflowData?.nodes?.map((node: any) => ({
     id: node.id,
     title: node.data?.title || node.data?.type || 'Unknown Node',
     outputs: node.data?.outputSchema || []
-  })) || [];
+  })) || []
   
-  // Show previous nodes or all nodes with outputs when in configuration mode (excluding current node)
-  const nodes = currentNodeId ? 
-    // Include previous nodes and any nodes that have outputs
-    allNodes.filter(node => {
-      if (node.id === currentNodeId) return false; // Exclude the current node being configured
-      const previousNodes = getPreviousNodes();
-      const isPreviousNode = previousNodes.some((prevNode: any) => prevNode.id === node.id);
-      const hasOutputs = node.outputs && node.outputs.length > 0;
-      return isPreviousNode || hasOutputs;
-    }) : 
-    allNodes;
+  const previousNodeIdSet = useMemo(() => {
+    if (!workflowData || !currentNodeId) return new Set<string>()
+    return new Set(getPreviousNodeIds())
+  }, [workflowData, currentNodeId])
+
+  const nodes = currentNodeId
+    ? allNodes.filter(node => {
+        if (node.id === currentNodeId) return false
+        const hasOutputs = node.outputs && node.outputs.length > 0
+        return hasOutputs && previousNodeIdSet.has(node.id)
+      })
+    : allNodes.filter(node => node.outputs && node.outputs.length > 0)
 
   // Debug: Log which nodes are being included
   console.log('📊 [SIMPLE VARIABLES] Available nodes:', nodes.map(n => ({

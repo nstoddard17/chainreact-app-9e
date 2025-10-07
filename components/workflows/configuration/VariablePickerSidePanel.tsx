@@ -295,15 +295,13 @@ export function VariablePickerSidePanel({
              node.id !== 'add-node-button'
     }) || []
     
-    // Show all nodes that have outputs (excluding current node)
-    // Changed logic: show ALL nodes with outputs, not just previous ones
     if (currentNodeId) {
-      const previousNodeIds = getPreviousNodes(currentNodeId);
+      const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
       
       // Debug logging
       console.log('📊 [VARIABLES] Debug info:', {
         currentNodeId,
-        previousNodeIds,
+        previousNodeIds: Array.from(previousNodeIds),
         allNodesCount: allNodes.length,
         allNodes: allNodes.map(n => ({
           id: n.id,
@@ -317,8 +315,10 @@ export function VariablePickerSidePanel({
       
       // Include all nodes that have outputs, not just previous ones
       const filteredNodes = allNodes.filter(node => 
-        node.id !== currentNodeId && // Exclude the current node being configured
-        (node.outputs && node.outputs.length > 0) // Include any node that has outputs
+        node.id !== currentNodeId &&
+        node.outputs &&
+        node.outputs.length > 0 &&
+        previousNodeIds.has(node.id)
       );
       
       // Debug: Log which nodes are being included
