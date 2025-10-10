@@ -13,6 +13,7 @@ import { useFieldValidation } from './hooks/useFieldValidation';
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
+import { AIMessageConfiguration } from './providers/AIMessageConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
 import { MicrosoftExcelConfiguration } from './providers/MicrosoftExcelConfiguration';
@@ -1386,6 +1387,16 @@ function ConfigurationForm({
     airtableTableSchema,
     setAirtableTableSchema
   };
+
+  // Handle AI Message nodes with custom prompt builder
+  if (nodeInfo?.type === 'ai_message') {
+    return (
+      <AIMessageConfiguration
+        {...commonProps}
+        setValue={setValueBase}
+      />
+    )
+  }
 
   // THIRD THING: Route to the correct provider component
   // Check for specific node types that need custom configuration
