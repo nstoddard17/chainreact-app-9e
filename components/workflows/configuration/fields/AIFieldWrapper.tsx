@@ -1,11 +1,19 @@
 "use client"
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
+import React, { useCallback, useState } from "react";
 import { Bot, X, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { FieldRenderer } from "./FieldRenderer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface AIFieldWrapperProps {
   field: any;
@@ -48,6 +56,7 @@ export function AIFieldWrapper({
   const [isAIMode, setIsAIMode] = useState(
     isAIEnabled || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'))
   );
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   
   // Check if field is the recordId field for update record
   const isRecordIdField = field.name === 'recordId' && nodeInfo?.type === 'airtable_action_update_record';
@@ -69,21 +78,26 @@ export function AIFieldWrapper({
   // Check if field is non-editable (computed fields, auto-number, etc.)
   const isLocked = isNonEditable || field.computed || field.autoNumber || field.formula;
 
-  const handleAIToggle = () => {
-    const newState = !isAIMode;
-    setIsAIMode(newState);
-    
-    if (newState) {
-      // Set the AI placeholder value
+  const enableAIMode = useCallback(() => {
+    setIsAIMode(true);
+    if (!(typeof value === 'string' && value.startsWith('{{AI_FIELD:'))) {
       onChange(`{{AI_FIELD:${field.name}}}`);
-    } else {
-      // Clear the value when disabling AI mode
-      onChange('');
     }
-    
-    // Notify parent about AI state change
-    if (onAIToggle) {
-      onAIToggle(field.name, newState);
+    onAIToggle?.(field.name, true);
+  }, [field.name, onAIToggle, onChange, value]);
+
+  const disableAIMode = useCallback(() => {
+    setIsAIMode(false);
+    onChange('');
+    onAIToggle?.(field.name, false);
+  }, [field.name, onAIToggle, onChange]);
+
+  const handleAIToggle = () => {
+    if (isLocked) return;
+    if (isAIMode) {
+      setShowDisableConfirm(true);
+    } else {
+      enableAIMode();
     }
   };
 
@@ -161,6 +175,29 @@ export function AIFieldWrapper({
           />
         </div>
       )}
+
+      <AlertDialog open={showDisableConfirm} onOpenChange={setShowDisableConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable AI-generated value?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This field is currently filled automatically by the AI step. If you remove the AI reference,
+              the workflow will stop generating this value and you&apos;ll need to supply it manually.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep AI Value</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                disableAIMode();
+                setShowDisableConfirm(false);
+              }}
+            >
+              Remove AI Value
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
