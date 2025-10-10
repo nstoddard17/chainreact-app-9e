@@ -539,8 +539,8 @@ export class ChainExecutionEngine {
     const failed = results.chains.filter(c => !c.success).length
 
     return `Execution completed in ${totalTime}ms. ` +
-           `${successful} chain(s) successful, ${failed} failed. ` +
-           results.errors.length > 0
+           `${successful} chain(s) successful, ${failed} failed. ${ 
+           results.errors.length}` > 0
              ? `Errors: ${results.errors.map(e => e.message || e).join(', ')}`
              : ''
   }

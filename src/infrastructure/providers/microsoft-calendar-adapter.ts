@@ -13,7 +13,7 @@ export class MicrosoftCalendarAdapter implements CalendarProvider {
   readonly capabilities: CapabilityDescriptor = {
     supportsWebhooks: true,
     rateLimits: [
-      { type: 'requests', limit: 4, window: 1000 },     // 4 requests per second (Graph API)
+      { type: 'requests', limit: 4, window: 1000 }, // 4 requests per second (Graph API)
       { type: 'requests', limit: 10000, window: 600000 } // 10,000 requests per 10 minutes
     ],
     supportedFeatures: [

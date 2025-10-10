@@ -160,7 +160,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
       }
     }
     
-    let allDatabases = [...rawDatabases]
+    const allDatabases = [...rawDatabases]
     
     console.log(`\n📊 [Notion Databases] Starting with ${allDatabases.length} databases`)
     
@@ -362,7 +362,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     }
     
     // Map and filter databases
-    let databases = allDatabases
+    const databases = allDatabases
       .filter((database: any) => {
         // Log if we're filtering something out
         if (database.archived) {

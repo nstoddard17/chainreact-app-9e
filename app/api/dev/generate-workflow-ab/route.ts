@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       userId: 'dev-ab',
       model: model || 'gpt-4o-mini',
       debug: true,
-      extraSystemPrefix: (variantBSystemPrefix || '') + '\n',
+      extraSystemPrefix: `${variantBSystemPrefix || '' }\n`,
       extraUserSuffix: variantBUserSuffix || ''
     })
 

@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
 
     const sanitizedQuery = sanitizeSearchQuery(query)
-    const maxPreviewResults = 1  // Always fetch just 1 email for preview
+    const maxPreviewResults = 1 // Always fetch just 1 email for preview
 
     const baseParams = new URLSearchParams()
     baseParams.append("$top", maxPreviewResults.toString())

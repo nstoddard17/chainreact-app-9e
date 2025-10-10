@@ -110,7 +110,7 @@ async function checkChannelBotStatus(
         
         if (userGuild) {
           // Check if user has MANAGE_GUILD permission (0x00000020)
-          const permissions = parseInt(userGuild.permissions)
+          const permissions = parseInt(userGuild.permissions, 10)
           userCanInvite = (permissions & 0x00000020) !== 0 || userGuild.owner
         }
       }

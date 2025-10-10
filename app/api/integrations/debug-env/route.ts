@@ -24,16 +24,16 @@ export async function GET() {
       hasYouTubeClientSecret: !!process.env.YOUTUBE_CLIENT_SECRET,
 
       // Show partial values for verification (first 5 chars only for security)
-      googleClientIdPreview: process.env.GOOGLE_CLIENT_ID?.substring(0, 5) + "...",
-      youtubeClientIdPreview: process.env.YOUTUBE_CLIENT_ID?.substring(0, 5) + "...",
+      googleClientIdPreview: `${process.env.GOOGLE_CLIENT_ID?.substring(0, 5) }...`,
+      youtubeClientIdPreview: `${process.env.YOUTUBE_CLIENT_ID?.substring(0, 5) }...`,
 
       // Check if they're the same
       sameClientId: process.env.GOOGLE_CLIENT_ID === process.env.YOUTUBE_CLIENT_ID,
 
       // What the YouTube callback will actually use
       actualClientId:
-        (process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)?.substring(0, 5) +
-        "...",
+        `${(process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID)?.substring(0, 5) 
+        }...`,
       actualClientSecret: !!(process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET),
     }
 

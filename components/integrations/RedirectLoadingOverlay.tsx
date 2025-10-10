@@ -19,7 +19,7 @@ export default function RedirectLoadingOverlay({ provider, isVisible }: Redirect
     const interval = setInterval(() => {
       setDots((prev) => {
         if (prev === "...") return ""
-        return prev + "."
+        return `${prev }.`
       })
     }, 500)
 

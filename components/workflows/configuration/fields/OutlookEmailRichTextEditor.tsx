@@ -1,12 +1,14 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { FileSignature, ChevronDown, Building, User } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
+import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
 interface OutlookSignature {
   id: string
@@ -40,6 +42,24 @@ export function OutlookEmailRichTextEditor({
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const { toast } = useToast()
+  const editorRef = useRef<HTMLDivElement | null>(null)
+
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!editorRef.current) return
+
+    const variableText = normalizeDraggedVariable(rawVariable)
+    if (!variableText) return
+
+    const updatedHtml = insertVariableIntoContentEditable(editorRef.current, variableText)
+    onChange(updatedHtml)
+  }, [onChange])
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: "outlook-email-body",
+    fieldLabel: "Email Body",
+    elementRef: editorRef,
+    onInsert: handleVariableInsert
+  })
 
   // Load Outlook signatures
   useEffect(() => {
@@ -88,7 +108,7 @@ export function OutlookEmailRichTextEditor({
       })
       
       // Add new signature
-      newValue = newValue + '\n\n' + signature.content
+      newValue = `${newValue }\n\n${ signature.content}`
       onChange(newValue)
       setSelectedSignature(signatureId)
       
@@ -159,20 +179,27 @@ export function OutlookEmailRichTextEditor({
       </div>
 
       {/* Rich text area for Outlook with HTML support */}
-      <div>
+      <div className="relative">
         <div
+          ref={editorRef}
           contentEditable
           dangerouslySetInnerHTML={{ __html: value }}
           onInput={(e) => onChange(e.currentTarget.innerHTML)}
+          onFocus={dropHandlers.onFocus}
+          onBlur={dropHandlers.onBlur}
+          onDragOver={dropHandlers.onDragOver}
+          onDragLeave={dropHandlers.onDragLeave}
+          onDrop={dropHandlers.onDrop}
           className={`w-full min-h-[200px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             error ? 'border-red-500' : 'border-gray-300'
-          }`}
+          } ${isDragOver ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
           style={{ 
             whiteSpace: 'pre-wrap',
             fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
             fontSize: '14px',
             lineHeight: '1.5'
           }}
+          suppressContentEditableWarning
         />
         {!value && (
           <div className="absolute inset-0 p-3 pointer-events-none text-gray-400">

@@ -101,9 +101,9 @@ export async function POST(request: NextRequest) {
         adjustment: difference
       })
 
-    } else {
+    } 
       return NextResponse.json({ error: "Invalid action or missing amount" }, { status: 400 })
-    }
+    
 
   } catch (error) {
     console.error("Error managing AI usage balance:", error)

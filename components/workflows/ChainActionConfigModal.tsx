@@ -54,6 +54,7 @@ export function ChainActionConfigModal({
       integrationName={integration.name || action.providerId}
       initialData={action.config || {}}
       currentNodeId={action.id}
+      nodeTitle={action.config?.title || nodeComponent.title || nodeComponent.label}
     />
   )
 }

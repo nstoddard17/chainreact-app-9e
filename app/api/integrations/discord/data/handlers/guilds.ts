@@ -23,7 +23,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
 
     console.log('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
     
-    let channelsStatus = null;
+    const channelsStatus = null;
     
     // First, try to fetch channels (more reliable than member check)
     try {
@@ -86,14 +86,14 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
           hasPermissions: false,
           error: "Bot not in server or missing permissions"
         };
-      } else {
+      } 
         console.log('🔍 Unknown error checking bot status');
         return {
           isInGuild: false,
           hasPermissions: false,
           error: `Discord API error: ${memberError.status || 'unknown'}`
         };
-      }
+      
     }
   } catch (error: any) {
     console.error('Error verifying bot in guild:', error);
@@ -227,7 +227,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
         const checkedGuilds = checkedGuildsResult.map((result, index) => {
           if (result.status === 'fulfilled') {
             return result.value;
-          } else {
+          } 
             console.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`, result.reason);
             return {
               ...guildsToCheck[index],
@@ -235,7 +235,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
               hasPermissions: false,
               botError: "Failed to check bot status"
             };
-          }
+          
         });
         
         // Add remaining guilds that weren't checked

@@ -231,10 +231,10 @@ function expandAIAgentChains(workflow: GeneratedWorkflow): GeneratedWorkflow {
       const chains = node.data.config.chains
       
       // Generate visual nodes for each chain
-      let baseX = node.position.x + 350 // Start chains to the right of AI Agent
+      const baseX = node.position.x + 350 // Start chains to the right of AI Agent
       
       chains.forEach((chain: any, chainIndex: number) => {
-        let yPosition = node.position.y - 100 + (chainIndex * 180) // Space chains vertically
+        const yPosition = node.position.y - 100 + (chainIndex * 180) // Space chains vertically
         let previousNodeId: string | null = null
         
         // Create action nodes for this chain
@@ -495,9 +495,9 @@ function createDefaultCustomerSupportWorkflow(triggerId: string, aiAgentId: stri
   })
   
   // Now create visual nodes for each chain
-  let xPosition = 650 // Start chains to the right of AI Agent
+  const xPosition = 650 // Start chains to the right of AI Agent
   chains.forEach((chain, chainIndex) => {
-    let yPosition = 150 + (chainIndex * 200) // Space chains vertically
+    const yPosition = 150 + (chainIndex * 200) // Space chains vertically
     
     // Create action nodes for this chain
     chain.actions.forEach((action, actionIndex) => {

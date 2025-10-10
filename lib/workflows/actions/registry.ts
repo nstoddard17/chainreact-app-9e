@@ -1,4 +1,5 @@
 import { ActionResult } from './index'
+import { executeAIRouter } from './aiRouterAction'
 
 // AI Data Processing actions
 import {
@@ -15,6 +16,7 @@ import { sendGmailEmail } from './gmail/sendEmail'
 import { applyGmailLabels } from './gmail/applyLabels'
 import { searchGmailEmails } from './gmail'
 import { fetchGmailMessage } from './gmail/fetchMessage'
+import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 
 // Google Sheets actions
 import { readGoogleSheetsData, executeGoogleSheetsUnifiedAction, exportGoogleSheetsData } from './googleSheets'
@@ -182,12 +184,6 @@ import {
   getMentionsHandler
 } from './twitter/handlers'
 
-// YouTube actions - now imported from the new module
-import {
-  uploadVideoHandler,
-  listVideosHandler
-} from './youtube/handlers'
-
 // Dropbox actions
 import { uploadDropboxFile } from './dropbox'
 
@@ -212,7 +208,6 @@ import { getTrelloCards } from './trello/getCards'
 import { getSlackMessages } from './slack/getMessages'
 import { getOnedriveFile } from './onedrive/getFile'
 import { getDropboxFile } from './dropbox/getFile'
-import { getBoxFile } from './box/getFile'
 import { hubspotGetContacts } from './hubspot/getContacts'
 import { hubspotGetCompanies } from './hubspot/getCompanies'
 import { hubspotGetDeals } from './hubspot/getDeals'
@@ -303,52 +298,119 @@ function createExecutionContextWrapper(handler: Function) {
   }
 }
 
+async function executeAIRouterWrapper(params: { config: any; userId: string; input: Record<string, any> }): Promise<ActionResult> {
+  const { config, userId, input } = params
+
+  try {
+    const workflowId = input.workflowId || input.workflow?.id || 'unknown'
+    const executionId = input.executionId || input.sessionId || 'unknown'
+
+    const result = await executeAIRouter(config, {
+      userId,
+      workflowId,
+      executionId,
+      input,
+      previousResults: input.previousResults || {},
+      memoryContext: input.memoryContext
+    })
+
+    return {
+      success: result.success,
+      output: result.output,
+      metadata: result.metadata,
+      selectedPaths: result.selectedPaths,
+      message: result.success ? 'AI routing decision completed' : 'AI routing decision failed'
+    }
+  } catch (error: any) {
+    console.error('AI Router execution error:', error)
+    return {
+      success: false,
+      output: {},
+      message: error?.message || 'AI routing decision failed',
+      error: error?.message || 'AI routing decision failed'
+    }
+  }
+}
+
 /**
  * Central registry of all action handlers
  */
 export const actionHandlerRegistry: Record<string, Function> = {
-  // AI Data Processing actions
-  "ai_action_summarize": summarizeContent,
-  "ai_action_extract": extractInformation,
-  "ai_action_sentiment": analyzeSentiment,
-  "ai_action_translate": translateText,
-  "ai_action_generate": generateContent,
-  "ai_action_classify": classifyContent,
+  // AI Router
+  "ai_router": executeAIRouterWrapper,
+
+  // AI Data Processing actions - wrapped to handle new calling convention
+  "ai_action_summarize": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    summarizeContent(params.config, params.userId, params.input),
+  "ai_action_extract": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    extractInformation(params.config, params.userId, params.input),
+  "ai_action_sentiment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    analyzeSentiment(params.config, params.userId, params.input),
+  "ai_action_translate": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    translateText(params.config, params.userId, params.input),
+  "ai_action_generate": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    generateContent(params.config, params.userId, params.input),
+  "ai_action_classify": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    classifyContent(params.config, params.userId, params.input),
   
-  // Gmail actions
+  // Gmail actions - mixed signatures (sendGmailEmail already uses params)
   "gmail_action_send_email": sendGmailEmail,
-  "gmail_action_add_label": applyGmailLabels,
-  "gmail_action_apply_labels": applyGmailLabels,
-  "gmail_action_search_email": searchGmailEmails,
-  "gmail_action_fetch_message": fetchGmailMessage,
-  
-  // Google Sheets actions
-  "google_sheets_action_read_data": readGoogleSheetsData,
-  "google_sheets_unified_action": executeGoogleSheetsUnifiedAction,
-  "google-sheets_action_export_sheet": exportGoogleSheetsData,
+  "gmail_action_add_label": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    applyGmailLabels(params.config, params.userId, params.input),
+  "gmail_action_apply_labels": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    applyGmailLabels(params.config, params.userId, params.input),
+  "gmail_action_search_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchGmailEmails(params.config, params.userId, params.input),
+  "gmail_action_fetch_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    fetchGmailMessage(params.config, params.userId, params.input),
 
-  // Microsoft Excel actions
-  "microsoft_excel_unified_action": executeMicrosoftExcelUnifiedAction,
-  "microsoft-excel_action_export_sheet": exportMicrosoftExcelSheet,
-  "microsoft_excel_action_create_workbook": createMicrosoftExcelWorkbook,
+  // Gmail trigger handler - fetches real email data for testing
+  "gmail_trigger_new_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    fetchGmailTriggerEmail(params.config, params.userId, params.input),
+  
+  // Google Sheets actions - wrapped to handle new calling convention
+  "google_sheets_action_read_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    readGoogleSheetsData(params.config, params.userId, params.input),
+  "google_sheets_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeGoogleSheetsUnifiedAction(params.config, params.userId, params.input),
+  "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    exportGoogleSheetsData(params.config, params.userId, params.input),
 
-  // Google Calendar actions
-  "google_calendar_action_create_event": createGoogleCalendarEvent,
+  // Microsoft Excel actions - wrapped to handle new calling convention
+  "microsoft_excel_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeMicrosoftExcelUnifiedAction(params.config, params.userId, params.input),
+  "microsoft-excel_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    exportMicrosoftExcelSheet(params.config, params.userId, params.input),
+  "microsoft_excel_action_create_workbook": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMicrosoftExcelWorkbook(params.config, params.userId, params.input),
+
+  // Google Calendar actions - wrapped to handle new calling convention
+  "google_calendar_action_create_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleCalendarEvent(params.config, params.userId, params.input),
+
+  // Google Drive actions - wrapped to handle new calling convention
+  "google_drive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadGoogleDriveFile(params.config, params.userId, params.input),
+
+  // Google Docs actions - wrapped to handle new calling convention
+  "google_docs_action_create_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleDocument(params.config, params.userId, params.input),
+  "google_docs_action_update_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateGoogleDocument(params.config, params.userId, params.input),
+  "google_docs_action_share_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    shareGoogleDocument(params.config, params.userId, params.input),
+  "google_docs_action_get_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleDocument(params.config, params.userId, params.input),
   
-  // Google Drive actions
-  "google_drive_action_upload_file": uploadGoogleDriveFile,
-  
-  // Google Docs actions
-  "google_docs_action_create_document": createGoogleDocument,
-  "google_docs_action_update_document": updateGoogleDocument,
-  "google_docs_action_share_document": shareGoogleDocument,
-  "google_docs_action_get_document": getGoogleDocument,
-  
-  // Airtable actions
-  "airtable_action_move_record": moveAirtableRecord,
-  "airtable_action_create_record": createAirtableRecord,
-  "airtable_action_update_record": updateAirtableRecord,
-  "airtable_action_list_records": listAirtableRecords,
+  // Airtable actions - wrapped to handle new calling convention
+  "airtable_action_move_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_create_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_update_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateAirtableRecord(params.config, params.userId, params.input),
+  "airtable_action_list_records": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listAirtableRecords(params.config, params.userId, params.input),
   
   // Slack actions - wrapped to handle new calling convention
   "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -407,88 +469,129 @@ export const actionHandlerRegistry: Record<string, Function> = {
     unbanDiscordMember(params.config, params.userId, params.input),
   
   // Notion actions - search kept for backward compatibility
-  "notion_action_search_pages": searchNotionPages,
+  "notion_action_search_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchNotionPages(params.config, params.userId, params.input),
 
-  // Notion unified actions (primary handlers)
-  "notion_action_manage_page": executeNotionManagePage,
-  "notion_action_manage_database": executeNotionManageDatabase,
-  "notion_action_manage_users": executeNotionManageUsers,
-  "notion_action_manage_comments": executeNotionManageComments,
-  "notion_action_search": notionSearch,
+  // Notion unified actions (primary handlers) - wrapped to handle new calling convention
+  "notion_action_manage_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionManagePage(params.config, params.userId, params.input),
+  "notion_action_manage_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionManageDatabase(params.config, params.userId, params.input),
+  "notion_action_manage_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionManageUsers(params.config, params.userId, params.input),
+  "notion_action_manage_comments": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionManageComments(params.config, params.userId, params.input),
+  "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionSearch(params.config, params.userId, params.input),
 
-  // Notion actions - comprehensive API v2 actions
+  // Notion actions - comprehensive API v2 actions - wrapped to handle new calling convention
   // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead
-  "notion_action_archive_page": notionArchivePage,
-  "notion_action_query_database": notionQueryDatabase,
-  "notion_action_update_database": notionUpdateDatabase,
-  "notion_action_append_blocks": notionAppendBlocks,
-  "notion_action_update_block": notionUpdateBlock,
-  "notion_action_delete_block": notionDeleteBlock,
-  "notion_action_retrieve_block_children": notionRetrieveBlockChildren,
-  "notion_action_list_users": notionListUsers,
-  "notion_action_retrieve_user": notionRetrieveUser,
-  "notion_action_create_comment": notionCreateComment,
-  "notion_action_retrieve_comments": notionRetrieveComments,
-  "notion_action_search": notionSearch,
-  "notion_action_duplicate_page": notionDuplicatePage,
-  "notion_action_sync_database_entries": notionSyncDatabaseEntries,
-  "notion_action_get_page_details": notionGetPageDetails,
+  "notion_action_archive_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionArchivePage(params.config, params.userId, params.input),
+  "notion_action_query_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionQueryDatabase(params.config, params.userId, params.input),
+  "notion_action_update_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionUpdateDatabase(params.config, params.userId, params.input),
+  "notion_action_append_blocks": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionAppendBlocks(params.config, params.userId, params.input),
+  "notion_action_update_block": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionUpdateBlock(params.config, params.userId, params.input),
+  "notion_action_delete_block": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionDeleteBlock(params.config, params.userId, params.input),
+  "notion_action_retrieve_block_children": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionRetrieveBlockChildren(params.config, params.userId, params.input),
+  "notion_action_list_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionListUsers(params.config, params.userId, params.input),
+  "notion_action_retrieve_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionRetrieveUser(params.config, params.userId, params.input),
+  "notion_action_create_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionCreateComment(params.config, params.userId, params.input),
+  "notion_action_retrieve_comments": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionRetrieveComments(params.config, params.userId, params.input),
+  "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionSearch(params.config, params.userId, params.input),
+  "notion_action_duplicate_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionDuplicatePage(params.config, params.userId, params.input),
+  "notion_action_sync_database_entries": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionSyncDatabaseEntries(params.config, params.userId, params.input),
+  "notion_action_get_page_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionGetPageDetails(params.config, params.userId, params.input),
   "notion_action_get_pages": createExecutionContextWrapper(notionGetPages),
 
-  // GitHub actions
-  "github_action_create_issue": createGitHubIssue,
-  "github_action_create_repository": createGitHubRepository,
-  "github_action_create_pull_request": createGitHubPullRequest,
+  // GitHub actions - wrapped to handle new calling convention
+  "github_action_create_issue": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGitHubIssue(params.config, params.userId, params.input),
+  "github_action_create_repository": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGitHubRepository(params.config, params.userId, params.input),
+  "github_action_create_pull_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGitHubPullRequest(params.config, params.userId, params.input),
   
-  // HubSpot actions
-  "hubspot_action_create_contact": createHubSpotContact,
-  "hubspot_action_create_company": createHubSpotCompany,
-  "hubspot_action_create_deal": createHubSpotDeal,
-  "hubspot_action_add_contact_to_list": addContactToHubSpotList,
-  "hubspot_action_update_deal": updateHubSpotDeal,
+  // HubSpot actions - wrapped to handle new calling convention
+  "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createHubSpotContact(params.config, params.userId, params.input),
+  "hubspot_action_create_company": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createHubSpotCompany(params.config, params.userId, params.input),
+  "hubspot_action_create_deal": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createHubSpotDeal(params.config, params.userId, params.input),
+  "hubspot_action_add_contact_to_list": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addContactToHubSpotList(params.config, params.userId, params.input),
+  "hubspot_action_update_deal": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateHubSpotDeal(params.config, params.userId, params.input),
 
-  // HubSpot dynamic actions
-  "hubspot_action_create_object": createHubSpotObject,
-  "hubspot_action_update_object": updateHubSpotObject,
-  "hubspot_action_upsert_object": upsertHubSpotObject,
-  "hubspot_action_refresh_properties": refreshHubSpotProperties,
+  // HubSpot dynamic actions - wrapped to handle new calling convention
+  "hubspot_action_create_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createHubSpotObject(params.config, params.userId, params.input),
+  "hubspot_action_update_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateHubSpotObject(params.config, params.userId, params.input),
+  "hubspot_action_upsert_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    upsertHubSpotObject(params.config, params.userId, params.input),
+  "hubspot_action_refresh_properties": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    refreshHubSpotProperties(params.config, params.userId, params.input),
 
   // HubSpot Get actions
   "hubspot_action_get_contacts": createExecutionContextWrapper(hubspotGetContacts),
   "hubspot_action_get_companies": createExecutionContextWrapper(hubspotGetCompanies),
   "hubspot_action_get_deals": createExecutionContextWrapper(hubspotGetDeals),
 
-  // Microsoft OneNote actions
-  "microsoft-onenote_action_create_page": onenoteCreatePage,
-  "microsoft-onenote_action_create_notebook": onenoteCreateNotebook,
-  "microsoft-onenote_action_create_section": onenoteCreateSection,
-  "microsoft-onenote_action_update_page": onenoteUpdatePage,
-  "microsoft-onenote_action_get_page_content": onenoteGetPageContent,
-  "microsoft-onenote_action_get_pages": onenoteGetPages,
-  "microsoft-onenote_action_copy_page": onenoteCopyPage,
-  "microsoft-onenote_action_search": onenoteSearch,
-  "microsoft-onenote_action_delete_page": onenoteDeletePage,
+  // Microsoft OneNote actions - wrapped to handle new calling convention
+  "microsoft-onenote_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreatePage(params.config, params.userId, params.input),
+  "microsoft-onenote_action_create_notebook": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreateNotebook(params.config, params.userId, params.input),
+  "microsoft-onenote_action_create_section": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCreateSection(params.config, params.userId, params.input),
+  "microsoft-onenote_action_update_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteUpdatePage(params.config, params.userId, params.input),
+  "microsoft-onenote_action_get_page_content": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteGetPageContent(params.config, params.userId, params.input),
+  "microsoft-onenote_action_get_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteGetPages(params.config, params.userId, params.input),
+  "microsoft-onenote_action_copy_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteCopyPage(params.config, params.userId, params.input),
+  "microsoft-onenote_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteSearch(params.config, params.userId, params.input),
+  "microsoft-onenote_action_delete_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    onenoteDeletePage(params.config, params.userId, params.input),
 
-  // OneDrive actions
-  "onedrive_action_upload_file": uploadFileToOneDrive,
+  // OneDrive actions - wrapped to handle new calling convention
+  "onedrive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadFileToOneDrive(params.config, params.userId, params.input),
   "onedrive_action_get_file": createExecutionContextWrapper(getOnedriveFile),
 
-  // Facebook actions
-  "facebook_action_create_post": createFacebookPost,
-  "facebook_action_get_page_insights": getFacebookPageInsights,
-  "facebook_action_send_message": sendFacebookMessage,
-  "facebook_action_comment_on_post": commentOnFacebookPost,
-  
-  // YouTube actions
-  "youtube_action_upload_video": uploadVideoHandler,
-  "youtube_action_list_videos": listVideosHandler,
+  // Facebook actions - wrapped to handle new calling convention
+  "facebook_action_create_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createFacebookPost(params.config, params.userId, params.input),
+  "facebook_action_get_page_insights": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getFacebookPageInsights(params.config, params.userId, params.input),
+  "facebook_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendFacebookMessage(params.config, params.userId, params.input),
+  "facebook_action_comment_on_post": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    commentOnFacebookPost(params.config, params.userId, params.input),
 
-  // Dropbox actions
-  "dropbox_action_upload_file": uploadDropboxFile,
+  // Dropbox actions - wrapped to handle new calling convention
+  "dropbox_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadDropboxFile(params.config, { userId: params.userId, ...params.input }),
   "dropbox_action_get_file": createExecutionContextWrapper(getDropboxFile),
-
-  // Box actions
-  "box_action_get_file": createExecutionContextWrapper(getBoxFile),
 
   // Slack Get actions
   "slack_action_get_messages": createExecutionContextWrapper(getSlackMessages),
@@ -503,25 +606,49 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "stripe_action_get_customers": createExecutionContextWrapper(stripeGetCustomers),
   "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
 
-  // Twitter actions
-  "twitter_action_post_tweet": postTweetHandler,
-  "twitter_action_reply_tweet": replyTweetHandler,
-  "twitter_action_retweet": retweetHandler,
-  "twitter_action_unretweet": unretweetHandler,
-  "twitter_action_like_tweet": likeTweetHandler,
-  "twitter_action_unlike_tweet": unlikeTweetHandler,
-  "twitter_action_send_dm": sendDMHandler,
-  "twitter_action_follow_user": followUserHandler,
-  "twitter_action_unfollow_user": unfollowUserHandler,
-  "twitter_action_delete_tweet": deleteTweetHandler,
-  "twitter_action_search_tweets": searchTweetsHandler,
-  "twitter_action_get_user_timeline": getUserTimelineHandler,
-  "twitter_action_get_mentions": getMentionsHandler,
+  // Twitter actions - wrapped to handle new calling convention
+  "twitter_action_post_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    postTweetHandler(params.config, params.userId, params.input),
+  "twitter_action_reply_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    replyTweetHandler(params.config, params.userId, params.input),
+  "twitter_action_retweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    retweetHandler(params.config, params.userId, params.input),
+  "twitter_action_unretweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    unretweetHandler(params.config, params.userId, params.input),
+  "twitter_action_like_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    likeTweetHandler(params.config, params.userId, params.input),
+  "twitter_action_unlike_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    unlikeTweetHandler(params.config, params.userId, params.input),
+  "twitter_action_send_dm": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendDMHandler(params.config, params.userId, params.input),
+  "twitter_action_follow_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    followUserHandler(params.config, params.userId, params.input),
+  "twitter_action_unfollow_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    unfollowUserHandler(params.config, params.userId, params.input),
+  "twitter_action_delete_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteTweetHandler(params.config, params.userId, params.input),
+  "twitter_action_search_tweets": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchTweetsHandler(params.config, params.userId, params.input),
+  "twitter_action_get_user_timeline": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getUserTimelineHandler(params.config, params.userId, params.input),
+  "twitter_action_get_mentions": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMentionsHandler(params.config, params.userId, params.input),
   
-  // Workflow control actions - special handling needed for wait_for_time
-  "if_then_condition": executeIfThenCondition,
-  "delay": executeDelayAction,
-  "ai_agent": executeAIAgentWrapper
+  // Workflow control actions - special handling needed for wait_for_time - wrapped to handle new calling convention
+  "if_then_condition": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeIfThenCondition(params.config, params.userId, params.input),
+  "delay": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeDelayAction(params.config, params.userId, params.input),
+  "ai_agent": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeAIAgentWrapper(params.config, params.userId, params.input),
+  "ai_message": async (params: { config: any; userId: string; input: Record<string, any> }) => {
+    const { executeAIMessage } = await import("../aiMessage")
+    return executeAIMessage({
+      config: params.config,
+      input: params.input,
+      userId: params.userId,
+    })
+  }
 }
 
 /**

@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
+import { getWebhookUrl } from '@/lib/webhooks/utils'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -275,14 +276,6 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
    * Get webhook callback URL
    */
   private getWebhookUrl(): string {
-    const baseUrl = process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
-                    process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ||
-                    process.env.PUBLIC_WEBHOOK_BASE_URL
-
-    if (!baseUrl) {
-      throw new Error('Webhook base URL not configured')
-    }
-
-    return `${baseUrl.replace(/\/$/, '')}/api/workflow/airtable`
+    return getWebhookUrl('/api/workflow/airtable')
   }
 }

@@ -58,7 +58,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           workbookId: config.workbookId,
           worksheetName: config.worksheetName,
           findRowBy: config.findRowBy,
-          rowNumber: config.rowNumber || config.updateRowNumber,  // Support both field names
+          rowNumber: config.rowNumber || config.updateRowNumber, // Support both field names
           matchColumn: config.updateColumn,
           matchValue: config.updateValue,
           conditions: config.conditions,

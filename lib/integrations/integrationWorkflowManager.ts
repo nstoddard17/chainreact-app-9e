@@ -108,7 +108,7 @@ async function updateWebhookStatuses(userId: string, provider: string, status: '
   }
 
   for (const config of configs) {
-    let configJson = parseJsonValue<any>(config.config) || (typeof config.config === 'object' ? config.config : {})
+    const configJson = parseJsonValue<any>(config.config) || (typeof config.config === 'object' ? config.config : {})
 
     const warnings = { ...(configJson.integrationReconnectWarnings || {}) }
 

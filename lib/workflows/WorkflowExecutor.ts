@@ -85,9 +85,9 @@ export class WorkflowExecutor {
 
             if (refreshResult.success) {
               return { valid: true, requiresReauth: false, provider }
-            } else {
+            } 
               return { valid: false, requiresReauth: true, provider }
-            }
+            
           }
 
           return { valid: true, requiresReauth: false, provider }

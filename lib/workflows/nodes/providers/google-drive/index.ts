@@ -160,7 +160,7 @@ export const googleDriveNodes: NodeComponent[] = [
         required: true,
         placeholder: "Select a file",
         dependsOn: "folderId",
-        loadOnMount: true,  // Load all files initially
+        loadOnMount: true, // Load all files initially
         description: "Select the file to retrieve"
       },
       {
@@ -172,8 +172,8 @@ export const googleDriveNodes: NodeComponent[] = [
         description: "Preview of the selected file",
         rows: 10,
         disabled: true,
-        dynamic: true,  // This field loads dynamic content
-        dependsOn: "fileId"  // Reload when fileId changes
+        dynamic: true, // This field loads dynamic content
+        dependsOn: "fileId" // Reload when fileId changes
       }
     ],
     outputSchema: [

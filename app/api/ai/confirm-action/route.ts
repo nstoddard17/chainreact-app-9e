@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 async function executeConfirmedAction(action: string, data: any, userId: string, supabaseAdmin: any) {
   switch (data.type) {
     case "calendar_cancel":
-      return await cancelCalendarEvent(data, userId, supabaseAdmin)
+      return cancelCalendarEvent(data, userId, supabaseAdmin)
     default:
       return {
         message: "Action completed successfully.",

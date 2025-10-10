@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { X, Mail, Users } from "lucide-react"
+import { X, Mail, Users, Bot } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface EmailSuggestion {
@@ -330,6 +330,20 @@ export function EmailAutocomplete({
   }, [])
   
 
+  const trimmedValue = typeof value === 'string' ? value.trim() : ''
+  const shouldMaskValue = !multiple && inputValue === '' && trimmedValue.startsWith('{{') && trimmedValue.endsWith('}}') && trimmedValue.length > 4
+  const maskedPlaceholder = shouldMaskValue ? 'Defined by the model' : placeholder
+
+  const handleClearAiPlaceholder = () => {
+    onChange('');
+    setInputValue('');
+    setHasUserInteracted(true);
+    setIsOpen(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
   return (
     <div className={cn("relative", className)}>
       <div className="relative">
@@ -361,29 +375,39 @@ export function EmailAutocomplete({
           <Input
             ref={inputRef}
             type="text"
-            value={multiple ? inputValue : (inputValue || value)}
+            value={multiple ? inputValue : (shouldMaskValue ? '' : (inputValue || value))}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={(e) => {
+              if (shouldMaskValue) {
+                e.preventDefault()
+                e.target.blur()
+                return
+              }
               e.target.removeAttribute('readonly')
               handleInputFocus()
               onFocus?.()
             }}
             onBlur={handleInputBlur}
             onClick={() => {
-              setHasUserInteracted(true)
-              if (!isOpen) {
-                setIsOpen(true)
-                setSelectedIndex(-1)
+              if (!shouldMaskValue) {
+                setHasUserInteracted(true)
+                if (!isOpen) {
+                  setIsOpen(true)
+                  setSelectedIndex(-1)
+                }
               }
             }}
             placeholder={
               (isLoading && (!onDemandLoading || hasUserInteracted)) 
                 ? "Loading suggestions..." 
-                : placeholder
+                : maskedPlaceholder
             }
             disabled={disabled || isLoading}
-            className="w-full pr-10" // Reduce right padding for flush button
+            className={cn(
+              "w-full pr-10",
+              shouldMaskValue && "opacity-0 pointer-events-none select-none"
+            )}
             autoComplete="new-password"
             autoCorrect="off"
             autoCapitalize="off"
@@ -396,8 +420,24 @@ export function EmailAutocomplete({
             name={`custom-email-field-${Math.random().toString(36).substr(2, 9)}`}
             role="combobox"
             aria-autocomplete="list"
-            readOnly={false}
+            readOnly={shouldMaskValue}
+            tabIndex={shouldMaskValue ? -1 : undefined}
           />
+          {shouldMaskValue && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-between rounded-md bg-muted/80 text-muted-foreground px-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Bot className="h-4 w-4" />
+                <span>{maskedPlaceholder}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearAiPlaceholder}
+                className="pointer-events-auto text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {isLoading && (!onDemandLoading || hasUserInteracted) && (
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
               <div className="w-4 h-4 border-2 border-border border-t-primary rounded-full animate-spin"></div>
@@ -407,7 +447,7 @@ export function EmailAutocomplete({
             <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10">
               {React.cloneElement(endAdornment as React.ReactElement, {
                 style: { borderRadius: 0, marginRight: 0, ...((endAdornment as any)?.props?.style || {}) },
-                className: ((endAdornment as any)?.props?.className || "") + " !rounded-none !mr-0"
+                className: `${(endAdornment as any)?.props?.className || "" } !rounded-none !mr-0`
               })}
             </div>
           )}

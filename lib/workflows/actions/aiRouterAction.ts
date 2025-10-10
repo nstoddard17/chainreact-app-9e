@@ -3,6 +3,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@supabase/supabase-js'
 import { AI_ROUTER_TEMPLATES } from '../nodes/providers/ai/aiRouterNode'
+import type {
+  ChainExecutionEngine as ChainExecutionEngineType,
+  ChainDefinition,
+  ChainSelectionResult,
+  SelectedChain,
+  AIAgentExecutionContext,
+  ChainExecutionResult
+} from '@/lib/workflows/ai/chainExecutionEngine'
 
 // Model pricing (per 1K tokens)
 const MODEL_PRICING = {
@@ -38,12 +46,14 @@ interface AIRouterConfig {
     name: string
     description?: string
     color: string
+    chainId?: string
     condition: {
       type: 'ai_decision' | 'keyword' | 'regex' | 'confidence' | 'fallback'
       value?: string
       minConfidence?: number
     }
   }>
+  chains?: ChainDefinition[]
   decisionMode: 'single' | 'multi' | 'weighted'
   temperature: number
   maxRetries: number
@@ -61,6 +71,15 @@ interface ExecutionContext {
   memoryContext?: any
 }
 
+let ChainExecutionEngineRef: typeof ChainExecutionEngineType | null = null
+
+async function getChainExecutionEngine(): Promise<typeof ChainExecutionEngineType> {
+  if (!ChainExecutionEngineRef) {
+    const module = await import('@/lib/workflows/ai/chainExecutionEngine')
+    ChainExecutionEngineRef = module.ChainExecutionEngine
+  }
+  return ChainExecutionEngineRef!
+}
 export class AIRouterAction {
   private supabase: any
   private openai?: OpenAI
@@ -116,6 +135,14 @@ export class AIRouterAction {
       
       // 8. Format output for workflow
       const output = this.formatOutput(config, decision, executionTime)
+
+      const chainExecution = await this.executeChainsForDecision(config, decision, context)
+      if (chainExecution) {
+        output.chainExecution = {
+          summary: chainExecution.summary,
+          chains: chainExecution.chains
+        }
+      }
       
       return {
         success: true,
@@ -125,7 +152,8 @@ export class AIRouterAction {
           model: config.model,
           tokensUsed: decision.tokensUsed,
           cost: decision.cost,
-          executionTime
+          executionTime,
+          chainsExecuted: chainExecution?.chains?.length || 0
         }
       }
       
@@ -137,6 +165,84 @@ export class AIRouterAction {
       
       throw error
     }
+  }
+
+  private async executeChainsForDecision(
+    config: AIRouterConfig,
+    decision: any,
+    context: ExecutionContext
+  ): Promise<ChainExecutionResult | null> {
+    if (!Array.isArray(config.chains) || config.chains.length === 0) {
+      return null
+    }
+
+    const pathToChain = new Map<string, string>()
+    for (const path of config.outputPaths) {
+      if (path.chainId) {
+        pathToChain.set(path.id, path.chainId)
+      }
+    }
+
+    const selectedChainIds = (decision.selectedPaths || [])
+      .map((pathId: string) => pathToChain.get(pathId))
+      .filter((id): id is string => Boolean(id))
+
+    if (selectedChainIds.length === 0) {
+      return null
+    }
+
+    const engineContext: AIAgentExecutionContext = {
+      input: {
+        triggerData: context.input?.trigger,
+        workflowData: context.input,
+        nodeOutputs: context.previousResults || {}
+      },
+      chains: config.chains,
+      config: {
+        model: config.model,
+        temperature: config.temperature,
+        apiSource: config.apiSource,
+        apiKey: config.customApiKey
+      },
+      metadata: {
+        executionId: context.executionId,
+        workflowId: context.workflowId,
+        userId: context.userId,
+        timestamp: new Date().toISOString(),
+        testMode: Boolean(context.input?.testMode)
+      }
+    }
+
+    const ChainExecutionEngine = await getChainExecutionEngine()
+    const engine = new ChainExecutionEngine(engineContext)
+
+    const selectedChains: SelectedChain[] = selectedChainIds.map((chainId, index) => {
+      let confidence = 0.8
+      if (typeof decision.confidence === 'number') {
+        confidence = decision.confidence
+      } else if (decision.confidence && typeof decision.confidence === 'object') {
+        confidence = decision.confidence[chainId] || decision.confidence[decision.selectedPaths?.[index]] || 0.8
+      }
+
+      return {
+        chainId,
+        reasoning: decision.reasoning || `AI router selected path ${decision.selectedPaths?.[index]}`,
+        priority: index,
+        confidence
+      }
+    })
+
+    const selection: ChainSelectionResult = {
+      selectedChains,
+      unselectedChains: [],
+      executionPlan: {
+        parallel: false,
+        maxConcurrency: 1,
+        continueOnError: false
+      }
+    }
+
+    return engine.executeChains(selection)
   }
   
   private async checkUsageLimits(userId: string, config: AIRouterConfig) {
@@ -227,10 +333,10 @@ export class AIRouterAction {
     if (config.apiSource === 'custom' && config.customApiKey) {
       // Use user's custom API key
       return this.initializeCustomClient(config)
-    } else {
+    } 
       // Use ChainReact's API keys
       return this.initializeChainReactClient(config.model)
-    }
+    
   }
   
   private async initializeCustomClient(config: AIRouterConfig) {
@@ -347,7 +453,7 @@ export class AIRouterAction {
         
       } else if (config.model.startsWith('gemini')) {
         const model = (aiClient as GoogleGenerativeAI).getGenerativeModel({ model: config.model })
-        const result = await model.generateContent(prompt.systemPrompt + '\n\n' + prompt.userPrompt)
+        const result = await model.generateContent(`${prompt.systemPrompt }\n\n${ prompt.userPrompt}`)
         const text = result.response.text()
         response = JSON.parse(text)
         tokensUsed = 1000 // Estimate for Gemini
@@ -581,7 +687,13 @@ export class AIRouterAction {
         timestamp: new Date().toISOString()
       },
       tokensUsed: decision.tokensUsed,
-      costIncurred: decision.cost
+      costIncurred: decision.cost,
+      chainExecution: undefined as
+        | {
+            summary: string | null
+            chains: any[]
+          }
+        | undefined
     }
   }
   

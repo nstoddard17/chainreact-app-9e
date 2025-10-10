@@ -79,7 +79,7 @@ export const getHubSpotObjectRecords: HubSpotDataHandler = async (accessToken: s
     const limit = options?.limit || 100;
     const searchQuery = options?.searchQuery;
 
-    let url = `https://api.hubapi.com/crm/v3/objects/${objectType}?limit=${limit}&properties=*`;
+    const url = `https://api.hubapi.com/crm/v3/objects/${objectType}?limit=${limit}&properties=*`;
 
     const response = await fetch(url, {
       headers: {

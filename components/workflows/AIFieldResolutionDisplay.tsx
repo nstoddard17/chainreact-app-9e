@@ -92,7 +92,7 @@ export function AIFieldResolutionDisplay({
 
   const formatValue = (value: string, maxLength = 100) => {
     if (value.length <= maxLength) return value
-    return value.substring(0, maxLength) + '...'
+    return `${value.substring(0, maxLength) }...`
   }
 
   const getFieldTypeColor = (type: string) => {

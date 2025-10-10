@@ -177,7 +177,7 @@ export async function createGoogleSheetsRow(
                   sheetId: sheetId,
                   dimension: "ROWS",
                   startIndex: 1, // After header row (0-indexed)
-                  endIndex: 2    // Insert 1 row
+                  endIndex: 2 // Insert 1 row
                 },
                 inheritFromBefore: false
               }
@@ -212,7 +212,7 @@ export async function createGoogleSheetsRow(
                   sheetId: sheetId,
                   dimension: "ROWS",
                   startIndex: Number(specificRow) - 1, // Convert to 0-indexed
-                  endIndex: Number(specificRow)        // Insert 1 row
+                  endIndex: Number(specificRow) // Insert 1 row
                 },
                 inheritFromBefore: false
               }

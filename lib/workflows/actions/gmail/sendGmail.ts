@@ -29,7 +29,7 @@ export async function sendGmail(
 
     // Append signature to body if provided
     if (signature) {
-      body = body + '\n\n' + signature
+      body = `${body }\n\n${ signature}`
     }
 
     console.log("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, hasSignature: !!signature, attachmentIds: attachmentIds?.length || 0 })

@@ -88,7 +88,6 @@ export function useIntegrationSelection() {
     // Also add any missing "coming soon" integrations that might not be in INTEGRATION_CONFIGS
     const additionalComingSoonIntegrations = [
       { id: 'beehiiv', name: 'beehiiv', description: 'Newsletter platform for creators', category: 'marketing', color: '#000000' },
-      { id: 'kit', name: 'Kit', description: 'Email marketing for creators', category: 'marketing', color: '#000000' },
     ]
     
     additionalComingSoonIntegrations.forEach(integration => {
@@ -106,7 +105,9 @@ export function useIntegrationSelection() {
       const providerId = node.providerId || node.integration
 
       if (providerId === 'ai') {
-        if (node.type === 'ai_agent') {
+        if (node.isTrigger) {
+          integrationMap['ai'].triggers.push(node)
+        } else {
           integrationMap['ai'].actions.push(node)
         }
       } else if (providerId && integrationMap[providerId]) {
@@ -223,25 +224,14 @@ export function useIntegrationSelection() {
       'airtable': ['airtable'],
       'hubspot': ['hubspot'],
       'stripe': ['stripe'],
-      'shopify': ['shopify'],
       'trello': ['trello'],
       'facebook': ['facebook'],
-      'instagram': ['instagram'],
       'twitter': ['twitter', 'x'],
-      'linkedin': ['linkedin'],
-      'youtube': ['youtube'],
-      'youtube-studio': ['youtube-studio', 'youtube_studio'],
       'dropbox': ['dropbox'],
-      'box': ['box'],
-      'paypal': ['paypal'],
       'mailchimp': ['mailchimp'],
       'blackbaud': ['blackbaud'],
-      'gumroad': ['gumroad'],
-      'kit': ['kit'],
       'spotify': ['spotify'],
-      'tiktok': ['tiktok'],
-      'github': ['github'],
-      'gitlab': ['gitlab']
+      'github': ['github']
     }
 
     // Check using the mapping
@@ -344,23 +334,11 @@ export function useIntegrationSelection() {
   const comingSoonIntegrations = useMemo(() => {
     const baseComingSoon = [
       'beehiiv',
-      'manychat',
-      'gumroad',
-      'kit',
-      'paypal',
-      'shopify',
       'blackbaud',
-      'box',
       'github',
-      'gitlab',
-      'instagram',
-      'linkedin',
       'stripe',
-      'tiktok',
       'twitter',
       'facebook',
-      'youtube',
-      'youtube-studio',
       'webhook',
     ]
 

@@ -211,11 +211,52 @@ export async function POST(request: Request) {
       }
     }
 
-    // Execute the workflow using the new service
+    // Execute the workflow using the new service or advanced engine based on mode
     console.log("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
-    
+
+    // Use advanced execution engine for live mode to enable parallel processing
+    if (executionMode === 'live' || executionMode === 'sequential') {
+      const { AdvancedExecutionEngine } = require("@/lib/execution/advancedExecutionEngine")
+      const executionEngine = new AdvancedExecutionEngine()
+
+      // Create execution session
+      const executionSession = await executionEngine.createExecutionSession(
+        workflowId,
+        userId,
+        "manual",
+        {
+          inputData,
+          executionMode,
+          workflowData: workflowData || workflow
+        }
+      )
+
+      // Execute with parallel or sequential based on mode
+      const executionResult = await executionEngine.executeWorkflowAdvanced(
+        executionSession.id,
+        inputData,
+        {
+          enableParallel: executionMode === 'live', // Parallel for live, sequential for debug
+          maxConcurrency: executionMode === 'live' ? 5 : 1, // 5 parallel nodes for live, 1 for sequential
+          enableSubWorkflows: true,
+          testMode: false // Live mode uses real actions
+        }
+      )
+
+      console.log("Advanced workflow execution completed")
+
+      return NextResponse.json({
+        success: true,
+        results: executionResult,
+        executionTime: new Date().toISOString(),
+        sessionId: executionSession.id,
+        executionMode
+      })
+    }
+
+    // Use standard service for sandbox mode (intercepted actions)
     const workflowExecutionService = new WorkflowExecutionService()
-    
+
     // Pass filtered workflow data with correct property names
     const filteredWorkflowData = workflowData ? {
       ...workflowData,
@@ -223,7 +264,7 @@ export async function POST(request: Request) {
       edges: edges,
       connections: edges // Some parts of the code use 'connections' instead of 'edges'
     } : null
-    
+
     const executionResult = await workflowExecutionService.executeWorkflow(
       workflow,
       inputData,

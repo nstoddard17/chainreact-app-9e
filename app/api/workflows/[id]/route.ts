@@ -553,9 +553,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               details: result.errors
             }
           }, { status: 200 })
-        } else {
+        } 
           console.log('✅ All lifecycle-managed triggers activated successfully')
-        }
+        
       } catch (lifecycleErr) {
         console.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
         // Rollback workflow status to previous state

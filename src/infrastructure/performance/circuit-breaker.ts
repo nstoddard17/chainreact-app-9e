@@ -4,8 +4,8 @@ import { EventEmitter } from 'events'
  * Circuit breaker states
  */
 export enum CircuitState {
-  CLOSED = 'closed',     // Normal operation
-  OPEN = 'open',         // Failing, rejecting requests
+  CLOSED = 'closed', // Normal operation
+  OPEN = 'open', // Failing, rejecting requests
   HALF_OPEN = 'half_open' // Testing if service recovered
 }
 
@@ -15,12 +15,12 @@ export enum CircuitState {
 export interface CircuitBreakerConfig {
   // Failure threshold
   failureThreshold: number // Number of failures to trigger open state
-  failureRate: number      // Percentage of failures to trigger open state
-  minimumRequests: number  // Minimum requests before evaluating failure rate
+  failureRate: number // Percentage of failures to trigger open state
+  minimumRequests: number // Minimum requests before evaluating failure rate
   
   // Timing
-  timeout: number          // Time to wait before trying half-open (ms)
-  resetTimeout: number     // Time to reset failure count (ms)
+  timeout: number // Time to wait before trying half-open (ms)
+  resetTimeout: number // Time to reset failure count (ms)
   
   // Half-open testing
   halfOpenMaxCalls: number // Max calls to test in half-open state
@@ -28,7 +28,7 @@ export interface CircuitBreakerConfig {
   
   // Monitoring
   monitoringEnabled: boolean
-  metricsWindow: number    // Time window for metrics (ms)
+  metricsWindow: number // Time window for metrics (ms)
 }
 
 /**
@@ -725,8 +725,8 @@ export const circuitBreakerRegistry = new CircuitBreakerRegistry({
 export function createProviderCircuitBreaker(providerId: string, config?: Partial<CircuitBreakerConfig>): CircuitBreaker {
   return circuitBreakerRegistry.getOrCreate(`provider:${providerId}`, {
     failureThreshold: 3, // Lower threshold for providers
-    failureRate: 30,     // Lower rate for providers
-    timeout: 30000,      // Shorter timeout
+    failureRate: 30, // Lower rate for providers
+    timeout: 30000, // Shorter timeout
     ...config
   })
 }

@@ -23,7 +23,7 @@ export class GitHubAdapter implements DevOpsProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 5000, window: 3600000 }, // 5000 requests per hour for authenticated requests
-      { type: 'search', limit: 30, window: 60000 }        // 30 search queries per minute
+      { type: 'search', limit: 30, window: 60000 } // 30 search queries per minute
     ],
     supportedFeatures: [
       'create_repository',
@@ -79,13 +79,13 @@ export class GitHubAdapter implements DevOpsProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.message || 'Failed to create GitHub repository',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,
@@ -125,13 +125,13 @@ export class GitHubAdapter implements DevOpsProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.message || 'Failed to create GitHub issue',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,
@@ -172,13 +172,13 @@ export class GitHubAdapter implements DevOpsProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.message || 'Failed to create GitHub pull request',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,

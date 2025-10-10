@@ -84,7 +84,7 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
     }
 
     // Check if token needs refresh
-    let accessToken = decryptedAccessToken
+    const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
       console.log('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Drive

@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
         preview += contentPreview
         
         if (content.length > 1500) {
-          preview += '\n\n... (showing first 1500 characters of ' + charCount + ' total)'
+          preview += `\n\n... (showing first 1500 characters of ${ charCount } total)`
         }
       } catch (error) {
         console.error('Error fetching file content:', error)
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
         preview += contentPreview
         
         if (content.length > 1500) {
-          preview += '\n\n... (showing first 1500 characters of ' + charCount + ' total)'
+          preview += `\n\n... (showing first 1500 characters of ${ charCount } total)`
         }
       } catch (error) {
         console.error('Error exporting Google Docs file:', error)

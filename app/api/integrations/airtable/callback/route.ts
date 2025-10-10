@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       access_token: encrypt(tokenData.access_token, encryptionKey),
       refresh_token: tokenData.refresh_token ? encrypt(tokenData.refresh_token, encryptionKey) : null,
       expires_at: expiresAt ? expiresAt.toISOString() : null,
-      scopes: userData.scopes || tokenData.scope.split(" "),  // Use API scopes if available, fallback to token scope
+      scopes: userData.scopes || tokenData.scope.split(" "), // Use API scopes if available, fallback to token scope
       status: "connected",
       updated_at: new Date().toISOString(),
     }

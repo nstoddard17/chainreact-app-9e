@@ -298,7 +298,7 @@ Generate ONLY the content, no explanations or metadata.`;
   private postProcessContent(content: string, template: AIFieldTemplate): string {
     // Apply length constraints
     if (template.max_length && content.length > template.max_length) {
-      content = content.substring(0, template.max_length - 3) + '...';
+      content = `${content.substring(0, template.max_length - 3) }...`;
     }
 
     // Apply formatting constraints

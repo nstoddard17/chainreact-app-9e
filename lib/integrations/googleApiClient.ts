@@ -39,9 +39,9 @@ export class GoogleApiClient {
 
       if (refreshResult.success && refreshResult.accessToken) {
         return refreshResult.accessToken
-      } else {
+      } 
         throw new Error("Failed to refresh Google token")
-      }
+      
     }
 
     return integration.access_token

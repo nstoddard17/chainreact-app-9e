@@ -7,10 +7,10 @@ import { auditLogger, AuditEventType } from '../security/audit-logger'
  * Version change type
  */
 export enum ChangeType {
-  MAJOR = 'major',      // Breaking changes
-  MINOR = 'minor',      // New features, backward compatible
-  PATCH = 'patch',      // Bug fixes, backward compatible
-  HOTFIX = 'hotfix'     // Emergency fixes
+  MAJOR = 'major', // Breaking changes
+  MINOR = 'minor', // New features, backward compatible
+  PATCH = 'patch', // Bug fixes, backward compatible
+  HOTFIX = 'hotfix' // Emergency fixes
 }
 
 /**

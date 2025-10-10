@@ -3,6 +3,7 @@
 import { create } from "zustand"
 import { supabase } from "@/lib/supabase-singleton"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 export interface WorkflowNode {
   id: string
@@ -146,6 +147,7 @@ export interface Workflow {
     invalidNodeIds: string[]
     lastValidatedAt?: string
     lastUpdatedAt?: string
+    integrationPaused?: string
   }
 }
 
@@ -186,6 +188,8 @@ interface WorkflowActions {
   ) => Promise<void>
   isWorkflowComplete: (workflow: Workflow) => boolean
   updateWorkflowStatus: (id: string) => Promise<void>
+  pauseWorkflowsForIntegration: (providerId: string) => Promise<void>
+  resumeWorkflowsForIntegration: (providerId: string) => Promise<void>
   clearAllData: () => void
   recalculateWorkflowValidation: (workflow: Workflow) => Workflow
   addWorkflowToStore: (workflow: Workflow) => void
@@ -861,6 +865,58 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     
     if (workflow.status !== newStatus) {
       await updateWorkflow(id, { status: newStatus })
+    }
+  },
+
+  pauseWorkflowsForIntegration: async (providerId: string) => {
+    const { workflows, updateWorkflow } = get()
+    const affectedWorkflows = workflows.filter(workflow =>
+      workflow.nodes.some(node => {
+        const nodeProvider =
+          node.data?.providerId ||
+          node.data?.config?.providerId ||
+          ALL_NODE_COMPONENTS.find(component => component.type === node.data?.type)?.providerId
+        return nodeProvider === providerId
+      })
+    )
+
+    if (!affectedWorkflows.length) return
+
+    for (const workflow of affectedWorkflows) {
+      if (workflow.status !== 'paused') {
+        const validationState = {
+          ...(workflow.validationState || {}),
+          integrationPaused: providerId,
+          lastValidatedAt: new Date().toISOString(),
+        }
+
+        await updateWorkflow(workflow.id, {
+          status: 'paused',
+          validationState: validationState as any,
+        })
+      }
+    }
+  },
+
+  resumeWorkflowsForIntegration: async (providerId: string) => {
+    const { workflows, updateWorkflow } = get()
+    const affectedWorkflows = workflows.filter(workflow =>
+      workflow.status === 'paused' && workflow.validationState?.integrationPaused === providerId
+    )
+
+    if (!affectedWorkflows.length) return
+
+    for (const workflow of affectedWorkflows) {
+      const validationState = {
+        ...(workflow.validationState || {}),
+        lastValidatedAt: new Date().toISOString(),
+      }
+      delete (validationState as any).integrationPaused
+
+      await updateWorkflow(workflow.id, {
+        status: 'draft',
+        validationState: validationState as any,
+      })
     }
   },
 

@@ -119,10 +119,10 @@ export async function GET(request: NextRequest) {
         return createPopupResponse("error", provider,
           "Your work or school account does not have access to Microsoft Teams. " +
           "Please contact your administrator to enable Teams access or ensure you have a Microsoft 365 subscription.", baseUrl)
-      } else {
+      } 
         return createPopupResponse("error", provider,
           "Failed to validate Teams account access. Please try again or contact support.", baseUrl)
-      }
+      
     }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)

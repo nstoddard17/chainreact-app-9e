@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
     console.log('📝 Active subscriptions:', subscriptions?.length || 0)
     if (subscriptions && subscriptions.length > 0) {
       console.log('📝 Latest subscription:', {
-        id: subscriptions[0].id.substring(0, 8) + '...',
-        userId: subscriptions[0].user_id?.substring(0, 8) + '...',
+        id: `${subscriptions[0].id.substring(0, 8) }...`,
+        userId: `${subscriptions[0].user_id?.substring(0, 8) }...`,
         status: subscriptions[0].status,
         expires: subscriptions[0].expiration_date_time
       })

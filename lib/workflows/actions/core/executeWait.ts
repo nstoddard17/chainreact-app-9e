@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 export interface ActionResult {
   success: boolean
   output?: Record<string, any>
+  metadata?: Record<string, any>
+  selectedPaths?: string[]
   message?: string
   error?: string
   pauseExecution?: boolean
@@ -46,7 +48,7 @@ export function calculateBusinessHoursWait(
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
   const businessDayIndices = businessDays.map(day => dayNames.indexOf(day.toLowerCase()))
   
-  let checkDate = new Date(now)
+  const checkDate = new Date(now)
   
   // Find the next business day and time
   for (let i = 0; i < 14; i++) { // Check up to 2 weeks ahead

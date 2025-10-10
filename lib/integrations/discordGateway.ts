@@ -534,7 +534,7 @@ class DiscordGateway extends SimpleEventEmitter {
         messageId: messageData.id,
         channelId: messageData.channel_id,
         guildId: messageData.guild_id,
-        content: messageData.content?.substring(0, 50) + '...',
+        content: `${messageData.content?.substring(0, 50) }...`,
         author: messageData.author?.username
       })
 

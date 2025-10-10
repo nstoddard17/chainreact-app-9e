@@ -40,7 +40,7 @@ export async function GET(request: Request) {
               return false
             }
             // Exclude the AI Agent itself to prevent circular references
-            if (node.data?.type === 'ai_agent') {
+            if (node.data?.type === 'ai_agent' || node.data?.type === 'ai_message') {
               return false
             }
             // Include nodes that typically produce output

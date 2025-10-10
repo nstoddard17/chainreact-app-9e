@@ -185,7 +185,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         type: "textarea",
         required: false,
         placeholder: "Enter content with markdown-like formatting...",
-        rows: 15,  // Increased for more content
+        rows: 15, // Increased for more content
         description: "Formatting: # H1 | ## H2 | ### H3 | - bullet | 1. numbered | [] todo | [x] done | > quote | --- divider | ``` code",
         helpText: `Supported formatting:
 • Headers: # H1, ## H2, ### H3

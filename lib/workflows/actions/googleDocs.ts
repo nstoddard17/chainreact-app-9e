@@ -48,7 +48,7 @@ export async function createGoogleDocument(
     })
 
     const documentId = createResponse.data.documentId
-    let shareResults = { success: true, errors: [] as string[], sharedWith: [] as string[] }
+    const shareResults = { success: true, errors: [] as string[], sharedWith: [] as string[] }
 
     // Add content if provided
     if (content) {
@@ -240,7 +240,7 @@ export async function updateGoogleDocument(
       documentId,
       insertLocation,
       searchText,
-      content: content?.substring(0, 50) + '...'
+      content: `${content?.substring(0, 50) }...`
     })
 
     const accessToken = await getDecryptedAccessToken(userId, 'google-docs')
@@ -261,7 +261,7 @@ export async function updateGoogleDocument(
       return len
     }, 1) || 1
 
-    let requests: any[] = []
+    const requests: any[] = []
 
     // Handle different insert locations
     switch (insertLocation) {
@@ -270,7 +270,7 @@ export async function updateGoogleDocument(
         requests.push({
           insertText: {
             location: { index: documentLength - 1 },
-            text: '\n' + content
+            text: `\n${ content}`
           }
         })
         break
@@ -280,7 +280,7 @@ export async function updateGoogleDocument(
         requests.push({
           insertText: {
             location: { index: 1 },
-            text: content + '\n'
+            text: `${content }\n`
           }
         })
         break
@@ -314,7 +314,7 @@ export async function updateGoogleDocument(
         
         // Extract document text to find the search text
         let fullText = ''
-        let textMap: Array<{start: number, end: number, text: string}> = []
+        const textMap: Array<{start: number, end: number, text: string}> = []
         
         if (doc.data.body?.content) {
           doc.data.body.content.forEach((element) => {
@@ -359,7 +359,7 @@ export async function updateGoogleDocument(
         requests.push({
           insertText: {
             location: { index: documentIndex },
-            text: ' ' + content
+            text: ` ${ content}`
           }
         })
         break
@@ -372,7 +372,7 @@ export async function updateGoogleDocument(
         
         // Extract document text to find the search text
         let fullTextBefore = ''
-        let textMapBefore: Array<{start: number, end: number, text: string}> = []
+        const textMapBefore: Array<{start: number, end: number, text: string}> = []
         
         if (doc.data.body?.content) {
           doc.data.body.content.forEach((element) => {
@@ -417,7 +417,7 @@ export async function updateGoogleDocument(
         requests.push({
           insertText: {
             location: { index: documentIndexBefore },
-            text: content + ' '
+            text: `${content } `
           }
         })
         break
@@ -436,7 +436,7 @@ export async function updateGoogleDocument(
     const updatedDoc = await docs.documents.get({ documentId })
 
     // Build success message
-    let successMessage = `Document updated successfully (inserted ${insertLocation === 'end' ? 'at end' : insertLocation === 'beginning' ? 'at beginning' : insertLocation === 'replace' ? 'replacing all content' : insertLocation === 'after_text' ? 'after text' : 'before text'})`
+    const successMessage = `Document updated successfully (inserted ${insertLocation === 'end' ? 'at end' : insertLocation === 'beginning' ? 'at beginning' : insertLocation === 'replace' ? 'replacing all content' : insertLocation === 'after_text' ? 'after text' : 'before text'})`
 
     return {
       success: true,
@@ -734,7 +734,7 @@ export async function exportGoogleDocument(
     const fileBuffer = Buffer.from(exportResponse.data as ArrayBuffer)
     const fileSize = fileBuffer.length
 
-    let result: any = {
+    const result: any = {
       fileName: fullFileName,
       fileSize,
       format: exportFormat,

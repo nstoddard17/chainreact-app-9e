@@ -614,7 +614,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     return { processed: true, eventType: 'drive.notification' }
   }
 
-  const pageTokenPreview = String(subscription.page_token).slice(0, 8) + '...'
+  const pageTokenPreview = `${String(subscription.page_token).slice(0, 8) }...`
   if (channelId) {
     const lastToken = lastDrivePageTokenProcessed.get(channelId)
     if (lastToken && lastToken === subscription.page_token) {
@@ -636,7 +636,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   const fetchedLogLabel = isSheetsWatch ? '[Google Sheets] Changes fetched' : '[Google Drive] Changes fetched'
   console.log(fetchedLogLabel, {
     count: Array.isArray(changes.changes) ? changes.changes.length : 0,
-    nextPageToken: (changes.nextPageToken ? String(changes.nextPageToken).slice(0, 8) + '...' : null)
+    nextPageToken: (changes.nextPageToken ? `${String(changes.nextPageToken).slice(0, 8) }...` : null)
   })
   let processedChanges = 0
   const changeTypeCounts = { file_created: 0, file_updated: 0, folder_created: 0 }
@@ -867,7 +867,7 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
 
     calendarDebug('Fetching changes', {
       mode: subscription?.sync_token ? 'syncToken' : 'updatedMin',
-      syncTokenPreview: subscription?.sync_token ? String(subscription.sync_token).slice(0, 12) + '...' : null,
+      syncTokenPreview: subscription?.sync_token ? `${String(subscription.sync_token).slice(0, 12) }...` : null,
       updatedMin: subscription?.sync_token ? null : (effectiveWatchStartTime || 'now')
     })
 

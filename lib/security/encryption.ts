@@ -28,7 +28,7 @@ export function encrypt(text: string, key: string = ENCRYPTION_KEY): string {
     encrypted += cipher.final("hex");
     
     // Return IV + encrypted text
-    return iv.toString("hex") + ":" + encrypted;
+    return `${iv.toString("hex") }:${ encrypted}`;
   } catch (error) {
     console.error("Encryption error:", error);
     throw new Error("Failed to encrypt data");

@@ -338,7 +338,7 @@ Success Metrics: ${JSON.stringify(pattern.successMetrics)}
           pattern.lastSeen = new Date(Math.max(pattern.lastSeen.getTime(), new Date(record.created_at).getTime()));
           
           if (pattern.examples.length < 3) {
-            pattern.examples.push(record.content.substring(0, 100) + '...');
+            pattern.examples.push(`${record.content.substring(0, 100) }...`);
           }
 
           const confidence = record.context.confidence || 50;

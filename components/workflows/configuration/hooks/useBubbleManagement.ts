@@ -203,10 +203,10 @@ export function useBubbleManagement({
             return rest;
           }
           return { ...prev, [fieldName]: newArray };
-        } else {
+        } 
           // Add to active
           return { ...prev, [fieldName]: [...currentArray, index] };
-        }
+        
       });
     } else {
       setActiveBubbles(prev => {

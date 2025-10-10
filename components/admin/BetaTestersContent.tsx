@@ -978,7 +978,7 @@ export default function BetaTestersContent() {
                             </td>
                             <td className="p-4">
                               <p className="text-sm text-muted-foreground">
-                                {activity.activity_data ? JSON.stringify(activity.activity_data).substring(0, 50) + '...' : '-'}
+                                {activity.activity_data ? `${JSON.stringify(activity.activity_data).substring(0, 50) }...` : '-'}
                               </p>
                             </td>
                             <td className="p-4 text-sm text-muted-foreground">

@@ -61,10 +61,10 @@ function RegisterFormContent() {
       } else if (data.exists) {
         setProviderError('An account with this email already exists. Please sign in instead.');
         return false;
-      } else {
+      } 
         setProviderError('');
         return true;
-      }
+      
     } catch (error) {
       console.error('Error checking provider:', error);
       return true; // Allow registration if check fails
@@ -99,10 +99,10 @@ function RegisterFormContent() {
       if (data.exists) {
         setUsernameError('This username is already taken. Please choose a different one.');
         return false;
-      } else {
+      } 
         setUsernameError('');
         return true;
-      }
+      
     } catch (error) {
       console.error('Error checking username:', error);
       return true; // Allow if check fails

@@ -677,7 +677,7 @@ export class AdvancedExecutionEngine {
 
   private async executeMainWorkflowPath(sessionId: string, workflow: any, context: any, startNodeId?: string): Promise<any> {
     let currentData = context.data;
-    let previousResults = {}; // Track all previous node results for AI field resolution
+    const previousResults = {}; // Track all previous node results for AI field resolution
     const nodes = workflow.nodes || [];
     const connections = workflow.connections || [];
 
@@ -691,7 +691,7 @@ export class AdvancedExecutionEngine {
     console.log('🧱 executeMainWorkflowPath', pathInfo)
     logInfo(sessionId, 'executeMainWorkflowPath', pathInfo)
 
-    let executionQueue: any[] = [];
+    const executionQueue: any[] = [];
     const executedNodeIds = new Set<string>();
 
     if (startNodeId) {
@@ -778,7 +778,50 @@ export class AdvancedExecutionEngine {
       executedNodeIds.add(currentNode.id);
       
       // Find next nodes
-      const nextConnections = connections.filter((c: any) => c.source === currentNode.id);
+      let nextConnections = connections.filter((c: any) => c.source === currentNode.id);
+
+      if (currentNode.data.type === 'ai_router') {
+        const selectedPaths: string[] = Array.isArray(newNodeResult?.selectedPaths)
+          ? newNodeResult.selectedPaths
+          : [];
+
+        if (selectedPaths.length > 0) {
+          const normalized = selectedPaths.map(path => path.toLowerCase());
+          const filteredConnections = nextConnections.filter((connection: any) => {
+            if (!connection.sourceHandle) return false;
+
+            const handle = String(connection.sourceHandle);
+            const cleanedHandle = handle.startsWith('output-')
+              ? handle.slice(7)
+              : handle;
+
+            return normalized.includes(handle.toLowerCase()) || normalized.includes(cleanedHandle.toLowerCase());
+          });
+
+          if (filteredConnections.length === 0) {
+            console.warn(`⚠️ AI Router node ${currentNode.id} returned paths with no matching connections`, {
+              selectedPaths,
+              availableHandles: nextConnections.map((c: any) => c.sourceHandle),
+            });
+            logWarning(sessionId, `AI Router node ${currentNode.id} returned paths with no matching connections`, {
+              selectedPaths,
+              availableHandles: nextConnections.map((c: any) => c.sourceHandle),
+            });
+          } else {
+            console.log(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
+            logInfo(sessionId, `AI Router selected paths`, {
+              nodeId: currentNode.id,
+              selectedPaths,
+            });
+            nextConnections = filteredConnections;
+          }
+        } else {
+          console.warn(`⚠️ AI Router node ${currentNode.id} did not return any selected paths`);
+          logWarning(sessionId, `AI Router node ${currentNode.id} did not return any selected paths`);
+          nextConnections = [];
+        }
+      }
+
       const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
       
       // Add next nodes to queue only if they haven't been executed and aren't already in queue
@@ -847,7 +890,10 @@ export class AdvancedExecutionEngine {
         ...restData,
         trigger: trigger || context.trigger, // Ensure trigger data is available
         previousResults: previousResults || {}, // Pass accumulated results for AI processing
-        executionId: context.session?.id
+        executionId: context.session?.id,
+        workflowId: context.workflow?.id,
+        nodeId: node.id,
+        testMode: context.testMode || false
       });
 
       // Log specific node details for debugging

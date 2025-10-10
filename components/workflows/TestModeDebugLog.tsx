@@ -32,7 +32,12 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
         ...entry,
         timestamp: new Date().toISOString(),
       }
-      setLogs(prev => [...prev, logEntry])
+
+      // Always defer state updates to avoid render-phase updates
+      // This prevents the "Cannot update component while rendering" error
+      queueMicrotask(() => {
+        setLogs(prev => [...prev, logEntry])
+      })
     }
 
     // Make it globally accessible
@@ -200,7 +205,7 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
   const copyToClipboard = () => {
     const logText = logs
       .map(log => `[${log.timestamp}] [${log.level.toUpperCase()}] ${log.message}${
-        log.details ? '\nDetails: ' + JSON.stringify(log.details, null, 2) : ''
+        log.details ? `\nDetails: ${ JSON.stringify(log.details, null, 2)}` : ''
       }`)
       .join('\n\n')
 
@@ -261,7 +266,7 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
           variant="outline"
           size="sm"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 z-50"
+          className="fixed bottom-6 left-6 z-50 md:bottom-8 md:left-8"
         >
           <Bug className="h-4 w-4 mr-2" />
           Debug Logs ({logs.length})

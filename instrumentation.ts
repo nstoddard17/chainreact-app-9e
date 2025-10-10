@@ -19,6 +19,14 @@ export async function register() {
       console.warn('⚠️ Could not initialize console deduplication:', error)
     }
 
+    // Initialize file logging system
+    try {
+      const { logger } = await import('@/lib/logging/initLogging')
+      console.log('📁 File logging system initialized')
+    } catch (error) {
+      console.warn('⚠️ Could not initialize file logging:', error)
+    }
+
     // Prevent multiple initializations (Next.js may call register multiple times)
     if (isDiscordInitialized) {
       console.log('⏭️ Discord bot already initialized, skipping...')

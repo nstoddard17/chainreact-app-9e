@@ -176,7 +176,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
         value: post.id,
         label: post.message ? 
           (post.message.length > 50 ? 
-            post.message.substring(0, 50) + '...' : 
+            `${post.message.substring(0, 50) }...` : 
             post.message) : 
           `Post ${post.id}`,
         metadata: {

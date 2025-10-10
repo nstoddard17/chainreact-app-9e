@@ -96,7 +96,7 @@ export async function notionGetPageDetails(
     const pageData = await pageResponse.json();
     
     // Prepare the result based on output format
-    let result: any = {
+    const result: any = {
       id: pageData.id,
       url: pageData.url,
       workspace: workspaceId,

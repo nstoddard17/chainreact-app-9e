@@ -56,15 +56,11 @@ export function useNodeConfiguration(
   const [aiAgentActionCallback, setAiAgentActionCallback] = useState<((nodeType: string, providerId: string, config?: any) => void) | null>(null)
 
   const nodeNeedsConfiguration = useCallback((nodeComponent: NodeComponent): boolean => {
-    // All trigger nodes should have configuration
-    if (nodeComponent.isTrigger) {
-      return true
-    }
-    
-    // For non-trigger nodes, check if they have a configuration schema
+    // Check if the node has a configuration schema
     const hasConfigSchema = !!(nodeComponent.configSchema && nodeComponent.configSchema.length > 0)
-    
+
     // Node needs configuration if it has a config schema
+    // This applies to both triggers and actions
     return hasConfigSchema
   }, [])
 

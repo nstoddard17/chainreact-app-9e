@@ -132,10 +132,10 @@ export async function POST(request: NextRequest) {
                     totalCount: data['@odata.count'] || contacts.length
                   }
                 })
-              } else {
+              } 
                 const retryErrorText = await retryResponse.text()
                 console.error('Retry failed:', retryResponse.status, retryErrorText)
-              }
+              
             } else {
               console.error('Token refresh failed:', refreshResult.error)
             }

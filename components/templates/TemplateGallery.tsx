@@ -35,6 +35,7 @@ interface Template {
 
 const categories = [
   "all",
+  "AI Automation",
   "AI Agent Testing",
   "Customer Service",
   "Sales & CRM",
@@ -54,6 +55,8 @@ const capitalizeTag = (tag: string): string => {
   const tagMap: Record<string, string> = {
     'ai-agent': 'AI Agent',
     'ai agent': 'AI Agent',
+    'ai-message': 'AI Message',
+    'ai message': 'AI Message',
     'gmail': 'Gmail',
     'email': 'Email',
     'airtable': 'Airtable',
@@ -352,30 +355,8 @@ export function TemplateGallery() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
-                          try {
-                            // Copy template to create a workflow that can be edited
-                            const response = await fetch(`/api/templates/${template.id}/copy`, {
-                              method: "POST",
-                            })
-                            const data = await response.json()
-
-                            if (data.workflow && data.workflow.id) {
-                              // Add to store
-                              addWorkflowToStore(data.workflow)
-                              // Navigate to builder with editTemplate flag to save back to template
-                              router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${template.id}`)
-                            } else {
-                              throw new Error("Failed to create workflow from template")
-                            }
-                          } catch (error) {
-                            console.error("Error editing template:", error)
-                            toast({
-                              title: "Error",
-                              description: "Failed to open template for editing",
-                              variant: "destructive",
-                            })
-                          }
+                        onClick={() => {
+                          router.push(`/workflows/builder?editTemplate=${template.id}`)
                         }}
                         title="Edit Template"
                       >

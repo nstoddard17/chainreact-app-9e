@@ -123,7 +123,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
                 direction: "descending",
                 timestamp: "last_edited_time"
               },
-              page_size: 50  // Reduced from 100 for faster initial load
+              page_size: 50 // Reduced from 100 for faster initial load
             })
           }
         )

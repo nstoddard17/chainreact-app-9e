@@ -105,8 +105,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   
   // Try multiple sources for user info
   let userId = session.metadata?.user_id
-  let planId = session.metadata?.plan_id || 'pro' // Default to pro if not specified
-  let billingCycle = session.metadata?.billing_cycle || 'monthly'
+  const planId = session.metadata?.plan_id || 'pro' // Default to pro if not specified
+  const billingCycle = session.metadata?.billing_cycle || 'monthly'
   
   // If no userId in metadata, try to find from customer email
   if (!userId && session.customer_details?.email) {

@@ -177,7 +177,7 @@ export class FallbackHandler {
     const { classification, triggerData, previousResults } = context;
     
     let derivedValue: any = null;
-    let confidence = 0.7;
+    const confidence = 0.7;
     let reasoning = '';
 
     switch (classification.type) {

@@ -75,7 +75,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     }
 
     // Check if token needs refresh
-    let accessToken = decryptedAccessToken
+    const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
       console.log('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Sheets
@@ -108,7 +108,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     // Get initial sheet data for comparison
     let lastRowCount: number | undefined
     let lastSheetCount: number | undefined
-    let sheetData: any = {}
+    const sheetData: any = {}
     let initialRowSignatures: Record<string, string> | undefined
 
     try {

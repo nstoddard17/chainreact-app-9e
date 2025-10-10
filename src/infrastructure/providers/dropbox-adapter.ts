@@ -18,8 +18,8 @@ export class DropboxAdapter implements FileProvider {
   readonly capabilities: CapabilityDescriptor = {
     supportsWebhooks: true,
     rateLimits: [
-      { type: 'requests', limit: 10, window: 1000 },    // 10 requests per second
-      { type: 'requests', limit: 600, window: 60000 }   // 600 requests per minute
+      { type: 'requests', limit: 10, window: 1000 }, // 10 requests per second
+      { type: 'requests', limit: 600, window: 60000 } // 600 requests per minute
     ],
     supportedFeatures: [
       'upload_file',
@@ -301,9 +301,9 @@ export class DropboxAdapter implements FileProvider {
           },
           message: 'File shared successfully via Dropbox'
         }
-      } else {
+      } 
         throw new Error('User-specific sharing not implemented for Dropbox adapter')
-      }
+      
     } catch (error: any) {
       return {
         success: false,
