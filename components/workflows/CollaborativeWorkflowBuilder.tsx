@@ -23,6 +23,7 @@ import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
 import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
+import { PreflightCheckDialog } from "./PreflightCheckDialog"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -71,6 +72,7 @@ function WorkflowBuilderContent() {
     isUpdatingStatus,
     handleTestSandbox,
     handleExecuteLive,
+    handleExecuteLiveSequential,
     handleConfigureNode,
 
     // Collaboration
@@ -154,6 +156,11 @@ function WorkflowBuilderContent() {
     handleNodeAddChain,
     handleAddNodeBetween,
     ensureOneAddActionPerChain,
+    preflightResult,
+    isPreflightDialogOpen,
+    setIsPreflightDialogOpen,
+    isRunningPreflight,
+    openPreflightChecklist,
 
     // Undo/Redo
     handleUndo,
@@ -164,7 +171,17 @@ function WorkflowBuilderContent() {
     // Navigation handlers
     handleSaveAndNavigate,
     handleNavigateWithoutSaving,
+
+    // Edge selection and deletion
+    selectedEdgeId,
+    handleEdgeClick,
+    deleteSelectedEdge,
   } = useWorkflowBuilder()
+
+  const activeConfigNode = React.useMemo(() => {
+    if (!configuringNode) return null
+    return nodes.find((node) => node.id === configuringNode.id) || null
+  }, [configuringNode, nodes])
 
   const getWorkflowStatus = () => {
     if (isExecuting) return { text: "Executing", variant: "default" as const }
@@ -200,6 +217,9 @@ function WorkflowBuilderContent() {
         editTemplateId={editTemplateId}
         handleTestSandbox={handleTestSandbox}
         handleExecuteLive={handleExecuteLive}
+        handleExecuteLiveSequential={handleExecuteLiveSequential}
+        handleRunPreflight={openPreflightChecklist}
+        isRunningPreflight={isRunningPreflight}
         isStepMode={isStepMode}
         showSandboxPreview={showSandboxPreview}
         setShowSandboxPreview={setShowSandboxPreview}
@@ -216,6 +236,8 @@ function WorkflowBuilderContent() {
         handleRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        selectedEdgeId={selectedEdgeId}
+        deleteSelectedEdge={deleteSelectedEdge}
       />
 
       {nodes.length === 0 ? (
@@ -227,6 +249,7 @@ function WorkflowBuilderContent() {
           onNodesChange={optimizedOnNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onEdgeClick={handleEdgeClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeDragStop={() => setHasUnsavedChanges(true)}
@@ -242,7 +265,12 @@ function WorkflowBuilderContent() {
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{
             type: 'custom',
-            style: { strokeWidth: 1, stroke: 'hsl(var(--border))' },
+            style: {
+              strokeWidth: 2,
+              stroke: '#9ca3af',
+              strokeLinecap: 'round',
+              strokeLinejoin: 'round'
+            },
             animated: false
           }}
           defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
@@ -449,7 +477,7 @@ function WorkflowBuilderContent() {
               sortedAIAgentEdges.forEach(({ edge }, index) => {
                 // Walk through the chain starting from this edge
                 let currentNodeId = edge.target
-                let visited = new Set<string>()
+                const visited = new Set<string>()
 
                 while (currentNodeId && !visited.has(currentNodeId)) {
                   visited.add(currentNodeId)
@@ -468,7 +496,7 @@ function WorkflowBuilderContent() {
               // Group nodes using determined chain indices
               chainNodes.forEach(node => {
                 // Use the chain index from our map, fallback to node data, then to 0
-                let chainIndex = chainIndexMap.get(node.id) ?? node.data?.parentChainIndex ?? 0
+                const chainIndex = chainIndexMap.get(node.id) ?? node.data?.parentChainIndex ?? 0
 
                 // Update node data to include the determined chain index
                 if (node.data?.parentChainIndex !== chainIndex) {
@@ -931,10 +959,10 @@ function WorkflowBuilderContent() {
                         // Note: IDs from AIAgentVisualChainBuilder might have different format
                         const sourceIsValid = edge.source === 'ai-agent' ||
                                             validNodeIds.has(edge.source) ||
-                                            edge.source.startsWith('node-')  // Action nodes start with 'node-'
+                                            edge.source.startsWith('node-') // Action nodes start with 'node-'
                         const targetIsValid = edge.target === 'ai-agent' ||
                                             validNodeIds.has(edge.target) ||
-                                            edge.target.startsWith('node-')  // Action nodes start with 'node-'
+                                            edge.target.startsWith('node-') // Action nodes start with 'node-'
                         // Exclude edges that involve placeholders
                         const sourceIsPlaceholder = edge.source.includes('chain-') || edge.source.includes('placeholder')
                         const targetIsPlaceholder = edge.target.includes('chain-') || edge.target.includes('placeholder')
@@ -1338,7 +1366,8 @@ function WorkflowBuilderContent() {
             nodeInfo={configuringNode.nodeComponent}
             integrationName={configuringNode.integration?.name || ''}
             initialData={configuringNode.config}
-            workflowData={{ nodes, edges, id: currentWorkflow?.id }}
+            workflowData={{ nodes, edges, id: currentWorkflow?.id, name: workflowName || currentWorkflow?.name }}
+            nodeTitle={activeConfigNode?.data?.title || configuringNode.nodeComponent?.title || configuringNode.nodeComponent?.label}
             currentNodeId={configuringNode.id}
             onSave={(config) => {
               // Check if this is a pending action (new node being added)
@@ -1411,6 +1440,19 @@ function WorkflowBuilderContent() {
         isActive={isListeningForWebhook || isExecuting || false}
         onClear={() => {}}
       />
+
+      <PreflightCheckDialog
+        open={isPreflightDialogOpen}
+        onClose={() => setIsPreflightDialogOpen(false)}
+        result={preflightResult}
+        onRunAgain={() => openPreflightChecklist()}
+        onFixNode={(nodeId) => {
+          setIsPreflightDialogOpen(false)
+          handleNodeConfigure(nodeId)
+        }}
+        onOpenIntegrations={() => handleNavigation(hasUnsavedChanges, "/integrations")}
+        isRunning={isRunningPreflight}
+      />
     </div>
   )
 }
@@ -1422,4 +1464,3 @@ export default function CollaborativeWorkflowBuilder() {
     </ReactFlowProvider>
   )
 }
-

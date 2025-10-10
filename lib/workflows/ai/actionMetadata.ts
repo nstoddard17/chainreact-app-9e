@@ -5,11 +5,11 @@
  */
 
 export interface ActionExample {
-  intent: string                    // What the user wants to do
-  scenario: string                   // Context/situation
-  userQuery: string                  // Example user request
+  intent: string // What the user wants to do
+  scenario: string // Context/situation
+  userQuery: string // Example user request
   configuration: Record<string, any> // How to configure the action
-  explanation?: string               // Why this configuration
+  explanation?: string // Why this configuration
 }
 
 export interface ActionMetadata {
@@ -25,7 +25,7 @@ export interface ActionMetadata {
   
   // When to use this action
   useCases: string[]
-  triggers: string[]  // What typically triggers this action
+  triggers: string[] // What typically triggers this action
   
   // When NOT to use this action
   avoidWhen: string[]

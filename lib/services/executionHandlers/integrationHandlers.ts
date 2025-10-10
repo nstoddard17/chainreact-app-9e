@@ -568,7 +568,7 @@ export class IntegrationNodeHandlers {
     // Handle different Airtable action types
     switch (nodeType) {
       case "airtable_create_record":
-      case "airtable_action_create_record":  // Handle both naming conventions
+      case "airtable_action_create_record": // Handle both naming conventions
         // Import and use the actual Airtable create record handler
         const { createAirtableRecord } = await import("@/lib/workflows/actions/airtable/createRecord")
 
@@ -585,7 +585,7 @@ export class IntegrationNodeHandlers {
         return createResult.output
 
       case "airtable_update_record":
-      case "airtable_action_update_record":  // Handle both naming conventions
+      case "airtable_action_update_record": // Handle both naming conventions
         // Import and use the actual Airtable update record handler
         const { updateAirtableRecord } = await import("@/lib/workflows/actions/airtable/updateRecord")
 
@@ -602,12 +602,12 @@ export class IntegrationNodeHandlers {
         return updateResult.output
 
       case "airtable_delete_record":
-      case "airtable_action_delete_record":  // Handle both naming conventions
+      case "airtable_action_delete_record": // Handle both naming conventions
         // TODO: Implement when delete record handler is available
         throw new Error("Airtable delete record is not yet implemented")
 
       case "airtable_list_records":
-      case "airtable_action_list_records":  // Handle both naming conventions
+      case "airtable_action_list_records": // Handle both naming conventions
         // Import and use the actual Airtable list records handler
         const { listAirtableRecords } = await import("@/lib/workflows/actions/airtable/listRecords")
 

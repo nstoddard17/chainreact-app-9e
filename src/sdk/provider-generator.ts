@@ -92,7 +92,7 @@ export class ProviderGenerator {
    * Generate the main provider class
    */
   private generateProviderClass(template: ProviderTemplate): string {
-    const className = this.toPascalCase(template.providerId) + 'Adapter'
+    const className = `${this.toPascalCase(template.providerId) }Adapter`
     const interfaces = template.capabilities.map(cap => cap.interface).join(', ')
     const imports = this.generateImports(template)
     const capabilityDescriptor = this.generateCapabilityDescriptor(template)
@@ -275,7 +275,7 @@ import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/get
     
     for (const endpoint of template.endpoints) {
       if (endpoint.parameters) {
-        const typeName = this.toPascalCase(endpoint.name) + 'Params'
+        const typeName = `${this.toPascalCase(endpoint.name) }Params`
         types += `export interface ${typeName} {\n`
         
         for (const [key, type] of Object.entries(endpoint.parameters)) {
@@ -293,7 +293,7 @@ import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/get
    * Generate test file
    */
   private generateTestFile(template: ProviderTemplate): string {
-    const className = this.toPascalCase(template.providerId) + 'Adapter'
+    const className = `${this.toPascalCase(template.providerId) }Adapter`
     
     return `import { ${className} } from '../${template.providerId}-adapter'
 
@@ -337,7 +337,7 @@ describe('${className}', () => {
    * Generate registration code for bootstrap
    */
   private generateRegistrationCode(template: ProviderTemplate): string {
-    const className = this.toPascalCase(template.providerId) + 'Adapter'
+    const className = `${this.toPascalCase(template.providerId) }Adapter`
     const capabilities = template.capabilities.map(c => `'${c.name}'`).join(', ')
     
     return `import { ${className} } from './${template.providerId}-adapter'

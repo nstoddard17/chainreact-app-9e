@@ -26,9 +26,9 @@ export function LiveTestModeBanner({
       }, 1000)
 
       return () => clearInterval(interval)
-    } else {
+    } 
       setElapsedTime(0)
-    }
+    
   }, [status])
 
   const formatTime = (seconds: number) => {

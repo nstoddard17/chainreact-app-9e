@@ -329,7 +329,7 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
           fields
         }
       }).filter(row => Object.keys(row.fields).length > 0) // Filter out empty rows
-    } else {
+    } 
       // No headers - use column letters as field names
       return limitedValues.map((row, index) => {
         const fields: Record<string, any> = {}
@@ -344,7 +344,7 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
           fields
         }
       }).filter(row => Object.keys(row.fields).length > 0)
-    }
+    
 
   } catch (error) {
     console.error('Error fetching data preview:', error)

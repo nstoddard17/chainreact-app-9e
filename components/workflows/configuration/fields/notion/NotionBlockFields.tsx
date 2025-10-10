@@ -135,7 +135,7 @@ export function NotionBlockFields({
         
         console.log('📦 [NotionBlockFields] Fetched blocks:', pageBlocks)
         setBlocks(pageBlocks)
-        lastFetchedPageRef.current = values.page  // Mark this page as fetched
+        lastFetchedPageRef.current = values.page // Mark this page as fetched
 
         // Initialize field values, preserving any saved values from `value` prop
         const savedValues = value || {}
@@ -361,7 +361,7 @@ export function NotionBlockFields({
     }
 
     fetchBlocks()
-  }, [values.page, values.workspace])  // Only re-run when page or workspace changes
+  }, [values.page, values.workspace]) // Only re-run when page or workspace changes
 
   const handleFieldChange = (fieldId: string, newValue: any) => {
     const updated = { ...fieldValues, [fieldId]: newValue }
@@ -1269,7 +1269,7 @@ export function NotionBlockFields({
                   else if (file.mimeType?.includes('presentation')) return FileImage
                   else if (file.mimeType?.includes('pdf')) return FileText
                   else if (file.mimeType?.includes('image')) return FileImage
-                  else return File
+                  return File
                 }
                 
                 const IconComponent = getFileIcon()
@@ -1332,9 +1332,9 @@ export function NotionBlockFields({
                     return { icon: FileText, color: 'text-red-500', bgColor: 'bg-red-50 dark:bg-red-900/20' }
                   } else if (file.mimeType?.includes('image')) {
                     return { icon: FileImage, color: 'text-purple-500', bgColor: 'bg-purple-50 dark:bg-purple-900/20' }
-                  } else {
+                  } 
                     return { icon: File, color: 'text-slate-500', bgColor: 'bg-slate-50 dark:bg-slate-800' }
-                  }
+                  
                 }
                 
                 const fileInfo = getFileIcon()

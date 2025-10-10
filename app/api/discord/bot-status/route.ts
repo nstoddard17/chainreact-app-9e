@@ -72,13 +72,13 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
           hasPermissions: false,
           error: "Bot in guild but missing channel permissions"
         };
-      } else {
+      } 
         // Bot is in guild and should have permissions (channels check would have succeeded if it had proper perms)
         return {
           isInGuild: true,
           hasPermissions: true
         };
-      }
+      
     } else if (memberResponse.status === 404) {
       console.log('🔍 Bot is not a member of the guild');
       // Bot is not in the guild
@@ -95,14 +95,14 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         hasPermissions: false,
         error: "Bot not in server or missing permissions"
       };
-    } else {
+    } 
       console.log('🔍 Unknown error checking bot status');
       return {
         isInGuild: false,
         hasPermissions: false,
         error: `Discord API error: ${memberResponse.status}`
       };
-    }
+    
   } catch (error: any) {
     console.error('Error verifying bot in guild:', error);
     return {

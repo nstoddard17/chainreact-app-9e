@@ -55,6 +55,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
+import { VariableDragProvider } from "./VariableDragContext"
 import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -169,6 +170,7 @@ export function ConfigurationModal({
   initialData = {},
   workflowData,
   currentNodeId,
+  nodeTitle,
 }: ConfigurationModalProps) {
   // Debug: Log initialData when modal opens
   useEffect(() => {
@@ -202,7 +204,7 @@ export function ConfigurationModal({
     
     for (const edge of parentEdges) {
       const sourceNode = workflowData.nodes.find((node: any) => node.id === edge.source);
-      if (sourceNode?.data?.type === 'ai_agent') {
+      if (sourceNode?.data?.type === 'ai_agent' || sourceNode?.data?.type === 'ai_message') {
         return true;
       }
     }
@@ -312,7 +314,9 @@ export function ConfigurationModal({
   const getModalTitle = () => {
     if (!nodeInfo) return "Configure Node";
     
-    let title = (nodeInfo as any).label || (nodeInfo as any).title || nodeInfo.type || "Configure Node";
+    const trimmedCustomTitle = typeof nodeTitle === 'string' ? nodeTitle.trim() : ''
+
+    let title = trimmedCustomTitle || (nodeInfo as any).label || (nodeInfo as any).title || nodeInfo.type || "Configure Node";
     
     // Clean up title if needed
     if (title.includes("_action_")) {
@@ -338,15 +342,16 @@ export function ConfigurationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <CustomDialogContent
-        className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl"
-        onPointerDownOutside={(e) => {
-          // Prevent dialog from closing when clicking outside if there are form elements
-          const target = e.target as HTMLElement;
-          if (target.closest('input, textarea, select')) {
-            e.preventDefault();
-          }
-        }}>
+      <VariableDragProvider>
+        <CustomDialogContent
+          className="bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl"
+          onPointerDownOutside={(e) => {
+            // Prevent dialog from closing when clicking outside if there are form elements
+            const target = e.target as HTMLElement;
+            if (target.closest('input, textarea, select')) {
+              e.preventDefault();
+            }
+          }}>
         {/* Modal Container - Split Layout */}
         <div
           className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden"
@@ -420,6 +425,7 @@ export function ConfigurationModal({
           )}
         </div>
       </CustomDialogContent>
+      </VariableDragProvider>
     </Dialog>
   );
 }

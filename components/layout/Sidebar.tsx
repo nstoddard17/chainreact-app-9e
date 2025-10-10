@@ -185,7 +185,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {/* Main Navigation */}
           {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href }/`)
             const RoleIcon = roleIcons[item.minRole as keyof typeof roleIcons]
             const showRoleBadge = item.minRole !== 'free'
             const canAccess = canAccessPage(userRole, item.href)
@@ -266,7 +266,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             )}
           </div>
           {supportNavigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href }/`)
             const canAccess = canAccessPage(userRole, item.href)
             const isComingSoon = item.comingSoon && !isAdmin
 
@@ -332,7 +332,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 )}
               </div>
               {adminNavigation.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                const isActive = pathname === item.href || pathname.startsWith(`${item.href }/`)
                 
                 return (
                   <PrefetchLink

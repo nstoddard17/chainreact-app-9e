@@ -701,7 +701,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           const executionEngine = new AdvancedExecutionEngine()
           const executionSession = await executionEngine.createExecutionSession(
             workflow.id,
-            userId,  // Use the userId from session (more reliable)
+            userId, // Use the userId from session (more reliable)
             'webhook',
             {
               inputData: {

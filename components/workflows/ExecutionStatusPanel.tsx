@@ -43,95 +43,91 @@ export function ExecutionStatusPanel({
   const progressPercentage = totalNodes > 0 ? Math.round((completedCount / totalNodes) * 100) : 0
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 shadow-2xl">
-      <div className="max-w-full mx-auto px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          {/* Left side - Status */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            {isListening && (
-              <>
-                <div className="relative flex h-3 w-3 flex-shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    Listening for {webhookTriggerType?.replace(/_/g, ' ') || 'webhook'} trigger...
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Waiting for real webhook event or click Skip to use test data
-                  </p>
-                </div>
-              </>
-            )}
-
-            {isExecuting && (
-              <>
-                <Activity className="h-5 w-5 text-purple-400 flex-shrink-0 animate-pulse" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-3">
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 sm:px-6">
+      <div className="pointer-events-auto w-full max-w-3xl rounded-2xl border border-gray-800 bg-gray-950/90 p-4 shadow-2xl backdrop-blur-sm sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+              {isListening && (
+                <div className="flex items-start gap-3">
+                  <div className="relative flex h-3 w-3 flex-shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-blue-500"></span>
+                  </div>
+                  <div className="space-y-1">
                     <p className="text-sm font-medium text-white">
-                      {runningNodeData
-                        ? `Executing: ${runningNodeData.data?.title || runningNodeData.data?.type}`
-                        : 'Executing workflow...'}
+                      Listening for {webhookTriggerType?.replace(/_/g, ' ') || 'webhook'} trigger...
                     </p>
-                    {usingTestData && (
-                      <Badge variant="outline" className="text-yellow-500 border-yellow-500 text-xs">
-                        Using Test Data
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Progress value={progressPercentage} className="flex-1 h-2" />
-                    <span className="text-xs text-gray-400 tabular-nums whitespace-nowrap">
-                      {completedCount} / {totalNodes} nodes
-                    </span>
+                    <p className="text-xs text-gray-400">
+                      Waiting for a real event or skip to run with test data
+                    </p>
                   </div>
                 </div>
+              )}
 
-                {/* Status indicators */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {completedCount > 0 && (
-                    <div className="flex items-center gap-1 text-green-400">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span className="text-xs tabular-nums">{completedCount}</span>
+              {isExecuting && (
+                <div className="flex items-start gap-3">
+                  <Activity className="h-5 w-5 flex-shrink-0 animate-pulse text-purple-400" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm font-medium text-white">
+                        {runningNodeData
+                          ? `Executing: ${runningNodeData.data?.title || runningNodeData.data?.type}`
+                          : 'Executing workflow...'}
+                      </p>
+                      {usingTestData && (
+                        <Badge variant="outline" className="border-yellow-500 text-xs text-yellow-500">
+                          Using Test Data
+                        </Badge>
+                      )}
                     </div>
-                  )}
-                  {failedCount > 0 && (
-                    <div className="flex items-center gap-1 text-red-400">
-                      <XCircle className="h-4 w-4" />
-                      <span className="text-xs tabular-nums">{failedCount}</span>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <Progress value={progressPercentage} className="h-2 flex-1" />
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs tabular-nums text-gray-400">
+                          {completedCount} / {totalNodes} nodes
+                        </span>
+                        {completedCount > 0 && (
+                          <div className="flex items-center gap-1 text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-xs tabular-nums">{completedCount}</span>
+                          </div>
+                        )}
+                        {failedCount > 0 && (
+                          <div className="flex items-center gap-1 text-red-400">
+                            <XCircle className="h-4 w-4" />
+                            <span className="text-xs tabular-nums">{failedCount}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Right side - Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isListening && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {isListening && (
+                <Button
+                  onClick={() => onSkip(nodes, edges)}
+                  variant="default"
+                  size="sm"
+                  className="bg-yellow-600 text-white hover:bg-yellow-700"
+                >
+                  <SkipForward className="mr-2 h-4 w-4" />
+                  Skip to Test Data
+                </Button>
+              )}
               <Button
-                onClick={() => onSkip(nodes, edges)}
-                variant="default"
+                onClick={onStop}
+                variant="ghost"
                 size="sm"
-                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                className="text-gray-400 hover:text-white"
               >
-                <SkipForward className="h-4 w-4 mr-2" />
-                Skip to Test Data
+                <X className="mr-2 h-4 w-4" />
+                {isListening ? 'Stop Listening' : 'Close'}
               </Button>
-            )}
-
-            <Button
-              onClick={onStop}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              <X className="h-4 w-4 mr-2" />
-              {isListening ? 'Stop Listening' : 'Close'}
-            </Button>
+            </div>
           </div>
         </div>
       </div>

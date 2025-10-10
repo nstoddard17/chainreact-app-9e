@@ -135,7 +135,7 @@ export async function listAirtableRecords(
     const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`)
     
     // Handle record limit options
-    let effectiveMaxRecords = 100  // Default fallback
+    let effectiveMaxRecords = 100 // Default fallback
     
     if (recordLimit && recordLimit !== '') {
       switch(recordLimit) {

@@ -70,10 +70,10 @@ export interface NotionUser {
   id: string
   name: string
   value: string
-  label?: string  // Display label for dropdown
+  label?: string // Display label for dropdown
   type?: string
   avatar_url?: string
-  email?: string  // Direct email property for easier access
+  email?: string // Direct email property for easier access
   person?: {
     email?: string
   }

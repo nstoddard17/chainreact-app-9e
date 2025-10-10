@@ -1,0 +1,1219 @@
+=== Log Session Started: 2025-10-09T03:06:20.818Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-09T03:06:20.820Z] [INFO   ] File logging initialized
+[2025-10-09T03:06:20.820Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_22-06-20.log
+[2025-10-09T03:06:20.821Z] [INFO   ] 📁 File logging enabled
+[2025-10-09T03:06:20.822Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_22-06-20.log
+[2025-10-09T03:06:20.822Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_22-06-20.log
+[2025-10-09T03:06:20.822Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_22-06-20.log
+[2025-10-09T03:06:20.823Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_22-06-20.log
+[2025-10-09T03:06:20.823Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-09T03:06:20.823Z] [INFO   ] 📁 File logging system initialized
+[2025-10-09T03:06:20.852Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.4s
+[2025-10-09T03:06:21.840Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-09T03:06:23.469Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-09T03:06:23.469Z] [INFO   ] 🔑 Using Discord bot token: MTM3ODU5NT...ElFqA
+[2025-10-09T03:06:23.718Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-09T03:06:23.720Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-09T03:06:23.896Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-09T03:06:23.897Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-09T03:06:24.061Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "d2467b2bbafebc8b8b3a915b411b2cea",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-09T03:06:24.061Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-09T03:06:24.063Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-09T03:06:24.155Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-09T03:06:24.315Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-09T03:06:26.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 152ms (231 modules)
+[2025-10-09T03:06:26.758Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412499358,
+  profileError: undefined
+}
+[2025-10-09T03:06:27.304Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-09T03:06:28.073Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412500673,
+  profileError: undefined
+}
+[2025-10-09T03:06:31.836Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 5.1s (5603 modules)
+[2025-10-09T03:06:32.758Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 883ms (1522 modules)
+[2025-10-09T03:06:32.836Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:33.196Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:33.200Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:33.205Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:37.355Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-09T03:06:38.036Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1181ms (5607 modules)
+[2025-10-09T03:06:38.187Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:06:38.194Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:06:38.427Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412511027,
+  profileError: undefined
+}
+[2025-10-09T03:06:38.738Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412511339,
+  profileError: undefined
+}
+[2025-10-09T03:06:38.936Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:39.314Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:39.322Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:39.328Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:43.383Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 403ms (5609 modules)
+[2025-10-09T03:06:43.486Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:06:43.486Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:06:43.496Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:06:43.503Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:06:43.564Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:06:43.683Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412516284,
+  profileError: undefined
+}
+[2025-10-09T03:06:43.721Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412516322,
+  profileError: undefined
+}
+[2025-10-09T03:06:43.746Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:06:44.153Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:06:44.153Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:06:44.214Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:44.523Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:44.529Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:06:44.533Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:06:44.537Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot access 'handleAddTrigger' before initialization
+ReferenceError: Cannot access 'handleAddTrigger' before initialization
+    at useWorkflowBuilder (webpack-internal:///(ssr)/./hooks/workflows/useWorkflowBuilder.ts:2354:9)
+    at WorkflowBuilderContent (webpack-internal:///(ssr)/./components/workflows/CollaborativeWorkflowBuilder.tsx:65:148)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:185331)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-09T03:06:44.665Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:06:48.179Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:06:48.179Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:06:48.269Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:06:48.435Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:06:49.217Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:06:49.216Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:06:49.304Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:06:49.423Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:07:48.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1461ms (5623 modules)
+[2025-10-09T03:07:48.445Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:07:48.445Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:07:48.688Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412581288,
+  profileError: undefined
+}
+[2025-10-09T03:07:49.043Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11412581644,
+  profileError: undefined
+}
+[2025-10-09T03:07:49.218Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:07:49.643Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:07:50.856Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-09T03:07:51.355Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 999ms (5611 modules)
+[2025-10-09T03:07:54.246Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:07:54.246Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:07:54.369Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:07:54.504Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:07:54.545Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:07:54.544Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:07:54.615Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:07:54.727Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:25:38.644Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-09T03:25:39.624Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 1522ms (5605 modules)
+[2025-10-09T03:25:40.101Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11413652701,
+  profileError: undefined
+}
+[2025-10-09T03:25:40.628Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:25:41.714Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 305ms (4101 modules)
+[2025-10-09T03:25:41.921Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4103 modules)
+[2025-10-09T03:25:41.966Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:25:41.966Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:25:42.073Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:25:42.231Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:25:42.474Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 304ms (4105 modules)
+[2025-10-09T03:25:48.023Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11413660624,
+  profileError: undefined
+}
+[2025-10-09T03:25:48.515Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:25:49.198Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T03:25:49.197Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T03:25:49.313Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T03:25:49.494Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T03:25:49.760Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-09T03:25:50.368Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1110ms (5616 modules)
+[2025-10-09T03:26:21.611Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 408ms (5618 modules)
+[2025-10-09T03:26:56.754Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/notion/data ...
+[2025-10-09T03:26:57.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/notion/data in 1052ms (5624 modules)
+[2025-10-09T03:26:57.533Z] [INFO   ] 🔍 [Notion API] Processing request: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "dataType": "workspaces",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-09T03:26:57.534Z] [INFO   ] 🔍 Notion workspaces fetcher called - fetching workspaces from metadata
+[2025-10-09T03:26:57.534Z] [INFO   ] 🔍 Looking up integration by ID: 73eb00b5-f035-4c99-81e1-6f2700e7d1b8
+[2025-10-09T03:26:57.537Z] [INFO   ] 🔍 [Notion API] Processing request: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "dataType": "databases",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-09T03:26:57.538Z] [INFO   ] 🗄️ [Notion Databases] Fetching databases (all workspaces)
+[2025-10-09T03:26:57.540Z] [INFO   ] 🔍 [Notion Databases] Searching for ALL content in workspace to debug...
+[2025-10-09T03:26:57.545Z] [INFO   ] 🔍 [Notion API] Processing request: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "dataType": "workspaces",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-09T03:26:57.545Z] [INFO   ] 🔍 Notion workspaces fetcher called - fetching workspaces from metadata
+[2025-10-09T03:26:57.545Z] [INFO   ] 🔍 Looking up integration by ID: 73eb00b5-f035-4c99-81e1-6f2700e7d1b8
+[2025-10-09T03:26:57.612Z] [INFO   ] 🔍 Found integration: 73eb00b5-f035-4c99-81e1-6f2700e7d1b8
+[2025-10-09T03:26:57.612Z] [INFO   ] 📦 Full metadata object: {
+  "workspaces": {
+    "5ed2ec34-3701-8113-9f43-0003aecfdc4a": {
+      "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+      "user_info": {},
+      "owner_type": "user",
+      "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+      "connected_at": "2025-10-03T04:20:43.102Z",
+      "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+      "workspace_icon": null,
+      "workspace_name": "Nathaniel’s Workspace",
+      "duplicate_template_privileges": false
+    }
+  },
+  "workspace_count": 1,
+  "primary_workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a"
+}
+[2025-10-09T03:26:57.612Z] [INFO   ] 📦 Workspaces object to process: {
+  "5ed2ec34-3701-8113-9f43-0003aecfdc4a": {
+    "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+    "user_info": {},
+    "owner_type": "user",
+    "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+    "connected_at": "2025-10-03T04:20:43.102Z",
+    "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+    "workspace_icon": null,
+    "workspace_name": "Nathaniel’s Workspace",
+    "duplicate_template_privileges": false
+  }
+}
+[2025-10-09T03:26:57.612Z] [INFO   ] 🔍 Processing workspace 5ed2ec34-3701-8113-9f43-0003aecfdc4a: {
+  "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+  "user_info": {},
+  "owner_type": "user",
+  "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+  "connected_at": "2025-10-03T04:20:43.102Z",
+  "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+  "workspace_icon": null,
+  "workspace_name": "Nathaniel’s Workspace",
+  "duplicate_template_privileges": false
+}
+[2025-10-09T03:26:57.612Z] [INFO   ] ✅ Found 1 workspaces in metadata
+[2025-10-09T03:26:57.612Z] [INFO   ] ✅ [Notion API] Successfully processed workspaces: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "resultCount": 1
+}
+[2025-10-09T03:26:57.624Z] [INFO   ] 🔍 Found integration: 73eb00b5-f035-4c99-81e1-6f2700e7d1b8
+[2025-10-09T03:26:57.624Z] [INFO   ] 📦 Full metadata object: {
+  "workspaces": {
+    "5ed2ec34-3701-8113-9f43-0003aecfdc4a": {
+      "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+      "user_info": {},
+      "owner_type": "user",
+      "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+      "connected_at": "2025-10-03T04:20:43.102Z",
+      "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+      "workspace_icon": null,
+      "workspace_name": "Nathaniel’s Workspace",
+      "duplicate_template_privileges": false
+    }
+  },
+  "workspace_count": 1,
+  "primary_workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a"
+}
+[2025-10-09T03:26:57.624Z] [INFO   ] 📦 Workspaces object to process: {
+  "5ed2ec34-3701-8113-9f43-0003aecfdc4a": {
+    "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+    "user_info": {},
+    "owner_type": "user",
+    "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+    "connected_at": "2025-10-03T04:20:43.102Z",
+    "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+    "workspace_icon": null,
+    "workspace_name": "Nathaniel’s Workspace",
+    "duplicate_template_privileges": false
+  }
+}
+[2025-10-09T03:26:57.624Z] [INFO   ] 🔍 Processing workspace 5ed2ec34-3701-8113-9f43-0003aecfdc4a: {
+  "bot_id": "23c2ec34-3701-81de-8d35-0027dbaee75b",
+  "user_info": {},
+  "owner_type": "user",
+  "access_token": "0ed53c4db5af814950b6fbadad89cf8d:d3de439d94c70baeed9d452a3b7e3bca7db67496910b9b03d46ab625ac5bde92f36864b808c4080c6699940d9dbf821294887039e7d469da7a07d598930351ea",
+  "connected_at": "2025-10-03T04:20:43.102Z",
+  "workspace_id": "5ed2ec34-3701-8113-9f43-0003aecfdc4a",
+  "workspace_icon": null,
+  "workspace_name": "Nathaniel’s Workspace",
+  "duplicate_template_privileges": false
+}
+[2025-10-09T03:26:57.624Z] [INFO   ] ✅ Found 1 workspaces in metadata
+[2025-10-09T03:26:57.624Z] [INFO   ] ✅ [Notion API] Successfully processed workspaces: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "resultCount": 1
+}
+[2025-10-09T03:27:04.134Z] [INFO   ] 📊 [Notion Databases] Total items found: 12
+[2025-10-09T03:27:04.136Z] [INFO   ] 📊 Breakdown: 2 databases, 10 pages
+[2025-10-09T03:27:04.136Z] [INFO   ] 🗄️ ALL DATABASES FOUND:
+[2025-10-09T03:27:04.136Z] [INFO   ]   1. "Product Roadmap" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.136Z] [INFO   ]      - Archived: false
+[2025-10-09T03:27:04.136Z] [INFO   ]      - Is Inline: false
+[2025-10-09T03:27:04.136Z] [INFO   ]      - Parent Type: workspace
+[2025-10-09T03:27:04.136Z] [INFO   ]      - Created: 2025-07-26T00:14:00.000Z
+[2025-10-09T03:27:04.136Z] [INFO   ]      - URL: https://www.notion.so/23c2ec3437018055bfd8f210d7032efa
+[2025-10-09T03:27:04.136Z] [INFO   ]   2. "Internal Emails" (ID: 26c2ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]      - Archived: false
+[2025-10-09T03:27:04.137Z] [INFO   ]      - Is Inline: false
+[2025-10-09T03:27:04.137Z] [INFO   ]      - Parent Type: workspace
+[2025-10-09T03:27:04.137Z] [INFO   ]      - Created: 2025-09-12T17:47:00.000Z
+[2025-10-09T03:27:04.137Z] [INFO   ]      - URL: https://www.notion.so/26c2ec34370180b4b1d7ef01c702ace4
+[2025-10-09T03:27:04.137Z] [INFO   ] 
+📄 SAMPLE PAGES (first 20):
+[2025-10-09T03:27:04.137Z] [INFO   ]   1. "Untitled" (ID: 2812ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]   2. "Mobile app redesign" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]   3. "test2" (ID: 23e2ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]   4. "test2" (ID: 23d2ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]   5. "test2" (ID: 23d2ec34...)
+[2025-10-09T03:27:04.137Z] [INFO   ]   6. "New dashboard UI" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.138Z] [INFO   ]   7. "Test2" (ID: 23d2ec34...)
+[2025-10-09T03:27:04.138Z] [INFO   ]   8. "Test" (ID: 23d2ec34...)
+[2025-10-09T03:27:04.138Z] [INFO   ]   9. "AI-powered search" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.138Z] [INFO   ]   10. "Untitled" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.138Z] [INFO   ] 
+🔍 SEARCHING FOR SPECIFIC MISSING ITEMS:
+[2025-10-09T03:27:04.138Z] [INFO   ] ❌ 'View of Global Offices' NOT FOUND in pages
+[2025-10-09T03:27:04.139Z] [INFO   ] ❌ 'Projects (1)' NOT FOUND in pages
+[2025-10-09T03:27:04.139Z] [INFO   ] 
+📊 [Notion Databases] Starting with 2 databases
+[2025-10-09T03:27:04.139Z] [INFO   ] 
+🔍 [Notion Databases] Searching for other database views in pages...
+[2025-10-09T03:27:04.139Z] [INFO   ] 📊 [Notion Databases] Total databases including views: 2
+[2025-10-09T03:27:04.139Z] [INFO   ] 
+✅ FINAL DATABASE LIST (2 databases):
+[2025-10-09T03:27:04.139Z] [INFO   ]   1. "Product Roadmap" (ID: 23c2ec34...)
+[2025-10-09T03:27:04.140Z] [INFO   ]   2. "Internal Emails" (ID: 26c2ec34...)
+[2025-10-09T03:27:04.140Z] [INFO   ] ✅ [Notion Databases] Retrieved 2 databases
+[2025-10-09T03:27:04.140Z] [INFO   ] ✅ [Notion API] Successfully processed databases: {
+  "integrationId": "73eb00b5-f035-4c99-81e1-6f2700e7d1b8",
+  "resultCount": 2
+}
+[2025-10-09T03:30:44.266Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-09T03:30:44.298Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1000ms (4101 modules)
+[2025-10-09T03:31:40.488Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1908ms (5623 modules)
+[2025-10-09T03:31:41.130Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414013730,
+  profileError: undefined
+}
+[2025-10-09T03:31:41.131Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414013732,
+  profileError: undefined
+}
+[2025-10-09T03:31:41.374Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:31:41.378Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:31:41.994Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-09T03:31:42.722Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 1230ms (5613 modules)
+[2025-10-09T03:31:45.280Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T03:31:45.501Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414018102,
+  profileError: undefined
+}
+[2025-10-09T03:31:45.963Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T03:33:41.781Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:33:51.633Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:34:04.964Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:34:32.998Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:35:20.595Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:35:43.712Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-09T03:35:43.903Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (132:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:35:44.802Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:35:44.994Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414257594,
+  profileError: undefined
+}
+[2025-10-09T03:35:44.995Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414257596,
+  profileError: undefined
+}
+[2025-10-09T03:35:45.231Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414257832,
+  profileError: undefined
+}
+[2025-10-09T03:35:45.257Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414257858,
+  profileError: undefined
+}
+[2025-10-09T03:35:45.568Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414258169,
+  profileError: undefined
+}
+[2025-10-09T03:35:45.590Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414258191,
+  profileError: undefined
+}
+[2025-10-09T03:35:46.714Z] [INFO   ] Discord Gateway closed, persistent reconnect disabled
+[2025-10-09T03:35:48.808Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:35:59.076Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:36:42.969Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+Module parse failed: Identifier 'showAiPlaceholderOverlay' has already been declared (141:10)
+|         }
+|     }["GenericTextInput.useEffect"], []);
+>     const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+|     const clearAiPlaceholderValue = ()=>{
+|         if (setAiFields && aiFields && aiFields[field.name]) {
+
+Import trace for requested module:
+./components/workflows/configuration/fields/shared/GenericTextInput.tsx
+./components/workflows/configuration/fields/FieldRenderer.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-09T03:38:22.090Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11414414690,
+  profileError: undefined
+}
+
+=== Log Session Ended: 2025-10-09T03:38:24.990Z ===

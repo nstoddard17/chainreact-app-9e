@@ -7,15 +7,15 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
 // List of providers that don't support localhost redirect URIs
 const PROVIDERS_WITHOUT_LOCALHOST_SUPPORT = [
-  'facebook',      // Facebook requires HTTPS for OAuth redirects
-  'instagram',     // Instagram requires HTTPS for OAuth redirects  
-  'linkedin',      // LinkedIn doesn't allow localhost in production apps
-  'twitter',       // Twitter (X) doesn't allow localhost URLs
-  'tiktok',        // TikTok requires verified domains
-  'youtube',       // YouTube requires verified domains in production
+  'facebook', // Facebook requires HTTPS for OAuth redirects
+  'instagram', // Instagram requires HTTPS for OAuth redirects  
+  'linkedin', // LinkedIn doesn't allow localhost in production apps
+  'twitter', // Twitter (X) doesn't allow localhost URLs
+  'tiktok', // TikTok requires verified domains
+  'youtube', // YouTube requires verified domains in production
   'youtube-studio', // YouTube Studio requires verified domains
-  'stripe',        // Stripe requires HTTPS in production mode
-  'paypal',        // PayPal doesn't allow localhost in production mode
+  'stripe', // Stripe requires HTTPS in production mode
+  'paypal', // PayPal doesn't allow localhost in production mode
 ];
 
 export async function POST(request: NextRequest) {
@@ -387,6 +387,9 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       break
     case "youtube-studio":
       scopes += " https://www.googleapis.com/auth/youtubepartner"
+      break
+    default:
+      // Use base scopes for unknown services
       break
   }
 
@@ -775,8 +778,8 @@ async function generateHubSpotAuthUrl(stateObject: any, supabase: any): Promise<
     "crm.objects.companies.write",
     "crm.objects.deals.read",
     "crm.objects.deals.write",
-    "crm.lists.read",  // Required for Add Contact to List action
-    "crm.lists.write"  // Required for Add Contact to List action
+    "crm.lists.read", // Required for Add Contact to List action
+    "crm.lists.write" // Required for Add Contact to List action
   ]
 
   const params = new URLSearchParams({
@@ -831,7 +834,7 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
   })
 
   const authUrl = `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
-  console.log('  - Final OAuth URL (first 200 chars):', authUrl.substring(0, 200) + '...')
+  console.log('  - Final OAuth URL (first 200 chars):', `${authUrl.substring(0, 200) }...`)
   
   return authUrl
 }
@@ -944,9 +947,9 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   // Use standard authorization endpoints that work better with sandbox
   if (isSandbox) {
     return `https://www.sandbox.paypal.com/signin/authorize?${params.toString()}`
-  } else {
+  } 
     return `https://www.paypal.com/signin/authorize?${params.toString()}`
-  }
+  
 }
 
 async function generateTeamsAuthUrl(state: string): Promise<string> {
@@ -978,7 +981,7 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
   })
 
   const finalUrl = `${config.authEndpoint}?${params.toString()}`
-  console.log('  - Final OAuth URL (first 300 chars):', finalUrl.substring(0, 300) + '...')
+  console.log('  - Final OAuth URL (first 300 chars):', `${finalUrl.substring(0, 300) }...`)
   
   return finalUrl
 }

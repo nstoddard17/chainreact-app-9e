@@ -68,11 +68,11 @@ export enum FieldType {
 }
 
 export enum FieldPriority {
-  CRITICAL = 'critical',     // Required fields that must be populated
-  HIGH = 'high',            // Important fields that should be populated
-  MEDIUM = 'medium',        // Optional fields populated if context available
-  LOW = 'low',             // Nice-to-have fields
-  SKIP = 'skip'            // Fields to ignore (system fields, etc.)
+  CRITICAL = 'critical', // Required fields that must be populated
+  HIGH = 'high', // Important fields that should be populated
+  MEDIUM = 'medium', // Optional fields populated if context available
+  LOW = 'low', // Nice-to-have fields
+  SKIP = 'skip' // Fields to ignore (system fields, etc.)
 }
 
 export interface FieldConstraints {

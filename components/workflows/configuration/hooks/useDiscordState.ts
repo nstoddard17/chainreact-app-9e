@@ -233,7 +233,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     // Monitor popup for completion
     let pollCount = 0;
     const maxPolls = 600; // 5 minutes max (300s / 0.5s)
-    let successDetected = false;
+    const successDetected = false;
     
     const interval = setInterval(async () => {
       pollCount++;
@@ -308,7 +308,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           setIsBotConnectionInProgress(false);
           console.log('Discord OAuth timeout - exceeded maximum wait time');
           popup.close();
-          return;
+          
         }
       } catch (error) {
         console.error('Error in popup monitoring:', error);

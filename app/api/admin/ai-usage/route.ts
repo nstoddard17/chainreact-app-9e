@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const userUsagePromises = users.map(async (user) => {
       // Note: ai_usage_budgets table doesn't exist, using default budget
       // This can be implemented later with proper subscription/plan management
-      const monthlyBudget = 10.00  // Default budget
+      const monthlyBudget = 10.00 // Default budget
 
       // Get usage stats from ai_cost_logs table
       const [todayStats, monthStats, allTimeStats] = await Promise.all([
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         budget: {
           monthly_limit_usd: monthlyBudget,
           usage_percent: usagePercent,
-          enforcement_mode: 'soft'  // Default enforcement mode
+          enforcement_mode: 'soft' // Default enforcement mode
         }
       }
     })

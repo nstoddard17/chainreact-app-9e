@@ -14,6 +14,7 @@ import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
+import { useVariableDragContext } from './VariableDragContext'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
@@ -28,7 +29,6 @@ const RELEVANT_OUTPUTS: Record<string, string[]> = {
   
   // Explicitly hide trigger outputs since they don't provide real data
   'gmail_trigger_new_email': [],
-  'discord_trigger_new_message': [],
   'slack_trigger_new_message': [],
   'notion_trigger_new_page': [],
   'github_trigger_new_issue': [],
@@ -112,6 +112,7 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
+  const { activeField, insertIntoActiveField } = useVariableDragContext()
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
       return (
@@ -403,6 +404,15 @@ export function VariablePickerSidePanel({
         // Fallback to variable reference if we can't resolve it
         onVariableSelect(variable)
       }
+      return
+    }
+
+    const inserted = insertIntoActiveField(variable)
+    if (!inserted) {
+      toast({
+        title: "Choose a field first",
+        description: "Click into the form field you want to update, then pick a variable.",
+      })
     }
   }
 
@@ -589,7 +599,27 @@ export function VariablePickerSidePanel({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </div>
+      </div>
+    </div>
+
+      <div className="px-4 py-2 border-b border-slate-200 bg-white/90">
+        {activeField ? (
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-blue-700 border-blue-200 bg-blue-50">
+              Active Field
+            </Badge>
+            <span
+              className="truncate text-slate-700 font-medium"
+              title={activeField.label || activeField.id}
+            >
+              {activeField.label || activeField.id}
+            </span>
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500">
+            Click a form field to enable click-to-insert (copy icon still available).
+          </div>
+        )}
       </div>
 
       {/* Test results timestamp */}
@@ -798,7 +828,7 @@ export function VariablePickerSidePanel({
       {/* Footer */}
       <div className="p-3 border-t border-slate-200 bg-slate-50">
         <p className="text-xs text-slate-500 text-center">
-          Drag variables to fields or click to copy
+          Drag or click to insert. Use the copy icon for clipboard.
         </p>
       </div>
     </div>

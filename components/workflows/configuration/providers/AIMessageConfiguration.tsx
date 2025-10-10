@@ -382,8 +382,11 @@ export function AIMessageConfiguration({
     )
   }, [handleImprovePrompt, isImprovingPrompt, renderField])
 
-  const basicTopFields = useMemo(() => ['model', 'apiSource', 'customApiKey'], [])
+  const basicTopFields = useMemo(() => ['model', 'apiSource'], [])
   const basicBottomFields = useMemo(() => ['outputFields'], [])
+
+  // Only show customApiKey when apiSource is 'custom'
+  const showCustomApiKey = useMemo(() => values.apiSource === 'custom', [values.apiSource])
   const advancedFields = useMemo(() => Array.from(ADVANCED_FIELDS), [])
 
   const handleConfirmQuickAction = useCallback(() => {
@@ -450,12 +453,13 @@ export function AIMessageConfiguration({
         </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
-          <TabsList className="w-fit bg-slate-100/60 p-1 rounded-lg">
+          <TabsList className="w-full bg-slate-100/60 p-1 rounded-lg grid grid-cols-2">
             <TabsTrigger value="basic">Basic</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
           </TabsList>
           <TabsContent value="basic" className="space-y-4 mt-4" forceMount>
             {basicTopFields.map(fieldName => renderField(fieldName))}
+            {showCustomApiKey && renderField('customApiKey')}
             {renderUserPromptField}
             {basicBottomFields.map(fieldName => renderField(fieldName))}
           </TabsContent>

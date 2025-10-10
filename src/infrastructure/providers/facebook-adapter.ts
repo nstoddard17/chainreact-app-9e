@@ -23,7 +23,7 @@ export class FacebookAdapter implements SocialProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 200, window: 3600000 }, // 200 requests per hour
-      { type: 'posts', limit: 25, window: 86400000 }     // 25 posts per day
+      { type: 'posts', limit: 25, window: 86400000 } // 25 posts per day
     ],
     supportedFeatures: [
       'create_post',
@@ -69,13 +69,13 @@ export class FacebookAdapter implements SocialProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.error || 'Failed to create Facebook post',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,
@@ -153,13 +153,13 @@ export class FacebookAdapter implements SocialProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.error || 'Failed to comment on Facebook post',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,
@@ -215,13 +215,13 @@ export class FacebookAdapter implements SocialProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.error || 'Failed to get Facebook insights',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,
@@ -252,13 +252,13 @@ export class FacebookAdapter implements SocialProvider {
           },
           message: result.message
         }
-      } else {
+      } 
         return {
           success: false,
           error: result.error || 'Failed to send Facebook message',
           output: result.output
         }
-      }
+      
     } catch (error: any) {
       return {
         success: false,

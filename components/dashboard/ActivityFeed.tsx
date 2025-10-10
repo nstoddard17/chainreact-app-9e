@@ -19,10 +19,10 @@ function formatTimeAgo(dateString: string): string {
   } else if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600)
     return `${hours} hour${hours > 1 ? 's' : ''} ago`
-  } else {
+  } 
     const days = Math.floor(diffInSeconds / 86400)
     return `${days} day${days > 1 ? 's' : ''} ago`
-  }
+  
 }
 
 // Helper function to get icon for activity type

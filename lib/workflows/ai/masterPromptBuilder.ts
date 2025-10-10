@@ -8,9 +8,9 @@ import { ACTION_METADATA, ActionMetadata, ActionExample } from './actionMetadata
 import { AI_ROUTER_TEMPLATES } from '../nodes/providers/ai/aiRouterNode'
 
 export interface PromptContext {
-  template?: string          // Router template being used
+  template?: string // Router template being used
   availableActions: string[] // Action IDs available in workflow
-  triggerType?: string       // Type of trigger in workflow
+  triggerType?: string // Type of trigger in workflow
   userPreferences?: {
     tone?: 'professional' | 'casual' | 'friendly' | 'technical'
     verbosity?: 'concise' | 'detailed' | 'comprehensive'

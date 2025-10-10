@@ -295,7 +295,7 @@ export function GoogleDriveFileField({
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return `${Math.round(bytes / Math.pow(k, i) * 100) / 100 } ${ sizes[i]}`;
   };
 
   // Render based on sourceType
@@ -368,7 +368,7 @@ export function GoogleDriveFileField({
     // Generate a unique ID for the file input (handle pending actions)
     let idForInput = nodeId || currentNodeId || 'default';
     if (idForInput === 'pending-action' || idForInput.startsWith('pending-')) {
-      idForInput = 'temp-' + Date.now();
+      idForInput = `temp-${ Date.now()}`;
     }
     const fileInputId = `file-input-${idForInput}`;
     

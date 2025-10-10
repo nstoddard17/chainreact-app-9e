@@ -1,0 +1,455 @@
+=== Log Session Started: 2025-10-08T20:50:26.055Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-08T20:50:26.056Z] [INFO   ] File logging initialized
+[2025-10-08T20:50:26.056Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_15-50-26.log
+[2025-10-08T20:50:26.056Z] [INFO   ] 📁 File logging enabled
+[2025-10-08T20:50:26.056Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_15-50-26.log
+[2025-10-08T20:50:26.057Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_15-50-26.log
+[2025-10-08T20:50:26.057Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_15-50-26.log
+[2025-10-08T20:50:26.057Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_15-50-26.log
+[2025-10-08T20:50:26.057Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-08T20:50:26.057Z] [INFO   ] 📁 File logging system initialized
+[2025-10-08T20:50:26.080Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.4s
+[2025-10-08T20:50:26.604Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-08T20:50:27.061Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-08T20:50:29.766Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-08T20:50:29.767Z] [INFO   ] 🔑 Using Discord bot token: MTM3ODU5NT...ElFqA
+[2025-10-08T20:50:30.288Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-08T20:50:30.290Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-08T20:50:30.364Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 4.3s (2920 modules)
+[2025-10-08T20:50:30.768Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-08T20:50:30.771Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-08T20:50:30.931Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11389943531,
+  profileError: undefined
+}
+[2025-10-08T20:50:30.979Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "9627c10b77654a78700677fb66b56405",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-08T20:50:30.979Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-08T20:50:30.980Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-08T20:50:30.988Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-08T20:50:31.296Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-08T20:50:31.697Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-08T20:50:43.511Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 12.5s (5619 modules)
+[2025-10-08T20:50:45.362Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1847ms (1522 modules)
+[2025-10-08T20:50:45.435Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:50:46.953Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-08T20:50:47.853Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:50:48.201Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11389960800,
+  profileError: undefined
+}
+[2025-10-08T20:50:49.693Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 3.4s (5611 modules)
+[2025-10-08T20:50:49.887Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:50:49.886Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:50:50.629Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:50:50.737Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:50:51.213Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:50:51.793Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:50:51.793Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:50:51.878Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:50:52.026Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:52:06.574Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:52:07.176Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.4s (5619 modules)
+[2025-10-08T20:52:07.372Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390039972,
+  profileError: undefined
+}
+[2025-10-08T20:52:08.366Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:52:09.923Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-08T20:52:11.023Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:52:11.321Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390043922,
+  profileError: undefined
+}
+[2025-10-08T20:52:11.740Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.3s (5625 modules)
+[2025-10-08T20:52:12.988Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:52:12.988Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:52:13.771Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:52:13.821Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:52:14.346Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:52:15.495Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-08T20:52:16.621Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:52:17.154Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390049754,
+  profileError: undefined
+}
+[2025-10-08T20:52:17.586Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.6s (5613 modules)
+[2025-10-08T20:52:18.415Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:52:18.414Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:52:18.900Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:52:19.034Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:52:19.215Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:52:20.312Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:52:20.312Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:52:20.412Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:52:20.589Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:52:32.477Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390065077,
+  profileError: undefined
+}
+[2025-10-08T20:52:32.919Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:52:33.895Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:52:33.895Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:52:33.988Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:52:34.110Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:53:47.450Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:53:47.955Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390140556,
+  profileError: undefined
+}
+[2025-10-08T20:53:47.993Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.5s (5619 modules)
+[2025-10-08T20:53:48.957Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:53:50.458Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 269ms (4101 modules)
+[2025-10-08T20:53:50.997Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 238ms (4103 modules)
+[2025-10-08T20:53:54.500Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-08T20:53:54.540Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 542ms (4105 modules)
+[2025-10-08T20:53:54.632Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:53:54.632Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:53:54.845Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:53:55.041Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:53:56.901Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 648ms (5627 modules)
+[2025-10-08T20:53:57.116Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390149717,
+  profileError: undefined
+}
+[2025-10-08T20:53:57.276Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:56:39.232Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1589ms (5603 modules)
+[2025-10-08T20:56:39.322Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-08T20:56:39.613Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390312214,
+  profileError: undefined
+}
+[2025-10-08T20:56:39.827Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:56:39.829Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11390312429,
+  profileError: undefined
+}
+[2025-10-08T20:56:40.210Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:56:41.464Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-08T20:56:41.504Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 545ms (4099 modules)
+[2025-10-08T20:56:41.990Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 0ms (4101 modules)
+[2025-10-08T20:56:42.577Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4103 modules)
+[2025-10-08T20:56:43.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2ms (4103 modules)
+[2025-10-08T20:56:43.708Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4103 modules)
+[2025-10-08T20:56:43.757Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:56:43.757Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:56:43.866Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:56:44.401Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}

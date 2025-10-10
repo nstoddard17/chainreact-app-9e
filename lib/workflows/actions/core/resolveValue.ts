@@ -34,7 +34,7 @@ export function resolveValue(
             
             // Map common field names to actual message properties
             const fieldMap: Record<string, string> = {
-              'Body': 'body',  // Changed from 'snippet' to 'body'
+              'Body': 'body', // Changed from 'snippet' to 'body'
               'body': 'body',
               'Subject': 'subject',
               'subject': 'subject',

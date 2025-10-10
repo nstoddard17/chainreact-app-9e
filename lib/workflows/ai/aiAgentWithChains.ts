@@ -174,7 +174,7 @@ export async function executeAIAgentWithChains(
       aiLog(`  ${index + 1}. ${chain.chainId}`)
       aiLog(`     Status: ${chain.success ? '✅ Success' : '❌ Failed'}`)
       aiLog(`     Reasoning: ${selection?.reasoning || 'N/A'}`)
-      aiLog(`     Confidence: ${selection ? (selection.confidence * 100).toFixed(0) + '%' : 'N/A'}`)
+      aiLog(`     Confidence: ${selection ? `${(selection.confidence * 100).toFixed(0) }%` : 'N/A'}`)
       aiLog(`     Execution Time: ${chain.executionTime}ms`)
       if (chain.error) {
         aiLog(`     Error: ${chain.error.message || chain.error}`)

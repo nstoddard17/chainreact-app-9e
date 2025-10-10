@@ -568,7 +568,7 @@ async function executeGmailAttachmentTriggerNode(node: any, context: any) {
       type: "gmail_trigger_new_attachment",
       test: true,
       mock_email: {
-        id: "mock_email_with_attachment_" + Date.now(),
+        id: `mock_email_with_attachment_${ Date.now()}`,
         subject: "Test Email with Attachment",
         from: "test@example.com",
         to: context.userId ? `user-${context.userId}@example.com` : "user@example.com",
@@ -621,7 +621,7 @@ async function executeGmailTriggerNode(node: any, context: any) {
       type: "gmail_trigger_new_email",
       test: true,
       mock_email: {
-        id: "mock_email_" + Date.now(),
+        id: `mock_email_${ Date.now()}`,
         subject: "Test Email Subject",
         from: "test@example.com",
         to: context.userId ? `user-${context.userId}@example.com` : "user@example.com",
@@ -1036,9 +1036,9 @@ function renderTemplate(template: string, context: any, engine: string): string 
           return ""
         } else if (typeof value === 'object') {
           return JSON.stringify(value)
-        } else {
+        } 
           return String(value)
-        }
+        
         
       } catch (error) {
         console.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
@@ -1114,7 +1114,7 @@ async function handleExecutionError(supabase: any, executionId: string, error: a
     })
 
     return true // Will retry
-  } else {
+  } 
     // Add to dead letter queue
     await supabase.from("dead_letter_queue").insert({
       execution_id: executionId,
@@ -1129,7 +1129,7 @@ async function handleExecutionError(supabase: any, executionId: string, error: a
     })
 
     return false // No more retries
-  }
+  
 }
 
 // Additional node implementations for actions
@@ -1580,7 +1580,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
   }
 
   // Parse and evaluate row data
-  let rowDataConfig = config.rowData || '["{{data.timestamp}}", "{{data.message}}"]'
+  const rowDataConfig = config.rowData || '["{{data.timestamp}}", "{{data.message}}"]'
   
   try {
     const parsedData = JSON.parse(rowDataConfig)
@@ -1965,7 +1965,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
   const rangeString = `${sheetName}!${range}`
 
   // Parse and evaluate update data
-  let updateDataConfig = config.updateData || '["{{data.value}}"]'
+  const updateDataConfig = config.updateData || '["{{data.value}}"]'
   
   try {
     const parsedData = JSON.parse(updateDataConfig)
@@ -2405,7 +2405,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
-  let fileName = config.fileName
+  const fileName = config.fileName
   const folderId = config.folderId
 
   if (!fileUrl) {
@@ -2514,16 +2514,16 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
         // Map Google Apps MIME types to export formats
         if (mimeType === 'application/vnd.google-apps.spreadsheet') {
           exportMimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' // Excel format
-          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.xlsx' // Change extension to .xlsx
+          actualFileName = `${actualFileName.replace(/\.[^.]*$/, '') }.xlsx` // Change extension to .xlsx
         } else if (mimeType === 'application/vnd.google-apps.document') {
           exportMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' // Word format
-          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.docx'
+          actualFileName = `${actualFileName.replace(/\.[^.]*$/, '') }.docx`
         } else if (mimeType === 'application/vnd.google-apps.presentation') {
           exportMimeType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation' // PowerPoint format
-          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.pptx'
+          actualFileName = `${actualFileName.replace(/\.[^.]*$/, '') }.pptx`
         } else {
           // For other Google Apps files, export as PDF
-          actualFileName = actualFileName.replace(/\.[^.]*$/, '') + '.pdf'
+          actualFileName = `${actualFileName.replace(/\.[^.]*$/, '') }.pdf`
         }
         
         console.log(`Exporting Google Apps file as ${exportMimeType}`)
@@ -2623,7 +2623,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
-  let fileName = config.fileName
+  const fileName = config.fileName
   const folderId = config.folderId
 
   if (!fileUrl) {
@@ -2773,7 +2773,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
-  let fileName = config.fileName
+  const fileName = config.fileName
   const path = config.path
 
   if (!fileUrl) {
@@ -3848,7 +3848,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
 
   try {
     // Build the update request based on operation type
-    let requests = []
+    const requests = []
 
     if (operation === "append") {
       // Get document length first

@@ -18,6 +18,173 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+const CENTER_X = 600
+const Y_START = 100
+const Y_STEP = 180
+const BRANCH_SPACING = 400
+
+function layoutNodes(nodes, connections) {
+  const nodeMap = new Map(nodes.map(node => [node.id, node]))
+  const outgoing = new Map()
+  const indegree = new Map()
+
+  nodes.forEach(node => {
+    indegree.set(node.id, 0)
+  })
+
+  connections.forEach(conn => {
+    if (!nodeMap.has(conn.source) || !nodeMap.has(conn.target)) {
+      return
+    }
+    if (!outgoing.has(conn.source)) {
+      outgoing.set(conn.source, [])
+    }
+    outgoing.get(conn.source).push(conn)
+    indegree.set(conn.target, (indegree.get(conn.target) ?? 0) + 1)
+  })
+
+  const branchCandidates = new Map()
+  connections.forEach(conn => {
+    const source = conn.source
+    const targetNode = nodeMap.get(conn.target)
+    if (!targetNode) return
+
+    let branchKey = null
+    if (
+      targetNode.data?.parentAIAgentId === source &&
+      typeof targetNode.data?.parentChainIndex === 'number'
+    ) {
+      branchKey = `${source}:chain-${targetNode.data.parentChainIndex}`
+    } else if (conn.sourceHandle) {
+      branchKey = `${source}:handle-${conn.sourceHandle}`
+    }
+
+    if (branchKey) {
+      if (!branchCandidates.has(source)) {
+        branchCandidates.set(source, new Set())
+      }
+      branchCandidates.get(source).add(branchKey)
+    }
+  })
+
+  const branchOffsets = new Map()
+  branchCandidates.forEach((set, parentId) => {
+    const keys = Array.from(set)
+    keys.sort((a, b) => {
+      const extract = (key) => {
+        const parts = key.split(':')
+        const suffix = parts[1] || ''
+        const chainMatch = suffix.match(/chain-(\d+)/)
+        if (chainMatch) return parseInt(chainMatch[1], 10)
+        return suffix.charCodeAt(0)
+      }
+      return extract(a) - extract(b)
+    })
+    const offsets = new Map()
+    const count = keys.length
+    keys.forEach((key, index) => {
+      const offsetIndex = index - (count - 1) / 2
+      offsets.set(key, offsetIndex * BRANCH_SPACING)
+    })
+    branchOffsets.set(parentId, offsets)
+  })
+
+  const depth = new Map()
+  const branchKeyMap = new Map()
+  const indegreeCopy = new Map(indegree)
+  const queue = []
+
+  nodes.forEach(node => {
+    const isTrigger = Boolean(node.data?.isTrigger)
+    if (isTrigger || (indegreeCopy.get(node.id) ?? 0) === 0) {
+      queue.push(node.id)
+      depth.set(node.id, 0)
+      if (!branchKeyMap.has(node.id)) {
+        branchKeyMap.set(node.id, 'root')
+      }
+    }
+  })
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift()
+    const currentDepth = depth.get(nodeId) ?? 0
+    const currentBranch = branchKeyMap.get(nodeId) ?? 'root'
+    const edges = outgoing.get(nodeId) || []
+
+    for (const edge of edges) {
+      const targetId = edge.target
+      const targetNode = nodeMap.get(targetId)
+      if (!targetNode) continue
+
+      let nextBranch = currentBranch
+      if (
+        targetNode.data?.parentAIAgentId === edge.source &&
+        typeof targetNode.data?.parentChainIndex === 'number'
+      ) {
+        nextBranch = `${edge.source}:chain-${targetNode.data.parentChainIndex}`
+      } else if (edge.sourceHandle) {
+        nextBranch = `${edge.source}:handle-${edge.sourceHandle}`
+      }
+
+      if (!branchKeyMap.has(targetId)) {
+        branchKeyMap.set(targetId, nextBranch)
+      }
+
+      if (!depth.has(targetId) || depth.get(targetId) < currentDepth + 1) {
+        depth.set(targetId, currentDepth + 1)
+      }
+
+      const remaining = (indegreeCopy.get(targetId) ?? 0) - 1
+      indegreeCopy.set(targetId, remaining)
+      if (remaining === 0) {
+        queue.push(targetId)
+      }
+    }
+  }
+
+  nodes.forEach(node => {
+    if (!depth.has(node.id)) {
+      depth.set(node.id, 0)
+    }
+    if (!branchKeyMap.has(node.id)) {
+      branchKeyMap.set(node.id, 'root')
+    }
+  })
+
+  const nodePositions = new Map()
+  const sortedNodes = [...nodes].sort((a, b) => {
+    const depthDiff = (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0)
+    if (depthDiff !== 0) return depthDiff
+    return a.id.localeCompare(b.id)
+  })
+
+  sortedNodes.forEach(node => {
+    const nodeDepth = depth.get(node.id) ?? 0
+    const branchKey = branchKeyMap.get(node.id) ?? 'root'
+    let x = CENTER_X
+
+    if (branchKey !== 'root') {
+      const [parentId] = branchKey.split(':')
+      const parentPos = nodePositions.get(parentId)
+      const parentX = parentPos ? parentPos.x : CENTER_X
+      const offsets = branchOffsets.get(parentId)
+      const offset = offsets?.get(branchKey) ?? 0
+      x = parentX + offset
+    } else if (node.data?.parentAIAgentId) {
+      const parentPos = nodePositions.get(node.data.parentAIAgentId)
+      if (parentPos) {
+        x = parentPos.x
+      }
+    }
+
+    const y = Y_START + nodeDepth * Y_STEP
+    node.position = { x, y }
+    nodePositions.set(node.id, { x, y })
+  })
+
+  return nodes
+}
+
 const templateUpdates = {
   // Content Publishing Workflow
   "df49e07b-11e2-4523-866a-c1924da2f04e": {
@@ -4395,6 +4562,10 @@ const templateUpdates = {
     ],
   },
 }
+
+Object.values(templateUpdates).forEach(template => {
+  template.nodes = layoutNodes(template.nodes, template.connections)
+})
 
 async function run() {
   for (const [templateId, payload] of Object.entries(templateUpdates)) {

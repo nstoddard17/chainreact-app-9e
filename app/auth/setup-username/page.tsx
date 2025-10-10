@@ -29,7 +29,7 @@ export default function SetupUsernamePage() {
     // If user already has a username, redirect to dashboard
     if (profile?.username && profile.username.trim() !== '') {
       router.push('/dashboard')
-      return
+      
     }
     
     // Allow any user without username to access this page
@@ -86,14 +86,14 @@ export default function SetupUsernamePage() {
         checkUsernameAvailability(value)
       }, 500)
       return () => clearTimeout(timer)
-    } else {
+    } 
       setIsAvailable(null)
       if (value.length > 0) {
         setUsernameError("Username must be at least 3 characters")
       } else {
         setUsernameError("")
       }
-    }
+    
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

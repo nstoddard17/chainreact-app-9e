@@ -39,11 +39,11 @@ export class GoogleIntegrationService {
 
     switch (nodeType) {
       case "google_drive_create_file":
-      case "google-drive:create_file":  // New format from nodes
+      case "google-drive:create_file": // New format from nodes
         return await this.executeCreateFile(node, context)
       case "google_drive_upload_file":
       case "google_drive_action_upload_file":
-      case "google-drive:upload_file":  // If we add this in future
+      case "google-drive:upload_file": // If we add this in future
         return await this.executeUploadFile(node, context)
       case "google_drive_create_folder":
       case "google-drive:create_folder":
@@ -54,7 +54,7 @@ export class GoogleIntegrationService {
       case "google_drive_share_file":
       case "google-drive:share_file":
         return await this.executeShareFile(node, context)
-      case "google-drive:get_file":  // From nodes definition
+      case "google-drive:get_file": // From nodes definition
         return await this.executeGetFile(node, context)
       default:
         throw new Error(`Google Drive action '${nodeType}' is not yet implemented`)

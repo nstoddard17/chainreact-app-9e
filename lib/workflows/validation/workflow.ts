@@ -68,8 +68,10 @@ export const validateWorkflowNodes = (
     nodeComponents,
   }
 
-  // Check if there's an AI Agent in the workflow
-  const hasAIAgent = workflow.nodes.some((node) => node.data?.type === 'ai_agent')
+  // Check if there's an AI Agent-style node in the workflow
+  const hasAIAgent = workflow.nodes.some((node) =>
+    node.data?.type === 'ai_agent' || node.data?.type === 'ai_message'
+  )
 
   const invalidNodeIds: string[] = []
 

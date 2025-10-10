@@ -44,6 +44,7 @@ export function AIFieldNodeIndicator({
   )
 }
 
+
 /**
  * Indicator for AI Agent nodes
  */
@@ -122,7 +123,7 @@ export function AIProcessingIndicator({
  */
 export function hasAICapabilities(node: any): boolean {
   // Check if it's an AI agent node
-  if (node.data?.type === 'ai_agent') return true
+  if (node.data?.type === 'ai_agent' || node.data?.type === 'ai_message') return true
 
   // Recursively check if any field uses AI (including nested objects)
   const checkForAIFields = (obj: any): boolean => {
@@ -150,6 +151,7 @@ export function hasAICapabilities(node: any): boolean {
  */
 export function NodeAIIndicator({ node }: { node: any }) {
   const isAIAgent = node.data?.type === 'ai_agent'
+  const isAIMessage = node.data?.type === 'ai_message'
 
   // Recursively count AI fields (including nested objects)
   const countAIFields = (obj: any): number => {
@@ -169,14 +171,14 @@ export function NodeAIIndicator({ node }: { node: any }) {
   const isInChain = node.data?.parentChainIndex !== undefined
 
   // Don't show anything if no AI features
-  if (!isAIAgent && !hasAIFields && !isInChain) return null
+  if (!isAIAgent && !isAIMessage && !hasAIFields && !isInChain) return null
 
   return (
     <div className="absolute -top-3 right-0 flex items-center gap-1 z-10">
-      {isAIAgent && (
+      {(isAIAgent || isAIMessage) && (
         <Badge className="bg-purple-600 text-white text-xs">
           <Brain className="w-3 h-3 mr-1" />
-          AI Agent
+          {isAIMessage ? 'AI Message' : 'AI Agent'}
         </Badge>
       )}
       {hasAIFields && (

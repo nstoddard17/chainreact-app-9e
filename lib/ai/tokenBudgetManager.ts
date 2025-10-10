@@ -252,7 +252,7 @@ export class TokenBudgetManager {
         
         for (const section of importantSections) {
           if (section.content.length <= remainingLength) {
-            preservedContent += section.content + '\n';
+            preservedContent += `${section.content }\n`;
             remainingLength -= section.content.length + 1;
           }
         }
@@ -276,7 +276,7 @@ export class TokenBudgetManager {
       truncated = truncated.substring(0, lastSpaceIndex);
     }
 
-    return truncated + '\n[Content truncated for token limit]';
+    return `${truncated }\n[Content truncated for token limit]`;
   }
 
   private truncateFromMiddle(input: string, targetLength: number): string {
@@ -291,7 +291,7 @@ export class TokenBudgetManager {
     const start = input.substring(0, keepStart);
     const end = input.substring(input.length - keepEnd);
     
-    return start + '\n[... content truncated ...]\n' + end;
+    return `${start }\n[... content truncated ...]\n${ end}`;
   }
 
   private summarizeContent(input: string, targetLength: number): string {
@@ -316,14 +316,14 @@ export class TokenBudgetManager {
     
     for (const { sentence } of scoredSentences) {
       if (currentLength + sentence.length + 2 <= targetLength) {
-        summary += sentence + '. ';
+        summary += `${sentence }. `;
         currentLength += sentence.length + 2;
       } else {
         break;
       }
     }
 
-    return summary + '\n[Content summarized for token limit]';
+    return `${summary }\n[Content summarized for token limit]`;
   }
 
   private prioritizeFieldContent(input: string, targetLength: number, fieldPriorities: string[]): string {
@@ -338,7 +338,7 @@ export class TokenBudgetManager {
     for (const fieldName of fieldPriorities) {
       const fieldContent = this.extractFieldRelatedContent(input, fieldName);
       if (fieldContent && fieldContent.length <= remainingLength) {
-        prioritizedContent += fieldContent + '\n';
+        prioritizedContent += `${fieldContent }\n`;
         remainingLength -= fieldContent.length + 1;
       }
     }
@@ -349,7 +349,7 @@ export class TokenBudgetManager {
       prioritizedContent += remainingContent.substring(0, remainingLength);
     }
 
-    return prioritizedContent + '\n[Content prioritized for token limit]';
+    return `${prioritizedContent }\n[Content prioritized for token limit]`;
   }
 
   private removeExamples(input: string, targetLength: number): string {
@@ -359,7 +359,7 @@ export class TokenBudgetManager {
     cleaned = cleaned.replace(/for example[:\s][\s\S]*?(?=\n[A-Z]|\n\n|$)/gi, '');
     
     if (cleaned.length <= targetLength) {
-      return cleaned + '\n[Examples removed for token limit]';
+      return `${cleaned }\n[Examples removed for token limit]`;
     }
 
     return this.truncateFromEnd(cleaned, targetLength, true);

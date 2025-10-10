@@ -17,8 +17,8 @@ export class MailchimpAdapter implements EmailProvider {
   readonly capabilities: CapabilityDescriptor = {
     supportsWebhooks: true,
     rateLimits: [
-      { type: 'requests', limit: 10, window: 1000 },    // 10 requests per second
-      { type: 'requests', limit: 500, window: 60000 }   // 500 requests per minute
+      { type: 'requests', limit: 10, window: 1000 }, // 10 requests per second
+      { type: 'requests', limit: 500, window: 60000 } // 500 requests per minute
     ],
     supportedFeatures: [
       'send_campaign',
@@ -247,9 +247,9 @@ export class MailchimpAdapter implements EmailProvider {
           },
           message: 'Mailchimp list created successfully'
         }
-      } else {
+      } 
         throw new Error('Unsupported label operation for Mailchimp')
-      }
+      
     } catch (error: any) {
       return {
         success: false,

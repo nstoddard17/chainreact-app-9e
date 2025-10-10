@@ -1,4 +1,4 @@
-import { EdgeProps } from '@xyflow/react'
+import { EdgeProps, getSmoothStepPath } from '@xyflow/react'
 
 export function SimpleStraightEdge({
   id,
@@ -6,17 +6,33 @@ export function SimpleStraightEdge({
   sourceY,
   targetX,
   targetY,
+  sourcePosition,
+  targetPosition,
   style = {},
   markerEnd,
 }: EdgeProps) {
-  // For vertical alignment, use the source X position for both points
+  // Use smooth step path for rounded corners
+  const [edgePath] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+    borderRadius: 16, // Match the rounded corners of nodes
+  })
+
   return (
     <g>
       <path
-        d={`M ${sourceX} ${sourceY} L ${sourceX} ${targetY}`}
+        id={id}
+        className="react-flow__edge-path"
+        d={edgePath}
         fill="none"
-        stroke={style.stroke || '#d1d5db'}
-        strokeWidth={style.strokeWidth || 1}
+        stroke={style.stroke || '#9ca3af'}
+        strokeWidth={style.strokeWidth || 2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeDasharray={style.strokeDasharray}
         markerEnd={markerEnd}
       />

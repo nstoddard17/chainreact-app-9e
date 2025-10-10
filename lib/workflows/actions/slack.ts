@@ -142,7 +142,7 @@ export async function slackActionSendMessageLegacy(
     })
 
     // Process file attachments if any
-    let fileUrls: string[] = []
+    const fileUrls: string[] = []
     const attachmentArray = attachments ? (Array.isArray(attachments) ? attachments : [attachments]) : []
 
     if (attachmentArray.length > 0) {
@@ -313,7 +313,7 @@ export async function slackActionSendMessageLegacy(
     }
 
     // If we have file URLs, upload them to Slack using the new API
-    let uploadedFileIds: string[] = []
+    const uploadedFileIds: string[] = []
     if (fileUrls.length > 0) {
       console.log('📤 [Slack] Uploading files to Slack:', fileUrls.length)
 

@@ -89,10 +89,10 @@ function verifySlackSignature(body: string, signature: string, timestamp: string
   }
 
   const sigBaseString = `${SLACK_SIGNATURE_VERSION}:${timestamp}:${body}`
-  const expectedSignature = `${SLACK_SIGNATURE_VERSION}=` + crypto
+  const expectedSignature = `${SLACK_SIGNATURE_VERSION}=${ crypto
     .createHmac('sha256', secret)
     .update(sigBaseString)
-    .digest('hex')
+    .digest('hex')}`
 
   const signatureBuffer = Buffer.from(signature, 'utf8')
   const expectedBuffer = Buffer.from(expectedSignature, 'utf8')

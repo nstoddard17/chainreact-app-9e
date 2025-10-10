@@ -43,6 +43,17 @@ export function useWorkflowExecution() {
   const [sessionUserId, setSessionUserId] = useState<string | null>(null)
   const [pollIntervalId, setPollIntervalId] = useState<NodeJS.Timeout | null>(null)
 
+  // Sandbox mode states
+  const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
+  const [showSandboxPreview, setShowSandboxPreview] = useState(false)
+
+  // Add debug log helper
+  const addDebugLog = useCallback((level: 'info' | 'warning' | 'error' | 'success', message: string, details?: any) => {
+    if (typeof window !== 'undefined' && (window as any).addTestModeDebugLog) {
+      (window as any).addTestModeDebugLog({ level, message, details })
+    }
+  }, [])
+
   // Function to execute workflow via API
   const executeWorkflow = useCallback(async (
     workflowId: string,
@@ -252,20 +263,112 @@ export function useWorkflowExecution() {
     setSkipCallback(null)
   }, [])
 
-  const handleTestSandbox = useCallback(async () => {
-    // Placeholder for sandbox execution
-    toast({
-      title: "Sandbox Mode",
-      description: "Sandbox execution coming soon",
-    })
-  }, [toast])
-
-  // Add debug log helper
-  const addDebugLog = useCallback((level: 'info' | 'warning' | 'error' | 'success', message: string, details?: any) => {
-    if (typeof window !== 'undefined' && (window as any).addTestModeDebugLog) {
-      (window as any).addTestModeDebugLog({ level, message, details })
+  const handleTestSandbox = useCallback(async (nodes: Node[], edges: Edge[]) => {
+    // Prevent duplicate executions
+    if (isExecuting) {
+      console.log('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
+      return
     }
-  }, [])
+
+    // Validate workflow is saved
+    if (!currentWorkflow?.id) {
+      toast({
+        title: "Error",
+        description: "Please save your workflow first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate nodes are loaded
+    if (!nodes || nodes.length === 0) {
+      toast({
+        title: "Error",
+        description: "No nodes found in workflow",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsExecuting(true)
+    setIsStepMode(true)
+    setSandboxInterceptedActions([])
+    addDebugLog('info', 'Starting Sandbox Mode execution')
+
+    try {
+      console.log('🧪 [Sandbox Mode] Starting execution with intercepted actions...')
+
+      // Execute workflow in sandbox mode - this will intercept all external actions
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: true,  // This ensures actions are intercepted
+          executionMode: 'sandbox',
+          inputData: {},
+          workflowData: {
+            nodes,
+            edges,
+          },
+          skipTriggers: true, // Skip trigger nodes for manual execution
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute workflow')
+      }
+
+      const result = await response.json()
+
+      // Process intercepted actions
+      if (result.interceptedActions && Array.isArray(result.interceptedActions)) {
+        setSandboxInterceptedActions(result.interceptedActions)
+        setShowSandboxPreview(true)
+
+        addDebugLog('success', `Sandbox execution complete: ${result.interceptedActions.length} actions intercepted`)
+
+        toast({
+          title: "Sandbox Test Complete",
+          description: `${result.interceptedActions.length} actions were intercepted and can be reviewed`,
+        })
+      }
+
+      // Update node statuses based on results
+      if (result.results && Array.isArray(result.results)) {
+        result.results.forEach((nodeResult: any) => {
+          if (nodeResult.nodeId) {
+            setNodeStatuses(prev => ({
+              ...prev,
+              [nodeResult.nodeId]: nodeResult.success ? 'completed' : 'error'
+            }))
+          }
+        })
+      }
+
+    } catch (error: any) {
+      console.error('❌ [Sandbox Mode] Execution error:', error)
+      addDebugLog('error', 'Sandbox execution failed', { error: error.message })
+
+      toast({
+        title: "Sandbox Test Failed",
+        description: error.message || "Failed to execute workflow in sandbox mode",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExecuting(false)
+      setIsStepMode(false)
+      setActiveExecutionNodeId(null)
+
+      // Clear node statuses after delay
+      setTimeout(() => {
+        setNodeStatuses({})
+      }, 5000)
+    }
+  }, [isExecuting, currentWorkflow, toast, addDebugLog, setSandboxInterceptedActions, setShowSandboxPreview, setNodeStatuses, setActiveExecutionNodeId])
 
   // Monitor execution progress from webhook trigger
   const monitorExecution = useCallback(async (executionId: string, nodes: Node[]) => {
@@ -747,9 +850,186 @@ export function useWorkflowExecution() {
   }, [stopWebhookListening, toast, handleExecute])
 
   const handleExecuteLive = useCallback(async (nodes: Node[], edges: Edge[]) => {
-    // Start listening for webhook
-    await startWebhookListening(nodes)
-  }, [startWebhookListening])
+    // Execute workflow with live data and parallel processing
+    if (isExecuting) {
+      console.log('⚠️ [Live Mode] Already executing, ignoring duplicate request');
+      return
+    }
+
+    // Validate workflow is saved
+    if (!currentWorkflow?.id) {
+      toast({
+        title: "Error",
+        description: "Please save your workflow first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsExecuting(true)
+    setActiveExecutionNodeId(null) // Will be updated to array for parallel
+    addDebugLog('info', 'Starting Live Mode with parallel execution')
+
+    try {
+      console.log('🚀 [Live Mode] Starting parallel execution...')
+
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: false,  // Use real actions
+          executionMode: 'live',  // This triggers parallel execution
+          inputData: {},
+          workflowData: {
+            nodes,
+            edges,
+          },
+          skipTriggers: true, // Skip trigger nodes for manual execution
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute workflow')
+      }
+
+      const result = await response.json()
+
+      addDebugLog('success', 'Live execution complete', {
+        executionMode: result.executionMode,
+        sessionId: result.sessionId
+      })
+
+      toast({
+        title: "Live Execution Complete",
+        description: "Workflow executed successfully with parallel processing",
+      })
+
+      // Update node statuses based on results
+      if (result.results && Array.isArray(result.results)) {
+        result.results.forEach((nodeResult: any) => {
+          if (nodeResult.nodeId) {
+            setNodeStatuses(prev => ({
+              ...prev,
+              [nodeResult.nodeId]: nodeResult.success ? 'completed' : 'error'
+            }))
+          }
+        })
+      }
+
+    } catch (error: any) {
+      console.error('❌ [Live Mode] Execution error:', error)
+      addDebugLog('error', 'Live execution failed', { error: error.message })
+
+      toast({
+        title: "Live Execution Failed",
+        description: error.message || "Failed to execute workflow",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExecuting(false)
+      setActiveExecutionNodeId(null)
+
+      // Clear node statuses after delay
+      setTimeout(() => {
+        setNodeStatuses({})
+      }, 5000)
+    }
+  }, [isExecuting, currentWorkflow, toast, addDebugLog, setNodeStatuses, setActiveExecutionNodeId])
+
+  const handleExecuteLiveSequential = useCallback(async (nodes: Node[], edges: Edge[]) => {
+    // Execute workflow with live data but sequential processing (for debugging)
+    if (isExecuting) {
+      console.log('⚠️ [Live Sequential] Already executing, ignoring duplicate request');
+      return
+    }
+
+    // Validate workflow is saved
+    if (!currentWorkflow?.id) {
+      toast({
+        title: "Error",
+        description: "Please save your workflow first",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsExecuting(true)
+    setActiveExecutionNodeId(null)
+    addDebugLog('info', 'Starting Live Mode Sequential (Debug) execution')
+
+    try {
+      console.log('🔍 [Live Sequential] Starting sequential execution for debugging...')
+
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: false,  // Use real actions
+          executionMode: 'sequential',  // This triggers sequential execution
+          inputData: {},
+          workflowData: {
+            nodes,
+            edges,
+          },
+          skipTriggers: true,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute workflow')
+      }
+
+      const result = await response.json()
+
+      addDebugLog('success', 'Sequential execution complete (debug mode)', {
+        executionMode: result.executionMode,
+        sessionId: result.sessionId
+      })
+
+      toast({
+        title: "Sequential Execution Complete",
+        description: "Workflow executed in debug mode (one node at a time)",
+      })
+
+      // Update node statuses
+      if (result.results && Array.isArray(result.results)) {
+        result.results.forEach((nodeResult: any) => {
+          if (nodeResult.nodeId) {
+            setNodeStatuses(prev => ({
+              ...prev,
+              [nodeResult.nodeId]: nodeResult.success ? 'completed' : 'error'
+            }))
+          }
+        })
+      }
+
+    } catch (error: any) {
+      console.error('❌ [Live Sequential] Execution error:', error)
+      addDebugLog('error', 'Sequential execution failed', { error: error.message })
+
+      toast({
+        title: "Sequential Execution Failed",
+        description: error.message || "Failed to execute workflow",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExecuting(false)
+      setActiveExecutionNodeId(null)
+
+      // Clear node statuses after delay
+      setTimeout(() => {
+        setNodeStatuses({})
+      }, 5000)
+    }
+  }, [isExecuting, currentWorkflow, toast, addDebugLog, setNodeStatuses, setActiveExecutionNodeId])
 
   const pauseExecution = useCallback(() => {
     setIsPaused(true)
@@ -833,6 +1113,7 @@ export function useWorkflowExecution() {
     handleExecute,
     handleTestSandbox,
     handleExecuteLive,
+    handleExecuteLiveSequential,
     handleResetLoadingStates,
     // Step execution
     isStepMode,
@@ -859,5 +1140,10 @@ export function useWorkflowExecution() {
     testDataNodes,
     stopWebhookListening,
     skipToTestData,
+    // Sandbox mode
+    sandboxInterceptedActions,
+    setSandboxInterceptedActions,
+    showSandboxPreview,
+    setShowSandboxPreview,
   }
 }

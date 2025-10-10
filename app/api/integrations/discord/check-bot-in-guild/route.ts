@@ -53,13 +53,13 @@ export async function GET(request: NextRequest) {
         idMatch: botInfo.id === botUserId,
         guilds: guilds.map((g: any) => ({ id: g.id, name: g.name }))
       })
-    } else {
+    } 
       return NextResponse.json({
         error: "Bot credentials invalid",
         status: botInfoResponse.status,
         statusText: botInfoResponse.statusText
       })
-    }
+    
   } catch (error) {
     return NextResponse.json({
       error: "Error testing bot credentials",

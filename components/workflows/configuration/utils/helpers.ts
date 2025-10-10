@@ -33,7 +33,7 @@ export function filterRecordsbySearch(records: any[], searchQuery: string): any[
             // Search through all linked field display values
             Object.entries(linkedDisplay).forEach(([linkedFieldName, linkedValues]) => {
               if (Array.isArray(linkedValues)) {
-                searchableValue += ' ' + linkedValues.join(' ');
+                searchableValue += ` ${ linkedValues.join(' ')}`;
               }
             });
           }

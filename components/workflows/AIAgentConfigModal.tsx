@@ -1116,7 +1116,7 @@ export function AIAgentConfigModal({
                         e.preventDefault()
                         if (draggedVariable && promptRef.current) {
                           const text = config.systemPrompt
-                          const newText = text + ' ' + draggedVariable.value
+                          const newText = `${text } ${ draggedVariable.value}`
                           setConfig(prev => ({ ...prev, systemPrompt: newText }))
                           setDraggedVariable(null)
                         }

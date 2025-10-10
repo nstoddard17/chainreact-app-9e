@@ -1,0 +1,14 @@
+# Cloudflare Tunnel Configuration Example
+# Copy this to ~/.cloudflared/config.yml and update with your values
+
+# Find your tunnel ID with: cloudflared tunnel list
+tunnel: YOUR-TUNNEL-ID-HERE
+
+# Update path to match your home directory
+credentials-file: /Users/YOUR-USERNAME/.cloudflared/YOUR-TUNNEL-ID.json
+
+ingress:
+  # Update hostname to your assigned subdomain
+  - hostname: dev-yourname.chainreact.app
+    service: http://localhost:3000
+  - service: http_status:404

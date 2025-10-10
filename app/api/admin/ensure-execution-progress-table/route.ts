@@ -116,7 +116,7 @@ export async function GET() {
       // Use the Supabase SQL admin endpoint
       const { error: createError } = await supabase.rpc('exec', {
         sql: createTableSQL
-      }).catch(async (rpcError) => {
+      }).catch((rpcError) => {
         console.error('RPC exec failed:', rpcError)
 
         // If RPC doesn't work, try a different approach

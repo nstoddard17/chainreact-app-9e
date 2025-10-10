@@ -21,6 +21,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [needsReAuthCount, setNeedsReAuthCount] = useState(0)
+  const [expiredIntegrations, setExpiredIntegrations] = useState<string[]>([])
   const [dismissedUntil, setDismissedUntil] = useState<number | null>(null)
 
   // Load dismissal state from localStorage on mount
@@ -76,6 +77,31 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
 
     const reAuthCount = reAuthIntegrations.length
     console.log(`📊 Re-auth notification: ${reAuthCount} integrations need re-authorization`)
+
+    // Format integration names for display
+    const formatProviderName = (provider: string) => {
+      // Handle special cases
+      const specialCases: Record<string, string> = {
+        'google-calendar': 'Google Calendar',
+        'google-drive': 'Google Drive',
+        'google-sheets': 'Google Sheets',
+        'google-docs': 'Google Docs',
+        'microsoft-outlook': 'Microsoft Outlook',
+        'microsoft-onenote': 'Microsoft OneNote',
+        'microsoft-excel': 'Microsoft Excel',
+        'youtube-studio': 'YouTube Studio',
+      }
+
+      if (specialCases[provider]) {
+        return specialCases[provider]
+      }
+
+      // Capitalize first letter for other providers
+      return provider.charAt(0).toUpperCase() + provider.slice(1)
+    }
+
+    const expiredNames = reAuthIntegrations.map(int => formatProviderName(int.provider))
+    setExpiredIntegrations(expiredNames)
     setNeedsReAuthCount(reAuthCount)
     setIsVisible(reAuthCount > 0)
   }, [user, integrations, dismissedUntil])
@@ -168,7 +194,18 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
                         {needsReAuthCount} integration{needsReAuthCount !== 1 ? 's' : ''} need{needsReAuthCount !== 1 ? '' : 's'} re-authorization
                       </span>
                       <p className="text-sm mt-2 opacity-90">
-                        Your integration tokens have expired. Please reconnect your integrations to continue using them in your workflows.
+                        The following integration{needsReAuthCount !== 1 ? 's have' : ' has'} expired:
+                      </p>
+                      <ul className="text-sm mt-2 space-y-1 pl-4">
+                        {expiredIntegrations.map((integration, index) => (
+                          <li key={index} className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-600 flex-shrink-0"></span>
+                            <span className="font-medium">{integration}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-sm mt-2 opacity-90">
+                        Please reconnect {needsReAuthCount !== 1 ? 'them' : 'it'} to continue using {needsReAuthCount !== 1 ? 'them' : 'it'} in your workflows.
                       </p>
                       <div className="flex items-center gap-2 mt-4">
                         <Button

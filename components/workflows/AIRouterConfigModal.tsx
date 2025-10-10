@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +33,7 @@ interface OutputPath {
   name: string
   description?: string
   color: string
+  chainId?: string
   condition: {
     type: 'ai_decision' | 'keyword' | 'regex' | 'confidence' | 'fallback'
     value?: string
@@ -66,6 +67,7 @@ interface AIRouterConfigModalProps {
   initialData?: Partial<AIRouterConfig>
   workflowData?: { nodes: any[], edges: any[] }
   currentNodeId?: string
+  availableChains?: Array<{ id: string; name?: string }>
 }
 
 export default function AIRouterConfigModal({
@@ -76,6 +78,7 @@ export default function AIRouterConfigModal({
   initialData = {},
   workflowData,
   currentNodeId,
+  availableChains = [],
 }: AIRouterConfigModalProps) {
   // Get workflow ID from URL
   const getWorkflowId = useCallback(() => {
@@ -115,6 +118,35 @@ export default function AIRouterConfigModal({
   const [showApiKey, setShowApiKey] = useState(false)
   const [estimatedCost, setEstimatedCost] = useState(0)
   const [copiedPathId, setCopiedPathId] = useState<string | null>(null)
+
+  const initialChains = useMemo(() => {
+    const maybeChains = (initialData as any)?.chains
+    if (Array.isArray(maybeChains)) {
+      return maybeChains.filter((chain) => chain && typeof chain === 'object' && chain.id)
+    }
+    return []
+  }, [initialData])
+
+  const chainOptions = useMemo(() => {
+    const combined = [...availableChains, ...initialChains]
+    const seen = new Set<string>()
+    return combined.filter((chain) => {
+      if (!chain?.id) return false
+      if (seen.has(chain.id)) return false
+      seen.add(chain.id)
+      return true
+    })
+  }, [availableChains, initialChains])
+
+  const chainLabelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    chainOptions.forEach((chain) => {
+      if (chain?.id) {
+        map.set(chain.id, chain.name || chain.id)
+      }
+    })
+    return map
+  }, [chainOptions])
 
   // Get test data from workflow test store
   const { getNodeInputOutput } = useWorkflowTestStore()
@@ -179,7 +211,8 @@ export default function AIRouterConfigModal({
       id: uuidv4(),
       name: `Output ${config.outputPaths.length + 1}`,
       description: '',
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
+      color: `#${ Math.floor(Math.random()*16777215).toString(16)}`,
+      chainId: undefined,
       condition: {
         type: 'ai_decision',
         minConfidence: 0.7
@@ -466,6 +499,36 @@ export default function AIRouterConfigModal({
                                   />
                                 </div>
 
+                                <div>
+                                  <Label>Chain to Execute (optional)</Label>
+                                  {chainOptions.length > 0 ? (
+                                    <Select
+                                      value={path.chainId || 'none'}
+                                      onValueChange={(value) => {
+                                        updateOutputPath(path.id, { chainId: value === 'none' ? undefined : value })
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select a chain" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No chain</SelectItem>
+                                        {chainOptions.map((chain) => (
+                                          <SelectItem key={chain.id} value={chain.id}>
+                                            {chain.name || chain.id}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <Input
+                                      value={path.chainId || ''}
+                                      onChange={(e) => updateOutputPath(path.id, { chainId: e.target.value || undefined })}
+                                      placeholder="Enter chain ID (optional)"
+                                    />
+                                  )}
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <Label>Condition Type</Label>
@@ -530,21 +593,26 @@ export default function AIRouterConfigModal({
                               </>
                             ) : (
                               <>
-                                <div className="flex items-center gap-3">
-                                  <div
-                                    className="w-4 h-4 rounded-full"
-                                    style={{ backgroundColor: path.color }}
-                                  />
-                                  <div className="flex-1">
-                                    <div className="font-medium">{path.name}</div>
-                                    {path.description && (
-                                      <div className="text-sm text-muted-foreground">{path.description}</div>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Badge variant="outline" className="text-xs">
-                                        {path.condition.type}
-                                      </Badge>
-                                      {path.condition.minConfidence && (
+                                    <div className="flex items-center gap-3">
+                                      <div
+                                        className="w-4 h-4 rounded-full"
+                                        style={{ backgroundColor: path.color }}
+                                      />
+                                      <div className="flex-1">
+                                        <div className="font-medium">{path.name}</div>
+                                        {path.description && (
+                                          <div className="text-sm text-muted-foreground">{path.description}</div>
+                                        )}
+                                        {path.chainId && (
+                                          <div className="text-xs text-purple-700 bg-purple-100 inline-flex px-2 py-1 rounded mt-1">
+                                            Chain: {chainLabelMap.get(path.chainId) || path.chainId}
+                                          </div>
+                                        )}
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <Badge variant="outline" className="text-xs">
+                                            {path.condition.type}
+                                          </Badge>
+                                          {path.condition.minConfidence && (
                                         <Badge variant="outline" className="text-xs">
                                           {Math.round(path.condition.minConfidence * 100)}% confidence
                                         </Badge>

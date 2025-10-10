@@ -112,7 +112,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     console.log(`Token format check:`, {
       hasColon: accessToken.includes(':'),
       tokenLength: accessToken.length,
-      tokenPreview: accessToken.substring(0, 20) + '...'
+      tokenPreview: `${accessToken.substring(0, 20) }...`
     })
     
     // If the token doesn't have the expected format, it's stored as plain text

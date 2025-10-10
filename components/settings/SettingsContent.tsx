@@ -70,7 +70,7 @@ export default function SettingsContent() {
       newUrl.searchParams.delete("success")
       newUrl.searchParams.delete("action")
       newUrl.searchParams.delete("tab")
-      router.replace(newUrl.pathname + "?tab=billing")
+      router.replace(`${newUrl.pathname }?tab=billing`)
     }
     
     // Handle canceled state from Stripe checkout
@@ -86,7 +86,7 @@ export default function SettingsContent() {
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.delete("canceled")
       newUrl.searchParams.delete("tab")
-      router.replace(newUrl.pathname + "?tab=billing")
+      router.replace(`${newUrl.pathname }?tab=billing`)
     }
   }, [searchParams, router])
 

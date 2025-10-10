@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
               providers: providerReport.providers
             }
           })
-        } else {
+        } 
           // Return cached provider health summary
           const providerSummary = healthMonitor.getSystemHealthSummary()
           
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
               lastChecked: providerSummary.lastChecked
             }
           })
-        }
+        
       } catch (providerError) {
         // If provider health check fails, still return basic health
         console.error('Provider health check failed:', providerError)
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     const { action, providerId } = body
     
     switch (action) {
-      case 'check':
+      case 'check': {
         if (providerId) {
           // Check specific provider
           const provider = healthMonitor.getProviderHealth(providerId)
@@ -133,17 +133,18 @@ export async function POST(request: NextRequest) {
               { status: 404 }
             )
           }
-          
+
           // Force a fresh health check for this provider
           const report = await healthMonitor.performHealthCheck()
           const updatedProvider = report.providers.find(p => p.providerId === providerId)
-          
+
           return NextResponse.json(updatedProvider)
-        } else {
-          // Check all providers
-          const report = await healthMonitor.performHealthCheck()
-          return NextResponse.json(report)
         }
+        // Check all providers
+        const report = await healthMonitor.performHealthCheck()
+        return NextResponse.json(report)
+      }
+        
         
       case 'start_monitoring':
         healthMonitor.startMonitoring()

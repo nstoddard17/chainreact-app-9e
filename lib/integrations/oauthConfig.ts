@@ -406,20 +406,6 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/youtube/callback",
   },
-  gitlab: {
-    id: "gitlab",
-    name: "GitLab",
-    clientIdEnv: "GITLAB_CLIENT_ID",
-    clientSecretEnv: "GITLAB_CLIENT_SECRET",
-    authEndpoint: "https://gitlab.com/oauth/authorize",
-    tokenEndpoint: "https://gitlab.com/oauth/token",
-    refreshRequiresClientAuth: true,
-    authMethod: "body",
-    refreshTokenExpirationSupported: false,
-    accessTokenExpiryBuffer: 30,
-    sendRedirectUriWithRefresh: true,
-    redirectUriPath: "/api/integrations/gitlab/callback",
-  },
   notion: {
     id: "notion",
     name: "Notion",
@@ -447,25 +433,6 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/instagram/callback",
-  },
-  tiktok: {
-    id: "tiktok",
-    name: "TikTok",
-    clientIdEnv: "TIKTOK_CLIENT_ID",
-    clientSecretEnv: "TIKTOK_CLIENT_SECRET",
-    authEndpoint: "https://www.tiktok.com/v2/auth/authorize",
-    tokenEndpoint: "https://open.tiktokapis.com/v2/oauth/token/",
-    refreshRequiresClientAuth: true,
-    authMethod: "body",
-    refreshTokenExpirationSupported: true,
-    accessTokenExpiryBuffer: 30,
-    refreshTokenExpiryBuffer: 1440, // 1 day before refresh token expires
-    sendRedirectUriWithRefresh: false, // Don't send redirect_uri during refresh for TikTok
-    redirectUriPath: "/api/integrations/tiktok/callback",
-    additionalRefreshParams: {
-      grant_type: "refresh_token",
-      client_key: "PLACEHOLDER" // Will be replaced with clientId
-    }
   },
   gumroad: {
     id: "gumroad",

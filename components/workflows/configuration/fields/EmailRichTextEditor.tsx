@@ -38,6 +38,8 @@ import {
   Building
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
+import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
 
 interface EmailRichTextEditorProps {
@@ -618,7 +620,23 @@ export function EmailRichTextEditor({
   // Auto-include signature removed - signatures must be manually added by user
   const [isEditorInitialized, setIsEditorInitialized] = useState(false)
   
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLDivElement | null>(null)
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!editorRef.current) return
+
+    const variableText = normalizeDraggedVariable(rawVariable)
+    if (!variableText) return
+
+    const updatedHtml = insertVariableIntoContentEditable(editorRef.current, variableText)
+    onChange(updatedHtml)
+  }, [onChange])
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: "email-rich-text-body",
+    fieldLabel: "Email Body",
+    elementRef: editorRef,
+    onInsert: handleVariableInsert
+  })
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
@@ -749,7 +767,7 @@ export function EmailRichTextEditor({
         return
       }
       
-      const newContent = currentContent + '\n\n' + signature.content
+      const newContent = `${currentContent }\n\n${ signature.content}`
       onChange(newContent)
       if (editorRef.current) {
         editorRef.current.innerHTML = newContent
@@ -993,7 +1011,7 @@ export function EmailRichTextEditor({
                             color: 'var(--foreground)'
                           }}
                           dangerouslySetInnerHTML={{ 
-                            __html: signature.content.substring(0, 200) + '...' 
+                            __html: `${signature.content.substring(0, 200) }...` 
                           }}
                         />
                       </div>
@@ -1035,8 +1053,18 @@ export function EmailRichTextEditor({
             ref={editorRef}
             contentEditable
             onInput={handleContentChange}
-            onBlur={handleContentChange}
-            className="h-full overflow-y-auto p-4 focus:outline-none resize-none"
+            onFocus={dropHandlers.onFocus}
+            onBlur={(event) => {
+              dropHandlers.onBlur()
+              handleContentChange()
+            }}
+            onDragOver={dropHandlers.onDragOver}
+            onDragLeave={dropHandlers.onDragLeave}
+            onDrop={dropHandlers.onDrop}
+            className={cn(
+              "h-full overflow-y-auto p-4 focus:outline-none resize-none",
+              isDragOver && "ring-2 ring-blue-500 ring-offset-1"
+            )}
             style={{ 
               fontSize,
               color: '#000000',

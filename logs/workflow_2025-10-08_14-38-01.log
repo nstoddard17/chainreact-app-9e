@@ -1,0 +1,795 @@
+=== Log Session Started: 2025-10-08T19:38:01.845Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-08T19:38:01.846Z] [INFO   ] File logging initialized
+[2025-10-08T19:38:01.846Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_14-38-01.log
+[2025-10-08T19:38:01.846Z] [INFO   ] 📁 File logging enabled
+[2025-10-08T19:38:01.846Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_14-38-01.log
+[2025-10-08T19:38:01.847Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_14-38-01.log
+[2025-10-08T19:38:01.847Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_14-38-01.log
+[2025-10-08T19:38:01.847Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-08_14-38-01.log
+[2025-10-08T19:38:01.847Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-08T19:38:01.847Z] [INFO   ] 📁 File logging system initialized
+[2025-10-08T19:38:01.863Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.8s
+[2025-10-08T19:38:02.898Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-08T19:38:04.691Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-08T19:38:04.691Z] [INFO   ] 🔑 Using Discord bot token: MTM3ODU5NT...ElFqA
+[2025-10-08T19:38:05.021Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-08T19:38:05.023Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-08T19:38:05.245Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-08T19:38:05.249Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-08T19:38:05.511Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "7d0edbd12b9393415f58e170493b556b",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-08T19:38:05.512Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-08T19:38:05.515Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-08T19:38:05.515Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-08T19:38:05.717Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-08T19:45:20.953Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/webhooks/gmail ...
+[2025-10-08T19:45:23.405Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/webhooks/gmail in 3.1s (4704 modules)
+[2025-10-08T19:45:26.232Z] [INFO   ] 🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔
+[2025-10-08T19:45:26.233Z] [INFO   ] 📋 Request headers: {
+  "accept": "application/json",
+  "accept-encoding": "gzip, deflate, br",
+  "content-length": "373",
+  "content-type": "application/json",
+  "from": "noreply@google.com",
+  "host": "9b7007881520.ngrok-free.app",
+  "user-agent": "APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)",
+  "x-forwarded-for": "142.250.32.40",
+  "x-forwarded-host": "9b7007881520.ngrok-free.app",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "https"
+}
+[2025-10-08T19:45:26.233Z] [INFO   ] 📨 [59a25403-67aa-4d43-a04c-21dd73b0d880] Gmail webhook request received at 2025-10-08T19:45:26.233Z
+[2025-10-08T19:45:26.724Z] [INFO   ] 📝 [59a25403-67aa-4d43-a04c-21dd73b0d880] Raw body received: {"deliveryAttempt":1,"message":{"data":"eyJlbWFpbEFkZHJlc3MiOiJzdG9kZGFyZC5uYXRoYW5pZWw5MDBAZ21haWwuY29tIiwiaGlzdG9yeUlkIjo2Nzc5NzI2fQ==","messageId":"16448711969741151","message_id":"16448711969741151","publishTime":"2025-10-08T19:45:19.341Z","publish_time":"2025-10-08T19:45:19.341Z"},"subscription":"projects/chainreact-462214/subscriptions/gmail-webhook-subscription"}
+
+[2025-10-08T19:45:26.725Z] [INFO   ] 📦 [59a25403-67aa-4d43-a04c-21dd73b0d880] Parsed body structure: {
+  "hasMessage": true,
+  "hasMessageData": true,
+  "messageKeys": [
+    "data",
+    "messageId",
+    "message_id",
+    "publishTime",
+    "publish_time"
+  ],
+  "subscription": "projects/chainreact-462214/subscriptions/gmail-webhook-subscription"
+}
+[2025-10-08T19:45:26.726Z] [INFO   ] [59a25403-67aa-4d43-a04c-21dd73b0d880] Received Pub/Sub message from Gmail
+[2025-10-08T19:45:26.727Z] [INFO   ] 🔓 [59a25403-67aa-4d43-a04c-21dd73b0d880] Decoded Pub/Sub data: {"emailAddress":"stoddard.nathaniel900@gmail.com","historyId":6779726}
+[2025-10-08T19:45:26.729Z] [INFO   ] [59a25403-67aa-4d43-a04c-21dd73b0d880] 📧 Gmail notification received: {
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779726,
+  "messageId": "16448711969741151",
+  "publishTime": "2025-10-08T19:45:19.341Z"
+}
+[2025-10-08T19:45:26.729Z] [INFO   ] [59a25403-67aa-4d43-a04c-21dd73b0d880] 🔍 Processing Gmail webhook for email from: stoddard.nathaniel900@gmail.com
+[2025-10-08T19:45:26.828Z] [INFO   ] 🔍 [Gmail Processor] Processing Gmail event: {
+  "eventType": "gmail_new_email",
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779726,
+  "requestId": "59a25403-67aa-4d43-a04c-21dd73b0d880"
+}
+[2025-10-08T19:45:26.828Z] [INFO   ] [Backend INFO] Gmail webhook event received {
+  "eventType": "gmail_new_email",
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779726,
+  "requestId": "59a25403-67aa-4d43-a04c-21dd73b0d880"
+}
+[2025-10-08T19:45:26.946Z] [INFO   ] 🚀 [Gmail Processor] Starting to find matching workflows for Gmail event
+[2025-10-08T19:45:27.208Z] [INFO   ] Processing Gmail new message event
+[2025-10-08T19:45:27.337Z] [INFO   ] [Task Queue] Queued gmail webhook task: undefined
+[2025-10-08T19:45:27.338Z] [INFO   ] [Backend SUCCESS] Gmail webhook event processed successfully {
+  "processed": true,
+  "type": "gmail_new_message"
+}
+[2025-10-08T19:48:03.378Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 315ms (231 modules)
+[2025-10-08T19:48:04.312Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11386196911,
+  profileError: undefined
+}
+[2025-10-08T19:48:05.099Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-08T19:48:10.765Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 6.4s (5603 modules)
+[2025-10-08T19:48:12.585Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1795ms (1522 modules)
+[2025-10-08T19:48:12.599Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T19:48:14.818Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-08T19:48:16.163Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1855ms (5607 modules)
+[2025-10-08T19:48:20.226Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-08T19:48:20.375Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 653ms (5609 modules)
+[2025-10-08T19:48:20.584Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T19:48:20.582Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T19:48:20.689Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T19:48:20.852Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T19:48:49.976Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1327ms (5623 modules)
+[2025-10-08T19:49:16.042Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1004ms (4023 modules)
+[2025-10-08T19:49:24.335Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1010ms (1522 modules)
+[2025-10-08T19:52:42.302Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/webhooks/gmail ...
+[2025-10-08T19:52:44.406Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/webhooks/gmail in 2.6s (4512 modules)
+[2025-10-08T19:52:46.960Z] [INFO   ] 🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔
+[2025-10-08T19:52:46.961Z] [INFO   ] 📋 Request headers: {
+  "accept": "application/json",
+  "accept-encoding": "gzip, deflate, br",
+  "content-length": "373",
+  "content-type": "application/json",
+  "from": "noreply@google.com",
+  "host": "9b7007881520.ngrok-free.app",
+  "user-agent": "APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)",
+  "x-forwarded-for": "142.250.32.37",
+  "x-forwarded-host": "9b7007881520.ngrok-free.app",
+  "x-forwarded-port": "3000",
+  "x-forwarded-proto": "https"
+}
+[2025-10-08T19:52:46.961Z] [INFO   ] 📨 [7bdce71f-7583-457e-8f4e-191bb730c524] Gmail webhook request received at 2025-10-08T19:52:46.961Z
+[2025-10-08T19:52:47.292Z] [INFO   ] 📝 [7bdce71f-7583-457e-8f4e-191bb730c524] Raw body received: {"deliveryAttempt":1,"message":{"data":"eyJlbWFpbEFkZHJlc3MiOiJzdG9kZGFyZC5uYXRoYW5pZWw5MDBAZ21haWwuY29tIiwiaGlzdG9yeUlkIjo2Nzc5NzkzfQ==","messageId":"16449927527028836","message_id":"16449927527028836","publishTime":"2025-10-08T19:52:41.014Z","publish_time":"2025-10-08T19:52:41.014Z"},"subscription":"projects/chainreact-462214/subscriptions/gmail-webhook-subscription"}
+
+[2025-10-08T19:52:47.293Z] [INFO   ] 📦 [7bdce71f-7583-457e-8f4e-191bb730c524] Parsed body structure: {
+  "hasMessage": true,
+  "hasMessageData": true,
+  "messageKeys": [
+    "data",
+    "messageId",
+    "message_id",
+    "publishTime",
+    "publish_time"
+  ],
+  "subscription": "projects/chainreact-462214/subscriptions/gmail-webhook-subscription"
+}
+[2025-10-08T19:52:47.293Z] [INFO   ] [7bdce71f-7583-457e-8f4e-191bb730c524] Received Pub/Sub message from Gmail
+[2025-10-08T19:52:47.293Z] [INFO   ] 🔓 [7bdce71f-7583-457e-8f4e-191bb730c524] Decoded Pub/Sub data: {"emailAddress":"stoddard.nathaniel900@gmail.com","historyId":6779793}
+[2025-10-08T19:52:47.293Z] [INFO   ] [7bdce71f-7583-457e-8f4e-191bb730c524] 📧 Gmail notification received: {
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779793,
+  "messageId": "16449927527028836",
+  "publishTime": "2025-10-08T19:52:41.014Z"
+}
+[2025-10-08T19:52:47.294Z] [INFO   ] [7bdce71f-7583-457e-8f4e-191bb730c524] 🔍 Processing Gmail webhook for email from: stoddard.nathaniel900@gmail.com
+[2025-10-08T19:52:47.400Z] [INFO   ] 🔍 [Gmail Processor] Processing Gmail event: {
+  "eventType": "gmail_new_email",
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779793,
+  "requestId": "7bdce71f-7583-457e-8f4e-191bb730c524"
+}
+[2025-10-08T19:52:47.401Z] [INFO   ] [Backend INFO] Gmail webhook event received {
+  "eventType": "gmail_new_email",
+  "emailAddress": "stoddard.nathaniel900@gmail.com",
+  "historyId": 6779793,
+  "requestId": "7bdce71f-7583-457e-8f4e-191bb730c524"
+}
+[2025-10-08T19:52:47.510Z] [INFO   ] 🚀 [Gmail Processor] Starting to find matching workflows for Gmail event
+[2025-10-08T19:52:47.674Z] [INFO   ] Processing Gmail new message event
+[2025-10-08T19:52:47.765Z] [INFO   ] [Task Queue] Queued gmail webhook task: undefined
+[2025-10-08T19:52:47.766Z] [INFO   ] [Backend SUCCESS] Gmail webhook event processed successfully {
+  "processed": true,
+  "type": "gmail_new_message"
+}
+[2025-10-08T20:04:32.311Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387184909,
+  profileError: undefined
+}
+[2025-10-08T20:04:33.332Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-08T20:04:33.508Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 1040ms (4081 modules)
+[2025-10-08T20:04:34.373Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:04:35.773Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 366ms (4099 modules)
+[2025-10-08T20:04:36.326Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 417ms (1508 modules)
+[2025-10-08T20:04:36.448Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:04:36.448Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:04:36.547Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:04:36.861Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:04:37.285Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-08T20:04:37.288Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 504ms (5614 modules)
+[2025-10-08T20:05:07.563Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 317ms (5616 modules)
+[2025-10-08T20:06:25.489Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-08T20:06:28.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 3.2s (7788 modules)
+[2025-10-08T20:06:29.002Z] [INFO   ] 📝 [Workflow API] Updating workflow with body: {
+  "id": "76aeeb18-bf01-4b60-922f-762e13f68066",
+  "name": "Content Publishing Workflow (Copy)",
+  "hasName": true,
+  "nameType": "string",
+  "bodyKeys": [
+    "name",
+    "description",
+    "nodes",
+    "connections"
+  ],
+  "nodesCount": 21,
+  "connectionsCount": 20
+}
+[2025-10-08T20:06:29.209Z] [INFO   ] ✅ [Workflow API] Successfully updated workflow: 76aeeb18-bf01-4b60-922f-762e13f68066
+[2025-10-08T20:06:30.013Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-08T20:06:30.838Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 1402ms (7792 modules)
+[2025-10-08T20:06:31.320Z] [WARN   ] Route "/api/templates/[id]" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/api/templates/[id]" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:6157
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:3863
+    at syncIODev (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:5948)
+    at Object.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:33346)
+    at PUT (webpack-internal:///(rsc)/./app/api/templates/[id]/route.ts:108:35)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:80:14)
+    at AppRouteRouteModule.do (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:38775)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:48915
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:93:74
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:84:48
+    at AsyncLocalStorage.exit (node:internal/async_local_storage/async_hooks:103:14)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:82:71)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:48760
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:46097
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:46054
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at AppRouteRouteModule.handle (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:5:46008)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+[2025-10-08T20:06:31.751Z] [ERROR  ] Error updating template: {
+  "code": "PGRST116",
+  "details": "The result contains 0 rows",
+  "hint": null,
+  "message": "JSON object requested, multiple (or no) rows returned"
+}
+[2025-10-08T20:07:14.210Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 578ms (1522 modules)
+[2025-10-08T20:07:14.462Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387347062,
+  profileError: undefined
+}
+[2025-10-08T20:07:14.619Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:07:15.204Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 473ms (6285 modules)
+[2025-10-08T20:07:23.014Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387355614,
+  profileError: undefined
+}
+[2025-10-08T20:07:23.648Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-08T20:07:26.093Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 3s (7950 modules)
+[2025-10-08T20:07:26.679Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:07:28.171Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-08T20:07:28.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 872ms (6368 modules)
+[2025-10-08T20:07:28.881Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (6370 modules)
+[2025-10-08T20:07:29.332Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:07:29.332Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:07:29.490Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:07:29.681Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:07:30.388Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-08T20:07:31.711Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.1s (7958 modules)
+[2025-10-08T20:07:35.341Z] [INFO   ] 📝 Registered trigger provider: microsoft
+[2025-10-08T20:07:35.342Z] [INFO   ] 📝 Registered trigger provider: microsoft-outlook
+[2025-10-08T20:07:35.342Z] [INFO   ] 📝 Registered trigger provider: teams
+[2025-10-08T20:07:35.342Z] [INFO   ] 📝 Registered trigger provider: microsoft-onenote
+[2025-10-08T20:07:35.342Z] [INFO   ] 📝 Registered trigger provider: onedrive
+[2025-10-08T20:07:35.343Z] [INFO   ] 📝 Registered trigger provider: airtable
+[2025-10-08T20:07:35.343Z] [INFO   ] 📝 Registered trigger provider: discord
+[2025-10-08T20:07:35.343Z] [INFO   ] 📝 Registered trigger provider: slack
+[2025-10-08T20:07:35.343Z] [INFO   ] 📝 Registered trigger provider: gmail
+[2025-10-08T20:07:35.343Z] [INFO   ] 📝 Registered trigger provider: google-calendar
+[2025-10-08T20:07:35.344Z] [INFO   ] 📝 Registered trigger provider: google-drive
+[2025-10-08T20:07:35.344Z] [INFO   ] 📝 Registered trigger provider: google-sheets
+[2025-10-08T20:07:35.344Z] [INFO   ] 📝 Registered trigger provider: google-docs
+[2025-10-08T20:07:35.344Z] [INFO   ] 📝 Registered trigger provider: stripe
+[2025-10-08T20:07:35.344Z] [INFO   ] 📝 Registered trigger provider: shopify
+[2025-10-08T20:07:35.345Z] [INFO   ] ✅ Trigger lifecycle providers registered: [
+  "microsoft",
+  "microsoft-outlook",
+  "teams",
+  "microsoft-onenote",
+  "onedrive",
+  "airtable",
+  "discord",
+  "slack",
+  "gmail",
+  "google-calendar",
+  "google-drive",
+  "google-sheets",
+  "google-docs",
+  "stripe",
+  "shopify"
+]
+[2025-10-08T20:07:35.487Z] [INFO   ] ℹ️ No trigger resources found for workflow 76aeeb18-bf01-4b60-922f-762e13f68066
+[2025-10-08T20:07:35.488Z] [INFO   ] ♻️ Deleted lifecycle-managed triggers before deleting workflow {
+  "workflowId": "76aeeb18-bf01-4b60-922f-762e13f68066"
+}
+[2025-10-08T20:07:35.570Z] [INFO   ] 🔗 Unregistering all webhooks for workflow 76aeeb18-bf01-4b60-922f-762e13f68066
+[2025-10-08T20:07:35.654Z] [INFO   ] No webhooks found for this workflow
+[2025-10-08T20:07:35.655Z] [INFO   ] ♻️ Unregistered legacy webhooks before deleting workflow {
+  "workflowId": "76aeeb18-bf01-4b60-922f-762e13f68066"
+}
+[2025-10-08T20:07:35.680Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387368280,
+  profileError: undefined
+}
+[2025-10-08T20:07:36.224Z] [INFO   ]  [37m[1m○[22m[39m Compiling /integrations ...
+[2025-10-08T20:07:39.045Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /integrations in 3.3s (7986 modules)
+[2025-10-08T20:07:39.430Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387372030,
+  profileError: undefined
+}
+[2025-10-08T20:07:39.457Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:07:39.720Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:07:40.671Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/available ...
+[2025-10-08T20:07:41.002Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/available in 1101ms (7988 modules)
+[2025-10-08T20:07:41.842Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/integration-metrics ...
+[2025-10-08T20:07:43.951Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 2.6s (7990 modules)
+[2025-10-08T20:07:45.003Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 722ms (1595 modules)
+[2025-10-08T20:07:45.329Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:07:45.329Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:07:45.925Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:07:53.412Z] [INFO   ] 🔍 Integration Metrics Debug:
+      - Total available integrations: 35
+      - External integrations (excluding internal): 33
+      - Internal integrations filtered out: logic, ai
+      - User's configured integrations: 19
+    
+[2025-10-08T20:07:53.412Z] [INFO   ] 🔍 Disconnected Count Debug:
+      - Available external provider IDs: gmail, google-calendar, google-drive, google-sheets, google-docs, youtube, teams, onedrive, slack, discord, twitter, facebook, instagram, tiktok, linkedin, github, gitlab, notion, trello, hubspot, airtable, mailchimp, shopify, paypal, stripe, box, dropbox, youtube-studio, gumroad, manychat, microsoft-outlook, microsoft-onenote, kit
+      - Configured provider IDs: notion, facebook, dropbox, google-sheets, trello, slack, microsoft-onenote, microsoft-outlook, airtable, google-docs, mailchimp, hubspot, twitter, onedrive, discord, teams, google-calendar, gmail, google-drive
+      - Disconnected count: 14
+    
+[2025-10-08T20:07:53.684Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:07:55.309Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/callback ...
+[2025-10-08T20:08:11.711Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/callback in 22.6s (8005 modules)
+[2025-10-08T20:08:11.909Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:08:12.217Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387404818,
+  profileError: undefined
+}
+[2025-10-08T20:08:12.360Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:08:12.362Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387404962,
+  profileError: undefined
+}
+[2025-10-08T20:08:12.777Z] [INFO   ] 🔄 Creating popup response: type=success, provider=discord, message=Discord account connected successfully.
+[2025-10-08T20:08:12.803Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:08:15.274Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:08:15.274Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:08:15.316Z] [INFO   ] 🔍 Integration Metrics Debug:
+      - Total available integrations: 35
+      - External integrations (excluding internal): 33
+      - Internal integrations filtered out: logic, ai
+      - User's configured integrations: 19
+    
+[2025-10-08T20:08:15.316Z] [INFO   ] 🔍 Disconnected Count Debug:
+      - Available external provider IDs: gmail, google-calendar, google-drive, google-sheets, google-docs, youtube, teams, onedrive, slack, discord, twitter, facebook, instagram, tiktok, linkedin, github, gitlab, notion, trello, hubspot, airtable, mailchimp, shopify, paypal, stripe, box, dropbox, youtube-studio, gumroad, manychat, microsoft-outlook, microsoft-onenote, kit
+      - Configured provider IDs: notion, facebook, dropbox, google-sheets, trello, slack, microsoft-onenote, microsoft-outlook, airtable, google-docs, mailchimp, hubspot, twitter, onedrive, discord, teams, google-calendar, gmail, google-drive
+      - Disconnected count: 14
+    
+[2025-10-08T20:08:15.365Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:08:15.519Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:08:16.418Z] [INFO   ] 🔍 Integration Metrics Debug:
+      - Total available integrations: 35
+      - External integrations (excluding internal): 33
+      - Internal integrations filtered out: logic, ai
+      - User's configured integrations: 19
+    
+[2025-10-08T20:08:16.418Z] [INFO   ] 🔍 Disconnected Count Debug:
+      - Available external provider IDs: gmail, google-calendar, google-drive, google-sheets, google-docs, youtube, teams, onedrive, slack, discord, twitter, facebook, instagram, tiktok, linkedin, github, gitlab, notion, trello, hubspot, airtable, mailchimp, shopify, paypal, stripe, box, dropbox, youtube-studio, gumroad, manychat, microsoft-outlook, microsoft-onenote, kit
+      - Configured provider IDs: notion, facebook, dropbox, google-sheets, trello, slack, microsoft-onenote, microsoft-outlook, airtable, google-docs, mailchimp, hubspot, twitter, onedrive, discord, teams, google-calendar, gmail, google-drive
+      - Disconnected count: 14
+    
+[2025-10-08T20:08:25.122Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 471ms (1609 modules)
+[2025-10-08T20:08:25.392Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387417993,
+  profileError: undefined
+}
+[2025-10-08T20:08:25.489Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:08:39.529Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 594ms (1609 modules)
+[2025-10-08T20:08:39.749Z] [INFO   ] [Middleware] Username check: {
+  path: '/integrations',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387432350,
+  profileError: undefined
+}
+[2025-10-08T20:08:39.846Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:08:49.689Z] [INFO   ] [Middleware] Username check: {
+  path: '/dashboard',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387442290,
+  profileError: undefined
+}
+[2025-10-08T20:08:50.236Z] [INFO   ]  [37m[1m○[22m[39m Compiling /dashboard ...
+[2025-10-08T20:08:50.833Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387443433,
+  profileError: undefined
+}
+[2025-10-08T20:08:54.268Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /dashboard in 4.5s (6620 modules)
+[2025-10-08T20:08:54.659Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:09:03.386Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-08T20:09:04.632Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 1891ms (6621 modules)
+[2025-10-08T20:09:11.103Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387463701,
+  profileError: undefined
+}
+[2025-10-08T20:09:11.597Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:09:12.826Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-08T20:09:13.328Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 1069ms (4626 modules)
+[2025-10-08T20:11:41.965Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (2011 modules)
+[2025-10-08T20:11:41.996Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:11:42.454Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387615054,
+  profileError: undefined
+}
+[2025-10-08T20:11:43.332Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:11:45.554Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:11:45.554Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:11:45.654Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:11:45.777Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:12:08.045Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-08T20:12:08.492Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11387641092,
+  profileError: undefined
+}
+[2025-10-08T20:12:11.260Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.1s (6212 modules)
+[2025-10-08T20:12:12.664Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-08T20:12:14.076Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-08T20:12:14.074Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-08T20:12:14.265Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-08T20:12:14.492Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "facebook",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-08T20:12:14.842Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-08T20:12:14.898Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 622ms (4203 modules)
+[2025-10-08T20:19:41.532Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

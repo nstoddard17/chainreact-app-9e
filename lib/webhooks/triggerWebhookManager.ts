@@ -915,7 +915,7 @@ export class TriggerWebhookManager {
     // List of providers now managed by TriggerLifecycleManager (skip registration here)
     const lifecycleManagedProviders = [
       'microsoft-outlook',
-      'teams',              // NOTE: Teams uses 'teams' not 'microsoft-teams'
+      'teams', // NOTE: Teams uses 'teams' not 'microsoft-teams'
       'microsoft-onenote',
       'onedrive',
       'gmail',
@@ -1855,12 +1855,12 @@ export class TriggerWebhookManager {
       console.log('🔐 Trello credentials check:', {
         hasAccessToken: !!accessToken,
         tokenLength: accessToken?.length,
-        tokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
+        tokenPrefix: accessToken ? `${accessToken.substring(0, 8) }...` : 'none',
         hasApiKey: !!trelloKey,
         keySource: integration.external_key ? 'external_key' :
                   integration.metadata?.client_key ? 'metadata' :
                   process.env.TRELLO_CLIENT_ID ? 'env' : 'none',
-        keyPrefix: trelloKey ? trelloKey.substring(0, 8) + '...' : 'none'
+        keyPrefix: trelloKey ? `${trelloKey.substring(0, 8) }...` : 'none'
       })
 
       if (!trelloKey) {

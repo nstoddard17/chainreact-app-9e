@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         message: "Data deletion completed successfully",
         requestId: requestRecord.id
       })
-    } else {
+    } 
       // Schedule deletion for processing (within 30 days as per privacy policy)
       const scheduledDate = new Date()
       scheduledDate.setDate(scheduledDate.getDate() + 30)
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         requestId: requestRecord.id,
         scheduledFor: scheduledDate.toISOString()
       })
-    }
+    
 
   } catch (error: any) {
     console.error("Data deletion error:", error)
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({ deletionRequest })
-    } else {
+    } 
       // Get all deletion requests for user
       const { data: deletionRequests, error } = await supabase
         .from("data_deletion_requests")
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.json({ deletionRequests })
-    }
+    
 
   } catch (error: any) {
     console.error("Error fetching deletion requests:", error)

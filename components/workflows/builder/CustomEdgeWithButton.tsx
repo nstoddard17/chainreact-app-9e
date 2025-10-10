@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { EdgeProps, getBezierPath } from '@xyflow/react'
+import { EdgeProps, getSmoothStepPath } from '@xyflow/react'
 import { Plus } from 'lucide-react'
 
 export const CustomEdgeWithButton = ({
@@ -13,13 +13,14 @@ export const CustomEdgeWithButton = ({
   style = {},
   data
 }: EdgeProps) => {
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 16, // Match the rounded corners of nodes
   })
   
   const [isHovered, setIsHovered] = useState(false)

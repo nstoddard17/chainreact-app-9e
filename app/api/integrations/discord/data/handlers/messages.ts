@@ -48,7 +48,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       const isEditAction = actionType === 'discord_action_edit_message'
 
       // Filter messages based on action type
-      let filteredMessages = (data || []).filter((message: any) => {
+      const filteredMessages = (data || []).filter((message: any) => {
         // Filter out system messages
         if (message.type !== 0 && message.type !== undefined) {
           return false
@@ -144,7 +144,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       if (messagesWithReactions.length > 0) {
         console.log('🔍 [Discord Messages] Sample message with reactions:', {
           id: messagesWithReactions[0].id,
-          content: messagesWithReactions[0].content?.substring(0, 30) + '...',
+          content: `${messagesWithReactions[0].content?.substring(0, 30) }...`,
           reactions: messagesWithReactions[0].reactions.map((r: any) => ({
             emoji: r.emoji.name,
             count: r.count

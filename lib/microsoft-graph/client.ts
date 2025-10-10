@@ -124,14 +124,14 @@ export class MicrosoftGraphClient {
     normalized = normalized.replace(/\/messages\([^)]*\)$/i, '/messages')
     normalized = normalized.replace(/\/messages\/[^/]+$/i, '/messages')
     if (normalized.includes('/messages(')) {
-      normalized = normalized.split('/messages(')[0] + '/messages'
+      normalized = `${normalized.split('/messages(')[0] }/messages`
     } else if (normalized.includes('/messages/')) {
-      normalized = normalized.split('/messages/')[0] + '/messages'
+      normalized = `${normalized.split('/messages/')[0] }/messages`
     } else if (!normalized.endsWith('/messages')) {
-      normalized = normalized.replace(/\/+$/, '') + '/messages'
+      normalized = `${normalized.replace(/\/+$/, '') }/messages`
     }
 
-    return '/' + normalized.replace(/^\/+/, '').replace(/\/+$/, '')
+    return `/${ normalized.replace(/^\/+/, '').replace(/\/+$/, '')}`
   }
   /**
    * Get Calendar events delta

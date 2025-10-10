@@ -55,8 +55,8 @@ export const getAirtableFieldValues: AirtableDataHandler<AirtableFieldValue> = a
     
     recordsData.records?.forEach((record: any) => {
       const fieldValue = record.fields?.[filterField]
-      
-      if (fieldValue != null) {
+
+      if (fieldValue !== null && fieldValue !== undefined) {
         // Handle different field types
         let values: string[] = []
         

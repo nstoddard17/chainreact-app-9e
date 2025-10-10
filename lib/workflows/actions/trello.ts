@@ -156,7 +156,7 @@ export async function createTrelloList(
 
       // Check if template is a list or a card
       // First try to get it as a list
-      let templateListResponse = await fetch(
+      const templateListResponse = await fetch(
         `https://api.trello.com/1/lists/${template}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=id,name,desc`,
         {
           headers: {
@@ -218,7 +218,7 @@ export async function createTrelloList(
           },
           message: `Successfully created list "${name}" with list template (${templateCards.length} cards copied)${position === 'custom' && specificPosition ? ` at position ${specificPosition}` : position && position !== 'custom' ? ` (${position.replace('_', ' ')})` : ''}`
         }
-      } else {
+      } 
         // Template might be a card, try to get it as a card
         const templateCardResponse = await fetch(
           `https://api.trello.com/1/cards/${template}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=name,desc,pos,idLabels,idMembers`,
@@ -263,7 +263,7 @@ export async function createTrelloList(
             },
             message: `Successfully created list "${name}" with card template${position === 'custom' && specificPosition ? ` at position ${specificPosition}` : position && position !== 'custom' ? ` (${position.replace('_', ' ')})` : ''}`
           }
-        } else {
+        } 
           // Template not found, create list without template
           return {
             success: true,
@@ -277,9 +277,9 @@ export async function createTrelloList(
             },
             message: `Successfully created list "${name}" (template not found)${position === 'custom' && specificPosition ? ` at position ${specificPosition}` : position && position !== 'custom' ? ` (${position.replace('_', ' ')})` : ''}`
           }
-        }
-      }
-    } else {
+        
+      
+    } 
       // Create list without template
       const response = await fetch(
         `https://api.trello.com/1/lists?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
@@ -308,7 +308,7 @@ export async function createTrelloList(
         },
         message: `Successfully created list "${name}"${position === 'custom' && specificPosition ? ` at position ${specificPosition}` : position && position !== 'custom' ? ` (${position.replace('_', ' ')})` : ''}`
       }
-    }
+    
   } catch (error: any) {
     console.error("Error creating Trello list:", error)
     return {
@@ -436,8 +436,8 @@ export async function createTrelloCard(
         mode: attachment.mode,
         hasFile: !!attachment.file,
         hasUrl: !!attachment.url,
-        fileUrl: attachment.file?.url?.substring(0, 50) + '...', // Show first 50 chars
-        fullAttachment: JSON.stringify(attachment).substring(0, 200) + '...'
+        fileUrl: `${attachment.file?.url?.substring(0, 50) }...`, // Show first 50 chars
+        fullAttachment: `${JSON.stringify(attachment).substring(0, 200) }...`
       });
 
       try {

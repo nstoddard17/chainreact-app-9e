@@ -79,8 +79,8 @@ export const saveNodeConfig = async (
       ...nodes[nodeIndex],
       data: {
         ...nodes[nodeIndex].data,
-        config: config,  // Store the actual config for immediate use
-        savedConfig: savedConfigData  // Store the full data with timestamp
+        config: config, // Store the actual config for immediate use
+        savedConfig: savedConfigData // Store the full data with timestamp
       }
     }
 

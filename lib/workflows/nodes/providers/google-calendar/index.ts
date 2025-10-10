@@ -219,7 +219,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         ],
         conditionalVisibility: {
           field: "attendees",
-          value: true  // Will show when attendees has any truthy value
+          value: true // Will show when attendees has any truthy value
         }
       },
       { 
@@ -229,7 +229,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         defaultValue: true,
         conditionalVisibility: {
           field: "attendees",
-          value: true  // Will show when attendees has any truthy value
+          value: true // Will show when attendees has any truthy value
         }
       },
       { 
@@ -239,7 +239,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         defaultValue: true,
         conditionalVisibility: {
           field: "attendees",
-          value: true  // Will show when attendees has any truthy value
+          value: true // Will show when attendees has any truthy value
         }
       },
       { 
@@ -249,7 +249,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         defaultValue: false,
         conditionalVisibility: {
           field: "attendees",
-          value: true  // Will show when attendees has any truthy value
+          value: true // Will show when attendees has any truthy value
         }
       },
       { 

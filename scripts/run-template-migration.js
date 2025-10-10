@@ -73,86 +73,103 @@ async function runMigration() {
           }
         },
         {
-          id: "ai-agent-1",
+          id: "ai-router-helpdesk",
           type: "custom",
-          position: { x: 750, y: 280 },
+          position: { x: 320, y: 180 },
           data: {
-            type: "ai_agent",
-            title: "AI Customer Service Agent",
-            description: "An AI agent that can use other integrations as tools to accomplish goals",
+            type: "ai_router",
+            title: "Route Customer Request",
+            description: "AI routing node that decides which follow-up branch to execute.",
             config: {
+              template: "custom",
+              systemPrompt: "You are a customer support triage bot. Classify the incoming Discord message into one of: support_request, feedback, newsletter_signup, general. Provide a short reason and confidence.",
               model: "gpt-4o-mini",
-              temperature: 0.7,
-              autoSelectChain: true,
-              parallelExecution: false,
-              prompt: "Analyze the customer message and route to the appropriate chains based on the content.",
-              chainsLayout: {
-                chains: [
-                  {
-                    id: "chain-support-request",
-                    name: "Support Request Chain",
-                    description: "Handles customer support inquiries",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "help"
-                      }
-                    ]
-                  },
-                  {
-                    id: "chain-process-feedback",
-                    name: "Process Feedback Chain",
-                    description: "Processes customer feedback",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "feedback"
-                      }
-                    ]
-                  },
-                  {
-                    id: "chain-newsletter-signup",
-                    name: "Newsletter Signup Chain",
-                    description: "Handles newsletter subscriptions",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "newsletter"
-                      }
-                    ]
-                  }
-                ],
-                nodes: [],
-                edges: []
-              }
+              apiSource: "chainreact",
+              memory: "workflow",
+              outputPaths: [
+                { id: "support_request", name: "Support Request", description: "Technical help needed", color: "#ef4444", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "feedback", name: "Feedback", description: "Product feedback or ideas", color: "#3b82f6", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "newsletter_signup", name: "Newsletter Signup", description: "Signup or marketing interest", color: "#10b981", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "general", name: "General", description: "Everything else", color: "#6b7280", condition: { type: "fallback" } }
+              ],
+              decisionMode: "single",
+              includeReasoning: true,
+              temperature: 0.2,
+              maxRetries: 1,
+              timeout: 30,
+              costLimit: 0.5
             }
           }
         },
         {
-          id: "chain-1-airtable-create",
+          id: "support-summarize",
           type: "custom",
-          position: { x: 200, y: 530 },
+          position: { x: 200, y: 420 },
+          data: {
+            type: "ai_action_summarize",
+            title: "Summarize Support Request",
+            description: "Summarize the customer message to capture the core issue.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              maxLength: 300,
+              style: "brief",
+              focus: "customer issue, requested assistance, urgency"
+            }
+          }
+        },
+        {
+          id: "support-prioritize",
+          type: "custom",
+          position: { x: 200, y: 580 },
+          data: {
+            type: "ai_action_classify",
+            title: "Classify Priority Level",
+            description: "Classify the urgency of the support request.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              categories: ["Low", "Medium", "High"],
+              confidence: true
+            }
+          }
+        },
+        {
+          id: "support-response",
+          type: "custom",
+          position: { x: 200, y: 740 },
+          data: {
+            type: "ai_action_generate",
+            title: "Draft Support Reply",
+            description: "Generate a friendly acknowledgement message with next steps.",
+            config: {
+              inputData: {
+                customer: "{{trigger.message.author.username}}",
+                summary: "{{node.support-summarize.output.summary}}",
+                priority: "{{node.support-prioritize.output.classification}}"
+              },
+              contentType: "response",
+              tone: "friendly",
+              length: "short"
+            }
+          }
+        },
+        {
+          id: "airtable-support-ticket",
+          type: "custom",
+          position: { x: 200, y: 900 },
           data: {
             type: "airtable_action_create_record",
             title: "Create Support Ticket",
-            description: "Create a new record in a table",
-            parentChainIndex: 0,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            description: "Create a new record in the support tickets table.",
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Ticket ID": "{{AI_FIELD:ticket_id}}",
-                "Customer Email": "{{AI_FIELD:customer_email}}",
-                "Issue Description": "{{AI_FIELD:issue_description}}",
-                "Priority": "{{AI_FIELD:priority}}",
+                "Ticket Summary": "{{node.support-summarize.output.summary}}",
+                "Customer": "{{trigger.message.author.username}}",
+                "Priority": "{{node.support-prioritize.output.classification}}",
+                "Priority Confidence": "{{node.support-prioritize.output.confidence}}",
                 "Status": "Open",
-                "Created Date": "{{AI_FIELD:created_date}}",
-                "Assigned To": "{{AI_FIELD:assigned_to}}"
+                "Channel": "Discord"
               }
             },
             validationState: {
@@ -161,19 +178,16 @@ async function runMigration() {
           }
         },
         {
-          id: "chain-1-discord-notify",
+          id: "discord-support-response",
           type: "custom",
-          position: { x: 200, y: 730 },
+          position: { x: 200, y: 1060 },
           data: {
             type: "discord_action_send_message",
-            title: "Notify Support Team",
-            description: "Sends a message to a Discord channel.",
-            parentChainIndex: 0,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Reply in Discord",
+            description: "Send an acknowledgement back to the user in Discord.",
             config: {
               webhookUrl: "",
-              message: "{{AI_FIELD:support_notification_message}}",
+              message: "{{node.support-response.output.content}}",
               username: "Support Bot"
             },
             validationState: {
@@ -182,27 +196,72 @@ async function runMigration() {
           }
         },
         {
-          id: "chain-2-airtable-create",
+          id: "feedback-summarize",
           type: "custom",
-          position: { x: 750, y: 530 },
+          position: { x: 750, y: 420 },
+          data: {
+            type: "ai_action_summarize",
+            title: "Summarize Feedback",
+            description: "Extract the main feedback insight from the message.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              maxLength: 220,
+              style: "brief",
+              focus: "product feedback and requested changes"
+            }
+          }
+        },
+        {
+          id: "feedback-sentiment",
+          type: "custom",
+          position: { x: 750, y: 580 },
+          data: {
+            type: "ai_action_sentiment",
+            title: "Analyze Sentiment",
+            description: "Determine the sentiment of the feedback message.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              analysisType: "detailed"
+            }
+          }
+        },
+        {
+          id: "feedback-response",
+          type: "custom",
+          position: { x: 750, y: 740 },
+          data: {
+            type: "ai_action_generate",
+            title: "Draft Feedback Reply",
+            description: "Generate a thoughtful acknowledgement for the feedback.",
+            config: {
+              inputData: {
+                customer: "{{trigger.message.author.username}}",
+                summary: "{{node.feedback-summarize.output.summary}}",
+                sentiment: "{{node.feedback-sentiment.output.sentiment}}"
+              },
+              contentType: "response",
+              tone: "friendly",
+              length: "short"
+            }
+          }
+        },
+        {
+          id: "airtable-feedback-log",
+          type: "custom",
+          position: { x: 750, y: 900 },
           data: {
             type: "airtable_action_create_record",
-            title: "Store Feedback",
-            description: "Create a new record in a table",
-            parentChainIndex: 1,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Log Feedback",
+            description: "Store product feedback in Airtable.",
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Feedback ID": "{{AI_FIELD:feedback_id}}",
-                "Customer Name": "{{AI_FIELD:customer_name}}",
-                "Feedback Type": "{{AI_FIELD:feedback_type}}",
-                "Feedback Content": "{{AI_FIELD:feedback_content}}",
-                "Rating": "{{AI_FIELD:rating}}",
-                "Submitted Date": "{{AI_FIELD:submitted_date}}",
-                "Response Status": "Pending"
+                "Feedback Insight": "{{node.feedback-summarize.output.summary}}",
+                "Sentiment": "{{node.feedback-sentiment.output.sentiment}}",
+                "Sentiment Confidence": "{{node.feedback-sentiment.output.confidence}}",
+                "Customer": "{{trigger.message.author.username}}",
+                "Source": "Discord"
               }
             },
             validationState: {
@@ -211,19 +270,16 @@ async function runMigration() {
           }
         },
         {
-          id: "chain-2-discord-notify",
+          id: "discord-feedback-response",
           type: "custom",
-          position: { x: 750, y: 730 },
+          position: { x: 750, y: 1060 },
           data: {
             type: "discord_action_send_message",
-            title: "Notify Feedback Team",
-            description: "Sends a message to a Discord channel.",
-            parentChainIndex: 1,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Acknowledge Feedback",
+            description: "Respond to the user thanking them for feedback.",
             config: {
               webhookUrl: "",
-              message: "{{AI_FIELD:feedback_notification_message}}",
+              message: "{{node.feedback-response.output.content}}",
               username: "Feedback Bot"
             },
             validationState: {
@@ -232,27 +288,55 @@ async function runMigration() {
           }
         },
         {
-          id: "chain-3-airtable-create",
+          id: "newsletter-extract",
           type: "custom",
-          position: { x: 1300, y: 530 },
+          position: { x: 1300, y: 420 },
+          data: {
+            type: "ai_action_extract",
+            title: "Extract Email Address",
+            description: "Pull any email address mentioned in the message.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              extractionType: "emails",
+              returnFormat: "text"
+            }
+          }
+        },
+        {
+          id: "newsletter-generate",
+          type: "custom",
+          position: { x: 1300, y: 580 },
+          data: {
+            type: "ai_action_generate",
+            title: "Draft Welcome Email",
+            description: "Generate a friendly welcome email summary.",
+            config: {
+              inputData: {
+                subscriber: "{{trigger.message.author.username}}",
+                inquiry: "{{trigger.message.content}}"
+              },
+              contentType: "email",
+              tone: "friendly",
+              length: "short"
+            }
+          }
+        },
+        {
+          id: "airtable-newsletter",
+          type: "custom",
+          position: { x: 1300, y: 740 },
           data: {
             type: "airtable_action_create_record",
-            title: "Add to Newsletter",
-            description: "Create a new record in a table",
-            parentChainIndex: 2,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Add Newsletter Subscriber",
+            description: "Store the subscriber details in Airtable.",
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Subscriber ID": "{{AI_FIELD:subscriber_id}}",
-                "Email": "{{AI_FIELD:subscriber_email}}",
-                "Name": "{{AI_FIELD:subscriber_name}}",
-                "Signup Date": "{{AI_FIELD:signup_date}}",
-                "Preferences": "{{AI_FIELD:preferences}}",
-                "Status": "Active",
-                "Welcome Email Sent": false
+                "Name": "{{trigger.message.author.username}}",
+                "Email": "{{node.newsletter-extract.output.extracted}}",
+                "Source": "Discord",
+                "Status": "Subscribed"
               }
             },
             validationState: {
@@ -261,61 +345,74 @@ async function runMigration() {
           }
         },
         {
-          id: "chain-3-gmail-send",
+          id: "gmail-newsletter-welcome",
           type: "custom",
-          position: { x: 1300, y: 730 },
+          position: { x: 1300, y: 900 },
           data: {
             type: "gmail_action_send_email",
             title: "Send Welcome Email",
-            description: "Compose and send an email through your Gmail account",
-            parentChainIndex: 2,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            description: "Send a welcome email to the subscriber.",
             config: {
-              to: "{{AI_FIELD:welcome_email_to}}",
-              subject: "{{AI_FIELD:welcome_email_subject}}",
-              body: "{{AI_FIELD:welcome_email_body}}"
+              to: "{{node.newsletter-extract.output.extracted}}",
+              subject: "Welcome to our newsletter!",
+              body: "{{node.newsletter-generate.output.content}}",
+              isHtml: false
+            }
+          }
+        },
+        {
+          id: "general-summarize",
+          type: "custom",
+          position: { x: 560, y: 520 },
+          data: {
+            type: "ai_action_summarize",
+            title: "Summarize General Inquiry",
+            description: "Capture a quick summary for unclassified requests.",
+            config: {
+              inputText: "{{trigger.message.content}}",
+              maxLength: 200,
+              style: "brief",
+              focus: "primary request or question"
+            }
+          }
+        },
+        {
+          id: "discord-general-log",
+          type: "custom",
+          position: { x: 560, y: 680 },
+          data: {
+            type: "discord_action_send_message",
+            title: "General Log",
+            description: "Log general inquiries in a Discord channel.",
+            config: {
+              webhookUrl: "",
+              message: "General inquiry from {{trigger.message.author.username}}: {{node.general-summarize.output.summary}}",
+              username: "Support Bot"
+            },
+            validationState: {
+              missingRequired: ["webhookUrl"]
             }
           }
         }
       ],
       connections: [
-        {
-          id: "main-edge-1",
-          source: "discord-trigger-1",
-          target: "ai-agent-1"
-        },
-        {
-          id: "ai-agent-to-chain-1",
-          source: "ai-agent-1",
-          target: "chain-1-airtable-create"
-        },
-        {
-          id: "ai-agent-to-chain-2",
-          source: "ai-agent-1",
-          target: "chain-2-airtable-create"
-        },
-        {
-          id: "ai-agent-to-chain-3",
-          source: "ai-agent-1",
-          target: "chain-3-airtable-create"
-        },
-        {
-          id: "chain-1-edge-1",
-          source: "chain-1-airtable-create",
-          target: "chain-1-discord-notify"
-        },
-        {
-          id: "chain-2-edge-1",
-          source: "chain-2-airtable-create",
-          target: "chain-2-discord-notify"
-        },
-        {
-          id: "chain-3-edge-1",
-          source: "chain-3-airtable-create",
-          target: "chain-3-gmail-send"
-        }
-      ],
+        { id: "edge-main", source: "discord-trigger-1", target: "ai-router-helpdesk" },
+        { id: "edge-support-1", source: "ai-router-helpdesk", target: "support-summarize", sourceHandle: "support_request" },
+        { id: "edge-support-2", source: "support-summarize", target: "support-prioritize" },
+        { id: "edge-support-3", source: "support-prioritize", target: "support-response" },
+        { id: "edge-support-4", source: "support-response", target: "airtable-support-ticket" },
+        { id: "edge-support-5", source: "airtable-support-ticket", target: "discord-support-response" },
+        { id: "edge-feedback-1", source: "ai-router-helpdesk", target: "feedback-summarize", sourceHandle: "feedback" },
+        { id: "edge-feedback-2", source: "feedback-summarize", target: "feedback-sentiment" },
+        { id: "edge-feedback-3", source: "feedback-sentiment", target: "feedback-response" },
+        { id: "edge-feedback-4", source: "feedback-response", target: "airtable-feedback-log" },
+        { id: "edge-feedback-5", source: "airtable-feedback-log", target: "discord-feedback-response" },
+        { id: "edge-newsletter-1", source: "ai-router-helpdesk", target: "newsletter-extract", sourceHandle: "newsletter_signup" },
+        { id: "edge-newsletter-2", source: "newsletter-extract", target: "newsletter-generate" },
+        { id: "edge-newsletter-3", source: "newsletter-generate", target: "airtable-newsletter" },
+        { id: "edge-newsletter-4", source: "airtable-newsletter", target: "gmail-newsletter-welcome" },
+        { id: "edge-general-1", source: "ai-router-helpdesk", target: "general-summarize", sourceHandle: "general" },
+        { id: "edge-general-2", source: "general-summarize", target: "discord-general-log" },
       workflow_json: {
         nodes: [],
         edges: []

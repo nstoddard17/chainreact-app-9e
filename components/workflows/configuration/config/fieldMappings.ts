@@ -45,7 +45,7 @@ const discordMappings: Record<string, FieldMapping> = {
   discord_trigger_new_message: {
     channelId: "discord_channels",
     guildId: "discord_guilds",
-    authorFilter: "discord_channel_members",  // Use discord_channel_members to get members who can access the channel
+    authorFilter: "discord_channel_members", // Use discord_channel_members to get members who can access the channel
   },
   discord_trigger_member_join: {
     guildId: "discord_guilds",

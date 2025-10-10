@@ -464,14 +464,14 @@ export function AirtableConfiguration({
       }
 
       return {
-        name: `airtable_field_${field.name}`,  // Use field name instead of ID for consistency
+        name: `airtable_field_${field.name}`, // Use field name instead of ID for consistency
         label: field.name,
         type: fieldType,
         required: false,
         placeholder: shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`,
         dynamic: shouldUseDynamicDropdown ? dynamicDataType : true,
-        airtableFieldType: originalAirtableType,  // Use the original type before modifications
-        airtableFieldId: field.id,  // Store the ID separately if needed
+        airtableFieldType: originalAirtableType, // Use the original type before modifications
+        airtableFieldId: field.id, // Store the ID separately if needed
         options: fieldOptions,
         dependsOn: shouldUseDynamicDropdown ? 'tableName' : undefined,
         multiple: fieldNameLower.includes('tasks') ||
@@ -892,7 +892,7 @@ export function AirtableConfiguration({
           const exists = fieldSuggestions[fieldName]?.some(s => s.value === recordId);
           if (!exists) {
             const newBubble = {
-              value: recordId,  // Use ID as value (for API)
+              value: recordId, // Use ID as value (for API)
               label: recordName, // Use name as label (for display)
               fieldName: field.name
             };
@@ -1208,7 +1208,7 @@ export function AirtableConfiguration({
             const option = options.find((opt: any) => {
               // Options might be in "id::name" format or just "id"
               if (opt.value?.includes('::')) {
-                return opt.value.startsWith(recordId + '::');
+                return opt.value.startsWith(`${recordId }::`);
               }
               return opt.value === recordId;
             });
@@ -1321,7 +1321,7 @@ export function AirtableConfiguration({
             // Find the option that matches this record ID
             const option = options.find((opt: any) => {
               if (opt.value?.includes('::')) {
-                return opt.value.startsWith(bubble.value + '::');
+                return opt.value.startsWith(`${bubble.value }::`);
               }
               return opt.value === bubble.value;
             });
@@ -1443,12 +1443,12 @@ export function AirtableConfiguration({
                         ...prev,
                         [actualFieldName]: current.filter(i => i !== idx)
                       };
-                    } else {
+                    } 
                       return {
                         ...prev,
                         [actualFieldName]: [...current, idx]
                       };
-                    }
+                    
                   });
                 } else {
                   setActiveBubbles(prev => ({
@@ -1505,7 +1505,7 @@ export function AirtableConfiguration({
     setValidationErrors({});
     
     // Process bubble values for submission
-    let submissionValues = { ...values };
+    const submissionValues = { ...values };
     
     // Aggregate bubble values for Airtable fields
     if (isCreateRecord || isUpdateRecord) {
@@ -1634,7 +1634,7 @@ export function AirtableConfiguration({
                             // Find the option that matches this record ID
                             const option = options.find((opt: any) => {
                               if (opt.value?.includes('::')) {
-                                return opt.value.startsWith(recordId + '::');
+                                return opt.value.startsWith(`${recordId }::`);
                               }
                               return opt.value === recordId;
                             });
@@ -1776,9 +1776,9 @@ export function AirtableConfiguration({
                                 // This is an attachment array - don't convert to string
                                 setValue(actualFieldName, processedValue);
                                 return;
-                              } else {
+                              } 
                                 processedValue = processedValue.join(', ');
-                              }
+                              
                             } else {
                               // For other objects, try to extract meaningful data
                               processedValue = processedValue.name || processedValue.filename || '';

@@ -116,7 +116,7 @@ export async function POST(
         message: "Your plan will change to annual at the end of your current billing period, adding 12 months to your subscription.",
         scheduledChange: true,
       })
-    } else {
+    } 
       // For other plan changes, update immediately with proration
       const updatedSubscription = await stripe.subscriptions.update(
         subscription.stripe_subscription_id,
@@ -148,7 +148,7 @@ export async function POST(
         message: "Your plan has been updated successfully.",
         scheduledChange: false,
       })
-    }
+    
   } catch (error: any) {
     console.error("Change plan error:", error)
     return NextResponse.json(
