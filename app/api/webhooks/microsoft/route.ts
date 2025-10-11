@@ -59,6 +59,7 @@ async function processNotifications(
       let workflowId: string | null = null
       let triggerResourceId: string | null = null
       let configuredChangeType: string | null = null
+      let triggerConfig: any = null
       if (subId) {
         console.log('🔍 Looking up subscription:', subId)
 
@@ -82,6 +83,7 @@ async function processNotifications(
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
         configuredChangeType = triggerResource.config?.changeType || null
+        triggerConfig = triggerResource.config || null
 
         // Verify clientState if present
         if (bodyClientState && triggerResource.config?.clientState) {
@@ -108,7 +110,8 @@ async function processNotifications(
 
       // For email notifications (messages), ignore changeType in dedup key because Microsoft sends both 'created' and 'updated'
       // For other resources, include changeType to allow separate processing
-      const isEmailNotification = resource?.includes('/messages') || resource?.includes('/mailFolders')
+      const resourceLower = resource?.toLowerCase() || ''
+      const isEmailNotification = resourceLower.includes('/messages') || resourceLower.includes('/mailfolders')
       const dedupKey = isEmailNotification
         ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
         : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
@@ -160,8 +163,8 @@ async function processNotifications(
       }
 
       // For Outlook email triggers, fetch the actual email and check filters before triggering
-      const isOutlookEmailTrigger = resource?.includes('/Messages') || resource?.includes('/messages')
-      if (isOutlookEmailTrigger && userId && triggerResource.config) {
+      const isOutlookEmailTrigger = resourceLower.includes('/messages')
+      if (isOutlookEmailTrigger && userId && triggerConfig) {
         try {
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
           const graphAuth = new MicrosoftGraphAuth()
@@ -188,8 +191,8 @@ async function processNotifications(
               const email = await emailResponse.json()
 
               // Check subject filter
-              if (triggerResource.config.subject) {
-                const configSubject = triggerResource.config.subject.toLowerCase().trim()
+              if (triggerConfig.subject) {
+                const configSubject = triggerConfig.subject.toLowerCase().trim()
                 const emailSubject = (email.subject || '').toLowerCase().trim()
 
                 if (!emailSubject.includes(configSubject)) {
@@ -203,8 +206,8 @@ async function processNotifications(
               }
 
               // Check from filter
-              if (triggerResource.config.from) {
-                const configFrom = triggerResource.config.from.toLowerCase().trim()
+              if (triggerConfig.from) {
+                const configFrom = triggerConfig.from.toLowerCase().trim()
                 const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
 
                 if (emailFrom !== configFrom) {
@@ -218,8 +221,8 @@ async function processNotifications(
               }
 
               // Check importance filter
-              if (triggerResource.config.importance && triggerResource.config.importance !== 'any') {
-                const configImportance = triggerResource.config.importance.toLowerCase()
+              if (triggerConfig.importance && triggerConfig.importance !== 'any') {
+                const configImportance = triggerConfig.importance.toLowerCase()
                 const emailImportance = (email.importance || 'normal').toLowerCase()
 
                 if (emailImportance !== configImportance) {

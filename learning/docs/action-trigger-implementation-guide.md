@@ -738,6 +738,293 @@ See `/learning/docs/trigger-lifecycle-audit.md` for complete provider ID referen
 
 ---
 
+## Microsoft Graph Webhook Implementation (Outlook, Teams, OneDrive)
+
+### Critical Lessons from Outlook Trigger Implementation
+
+#### Issue 1: Subscription Configuration - "created,updated" Causes Duplicates
+
+**Problem**: Microsoft Graph sends **both** "created" AND "updated" notifications for the same new email, causing workflows to execute twice.
+
+**Why**: When a new email arrives:
+1. Email is created in mailbox → `changeType: "created"` notification sent
+2. Email is marked as unread/processed → `changeType: "updated"` notification sent immediately after
+
+**Solution**: Subscribe to ONLY "created" events for new item triggers.
+
+In `MicrosoftGraphTriggerLifecycle.ts`:
+```typescript
+private getChangeTypeForTrigger(triggerType: string): string {
+  // For new/created triggers, only watch 'created' to avoid duplicate notifications
+  // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
+  if (triggerType.includes('new') || triggerType.includes('created')) {
+    return 'created'  // NOT 'created,updated'
+  }
+  // ... other cases
+}
+```
+
+**Important**: Even with this fix, you need deduplication logic as a safety net (see Issue 2).
+
+#### Issue 2: Webhook Deduplication Strategy
+
+**Problem**: Microsoft can still send duplicate notifications even when only subscribed to "created".
+
+**Solution**: Implement smart deduplication at the webhook level.
+
+In webhook handler (`/app/api/webhooks/microsoft/route.ts`):
+```typescript
+// For email notifications, ignore changeType in dedup key
+// because Microsoft sends both 'created' and 'updated' for the same message
+const isEmailNotification = resource?.includes('/messages') || resource?.includes('/mailFolders')
+const dedupKey = isEmailNotification
+  ? `${userId}:${messageId}` // Email: ignore changeType
+  : `${userId}:${messageId}:${changeType}` // Other: include changeType
+```
+
+**Dedup table**: `microsoft_webhook_dedup` with unique constraint on `dedup_key`.
+
+#### Issue 3: Deletions Triggering Workflows
+
+**Problem**: Deleting emails from Outlook triggers the workflow because:
+- Moving to "Deleted Items" folder sends `changeType: "updated"` notification
+- Your subscription had `"created,updated"` configured
+
+**Solutions** (layered approach):
+1. **Subscription level**: Only subscribe to "created" (prevents most deletion triggers)
+2. **Webhook filtering**: Check incoming `changeType` against configured types
+3. **Content filtering**: Fetch actual email and check subject/from/importance filters
+
+```typescript
+// Check if this changeType should trigger the workflow
+if (configuredChangeType && changeType) {
+  const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
+
+  if (!allowedTypes.includes(changeType)) {
+    console.log('⏭️ Skipping notification - changeType not configured')
+    continue // Skip this notification
+  }
+}
+```
+
+#### Issue 4: Missing Content Filtering
+
+**Problem**: Outlook trigger config has `subject`, `from`, `importance` fields, but they weren't being enforced. ALL new emails triggered the workflow regardless of these filters.
+
+**Root Cause**: Unlike Gmail (which has `fetchTriggerEmail`), Outlook had no filtering logic in the webhook handler.
+
+**Solution**: Fetch the actual email from Microsoft Graph and check filters BEFORE triggering workflow.
+
+```typescript
+// For Outlook email triggers, fetch the actual email and check filters
+const isOutlookEmailTrigger = resource?.includes('/Messages') || resource?.includes('/messages')
+if (isOutlookEmailTrigger && userId && triggerResource.config) {
+  try {
+    const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+    const messageId = change?.resourceData?.id
+
+    // Fetch the email
+    const emailResponse = await fetch(
+      `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    const email = await emailResponse.json()
+
+    // Check subject filter
+    if (triggerResource.config.subject) {
+      const configSubject = triggerResource.config.subject.toLowerCase().trim()
+      const emailSubject = (email.subject || '').toLowerCase().trim()
+
+      if (!emailSubject.includes(configSubject)) {
+        console.log('⏭️ Skipping email - subject does not match filter')
+        continue
+      }
+    }
+
+    // Check from filter
+    if (triggerResource.config.from) {
+      const configFrom = triggerResource.config.from.toLowerCase().trim()
+      const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
+
+      if (emailFrom !== configFrom) {
+        console.log('⏭️ Skipping email - from address does not match filter')
+        continue
+      }
+    }
+
+    // Check importance filter
+    if (triggerResource.config.importance && triggerResource.config.importance !== 'any') {
+      const configImportance = triggerResource.config.importance.toLowerCase()
+      const emailImportance = (email.importance || 'normal').toLowerCase()
+
+      if (emailImportance !== configImportance) {
+        console.log('⏭️ Skipping email - importance does not match filter')
+        continue
+      }
+    }
+
+  } catch (filterError) {
+    console.error('❌ Error checking email filters (allowing execution):', filterError)
+    // Continue to execute even if filter check fails (fail-open for reliability)
+  }
+}
+```
+
+#### Issue 5: UI Button Stuck in Loading State
+
+**Problem**: When activating/deactivating workflow, button gets stuck with lightning animation if activation fails.
+
+**Root Cause**: Frontend was setting `currentWorkflow.status` to the *intended* status instead of the *actual* status returned by the API. When trigger activation failed, API rolled back to "paused" but frontend thought it was "active".
+
+**Solution**: Always use the status returned from the API response.
+
+In `useWorkflowBuilder.ts`:
+```typescript
+const data = await response.json()
+
+// Check if there was a trigger activation error (API returns 200 but rolls back status)
+if (data.triggerActivationError) {
+  // Update with the actual status from the response (rolled back to paused)
+  setCurrentWorkflow({
+    ...currentWorkflow,
+    ...data  // Use API data, not our intended newStatus
+  })
+
+  toast({
+    title: "Activation Failed",
+    description: data.triggerActivationError.message,
+    variant: "destructive",
+  })
+  return
+}
+
+// Update the local state with the actual status from response
+setCurrentWorkflow({
+  ...currentWorkflow,
+  ...data  // IMPORTANT: Use data from API, not newStatus variable
+})
+
+toast({
+  title: "Success",
+  description: `Workflow ${data.status === 'active' ? 'is now live' : 'has been paused'}`,
+  variant: data.status === 'active' ? 'default' : 'secondary',
+})
+```
+
+**Key lesson**: Never assume the operation succeeded - always use the actual state returned by the server.
+
+#### Issue 6: Account Picker Not Showing
+
+**Problem**: When connecting Microsoft Outlook, it auto-logs in with the Windows/browser account instead of showing account picker.
+
+**Solution**: Change `prompt` parameter from `"consent"` to `"select_account"`.
+
+In OAuth URL generation (`/app/api/integrations/auth/generate-url/route.ts`):
+```typescript
+const params = new URLSearchParams({
+  client_id: clientId,
+  redirect_uri: redirectUri,
+  response_type: "code",
+  scope: config.scope || "",
+  prompt: "select_account", // Allow user to choose which account to use
+  state,
+})
+```
+
+**Options**:
+- `"consent"` - Forces consent screen but uses current account
+- `"select_account"` - Shows account picker (recommended)
+- `"login"` - Forces fresh login
+- `"none"` - Silent auth (fails if not already logged in)
+
+### Microsoft Graph Webhook Best Practices
+
+1. **Always subscribe to specific changeTypes** - Never use "created,updated,deleted" for new item triggers
+2. **Implement deduplication** - Store processed notification IDs to prevent duplicates
+3. **Filter at webhook level** - Fetch actual resource and check filters before triggering workflow
+4. **Handle changeType filtering** - Check incoming changeType matches subscription config
+5. **Use clientState for security** - Verify webhook authenticity
+6. **Implement exponential backoff** - For subscription renewal and API calls
+7. **Log extensively** - Microsoft Graph webhooks can be tricky to debug
+8. **Fail-open for filters** - If filter check fails, allow execution (reliability > perfection)
+9. **Test edge cases**:
+   - Deleting items
+   - Moving items between folders
+   - Bulk operations
+   - Items created by other apps
+10. **Check access token scope** - Test `/me` and specific resource endpoints during activation
+
+### Common Microsoft Graph Webhook Gotchas
+
+❌ **Don't**:
+- Subscribe to all changeTypes ("created,updated,deleted")
+- Assume notification order (they can arrive out of order)
+- Trust notification timestamps (use actual resource timestamps)
+- Skip deduplication (Microsoft can send duplicates)
+- Ignore webhook signature validation
+- Create subscriptions during integration connection (use Trigger Lifecycle Pattern)
+
+✅ **Do**:
+- Subscribe to specific changeTypes only
+- Implement deduplication at webhook level
+- Fetch actual resource to verify state
+- Check filters before triggering workflow
+- Store subscription metadata in `trigger_resources`
+- Clean up subscriptions when workflows are deactivated
+- Test with actual Microsoft accounts (dev accounts behave differently)
+
+### Testing Microsoft Graph Triggers
+
+1. **Test subscription creation**: Check `trigger_resources` table has entries
+2. **Test new item**: Verify workflow triggers once (not twice)
+3. **Test subject filter**: Send email with wrong subject, verify no trigger
+4. **Test from filter**: Send from different address, verify no trigger
+5. **Test deletions**: Delete item, verify no trigger
+6. **Test deactivation**: Deactivate workflow, verify no more triggers
+7. **Test reactivation**: Reactivate, verify fresh subscription works
+8. **Test bulk operations**: Create/delete multiple items, verify correct behavior
+
+### Microsoft Graph Subscription Lifecycle
+
+```
+User connects integration:
+  ✅ Save OAuth tokens
+  ❌ NO subscription created
+
+User creates workflow:
+  ✅ Save workflow config
+  ❌ NO subscription created
+
+User ACTIVATES workflow:
+  ✅ CREATE subscription
+  ✅ Store in trigger_resources
+  ✅ Link to workflow_id
+  ✅ Store clientState for verification
+
+Webhook notification arrives:
+  ✅ Verify clientState
+  ✅ Check changeType matches config
+  ✅ Check deduplication
+  ✅ Fetch resource and check filters
+  ✅ Trigger workflow if all pass
+
+User DEACTIVATES workflow:
+  ✅ DELETE subscription from Microsoft
+  ✅ Mark as 'deleted' in trigger_resources
+
+User DELETES workflow:
+  ✅ DELETE all subscriptions
+  ✅ DELETE from trigger_resources (cascades)
+```
+
+---
+
 ## Notes
 
 - This guide applies to both actions and triggers
