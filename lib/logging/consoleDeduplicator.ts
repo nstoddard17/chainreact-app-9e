@@ -19,13 +19,14 @@ const originalConsole = {
  */
 function safeWrite(fn: Function, args: any[]) {
   try {
-    fn.apply(console, args)
+    // Call the ORIGINAL console method, not the intercepted one
+    fn.call(console, ...args)
   } catch (error: any) {
-    // Ignore EPIPE errors (broken pipe) which occur when stdout/stderr is closed
+    // Silently ignore EPIPE errors (broken pipe) which occur when stdout/stderr is closed
     if (error?.code !== 'EPIPE') {
       // For other errors, attempt to report them but ignore if that also fails
       try {
-        process.stderr.write(`Console write error: ${error?.message}\n`)
+        process.stderr?.write(`Console write error: ${error?.message}\n`)
       } catch {
         // Silently ignore if we can't even write the error
       }
@@ -38,6 +39,29 @@ function safeWrite(fn: Function, args: any[]) {
  * Call this once at application startup
  */
 export function initConsoleDeduplication() {
+  // Handle EPIPE errors at the stream level
+  if (typeof process !== 'undefined') {
+    // Ignore EPIPE errors on stdout
+    if (process.stdout && typeof process.stdout.on === 'function') {
+      process.stdout.on('error', (error: any) => {
+        if (error?.code !== 'EPIPE') {
+          throw error
+        }
+        // Silently ignore EPIPE
+      })
+    }
+
+    // Ignore EPIPE errors on stderr
+    if (process.stderr && typeof process.stderr.on === 'function') {
+      process.stderr.on('error', (error: any) => {
+        if (error?.code !== 'EPIPE') {
+          throw error
+        }
+        // Silently ignore EPIPE
+      })
+    }
+  }
+
   // Intercept console.log
   console.log = (...args: any[]) => {
     const message = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
