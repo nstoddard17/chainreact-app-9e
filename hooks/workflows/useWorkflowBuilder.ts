@@ -2128,11 +2128,23 @@ export function useWorkflowBuilder() {
         }
       }
 
+      // Check if we're replacing a deleted trigger
+      const replacingTrigger = deletedTriggerBackupRef.current
+      const firstActionEdge = replacingTrigger?.edges.find(e =>
+        e.source === replacingTrigger.node.id &&
+        !e.target.startsWith('add-action-')
+      )
+
       // Add the trigger node
       setNodes(nds => {
         const updatedNodes = [...nds, newNode]
 
-        // Add AddActionNode after the trigger
+        // If we're replacing a trigger and there was a connected action, skip AddActionNode
+        if (firstActionEdge) {
+          return updatedNodes
+        }
+
+        // Otherwise, add AddActionNode after the trigger
         const addActionId = `add-action-${newNodeId}`
 
         // Store the handler in ref
@@ -2157,15 +2169,35 @@ export function useWorkflowBuilder() {
         return [...updatedNodes, addActionNode]
       })
 
-      // Add edge between trigger and AddActionNode
-      setEdges(eds => [...eds, {
-        id: `e-${newNodeId}-add-action-${newNodeId}`,
-        source: newNodeId,
-        target: `add-action-${newNodeId}`,
-        type: 'custom',
-        animated: false,
-        style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
-      }])
+      // Add edges
+      setEdges(eds => {
+        const newEdges = [...eds]
+
+        // If we're replacing a trigger, reconnect to the first action node
+        if (firstActionEdge) {
+          const reconnectedEdge: Edge = {
+            id: `e-${newNodeId}-${firstActionEdge.target}`,
+            source: newNodeId,
+            target: firstActionEdge.target,
+            type: firstActionEdge.type,
+            animated: firstActionEdge.animated,
+            style: firstActionEdge.style
+          }
+          newEdges.push(reconnectedEdge)
+        } else {
+          // Otherwise, add edge between trigger and AddActionNode
+          newEdges.push({
+            id: `e-${newNodeId}-add-action-${newNodeId}`,
+            source: newNodeId,
+            target: `add-action-${newNodeId}`,
+            type: 'custom',
+            animated: false,
+            style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
+          })
+        }
+
+        return newEdges
+      })
 
       // Auto-fit view after adding trigger to keep everything visible
       setTimeout(() => {
@@ -2326,6 +2358,13 @@ export function useWorkflowBuilder() {
 
   // Handle adding a trigger node
   const handleAddTrigger = useCallback((integration: any, nodeComponent: any, config: Record<string, any>) => {
+    // Check if we're replacing a deleted trigger before clearing the backup
+    const replacingTrigger = deletedTriggerBackupRef.current
+    const firstActionEdge = replacingTrigger?.edges.find(e =>
+      e.source === replacingTrigger.node.id &&
+      !e.target.startsWith('add-action-')
+    )
+
     // Clear the backup since we're successfully adding a new trigger
     deletedTriggerBackupRef.current = null
 
@@ -2351,14 +2390,19 @@ export function useWorkflowBuilder() {
     // Add the trigger node
     setNodes(nds => {
       const updatedNodes = [...nds, newNode]
-      
-      // Add AddActionNode after the trigger
+
+      // If we're replacing a trigger and there was a connected action, skip AddActionNode
+      if (firstActionEdge) {
+        return updatedNodes
+      }
+
+      // Otherwise, add AddActionNode after the trigger
       const addActionId = `add-action-${newNodeId}`
-      
+
       // Store the handler in ref
       const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
       addActionHandlersRef.current[addActionId] = clickHandler
-      
+
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
@@ -2373,19 +2417,39 @@ export function useWorkflowBuilder() {
           onClick: clickHandler
         }
       }
-      
+
       return [...updatedNodes, addActionNode]
     })
-    
-    // Add edge between trigger and AddActionNode
-    setEdges(eds => [...eds, {
-      id: `e-${newNodeId}-add-action-${newNodeId}`,
-      source: newNodeId,
-      target: `add-action-${newNodeId}`,
-      type: 'custom',
-      animated: false,
-      style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
-    }])
+
+    // Add edges
+    setEdges(eds => {
+      const newEdges = [...eds]
+
+      // If we're replacing a trigger, reconnect to the first action node
+      if (firstActionEdge) {
+        const reconnectedEdge: Edge = {
+          id: `e-${newNodeId}-${firstActionEdge.target}`,
+          source: newNodeId,
+          target: firstActionEdge.target,
+          type: firstActionEdge.type,
+          animated: firstActionEdge.animated,
+          style: firstActionEdge.style
+        }
+        newEdges.push(reconnectedEdge)
+      } else {
+        // Otherwise, add edge between trigger and AddActionNode
+        newEdges.push({
+          id: `e-${newNodeId}-add-action-${newNodeId}`,
+          source: newNodeId,
+          target: `add-action-${newNodeId}`,
+          type: 'custom',
+          animated: false,
+          style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
+        })
+      }
+
+      return newEdges
+    })
 
     // Auto-fit view after adding trigger to keep everything visible
     setTimeout(() => {
