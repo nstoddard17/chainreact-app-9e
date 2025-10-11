@@ -219,13 +219,12 @@ class DiscordGateway extends SimpleEventEmitter {
 
       this.botToken = config.botToken
 
-      // Log token info for debugging (only first and last few chars for security)
+      // SECURITY: Never log token values, even previews
       if (this.botToken) {
         // Remove quotes if they exist (common mistake in .env files)
         this.botToken = this.botToken.replace(/^["']|["']$/g, '')
 
-        const tokenPreview = `${this.botToken.substring(0, 10)}...${this.botToken.substring(this.botToken.length - 5)}`
-        console.log(`🔑 Using Discord bot token: ${tokenPreview}`)
+        console.log(`🔑 Discord bot token loaded, length: ${this.botToken.length}`)
 
         // Basic token format validation
         if (!validateDiscordBotToken(this.botToken)) {

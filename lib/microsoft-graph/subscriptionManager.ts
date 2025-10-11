@@ -62,12 +62,21 @@ export class MicrosoftGraphSubscriptionManager {
       const clientState = this.generateClientState()
 
       // Prepare subscription payload
-      const subscriptionPayload = {
+      const subscriptionPayload: any = {
         changeType: changeType,
         notificationUrl: notificationUrl,
         resource: resource,
         expirationDateTime: expirationDateTime.toISOString(),
         clientState: clientState
+      }
+
+      // Add associatedApplications for OneDrive subscriptions
+      if (resource.includes('/drive')) {
+        subscriptionPayload.associatedApplications = [
+          {
+            applicationId: "bd7755bd-cba6-4de5-88f5-40439239fcd2"
+          }
+        ]
       }
 
       console.log('📤 Creating Microsoft Graph subscription:', {

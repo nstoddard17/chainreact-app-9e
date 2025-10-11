@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
           publishTime: parsedBody.message.publishTime
         })
 
-        console.log(`[${requestId}] 🔍 Processing Gmail webhook for email from:`, eventData.emailAddress)
+        // SECURITY: Don't log email addresses (PII)
+        console.log(`[${requestId}] 🔍 Processing Gmail webhook, historyId: ${eventData.historyId}`)
       } else {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody

@@ -402,9 +402,10 @@ async function fetchGmailMessageDetails(
       hasAttachments: emailDetails.hasAttachments
     })
 
+    // SECURITY: Don't log email addresses or subject content (PII)
     console.log(`✅ [fetchGmailMessageDetails] Successfully fetched email:`, {
-      from: emailDetails.from,
-      subject: emailDetails.subject,
+      hasFrom: !!emailDetails.from,
+      subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
       bodyLength: body.length
     })
@@ -579,9 +580,10 @@ async function fetchEmailDetails(
     }
     emailDetails.body = body
 
+    // SECURITY: Don't log email addresses or subject content (PII)
     const summary = {
-      from: emailDetails.from,
-      subject: emailDetails.subject,
+      hasFrom: !!emailDetails.from,
+      subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
       bodyLength: emailDetails.body?.length || 0
     }
@@ -603,9 +605,10 @@ async function fetchEmailDetails(
 }
 
 function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boolean {
+  // SECURITY: Don't log email content (PII)
   console.log('🔍 Checking email against filters:', {
-    email: { from: email.from, subject: email.subject, hasAttachments: email.hasAttachments },
-    filters
+    email: { hasFrom: !!email.from, subjectLength: email.subject?.length || 0, hasAttachments: email.hasAttachments },
+    hasFilters: !!(filters.from || filters.subject)
   })
 
   if (filters.from && filters.from.length > 0) {
@@ -764,9 +767,10 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               emailDetails = await fetchGmailMessageDetails(integration, event.eventData.historyId, executionSession.id)
 
               if (emailDetails) {
+                // SECURITY: Don't log email addresses or subject content (PII)
                 logSuccess(executionSession.id, 'Email details fetched successfully', {
-                  from: emailDetails.from,
-                  subject: emailDetails.subject,
+                  hasFrom: !!emailDetails.from,
+                  subjectLength: emailDetails.subject?.length || 0,
                   hasAttachments: emailDetails.hasAttachments
                 })
               } else {
