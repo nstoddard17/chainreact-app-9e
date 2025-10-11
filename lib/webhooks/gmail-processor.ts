@@ -21,6 +21,7 @@ const GMAIL_DEDUPE_WINDOW_MS = 5 * 60 * 1000
 type GmailTriggerFilters = {
   from: string[]
   subject: string
+  subjectExactMatch?: boolean
   hasAttachment: 'any' | 'yes' | 'no'
 }
 
@@ -633,13 +634,18 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
 
   if (filters.subject && filters.subject.trim() !== '') {
     const subjectFilter = filters.subject.toLowerCase().trim()
-    const emailSubject = (email.subject || '').toLowerCase()
+    const emailSubject = (email.subject || '').toLowerCase().trim()
+    const exactMatch = filters.subjectExactMatch !== false // Default to true
 
-    if (!emailSubject.includes(subjectFilter)) {
-      console.log(`❌ Subject filter mismatch: "${emailSubject}" doesn't contain "${subjectFilter}"`)
+    const isMatch = exactMatch
+      ? emailSubject === subjectFilter
+      : emailSubject.includes(subjectFilter)
+
+    if (!isMatch) {
+      console.log(`❌ Subject filter mismatch: "${emailSubject}" doesn't match "${subjectFilter}" (exactMatch: ${exactMatch})`)
       return false
     }
-    console.log(`✅ Subject filter matched: "${emailSubject}" contains "${subjectFilter}"`)
+    console.log(`✅ Subject filter matched: "${emailSubject}" matches "${subjectFilter}" (exactMatch: ${exactMatch})`)
   }
 
   if (filters.hasAttachment && filters.hasAttachment !== 'any') {

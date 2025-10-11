@@ -258,11 +258,17 @@ async function processNotifications(
               if (triggerConfig.subject) {
                 const configSubject = triggerConfig.subject.toLowerCase().trim()
                 const emailSubject = (email.subject || '').toLowerCase().trim()
+                const exactMatch = triggerConfig.subjectExactMatch !== false // Default to true
 
-                if (!emailSubject.includes(configSubject)) {
+                const isMatch = exactMatch
+                  ? emailSubject === configSubject
+                  : emailSubject.includes(configSubject)
+
+                if (!isMatch) {
                   console.log('⏭️ Skipping email - subject does not match filter:', {
                     expected: configSubject,
                     received: emailSubject,
+                    exactMatch,
                     subscriptionId: subId
                   })
                   continue
