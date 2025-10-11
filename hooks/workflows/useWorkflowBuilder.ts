@@ -1899,16 +1899,34 @@ export function useWorkflowBuilder() {
       const data = await response.json()
       console.log('Update result:', data)
 
-      // Update the local state
+      // Check if there was a trigger activation error (API returns 200 but rolls back status)
+      if (data.triggerActivationError) {
+        console.error('Trigger activation failed:', data.triggerActivationError)
+
+        // Update with the actual status from the response (rolled back to paused)
+        setCurrentWorkflow({
+          ...currentWorkflow,
+          ...data
+        })
+
+        toast({
+          title: "Activation Failed",
+          description: data.triggerActivationError.message || "Failed to activate workflow triggers",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Update the local state with the actual status from response
       setCurrentWorkflow({
         ...currentWorkflow,
-        status: newStatus
+        ...data
       })
 
       toast({
         title: "Success",
-        description: `Workflow ${newStatus === 'active' ? 'is now live' : 'has been paused'}`,
-        variant: newStatus === 'active' ? 'default' : 'secondary',
+        description: `Workflow ${data.status === 'active' ? 'is now live' : 'has been paused'}`,
+        variant: data.status === 'active' ? 'default' : 'secondary',
       })
     } catch (error: any) {
       console.error('Error updating workflow status:', error)
