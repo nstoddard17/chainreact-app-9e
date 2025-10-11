@@ -328,6 +328,9 @@ const outlookMappings: Record<string, FieldMapping> = {
     from: "outlook-enhanced-recipients",
     folder: "outlook_folders",
   },
+  "microsoft-outlook_trigger_email_sent": {
+    to: "outlook-enhanced-recipients",
+  },
   "microsoft-outlook_action_send_email": {
     to: "outlook-enhanced-recipients",
     cc: "outlook-enhanced-recipients",
