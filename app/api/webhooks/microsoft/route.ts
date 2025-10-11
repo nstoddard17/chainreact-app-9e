@@ -58,6 +58,7 @@ async function processNotifications(
       let userId: string | null = null
       let workflowId: string | null = null
       let triggerResourceId: string | null = null
+      let configuredChangeType: string | null = null
       if (subId) {
         console.log('🔍 Looking up subscription:', subId)
 
@@ -80,6 +81,7 @@ async function processNotifications(
         userId = triggerResource.user_id
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
+        configuredChangeType = triggerResource.config?.changeType || null
 
         // Verify clientState if present
         if (bodyClientState && triggerResource.config?.clientState) {
@@ -144,7 +146,6 @@ async function processNotifications(
 
       // Check if this changeType should trigger the workflow
       // Get the expected changeTypes from trigger config
-      const configuredChangeType = triggerResource.config?.changeType
       if (configuredChangeType && changeType) {
         const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
 
