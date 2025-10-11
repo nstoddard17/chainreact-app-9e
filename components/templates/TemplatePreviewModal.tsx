@@ -35,6 +35,8 @@ const capitalizeTag = (tag: string): string => {
   const tagMap: Record<string, string> = {
     'ai-agent': 'AI Agent',
     'ai agent': 'AI Agent',
+    'ai-message': 'AI Message',
+    'ai message': 'AI Message',
     'gmail': 'Gmail',
     'email': 'Email',
     'airtable': 'Airtable',

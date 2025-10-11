@@ -21,7 +21,7 @@ export async function createGoogleCalendarEvent(
     const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
 
     // Process date/time based on the simplified field structure
-    let processedConfig = { ...resolvedConfig }
+    const processedConfig = { ...resolvedConfig }
     const now = new Date()
     let eventDate = new Date()
 
@@ -73,7 +73,7 @@ export async function createGoogleCalendarEvent(
         break
       case 'specific':
         if (resolvedConfig.specificDate) {
-          eventDate = new Date(resolvedConfig.specificDate + 'T00:00:00')
+          eventDate = new Date(`${resolvedConfig.specificDate }T00:00:00`)
         }
         break
     }

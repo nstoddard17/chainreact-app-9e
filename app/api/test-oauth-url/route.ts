@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const baseUrl = getBaseUrl()
-    const state = 'test-state-' + Date.now()
+    const state = `test-state-${ Date.now()}`
     
     // Generate the OAuth URL exactly like the real implementation
     let scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       provider,
       authUrl,
       debug: {
-        clientId: clientId.substring(0, 10) + '...',
+        clientId: `${clientId.substring(0, 10) }...`,
         baseUrl,
         redirectUri: `${baseUrl}/api/integrations/${provider}/callback`,
         scopes,

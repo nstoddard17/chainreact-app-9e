@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       'google-sheets',
       'google-docs',
       'google_calendar',
-      'gmail',  // Gmail uses same Google OAuth
+      'gmail', // Gmail uses same Google OAuth
       'youtube' // YouTube might also use Google OAuth
     ];
 

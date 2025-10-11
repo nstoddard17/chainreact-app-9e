@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if token is not too old (24 hours)
-      const tokenAge = Date.now() - parseInt(timestamp)
+      const tokenAge = Date.now() - parseInt(timestamp, 10)
       if (tokenAge > 24 * 60 * 60 * 1000) {
         return NextResponse.json(
           { error: 'Confirmation link has expired' },

@@ -18,13 +18,13 @@ CREATE TABLE IF NOT EXISTS public.google_watch_subscriptions (
 );
 
 -- Create index for querying by user and provider
-CREATE INDEX idx_google_watch_subscriptions_user_provider ON public.google_watch_subscriptions(user_id, provider);
+CREATE INDEX IF NOT EXISTS idx_google_watch_subscriptions_user_provider ON public.google_watch_subscriptions(user_id, provider);
 
 -- Create index for querying by expiration (for renewal jobs)
-CREATE INDEX idx_google_watch_subscriptions_expiration ON public.google_watch_subscriptions(expiration);
+CREATE INDEX IF NOT EXISTS idx_google_watch_subscriptions_expiration ON public.google_watch_subscriptions(expiration);
 
 -- Create index for querying by integration
-CREATE INDEX idx_google_watch_subscriptions_integration ON public.google_watch_subscriptions(integration_id);
+CREATE INDEX IF NOT EXISTS idx_google_watch_subscriptions_integration ON public.google_watch_subscriptions(integration_id);
 
 -- Add RLS policies
 ALTER TABLE public.google_watch_subscriptions ENABLE ROW LEVEL SECURITY;
@@ -70,5 +70,5 @@ CREATE TABLE IF NOT EXISTS public.google_watch_renewal_failures (
 );
 
 -- Index for querying failures
-CREATE INDEX idx_google_watch_renewal_failures_user ON public.google_watch_renewal_failures(user_id);
-CREATE INDEX idx_google_watch_renewal_failures_failed_at ON public.google_watch_renewal_failures(failed_at);
+CREATE INDEX IF NOT EXISTS idx_google_watch_renewal_failures_user ON public.google_watch_renewal_failures(user_id);
+CREATE INDEX IF NOT EXISTS idx_google_watch_renewal_failures_failed_at ON public.google_watch_renewal_failures(failed_at);

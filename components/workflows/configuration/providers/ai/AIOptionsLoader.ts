@@ -4,7 +4,7 @@ export class AIOptionsLoader implements ProviderOptionsLoader {
   providerId = 'ai'
 
   canHandle(fieldName: string, providerId: string): boolean {
-    return providerId === 'ai' && ['inputNodeId', 'memoryIntegration', 'customMemoryIntegrations'].includes(fieldName)
+    return providerId === 'ai' && ['inputNodeId', 'memoryIntegration', 'customMemoryIntegrations', 'contextNodeIds'].includes(fieldName)
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<any[]> {
@@ -50,7 +50,8 @@ export class AIOptionsLoader implements ProviderOptionsLoader {
     const mapping: Record<string, string> = {
       inputNodeId: 'previous_nodes',
       memoryIntegration: 'connected_integrations',
-      customMemoryIntegrations: 'connected_integrations'
+      customMemoryIntegrations: 'connected_integrations',
+      contextNodeIds: 'previous_nodes'
     }
     return mapping[fieldName] || null
   }

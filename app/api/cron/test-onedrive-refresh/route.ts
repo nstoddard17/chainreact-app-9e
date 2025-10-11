@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         disconnected_at: onedriveIntegration.disconnected_at,
         disconnect_reason: onedriveIntegration.disconnect_reason,
         has_refresh_token: !!onedriveIntegration.refresh_token,
-        refresh_token_preview: onedriveIntegration.refresh_token?.substring(0, 20) + "...",
+        refresh_token_preview: `${onedriveIntegration.refresh_token?.substring(0, 20) }...`,
       },
       test_result: {
         status: response.status,
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       credentials: {
         has_client_id: !!clientId,
         has_client_secret: !!clientSecret,
-        client_id_preview: clientId.substring(0, 10) + "...",
+        client_id_preview: `${clientId.substring(0, 10) }...`,
       }
     })
 

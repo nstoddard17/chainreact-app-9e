@@ -75,9 +75,9 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
       console.log(`🔍 Processing workspace ${id}:`, JSON.stringify(workspace, null, 2))
       return {
         id,
-        name: workspace.workspace_name || workspace.name || id,  // Use workspace_name (correct property)
+        name: workspace.workspace_name || workspace.name || id, // Use workspace_name (correct property)
         value: id,
-        label: workspace.workspace_name || workspace.name || id,  // Use workspace_name (correct property)
+        label: workspace.workspace_name || workspace.name || id, // Use workspace_name (correct property)
         icon: workspace.workspace_icon || workspace.icon,
         owner: workspace.owner_type || workspace.owner,
         object: workspace.object || 'workspace'

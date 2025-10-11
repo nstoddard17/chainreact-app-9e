@@ -18,7 +18,7 @@ export class TwitterAdapter implements SocialProvider {
     supportsWebhooks: false,
     rateLimits: [
       { type: 'requests', limit: 300, window: 900000 }, // 300 requests per 15 minutes
-      { type: 'posts', limit: 50, window: 86400000 }     // 50 posts per day
+      { type: 'posts', limit: 50, window: 86400000 } // 50 posts per day
     ],
     supportedFeatures: [
       'create_post',

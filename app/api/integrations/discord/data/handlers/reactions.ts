@@ -42,7 +42,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
         hasMessage: !!messageResponse,
         hasReactions: !!(messageResponse && messageResponse.reactions),
         reactionsCount: messageResponse?.reactions?.length || 0,
-        messageContent: messageResponse?.content?.substring(0, 100) + "..." || "No content"
+        messageContent: `${messageResponse?.content?.substring(0, 100) }...` || "No content"
       })
 
       if (!messageResponse || !messageResponse.reactions) {

@@ -120,9 +120,9 @@ export const shouldHideField = (
     // Check if current value matches any of the allowed values
     if (Array.isArray(field.showIf)) {
       return !field.showIf.includes(dependentValue);
-    } else {
+    } 
       return dependentValue !== field.showIf;
-    }
+    
   }
 
   // Check showWhen property (another variation used in some nodes)

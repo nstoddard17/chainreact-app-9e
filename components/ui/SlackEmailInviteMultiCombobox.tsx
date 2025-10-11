@@ -190,7 +190,7 @@ export function SlackEmailInviteMultiCombobox({
               {/* Show invite option if inputValue is a valid email and not already selected */}
               {inputValue.trim() && isValidEmail(inputValue.trim()) && !value.includes(inputValue.trim()) && !options.some(option => option.value.toLowerCase() === inputValue.trim().toLowerCase()) && (
                 <CommandItem
-                  key={"invite-" + inputValue.trim()}
+                  key={`invite-${ inputValue.trim()}`}
                   value={inputValue.trim()}
                   onSelect={() => addEmail(inputValue.trim())}
                 >

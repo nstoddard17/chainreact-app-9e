@@ -14,12 +14,12 @@ import { getTrelloAllCards } from './allCards'
 
 export const trelloHandlers = {
   'trello-boards': getTrelloBoards,
-  'trello_boards': getTrelloBoards,  // Support both hyphen and underscore
+  'trello_boards': getTrelloBoards, // Support both hyphen and underscore
   'trello-list-templates': getTrelloListTemplates,
   'trello-card-templates': getTrelloCardTemplates,
-  'trello_card_templates': getTrelloCardTemplates,  // Support both hyphen and underscore
+  'trello_card_templates': getTrelloCardTemplates, // Support both hyphen and underscore
   'trello-board-templates': getTrelloBoardTemplates,
-  'trello_board_templates': getTrelloBoardTemplates,  // Support both hyphen and underscore
+  'trello_board_templates': getTrelloBoardTemplates, // Support both hyphen and underscore
   'trello_lists': getTrelloLists,
   'trello_cards': getTrelloCards,
   'trello_board_members': getTrelloBoardMembers,

@@ -54,10 +54,10 @@ function LoginFormContent() {
       if (data.exists && data.provider === 'google') {
         setProviderError('This account was created with Google. Please sign in with Google instead.');
         return false;
-      } else {
+      } 
         setProviderError('');
         return true;
-      }
+      
     } catch (error) {
       console.error('Error checking provider:', error);
       return true; // Allow login if check fails

@@ -379,13 +379,31 @@ export const IntegrationCard = memo(function IntegrationCard({
                 <Link2Off className="mr-2 h-4 w-4" />
                 Disconnect
               </Button>
+            ) : status === "expired" ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowDisconnectDialog(true)}
+                >
+                  <Link2Off className="mr-2 h-4 w-4" />
+                  Disconnect
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleConnectClick}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Reconnect
+                </Button>
+              </>
             ) : (
               <Button
                 className="w-full"
                 onClick={handleConnectClick}
               >
                 <LinkIcon className="mr-2 h-4 w-4" />
-                {status === "expired" ? "Reconnect" : "Connect"}
+                Connect
               </Button>
             )}
 

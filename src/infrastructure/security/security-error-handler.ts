@@ -176,7 +176,7 @@ export class SecurityErrorHandler {
     let type: SecurityErrorType = SecurityErrorType.UNKNOWN_SECURITY
     let severity: SecuritySeverity = SecuritySeverity.LOW
     let shouldAlert = false
-    let shouldLog = true
+    const shouldLog = true
     let shouldBlock = false
     let remediation: string[] = []
 

@@ -110,7 +110,7 @@ export const getGoogleCalendarEvents: GoogleDataHandler = async (
         displayDate = `${start.toLocaleDateString('en-US', dateOptions)} ${start.toLocaleTimeString('en-US', timeOptions)} - ${end.toLocaleTimeString('en-US', timeOptions)}`
       } else if (event.start?.date) {
         // All-day event
-        const start = new Date(event.start.date + 'T00:00:00')
+        const start = new Date(`${event.start.date }T00:00:00`)
         const dateOptions: Intl.DateTimeFormatOptions = {
           weekday: 'short',
           month: 'short',

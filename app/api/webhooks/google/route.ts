@@ -30,15 +30,28 @@ export async function POST(request: NextRequest) {
     // Parse the request body (may be empty for some Google services)
     const rawBody = await request.text()
     let eventData: any = null
+    let pubsubMessage: any = null
 
     if (rawBody && rawBody.trim().length > 0) {
       try {
-        const decodedBody = Buffer.from(rawBody, 'base64').toString('utf-8')
-        eventData = JSON.parse(decodedBody)
-      } catch (base64Error) {
+        // First try to parse as JSON (Pub/Sub format)
+        const bodyJson = JSON.parse(rawBody)
+
+        // Gmail Pub/Sub format: { message: { data: base64, attributes: {} } }
+        if (bodyJson.message && bodyJson.message.data) {
+          pubsubMessage = bodyJson
+          const decodedData = Buffer.from(bodyJson.message.data, 'base64').toString('utf-8')
+          eventData = JSON.parse(decodedData)
+          eventData._isPubSub = true
+        } else {
+          eventData = bodyJson
+        }
+      } catch (jsonError) {
+        // If not JSON, try base64 decode
         try {
-          eventData = JSON.parse(rawBody)
-        } catch (jsonError) {
+          const decodedBody = Buffer.from(rawBody, 'base64').toString('utf-8')
+          eventData = JSON.parse(decodedBody)
+        } catch (base64Error) {
           console.warn(`[${requestId}] Unable to parse Google webhook body; falling back to header metadata`, {
             base64Error: (base64Error as Error).message,
             jsonError: (jsonError as Error).message
@@ -129,6 +142,11 @@ export async function POST(request: NextRequest) {
 }
 
 function determineGoogleService(eventData: any): string {
+  // Gmail Pub/Sub messages have emailAddress and historyId
+  if (eventData.emailAddress && eventData.historyId) {
+    return 'gmail'
+  }
+
   // Determine the service based on event data structure
   if (eventData.resource && eventData.resource.includes('drive')) {
     return 'drive'
@@ -142,23 +160,24 @@ function determineGoogleService(eventData: any): string {
   if (eventData.resource && eventData.resource.includes('sheets')) {
     return 'sheets'
   }
-  
+
   // Fallback based on event type
   const eventType = eventData.type || ''
+  if (eventType.includes('gmail') || eventType.includes('email')) return 'gmail'
   if (eventType.includes('drive')) return 'drive'
   if (eventType.includes('calendar')) return 'calendar'
   if (eventType.includes('docs')) return 'docs'
   if (eventType.includes('sheets')) return 'sheets'
-  
+
   return 'unknown'
 }
 
 export async function GET(request: NextRequest) {
   // Health check endpoint
-  return NextResponse.json({ 
-    status: 'healthy', 
+  return NextResponse.json({
+    status: 'healthy',
     provider: 'google',
-    services: ['drive', 'calendar', 'docs', 'sheets'],
+    services: ['gmail', 'drive', 'calendar', 'docs', 'sheets'],
     timestamp: new Date().toISOString()
   })
 } 

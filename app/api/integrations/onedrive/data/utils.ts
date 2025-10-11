@@ -141,7 +141,7 @@ export function buildOneDriveApiUrl(endpoint: string): string {
   // Ensure endpoint includes version if not present
   const versionedEndpoint = endpoint.startsWith('/v1.0/') || endpoint.startsWith('v1.0/')
     ? endpoint
-    : `/v1.0${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
+    : `/v1.0${endpoint.startsWith('/') ? endpoint : `/${ endpoint}`}`
   return `${baseUrl}${versionedEndpoint}`
 }
 

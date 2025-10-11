@@ -160,10 +160,10 @@ export class OAuthConnectionFlow {
       if (errorMessage.includes("cancelled") || errorMessage.includes("User cancelled")) {
         onCancel?.()
         return { success: false, message: "User cancelled reconnection" }
-      } else {
+      } 
         onError?.(errorMessage)
         return { success: false, message: errorMessage }
-      }
+      
     }
   }
 
@@ -203,10 +203,10 @@ export class OAuthConnectionFlow {
       if (result.success) {
         onSuccess?.(result.message || "Connection test successful")
         return { success: true, message: result.message }
-      } else {
+      } 
         onError?.(result.message || "Connection test failed")
         return { success: false, message: result.message }
-      }
+      
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Connection test failed"

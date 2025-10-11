@@ -104,7 +104,7 @@ export default function EmailConfirmPage() {
               full_name: fullName,
               first_name: firstName,
               last_name: lastName,
-              email: user.email,  // Include the email
+              email: user.email, // Include the email
               avatar_url: user.user_metadata?.avatar_url,
               provider: detectedProvider,
               role: 'free',

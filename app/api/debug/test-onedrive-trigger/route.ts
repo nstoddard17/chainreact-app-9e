@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         type: 'onedrive_item',
         action: 'created',
         name: 'test-file.txt',
-        id: 'test-' + Date.now(),
+        id: `test-${ Date.now()}`,
         parentReference: {
           path: '/drive/root:/Documents'
         },

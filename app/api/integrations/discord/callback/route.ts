@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       // This is a bot OAuth flow - just return success
       console.log("Bot OAuth successful, guild_id:", guildId)
       return createBotCallbackResponse("success", guildId, baseUrl)
-    } else {
+    } 
       // This is a user OAuth flow - handle user integration
       if (!state) {
         console.error("Missing state in Discord user OAuth callback")
@@ -165,7 +165,7 @@ export async function GET(request: NextRequest) {
         "Discord account connected successfully.",
         baseUrl,
       )
-    }
+    
   } catch (e: any) {
     console.error("Discord callback error:", e)
     return createPopupResponse(

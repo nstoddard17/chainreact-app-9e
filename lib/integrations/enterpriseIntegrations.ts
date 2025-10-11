@@ -239,10 +239,10 @@ export class EnterpriseIntegrationsService {
 
       if (response.ok) {
         return { success: true }
-      } else {
+      } 
         const error = await response.text()
         return { success: false, error }
-      }
+      
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : "Connection failed" }
     }
@@ -265,10 +265,10 @@ export class EnterpriseIntegrationsService {
 
       if (response.ok) {
         return { success: true }
-      } else {
+      } 
         const error = await response.text()
         return { success: false, error }
-      }
+      
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : "Connection failed" }
     }
@@ -289,10 +289,10 @@ export class EnterpriseIntegrationsService {
 
       if (response.ok) {
         return { success: true }
-      } else {
+      } 
         const error = await response.text()
         return { success: false, error }
-      }
+      
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : "Connection failed" }
     }

@@ -24,16 +24,16 @@ export interface HubspotFieldOption {
 }
 
 export interface HubspotFieldDef {
-  name: string;            // Internal property name
-  label: string;           // Display label
-  type: HubspotFieldType;  // Mapped UI type
+  name: string; // Internal property name
+  label: string; // Display label
+  type: HubspotFieldType; // Mapped UI type
   required: boolean;
   readOnly: boolean;
   description?: string;
   group?: string;
   options?: HubspotFieldOption[];
-  hubspotType: string;     // Original HubSpot type for casting
-  fieldType?: string;      // HubSpot field type (e.g., "text", "number", "enumeration")
+  hubspotType: string; // Original HubSpot type for casting
+  fieldType?: string; // HubSpot field type (e.g., "text", "number", "enumeration")
   calculated?: boolean;
   hidden?: boolean;
   displayOrder?: number;
@@ -48,11 +48,11 @@ export interface HubspotObjectType {
 
 export interface ExecuteRequest {
   accountId: string;
-  objectType: string;      // e.g. "contacts" or "p_customobject"
+  objectType: string; // e.g. "contacts" or "p_customobject"
   op: "create" | "update" | "upsert";
-  recordId?: string;       // for update
+  recordId?: string; // for update
   identifierProperty?: string; // for upsert (e.g., "email" for contacts)
-  identifierValue?: string;    // for upsert
+  identifierValue?: string; // for upsert
   properties: Record<string, unknown>; // User-specified values
   associations?: {
     toObjectType: string;

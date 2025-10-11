@@ -24,8 +24,11 @@ import { ChainPlaceholderNode } from '@/components/workflows/ChainPlaceholderNod
 import InsertActionNode from '@/components/workflows/InsertActionNode'
 import { CustomEdgeWithButton } from '@/components/workflows/builder/CustomEdgeWithButton'
 import { SimpleStraightEdge } from '@/components/workflows/builder/SimpleStraightEdge'
+import { RoundedEdge } from '@/components/workflows/builder/RoundedEdge'
 import { ALL_NODE_COMPONENTS, type NodeComponent } from '@/lib/workflows/nodes'
 import { validateWorkflowNodes } from '@/lib/workflows/validation/workflow'
+import { getCenteredAddActionX } from '@/lib/workflows/addActionLayout'
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 
 interface IntegrationInfo {
   id: string
@@ -37,11 +40,33 @@ interface IntegrationInfo {
   actions: NodeComponent[]
 }
 
+type PreflightIssueType = 'integration' | 'configuration' | 'ai'
+
+interface PreflightIssue {
+  type: PreflightIssueType
+  message: string
+  nodeId?: string
+  providerId?: string
+  missingFields?: string[]
+}
+
+interface PreflightResult {
+  issues: PreflightIssue[]
+  warnings: PreflightIssue[]
+  checkedAt: string
+}
+
+interface RunPreflightOptions {
+  openOnSuccess?: boolean
+  openOnFailure?: boolean
+}
+
 export function useWorkflowBuilder() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const workflowId = searchParams.get("id")
   const editTemplateId = searchParams.get("editTemplate")
+  const isTemplateEditing = Boolean(editTemplateId && !workflowId)
   const { toast } = useToast()
 
   // Store hooks
@@ -58,8 +83,14 @@ export function useWorkflowBuilder() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const { fitView, getNodes, getEdges } = useReactFlow()
 
+  // Edge selection state for deletion
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+
   // Additional states needed by the main component
   const [cachedIntegrationStatus, setCachedIntegrationStatus] = useState<Map<string, boolean>>(new Map())
+  const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null)
+  const [isPreflightDialogOpen, setIsPreflightDialogOpen] = useState(false)
+  const [isRunningPreflight, setIsRunningPreflight] = useState(false)
   
   // Custom setNodes that preserves onClick handlers for AddActionNodes
   const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
@@ -108,11 +139,13 @@ export function useWorkflowBuilder() {
   const [workflowDescription, setWorkflowDescription] = useState("")
   const [isSaving, setIsSaving] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false)
   const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const isProcessingChainsRef = useRef(false)
   const justSavedRef = useRef(false)
   const isCleaningAddActionsRef = useRef(false)
+  const templateLoadStateRef = useRef<{ id: string; status: "pending" | "fulfilled" | "rejected" } | null>(null)
 
   // Wrapper to safely set unsaved changes (ignores changes right after save)
   const markAsUnsaved = useCallback(() => {
@@ -146,6 +179,7 @@ export function useWorkflowBuilder() {
   const edgeTypes = useMemo(() => ({
     custom: CustomEdgeWithButton,
     straight: SimpleStraightEdge,
+    rounded: RoundedEdge,
   }), [])
 
   // Load initial data in parallel with proper error handling
@@ -165,18 +199,21 @@ export function useWorkflowBuilder() {
 
       try {
         // Fetch workflows and integrations in parallel
-        await Promise.all([
-          fetchWorkflows().catch(err => {
-            console.error('[WorkflowBuilder] Failed to fetch workflows:', err)
-            return [] // Continue even if workflows fail
-          }),
-          // Only fetch integrations if not already loaded
-          !getConnectedProviders()?.length ?
-            useIntegrationStore.getState().fetchIntegrations().catch(err => {
+        const workflowPromise = isTemplateEditing
+          ? Promise.resolve()
+          : fetchWorkflows().catch(err => {
+              console.error('[WorkflowBuilder] Failed to fetch workflows:', err)
+              return [] // Continue even if workflows fail
+            })
+
+        const integrationPromise = !getConnectedProviders()?.length
+          ? useIntegrationStore.getState().fetchIntegrations().catch(err => {
               console.error('[WorkflowBuilder] Failed to fetch integrations:', err)
               return [] // Continue even if integrations fail
-            }) : Promise.resolve()
-        ])
+            })
+          : Promise.resolve()
+
+        await Promise.all([workflowPromise, integrationPromise])
       } finally {
         clearTimeout(loadingTimeout)
       }
@@ -187,6 +224,46 @@ export function useWorkflowBuilder() {
 
   // Track last validated node IDs to prevent infinite loops
   const lastValidatedNodesRef = useRef<string>('')
+
+  // Update nodes with execution status for live highlighting
+  useEffect(() => {
+    setNodesInternal(currentNodes => {
+      return currentNodes.map(node => {
+        // If not executing and not listening, clear all execution status
+        if (!executionHook.isExecuting && !executionHook.isListeningForWebhook) {
+          // Only update if the node has execution status to clear
+          if (node.data?.executionStatus || node.data?.isActiveExecution) {
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                executionStatus: undefined,
+                isActiveExecution: false,
+              }
+            }
+          }
+          return node
+        }
+
+        // Otherwise, apply execution status
+        const status = executionHook.nodeStatuses[node.id]
+        const isActive = executionHook.activeExecutionNodeId === node.id
+
+        // Highlight trigger node when listening for webhook
+        const isTriggerListening = executionHook.isListeningForWebhook && node.data?.isTrigger
+        const listeningStatus = isTriggerListening ? 'running' : null
+
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            executionStatus: status || listeningStatus,
+            isActiveExecution: isActive || isTriggerListening,
+          }
+        }
+      })
+    })
+  }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook])
 
   // Validate nodes when they change and an AI Agent is present
   useEffect(() => {
@@ -352,6 +429,210 @@ export function useWorkflowBuilder() {
     )
   }, [setNodes])
 
+  const runPreflightCheck = useCallback((options: RunPreflightOptions = {}) => {
+    const { openOnSuccess = false, openOnFailure = true } = options
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+
+    if (!currentNodes || currentNodes.length === 0) {
+      const emptyResult: PreflightResult = {
+        issues: [{
+          type: 'configuration',
+          message: 'Add a trigger and at least one action before running.',
+        }],
+        warnings: [],
+        checkedAt: new Date().toISOString(),
+      }
+      setPreflightResult(emptyResult)
+      if (openOnFailure) {
+        setIsPreflightDialogOpen(true)
+      }
+      return {
+        ok: false,
+        issues: emptyResult.issues,
+        warnings: emptyResult.warnings,
+      }
+    }
+
+    const workflowSnapshot = {
+      id: currentWorkflow?.id || 'temp-workflow',
+      name: workflowName || currentWorkflow?.name || 'Untitled Workflow',
+      description: currentWorkflow?.description || null,
+      user_id: currentWorkflow?.user_id || '',
+      organization_id: currentWorkflow?.organization_id ?? null,
+      nodes: currentNodes.map((node) => ({
+        id: node.id,
+        type: node.type || 'custom',
+        position: {
+          x: node.position?.x ?? 0,
+          y: node.position?.y ?? 0,
+        },
+        data: {
+          label: (node.data as any)?.label ?? (node.data as any)?.title ?? node.id,
+          type: (node.data as any)?.type,
+          config: (node.data as any)?.config ?? {},
+          savedDynamicOptions: (node.data as any)?.savedDynamicOptions,
+          providerId: (node.data as any)?.providerId,
+          isTrigger: (node.data as any)?.isTrigger ?? false,
+          title: (node.data as any)?.title,
+          description: (node.data as any)?.description,
+          isAIAgentChild: (node.data as any)?.isAIAgentChild,
+          parentAIAgentId: (node.data as any)?.parentAIAgentId,
+          parentChainIndex: (node.data as any)?.parentChainIndex,
+          emptiedChains: (node.data as any)?.emptiedChains,
+          validationState: (node.data as any)?.validationState,
+        },
+      })),
+      connections: currentEdges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+      })),
+      status: currentWorkflow?.status || 'draft',
+      created_at: currentWorkflow?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      visibility: currentWorkflow?.visibility,
+      executions_count: currentWorkflow?.executions_count,
+      created_by: currentWorkflow?.created_by,
+      validationState: currentWorkflow?.validationState,
+    } as Workflow
+
+    const validationResult = validateWorkflowNodes(workflowSnapshot, ALL_NODE_COMPONENTS)
+
+    const validationMap = new Map<string, any>()
+    validationResult.nodes.forEach(node => {
+      if (node.data?.validationState) {
+        validationMap.set(node.id, node.data.validationState)
+      }
+    })
+
+    setNodesInternal(existingNodes =>
+      existingNodes.map(node => {
+        const validationState = validationMap.get(node.id)
+        if (!validationState) return node
+        return {
+          ...node,
+          data: {
+            ...(node.data as any),
+            validationState,
+          },
+        }
+      })
+    )
+
+    const configurationIssues: PreflightIssue[] = validationResult.nodes
+      .filter(node => node.data?.validationState?.missingRequired?.length)
+      .map(node => {
+        const missing = node.data?.validationState?.missingRequired ?? []
+        const title = node.data?.title || node.data?.label || node.data?.type || node.id
+        return {
+          type: 'configuration',
+          nodeId: node.id,
+          missingFields: missing,
+          message: `${title} is missing required field${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`,
+        }
+      })
+
+    const integrationIssues: PreflightIssue[] = []
+    const providerNameMap = integrationHook.availableIntegrations?.reduce<Record<string, string>>((acc, integration) => {
+      acc[integration.id] = integration.name
+      return acc
+    }, {}) ?? {}
+
+    validationResult.nodes.forEach(node => {
+      const component = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+      const providerId = node.data?.providerId || component?.providerId
+      if (!providerId || ['core', 'logic', 'ai', 'manual', 'schedule'].includes(providerId)) {
+        return
+      }
+
+      if (integrationHook.isIntegrationConnected && integrationHook.isIntegrationConnected(providerId)) {
+        return
+      }
+
+      const providerName = providerNameMap[providerId] || INTEGRATION_CONFIGS[providerId]?.name || providerId
+      const title = node.data?.title || component?.title || node.data?.type || node.id
+      integrationIssues.push({
+        type: 'integration',
+        nodeId: node.id,
+        providerId,
+        message: `${providerName} connection required for ${title}`,
+      })
+    })
+
+    const warnings: PreflightIssue[] = []
+    validationResult.nodes.forEach(node => {
+      if (node.data?.type === 'ai_message') {
+        const config = node.data?.config || {}
+        const contextIds: string[] = Array.isArray(config.contextNodeIds)
+          ? config.contextNodeIds
+          : typeof config.contextNodeIds === 'string'
+            ? [config.contextNodeIds]
+            : []
+
+        const missingContext = contextIds.filter(id => !workflowSnapshot.nodes.some(n => n.id === id))
+        if (missingContext.length > 0) {
+          warnings.push({
+            type: 'ai',
+            nodeId: node.id,
+            message: `AI Message “${node.data?.title || node.id}” references steps that no longer exist (${missingContext.join(', ')}).`,
+          })
+        }
+      }
+    })
+
+    const issues = [...integrationIssues, ...configurationIssues]
+    const result: PreflightResult = {
+      issues,
+      warnings,
+      checkedAt: new Date().toISOString(),
+    }
+
+    setPreflightResult(result)
+
+    if ((issues.length === 0 && warnings.length === 0 && openOnSuccess) || (issues.length > 0 && openOnFailure) || (issues.length === 0 && warnings.length > 0 && openOnSuccess)) {
+      setIsPreflightDialogOpen(true)
+    } else if (issues.length === 0 && warnings.length === 0 && !openOnSuccess) {
+      setIsPreflightDialogOpen(false)
+    }
+
+    return {
+      ok: issues.length === 0,
+      issues,
+      warnings,
+    }
+  }, [
+    getNodes,
+    getEdges,
+    currentWorkflow?.id,
+    currentWorkflow?.description,
+    currentWorkflow?.organization_id,
+    currentWorkflow?.status,
+    currentWorkflow?.created_at,
+    currentWorkflow?.updated_at,
+    currentWorkflow?.executions_count,
+    currentWorkflow?.created_by,
+    currentWorkflow?.visibility,
+    currentWorkflow?.user_id,
+    workflowName,
+    integrationHook.availableIntegrations,
+    integrationHook.isIntegrationConnected,
+  ])
+
+  const openPreflightChecklist = useCallback(() => {
+    setIsRunningPreflight(true)
+    const result = runPreflightCheck({ openOnSuccess: true, openOnFailure: true })
+    setIsRunningPreflight(false)
+    if (result.ok && result.warnings.length === 0) {
+      toast({
+        title: "Preflight check passed",
+        description: "All checks completed successfully.",
+      })
+    }
+  }, [runPreflightCheck, toast])
+
   const handleNodeAddChain = useCallback((nodeId: string) => {
     console.log('🔗 Add chain to AI Agent:', nodeId)
 
@@ -513,6 +794,7 @@ export function useWorkflowBuilder() {
 
     let nodesToRemove: string[] = []
     let nodesToAdd: Node[] = []
+    let nodesToUpdate: Record<string, { x: number; y: number }> = {}
     let edgesToRemove: string[] = []
     let edgesToAdd: Edge[] = []
 
@@ -550,13 +832,18 @@ export function useWorkflowBuilder() {
         // Create new Add Action
         // Center Add Action node (400px wide) below parent node (480px wide)
         // Keep same X position for vertical alignment
+        // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+        const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+        const spacing = isChainNode ? 120 : 160
+        const desiredPosition = {
+          x: getCenteredAddActionX(leafNode),
+          y: leafNode.position.y + spacing
+        }
+
         nodesToAdd.push({
           id: addActionId,
           type: 'addAction',
-          position: {
-            x: leafNode.position.x,
-            y: leafNode.position.y + 160
-          },
+          position: desiredPosition,
           draggable: false,
           selectable: false,
           data: {
@@ -580,8 +867,23 @@ export function useWorkflowBuilder() {
             target: addActionId,
             type: 'straight',
             animated: false,
-            style: { stroke: '#d1d5db', strokeWidth: 1, strokeDasharray: '5 5' }
+            style: { stroke: '#9ca3af', strokeWidth: 1.5, strokeDasharray: '5 5', strokeLinecap: 'round' }
           })
+        }
+      } else {
+        // Update existing Add Action position if needed
+        const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+        const spacing = isChainNode ? 120 : 160
+        const desiredPosition = {
+          x: getCenteredAddActionX(leafNode),
+          y: leafNode.position.y + spacing
+        }
+
+        if (
+          existingAddAction.position?.x !== desiredPosition.x ||
+          existingAddAction.position?.y !== desiredPosition.y
+        ) {
+          nodesToUpdate[existingAddAction.id] = desiredPosition
         }
       }
     })
@@ -591,8 +893,21 @@ export function useWorkflowBuilder() {
       // console.log(`Removing ${nodesToRemove.length} Add Actions, adding ${nodesToAdd.length}`)
       setNodes(nds => {
         let filtered = nds.filter(n => !nodesToRemove.includes(n.id))
+        filtered = filtered.map(n => {
+          const update = nodesToUpdate[n.id]
+          return update ? { ...n, position: { ...n.position, ...update } } : n
+        })
         return [...filtered, ...nodesToAdd]
       })
+    } else if (Object.keys(nodesToUpdate).length > 0) {
+      // Only updates to existing nodes required
+      setNodes(nds => nds.map(n => {
+        const update = nodesToUpdate[n.id]
+        if (update) {
+          return { ...n, position: { ...n.position, ...update } }
+        }
+        return n
+      }))
     }
 
     // Apply edge changes
@@ -772,7 +1087,47 @@ export function useWorkflowBuilder() {
               onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined
             }
           }))
-          
+
+          // Normalize spacing for AI agent chain nodes
+          // This ensures consistent spacing even if workflow was saved with old spacing values
+          const aiAgentIds = new Set(
+            flowNodes.filter((n: any) => n.data?.type === 'ai_agent').map((n: any) => n.id)
+          )
+
+          // Group chain nodes by AI agent and chain index
+          const chainNodesByAgent = new Map<string, Map<number, any[]>>()
+          flowNodes.forEach((node: any) => {
+            if (node.data?.parentAIAgentId && aiAgentIds.has(node.data.parentAIAgentId)) {
+              const agentId = node.data.parentAIAgentId
+              const chainIndex = node.data.parentChainIndex ?? 0
+
+              if (!chainNodesByAgent.has(agentId)) {
+                chainNodesByAgent.set(agentId, new Map())
+              }
+              const chainMap = chainNodesByAgent.get(agentId)!
+              if (!chainMap.has(chainIndex)) {
+                chainMap.set(chainIndex, [])
+              }
+              chainMap.get(chainIndex)!.push(node)
+            }
+          })
+
+          // Recalculate positions for each chain
+          chainNodesByAgent.forEach((chainMap, agentId) => {
+            const aiAgentNode = flowNodes.find((n: any) => n.id === agentId)
+            if (!aiAgentNode) return
+
+            chainMap.forEach((chainNodes, chainIndex) => {
+              // Sort by Y position
+              chainNodes.sort((a, b) => a.position.y - b.position.y)
+
+              // Recalculate Y positions with 120px spacing
+              chainNodes.forEach((node, index) => {
+                node.position.y = aiAgentNode.position.y + 160 + (index * 120)
+              })
+            })
+          })
+
           // Add AddActionNodes only after TRUE leaf nodes (end of each chain)
           allNodes = [...flowNodes]
 
@@ -836,12 +1191,16 @@ export function useWorkflowBuilder() {
             const clickHandler = () => handleAddActionClick(addActionId, leafNode.id)
             addActionHandlersRef.current[addActionId] = clickHandler
 
+            // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+            const isChainNode = Boolean(leafNode.data?.parentAIAgentId)
+            const spacing = isChainNode ? 120 : 160
+
             const addActionNode: Node = {
               id: addActionId,
               type: 'addAction',
               position: {
-                x: leafNode.position.x, // Keep same X for vertical alignment
-                y: leafNode.position.y + 160
+                x: getCenteredAddActionX(leafNode),
+                y: leafNode.position.y + spacing
               },
               draggable: false,
               selectable: false,
@@ -942,9 +1301,14 @@ export function useWorkflowBuilder() {
               id,
               source: conn.source,
               target: conn.target,
-              type: 'custom',
-              animated: false,
-              style: { stroke: "#d1d5db", strokeWidth: 1 }
+              type: (conn as any).type || 'custom',
+              animated: (conn as any).animated ?? false,
+              style: (conn as any).style || {
+                stroke: "#9ca3af",
+                strokeWidth: 2,
+                strokeLinecap: "round",
+                strokeLinejoin: "round"
+              }
             })
           }
           
@@ -962,9 +1326,10 @@ export function useWorkflowBuilder() {
                   type: 'straight',
                   animated: false,
                   style: {
-                    stroke: "#d1d5db",
-                    strokeWidth: 1,
-                    strokeDasharray: "5 5" // Make it dotted
+                    stroke: "#9ca3af",
+                    strokeWidth: 1.5,
+                    strokeDasharray: "5 5", // Make it dotted
+                    strokeLinecap: "round"
                   }
                 })
               }
@@ -1012,8 +1377,363 @@ export function useWorkflowBuilder() {
     }
   }, [workflowId, workflows, setCurrentWorkflow, setNodes, setEdges, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow, fitView, setWorkflowName, setWorkflowDescription])
 
+  useEffect(() => {
+    if (!isTemplateEditing || !editTemplateId) {
+      templateLoadStateRef.current = null
+      return
+    }
+
+    const currentState = templateLoadStateRef.current
+
+    if (currentState?.id === editTemplateId) {
+      if (currentState.status === "pending") {
+        return
+      }
+      if (currentState.status === "fulfilled" || currentState.status === "rejected") {
+        setIsTemplateLoading(false)
+        return
+      }
+    }
+
+    const abortController = new AbortController()
+    let isCancelled = false
+
+    templateLoadStateRef.current = { id: editTemplateId, status: "pending" }
+    setIsTemplateLoading(true)
+
+    const loadTemplateForEditing = async () => {
+      try {
+        historyHook.clearHistory()
+
+        const response = await fetch(`/api/templates/${editTemplateId}`, {
+          signal: abortController.signal
+        })
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}))
+          throw new Error(errorBody.error || `Failed to load template (${response.status})`)
+        }
+
+        const payload = await response.json()
+        if (isCancelled || abortController.signal.aborted) {
+          return
+        }
+
+        const templateRecord = payload.template || {}
+        const rawNodes: WorkflowNode[] = Array.isArray(payload.nodes)
+          ? payload.nodes
+          : Array.isArray(templateRecord.nodes)
+            ? templateRecord.nodes
+            : []
+        const rawConnections: WorkflowConnection[] = Array.isArray(payload.connections)
+          ? payload.connections
+          : Array.isArray(templateRecord.connections)
+            ? templateRecord.connections
+            : []
+
+        const sanitizedNodes = rawNodes.filter((node: any) => {
+          if (!node) return false
+          const nodeType = node?.data?.type || node?.type
+          if (nodeType === 'addAction' || nodeType === 'insertAction' || nodeType === 'chain_placeholder') {
+            return false
+          }
+          if (node?.type === 'addAction' || node?.type === 'insertAction' || node?.type === 'chainPlaceholder') {
+            return false
+          }
+          if (typeof node?.id === 'string' && (node.id.startsWith('add-action-') || node.id.startsWith('chain-placeholder-'))) {
+            return false
+          }
+          if (node?.data?.isPlaceholder) {
+            return false
+          }
+          const hasType = Boolean(node?.data?.type)
+          const isTrigger = Boolean(node?.data?.isTrigger)
+          return hasType || isTrigger
+        }) as WorkflowNode[]
+
+        const flowNodes: Node[] = sanitizedNodes.map((node: WorkflowNode) => {
+          const safeData = node.data || {}
+          return {
+            id: node.id,
+            type: node.type || 'custom',
+            position: node.position || { x: 0, y: 0 },
+            data: {
+              ...safeData,
+              providerId: (() => {
+                if (safeData.providerId) return safeData.providerId
+                const type = safeData.type
+                if (!type || typeof type !== 'string') return null
+                if (type.includes('_trigger_')) {
+                  return type.split('_')[0]
+                }
+                if (type.includes('_')) {
+                  return type.split('_')[0]
+                }
+                if (type.includes(':')) {
+                  return type.split(':')[0]
+                }
+                const component = ALL_NODE_COMPONENTS.find(c => c.type === type)
+                return component?.providerId || null
+              })(),
+              title: (() => {
+                const existing = safeData.title
+                if (existing && typeof existing === 'string' && existing.trim().length > 0) {
+                  return existing
+                }
+                const comp = ALL_NODE_COMPONENTS.find(c => c.type === safeData.type)
+                return comp?.title || safeData.type || (safeData.isTrigger ? 'Trigger' : 'Unnamed Action')
+              })(),
+              onConfigure: handleNodeConfigure,
+              onDelete: handleNodeDelete,
+              onEditingStateChange: handleNodeEditingStateChange,
+              onRename: handleNodeRename,
+              onAddChain: safeData.type === 'ai_agent' ? handleNodeAddChain : undefined
+            }
+          }
+        })
+
+        setNodes(flowNodes)
+
+        const validNodeIds = new Set(flowNodes.map(node => node.id))
+        const seenEdgeKey = new Set<string>()
+        const seenIds = new Set<string>()
+        const flowEdges: Edge[] = []
+
+        rawConnections.forEach((conn: WorkflowConnection) => {
+          if (!conn?.source || !conn?.target) return
+          if (conn.source.includes('add-action') || conn.target.includes('add-action')) return
+          if (!validNodeIds.has(conn.source) || !validNodeIds.has(conn.target)) return
+
+          const edgeKey = `${conn.source}->${conn.target}`
+          if (seenEdgeKey.has(edgeKey)) return
+          seenEdgeKey.add(edgeKey)
+
+          let id = conn.id || `e-${conn.source}-${conn.target}`
+          if (seenIds.has(id)) {
+            id = `e-${conn.source}-${conn.target}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+          }
+          seenIds.add(id)
+
+          flowEdges.push({
+            id,
+            source: conn.source,
+            target: conn.target,
+            type: (conn as any)?.type || 'custom',
+            animated: (conn as any)?.animated ?? false,
+            style: (conn as any)?.style || {
+              stroke: "#9ca3af",
+              strokeWidth: 2,
+              strokeLinecap: "round",
+              strokeLinejoin: "round"
+            }
+          })
+        })
+
+        setEdges(flowEdges)
+
+        setWorkflowName(templateRecord.name || "Untitled Template")
+        setWorkflowDescription(templateRecord.description || "")
+        setHasUnsavedChanges(false)
+
+        const templateWorkflow: Workflow = {
+          id: templateRecord.id || editTemplateId,
+          name: templateRecord.name || "Untitled Template",
+          description: templateRecord.description || "",
+          user_id: templateRecord.created_by || templateRecord.user_id || templateRecord.author_id || "",
+          nodes: sanitizedNodes,
+          connections: rawConnections,
+          status: 'template_draft',
+          created_at: templateRecord.created_at || new Date().toISOString(),
+          updated_at: templateRecord.updated_at || new Date().toISOString(),
+        }
+
+        setCurrentWorkflow(templateWorkflow)
+        setErrorStoreWorkflow(templateWorkflow)
+        templateLoadStateRef.current = { id: editTemplateId, status: "fulfilled" }
+
+        const safeRun = (fn: () => void, delay: number) => {
+          setTimeout(() => {
+            if (isCancelled || abortController.signal.aborted) return
+            fn()
+          }, delay)
+        }
+
+        safeRun(() => {
+          ensureOneAddActionPerChain()
+        }, 50)
+
+        safeRun(() => {
+          const currentNodesSnapshot = getNodes()
+          const currentEdgesSnapshot = getEdges()
+          if (currentNodesSnapshot.length > 0) {
+            historyHook.pushState(currentNodesSnapshot, currentEdgesSnapshot)
+          }
+        }, 200)
+
+        safeRun(() => {
+          fitView({
+            padding: 0.2,
+            includeHiddenNodes: false,
+            minZoom: 0.5,
+            maxZoom: 2,
+            offset: { x: 0, y: 40 }
+          })
+        }, 150)
+      } catch (error: any) {
+        if (isCancelled || abortController.signal.aborted) {
+          return
+        }
+        templateLoadStateRef.current = { id: editTemplateId, status: "rejected" }
+        console.error('Failed to load template for editing:', error)
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to load template",
+          variant: "destructive",
+        })
+      } finally {
+        if (!isCancelled && !abortController.signal.aborted) {
+          setIsTemplateLoading(false)
+        }
+      }
+    }
+
+    void loadTemplateForEditing()
+
+    return () => {
+      isCancelled = true
+      abortController.abort()
+      const state = templateLoadStateRef.current
+      if (state?.id === editTemplateId && state.status === "pending") {
+        templateLoadStateRef.current = null
+      }
+    }
+    // We intentionally limit dependencies to avoid effect loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTemplateEditing, editTemplateId])
+
+  useEffect(() => {
+    if (!currentWorkflow?.id) return
+    if (currentWorkflow.name === workflowName) return
+
+    const updatedWorkflow = { ...currentWorkflow, name: workflowName }
+    setCurrentWorkflow(updatedWorkflow)
+    useWorkflowStore.setState((state) => ({
+      workflows: state.workflows.map((workflow) =>
+        workflow.id === updatedWorkflow.id ? { ...workflow, name: workflowName } : workflow
+      )
+    }))
+  }, [currentWorkflow?.id, currentWorkflow?.name, workflowName, setCurrentWorkflow])
+
   // Handle save
   const handleSave = useCallback(async () => {
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+
+    const placeholderNodeIds = new Set(
+      currentNodes
+        .filter(n =>
+          n.type === 'addAction' ||
+          n.type === 'chainPlaceholder' ||
+          (typeof n.id === 'string' && (n.id.startsWith('add-action-') || n.id.startsWith('chain-placeholder-')))
+        )
+        .map(n => n.id)
+    )
+
+    const persistedNodes = currentNodes.filter(n => !placeholderNodeIds.has(n.id))
+    const persistedEdges = currentEdges.filter(e =>
+      !placeholderNodeIds.has(e.source) &&
+      !placeholderNodeIds.has(e.target) &&
+      !e.target.includes('add-action') &&
+      !e.source.includes('add-action')
+    )
+
+    const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
+      id: node.id,
+      type: node.type || 'custom',
+      position: node.position,
+      data: node.data,
+    }))
+
+    const workflowConnections: WorkflowConnection[] = persistedEdges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+    }))
+
+    if (isTemplateEditing) {
+      if (!editTemplateId) {
+        toast({
+          title: "Error",
+          description: "Missing template identifier",
+          variant: "destructive",
+        })
+        return
+      }
+
+      try {
+        setIsSaving(true)
+
+        const response = await fetch(`/api/templates/${editTemplateId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            nodes: workflowNodes,
+            connections: workflowConnections,
+            name: workflowName,
+            description: workflowDescription,
+          }),
+        })
+
+        const body = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          throw new Error(body.error || 'Failed to update template')
+        }
+
+        const updatedTemplate = body?.template || {}
+        const updatedNodes = Array.isArray(updatedTemplate.nodes) ? (updatedTemplate.nodes as WorkflowNode[]) : workflowNodes
+        const updatedConnections = Array.isArray(updatedTemplate.connections) ? (updatedTemplate.connections as WorkflowConnection[]) : workflowConnections
+
+        if (currentWorkflow) {
+          setCurrentWorkflow({
+            ...currentWorkflow,
+            name: workflowName,
+            description: workflowDescription,
+            nodes: updatedNodes,
+            connections: updatedConnections,
+            updated_at: new Date().toISOString(),
+          })
+        }
+
+        templateLoadStateRef.current = { id: editTemplateId, status: "fulfilled" }
+
+        justSavedRef.current = true
+        setHasUnsavedChanges(false)
+        setTimeout(() => {
+          justSavedRef.current = false
+        }, 500)
+
+        toast({
+          title: "Template saved",
+          description: "Template updated successfully",
+        })
+      } catch (error: any) {
+        console.error('Error updating template:', error)
+        setHasUnsavedChanges(true)
+        toast({
+          title: "Error",
+          description: error?.message || "Failed to update template",
+          variant: "destructive",
+        })
+      } finally {
+        setIsSaving(false)
+      }
+
+      return
+    }
+
     if (!currentWorkflow?.id) {
       toast({
         title: "Error",
@@ -1026,47 +1746,6 @@ export function useWorkflowBuilder() {
     try {
       setIsSaving(true)
 
-      // Get the latest nodes and edges from React Flow to avoid stale closure issues
-      const currentNodes = getNodes()
-      const currentEdges = getEdges()
-
-      // Validation is no longer required for saving - workflows can be saved with missing required fields
-      // They just cannot be activated until all required fields are configured
-      // The validation check now happens in handleToggleLive instead
-
-      // Remove UI-only placeholder nodes (AddAction and ChainPlaceholder) before saving
-      const placeholderNodeIds = new Set(
-        currentNodes
-          .filter(n =>
-            n.type === 'addAction' ||
-            n.type === 'chainPlaceholder' ||
-            (typeof n.id === 'string' && (n.id.startsWith('add-action-') || n.id.startsWith('chain-placeholder-')))
-          )
-          .map(n => n.id)
-      )
-
-      const persistedNodes = currentNodes.filter(n => !placeholderNodeIds.has(n.id))
-      // Filter out edges to/from placeholder nodes (including AddActionNodes)
-      const persistedEdges = currentEdges.filter(e =>
-        !placeholderNodeIds.has(e.source) &&
-        !placeholderNodeIds.has(e.target) &&
-        !e.target.includes('add-action') && // Explicitly filter out edges to AddActionNodes
-        !e.source.includes('add-action')    // Explicitly filter out edges from AddActionNodes
-      )
-
-      const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
-        id: node.id,
-        type: node.type || 'custom',
-        position: node.position,
-        data: node.data,
-      }))
-
-      const workflowConnections: WorkflowConnection[] = persistedEdges.map(edge => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-      }))
-
       await updateWorkflow(currentWorkflow.id, {
         name: workflowName,
         description: workflowDescription,
@@ -1074,16 +1753,13 @@ export function useWorkflowBuilder() {
         connections: workflowConnections,
       })
 
-      // Set flag to prevent immediate re-triggering of unsaved changes
       justSavedRef.current = true
       setHasUnsavedChanges(false)
 
-      // Clear the flag after a short delay to allow for any immediate state updates
       setTimeout(() => {
         justSavedRef.current = false
       }, 500)
 
-      // If editing a template, also update the template
       if (editTemplateId) {
         try {
           const response = await fetch(`/api/templates/${editTemplateId}`, {
@@ -1097,9 +1773,9 @@ export function useWorkflowBuilder() {
             }),
           })
 
+          const errorBody = !response.ok ? await response.json().catch(() => ({})) : null
           if (!response.ok) {
-            const error = await response.json()
-            throw new Error(error.error || 'Failed to update template')
+            throw new Error(errorBody?.error || 'Failed to update template')
           }
 
           toast({
@@ -1130,12 +1806,21 @@ export function useWorkflowBuilder() {
     } finally {
       setIsSaving(false)
     }
-  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast, editTemplateId])
+  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast, editTemplateId, setCurrentWorkflow, setHasUnsavedChanges, isTemplateEditing])
 
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   
   const handleToggleLive = useCallback(async () => {
+    if (isTemplateEditing) {
+      toast({
+        title: "Unavailable",
+        description: "Templates cannot be activated",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!currentWorkflow?.id) {
       toast({
         title: "Error",
@@ -1237,7 +1922,7 @@ export function useWorkflowBuilder() {
     } finally {
       setIsUpdatingStatus(false)
     }
-  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes, edges])
+  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes, edges, isTemplateEditing])
 
   // Use refs for undo/redo handlers to avoid initialization issues
   const handleUndoRef = useRef<(() => void) | null>(null)
@@ -1254,7 +1939,7 @@ export function useWorkflowBuilder() {
       target: params.target,
       type: 'custom',
       animated: false,
-      style: { stroke: "#d1d5db", strokeWidth: 1 }
+      style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round" }
     }
 
     setEdges((eds) => {
@@ -1266,9 +1951,19 @@ export function useWorkflowBuilder() {
     markAsUnsaved()
   }, [setEdges, nodes, trackChange, markAsUnsaved])
 
-  // Process edges to add handleAddNodeBetween
+  // Process edges to add handleAddNodeBetween and selection styling
   const processedEdges = useMemo(() => {
     return edges.map(edge => {
+      // Add selected styling
+      const isSelected = edge.id === selectedEdgeId
+      const edgeStyle = {
+        ...edge.style,
+        stroke: isSelected ? '#3b82f6' : edge.style?.stroke || '#9ca3af',
+        strokeWidth: isSelected ? 3 : edge.style?.strokeWidth || 2,
+        strokeLinecap: 'round' as const,
+        strokeLinejoin: 'round' as const,
+      }
+
       if (edge.type === 'custom') {
         // Don't add insert button if target is an Add Action node
         const targetNode = nodes.find(n => n.id === edge.target)
@@ -1276,6 +1971,7 @@ export function useWorkflowBuilder() {
 
         return {
           ...edge,
+          style: edgeStyle,
           data: {
             ...edge.data,
             // Only add onAddNode handler if target is not an Add Action node
@@ -1304,15 +2000,26 @@ export function useWorkflowBuilder() {
           }
         }
       }
-      return edge
+      // Return edge with selected styling for non-custom edges
+      return {
+        ...edge,
+        style: edgeStyle
+      }
     })
-  }, [edges, nodes, dialogsHook])
+  }, [edges, nodes, dialogsHook, selectedEdgeId])
 
   // Determine loading state with timeout protection
   const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null)
   const MAX_LOADING_TIME = 15000 // 15 seconds max loading time
 
   const shouldShowLoading = () => {
+    if (isTemplateEditing && isTemplateLoading) {
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        console.warn('[WorkflowBuilder] Template loading timeout reached, hiding loading screen')
+        return false
+      }
+      return true
+    }
     // If we have a workflow ID but no current workflow, we're loading
     if (workflowId && !currentWorkflow) {
       // But not if we've been loading for too long
@@ -1375,18 +2082,104 @@ export function useWorkflowBuilder() {
     if (configHook.nodeNeedsConfiguration(trigger)) {
       // Store the pending trigger info and open configuration
       configHook.setPendingNode({ type: 'trigger', integration, nodeComponent: trigger })
-      configHook.setConfiguringNode({ 
-        id: 'pending-trigger', 
-        integration, 
-        nodeComponent: trigger, 
-        config: {} 
+      configHook.setConfiguringNode({
+        id: 'pending-trigger',
+        integration,
+        nodeComponent: trigger,
+        config: {}
       })
     } else {
-      // Add trigger without configuration
-      // Implementation would go here
+      // Add trigger without configuration (e.g., manual trigger)
+      const newNodeId = `trigger-${Date.now()}`
+      const newNode: Node = {
+        id: newNodeId,
+        type: 'custom',
+        position: { x: 250, y: 100 },
+        data: {
+          title: trigger.title,
+          description: trigger.description,
+          type: trigger.type,
+          isTrigger: true,
+          config: {},
+          providerId: trigger.providerId || integration.id,
+          onConfigure: handleNodeConfigure,
+          onDelete: handleNodeDelete,
+          onEditingStateChange: handleNodeEditingStateChange,
+          onRename: handleNodeRename
+        }
+      }
+
+      // Add the trigger node
+      setNodes(nds => {
+        const updatedNodes = [...nds, newNode]
+
+        // Add AddActionNode after the trigger
+        const addActionId = `add-action-${newNodeId}`
+
+        // Store the handler in ref
+        const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
+        addActionHandlersRef.current[addActionId] = clickHandler
+
+        const addActionNode: Node = {
+          id: addActionId,
+          type: 'addAction',
+          position: {
+            x: getCenteredAddActionX(newNode),
+            y: newNode.position.y + 160
+          },
+          draggable: false,
+          selectable: false,
+          data: {
+            parentId: newNodeId,
+            onClick: clickHandler
+          }
+        }
+
+        return [...updatedNodes, addActionNode]
+      })
+
+      // Add edge between trigger and AddActionNode
+      setEdges(eds => [...eds, {
+        id: `e-${newNodeId}-add-action-${newNodeId}`,
+        source: newNodeId,
+        target: `add-action-${newNodeId}`,
+        type: 'custom',
+        animated: false,
+        style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
+      }])
+
+      // Auto-fit view after adding trigger to keep everything visible
+      setTimeout(() => {
+        if (fitView) {
+          fitView({
+            padding: 0.2,
+            includeHiddenNodes: false,
+            minZoom: 0.5,
+            maxZoom: 2,
+            duration: 400,
+            offset: { x: 0, y: 40 }
+          })
+        }
+      }, 100)
+
+      setHasUnsavedChanges(true)
     }
     dialogsHook.setShowTriggerDialog(false)
-  }, [configHook, dialogsHook])
+  }, [
+    configHook,
+    dialogsHook,
+    handleNodeConfigure,
+    handleNodeDelete,
+    handleNodeEditingStateChange,
+    handleNodeRename,
+    setNodes,
+    setEdges,
+    addActionHandlersRef,
+    handleAddActionClick,
+    getCenteredAddActionX,
+    fitView,
+    setHasUnsavedChanges
+  ])
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
@@ -1510,7 +2303,10 @@ export function useWorkflowBuilder() {
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
-        position: { x: 250, y: 260 },
+        position: {
+          x: getCenteredAddActionX(newNode),
+          y: newNode.position.y + 160
+        },
         draggable: false,
         selectable: false,
         data: {
@@ -1529,7 +2325,7 @@ export function useWorkflowBuilder() {
       target: `add-action-${newNodeId}`,
       type: 'custom',
       animated: false,
-      style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
+      style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
     }])
 
     // Auto-fit view after adding trigger to keep everything visible
@@ -1758,12 +2554,16 @@ export function useWorkflowBuilder() {
           const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
           addActionHandlersRef.current[addActionId] = clickHandler
 
+          // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+          const isChainNode = Boolean(parentAIAgentId)
+          const spacing = isChainNode ? 120 : 160
+
           placeholderNode = {
             id: addActionId,
             type: 'addAction',
             position: {
-              x: newNode.position.x, // Keep same X for vertical alignment
-              y: newNode.position.y + 160
+              x: getCenteredAddActionX(newNode),
+              y: newNode.position.y + spacing
             },
             draggable: false,
             selectable: false,
@@ -1811,7 +2611,7 @@ export function useWorkflowBuilder() {
             target: newNodeId,
             type: 'custom',
             animated: false,
-            style: { stroke: "#d1d5db", strokeWidth: 1 },
+            style: { stroke: "#9ca3af", strokeWidth: 1 },
             data: {} // Ensure data object exists
           },
           {
@@ -1820,7 +2620,7 @@ export function useWorkflowBuilder() {
             target: sourceNodeInfo.insertBefore,
             type: 'custom',
             animated: false,
-            style: { stroke: "#d1d5db", strokeWidth: 1 },
+            style: { stroke: "#9ca3af", strokeWidth: 1 },
             data: {} // Ensure data object exists
           }
           // Don't add edge to AddAction when inserting between nodes
@@ -1839,14 +2639,14 @@ export function useWorkflowBuilder() {
           target: newNodeId,
           type: 'custom',
           animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1 }
+          style: { stroke: "#9ca3af", strokeWidth: 1 }
         }, {
           id: `e-${newNodeId}-${nodeComponent.type === 'ai_agent' ? `chain-placeholder-${newNodeId}` : `add-action-${newNodeId}`}`,
           source: newNodeId,
           target: nodeComponent.type === 'ai_agent' ? `chain-placeholder-${newNodeId}` : `add-action-${newNodeId}`,
           type: 'custom',
           animated: false,
-          style: { stroke: "#d1d5db", strokeWidth: 1, strokeDasharray: "5 5" }
+          style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
         }]
 
         return newEdges
@@ -1881,20 +2681,33 @@ export function useWorkflowBuilder() {
       const additionalChanges: any[] = []
       const currentNodes = getNodes()
 
+      // Check if any node has finished being dragged (dragging === false)
+      const hasFinishedDragging = positionChanges.some((change: any) => change.dragging === false)
+
       positionChanges.forEach((change: any) => {
         if (change.dragging !== false && !change.id.startsWith('add-action-')) {
           // This is a parent node being dragged, find its add action node
           const addActionId = `add-action-${change.id}`
           const addActionNode = currentNodes.find(n => n.id === addActionId)
+          const parentNode = currentNodes.find(n => n.id === change.id)
 
           if (addActionNode && change.position) {
+            // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
+            const isChainNode = Boolean(addActionNode.data?.parentAIAgentId)
+            const spacing = isChainNode ? 120 : 160
+
+            const centeredX = getCenteredAddActionX({
+              position: change.position,
+              data: parentNode?.data ?? addActionNode.data
+            })
+
             // Move the add action node with the parent
             additionalChanges.push({
               id: addActionId,
               type: 'position',
               position: {
-                x: change.position.x, // Keep same X for vertical alignment
-                y: change.position.y + 160 // Keep 160px below parent (consistent with node creation)
+                x: centeredX,
+                y: change.position.y + spacing
               }
             })
           }
@@ -1903,11 +2716,20 @@ export function useWorkflowBuilder() {
 
       // Apply all changes including parent and child movements
       onNodesChange([...changes, ...additionalChanges])
+
+      // Track change for undo/redo when dragging ends
+      if (hasFinishedDragging) {
+        setTimeout(() => {
+          const updatedNodes = getNodes()
+          const updatedEdges = getEdges()
+          trackChangeRef.current?.(updatedNodes, updatedEdges)
+        }, 100)
+      }
     } else {
       // No position changes, apply normally
       onNodesChange(changes)
     }
-  }, [onNodesChange, getNodes])
+  }, [onNodesChange, getNodes, getEdges])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)
@@ -1974,6 +2796,64 @@ export function useWorkflowBuilder() {
     const fields = node.data?.nodeComponent?.fields || []
     return fields.some((field: any) => field.required && !config[field.name])
   }, [nodes])
+
+  // Edge click handler for selection
+  const handleEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.stopPropagation()
+    setSelectedEdgeId(edge.id)
+    setHasUnsavedChanges(true)
+  }, [])
+
+  // Delete selected edge
+  const deleteSelectedEdge = useCallback(() => {
+    if (selectedEdgeId) {
+      setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId))
+      setSelectedEdgeId(null)
+      setHasUnsavedChanges(true)
+      toast({
+        title: "Connection deleted",
+        description: "The connection between nodes has been removed.",
+      })
+    }
+  }, [selectedEdgeId, setEdges, toast])
+
+  // Keyboard handler for edge deletion
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if Delete or Backspace is pressed
+      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEdgeId) {
+        // Prevent default behavior if we're not in an input field
+        const target = event.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          event.preventDefault()
+          deleteSelectedEdge()
+        }
+      }
+      // Deselect edge on Escape
+      if (event.key === 'Escape' && selectedEdgeId) {
+        setSelectedEdgeId(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedEdgeId, deleteSelectedEdge])
+
+  // Click outside to deselect edge
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if click is outside of edges
+      const target = event.target as HTMLElement
+      if (!target.closest('.react-flow__edge')) {
+        setSelectedEdgeId(null)
+      }
+    }
+
+    if (selectedEdgeId) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [selectedEdgeId])
 
   const confirmDeleteNode = useCallback((nodeId: string) => {
     const nodeToDelete = nodesRef.current.find((n) => n.id === nodeId)
@@ -2255,11 +3135,39 @@ export function useWorkflowBuilder() {
     return executionHook.handleTestSandbox()
   }, [executionHook])
 
-  const handleExecuteLive = useCallback(() => {
+  const handleExecuteLive = useCallback(async () => {
     const currentNodes = getNodes()
     const currentEdges = getEdges()
-    return executionHook.handleExecute(currentNodes, currentEdges)
-  }, [getNodes, getEdges, executionHook])
+    setIsRunningPreflight(true)
+    const preflight = runPreflightCheck({ openOnSuccess: false, openOnFailure: true })
+    setIsRunningPreflight(false)
+    if (!preflight.ok) {
+      toast({
+        title: "Preflight check failed",
+        description: "Resolve the issues in the checklist before running the workflow.",
+        variant: "destructive",
+      })
+      return
+    }
+    return executionHook.handleExecuteLive(currentNodes, currentEdges)
+  }, [getNodes, getEdges, executionHook, runPreflightCheck, toast])
+
+  const handleExecuteLiveSequential = useCallback(async () => {
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+    setIsRunningPreflight(true)
+    const preflight = runPreflightCheck({ openOnSuccess: false, openOnFailure: true })
+    setIsRunningPreflight(false)
+    if (!preflight.ok) {
+      toast({
+        title: "Preflight check failed",
+        description: "Resolve the checklist issues before running sequential mode.",
+        variant: "destructive",
+      })
+      return
+    }
+    return executionHook.handleExecuteLiveSequential(currentNodes, currentEdges)
+  }, [getNodes, getEdges, executionHook, runPreflightCheck, toast])
 
   return {
     // React Flow state
@@ -2315,6 +3223,7 @@ export function useWorkflowBuilder() {
     ...executionHook,
     handleTestSandbox,  // Override with wrapped version
     handleExecuteLive,  // Override with wrapped version
+    handleExecuteLiveSequential,  // Override with wrapped version
     ...dialogsHook,
     handleSaveAndNavigate: dialogsHook.handleSaveAndNavigate,
     handleNavigateWithoutSaving: dialogsHook.handleNavigateWithoutSaving,
@@ -2322,6 +3231,12 @@ export function useWorkflowBuilder() {
     ...configHook,
 
     // Additional handlers and states
+    runPreflightCheck,
+    preflightResult,
+    isPreflightDialogOpen,
+    setIsPreflightDialogOpen,
+    isRunningPreflight,
+    openPreflightChecklist,
     handleConfigureNode,
     handleDeleteNodeWithConfirmation,
     handleAddNodeBetween,
@@ -2349,5 +3264,10 @@ export function useWorkflowBuilder() {
     handleRedo,
     canUndo: historyHook.canUndo,
     canRedo: historyHook.canRedo,
+
+    // Edge selection and deletion
+    selectedEdgeId,
+    handleEdgeClick,
+    deleteSelectedEdge,
   }
 }

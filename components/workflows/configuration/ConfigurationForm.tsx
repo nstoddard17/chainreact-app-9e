@@ -13,6 +13,7 @@ import { useFieldValidation } from './hooks/useFieldValidation';
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
+import { AIMessageConfiguration } from './providers/AIMessageConfiguration';
 import { AirtableConfiguration } from './providers/AirtableConfiguration';
 import { GoogleSheetsConfiguration } from './providers/GoogleSheetsConfiguration';
 import { MicrosoftExcelConfiguration } from './providers/MicrosoftExcelConfiguration';
@@ -40,7 +41,6 @@ import { YouTubeStudioConfiguration } from './providers/YouTubeStudioConfigurati
 import { BoxConfiguration } from './providers/BoxConfiguration';
 import { GitHubConfiguration } from './providers/GitHubConfiguration';
 import { PayPalConfiguration } from './providers/PayPalConfiguration';
-import { TikTokConfiguration } from './providers/TikTokConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
@@ -1102,14 +1102,14 @@ function ConfigurationForm({
             );
             // If any value doesn't exist in options, we need to reload
             return !allValuesExist;
-          } else {
+          } 
             // Single value field
             const valueExists = fieldOptions.some((opt: any) =>
               (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
             );
             // If value doesn't exist in options, we need to reload
             return !valueExists;
-          }
+          
         }
         return true; // No options yet, need to load
       }
@@ -1387,6 +1387,16 @@ function ConfigurationForm({
     setAirtableTableSchema
   };
 
+  // Handle AI Message nodes with custom prompt builder
+  if (nodeInfo?.type === 'ai_message') {
+    return (
+      <AIMessageConfiguration
+        {...commonProps}
+        setValue={setValueBase}
+      />
+    )
+  }
+
   // THIRD THING: Route to the correct provider component
   // Check for specific node types that need custom configuration
   if (nodeInfo?.type === 'schedule') {
@@ -1509,11 +1519,7 @@ function ConfigurationForm({
     case 'youtube-studio':
       console.log('🎬 [ConfigForm] Routing to YouTube Studio configuration');
       return <YouTubeStudioConfiguration {...commonProps} />;
-    
-    case 'tiktok':
-      console.log('🎵 [ConfigForm] Routing to TikTok configuration');
-      return <TikTokConfiguration {...commonProps} />;
-    
+
     // File Storage
     case 'dropbox':
       console.log('📦 [ConfigForm] Routing to Dropbox configuration');

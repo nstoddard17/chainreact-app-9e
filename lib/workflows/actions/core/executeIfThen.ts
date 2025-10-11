@@ -135,7 +135,7 @@ export async function executeIfThenCondition(
       const conditionType = config.conditionType || "all"
       finalResult = conditionType === "all"
         ? groupResults.every((result: boolean) => result) // All groups must be true (AND)
-        : groupResults.some((result: boolean) => result)  // Any group can be true (OR)
+        : groupResults.some((result: boolean) => result) // Any group can be true (OR)
 
       evaluatedExpression = "legacy condition groups"
     }

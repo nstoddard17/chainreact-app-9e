@@ -3,19 +3,19 @@
  */
 export interface RateLimitConfig {
   // Basic rate limit settings
-  limit: number                    // Max requests allowed
-  window: number                   // Time window in milliseconds
-  type: 'requests' | 'operations'  // Type of rate limit
+  limit: number // Max requests allowed
+  window: number // Time window in milliseconds
+  type: 'requests' | 'operations' // Type of rate limit
   
   // Advanced settings
-  burstLimit?: number              // Allow short bursts above limit
-  adaptiveThrottling?: boolean     // Adjust limits based on errors
-  queueEnabled?: boolean           // Queue requests when limit hit
-  queueMaxSize?: number            // Max queue size
+  burstLimit?: number // Allow short bursts above limit
+  adaptiveThrottling?: boolean // Adjust limits based on errors
+  queueEnabled?: boolean // Queue requests when limit hit
+  queueMaxSize?: number // Max queue size
   
   // Provider-specific settings
-  providerId?: string              // Specific provider this applies to
-  endpoint?: string                // Specific endpoint pattern
+  providerId?: string // Specific provider this applies to
+  endpoint?: string // Specific endpoint pattern
   priority?: 'low' | 'normal' | 'high' | 'critical'
 }
 

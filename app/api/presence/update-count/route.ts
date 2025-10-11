@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 // Simple in-memory cache for online count (resets on server restart)
-let onlineCountCache = {
+const onlineCountCache = {
   count: 0,
   lastUpdated: new Date().toISOString(),
   users: new Set<string>()

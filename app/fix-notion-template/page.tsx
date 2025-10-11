@@ -16,12 +16,12 @@ export default function FixNotionTemplatePage() {
       const result = await fixNotionTemplate()
 
       if (result.success) {
-        setStatus('✅ ' + result.message + ' Now go delete your workflow copy and copy the template again!')
+        setStatus(`✅ ${ result.message } Now go delete your workflow copy and copy the template again!`)
       } else {
-        setStatus('❌ Error: ' + result.error)
+        setStatus(`❌ Error: ${ result.error}`)
       }
     } catch (error: any) {
-      setStatus('❌ Error: ' + error.message)
+      setStatus(`❌ Error: ${ error.message}`)
     } finally {
       setLoading(false)
     }

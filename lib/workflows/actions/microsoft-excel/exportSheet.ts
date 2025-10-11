@@ -68,7 +68,7 @@ export async function exportMicrosoftExcelSheet(
     }
 
     const data = await dataResponse.json()
-    let values = data.values || []
+    const values = data.values || []
 
     if (values.length === 0) {
       return {

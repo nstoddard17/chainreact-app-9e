@@ -72,7 +72,7 @@ function analyzeField(fieldName: string, context: any) {
 
   // Determine field type based on name patterns
   let fieldType = 'text'
-  let requirements: any = {}
+  const requirements: any = {}
 
   // Message/content fields
   if (lowerFieldName.includes('message') || lowerFieldName.includes('content') || lowerFieldName.includes('body')) {
@@ -284,7 +284,7 @@ For the field type "${fieldInfo.type}", provide only the requested value without
         })
 
         return response.choices[0].message.content || ''
-      } else {
+      } 
         const client = new Anthropic({
           apiKey: aiConfig.apiKey || process.env.ANTHROPIC_API_KEY
         })
@@ -299,9 +299,9 @@ For the field type "${fieldInfo.type}", provide only the requested value without
 
         const content = response.content[0]
         return content.type === 'text' ? content.text : ''
-      }
+      
 
-    } else {
+    } 
       // Use ChainReact's API
       const response = await fetch('/api/ai/generate-field', {
         method: 'POST',
@@ -321,7 +321,7 @@ For the field type "${fieldInfo.type}", provide only the requested value without
 
       const data = await response.json()
       return data.value || ''
-    }
+    
   } catch (error) {
     console.error('AI generation failed:', error)
     throw error

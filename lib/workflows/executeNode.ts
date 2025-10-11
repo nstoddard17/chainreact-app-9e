@@ -12,6 +12,7 @@ import { actionHandlerRegistry, getWaitForTimeHandler } from './actions/registry
 import { executeGenericAction } from './actions/generic'
 import { ActionResult } from './actions'
 import { createExecutionLogEntry, storeExecutionLog, formatExecutionLogEntry } from './execution/executionLogger'
+import { logInfo, logError, logSuccess } from '@/lib/logging/backendLogger'
 
 // Import AI-related functionality
 import {
@@ -223,7 +224,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     console.log(`Token format check:`, {
       hasColon: accessToken.includes(':'),
       tokenLength: accessToken.length,
-      tokenPreview: accessToken.substring(0, 20) + '...'
+      tokenPreview: `${accessToken.substring(0, 20) }...`
     })
     
     try {
@@ -310,7 +311,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   // Store and log the start
   if (workflowId) {
     storeExecutionLog(workflowId, startLogEntry)
-    console.log('[Execution Started]', formatExecutionLogEntry(startLogEntry))
+    const formattedLog = formatExecutionLogEntry(startLogEntry)
+    console.log('[Execution Started]', formattedLog)
+    // Add to backend logger for debug modal
+    if (input?.executionId) {
+      logInfo(input.executionId, '[Execution Started]', formattedLog)
+    }
   }
   
   // Process AI fields if needed
@@ -371,10 +377,15 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     }
   }
 
-  // Special handling for AI agent
-  if (type === "ai_agent") {
+  // Special handling for AI-driven nodes so we can keep detailed logging
+  if (type === "ai_agent" || type === "ai_message") {
+    const aiHandler = actionHandlerRegistry[type]
+    if (!aiHandler) {
+      throw new Error(`No handler registered for ${type}`)
+    }
+
     try {
-      const result = await executeAIAgentWrapper(processedConfig, userId, input)
+      const result = await aiHandler({ config: processedConfig, userId, input })
       const executionTime = Date.now() - startTime
       
       const logEntry = createExecutionLogEntry(node, 'completed', {
@@ -385,7 +396,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        console.log('[AI Agent Completed]', formatExecutionLogEntry(logEntry))
+        console.log(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
       }
       
       return result
@@ -399,7 +410,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        console.log('[AI Agent Error]', formatExecutionLogEntry(errorEntry))
+        console.log(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Error]`, formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -518,7 +529,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     // Store and log the success
     if (workflowId) {
       storeExecutionLog(workflowId, successLogEntry)
-      console.log('[Execution Completed]', formatExecutionLogEntry(successLogEntry))
+      const formattedLog = formatExecutionLogEntry(successLogEntry)
+      console.log('[Execution Completed]', formattedLog)
+      // Add to backend logger for debug modal
+      if (input?.executionId) {
+        logSuccess(input.executionId, '[Execution Completed]', formattedLog)
+      }
     }
     
     return result
@@ -544,7 +560,12 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     // Store and log the error
     if (workflowId) {
       storeExecutionLog(workflowId, errorLogEntry)
-      console.log('[Execution Error]', formatExecutionLogEntry(errorLogEntry))
+      const formattedLog = formatExecutionLogEntry(errorLogEntry)
+      console.log('[Execution Error]', formattedLog)
+      // Add to backend logger for debug modal
+      if (input?.executionId) {
+        logError(input.executionId, '[Execution Error]', formattedLog)
+      }
     }
     
     throw error

@@ -538,7 +538,7 @@ export function GoogleSheetsConfiguration({
     }
     
     // Prepare values for submission
-    let submissionValues = { ...values };
+    const submissionValues = { ...values };
     
     // For update action, convert column_ fields to updateMapping
     if (values.action === 'update') {
@@ -631,7 +631,7 @@ export function GoogleSheetsConfiguration({
         if (selectedRow) {
           // Set BOTH field names to ensure compatibility
           submissionValues.rowNumber = selectedRow.rowNumber;
-          submissionValues.updateRowNumber = selectedRow.rowNumber;  // Also set this for compatibility
+          submissionValues.updateRowNumber = selectedRow.rowNumber; // Also set this for compatibility
           submissionValues.findRowBy = 'row_number';
           console.log('📊 Selected row for update:', {
             rowId: selectedRowId,

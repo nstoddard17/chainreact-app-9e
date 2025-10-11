@@ -9,11 +9,11 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
   const {
     channel,
     message,
-    asUser = false,  // Default to false (don't customize bot appearance)
+    asUser = false, // Default to false (don't customize bot appearance)
     username,
-    icon,  // Changed from iconEmoji to match schema
-    attachments,  // Added attachments field from schema
-    linkNames = false,  // Added from schema
+    icon, // Changed from iconEmoji to match schema
+    attachments, // Added attachments field from schema
+    linkNames = false, // Added from schema
     unfurlLinks = true,
     threadTimestamp,
     unfurlMedia = true,
@@ -123,7 +123,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
         console.log('[Slack] ✅ Successfully using USER token (xoxp-) - message will appear as sent by the user');
       } else if (userToken) {
         // Token exists but might not be the right format
-        console.warn('[Slack] User token exists but may not be valid format:', userToken.substring(0, 5) + '...');
+        console.warn('[Slack] User token exists but may not be valid format:', `${userToken.substring(0, 5) }...`);
         tokenToUse = userToken;
         isActuallyUsingUserToken = true;
       } else {
@@ -164,7 +164,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       text: message || '',
       unfurl_links: unfurlLinks,
       unfurl_media: unfurlMedia,
-      link_names: linkNames  // Added link_names from schema
+      link_names: linkNames // Added link_names from schema
     };
 
     // Declare iconUrl at a higher scope for use in diagnostic logging
@@ -891,7 +891,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
     // Log the exact payload being sent to Slack API (truncated if too long)
     const payloadForLogging = payloadString.length > 5000
-      ? payloadString.substring(0, 5000) + '... (truncated)'
+      ? `${payloadString.substring(0, 5000) }... (truncated)`
       : payloadString;
     console.log('[Slack] Full API payload:', payloadForLogging);
 

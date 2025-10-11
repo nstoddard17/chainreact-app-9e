@@ -18,7 +18,7 @@ export class MicrosoftOutlookAdapter implements EmailProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 10000, window: 600000 }, // 10,000 requests per 10 minutes
-      { type: 'messages', limit: 2000, window: 3600000 }  // 2,000 messages per hour
+      { type: 'messages', limit: 2000, window: 3600000 } // 2,000 messages per hour
     ],
     supportedFeatures: [
       'send_message',

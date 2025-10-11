@@ -22,9 +22,9 @@ export function getRelativeTime(date: string | Date): string {
     return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`
   } else if (diffMonths < 12) {
     return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`
-  } else {
+  } 
     return diffYears === 1 ? '1 year ago' : `${diffYears} years ago`
-  }
+  
 }
 
 export function formatDateTime(date: string | Date): string {

@@ -110,7 +110,7 @@ export default function AIUsageTest() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Test-User-Id': selectedUserId  // Pass the test user ID
+          'X-Test-User-Id': selectedUserId // Pass the test user ID
         },
         body: JSON.stringify({
           messages: [{ role: 'user', content: prompt }],

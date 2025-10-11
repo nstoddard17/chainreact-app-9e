@@ -19,7 +19,7 @@ const microsoftLifecycle = new MicrosoftGraphTriggerLifecycle()
 const microsoftProviders = [
   'microsoft',
   'microsoft-outlook',
-  'teams',              // NOTE: Teams uses 'teams' not 'microsoft-teams'
+  'teams', // NOTE: Teams uses 'teams' not 'microsoft-teams'
   'microsoft-onenote',
   'onedrive'
 ]

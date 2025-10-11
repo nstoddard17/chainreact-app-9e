@@ -7,35 +7,35 @@
 // OpenAI GPT-4 Pricing (as of 2024)
 const OPENAI_PRICING = {
   "gpt-4": {
-    input: 0.03,    // $0.03 per 1K input tokens
-    output: 0.06    // $0.06 per 1K output tokens
+    input: 0.03, // $0.03 per 1K input tokens
+    output: 0.06 // $0.06 per 1K output tokens
   },
   "gpt-4-turbo": {
-    input: 0.01,    // $0.01 per 1K input tokens
-    output: 0.03    // $0.03 per 1K output tokens
+    input: 0.01, // $0.01 per 1K input tokens
+    output: 0.03 // $0.03 per 1K output tokens
   },
   "gpt-3.5-turbo": {
-    input: 0.0015,  // $0.0015 per 1K input tokens
-    output: 0.002   // $0.002 per 1K output tokens
+    input: 0.0015, // $0.0015 per 1K input tokens
+    output: 0.002 // $0.002 per 1K output tokens
   }
 }
 
 // Estimated costs per AI feature (based on average token usage)
 const FEATURE_COSTS = {
   ai_assistant: {
-    base_cost: 0.03,     // Base cost per call
-    per_token: 0.00003,  // Additional cost per token
-    avg_tokens: 1000     // Average tokens per assistant call
+    base_cost: 0.03, // Base cost per call
+    per_token: 0.00003, // Additional cost per token
+    avg_tokens: 1000 // Average tokens per assistant call
   },
   ai_compose: {
-    base_cost: 0.02,     // Base cost per use
-    per_token: 0.00002,  // Additional cost per token
-    avg_tokens: 800      // Average tokens per compose use
+    base_cost: 0.02, // Base cost per use
+    per_token: 0.00002, // Additional cost per token
+    avg_tokens: 800 // Average tokens per compose use
   },
   ai_agent: {
-    base_cost: 0.05,     // Base cost per execution
-    per_token: 0.00005,  // Additional cost per token
-    avg_tokens: 1500     // Average tokens per agent execution
+    base_cost: 0.05, // Base cost per execution
+    per_token: 0.00005, // Additional cost per token
+    avg_tokens: 1500 // Average tokens per agent execution
   }
 }
 

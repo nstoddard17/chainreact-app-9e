@@ -30,7 +30,7 @@ export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integrati
       ]
     }
 
-    let users: any[] = []
+    const users: any[] = []
 
     // Always include the user's own account
     try {

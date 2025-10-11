@@ -12,7 +12,7 @@ export class GmailIntegrationService {
 
     switch (nodeType) {
       case "gmail_action_send_email":
-      case "gmail_send":  // Handle legacy/alternative type name
+      case "gmail_send": // Handle legacy/alternative type name
         return await this.executeSendEmail(node, context)
       case "gmail_action_search_email":
         return await this.executeSearchEmail(node, context)
@@ -107,9 +107,9 @@ export class GmailIntegrationService {
 
     // Call the Gmail send function with proper params object structure
     const result = await sendGmailEmail({
-      config: resolvedConfig,  // Pass the resolved config
-      userId: context.userId,  // Pass the userId from context
-      input: context.data || {}  // Pass context data as input
+      config: resolvedConfig, // Pass the resolved config
+      userId: context.userId, // Pass the userId from context
+      input: context.data || {} // Pass context data as input
     })
 
     return result.output || result
@@ -142,7 +142,7 @@ export class GmailIntegrationService {
     // Call the Gmail search function with proper parameters
     const result = await searchGmailEmails(
       config,
-      context.userId,  // Pass the userId directly from context
+      context.userId, // Pass the userId directly from context
       context.data || {}
     )
     
@@ -174,7 +174,7 @@ export class GmailIntegrationService {
     // Call the Gmail fetch function with proper parameters
     const result = await fetchGmailMessage(
       config,
-      context.userId,  // Pass the userId directly from context
+      context.userId, // Pass the userId directly from context
       context.data || {}
     )
     

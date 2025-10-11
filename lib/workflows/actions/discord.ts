@@ -397,7 +397,7 @@ export async function createDiscordCategory(
     }
 
     // Handle private category by setting up permission overwrites
-    let finalPermissionOverwrites = [...permissionOverwrites]
+    const finalPermissionOverwrites = [...permissionOverwrites]
     
     if (isPrivate) {
       // For private categories, deny view permissions to @everyone role
@@ -2029,7 +2029,7 @@ export async function banDiscordMember(config: any, userId: string, input: Recor
     if (!guildId || !targetUserId) throw new Error("Guild ID and User ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
-    let url = `https://discord.com/api/v10/guilds/${guildId}/bans/${targetUserId}?delete_message_seconds=${deleteMessageSeconds}`
+    const url = `https://discord.com/api/v10/guilds/${guildId}/bans/${targetUserId}?delete_message_seconds=${deleteMessageSeconds}`
     const response = await fetch(url, {
       method: "PUT",
       headers: { Authorization: `Bot ${botToken}` , ...(reason ? { "X-Audit-Log-Reason": encodeURIComponent(reason) } : {}) }
@@ -2051,7 +2051,7 @@ export async function unbanDiscordMember(config: any, userId: string, input: Rec
     if (!guildId || !targetUserId) throw new Error("Guild ID and User ID are required")
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) throw new Error("Discord bot token not configured")
-    let url = `https://discord.com/api/v10/guilds/${guildId}/bans/${targetUserId}`
+    const url = `https://discord.com/api/v10/guilds/${guildId}/bans/${targetUserId}`
     const response = await fetch(url, {
       method: "DELETE",
       headers: { Authorization: `Bot ${botToken}` , ...(reason ? { "X-Audit-Log-Reason": encodeURIComponent(reason) } : {}) }

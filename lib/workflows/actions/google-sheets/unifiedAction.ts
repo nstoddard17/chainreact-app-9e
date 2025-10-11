@@ -57,7 +57,7 @@ export async function executeGoogleSheetsUnifiedAction(
           spreadsheetId: config.spreadsheetId,
           sheetName: config.sheetName,
           findRowBy: config.findRowBy,
-          rowNumber: config.rowNumber || config.updateRowNumber,  // Support both field names
+          rowNumber: config.rowNumber || config.updateRowNumber, // Support both field names
           matchColumn: config.updateColumn,
           matchValue: config.updateValue,
           conditions: config.conditions,

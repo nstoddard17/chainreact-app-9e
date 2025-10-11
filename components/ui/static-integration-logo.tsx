@@ -19,7 +19,7 @@ export const StaticIntegrationLogo = memo(function StaticIntegrationLogo({
   providerColor
 }: StaticIntegrationLogoProps) {
   const logoPath = `/integrations/${providerId}.svg`
-  const needsInversion = ['airtable', 'github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(providerId)
+  const needsInversion = ['github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(providerId)
 
   return (
     <div className="w-6 h-6 relative">

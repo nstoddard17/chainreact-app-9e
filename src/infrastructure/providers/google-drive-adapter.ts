@@ -21,7 +21,7 @@ export class GoogleDriveAdapter implements FileProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 1000, window: 100000 }, // 1000 requests per 100 seconds
-      { type: 'uploads', limit: 750, window: 100000 }    // 750 uploads per 100 seconds
+      { type: 'uploads', limit: 750, window: 100000 } // 750 uploads per 100 seconds
     ],
     supportedFeatures: [
       'upload_file',

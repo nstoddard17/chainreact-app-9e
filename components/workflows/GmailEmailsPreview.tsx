@@ -49,9 +49,9 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else if (diffInHours < 168) { // 7 days
       return date.toLocaleDateString([], { weekday: 'short' });
-    } else {
+    } 
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
+    
   };
 
   const getSenderDisplay = (email: GmailEmail) => {
@@ -71,7 +71,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
     if (email.body) {
       // Extract first line from body as subject
       const firstLine = email.body.split('\n')[0].trim();
-      return firstLine.length > 50 ? firstLine.substring(0, 50) + '...' : firstLine;
+      return firstLine.length > 50 ? `${firstLine.substring(0, 50) }...` : firstLine;
     }
     return "(No Subject)";
   };
@@ -93,7 +93,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
         // Use second line onwards as snippet
         const remainingContent = lines.slice(1).join(' ');
         const cleanContent = remainingContent.replace(/\s+/g, ' ').trim();
-        return cleanContent.length > 100 ? cleanContent.substring(0, 100) + '...' : cleanContent;
+        return cleanContent.length > 100 ? `${cleanContent.substring(0, 100) }...` : cleanContent;
       }
       return "";
     }
@@ -115,7 +115,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
         return line.replace(urlRegex, url => {
           // If URL is longer than 50 chars, truncate it
           if (url.length > 50) {
-            return url.substring(0, 47) + '...';
+            return `${url.substring(0, 47) }...`;
           }
           return url;
         });
@@ -216,7 +216,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
           </div>
         </div>
       );
-    } else {
+    } 
       // Full message or default
       return (
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 w-full overflow-hidden">
@@ -245,7 +245,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
           )}
         </div>
       );
-    }
+    
   };
 
   return (

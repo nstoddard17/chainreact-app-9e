@@ -19,7 +19,7 @@ export class MicrosoftOneDriveAdapter implements FileProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 10000, window: 600000 }, // 10,000 requests per 10 minutes
-      { type: 'uploads', limit: 1000, window: 3600000 }   // 1,000 uploads per hour
+      { type: 'uploads', limit: 1000, window: 3600000 } // 1,000 uploads per hour
     ],
     supportedFeatures: [
       'upload_file',

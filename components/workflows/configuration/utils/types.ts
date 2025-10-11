@@ -14,8 +14,11 @@ export interface ConfigurationModalProps {
   workflowData?: { 
     nodes: any[]; 
     edges: any[];
+    id?: string;
+    name?: string | null;
   };
   currentNodeId?: string;
+  nodeTitle?: string | null;
 }
 
 /**
@@ -30,6 +33,8 @@ export interface ConfigFormProps {
   workflowData?: { 
     nodes: any[]; 
     edges: any[]; 
+    id?: string;
+    name?: string | null;
   };
   currentNodeId?: string;
   integrationName: string;
@@ -46,6 +51,8 @@ export interface FieldProps {
   workflowData?: { 
     nodes: any[]; 
     edges: any[]; 
+    id?: string;
+    name?: string | null;
   };
   currentNodeId?: string;
   dynamicOptions?: Record<string, { value: string; label: string; fields?: any[]; isExisting?: boolean }[]>;

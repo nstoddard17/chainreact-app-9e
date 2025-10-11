@@ -396,7 +396,7 @@ export function Combobox({
               {/* Show create option if creatable and inputValue is not empty and not in options */}
               {creatable && inputValue.trim() && !filteredOptions.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
-                  key={"create-" + inputValue.trim()}
+                  key={`create-${ inputValue.trim()}`}
                   value={inputValue.trim()}
                   onSelect={() => {
                     const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
@@ -774,7 +774,7 @@ export function MultiCombobox({
               {/* Show create option if inputValue is not empty and not in options */}
               {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
                 <CommandItem
-                  key={"create-" + inputValue.trim()}
+                  key={`create-${ inputValue.trim()}`}
                   value={inputValue.trim()}
                   onSelect={() => {
                     const newOption = { value: inputValue.trim(), label: inputValue.trim() }
@@ -923,7 +923,7 @@ export function HierarchicalCombobox({
                         value={option.value}
                         onSelect={handleSelect}
                         className="font-medium"
-                        key={"groupitem-" + option.value}
+                        key={`groupitem-${ option.value}`}
                       >
                         <ChevronRight 
                           className={cn(

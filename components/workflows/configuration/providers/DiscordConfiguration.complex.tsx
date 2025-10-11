@@ -291,7 +291,7 @@ export function DiscordConfiguration({
     dependsOn?: string,
     dependsOnValue?: any,
     forceReload?: boolean,
-    silent?: boolean  // Add silent parameter
+    silent?: boolean // Add silent parameter
   ) => {
     console.log('🔍 [DiscordConfig] handleDynamicLoad called:', { 
       fieldName, 

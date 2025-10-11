@@ -528,13 +528,13 @@ export async function refreshTokenForProvider(
             error: `Failed to decrypt refresh token: Invalid initialization vector. The token may be corrupted or encrypted with a different key.`,
             needsReauthorization: true
           }
-        } else {
+        } 
           return {
             success: false,
             error: `Failed to decrypt refresh token: ${error.message}`,
             needsReauthorization: true
           }
-        }
+        
       }
     } else {
       if (verbose) console.log(`Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)

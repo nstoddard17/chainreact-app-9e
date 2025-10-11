@@ -102,21 +102,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  youtube: {
-    id: "youtube",
-    name: "YouTube",
-    description: "Manage YouTube channels and videos",
-    category: "social",
-    capabilities: ["Upload Videos", "Manage Playlists", "Analytics", "Comments"],
-    scopes: ["https://www.googleapis.com/auth/youtube"],
-    isAvailable: false,
-    requiresClientId: "YOUTUBE_CLIENT_ID",
-    requiresClientSecret: "YOUTUBE_CLIENT_SECRET",
-    color: "#FF0000",
-    docsUrl: "https://developers.google.com/docs/api/deprecated",
-    authType: "oauth",
-  },
-
   // Microsoft Services
   teams: {
     id: "teams",
@@ -213,51 +198,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  instagram: {
-    id: "instagram",
-    name: "Instagram",
-    description: "Share photos and videos with Instagram Business accounts",
-    category: "social",
-    capabilities: ["Post Photos", "Stories", "Analytics", "Comments"],
-    scopes: ["instagram_business_basic", "instagram_business_content_publish", "instagram_business_manage_comments", "instagram_business_manage_messages"],
-    isAvailable: false,
-    requiresClientId: "INSTAGRAM_CLIENT_ID",
-    requiresClientSecret: "INSTAGRAM_CLIENT_SECRET",
-    color: "#E4405F",
-    docsUrl: "https://developers.facebook.com/docs/instagram-api",
-    authType: "oauth",
-  },
-
-  tiktok: {
-    id: "tiktok",
-    name: "TikTok",
-    description: "Create and share short-form videos on TikTok",
-    category: "social",
-    capabilities: ["Upload Videos", "Analytics", "User Info", "Video Management"],
-    scopes: ["user.info.basic", "video.list"],
-    isAvailable: false,
-    requiresClientId: "TIKTOK_CLIENT_ID",
-    requiresClientSecret: "TIKTOK_CLIENT_SECRET",
-    color: "#000000",
-    docsUrl: "https://developers.tiktok.com/documentation/overview",
-    authType: "oauth",
-  },
-
-  linkedin: {
-    id: "linkedin",
-    name: "LinkedIn",
-    description: "Manage your professional network and business presence",
-    category: "social",
-    capabilities: ["Share Posts", "Company Pages", "Lead Generation", "Profile Info"],
-    scopes: ["r_liteprofile", "w_member_social"],
-    isAvailable: false,
-    requiresClientId: "LINKEDIN_CLIENT_ID",
-    requiresClientSecret: "LINKEDIN_CLIENT_SECRET",
-    color: "#0A66C2",
-    docsUrl: "https://learn.microsoft.com/en-us/linkedin/",
-    authType: "oauth",
-  },
-
   // Development & Productivity
   github: {
     id: "github",
@@ -271,21 +211,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     requiresClientSecret: "GITHUB_CLIENT_SECRET",
     color: "#181717",
     docsUrl: "https://docs.github.com/en/rest",
-    authType: "oauth",
-  },
-
-  gitlab: {
-    id: "gitlab",
-    name: "GitLab",
-    description: "DevOps platform for the entire software development lifecycle",
-    category: "developer",
-    capabilities: ["Manage Repositories", "CI/CD Pipelines", "Issues", "Merge Requests"],
-    scopes: ["api"],
-    isAvailable: false,
-    requiresClientId: "GITLAB_CLIENT_ID",
-    requiresClientSecret: "GITLAB_CLIENT_SECRET",
-    color: "#FCA121",
-    docsUrl: "https://docs.gitlab.com/ee/api/",
     authType: "oauth",
   },
 
@@ -373,36 +298,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // E-commerce & Payments
-  shopify: {
-    id: "shopify",
-    name: "Shopify",
-    description: "E-commerce platform for online stores",
-    category: "e-commerce",
-    capabilities: ["Manage Products", "Process Orders", "Customer Data", "Inventory", "Analytics", "Marketing"],
-    scopes: ["read_products", "write_products", "read_orders", "write_orders"],
-    isAvailable: false,
-    requiresClientId: "SHOPIFY_CLIENT_ID",
-    requiresClientSecret: "SHOPIFY_CLIENT_SECRET",
-    color: "#7AB55C",
-    docsUrl: "https://shopify.dev/docs/api",
-    authType: "oauth",
-  },
-
-  paypal: {
-    id: "paypal",
-    name: "PayPal",
-    description: "Online payment processing and money transfers",
-    category: "e-commerce",
-    capabilities: ["Process Payments", "Issue Invoices", "Manage Subscriptions", "Analytics"],
-    scopes: ["openid", "profile", "email"],
-    isAvailable: false,
-    requiresClientId: "PAYPAL_CLIENT_ID",
-    requiresClientSecret: "PAYPAL_CLIENT_SECRET",
-    color: "#003087",
-    docsUrl: "https://developer.paypal.com/home",
-    authType: "oauth",
-  },
-
   stripe: {
     id: "stripe",
     name: "Stripe",
@@ -419,21 +314,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // Cloud Storage
-  box: {
-    id: "box",
-    name: "Box",
-    description: "Content management and file sharing for businesses",
-    category: "storage",
-    capabilities: ["Secure File Storage", "Content Collaboration", "Workflow Automation", "Enterprise Security"],
-    scopes: ["root_readwrite", "manage_managed_users"],
-    isAvailable: false,
-    requiresClientId: "BOX_CLIENT_ID",
-    requiresClientSecret: "BOX_CLIENT_SECRET",
-    color: "#0052CC",
-    docsUrl: "https://developer.box.com/",
-    authType: "oauth",
-  },
-
   dropbox: {
     id: "dropbox",
     name: "Dropbox",
@@ -450,51 +330,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // New Integrations Start Here
-
-  "youtube-studio": {
-    id: "youtube-studio",
-    name: "YouTube Studio",
-    description: "Manage your YouTube channel analytics and content",
-    category: "social",
-    capabilities: ["View Analytics", "Manage Videos", "Channel Management", "Content ID"],
-    scopes: ["https://www.googleapis.com/auth/youtube", "https://www.googleapis.com/auth/youtubepartner"],
-    isAvailable: false,
-    requiresClientId: "YOUTUBE_CLIENT_ID",
-    requiresClientSecret: "YOUTUBE_CLIENT_SECRET",
-    color: "#FF0000",
-    docsUrl: "https://developers.google.com/youtube/partner/docs",
-    authType: "oauth",
-  },
-
-  gumroad: {
-    id: "gumroad",
-    name: "Gumroad",
-    description: "E-commerce platform for digital creators",
-    category: "e-commerce",
-    capabilities: ["Sell Digital Products", "Manage Customers", "Analytics", "Affiliate Marketing"],
-    scopes: ["view_profile", "edit_products", "view_sales"],
-    isAvailable: false,
-    requiresClientId: "GUMROAD_CLIENT_ID",
-    requiresClientSecret: "GUMROAD_CLIENT_SECRET",
-    color: "#FF90E8",
-    docsUrl: "https://app.gumroad.com/api",
-    authType: "oauth",
-  },
-
-  manychat: {
-    id: "manychat",
-    name: "ManyChat",
-    description: "Automate conversations on Instagram, Facebook Messenger, and SMS",
-    category: "communication",
-    capabilities: ["Send Messages", "Manage Subscribers", "Run Automations"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "MANYCHAT_API_KEY",
-    requiresClientSecret: "",
-    color: "#007AFF",
-    docsUrl: "https://api.manychat.com/swagger",
-    authType: "apiKey",
-  },
 
   "microsoft-outlook": {
     id: "microsoft-outlook",
@@ -526,21 +361,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
     authType: "oauth",
   },
 
-  kit: {
-    id: "kit",
-    name: "Kit",
-    description: "The everything store for creators",
-    category: "e-commerce",
-    capabilities: ["Create Kits", "Share Products", "Earn Commissions"],
-    scopes: [],
-    isAvailable: false,
-    requiresClientId: "KIT_CLIENT_ID",
-    requiresClientSecret: "KIT_CLIENT_SECRET",
-    color: "#000000",
-    docsUrl: "https://kit.co/developers",
-    authType: "oauth",
-  },
-
   // New Integrations End Here
 
   // Logic & Control Flow
@@ -562,10 +382,10 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   // AI & Automation
   ai: {
     id: "ai",
-    name: "AI Agent",
-    description: "Intelligent automation agent that can use other integrations as tools",
+    name: "AI Automation",
+    description: "Add AI Message and AI Router steps to generate content or route workflows intelligently",
     category: "ai",
-    capabilities: ["Goal-Oriented Automation", "Tool Calling", "Context Awareness", "Memory Management"],
+    capabilities: ["AI Message", "AI Router", "Content Generation", "Intelligent Branching"],
     scopes: [],
     isAvailable: true, // Always available
     requiresClientId: "",

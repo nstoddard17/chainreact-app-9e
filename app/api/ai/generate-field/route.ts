@@ -232,18 +232,20 @@ function postProcessFieldValue(value: string, fieldType: string): string {
   const trimmed = value.trim()
 
   switch (fieldType) {
-    case 'number':
+    case 'number': {
       const num = parseFloat(trimmed)
       return isNaN(num) ? '0' : num.toString()
+    }
 
     case 'boolean':
       return trimmed.toLowerCase() === 'true' ? 'true' : 'false'
 
-    case 'date':
+    case 'date': {
       const date = new Date(trimmed)
       return isNaN(date.getTime())
         ? new Date().toISOString()
         : date.toISOString()
+    }
 
     case 'url':
       if (!trimmed.startsWith('http')) {

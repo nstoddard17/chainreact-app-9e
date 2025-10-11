@@ -430,7 +430,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
 
     // 6. Execute single step AI processing
     const steps: AIAgentStep[] = []
-    let currentContext = { ...context, memory: memoryContext }
+    const currentContext = { ...context, memory: memoryContext }
 
     try {
       // Get AI decision for single step, passing the resolved config
@@ -539,7 +539,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     const result = {
       success: true,
       output: finalOutput, // Complete AI response for "AI Agent Output" variable
-      ...dynamicOutputs,   // Dynamic outputs from JSON (email_subject, email_body, etc.)
+      ...dynamicOutputs, // Dynamic outputs from JSON (email_subject, email_body, etc.)
       message: `AI Agent completed ${steps.length} steps to accomplish the goal`,
       steps
     }
@@ -813,15 +813,15 @@ async function getAIDecision(
         const value = inputData[key]
         if (typeof value === 'string' && value.length > 200) {
           return `${key}: "${value.substring(0, 200)}..."`
-        } else {
+        } 
           return `${key}: ${JSON.stringify(value)}`
-        }
+        
       })
       contextInfo = `Available data:\n${dataItems.join('\n')}\n\n`
     }
 
     // Determine which model to use
-    let model = config?.model || 'gpt-4o-mini'
+    const model = config?.model || 'gpt-4o-mini'
     
     // Map model IDs to OpenAI model names
     const modelMapping: Record<string, string> = {
@@ -875,9 +875,9 @@ async function getAIDecision(
         const value = inputData[key]
         if (typeof value === 'string' && value.length > 100) {
           return `${key}: "${value.substring(0, 100)}..."`
-        } else {
+        } 
           return `${key}: ${JSON.stringify(value)}`
-        }
+        
       })
       
       fallbackOutput = `AI Analysis completed (fallback mode). I've processed the following data:\n\n${dataItems.join('\n')}\n\nNote: This is a fallback response due to OpenAI API unavailability. Error: ${error.message}`

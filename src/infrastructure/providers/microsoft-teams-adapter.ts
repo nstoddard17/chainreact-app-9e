@@ -19,7 +19,7 @@ export class MicrosoftTeamsAdapter implements ChatProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 10000, window: 600000 }, // 10,000 requests per 10 minutes
-      { type: 'messages', limit: 4000, window: 60000 }    // 4,000 messages per minute
+      { type: 'messages', limit: 4000, window: 60000 } // 4,000 messages per minute
     ],
     supportedFeatures: [
       'send_message',

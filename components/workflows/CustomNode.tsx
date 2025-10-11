@@ -1,6 +1,6 @@
 "use client"
 
-import React, { memo, useState, useRef, useEffect } from "react"
+import React, { memo, useState, useRef, useEffect, useMemo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { Settings, Trash2, TestTube, Plus, Edit2, Layers, Unplug } from "lucide-react"
@@ -155,11 +155,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
   
   // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
-    // Debug log to see what status is being received
-    if (executionStatus) {
-      console.log(`Node ${id} execution status: ${executionStatus}`)
-    }
-    
     if (!executionStatus && !isListening) return ""
     
     let cssClass = ""
@@ -328,9 +323,25 @@ function CustomNode({ id, data, selected }: NodeProps) {
       .trim()
   }
 
+  const validationMessage = useMemo(() => {
+    if (isIntegrationDisconnected || !hasValidationIssues) return ""
+
+    const fieldsToShow = validationState?.allRequiredFields || validationState?.missingRequired || []
+
+    if (fieldsToShow.length === 0) {
+      return "Required fields missing"
+    }
+
+    if (fieldsToShow.length === 1) {
+      return `Required field: ${getFieldLabel(fieldsToShow[0])}`
+    }
+
+    return `Required fields: ${fieldsToShow.map(getFieldLabel).join(', ')}`
+  }, [isIntegrationDisconnected, hasValidationIssues, validationState])
+
   return (
     <div
-      className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group ${
+      className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group overflow-hidden ${
         selected
           ? "border-primary"
           : isIntegrationDisconnected
@@ -355,34 +366,21 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {getExecutionStatusIndicator()}
       {/* Error label */}
       {getErrorLabel()}
-      {!isIntegrationDisconnected && hasValidationIssues && (
-        <div className="absolute top-1 left-1 bg-red-500 text-white text-[10px] px-2 py-[2px] rounded-sm font-semibold uppercase tracking-wide shadow-sm">
-          Incomplete
-        </div>
-      )}
       {error && !isIntegrationDisconnected && (
-        <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2">
+        <div className="bg-destructive/10 border-b border-destructive/20 px-4 py-2 rounded-t-lg">
           <p className="text-sm text-destructive font-medium">{error}</p>
         </div>
       )}
       {!error && !isIntegrationDisconnected && hasValidationIssues && (
-        <div className="bg-red-50 border-b border-red-100 px-4 py-2 pt-7">
-          <p className="text-sm text-red-600 font-medium">
-            {(() => {
-              // Use allRequiredFields if available, otherwise fall back to missingRequired
-              const fieldsToShow = validationState?.allRequiredFields || validationState?.missingRequired || [];
-
-              if (fieldsToShow.length === 0) {
-                return 'Required fields missing';
-              }
-
-              if (fieldsToShow.length === 1) {
-                return `Required field: ${getFieldLabel(fieldsToShow[0])}`;
-              }
-
-              return `Required fields: ${fieldsToShow.map(getFieldLabel).join(', ')}`;
-            })()}
-          </p>
+        <div className="bg-red-50 border-b border-red-100 px-4 py-3 rounded-t-lg">
+          <div className="flex items-start gap-2">
+            <span className="inline-flex items-center rounded-full bg-red-500 text-white text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5">
+              Incomplete
+            </span>
+            <p className="text-sm text-red-600 font-medium leading-snug flex-1">
+              {validationMessage}
+            </p>
+          </div>
         </div>
       )}
       

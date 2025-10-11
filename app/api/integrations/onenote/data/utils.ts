@@ -102,9 +102,9 @@ export async function tryMultipleOneNoteEndpoints<T>(
             data: data.value,
             error: undefined
           }
-        } else {
+        } 
           console.log(`⚠️ OneNote API returned empty data, trying next endpoint...`)
-        }
+        
       } else {
         const errorText = await response.text()
         console.log(`❌ OneNote API failed: ${response.status} ${errorText}`)
@@ -196,7 +196,7 @@ async function refreshOneNoteToken(integration: any): Promise<string | null> {
     }
 
     console.log('🔄 Attempting token refresh with:', {
-      clientId: clientId.substring(0, 8) + '...',
+      clientId: `${clientId.substring(0, 8) }...`,
       hasRefreshToken: !!refreshToken,
       refreshTokenLength: refreshToken?.length
     })
