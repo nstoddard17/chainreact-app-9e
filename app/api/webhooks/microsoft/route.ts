@@ -159,6 +159,90 @@ async function processNotifications(
         }
       }
 
+      // For Outlook email triggers, fetch the actual email and check filters before triggering
+      const isOutlookEmailTrigger = resource?.includes('/Messages') || resource?.includes('/messages')
+      if (isOutlookEmailTrigger && userId && triggerResource.config) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+
+          // Get access token for this user
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+          // Extract message ID from resource
+          const messageId = change?.resourceData?.id
+
+          if (messageId) {
+            // Fetch the actual email to check filters
+            const emailResponse = await fetch(
+              `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            )
+
+            if (emailResponse.ok) {
+              const email = await emailResponse.json()
+
+              // Check subject filter
+              if (triggerResource.config.subject) {
+                const configSubject = triggerResource.config.subject.toLowerCase().trim()
+                const emailSubject = (email.subject || '').toLowerCase().trim()
+
+                if (!emailSubject.includes(configSubject)) {
+                  console.log('⏭️ Skipping email - subject does not match filter:', {
+                    expected: configSubject,
+                    received: emailSubject,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check from filter
+              if (triggerResource.config.from) {
+                const configFrom = triggerResource.config.from.toLowerCase().trim()
+                const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
+
+                if (emailFrom !== configFrom) {
+                  console.log('⏭️ Skipping email - from address does not match filter:', {
+                    expected: configFrom,
+                    received: emailFrom,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check importance filter
+              if (triggerResource.config.importance && triggerResource.config.importance !== 'any') {
+                const configImportance = triggerResource.config.importance.toLowerCase()
+                const emailImportance = (email.importance || 'normal').toLowerCase()
+
+                if (emailImportance !== configImportance) {
+                  console.log('⏭️ Skipping email - importance does not match filter:', {
+                    expected: configImportance,
+                    received: emailImportance,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              console.log('✅ Email matches all filters, proceeding with workflow execution')
+            } else {
+              console.warn('⚠️ Failed to fetch email details for filtering, allowing execution:', emailResponse.status)
+            }
+          }
+        } catch (filterError) {
+          console.error('❌ Error checking email filters (allowing execution):', filterError)
+          // Continue to execute even if filter check fails
+        }
+      }
+
       // Trigger workflow execution directly (no queue needed)
       if (workflowId && userId) {
         console.log('🚀 Triggering workflow execution:', {

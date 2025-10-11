@@ -13,12 +13,24 @@ async function executeWorkflow(workflowId: string, config: any) {
   return { success: true, workflowId }
 }
 
-export async function POST(req: NextRequest) {
+async function processScheduledExecutions() {
   const dueExecutions = await getDueScheduledExecutions()
   const results = []
   for (const exec of dueExecutions) {
     const result = await executeWorkflow(exec.workflowId, exec.config)
     results.push({ id: exec.id, ...result })
   }
-  return NextResponse.json({ processed: results.length, results })
+  return { processed: results.length, results }
+}
+
+// Vercel cron jobs use GET by default
+export async function GET(req: NextRequest) {
+  const result = await processScheduledExecutions()
+  return NextResponse.json(result)
+}
+
+// Keep POST for manual triggers
+export async function POST(req: NextRequest) {
+  const result = await processScheduledExecutions()
+  return NextResponse.json(result)
 } 
