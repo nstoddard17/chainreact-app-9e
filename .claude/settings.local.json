@@ -97,7 +97,8 @@
       "Bash(if exist nul del nul)",
       "Bash(git clean:*)",
       "Bash(git rm:*)",
-      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\webhooks\\microsoft\\route_BACKUP.ts\")"
+      "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\webhooks\\microsoft\\route_BACKUP.ts\")",
+      "Bash(npm install:*)"
     ],
     "defaultMode": "acceptEdits"
   }
