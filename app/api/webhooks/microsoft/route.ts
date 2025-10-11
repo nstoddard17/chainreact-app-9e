@@ -103,13 +103,20 @@ async function processNotifications(
 
       // Enhanced dedup per notification - use message/resource ID to prevent duplicate processing across multiple subscriptions
       const messageId = change?.resourceData?.id || change?.resourceData?.['@odata.id'] || resource || 'unknown'
-      // Deduplicate based on user + message + changeType (ignore subscription ID to catch duplicates across multiple subscriptions)
-      const dedupKey = `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}`
+
+      // For email notifications (messages), ignore changeType in dedup key because Microsoft sends both 'created' and 'updated'
+      // For other resources, include changeType to allow separate processing
+      const isEmailNotification = resource?.includes('/messages') || resource?.includes('/mailFolders')
+      const dedupKey = isEmailNotification
+        ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
+        : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
       console.log('🔑 Deduplication check:', {
         dedupKey,
         messageId,
         changeType,
+        isEmailNotification,
+        resource,
         subscriptionId: subId,
         userId
       })
