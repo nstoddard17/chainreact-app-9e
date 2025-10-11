@@ -27,7 +27,7 @@ Guidance for Claude Code when working with this repository.
 - **Dependency injection** - Pass deps, don't create
 - **Type safety** - Strict TypeScript, no `any`
 - **Error handling** - try-catch with specific types
-- **Logging** - Consistent, structured
+- **Logging** - **CRITICAL**: MUST follow `/learning/docs/logging-best-practices.md` - NO tokens, keys, PII, or message content in logs
 
 ### Refactor When
 - File >500 lines → Split
@@ -330,6 +330,7 @@ setTimeout(() => {
 ## Implementation Guides
 
 ### Critical Guides - ALWAYS CONSULT
+- **Logging Best Practices**: `/learning/docs/logging-best-practices.md` - **MANDATORY** for ANY logging - NO tokens/keys/PII/content
 - **Modal Overflow**: `/learning/docs/modal-column-overflow-solution.md` - Use ConfigurationContainer, no ScrollArea
 - **Field Implementation**: `/learning/docs/field-implementation-guide.md` - Complete checklist, field mappings critical
 - **Workflow Execution**: `/learning/docs/workflow-execution-implementation-guide.md` - Service patterns, ExecutionContext, filter UI nodes

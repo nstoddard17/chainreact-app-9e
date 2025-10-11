@@ -112,19 +112,20 @@ export class SecureTokenManager extends EventEmitter {
 
   constructor(masterKeyBase64?: string) {
     super()
-    
+
     // Initialize master key
     if (masterKeyBase64) {
       this.masterKey = Buffer.from(masterKeyBase64, 'base64')
     } else {
       this.masterKey = this.generateMasterKey()
-      console.warn('⚠️ Generated new master key. Store securely:', this.masterKey.toString('base64'))
+      // SECURITY: Never log the actual key value
+      console.warn('⚠️ Generated new master key. Set TOKEN_MASTER_KEY environment variable to persist it.')
     }
 
     this.initializeDefaultPolicies()
     this.startRotationScheduler()
     this.startCleanupScheduler()
-    
+
     console.log('🔐 Secure token manager initialized')
   }
 

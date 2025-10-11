@@ -11,6 +11,7 @@ const supabase = createClient(
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
 // Helper function - hoisted above POST handler to avoid TDZ
+// SECURITY: Logs webhook metadata only, not full payload (contains PII)
 async function logWebhookExecution(
   provider: string,
   payload: any,
@@ -19,12 +20,19 @@ async function logWebhookExecution(
   executionTime: number
 ): Promise<void> {
   try {
+    // Don't log full payload - contains PII and resource IDs
+    const safePayload = {
+      hasValue: !!payload?.value,
+      notificationCount: Array.isArray(payload?.value) ? payload.value.length : 0,
+      payloadKeys: payload ? Object.keys(payload) : []
+    }
+
     await supabase
       .from('webhook_logs')
       .insert({
         provider: provider,
-        payload: payload,
-        headers: headers,
+        payload: safePayload, // Sanitized payload
+        headers: { 'content-type': headers['content-type'] }, // Only log content type
         status: status,
         execution_time: executionTime,
         timestamp: new Date().toISOString()
@@ -42,12 +50,13 @@ async function processNotifications(
 ): Promise<void> {
   for (const change of notifications) {
     try {
+      // SECURITY: Don't log full resource data (contains PII/IDs)
       console.log('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
-        resource: change?.resource,
-        hasClientState: !!change?.clientState,
-        resourceData: change?.resourceData
+        resourceType: change?.resourceData?.['@odata.type'],
+        hasResource: !!change?.resource,
+        hasClientState: !!change?.clientState
       })
       const subId: string | undefined = change?.subscriptionId
       const changeType: string | undefined = change?.changeType
@@ -265,9 +274,10 @@ async function processNotifications(
                   : emailSubject.includes(configSubject)
 
                 if (!isMatch) {
+                  // SECURITY: Don't log actual subject content (PII)
                   console.log('⏭️ Skipping email - subject does not match filter:', {
-                    expected: configSubject,
-                    received: emailSubject,
+                    expectedLength: configSubject.length,
+                    receivedLength: emailSubject.length,
                     exactMatch,
                     subscriptionId: subId
                   })
@@ -281,9 +291,10 @@ async function processNotifications(
                 const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
 
                 if (emailFrom !== configFrom) {
+                  // SECURITY: Don't log actual email addresses (PII)
                   console.log('⏭️ Skipping email - from address does not match filter:', {
-                    expected: configFrom,
-                    received: emailFrom,
+                    hasExpected: !!configFrom,
+                    hasReceived: !!emailFrom,
                     subscriptionId: subId
                   })
                   continue
@@ -347,7 +358,14 @@ async function processNotifications(
           }
 
           console.log('📤 Calling execution API:', executionUrl)
-          console.log('📦 Execution payload:', JSON.stringify(executionPayload, null, 2))
+          // SECURITY: Don't log full execution payload (contains resource data/PII)
+          console.log('📦 Execution payload metadata:', {
+            workflowId: executionPayload.workflowId,
+            testMode: executionPayload.testMode,
+            executionMode: executionPayload.executionMode,
+            skipTriggers: executionPayload.skipTriggers,
+            hasInputData: !!executionPayload.inputData
+          })
 
           const response = await fetch(executionUrl, {
             method: 'POST',
@@ -423,12 +441,12 @@ export async function POST(request: NextRequest) {
 
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
+    // SECURITY: Don't log full payload (contains PII/resource IDs)
     console.log('📋 Webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
-      payloadKeys: Object.keys(payload || {}),
-      fullPayload: JSON.stringify(payload, null, 2)
+      payloadKeys: Object.keys(payload || {})
     })
 
     if (notifications.length === 0) {
