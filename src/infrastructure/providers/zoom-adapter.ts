@@ -18,8 +18,8 @@ export class ZoomAdapter implements ChatProvider {
   readonly capabilities: CapabilityDescriptor = {
     supportsWebhooks: true,
     rateLimits: [
-      { type: 'requests', limit: 10, window: 1000 },    // 10 requests per second
-      { type: 'requests', limit: 1000, window: 60000 }  // 1000 requests per minute
+      { type: 'requests', limit: 10, window: 1000 }, // 10 requests per second
+      { type: 'requests', limit: 1000, window: 60000 } // 1000 requests per minute
     ],
     supportedFeatures: [
       'create_meeting',
@@ -269,9 +269,9 @@ export class ZoomAdapter implements ChatProvider {
           },
           message: `Removed ${results.length} participants from Zoom meeting`
         }
-      } else {
+      } 
         throw new Error('Unsupported member operation for Zoom')
-      }
+      
     } catch (error: any) {
       return {
         success: false,

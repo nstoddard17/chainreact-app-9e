@@ -148,7 +148,7 @@ export async function postTwitterTweet(accessToken: string, config: any, input: 
     }
     
     // Handle media uploads if provided
-    let mediaIds: string[] = []
+    const mediaIds: string[] = []
     if (mediaFiles && mediaFiles.length > 0) {
       // Upload media files to Twitter
       for (let i = 0; i < Math.min(mediaFiles.length, 4); i++) {
@@ -275,7 +275,7 @@ export async function replyTwitterTweet(accessToken: string, config: any, input:
     }
     
     // Handle media uploads if provided
-    let mediaIds: string[] = []
+    const mediaIds: string[] = []
     if (mediaFiles && mediaFiles.length > 0) {
       for (let i = 0; i < Math.min(mediaFiles.length, 4); i++) {
         const mediaFile = mediaFiles[i]

@@ -33,7 +33,7 @@ export class AIIntentAnalysisService {
     integrations: Integration[], 
     timeout: number = 8000
   ): Promise<IntentAnalysisResult> {
-    console.log("🧠 Starting intent analysis for message:", message.substring(0, 100) + "...")
+    console.log("🧠 Starting intent analysis for message:", `${message.substring(0, 100) }...`)
 
     const systemPrompt = this.buildSystemPrompt(integrations, message)
 

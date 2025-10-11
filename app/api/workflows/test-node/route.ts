@@ -68,7 +68,7 @@ export async function POST(request: Request) {
           testResult = {
             success: true,
             output: {
-              messageId: "test_message_" + Date.now(),
+              messageId: `test_message_${ Date.now()}`,
               to: [config?.to || "test@example.com"],
               subject: config?.subject || "Test Email",
               timestamp: new Date().toISOString(),

@@ -1,0 +1,443 @@
+=== Log Session Started: 2025-10-09T20:33:48.841Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-09T20:33:48.841Z] [INFO   ] File logging initialized
+[2025-10-09T20:33:48.841Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_15-33-48.log
+[2025-10-09T20:33:48.842Z] [INFO   ] 📁 File logging enabled
+[2025-10-09T20:33:48.842Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_15-33-48.log
+[2025-10-09T20:33:48.842Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_15-33-48.log
+[2025-10-09T20:33:48.842Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_15-33-48.log
+[2025-10-09T20:33:48.842Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_15-33-48.log
+[2025-10-09T20:33:48.842Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-09T20:33:48.842Z] [INFO   ] 📁 File logging system initialized
+[2025-10-09T20:33:48.860Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.7s
+[2025-10-09T20:33:49.911Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-09T20:33:51.495Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-09T20:33:51.495Z] [INFO   ] 🔑 Using Discord bot token: MTM3ODU5NT...ElFqA
+[2025-10-09T20:33:51.994Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-09T20:33:51.995Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-09T20:33:52.178Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-09T20:33:52.180Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-09T20:33:52.369Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "750d59d14e18e45d00de39d1b3381673",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-09T20:33:52.369Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-09T20:33:52.372Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-09T20:33:52.377Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-09T20:33:52.646Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-09T20:34:25.605Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 201ms (231 modules)
+[2025-10-09T20:34:26.369Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11475378970,
+  profileError: undefined
+}
+[2025-10-09T20:34:26.989Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-09T20:34:30.280Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 3.9s (4266 modules)
+[2025-10-09T20:34:31.165Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 867ms (868 modules)
+[2025-10-09T20:34:31.426Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T20:34:32.954Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-09T20:34:33.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 781ms (4270 modules)
+[2025-10-09T20:34:34.109Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 368ms (4272 modules)
+[2025-10-09T20:34:37.200Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 293ms (4274 modules)
+[2025-10-09T20:34:37.311Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-09T20:34:37.311Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-09T20:34:37.459Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-09T20:34:37.656Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-09T20:34:41.825Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 395ms (4276 modules)
+[2025-10-09T20:34:51.741Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-09T20:34:52.143Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 904ms (4280 modules)
+[2025-10-09T20:35:02.077Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/copy in 457ms (4282 modules)
+[2025-10-09T20:35:02.983Z] [INFO   ] Raw template data keys: [
+  "id",
+  "name",
+  "description",
+  "workflow_json",
+  "category",
+  "tags",
+  "created_by",
+  "is_public",
+  "created_at",
+  "updated_at",
+  "is_predefined",
+  "integrations",
+  "difficulty",
+  "estimated_time",
+  "nodes",
+  "connections"
+]
+[2025-10-09T20:35:02.984Z] [INFO   ] Nodes type: object
+[2025-10-09T20:35:02.984Z] [INFO   ] Is nodes parsed: true
+[2025-10-09T20:35:02.985Z] [INFO   ] Template structure: {
+  "rawNodesType": "object",
+  "parsedNodesType": "object",
+  "parsedNodesLength": 20,
+  "parsedConnectionsLength": 19,
+  "hasWorkflowJson": true,
+  "workflowJsonNodesLength": 0
+}
+[2025-10-09T20:35:02.986Z] [INFO   ] Copying template: {
+  "templateName": "Smart Email Triage - Sales & Support Router",
+  "nodeCount": 20,
+  "connectionCount": 19,
+  "firstNode": {
+    "id": "gmail-trigger-1",
+    "type": "custom",
+    "hasData": true,
+    "dataType": "gmail_trigger_new_email",
+    "title": "New Email Received"
+  }
+}
+[2025-10-09T20:35:02.986Z] [INFO   ] Creating workflow with 20 nodes and 19 connections
+[2025-10-09T20:35:02.987Z] [INFO   ] Filtered 0 placeholder nodes, 20 nodes remaining
+[2025-10-09T20:35:02.987Z] [INFO   ] Template processing: {
+  "totalNodes": 20,
+  "totalConnections": 19,
+  "chainNodes": 0,
+  "aiAgentNodes": 0
+}
+[2025-10-09T20:35:03.152Z] [INFO   ] Successfully created workflow 1f231b8b-8a62-47cd-9376-f9172692bdad from template
+[2025-10-09T20:35:03.351Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11475415951,
+  profileError: undefined
+}
+[2025-10-09T20:35:03.883Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-09T20:35:05.308Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 1928ms (5703 modules)
+[2025-10-09T20:35:05.831Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T20:35:06.955Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-09T20:35:07.366Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 916ms (5706 modules)
+[2025-10-09T20:35:38.527Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 477ms (5704 modules)
+[2025-10-09T20:37:55.428Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1909ms (5705 modules)
+[2025-10-09T20:37:55.759Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11475588360,
+  profileError: undefined
+}
+[2025-10-09T20:37:56.102Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-09T20:37:56.523Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 952ms (5693 modules)
+[2025-10-09T20:37:56.731Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-09T20:43:58.573Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.8s (5687 modules)
+[2025-10-09T20:43:59.053Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T20:43:59.620Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11475952219,
+  profileError: undefined
+}
+[2025-10-09T20:44:00.117Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-09T20:44:00.206Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-09T20:44:00.459Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 753ms (5678 modules)
+[2025-10-09T20:44:31.409Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1060ms (5692 modules)
+[2025-10-09T20:44:59.868Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T20:45:48.216Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:12:01.375Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 664ms (1575 modules)
+[2025-10-09T21:12:49.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 287ms (1575 modules)
+[2025-10-09T21:13:59.162Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 444ms (1575 modules)
+[2025-10-09T21:15:28.679Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 430ms (1575 modules)
+[2025-10-09T21:15:39.113Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 255ms (1575 modules)
+[2025-10-09T21:16:27.382Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 350ms (1575 modules)
+[2025-10-09T21:17:18.813Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 295ms (1575 modules)
+[2025-10-09T21:17:45.158Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/webhooks/gmail ...
+[2025-10-09T21:17:50.454Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:17:51.141Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:17:51.838Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:17:53.093Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:18:12.433Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 612ms (1730 modules)
+[2025-10-09T21:18:47.956Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 378ms (1730 modules)
+[2025-10-09T21:19:22.280Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 533ms (1730 modules)
+[2025-10-09T21:20:24.549Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 564ms (1725 modules)
+[2025-10-09T21:21:24.450Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:21:43.436Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:25:33.671Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/webhooks/gmail ...
+[2025-10-09T21:25:34.533Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:25:34.836Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:25:35.559Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:25:36.276Z] [ERROR  ]  [31m[1m⨯[22m[39m ./lib/workflows/actions/aiRouterAction.ts:3:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m@google/generative-ai[39m'
+[0m [90m 1 |[39m [36mimport[39m [33mOpenAI[39m [36mfrom[39m [32m'openai'[39m
+ [90m 2 |[39m [36mimport[39m [33mAnthropic[39m [36mfrom[39m [32m'@anthropic-ai/sdk'[39m
+[31m[1m>[22m[39m[90m 3 |[39m [36mimport[39m { [33mGoogleGenerativeAI[39m } [36mfrom[39m [32m'@google/generative-ai'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 4 |[39m [36mimport[39m { createClient } [36mfrom[39m [32m'@supabase/supabase-js'[39m
+ [90m 5 |[39m [36mimport[39m { [33mAI_ROUTER_TEMPLATES[39m } [36mfrom[39m [32m'../nodes/providers/ai/aiRouterNode'[39m
+ [90m 6 |[39m [36mimport[39m {[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+./instrumentation.ts
+[2025-10-09T21:58:25.184Z] [WARN   ] Discord Gateway connection appears unhealthy, forcing reconnection
+[2025-10-09T21:58:25.198Z] [INFO   ] Discord Gateway closed, persistent reconnect disabled
+
+=== Log Session Ended: 2025-10-10T00:46:41.308Z ===

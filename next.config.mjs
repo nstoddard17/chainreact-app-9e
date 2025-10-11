@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Allow ngrok and other dev tunneling services
+  allowedDevOrigins: [
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+    'https://*.ngrok.dev',
+  ],
   eslint: {
     ignoreDuringBuilds: true,
   },

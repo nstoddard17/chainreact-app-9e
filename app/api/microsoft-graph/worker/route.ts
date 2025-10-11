@@ -413,21 +413,21 @@ function resolveMailMessagesBasePath(resource?: string): string {
 
   if (normalized.includes('/messages(')) {
 
-    normalized = normalized.split('/messages(')[0] + '/messages'
+    normalized = `${normalized.split('/messages(')[0] }/messages`
 
   } else if (normalized.includes('/messages/')) {
 
-    normalized = normalized.split('/messages/')[0] + '/messages'
+    normalized = `${normalized.split('/messages/')[0] }/messages`
 
   } else if (!normalized.endsWith('/messages')) {
 
-    normalized = normalized.replace(/\/+$/, '') + '/messages'
+    normalized = `${normalized.replace(/\/+$/, '') }/messages`
 
   }
 
 
 
-  return '/' + normalized.replace(/^\/+/, '').replace(/\/+$/, '')
+  return `/${ normalized.replace(/^\/+/, '').replace(/\/+$/, '')}`
 
 }
 
@@ -1226,7 +1226,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         // Create execution session properly
         const executionSession = await executionEngine.createExecutionSession(
           workflow.id,
-          userId,  // Pass the correct userId
+          userId, // Pass the correct userId
           'webhook',
           {
             inputData: {

@@ -363,6 +363,7 @@ export const aiRouterNode: NodeComponent = {
         name: { type: "string", label: "Path Name", required: true },
         description: { type: "string", label: "Description" },
         color: { type: "color", label: "Color", defaultValue: "#3b82f6" },
+        chainId: { type: "string", label: "Chain ID", description: "Optional chain to execute when this path is selected" },
         condition: {
           type: "object",
           schema: {

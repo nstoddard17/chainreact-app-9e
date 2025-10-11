@@ -300,10 +300,14 @@ function getNodeOutputVariables(node: any): AIVariable[] {
       { id: 'channel', label: 'Channel', value: `node.${nodeId}.output.channel` }
     ],
     'ai_action_summarize': [
-      { id: 'summary', label: 'Summary', value: `node.${nodeId}.output.text` }
+      { id: 'summary', label: 'Summary', value: `node.${nodeId}.output.summary` },
+      { id: 'original_length', label: 'Original Length', value: `node.${nodeId}.output.originalLength` },
+      { id: 'summary_length', label: 'Summary Length', value: `node.${nodeId}.output.summaryLength` }
     ],
     'ai_action_generate': [
-      { id: 'generated', label: 'Generated Text', value: `node.${nodeId}.output.text` }
+      { id: 'content', label: 'Generated Content', value: `node.${nodeId}.output.content` },
+      { id: 'tone', label: 'Tone', value: `node.${nodeId}.output.tone` },
+      { id: 'length', label: 'Length', value: `node.${nodeId}.output.length` }
     ]
   }
 

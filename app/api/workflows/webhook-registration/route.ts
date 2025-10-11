@@ -174,7 +174,7 @@ export async function GET(request: Request) {
         webhook: webhookConfig,
         executions
       })
-    } else {
+    } 
       // Get all user's webhooks
       const webhooks = await webhookManager.getUserWebhooks(user.id)
       
@@ -187,7 +187,7 @@ export async function GET(request: Request) {
           providerId: t.providerId
         }))
       })
-    }
+    
 
   } catch (error: any) {
     console.error("Error fetching webhooks:", error)

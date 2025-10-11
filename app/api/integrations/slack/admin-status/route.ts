@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
     // For now, just use the first Slack integration
     // Fetch user info from Slack API
-    const response = await fetch("https://slack.com/api/users.info?user=" + userId, {
+    const response = await fetch(`https://slack.com/api/users.info?user=${ userId}`, {
       headers: {
         Authorization: `Bearer ${credentials.accessToken}`,
         "Content-Type": "application/x-www-form-urlencoded",

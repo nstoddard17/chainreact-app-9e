@@ -345,7 +345,7 @@ export const discordNodes: NodeComponent[] = [
         dependsOn: "guildId",
         placeholder: "Select a user",
         description: "The user to assign the role to",
-        hidden: true  // Hide until guildId is selected
+        hidden: true // Hide until guildId is selected
       },
       {
         name: "roleId",
@@ -356,7 +356,7 @@ export const discordNodes: NodeComponent[] = [
         dependsOn: "guildId",
         placeholder: "Select a role to assign",
         description: "The role to assign to the user",
-        hidden: true  // Hide until guildId is selected
+        hidden: true // Hide until guildId is selected
       }
     ],
     outputSchema: [

@@ -295,7 +295,7 @@ export class TokenBudgetManager {
 
     while (remaining.length > 0) {
       let chunkContent = '';
-      let chunkSize = 0;
+      const chunkSize = 0;
 
       switch (platformLimits.splitStrategy) {
         case 'sentence':
@@ -539,10 +539,10 @@ Generate the next part:`;
     // Fallback to word boundary
     const lastSpace = truncated.lastIndexOf(' ');
     if (lastSpace > targetLength * 0.8) {
-      return truncated.substring(0, lastSpace) + '...';
+      return `${truncated.substring(0, lastSpace) }...`;
     }
 
-    return truncated + '...';
+    return `${truncated }...`;
   }
 
   /**

@@ -121,10 +121,10 @@ export class ComplianceLogger {
     } else if (complianceTags.includes("gdpr")) {
       // 6 years for GDPR compliance
       return new Date(Date.now() + 6 * 365 * 24 * 60 * 60 * 1000).toISOString()
-    } else {
+    } 
       // Default 3 years
       return new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString()
-    }
+    
   }
 
   private calculateRiskScore(entry: ComplianceLogEntry): number {

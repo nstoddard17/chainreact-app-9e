@@ -20,8 +20,8 @@ export class GoogleDocsAdapter implements DocumentProvider {
     supportsWebhooks: false,
     rateLimits: [
       { type: 'requests', limit: 1000, window: 100000 }, // 1000 requests per 100 seconds
-      { type: 'reads', limit: 300, window: 60000 },      // 300 read requests per minute
-      { type: 'writes', limit: 300, window: 60000 }      // 300 write requests per minute
+      { type: 'reads', limit: 300, window: 60000 }, // 300 read requests per minute
+      { type: 'writes', limit: 300, window: 60000 } // 300 write requests per minute
     ],
     supportedFeatures: [
       'create_document',
@@ -189,7 +189,7 @@ export class GoogleDocsAdapter implements DocumentProvider {
         requests.push({
           insertText: {
             location: { index: contentLength - 1 },
-            text: '\n' + updates.appendContent
+            text: `\n${ updates.appendContent}`
           }
         })
       } else if (updates.insertContent) {

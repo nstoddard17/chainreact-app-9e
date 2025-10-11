@@ -120,7 +120,7 @@ export function TemplatePreview({
           <MiniMap
             nodeColor={(node) => {
               if (node.data?.isTrigger) return '#3b82f6' // blue
-              if (node.data?.type === 'ai_agent') return '#8b5cf6' // purple
+              if (node.data?.type === 'ai_agent' || node.data?.type === 'ai_message') return '#8b5cf6' // purple
               return '#64748b' // slate
             }}
             maskColor="rgba(0, 0, 0, 0.1)"

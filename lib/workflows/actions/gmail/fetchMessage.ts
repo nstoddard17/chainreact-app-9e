@@ -143,7 +143,7 @@ export async function fetchGmailMessage(
       // Extract links from body
       if (extractLinks) {
         const linkRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g
-        const allText = body + ' ' + htmlBody
+        const allText = `${body } ${ htmlBody}`
         const links = [...new Set(allText.match(linkRegex) || [])]
         processed.extractedLinks = links
       }
@@ -151,7 +151,7 @@ export async function fetchGmailMessage(
       // Extract email addresses
       if (extractEmails) {
         const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
-        const allText = body + ' ' + htmlBody + ' ' + processed.from + ' ' + processed.to + ' ' + processed.cc
+        const allText = `${body } ${ htmlBody } ${ processed.from } ${ processed.to } ${ processed.cc}`
         const emails = [...new Set(allText.match(emailRegex) || [])]
         processed.extractedEmails = emails
       }

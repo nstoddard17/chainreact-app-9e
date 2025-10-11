@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
     
     console.log('📡 [HubSpot Callback] Token exchange response:', {
       hasAccessToken: !!tokenData.access_token,
-      accessTokenPreview: tokenData.access_token ? tokenData.access_token.substring(0, 30) + '...' : 'none',
+      accessTokenPreview: tokenData.access_token ? `${tokenData.access_token.substring(0, 30) }...` : 'none',
       hasRefreshToken: !!tokenData.refresh_token,
       tokenType: tokenData.token_type,
       expiresIn: tokenData.expires_in,

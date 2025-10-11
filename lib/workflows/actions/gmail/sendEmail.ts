@@ -107,7 +107,7 @@ export async function sendGmailEmail(
 
     // Build MIME message
     const boundary = `boundary_${Date.now()}`
-    let messageParts = []
+    const messageParts = []
 
     // Add headers
     for (const [key, value] of Object.entries(headers)) {

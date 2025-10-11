@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     console.log(`📥 [OneDrive API] Request received:`, {
       timestamp: new Date().toISOString(),
       dataType,
-      integrationId: integrationId?.substring(0, 8) + '...',
+      integrationId: `${integrationId?.substring(0, 8) }...`,
       options,
       folderId: options?.folderId
     })
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       status: integration.status,
       hasToken: !!integration.access_token,
       tokenLength: integration.access_token?.length,
-      tokenPreview: integration.access_token ? integration.access_token.substring(0, 50) + '...' : null
+      tokenPreview: integration.access_token ? `${integration.access_token.substring(0, 50) }...` : null
     })
 
     // Decrypt the access token before passing to handler

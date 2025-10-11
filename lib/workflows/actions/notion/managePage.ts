@@ -167,7 +167,7 @@ function convertContentToBlocks(content: string): any[] {
           rich_text: [{
             type: 'text',
             text: {
-              content: codeContent || ' '  // Notion requires at least one character
+              content: codeContent || ' ' // Notion requires at least one character
             }
           }],
           language: 'plain text'
@@ -190,7 +190,7 @@ function convertContentToBlocks(content: string): any[] {
         rich_text: [{
           type: 'text',
           text: {
-            content: line  // Use original line to preserve indentation
+            content: line // Use original line to preserve indentation
           }
         }]
       }
@@ -444,7 +444,7 @@ export async function executeNotionManagePage(
           for (const [key, value] of Object.entries(pageFieldsData)) {
             if (key.includes('-content') && value) {
               const blockId = key.split('-')[0];
-              if (blockId && blockId.length === 32) {  // Notion block IDs are 32 chars
+              if (blockId && blockId.length === 32) { // Notion block IDs are 32 chars
                 // This is an existing block - update it
                 console.log(`🔄 Updating content block ${blockId}`);
                 blockUpdates.push({

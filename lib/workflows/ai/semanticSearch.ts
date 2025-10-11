@@ -126,7 +126,7 @@ export function rankActions(
 ): Array<{ action: ActionMetadata, score: number, reasoning: string }> {
   return actions.map(({ action, score }) => {
     let adjustedScore = score
-    let reasoning = []
+    const reasoning = []
     
     // Boost recently used actions
     if (context.recentlyUsed?.includes(action.id)) {

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log("Processing message:", message.substring(0, 100) + "...")
+    console.log("Processing message:", `${message.substring(0, 100) }...`)
 
     // Early exit if connection closed
     if (connectionClosed) {
@@ -327,41 +327,41 @@ async function executeAction(intent: any, integrations: Integration[], userId: s
 
   switch (intent.intent) {
     case "calendar_query":
-      return await handleCalendarQuery(intent, integrations, userId, supabaseAdmin)
+      return handleCalendarQuery(intent, integrations, userId, supabaseAdmin)
     case "calendar_action":
-      return await handleCalendarAction(intent, integrations, userId, supabaseAdmin)
+      return handleCalendarAction(intent, integrations, userId, supabaseAdmin)
     case "email_query":
-      return await handleEmailQuery(intent, integrations, userId, supabaseAdmin)
+      return handleEmailQuery(intent, integrations, userId, supabaseAdmin)
     case "email_action":
-      return await handleEmailAction(intent, integrations, userId, supabaseAdmin)
+      return handleEmailAction(intent, integrations, userId, supabaseAdmin)
     case "file_query":
-      return await handleFileQuery(intent, integrations, userId, supabaseAdmin)
+      return handleFileQuery(intent, integrations, userId, supabaseAdmin)
     case "file_action":
-      return await handleFileAction(intent, integrations, userId, supabaseAdmin)
+      return handleFileAction(intent, integrations, userId, supabaseAdmin)
     case "social_query":
-      return await handleSocialQuery(intent, integrations, userId, supabaseAdmin)
+      return handleSocialQuery(intent, integrations, userId, supabaseAdmin)
     case "social_action":
-      return await handleSocialAction(intent, integrations, userId, supabaseAdmin)
+      return handleSocialAction(intent, integrations, userId, supabaseAdmin)
     case "crm_query":
-      return await handleCRMQuery(intent, integrations, userId, supabaseAdmin)
+      return handleCRMQuery(intent, integrations, userId, supabaseAdmin)
     case "crm_action":
-      return await handleCRMAction(intent, integrations, userId, supabaseAdmin)
+      return handleCRMAction(intent, integrations, userId, supabaseAdmin)
     case "ecommerce_query":
-      return await handleEcommerceQuery(intent, integrations, userId, supabaseAdmin)
+      return handleEcommerceQuery(intent, integrations, userId, supabaseAdmin)
     case "ecommerce_action":
-      return await handleEcommerceAction(intent, integrations, userId, supabaseAdmin)
+      return handleEcommerceAction(intent, integrations, userId, supabaseAdmin)
     case "developer_query":
-      return await handleDeveloperQuery(intent, integrations, userId, supabaseAdmin)
+      return handleDeveloperQuery(intent, integrations, userId, supabaseAdmin)
     case "developer_action":
-      return await handleDeveloperAction(intent, integrations, userId, supabaseAdmin)
+      return handleDeveloperAction(intent, integrations, userId, supabaseAdmin)
     case "productivity_query":
-      return await handleProductivityQuery(intent, integrations, userId, supabaseAdmin)
+      return handleProductivityQuery(intent, integrations, userId, supabaseAdmin)
     case "productivity_action":
-      return await handleProductivityAction(intent, integrations, userId, supabaseAdmin)
+      return handleProductivityAction(intent, integrations, userId, supabaseAdmin)
     case "communication_query":
-      return await handleCommunicationQuery(intent, integrations, userId, supabaseAdmin)
+      return handleCommunicationQuery(intent, integrations, userId, supabaseAdmin)
     case "communication_action":
-      return await handleCommunicationAction(intent, integrations, userId, supabaseAdmin)
+      return handleCommunicationAction(intent, integrations, userId, supabaseAdmin)
     default:
       return {
         content: "I can help you with your calendars, emails, files, social media, CRM, e-commerce, developer tools, and productivity apps. What would you like to know or do?",
@@ -514,10 +514,10 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
   }
 }
 
-async function handleCalendarAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleCalendarAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   if (intent.action === "cancel_event") {
     const calendarIntegrations = integrations.filter(i => i.provider === "google-calendar")
-    
+
     if (calendarIntegrations.length === 0) {
       return {
         content: "You don't have any calendar integrations connected.",
@@ -617,7 +617,7 @@ async function handleEmailQuery(intent: any, integrations: Integration[], userId
   }
 }
 
-async function handleEmailAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleEmailAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "Email action functionality is coming soon!",
     metadata: {}
@@ -707,7 +707,7 @@ async function handleFileQuery(intent: any, integrations: Integration[], userId:
   }
 }
 
-async function handleFileAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleFileAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "File action functionality is coming soon!",
     metadata: {}
@@ -788,7 +788,7 @@ async function handleSocialQuery(intent: any, integrations: Integration[], userI
   }
 }
 
-async function handleSocialAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleSocialAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "Social action functionality is coming soon!",
     metadata: {}
@@ -869,7 +869,7 @@ async function handleCRMQuery(intent: any, integrations: Integration[], userId: 
   }
 }
 
-async function handleCRMAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleCRMAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "CRM action functionality is coming soon!",
     metadata: {}
@@ -951,7 +951,7 @@ async function handleEcommerceQuery(intent: any, integrations: Integration[], us
   }
 }
 
-async function handleEcommerceAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleEcommerceAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "E-commerce action functionality is coming soon!",
     metadata: {}
@@ -1033,7 +1033,7 @@ async function handleDeveloperQuery(intent: any, integrations: Integration[], us
   }
 }
 
-async function handleDeveloperAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleDeveloperAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "Developer action functionality is coming soon!",
     metadata: {}
@@ -1231,7 +1231,7 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
   }
 }
 
-async function handleProductivityAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleProductivityAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "Productivity action functionality is coming soon!",
     metadata: {}
@@ -1311,7 +1311,7 @@ async function handleCommunicationQuery(intent: any, integrations: Integration[]
   }
 }
 
-async function handleCommunicationAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
+function handleCommunicationAction(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   return {
     content: "Communication action functionality is coming soon!",
     metadata: {}

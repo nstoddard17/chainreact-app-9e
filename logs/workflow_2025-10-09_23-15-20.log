@@ -1,0 +1,1393 @@
+=== Log Session Started: 2025-10-10T04:15:20.862Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-10T04:15:20.863Z] [INFO   ] File logging initialized
+[2025-10-10T04:15:20.863Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_23-15-20.log
+[2025-10-10T04:15:20.864Z] [INFO   ] 📁 File logging enabled
+[2025-10-10T04:15:20.864Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_23-15-20.log
+[2025-10-10T04:15:20.864Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_23-15-20.log
+[2025-10-10T04:15:20.864Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_23-15-20.log
+[2025-10-10T04:15:20.864Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-09_23-15-20.log
+[2025-10-10T04:15:20.865Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-10T04:15:20.865Z] [INFO   ] 📁 File logging system initialized
+[2025-10-10T04:15:20.874Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 6.5s
+[2025-10-10T04:15:20.904Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:15:21.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 209ms (231 modules)
+[2025-10-10T04:15:21.484Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503034085,
+  profileError: undefined
+}
+[2025-10-10T04:15:21.867Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-10T04:15:23.949Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-10T04:15:23.950Z] [INFO   ] 🔑 Using Discord bot token: MTM3ODU5NT...ElFqA
+[2025-10-10T04:15:23.956Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-10T04:15:24.209Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-10T04:15:24.211Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-10T04:15:24.419Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-10T04:15:24.421Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-10T04:15:24.569Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "9ca4b6037b21c036a3b8c2e1fc4faa8f",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-10T04:15:24.569Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-10T04:15:24.731Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-10T04:15:24.732Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-10T04:15:24.864Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-10T04:15:30.667Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 9.2s (5532 modules)
+[2025-10-10T04:15:30.802Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:15:31.530Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 815ms (1499 modules)
+[2025-10-10T04:15:31.558Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:15:31.676Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:15:32.002Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503044603,
+  profileError: undefined
+}
+[2025-10-10T04:15:32.104Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503044705,
+  profileError: undefined
+}
+[2025-10-10T04:15:32.106Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503044707,
+  profileError: undefined
+}
+[2025-10-10T04:15:32.372Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:15:33.960Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-10T04:15:35.333Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1872ms (5536 modules)
+[2025-10-10T04:15:36.069Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 345ms (5538 modules)
+[2025-10-10T04:15:39.493Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 377ms (5540 modules)
+[2025-10-10T04:15:39.563Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:15:39.562Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:15:39.691Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:15:39.836Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:26:36.501Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503709102,
+  profileError: undefined
+}
+[2025-10-10T04:26:37.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5548 modules)
+[2025-10-10T04:26:38.069Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:26:38.410Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11503711011,
+  profileError: undefined
+}
+[2025-10-10T04:26:39.094Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 296ms (4053 modules)
+[2025-10-10T04:26:39.784Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 272ms (4055 modules)
+[2025-10-10T04:26:40.348Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 443ms (1485 modules)
+[2025-10-10T04:26:40.517Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:26:40.517Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:26:40.598Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:26:40.735Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:27:11.632Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-10T04:27:12.113Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 981ms (5545 modules)
+[2025-10-10T04:33:31.098Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 561ms (1499 modules)
+[2025-10-10T04:33:31.391Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504123991,
+  profileError: undefined
+}
+[2025-10-10T04:33:31.587Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:33:32.206Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-10T04:33:32.942Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1253ms (5538 modules)
+[2025-10-10T04:33:35.720Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:33:35.883Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504128484,
+  profileError: undefined
+}
+[2025-10-10T04:33:36.341Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:33:37.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 324ms (4055 modules)
+[2025-10-10T04:33:38.564Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 276ms (4057 modules)
+[2025-10-10T04:33:42.533Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 441ms (4057 modules)
+[2025-10-10T04:33:42.630Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:33:42.630Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:33:42.761Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:33:42.897Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:33:45.717Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 305ms (1499 modules)
+[2025-10-10T04:33:45.881Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504138482,
+  profileError: undefined
+}
+[2025-10-10T04:33:46.048Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:33:46.931Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-10T04:33:46.956Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 741ms (4060 modules)
+[2025-10-10T04:33:53.291Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 325ms (1499 modules)
+[2025-10-10T04:33:53.503Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504146104,
+  profileError: undefined
+}
+[2025-10-10T04:33:53.640Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:34:08.308Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 365ms (1499 modules)
+[2025-10-10T04:34:08.330Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:34:08.633Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504161233,
+  profileError: undefined
+}
+[2025-10-10T04:34:09.063Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:34:13.107Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:34:13.106Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:34:13.241Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:34:13.367Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:34:32.702Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/configuration/ConfigurationModal.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/ConfigurationModal.tsx[0m:429:1]
+ [2m426[0m │       </CustomDialogContent>
+ [2m427[0m │     </Dialog>
+ [2m428[0m │   );
+ [2m429[0m │ }
+     · [35;1m▲[0m
+     ╰────
+  [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m   );
+  [31m│[0m }
+  [31m│[0m )'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/configuration/ConfigurationModal.tsx[0m:427:1]
+ [2m424[0m │               )}
+ [2m425[0m │             </div>
+ [2m426[0m │           </CustomDialogContent>
+ [2m427[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m     </Dialog>
+ [2m428[0m │ [35;1m│[0m     );
+ [2m429[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m }
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/configuration/ConfigurationModal.tsx
+./components/workflows/configuration/index.ts
+./components/workflows/CollaborativeWorkflowBuilder.tsx
+./components/workflows/WorkflowBuilderClient.tsx
+[2025-10-10T04:34:38.652Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1842ms (5559 modules)
+[2025-10-10T04:34:39.014Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504191615,
+  profileError: undefined
+}
+[2025-10-10T04:34:39.374Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:34:44.784Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 843ms (5561 modules)
+[2025-10-10T04:34:45.008Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504197608,
+  profileError: undefined
+}
+[2025-10-10T04:34:45.205Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:04.818Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 505ms (1500 modules)
+[2025-10-10T04:35:04.932Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:35:05.443Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504218043,
+  profileError: undefined
+}
+[2025-10-10T04:35:06.413Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:12.209Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:35:12.208Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:35:12.364Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:35:12.552Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:35:20.649Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1280ms (5559 modules)
+[2025-10-10T04:35:20.903Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504233503,
+  profileError: undefined
+}
+[2025-10-10T04:35:21.078Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:28.888Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1072ms (5559 modules)
+[2025-10-10T04:35:29.500Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504242100,
+  profileError: undefined
+}
+[2025-10-10T04:35:29.672Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:45.139Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 404ms (1499 modules)
+[2025-10-10T04:35:45.163Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:35:45.357Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504257958,
+  profileError: undefined
+}
+[2025-10-10T04:35:45.713Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:49.755Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 849ms (5559 modules)
+[2025-10-10T04:35:49.964Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504262565,
+  profileError: undefined
+}
+[2025-10-10T04:35:50.177Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:35:50.324Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:35:50.324Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:35:50.403Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:35:50.549Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:36:05.260Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 896ms (5563 modules)
+[2025-10-10T04:36:05.478Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504278079,
+  profileError: undefined
+}
+[2025-10-10T04:36:05.670Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:36:10.539Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 871ms (5563 modules)
+[2025-10-10T04:36:10.747Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504283348,
+  profileError: undefined
+}
+[2025-10-10T04:36:11.163Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:36:11.907Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:36:15.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 736ms (5563 modules)
+[2025-10-10T04:36:15.514Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504288115,
+  profileError: undefined
+}
+[2025-10-10T04:36:15.743Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:36:15.841Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:36:15.841Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:36:15.921Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:36:16.040Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:36:31.066Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 726ms (5563 modules)
+[2025-10-10T04:36:31.255Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504303856,
+  profileError: undefined
+}
+[2025-10-10T04:36:31.416Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:37:05.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 716ms (5563 modules)
+[2025-10-10T04:37:05.881Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504338482,
+  profileError: undefined
+}
+[2025-10-10T04:37:06.287Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:37:06.596Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:37:12.107Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:37:12.107Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:37:12.224Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:37:12.344Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:37:25.407Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 471ms (1501 modules)
+[2025-10-10T04:37:25.611Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504358211,
+  profileError: undefined
+}
+[2025-10-10T04:37:25.695Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:37:40.234Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 340ms (1501 modules)
+[2025-10-10T04:37:40.449Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504373049,
+  profileError: undefined
+}
+[2025-10-10T04:37:40.533Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:37:46.167Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 371ms (1501 modules)
+[2025-10-10T04:37:46.189Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:37:46.335Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504378935,
+  profileError: undefined
+}
+[2025-10-10T04:37:46.601Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:37:51.106Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:37:51.105Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:37:51.229Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:37:51.374Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:38:07.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1003ms (1501 modules)
+[2025-10-10T04:38:07.531Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504400132,
+  profileError: undefined
+}
+[2025-10-10T04:38:07.603Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:38:22.959Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 778ms (1501 modules)
+[2025-10-10T04:38:23.323Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504415924,
+  profileError: undefined
+}
+[2025-10-10T04:38:23.394Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:38:35.767Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 469ms (1501 modules)
+[2025-10-10T04:38:35.798Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:38:35.997Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504428598,
+  profileError: undefined
+}
+[2025-10-10T04:38:36.363Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:38:41.096Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:38:41.096Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:38:41.214Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:38:41.330Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:38:53.451Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5563 modules)
+[2025-10-10T04:38:53.650Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504446251,
+  profileError: undefined
+}
+[2025-10-10T04:38:53.843Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:39:14.177Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1251ms (5563 modules)
+[2025-10-10T04:39:14.779Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504467380,
+  profileError: undefined
+}
+[2025-10-10T04:39:15.002Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:39:30.171Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 918ms (5563 modules)
+[2025-10-10T04:39:30.666Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:39:30.882Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504483483,
+  profileError: undefined
+}
+[2025-10-10T04:39:31.405Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:39:37.162Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:39:37.161Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:39:37.276Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:39:37.410Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:39:45.781Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 902ms (5563 modules)
+[2025-10-10T04:39:46.001Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504498602,
+  profileError: undefined
+}
+[2025-10-10T04:39:46.178Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:39:54.779Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 813ms (5563 modules)
+[2025-10-10T04:39:55.551Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504508152,
+  profileError: undefined
+}
+[2025-10-10T04:39:55.769Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:40:03.037Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 760ms (5563 modules)
+[2025-10-10T04:40:03.414Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504516015,
+  profileError: undefined
+}
+[2025-10-10T04:40:03.996Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:40:04.833Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:40:11.126Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:40:11.126Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:40:11.248Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:40:11.373Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:40:35.644Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1566ms (5563 modules)
+[2025-10-10T04:40:35.930Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504548531,
+  profileError: undefined
+}
+[2025-10-10T04:40:36.092Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:40:56.970Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 763ms (5563 modules)
+[2025-10-10T04:40:57.192Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504569793,
+  profileError: undefined
+}
+[2025-10-10T04:40:57.359Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:41:09.966Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 683ms (5563 modules)
+[2025-10-10T04:41:10.275Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504582875,
+  profileError: undefined
+}
+[2025-10-10T04:41:10.762Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:41:11.310Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:41:16.107Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:41:16.107Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:41:16.220Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:41:16.331Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:41:31.886Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 729ms (5563 modules)
+[2025-10-10T04:41:32.090Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504604690,
+  profileError: undefined
+}
+[2025-10-10T04:41:32.274Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:41:38.263Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1144ms (5563 modules)
+[2025-10-10T04:41:38.466Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504611067,
+  profileError: undefined
+}
+[2025-10-10T04:41:38.622Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:41:44.348Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 861ms (5563 modules)
+[2025-10-10T04:41:44.541Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504617142,
+  profileError: undefined
+}
+[2025-10-10T04:41:44.906Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:41:46.615Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:41:52.142Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:41:52.142Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:41:52.267Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:41:52.403Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:43:00.883Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.9s (5536 modules)
+[2025-10-10T04:43:01.168Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504693769,
+  profileError: undefined
+}
+[2025-10-10T04:43:01.406Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:43:01.952Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 263ms (4053 modules)
+[2025-10-10T04:43:14.591Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 755ms (5554 modules)
+[2025-10-10T04:43:14.822Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504707423,
+  profileError: undefined
+}
+[2025-10-10T04:43:15.015Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:43:15.480Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 387ms (4055 modules)
+[2025-10-10T04:43:20.842Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 816ms (5556 modules)
+[2025-10-10T04:43:21.055Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504713656,
+  profileError: undefined
+}
+[2025-10-10T04:43:21.393Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 385ms (4057 modules)
+[2025-10-10T04:43:21.739Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-10T04:43:22.144Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:43:24.264Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-10T04:43:24.282Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 567ms (4060 modules)
+[2025-10-10T04:43:28.505Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 407ms (4062 modules)
+[2025-10-10T04:43:28.591Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-10T04:43:28.591Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-10T04:43:28.719Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-10T04:43:28.859Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-10T04:43:34.044Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 728ms (5563 modules)
+[2025-10-10T04:43:34.269Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504726869,
+  profileError: undefined
+}
+[2025-10-10T04:43:34.465Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-10T04:43:44.854Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1359ms (5563 modules)
+[2025-10-10T04:43:45.653Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11504738253,
+  profileError: undefined
+}
+[2025-10-10T04:43:45.986Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "email": "stoddard.nathaniel900@gmail.com",
+  "provider": "email",
+  "username": "nstoddard17",
+  "hasUsername": true,
+  "isGoogleUser": false
+}

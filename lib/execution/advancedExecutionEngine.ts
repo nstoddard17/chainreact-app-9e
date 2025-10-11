@@ -1,6 +1,27 @@
 import { createClient } from "@supabase/supabase-js"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
+import { ExecutionProgressTracker } from "./executionProgressTracker"
+import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backendLogger"
+
+// Helper to safely clone data and remove circular references
+function safeClone(obj: any, seen = new WeakSet()): any {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return new Date(obj);
+  if (obj instanceof Array) return obj.map(item => safeClone(item, seen));
+  if (seen.has(obj)) return '[Circular Reference]';
+
+  seen.add(obj);
+
+  const cloned: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      cloned[key] = safeClone(obj[key], seen);
+    }
+  }
+
+  return cloned;
+}
 
 // A simple retry mechanism
 async function retry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
@@ -48,6 +69,7 @@ export interface SubWorkflow {
 
 export class AdvancedExecutionEngine {
   private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  private progressTracker: ExecutionProgressTracker
 
   async createExecutionSession(
     workflowId: string,
@@ -84,8 +106,18 @@ export class AdvancedExecutionEngine {
     const session = await this.getExecutionSession(sessionId)
     if (!session) throw new Error("Execution session not found")
 
-    console.log('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', {
+    const startInfo = {
       sessionId,
+      workflowId: session.workflow_id,
+      userId: session.user_id,
+      startNodeId: options.startNodeId,
+      inputKeys: Object.keys(inputData || {})
+    }
+    console.log('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
+    logInfo(sessionId, 'AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
+
+    // Log to backend logger for debug modal
+    logInfo(sessionId, 'Workflow execution started', {
       workflowId: session.workflow_id,
       userId: session.user_id,
       startNodeId: options.startNodeId,
@@ -95,11 +127,27 @@ export class AdvancedExecutionEngine {
     // Check if session is already running to prevent duplicate executions
     if (session.status === "running") {
       console.log(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
+      logWarning(sessionId, 'Session already running, skipping duplicate execution')
       return { success: false, message: "Session already running" }
     }
 
     // Update session status
     await this.updateSessionStatus(sessionId, "running")
+
+    // Initialize progress tracker for this execution
+    this.progressTracker = new ExecutionProgressTracker()
+    const totalNodes = (await this.supabase
+      .from("workflows")
+      .select("nodes")
+      .eq("id", session.workflow_id)
+      .single()).data?.nodes?.length || 0
+
+    await this.progressTracker.initialize(
+      sessionId,
+      session.workflow_id,
+      session.user_id,
+      totalNodes
+    )
 
     try {
       // Get workflow definition
@@ -118,16 +166,30 @@ export class AdvancedExecutionEngine {
       const result = await this.executeWithParallelProcessing(session, workflow, executionPlan, inputData, options)
 
       await this.updateSessionStatus(sessionId, "completed", 100)
-      console.log('✅ AdvancedExecutionEngine execution completed', {
+
+      // Mark progress as completed
+      if (this.progressTracker) {
+        await this.progressTracker.complete(true)
+      }
+
+      const completionInfo = {
         sessionId,
         workflowId: session.workflow_id
-      })
+      }
+      console.log('✅ AdvancedExecutionEngine execution completed', completionInfo)
+      logSuccess(sessionId, 'AdvancedExecutionEngine execution completed', completionInfo)
       return result
     } catch (error) {
       await this.updateSessionStatus(sessionId, "failed")
       await this.logExecutionEvent(sessionId, "execution_error", null, {
         error: error instanceof Error ? error.message : "Unknown error",
       })
+
+      // Mark progress as failed
+      if (this.progressTracker) {
+        await this.progressTracker.complete(false, error instanceof Error ? error.message : "Unknown error")
+      }
+
       throw error
     }
   }
@@ -240,6 +302,7 @@ export class AdvancedExecutionEngine {
     const results: any = {}
     const context = {
       data: inputData,
+      trigger: inputData?.trigger, // Preserve trigger data at context level for AI field resolution
       variables: session.execution_context.variables || {},
       session,
       workflow,
@@ -248,15 +311,18 @@ export class AdvancedExecutionEngine {
     // For now, disable parallel processing to prevent duplicate executions
     // Only execute the main workflow path to avoid duplicate emails
     console.log(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
+    logInfo(context.session.id, 'Executing workflow - main path only (parallel processing disabled)', { workflowId: workflow.id })
 
     // Execute main workflow path only
     const mainResult = await this.executeMainWorkflowPath(session.id, workflow, context, options.startNodeId)
     results.mainResult = mainResult
 
-    console.log('✅ Main workflow path finished', {
+    const mainPathInfo = {
       sessionId: session.id,
       workflowId: workflow.id
-    })
+    }
+    console.log('✅ Main workflow path finished', mainPathInfo)
+    logSuccess(context.session.id, 'Main workflow path finished', mainPathInfo)
 
     return results
   }
@@ -611,18 +677,21 @@ export class AdvancedExecutionEngine {
 
   private async executeMainWorkflowPath(sessionId: string, workflow: any, context: any, startNodeId?: string): Promise<any> {
     let currentData = context.data;
+    const previousResults = {}; // Track all previous node results for AI field resolution
     const nodes = workflow.nodes || [];
     const connections = workflow.connections || [];
 
-    console.log('🧱 executeMainWorkflowPath', {
+    const pathInfo = {
       sessionId,
       workflowId: workflow.id,
       nodeCount: Array.isArray(nodes) ? nodes.length : 0,
       connectionCount: Array.isArray(connections) ? connections.length : 0,
       hasStartNodeOverride: Boolean(startNodeId)
-    })
+    }
+    console.log('🧱 executeMainWorkflowPath', pathInfo)
+    logInfo(sessionId, 'executeMainWorkflowPath', pathInfo)
 
-    let executionQueue: any[] = [];
+    const executionQueue: any[] = [];
     const executedNodeIds = new Set<string>();
 
     if (startNodeId) {
@@ -640,10 +709,18 @@ export class AdvancedExecutionEngine {
       }
       
       console.log(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
+      logInfo(sessionId, `Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
       
       // Execute the trigger first to pass through data
       const triggerNode = triggerNodes[0]; // Use first trigger
-      currentData = await this.executeNode(triggerNode, workflow, { ...context, data: currentData });
+      const triggerResult = await this.executeNode(triggerNode, workflow, { ...context, data: currentData });
+      currentData = triggerResult;
+
+      // Initialize previousResults with trigger output if available
+      if (triggerResult[triggerNode.id]) {
+        previousResults[triggerNode.id] = triggerResult[triggerNode.id];
+      }
+
       executedNodeIds.add(triggerNode.id);
       
       // Find action nodes connected to this trigger
@@ -651,6 +728,7 @@ export class AdvancedExecutionEngine {
       const firstActionNodes = initialConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
       
       console.log(`🎯 Found ${firstActionNodes.length} action node(s) connected to trigger`)
+      logInfo(sessionId, `Found ${firstActionNodes.length} action node(s) connected to trigger`)
       executionQueue.push(...firstActionNodes);
     }
 
@@ -660,21 +738,97 @@ export class AdvancedExecutionEngine {
       // Skip if node has already been executed to prevent duplicates
       if (executedNodeIds.has(currentNode.id)) {
         console.log(`🔄 Skipping already executed node: ${currentNode.id}`);
+        logInfo(sessionId, `Skipping already executed node: ${currentNode.id}`);
         continue;
       }
 
       console.log(`🎯 Executing node: ${currentNode.id} (${currentNode.data.type})`);
-      currentData = await this.executeNode(currentNode, workflow, { ...context, data: currentData });
+      logInfo(sessionId, `Executing node: ${currentNode.id} (${currentNode.data.type})`);
+
+      // Create a clean context for the node execution
+      // Keep data structures flat to avoid deep nesting
+      const nodeContext = {
+        ...context,
+        data: {
+          ...currentData,
+          // Only pass what's needed for AI field resolution
+          previousResults: { ...previousResults }, // Shallow copy to avoid mutations
+          trigger: context.trigger // Ensure trigger is available
+        }
+      };
+
+      const nodeResult = await this.executeNode(currentNode, workflow, nodeContext);
+
+      // Extract just the new result for this node
+      const newNodeResult = nodeResult[currentNode.id];
+
+      // Update currentData with only the new result
+      // Don't spread the entire nodeResult to avoid accumulating nested data
+      currentData = {
+        ...currentData,
+        [currentNode.id]: newNodeResult
+      };
+
+      // Accumulate results separately for AI field resolution
+      // This keeps a flat structure for previous outputs
+      if (newNodeResult) {
+        previousResults[currentNode.id] = safeClone(newNodeResult);
+      }
+
       executedNodeIds.add(currentNode.id);
       
       // Find next nodes
-      const nextConnections = connections.filter((c: any) => c.source === currentNode.id);
+      let nextConnections = connections.filter((c: any) => c.source === currentNode.id);
+
+      if (currentNode.data.type === 'ai_router') {
+        const selectedPaths: string[] = Array.isArray(newNodeResult?.selectedPaths)
+          ? newNodeResult.selectedPaths
+          : [];
+
+        if (selectedPaths.length > 0) {
+          const normalized = selectedPaths.map(path => path.toLowerCase());
+          const filteredConnections = nextConnections.filter((connection: any) => {
+            if (!connection.sourceHandle) return false;
+
+            const handle = String(connection.sourceHandle);
+            const cleanedHandle = handle.startsWith('output-')
+              ? handle.slice(7)
+              : handle;
+
+            return normalized.includes(handle.toLowerCase()) || normalized.includes(cleanedHandle.toLowerCase());
+          });
+
+          if (filteredConnections.length === 0) {
+            console.warn(`⚠️ AI Router node ${currentNode.id} returned paths with no matching connections`, {
+              selectedPaths,
+              availableHandles: nextConnections.map((c: any) => c.sourceHandle),
+            });
+            logWarning(sessionId, `AI Router node ${currentNode.id} returned paths with no matching connections`, {
+              selectedPaths,
+              availableHandles: nextConnections.map((c: any) => c.sourceHandle),
+            });
+          } else {
+            console.log(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
+            logInfo(sessionId, `AI Router selected paths`, {
+              nodeId: currentNode.id,
+              selectedPaths,
+            });
+            nextConnections = filteredConnections;
+          }
+        } else {
+          console.warn(`⚠️ AI Router node ${currentNode.id} did not return any selected paths`);
+          logWarning(sessionId, `AI Router node ${currentNode.id} did not return any selected paths`);
+          nextConnections = [];
+        }
+      }
+
       const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
       
       // Add next nodes to queue only if they haven't been executed and aren't already in queue
       for (const nextNode of nextNodes) {
         if (!executedNodeIds.has(nextNode.id) && !executionQueue.some(queuedNode => queuedNode.id === nextNode.id)) {
           console.log(`➡️ Adding node to queue: ${nextNode.id}`);
+          logInfo(sessionId, `Adding node to queue: ${nextNode.id}`);
           executionQueue.push(nextNode);
         }
       }
@@ -701,17 +855,56 @@ export class AdvancedExecutionEngine {
 
       if (existingNodeExecution) {
         console.log(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
+        logInfo(context.session.id, `Node ${node.id} already executed in session ${context.session.id}, skipping`)
         return context.data
       }
 
       await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type })
       console.log(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
+      logInfo(context.session.id, `Executing node via delegated handler: ${node.id} (${node.data.type})`)
+
+      // Log to backend logger
+      logInfo(context.session.id, `Executing node: ${node.data?.title || node.data?.type}`, {
+        nodeId: node.id,
+        nodeType: node.data.type,
+        hasConfig: !!node.data.config
+      })
+
+      // Update progress tracker - node started
+      if (this.progressTracker) {
+        await this.progressTracker.update({
+          currentNodeId: node.id,
+          currentNodeName: node.data?.title || node.data?.type || node.id,
+          status: 'running',
+        })
+      }
 
       // Delegate to the centralized executeAction from executeNode.ts
       // This ensures consistency across all execution paths and leverages the registry pattern
+      // IMPORTANT: Pass trigger data for AI field resolution
+      // Extract only what we need to avoid circular references
+      const { previousResults, trigger, ...restData } = context.data || {};
+
+      // Use safeClone to prevent circular references when passing data
+      const safeInput = safeClone({
+        ...restData,
+        trigger: trigger || context.trigger, // Ensure trigger data is available
+        previousResults: previousResults || {}, // Pass accumulated results for AI processing
+        executionId: context.session?.id,
+        workflowId: context.workflow?.id,
+        nodeId: node.id,
+        testMode: context.testMode || false
+      });
+
+      // Log specific node details for debugging
+      if (node.id.includes('slack')) {
+        console.log(`📧 Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
+        logInfo(context.session.id, `Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
+      }
+
       const actionResult = await executeAction({
         node,
-        input: context.data,
+        input: safeInput,
         userId: context.session.user_id,
         workflowId: workflow.id,
         testMode: context.testMode || false,
@@ -719,23 +912,59 @@ export class AdvancedExecutionEngine {
       })
 
       // Build the result in the expected format for the execution engine
+      // Keep it simple - just return the current data with the new result
       const result = {
         ...context.data,
         [node.id]: actionResult
       }
 
-      await this.logExecutionEvent(context.session.id, "node_completed", node.id, {
-        success: actionResult.success,
-        result: actionResult.output || actionResult
-      })
+      // Safely log event without circular references
+      try {
+        await this.logExecutionEvent(context.session.id, "node_completed", node.id, {
+          success: actionResult.success,
+          // Only log output to avoid circular references
+          result: actionResult.output || { success: actionResult.success }
+        })
+      } catch (logError) {
+        console.error('Error logging execution event:', logError)
+      }
       console.log(`✅ Node completed: ${node.id}`)
+      logSuccess(context.session.id, `Node completed: ${node.id}`)
+
+      // Log successful node execution
+      logSuccess(context.session.id, `Node completed: ${node.data?.title || node.data?.type}`, {
+        nodeId: node.id,
+        success: actionResult.success
+      })
+
+      // Update progress tracker - node completed
+      if (this.progressTracker) {
+        await this.progressTracker.updateNodeCompleted(node.id, actionResult)
+      }
 
       return result
     } catch (error) {
       console.error(`❌ Node failed: ${node.id}`, error)
+
+      // Log error to backend logger
+      logError(context.session.id, `Node failed: ${node.data?.title || node.data?.type}`, {
+        nodeId: node.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+        errorStack: error instanceof Error ? error.stack : undefined
+      })
+
       await this.logExecutionEvent(context.session.id, "node_error", node.id, {
         error: error instanceof Error ? error.message : "Unknown error"
       })
+
+      // Update progress tracker - node failed
+      if (this.progressTracker) {
+        await this.progressTracker.updateNodeFailed(
+          node.id,
+          error instanceof Error ? error.message : "Unknown error"
+        )
+      }
+
       throw error
     }
   }

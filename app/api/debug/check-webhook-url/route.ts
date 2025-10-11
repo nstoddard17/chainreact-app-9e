@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Compare URLs
     const analysis = subscriptions?.map(sub => ({
-      subscriptionId: sub.id.substring(0, 8) + '...',
+      subscriptionId: `${sub.id.substring(0, 8) }...`,
       registeredUrl: sub.notification_url,
       currentUrl: microsoftWebhookUrl,
       urlsMatch: sub.notification_url === microsoftWebhookUrl,

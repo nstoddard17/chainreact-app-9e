@@ -71,10 +71,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     } else if (!force && timeSinceLastFetch > 3000) {
       lastFetchTimeRef.current = now
       return fetchIntegrations(false)
-    } else {
+    } 
       console.log(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
       return Promise.resolve()
-    }
+    
   }, [fetchIntegrations])
 
   // Define fetchMetrics early to avoid initialization errors
@@ -475,14 +475,14 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
               variant: "destructive",
             })
             return
-          } else {
+          } 
             toast({
               title: "Connection Error",
               description: data.error || "Could not generate authentication URL.",
               variant: "destructive",
             })
             return
-          }
+          
         }
 
         if (data.success && data.authUrl) {

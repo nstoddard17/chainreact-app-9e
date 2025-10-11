@@ -102,7 +102,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     .maybeSingle()
 
   const expiringSoon = existing?.expiration_time && new Date(existing.expiration_time).getTime() - Date.now() < 7 * 24 * 3600 * 1000
-  let matchedWebhook: { id: string; expiration?: string | null; macSecret?: string | null } | null = existing?.webhook_id
+  const matchedWebhook: { id: string; expiration?: string | null; macSecret?: string | null } | null = existing?.webhook_id
     ? { id: existing.webhook_id, expiration: existing.expiration_time, macSecret: existing.mac_secret_base64 }
     : null
 

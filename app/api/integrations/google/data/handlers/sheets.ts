@@ -425,7 +425,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       let dataType = 'text'
       let numericValues = 0
       let dateValues = 0
-      let totalValues = columnData.length
+      const totalValues = columnData.length
 
       if (totalValues > 0) {
         columnData.forEach(value => {

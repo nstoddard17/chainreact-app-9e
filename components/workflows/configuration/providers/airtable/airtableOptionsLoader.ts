@@ -64,11 +64,11 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       } else if (actualFieldName.includes('task')) {
         console.log(`🔍 [AirtableOptionsLoader] Loading tasks`);
         return this.loadDynamicFieldOptions(params, 'airtable_tasks');
-      } else {
+      } 
         // Handle linked record fields
         console.log(`🔍 [AirtableOptionsLoader] Loading linked records`);
         return this.loadLinkedRecords(params);
-      }
+      
     }
 
     switch (fieldName) {
@@ -464,7 +464,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Determine the linked table
     const linkedTableId = tableField.options?.linkedTableId;
-    let linkedTableName = this.guessLinkedTableName(tableField.name);
+    const linkedTableName = this.guessLinkedTableName(tableField.name);
 
     if (!linkedTableId && !linkedTableName) {
       console.log('🔍 [Airtable] Cannot determine linked table');
@@ -493,7 +493,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const tables = tablesResult.data || [];
       
       // Find the linked table
-      let linkedTable = linkedTableId 
+      const linkedTable = linkedTableId 
         ? tables.find((t: any) => t.id === linkedTableId)
         : tables.find((t: any) => 
             t.name === linkedTableName || 
@@ -542,7 +542,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           actualValue = `${record.id}::${label}`;
           
           if (label.length > 50) {
-            label = label.substring(0, 47) + '...';
+            label = `${label.substring(0, 47) }...`;
           }
         }
         

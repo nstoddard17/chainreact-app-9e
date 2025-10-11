@@ -6,7 +6,7 @@ import { FileStorageService } from "@/lib/storage/fileStorage"
 interface DropboxUploadConfig {
   fileName: string
   sourceType: 'file' | 'url' | 'text' | 'node'
-  path?: string  // Destination folder path
+  path?: string // Destination folder path
   uploadedFiles?: any
   fileUrl?: string
   fileContent?: string
@@ -170,7 +170,7 @@ export async function uploadDropboxFile(
 
     // Ensure path starts with / if not empty
     if (destinationPath && !destinationPath.startsWith('/')) {
-      destinationPath = '/' + destinationPath
+      destinationPath = `/${ destinationPath}`
     }
 
     // Add filename to path

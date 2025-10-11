@@ -14,7 +14,7 @@ const openai = new OpenAI({
 export interface WorkflowGenerationRequest {
   prompt: string
   userId: string
-  model?: 'gpt-4o' | 'gpt-4o-mini'  // Optional model selection, defaults to gpt-4o-mini for cost
+  model?: 'gpt-4o' | 'gpt-4o-mini' // Optional model selection, defaults to gpt-4o-mini for cost
   debug?: boolean
   strict?: boolean
   extraSystemPrefix?: string
@@ -48,7 +48,7 @@ export interface GeneratedWorkflow {
   description: string
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
-  isAIGenerated?: boolean  // Flag to indicate this was AI-generated
+  isAIGenerated?: boolean // Flag to indicate this was AI-generated
 }
 
 export interface GeneratedWorkflowResult {
@@ -482,7 +482,7 @@ export function getCurrentMasterSystemPrompt(): string {
   }
   const base = generateDynamicPrompt()
   const overrides = loadPromptOverrides()
-  const prefix = overrides.additionalSystem ? overrides.additionalSystem + '\n\n' : ''
+  const prefix = overrides.additionalSystem ? `${overrides.additionalSystem }\n\n` : ''
   return `${prefix}${base}`
 }
 
@@ -788,7 +788,7 @@ function expandAIAgentChainsVertical(workflow: GeneratedWorkflow): GeneratedWork
         // Each chain is evenly spaced from the AI Agent center
         const chainX = aiAgentX + startOffset + (chainIndex * chainSpacing)
         // Start position for first action in chain - below the AI Agent
-        let yPosition = aiAgentNode.position.y + 200 // Start below AI Agent
+        const yPosition = aiAgentNode.position.y + 200 // Start below AI Agent
         const ySpacing = 150 // Vertical space between actions
         
         let previousNodeId: string | null = null
@@ -880,7 +880,7 @@ function expandAIAgentChainsVertical(workflow: GeneratedWorkflow): GeneratedWork
     ...workflow,
     nodes: expandedNodes,
     connections: expandedConnections,
-    isAIGenerated: true  // Mark as AI-generated to prevent Add Action nodes
+    isAIGenerated: true // Mark as AI-generated to prevent Add Action nodes
   }
 }
 
@@ -1008,7 +1008,7 @@ export async function generateDynamicWorkflow(request: WorkflowGenerationRequest
     const mentionsForm = ['form', 'submission', 'inputs', 'submit', 'survey'].some(k => promptLower.includes(k))
 
     try {
-      const systemContent = `${request.extraSystemPrefix || ''}${overrides.additionalSystem ? overrides.additionalSystem + '\n\n' : ''}${dynamicPrompt}`
+      const systemContent = `${request.extraSystemPrefix || ''}${overrides.additionalSystem ? `${overrides.additionalSystem }\n\n` : ''}${dynamicPrompt}`
       const userContent = `Create a workflow for: ${request.prompt}
 
 ${prefersDiscord ? 'TRIGGER REQUIREMENT: Use discord_trigger_new_message as the trigger for new messages in a Discord channel.' : ''}
@@ -1062,7 +1062,7 @@ Use these exact IDs:
 - Trigger ID: ${triggerId}
 - AI Agent ID: ${aiAgentId}
 
-Respond with ONLY valid JSON that creates chains for the detected scenarios.` + (request.extraUserSuffix ? `\n\n${request.extraUserSuffix}` : '')
+Respond with ONLY valid JSON that creates chains for the detected scenarios.${ request.extraUserSuffix ? `\n\n${request.extraUserSuffix}` : ''}`
 
       const ZGeneratedWorkflow = buildWorkflowSchema({ prefersDiscord })
       const { object } = await generateObject({
@@ -1072,7 +1072,7 @@ Respond with ONLY valid JSON that creates chains for the detected scenarios.` + 
         temperature: 0.2,
       })
 
-      let generatedWorkflow = object as unknown as GeneratedWorkflow
+      const generatedWorkflow = object as unknown as GeneratedWorkflow
       
       // If prompt prefers Discord, ensure the trigger is Discord new message
       if (prefersDiscord) {
@@ -1183,7 +1183,7 @@ Respond with ONLY valid JSON that creates chains for the detected scenarios.` + 
       const finalBeforeExpand = wantsNotifyEveryStep ? applyNotificationPolicy(workflowForPolicy) : workflowForPolicy
 
       // Step 3c: Expand chains with vertical layout
-      let finalWorkflow = expandAIAgentChainsVertical(finalBeforeExpand)
+      const finalWorkflow = expandAIAgentChainsVertical(finalBeforeExpand)
 
       // Step 4: Ensure AI Agent node uses the selected model in config
       finalWorkflow.nodes = finalWorkflow.nodes.map(n => {

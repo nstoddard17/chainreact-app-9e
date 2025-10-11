@@ -53,7 +53,7 @@ function extractTaskName(taskText: string): string {
   }
 
   // If still too long, take first 50 characters and add ellipsis
-  return taskText.substring(0, 50).trim() + '...'
+  return `${taskText.substring(0, 50).trim() }...`
 }
 
 export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (

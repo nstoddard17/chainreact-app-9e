@@ -106,14 +106,14 @@ export function DiscordMultiMessageSelector({
           hour12: true
         });
         return `${month} ${day}, ${time}`;
-      } else {
+      } 
         // Different year
         return date.toLocaleDateString('en-US', { 
           month: 'short',
           day: 'numeric',
           year: 'numeric'
         });
-      }
+      
     } catch {
       return "";
     }
@@ -124,7 +124,7 @@ export function DiscordMultiMessageSelector({
     if (!content) return "Empty message";
     const cleaned = content.replace(/\s+/g, ' ').trim();
     if (cleaned.length <= maxLength) return cleaned;
-    return cleaned.substring(0, maxLength).trim() + "...";
+    return `${cleaned.substring(0, maxLength).trim() }...`;
   };
 
   // Get author initials for avatar

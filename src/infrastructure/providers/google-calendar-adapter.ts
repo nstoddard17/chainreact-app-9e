@@ -16,7 +16,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
     supportsWebhooks: true,
     rateLimits: [
       { type: 'requests', limit: 1000, window: 100000 }, // 1000 requests per 100 seconds
-      { type: 'queries', limit: 100, window: 100000 }    // 100 queries per 100 seconds
+      { type: 'queries', limit: 100, window: 100000 } // 100 queries per 100 seconds
     ],
     supportedFeatures: [
       'create_event',

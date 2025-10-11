@@ -20,25 +20,20 @@ export const predefinedTemplates: PredefinedTemplate[] = [
   {
     id: "ai-agent-test-workflow",
     name: "AI Agent Test Workflow - Customer Service",
-    description: "Complete test workflow with AI Agent handling support requests, feedback, and newsletter signups across Airtable, Discord, and Gmail",
-    category: "AI Agent Testing",
-    tags: ["ai-agent", "test", "airtable", "discord", "gmail", "complete"],
+    description: "Classifies Discord support messages with AI, then creates Airtable records, sends notifications, or emails based on the route.",
+    category: "AI Automation",
+    tags: ["ai-router", "ai-message", "airtable", "discord", "gmail"],
     integrations: ["airtable", "discord", "gmail"],
-    difficulty: "advanced",
-    estimatedTime: "5 mins",
+    difficulty: "intermediate",
+    estimatedTime: "6 mins",
     workflow_json: {
       nodes: [
-        // Discord Trigger
         {
           id: "discord-trigger-1",
           type: "discord_trigger_new_message",
           position: { x: 100, y: 300 },
           data: {
             type: "discord_trigger_new_message",
-            nodeComponent: {
-              type: "discord_trigger_new_message",
-              isTrigger: true
-            },
             title: "New Discord Message",
             config: {
               channelId: "",
@@ -48,235 +43,228 @@ export const predefinedTemplates: PredefinedTemplate[] = [
             needsConfiguration: true
           }
         },
-
-        // AI Agent Node
         {
-          id: "ai-agent-1",
-          type: "ai_agent",
-          position: { x: 400, y: 300 },
+          id: "ai-router-helpdesk",
+          type: "ai_router",
+          position: { x: 380, y: 300 },
           data: {
-            type: "ai_agent",
-            title: "AI Customer Service Agent",
+            type: "ai_router",
+            title: "Route Customer Request",
             config: {
+              template: "custom",
+              systemPrompt: "You are a customer support triage bot. Classify the incoming Discord message into one of: support_request, feedback, newsletter_signup. Provide a short reason and confidence.",
               model: "gpt-4o-mini",
-              temperature: 0.7,
-              autoSelectChain: true,
-              parallelExecution: false,
-              prompt: "Analyze the customer message and route to the appropriate chains based on the content. Look for support requests, feedback, and newsletter signups.",
-              chainsLayout: {
-                chains: [
-                  {
-                    id: "chain-support-request",
-                    name: "Support Request Chain",
-                    description: "Handles customer support inquiries",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "help"
-                      }
-                    ]
-                  },
-                  {
-                    id: "chain-process-feedback",
-                    name: "Process Feedback Chain",
-                    description: "Processes customer feedback",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "feedback"
-                      }
-                    ]
-                  },
-                  {
-                    id: "chain-newsletter-signup",
-                    name: "Newsletter Signup Chain",
-                    description: "Handles newsletter subscriptions",
-                    conditions: [
-                      {
-                        field: "message.content",
-                        operator: "contains",
-                        value: "newsletter"
-                      }
-                    ]
-                  }
-                ],
-                nodes: [],
-                edges: []
-              }
-            }
+              apiSource: "chainreact",
+              memory: "workflow",
+              outputPaths: [
+                { id: "support_request", name: "Support Request", description: "Technical help needed", color: "#ef4444", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "feedback", name: "Feedback", description: "Product feedback or ideas", color: "#3b82f6", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "newsletter_signup", name: "Newsletter Signup", description: "Signup or marketing interest", color: "#10b981", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "general", name: "General", description: "Everything else", color: "#6b7280", condition: { type: "fallback" } }
+              ],
+              decisionMode: "single",
+              includeReasoning: true,
+              temperature: 0.2,
+              maxRetries: 1,
+              timeout: 30,
+              costLimit: 0.5
+            },
+            needsConfiguration: false
           }
         },
-
-        // Chain 1: Support Request - Airtable Create
         {
-          id: "chain-1-airtable-create",
+          id: "ai-message-support",
+          type: "ai_message",
+          position: { x: 620, y: 120 },
+          data: {
+            type: "ai_message",
+            title: "Summarize Support Request",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.3,
+              contextNodeIds: ["discord-trigger-1"],
+              userPrompt: "Discord support request: {{trigger.message.content}}. Summarize the problem, suggest a priority (Low/Medium/High), and craft a short acknowledgement response.",
+              outputFields: "summary | Problem summary\npriority | Priority level\nresponse_message | Short acknowledgement message",
+              includeRawOutput: false,
+              memoryNotes: "Use prior support history if available."
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "airtable-support-ticket",
           type: "airtable_action_create_record",
-          position: { x: 700, y: 100 },
+          position: { x: 860, y: 120 },
           data: {
             type: "airtable_action_create_record",
             title: "Create Support Ticket",
-            parentChainIndex: 0,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Ticket ID": "{{AI_FIELD:ticket_id}}",
-                "Customer Email": "{{AI_FIELD:customer_email}}",
-                "Issue Description": "{{AI_FIELD:issue_description}}",
-                "Priority": "{{AI_FIELD:priority}}",
+                "Ticket Summary": "{{ai-message-support.summary}}",
+                "Customer": "{{trigger.message.author.username}}",
+                "Priority": "{{ai-message-support.priority}}",
                 "Status": "Open",
-                "Created Date": "{{AI_FIELD:created_date}}",
-                "Assigned To": "{{AI_FIELD:assigned_to}}"
+                "Channel": "Discord"
               }
             },
             needsConfiguration: true
           }
         },
-
-        // Chain 1: Support Request - Discord Notification
         {
-          id: "chain-1-discord-notify",
+          id: "discord-support-response",
           type: "discord_action_send_message",
-          position: { x: 1000, y: 100 },
+          position: { x: 1100, y: 120 },
           data: {
             type: "discord_action_send_message",
-            title: "Notify Support Team",
-            parentChainIndex: 0,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Reply in Discord",
             config: {
               webhookUrl: "",
-              message: "{{AI_FIELD:support_notification_message}}",
+              message: "{{ai-message-support.response_message}}",
               username: "Support Bot"
             },
             needsConfiguration: true
           }
         },
-
-        // Chain 2: Process Feedback - Airtable Create
         {
-          id: "chain-2-airtable-create",
+          id: "ai-message-feedback",
+          type: "ai_message",
+          position: { x: 620, y: 300 },
+          data: {
+            type: "ai_message",
+            title: "Summarize Feedback",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.4,
+              contextNodeIds: ["discord-trigger-1"],
+              userPrompt: "Customer feedback message: {{trigger.message.content}}. Extract the main idea and sentiment, and suggest a short acknowledgement.",
+              outputFields: "insight | Feedback insight\nsentiment | Sentiment\nacknowledgement | Acknowledgement message",
+              includeRawOutput: false
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "airtable-feedback-log",
           type: "airtable_action_create_record",
-          position: { x: 700, y: 300 },
+          position: { x: 860, y: 300 },
           data: {
             type: "airtable_action_create_record",
-            title: "Store Feedback",
-            parentChainIndex: 1,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Log Feedback",
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Feedback ID": "{{AI_FIELD:feedback_id}}",
-                "Customer Name": "{{AI_FIELD:customer_name}}",
-                "Feedback Type": "{{AI_FIELD:feedback_type}}",
-                "Feedback Content": "{{AI_FIELD:feedback_content}}",
-                "Rating": "{{AI_FIELD:rating}}",
-                "Submitted Date": "{{AI_FIELD:submitted_date}}",
-                "Response Status": "Pending"
+                "Feedback Insight": "{{ai-message-feedback.insight}}",
+                "Sentiment": "{{ai-message-feedback.sentiment}}",
+                "Customer": "{{trigger.message.author.username}}",
+                "Source": "Discord"
               }
             },
             needsConfiguration: true
           }
         },
-
-        // Chain 2: Process Feedback - Discord Notification
         {
-          id: "chain-2-discord-notify",
+          id: "discord-feedback-response",
           type: "discord_action_send_message",
-          position: { x: 1000, y: 300 },
+          position: { x: 1100, y: 300 },
           data: {
             type: "discord_action_send_message",
-            title: "Notify Feedback Team",
-            parentChainIndex: 1,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Acknowledge Feedback",
             config: {
               webhookUrl: "",
-              message: "{{AI_FIELD:feedback_notification_message}}",
+              message: "{{ai-message-feedback.acknowledgement}}",
               username: "Feedback Bot"
             },
             needsConfiguration: true
           }
         },
-
-        // Chain 3: Newsletter Signup - Airtable Create
         {
-          id: "chain-3-airtable-create",
+          id: "ai-message-newsletter",
+          type: "ai_message",
+          position: { x: 620, y: 480 },
+          data: {
+            type: "ai_message",
+            title: "Craft Newsletter Welcome",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.5,
+              contextNodeIds: ["discord-trigger-1"],
+              userPrompt: "A Discord user asked about the newsletter: {{trigger.message.content}}. Draft a friendly welcome email body and extract their email if mentioned.",
+              outputFields: "welcome_email | Welcome email body\nextracted_email | Email address if present",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "airtable-newsletter",
           type: "airtable_action_create_record",
-          position: { x: 700, y: 500 },
+          position: { x: 860, y: 480 },
           data: {
             type: "airtable_action_create_record",
-            title: "Add to Newsletter",
-            parentChainIndex: 2,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
+            title: "Add Newsletter Subscriber",
             config: {
               baseId: "",
               tableName: "",
               fields: {
-                "Subscriber ID": "{{AI_FIELD:subscriber_id}}",
-                "Email": "{{AI_FIELD:subscriber_email}}",
-                "Name": "{{AI_FIELD:subscriber_name}}",
-                "Signup Date": "{{AI_FIELD:signup_date}}",
-                "Preferences": "{{AI_FIELD:preferences}}",
-                "Status": "Active",
-                "Welcome Email Sent": false
+                "Name": "{{trigger.message.author.username}}",
+                "Email": "{{ai-message-newsletter.extracted_email}}",
+                "Source": "Discord",
+                "Status": "Subscribed"
               }
             },
             needsConfiguration: true
           }
         },
-
-        // Chain 3: Newsletter Signup - Gmail Welcome
         {
-          id: "chain-3-gmail-send",
-          type: "gmail_action_send",
-          position: { x: 1000, y: 500 },
+          id: "gmail-newsletter-welcome",
+          type: "gmail_action_send_email",
+          position: { x: 1100, y: 480 },
           data: {
-            type: "gmail_action_send",
+            type: "gmail_action_send_email",
             title: "Send Welcome Email",
-            parentChainIndex: 2,
-            parentAIAgentId: "ai-agent-1",
-            isAIAgentChild: true,
             config: {
-              to: "{{AI_FIELD:welcome_email_to}}",
-              subject: "{{AI_FIELD:welcome_email_subject}}",
-              body: "{{AI_FIELD:welcome_email_body}}"
+              to: "{{ai-message-newsletter.extracted_email}}",
+              subject: "Welcome to our newsletter!",
+              body: "{{ai-message-newsletter.welcome_email}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "discord-general-log",
+          type: "discord_action_send_message",
+          position: { x: 860, y: 620 },
+          data: {
+            type: "discord_action_send_message",
+            title: "General Log",
+            config: {
+              webhookUrl: "",
+              message: "General inquiry from {{trigger.message.author.username}}: {{trigger.message.content}}",
+              username: "Support Bot"
             },
             needsConfiguration: true
           }
         }
       ],
       edges: [
-        {
-          id: "main-edge-1",
-          source: "discord-trigger-1",
-          target: "ai-agent-1"
-        },
-        // Chain 1 edges
-        {
-          id: "chain-1-edge-1",
-          source: "chain-1-airtable-create",
-          target: "chain-1-discord-notify"
-        },
-        // Chain 2 edges
-        {
-          id: "chain-2-edge-1",
-          source: "chain-2-airtable-create",
-          target: "chain-2-discord-notify"
-        },
-        // Chain 3 edges
-        {
-          id: "chain-3-edge-1",
-          source: "chain-3-airtable-create",
-          target: "chain-3-gmail-send"
-        }
+        { id: "edge-main-1", source: "discord-trigger-1", target: "ai-router-helpdesk" },
+        { id: "edge-support-1", source: "ai-router-helpdesk", target: "ai-message-support", sourceHandle: "support_request" },
+        { id: "edge-support-2", source: "ai-message-support", target: "airtable-support-ticket" },
+        { id: "edge-support-3", source: "airtable-support-ticket", target: "discord-support-response" },
+        { id: "edge-feedback-1", source: "ai-router-helpdesk", target: "ai-message-feedback", sourceHandle: "feedback" },
+        { id: "edge-feedback-2", source: "ai-message-feedback", target: "airtable-feedback-log" },
+        { id: "edge-feedback-3", source: "airtable-feedback-log", target: "discord-feedback-response" },
+        { id: "edge-newsletter-1", source: "ai-router-helpdesk", target: "ai-message-newsletter", sourceHandle: "newsletter_signup" },
+        { id: "edge-newsletter-2", source: "ai-message-newsletter", target: "airtable-newsletter" },
+        { id: "edge-newsletter-3", source: "airtable-newsletter", target: "gmail-newsletter-welcome" },
+        { id: "edge-general-1", source: "ai-router-helpdesk", target: "discord-general-log", sourceHandle: "general" }
       ]
     }
   },
@@ -358,69 +346,107 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         {
           id: "trigger-1",
           type: "slack_trigger_new_message",
-          position: { x: 100, y: 100 },
+          position: { x: 100, y: 120 },
           data: {
-            name: "New Support Request",
+            type: "slack_trigger_new_message",
+            title: "New Support Request",
             config: {
               channel: "#support"
-            }
+            },
+            isTrigger: true,
+            needsConfiguration: true
           }
         },
         {
-          id: "action-1",
-          type: "ai_agent",
-          position: { x: 300, y: 100 },
+          id: "ai-router-slack",
+          type: "ai_router",
+          position: { x: 320, y: 160 },
           data: {
-            name: "Categorize Request",
+            type: "ai_router",
+            title: "Classify Support Request",
             config: {
-              prompt: "Categorize this support request: {{trigger.message}}. Categories: Technical, Billing, General"
-            }
+              template: "custom",
+              systemPrompt: "Classify the Slack message into technical, billing, account_access, or general. Return JSON with category and reasoning.",
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              memory: "workflow",
+              outputPaths: [
+                { id: "technical", name: "Technical", description: "Send to engineering", color: "#3b82f6", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "billing", name: "Billing", description: "Payment or billing issues", color: "#f59e0b", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "account", name: "Account Access", description: "Login or access problem", color: "#10b981", condition: { type: "ai_decision", minConfidence: 0.6 } },
+                { id: "general", name: "General", description: "Catch-all", color: "#6b7280", condition: { type: "fallback" } }
+              ],
+              decisionMode: "single",
+              includeReasoning: true,
+              temperature: 0.2,
+              costLimit: 0.3
+            },
+            needsConfiguration: false
           }
         },
         {
-          id: "condition-1",
-          type: "logic_condition",
-          position: { x: 500, y: 100 },
-          data: {
-            name: "Route by Category",
-            config: {
-              conditions: [
-                { field: "{{action-1.category}}", operator: "equals", value: "Technical" },
-                { field: "{{action-1.category}}", operator: "equals", value: "Billing" }
-              ]
-            }
-          }
-        },
-        {
-          id: "action-2",
+          id: "slack-route-tech",
           type: "slack_action_send_message",
-          position: { x: 700, y: 50 },
+          position: { x: 560, y: 40 },
           data: {
-            name: "Route to Tech Team",
+            type: "slack_action_send_message",
+            title: "Notify Tech Team",
             config: {
               channel: "#tech-support",
-              message: "New technical issue from {{trigger.user}}: {{trigger.message}}"
-            }
+              message: "🔧 Technical request from {{trigger.user.name}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
           }
         },
         {
-          id: "action-3",
+          id: "slack-route-billing",
           type: "slack_action_send_message",
-          position: { x: 700, y: 150 },
+          position: { x: 560, y: 160 },
           data: {
-            name: "Route to Billing",
+            type: "slack_action_send_message",
+            title: "Notify Billing Team",
             config: {
               channel: "#billing-support",
-              message: "New billing inquiry from {{trigger.user}}: {{trigger.message}}"
-            }
+              message: "💳 Billing inquiry from {{trigger.user.name}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-route-account",
+          type: "slack_action_send_message",
+          position: { x: 560, y: 280 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Notify Account Team",
+            config: {
+              channel: "#account-access",
+              message: "🔐 Account access issue for {{trigger.user.name}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-route-general",
+          type: "slack_action_send_message",
+          position: { x: 560, y: 400 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Log General Inquiry",
+            config: {
+              channel: "#support-queue",
+              message: "📝 General inquiry from {{trigger.user.name}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
           }
         }
       ],
       edges: [
-        { id: "e1", source: "trigger-1", target: "action-1" },
-        { id: "e2", source: "action-1", target: "condition-1" },
-        { id: "e3", source: "condition-1", target: "action-2", sourceHandle: "true-1" },
-        { id: "e4", source: "condition-1", target: "action-3", sourceHandle: "true-2" }
+        { id: "e1", source: "trigger-1", target: "ai-router-slack" },
+        { id: "e2", source: "ai-router-slack", target: "slack-route-tech", sourceHandle: "technical" },
+        { id: "e3", source: "ai-router-slack", target: "slack-route-billing", sourceHandle: "billing" },
+        { id: "e4", source: "ai-router-slack", target: "slack-route-account", sourceHandle: "account" },
+        { id: "e5", source: "ai-router-slack", target: "slack-route-general", sourceHandle: "general" }
       ]
     }
   },
@@ -721,53 +747,89 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         {
           id: "trigger-1",
           type: "twitter_trigger_new_mention",
-          position: { x: 100, y: 100 },
+          position: { x: 100, y: 160 },
           data: {
-            name: "Brand Mention",
-            config: {}
+            type: "twitter_trigger_new_mention",
+            title: "Brand Mention",
+            config: {},
+            isTrigger: true,
+            needsConfiguration: true
           }
         },
         {
-          id: "action-1",
-          type: "ai_agent",
-          position: { x: 300, y: 100 },
+          id: "ai-router-sentiment",
+          type: "ai_router",
+          position: { x: 320, y: 180 },
           data: {
-            name: "Analyze Sentiment",
+            type: "ai_router",
+            title: "Classify Sentiment",
             config: {
-              prompt: "Analyze the sentiment of this tweet: {{trigger.text}}. Return: positive, negative, or neutral"
-            }
+              template: "custom",
+              systemPrompt: "Classify the tweet sentiment into negative, positive, or neutral. Return JSON with category and reasoning.",
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              memory: "workflow",
+              outputPaths: [
+                { id: "negative", name: "Negative", description: "Escalate to team", color: "#ef4444", condition: { type: "ai_decision", minConfidence: 0.55 } },
+                { id: "positive", name: "Positive", description: "Share wins", color: "#22c55e", condition: { type: "ai_decision", minConfidence: 0.55 } },
+                { id: "neutral", name: "Neutral", description: "Monitor", color: "#6b7280", condition: { type: "fallback" } }
+              ],
+              decisionMode: "single",
+              includeReasoning: true,
+              temperature: 0.2,
+              costLimit: 0.2
+            },
+            needsConfiguration: false
           }
         },
         {
-          id: "condition-1",
-          type: "logic_condition",
-          position: { x: 500, y: 100 },
-          data: {
-            name: "Check Sentiment",
-            config: {
-              conditions: [
-                { field: "{{action-1.sentiment}}", operator: "equals", value: "negative" }
-              ]
-            }
-          }
-        },
-        {
-          id: "action-2",
+          id: "slack-negative-alert",
           type: "slack_action_send_message",
-          position: { x: 700, y: 50 },
+          position: { x: 560, y: 60 },
           data: {
-            name: "Alert Team",
+            type: "slack_action_send_message",
+            title: "Alert Team",
             config: {
               channel: "#social-alerts",
-              message: "⚠️ Negative mention detected: {{trigger.text}} - by @{{trigger.username}}"
-            }
+              message: "⚠️ Negative mention detected by @{{trigger.username}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-positive-highlight",
+          type: "slack_action_send_message",
+          position: { x: 560, y: 200 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Share Positive Mention",
+            config: {
+              channel: "#social-highlights",
+              message: "🎉 Positive shout-out from @{{trigger.username}}: {{trigger.text}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-neutral-log",
+          type: "slack_action_send_message",
+          position: { x: 560, y: 340 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Log Neutral Mention",
+            config: {
+              channel: "#social-monitoring",
+              message: "ℹ️ Mention to monitor: {{trigger.text}}"
+            },
+            needsConfiguration: true
           }
         }
       ],
       edges: [
-        { id: "e1", source: "trigger-1", target: "action-1" },
-        { id: "e2", source: "action-1", target: "condition-1" },
-        { id: "e3", source: "condition-1", target: "action-2", sourceHandle: "true" }
+        { id: "e1", source: "trigger-1", target: "ai-router-sentiment" },
+        { id: "e2", source: "ai-router-sentiment", target: "slack-negative-alert", sourceHandle: "negative" },
+        { id: "e3", source: "ai-router-sentiment", target: "slack-positive-highlight", sourceHandle: "positive" },
+        { id: "e4", source: "ai-router-sentiment", target: "slack-neutral-log", sourceHandle: "neutral" }
       ]
     }
   },
@@ -1443,6 +1505,616 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         { id: "e2", source: "action-1", target: "condition-1" },
         { id: "e3", source: "condition-1", target: "action-2", sourceHandle: "true" },
         { id: "e4", source: "condition-1", target: "action-3", sourceHandle: "false" }
+      ]
+    }
+  },
+  {
+    id: "ai-message-support-reply",
+    name: "AI Message - Support Reply",
+    description: "Drafts a helpful reply whenever a new Discord support message arrives and sends it via Gmail.",
+    category: "AI Automation",
+    tags: ["ai-message", "support", "discord", "gmail"],
+    integrations: ["discord", "gmail"],
+    difficulty: "beginner",
+    estimatedTime: "3 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "discord-trigger-support",
+          type: "discord_trigger_new_message",
+          position: { x: 120, y: 260 },
+          data: {
+            type: "discord_trigger_new_message",
+            title: "New Discord Support Message",
+            config: {
+              channelId: "",
+              includeBot: false
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-message-1",
+          type: "ai_message",
+          position: { x: 420, y: 260 },
+          data: {
+            type: "ai_message",
+            title: "Draft Support Reply",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.4,
+              systemPrompt: "You are a helpful, empathetic support specialist. You acknowledge customer frustration, provide clear steps, and keep answers concise.",
+              userPrompt: "A customer wrote:\n\"{{trigger.message.content}}\"\n\nWrite a short reply that acknowledges their issue, explains what happens next, and offers further help if needed.",
+              outputFields: "reply_subject | Short subject line for email\nreply_body | Friendly support reply\nsummary | One sentence summary of the issue",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "gmail-send-reply",
+          type: "gmail_action_send_email",
+          position: { x: 720, y: 260 },
+          data: {
+            type: "gmail_action_send_email",
+            title: "Send Support Reply",
+            config: {
+              to: "",
+              subject: "{{ai-message-1.reply_subject}}",
+              body: "{{ai-message-1.reply_body}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-support-1", source: "discord-trigger-support", target: "ai-message-1" },
+        { id: "edge-support-2", source: "ai-message-1", target: "gmail-send-reply" }
+      ]
+    }
+  },
+  {
+    id: "ai-helpdesk-triage-router",
+    name: "AI Helpdesk Triage Router",
+    description: "Classify incoming support emails and notify the right team automatically.",
+    category: "AI Automation",
+    tags: ["ai-router", "support", "gmail", "slack"],
+    integrations: ["gmail", "slack"],
+    difficulty: "intermediate",
+    estimatedTime: "8 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "gmail-trigger-support",
+          type: "gmail_trigger_new_email",
+          position: { x: 120, y: 320 },
+          data: {
+            type: "gmail_trigger_new_email",
+            title: "New Support Email",
+            config: {
+              labelIds: [],
+              includeSpamTrash: false
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-router-support",
+          type: "ai_router",
+          position: { x: 420, y: 320 },
+          data: {
+            type: "ai_router",
+            title: "Route Request",
+            config: {
+              template: "support_router",
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              memory: "workflow",
+              outputPaths: [
+                { id: "bug_report", name: "Bug Report", description: "Notify engineering", color: "#ef4444", condition: { type: "ai_decision", minConfidence: 0.7 } },
+                { id: "feature_request", name: "Feature Request", description: "Notify product", color: "#3b82f6", condition: { type: "ai_decision", minConfidence: 0.7 } },
+                { id: "support_query", name: "Support Query", description: "Send to support", color: "#10b981", condition: { type: "ai_decision", minConfidence: 0.7 } },
+                { id: "sales_inquiry", name: "Sales Inquiry", description: "Forward to sales", color: "#f59e0b", condition: { type: "ai_decision", minConfidence: 0.7 } },
+                { id: "general", name: "General", description: "Catch-all", color: "#6b7280", condition: { type: "fallback" } }
+              ]
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "slack-notify-bug",
+          type: "slack_action_send_message",
+          position: { x: 720, y: 140 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Notify Engineering",
+            config: {
+              channel: "",
+              text: "New bug report detected. Subject: {{trigger.email.subject}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-feature",
+          type: "slack_action_send_message",
+          position: { x: 720, y: 240 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Notify Product",
+            config: {
+              channel: "",
+              text: "New feature request. Subject: {{trigger.email.subject}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-support",
+          type: "slack_action_send_message",
+          position: { x: 720, y: 340 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Support Queue",
+            config: {
+              channel: "",
+              text: "Support question received from {{trigger.email.from}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-sales",
+          type: "slack_action_send_message",
+          position: { x: 720, y: 440 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Sales Alert",
+            config: {
+              channel: "",
+              text: "Sales inquiry detected. Subject: {{trigger.email.subject}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-general",
+          type: "slack_action_send_message",
+          position: { x: 720, y: 540 },
+          data: {
+            type: "slack_action_send_message",
+            title: "General Inbox",
+            config: {
+              channel: "",
+              text: "General message received. Subject: {{trigger.email.subject}}"
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-support-route", source: "gmail-trigger-support", target: "ai-router-support" },
+        { id: "edge-route-bug", source: "ai-router-support", target: "slack-notify-bug", sourceHandle: "bug_report" },
+        { id: "edge-route-feature", source: "ai-router-support", target: "slack-notify-feature", sourceHandle: "feature_request" },
+        { id: "edge-route-support", source: "ai-router-support", target: "slack-notify-support", sourceHandle: "support_query" },
+        { id: "edge-route-sales", source: "ai-router-support", target: "slack-notify-sales", sourceHandle: "sales_inquiry" },
+        { id: "edge-route-general", source: "ai-router-support", target: "slack-notify-general", sourceHandle: "general" }
+      ]
+    }
+  },
+  {
+    id: "newsletter-content-generator",
+    name: "Newsletter Content Generator",
+    description: "Turn a drafted Google Doc into a Mailchimp campaign with AI-generated subject and preview text.",
+    category: "AI Automation",
+    tags: ["ai-message", "google-docs", "mailchimp", "newsletter"],
+    integrations: ["google-docs", "mailchimp"],
+    difficulty: "intermediate",
+    estimatedTime: "7 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "gdocs-trigger-newsletter",
+          type: "google_docs_trigger_document_updated",
+          position: { x: 120, y: 300 },
+          data: {
+            type: "google_docs_trigger_document_updated",
+            title: "Newsletter Draft Updated",
+            config: {
+              folderId: ""
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-message-newsletter",
+          type: "ai_message",
+          position: { x: 420, y: 300 },
+          data: {
+            type: "ai_message",
+            title: "Generate Campaign Copy",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.3,
+              systemPrompt: "You are a marketing copywriter. Create compelling newsletter subject lines and preview text.",
+              userPrompt: "Draft newsletter content:\n{{trigger.document.content}}\n\nProduce final copy.",
+              outputFields: "campaign_subject | Concise subject line\ncampaign_preview | Preview text\nhtml_body | HTML body content",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "mailchimp-create-campaign",
+          type: "mailchimp_action_create_campaign",
+          position: { x: 720, y: 260 },
+          data: {
+            type: "mailchimp_action_create_campaign",
+            title: "Create Mailchimp Campaign",
+            config: {
+              audienceId: "",
+              subjectLine: "{{ai-message-newsletter.campaign_subject}}",
+              previewText: "{{ai-message-newsletter.campaign_preview}}",
+              fromName: "",
+              replyTo: ""
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "mailchimp-send-campaign",
+          type: "mailchimp_action_send_campaign",
+          position: { x: 960, y: 260 },
+          data: {
+            type: "mailchimp_action_send_campaign",
+            title: "Send Campaign",
+            config: {
+              campaignId: "{{mailchimp-create-campaign.campaignId}}",
+              scheduleTime: ""
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-newsletter-1", source: "gdocs-trigger-newsletter", target: "ai-message-newsletter" },
+        { id: "edge-newsletter-2", source: "ai-message-newsletter", target: "mailchimp-create-campaign" },
+        { id: "edge-newsletter-3", source: "mailchimp-create-campaign", target: "mailchimp-send-campaign" }
+      ]
+    }
+  },
+  {
+    id: "customer-follow-up-sequencer",
+    name: "Customer Follow-up Sequencer",
+    description: "Send a thank-you email and two automated follow-ups after a successful payment.",
+    category: "Sales & CRM",
+    tags: ["ai-message", "stripe", "gmail", "slack"],
+    integrations: ["stripe", "gmail", "slack"],
+    difficulty: "intermediate",
+    estimatedTime: "10 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "stripe-trigger-payment",
+          type: "stripe_trigger_payment_succeeded",
+          position: { x: 100, y: 260 },
+          data: {
+            type: "stripe_trigger_payment_succeeded",
+            title: "Payment Succeeded",
+            config: {
+              descriptionKeywords: []
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-message-followup",
+          type: "ai_message",
+          position: { x: 360, y: 260 },
+          data: {
+            type: "ai_message",
+            title: "Draft Follow-up Emails",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.5,
+              systemPrompt: "You are a customer success manager writing friendly follow-up emails.",
+              userPrompt: "Payment details: {{trigger.payment}}. Customer email: {{trigger.customer.email}}. Draft thank-you and two follow-up messages.",
+              outputFields: "first_subject | Immediate thank-you subject\nfirst_body | Immediate thank-you body\nsecond_subject | Follow-up subject (after 2 days)\nsecond_body | Follow-up body (after 2 days)\nthird_subject | Final follow-up subject (after 5 days)\nthird_body | Final follow-up body (after 5 days)",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "gmail-send-thankyou",
+          type: "gmail_action_send_email",
+          position: { x: 600, y: 200 },
+          data: {
+            type: "gmail_action_send_email",
+            title: "Send Thank You",
+            config: {
+              to: "{{trigger.customer.email}}",
+              subject: "{{ai-message-followup.first_subject}}",
+              body: "{{ai-message-followup.first_body}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "delay-two-days",
+          type: "delay",
+          position: { x: 840, y: 200 },
+          data: {
+            type: "delay",
+            title: "Wait 2 Days",
+            config: {
+              waitType: "duration",
+              duration: 2,
+              unit: "days"
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "gmail-followup-1",
+          type: "gmail_action_send_email",
+          position: { x: 1080, y: 200 },
+          data: {
+            type: "gmail_action_send_email",
+            title: "Follow-up Email",
+            config: {
+              to: "{{trigger.customer.email}}",
+              subject: "{{ai-message-followup.second_subject}}",
+              body: "{{ai-message-followup.second_body}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "delay-five-days",
+          type: "delay",
+          position: { x: 1320, y: 200 },
+          data: {
+            type: "delay",
+            title: "Wait 3 More Days",
+            config: {
+              waitType: "duration",
+              duration: 3,
+              unit: "days"
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "gmail-followup-2",
+          type: "gmail_action_send_email",
+          position: { x: 1560, y: 200 },
+          data: {
+            type: "gmail_action_send_email",
+            title: "Final Follow-up",
+            config: {
+              to: "{{trigger.customer.email}}",
+              subject: "{{ai-message-followup.third_subject}}",
+              body: "{{ai-message-followup.third_body}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-success",
+          type: "slack_action_send_message",
+          position: { x: 1080, y: 360 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Notify Success Team",
+            config: {
+              channel: "",
+              text: "Follow-up sequence started for {{trigger.customer.email}}"
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-followup-1", source: "stripe-trigger-payment", target: "ai-message-followup" },
+        { id: "edge-followup-2", source: "ai-message-followup", target: "gmail-send-thankyou" },
+        { id: "edge-followup-3", source: "gmail-send-thankyou", target: "delay-two-days" },
+        { id: "edge-followup-4", source: "delay-two-days", target: "gmail-followup-1" },
+        { id: "edge-followup-5", source: "gmail-followup-1", target: "delay-five-days" },
+        { id: "edge-followup-6", source: "delay-five-days", target: "gmail-followup-2" },
+        { id: "edge-followup-7", source: "ai-message-followup", target: "slack-notify-success" }
+      ]
+    }
+  },
+  {
+    id: "sales-demo-scheduler",
+    name: "Sales Demo Scheduler",
+    description: "Respond to new HubSpot leads with a personalized email and schedule a demo meeting.",
+    category: "Sales & CRM",
+    tags: ["ai-message", "hubspot", "gmail", "google-calendar", "slack"],
+    integrations: ["hubspot", "gmail", "google-calendar", "slack"],
+    difficulty: "intermediate",
+    estimatedTime: "9 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "hubspot-trigger-lead",
+          type: "hubspot_trigger_contact_created",
+          position: { x: 120, y: 280 },
+          data: {
+            type: "hubspot_trigger_contact_created",
+            title: "New HubSpot Lead",
+            config: {
+              pipelineId: ""
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-message-demo",
+          type: "ai_message",
+          position: { x: 400, y: 280 },
+          data: {
+            type: "ai_message",
+            title: "Draft Demo Invite",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.4,
+              systemPrompt: "You are a sales rep who writes concise demo invitations.",
+              userPrompt: "Lead details: {{trigger.contact}}. Draft an email inviting them to a demo and include a short summary for Slack.",
+              outputFields: "email_subject | Email subject line\nemail_body | Email body text\nslack_summary | One sentence summary",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "gmail-send-demo",
+          type: "gmail_action_send_email",
+          position: { x: 660, y: 220 },
+          data: {
+            type: "gmail_action_send_email",
+            title: "Send Demo Invite",
+            config: {
+              to: "{{trigger.contact.email}}",
+              subject: "{{ai-message-demo.email_subject}}",
+              body: "{{ai-message-demo.email_body}}",
+              isHtml: false
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "calendar-create-demo",
+          type: "google_calendar_action_create_event",
+          position: { x: 920, y: 220 },
+          data: {
+            type: "google_calendar_action_create_event",
+            title: "Schedule Demo",
+            config: {
+              calendarId: "",
+              summary: "Demo with {{trigger.contact.firstname}} {{trigger.contact.lastname}}",
+              description: "Requested demo. Email reference: {{ai-message-demo.email_body}}",
+              startTime: "",
+              endTime: ""
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-demo",
+          type: "slack_action_send_message",
+          position: { x: 660, y: 360 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Alert Sales Channel",
+            config: {
+              channel: "",
+              text: "New demo scheduled: {{ai-message-demo.slack_summary}}"
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-demo-1", source: "hubspot-trigger-lead", target: "ai-message-demo" },
+        { id: "edge-demo-2", source: "ai-message-demo", target: "gmail-send-demo" },
+        { id: "edge-demo-3", source: "gmail-send-demo", target: "calendar-create-demo" },
+        { id: "edge-demo-4", source: "ai-message-demo", target: "slack-notify-demo" }
+      ]
+    }
+  },
+  {
+    id: "incident-postmortem-builder",
+    name: "Incident Postmortem Builder",
+    description: "Summarize resolved incidents and document a postmortem in Notion automatically.",
+    category: "DevOps",
+    tags: ["ai-message", "slack", "notion"],
+    integrations: ["slack", "notion"],
+    difficulty: "intermediate",
+    estimatedTime: "6 mins",
+    workflow_json: {
+      nodes: [
+        {
+          id: "slack-trigger-incident",
+          type: "slack_trigger_message_channels",
+          position: { x: 120, y: 280 },
+          data: {
+            type: "slack_trigger_message_channels",
+            title: "Incident Resolved Message",
+            config: {
+              channel: ""
+            },
+            isTrigger: true,
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "ai-message-postmortem",
+          type: "ai_message",
+          position: { x: 400, y: 280 },
+          data: {
+            type: "ai_message",
+            title: "Summarize Incident",
+            config: {
+              model: "gpt-4o-mini",
+              apiSource: "chainreact",
+              temperature: 0.4,
+              systemPrompt: "You are an SRE generating structured postmortem summaries.",
+              userPrompt: "Incident update: {{trigger.message.text}}. Create a summary, timeline, and follow-up actions.",
+              outputFields: "summary | High-level summary\ntimeline | Timeline bullet list\nactions | Follow-up actions",
+              includeRawOutput: true
+            },
+            needsConfiguration: false
+          }
+        },
+        {
+          id: "notion-create-postmortem",
+          type: "notion_action_create_page",
+          position: { x: 680, y: 220 },
+          data: {
+            type: "notion_action_create_page",
+            title: "Create Postmortem Page",
+            config: {
+              parentId: "",
+              title: "Postmortem - {{trigger.message.user.name}} - {{trigger.message.ts}}",
+              content: "## Summary\n{{ai-message-postmortem.summary}}\n\n## Timeline\n{{ai-message-postmortem.timeline}}\n\n## Follow-up Actions\n{{ai-message-postmortem.actions}}"
+            },
+            needsConfiguration: true
+          }
+        },
+        {
+          id: "slack-notify-postmortem",
+          type: "slack_action_send_message",
+          position: { x: 680, y: 360 },
+          data: {
+            type: "slack_action_send_message",
+            title: "Share Postmortem",
+            config: {
+              channel: "",
+              text: "Postmortem summary created in Notion."
+            },
+            needsConfiguration: true
+          }
+        }
+      ],
+      edges: [
+        { id: "edge-postmortem-1", source: "slack-trigger-incident", target: "ai-message-postmortem" },
+        { id: "edge-postmortem-2", source: "ai-message-postmortem", target: "notion-create-postmortem" },
+        { id: "edge-postmortem-3", source: "notion-create-postmortem", target: "slack-notify-postmortem" }
       ]
     }
   }

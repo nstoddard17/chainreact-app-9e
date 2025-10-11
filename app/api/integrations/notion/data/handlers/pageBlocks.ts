@@ -238,7 +238,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
           content = block[blockType].rich_text.map((t: any) => t.plain_text).join('')
           blockProperties.push({
             id: `${block.id}-content`,
-            blockId: block.id,  // Preserve the actual Notion block ID
+            blockId: block.id, // Preserve the actual Notion block ID
             type: 'text',
             label: 'Content',
             value: content
@@ -308,7 +308,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
           label: 'To-Do List',
           items: todoBlocks.map(todo => ({
             id: todo.id,
-            blockId: todo.id,  // Preserve the actual Notion block ID
+            blockId: todo.id, // Preserve the actual Notion block ID
             content: todo.content,
             checked: todo.checked
           }))
@@ -319,7 +319,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
 
     // Then, add database properties as a separate section
     if (isDatabasePage && Object.keys(pageProperties).length > 0) {
-      const primaryPropertyBlocks: BlockProperty[] = []  // Important properties
+      const primaryPropertyBlocks: BlockProperty[] = [] // Important properties
       const secondaryPropertyBlocks: BlockProperty[] = [] // Other properties
       
       // Define property types that are typically shown in the header

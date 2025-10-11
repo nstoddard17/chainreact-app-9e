@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         const chainMatch = node.id.match(/^(node-\d+)-chain(\d+)-action/);
         if (chainMatch) {
           const parentAIAgentId = chainMatch[1];
-          const chainIndex = parseInt(chainMatch[2]);
+          const chainIndex = parseInt(chainMatch[2], 10);
           additionalData = {
             ...additionalData,
             isAIAgentChild: true,

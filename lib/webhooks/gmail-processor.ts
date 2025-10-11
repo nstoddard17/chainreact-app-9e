@@ -3,6 +3,7 @@ import { queueWebhookTask } from '@/lib/webhooks/task-queue'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
+import { logInfo, logError, logSuccess, logWarning } from '@/lib/logging/backendLogger'
 
 interface GmailNotification {
   emailAddress: string
@@ -130,12 +131,18 @@ function resolveGmailTriggerFilters(triggerNode: any): GmailTriggerFilters {
 }
 
 export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> {
+  const sessionId = `gmail-webhook-${Date.now()}`
+
   try {
-    console.log('🔍 [Gmail Processor] Processing Gmail event:', {
+    const eventInfo = {
       eventType: event.eventData.type,
       emailAddress: event.eventData.emailAddress,
-      historyId: event.eventData.historyId
-    })
+      historyId: event.eventData.historyId,
+      requestId: event.requestId
+    }
+
+    console.log('🔍 [Gmail Processor] Processing Gmail event:', eventInfo)
+    logInfo(sessionId, 'Gmail webhook event received', eventInfo)
 
     const supabase = await createSupabaseServiceClient()
 
@@ -161,9 +168,16 @@ export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> 
     await triggerMatchingGmailWorkflows(event)
 
     // Process Gmail event
-    return await processGmailEventData(event)
-  } catch (error) {
+    const result = await processGmailEventData(event)
+    logSuccess(sessionId, 'Gmail webhook event processed successfully', result)
+    return result
+  } catch (error: any) {
+    const errorMessage = error?.message || 'Unknown error'
     console.error('Error processing Gmail webhook event:', error)
+    logError(sessionId, 'Failed to process Gmail webhook event', {
+      error: errorMessage,
+      stack: error?.stack
+    })
     throw error
   }
 }
@@ -259,15 +273,178 @@ async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
   }
 }
 
+/**
+ * Fetch Gmail message details using an integration's access token
+ * This is used for test mode execution
+ */
+async function fetchGmailMessageDetails(
+  integration: any,
+  historyId: string | number,
+  sessionId?: string
+): Promise<any | null> {
+  // Use provided sessionId or generate a new one
+  const logSessionId = sessionId || `gmail-fetch-${Date.now()}`
+
+  try {
+    logInfo(logSessionId, 'Fetching Gmail message details', {
+      integrationId: integration.id,
+      historyId,
+      userId: integration.user_id
+    })
+
+    console.log(`🔍 [fetchGmailMessageDetails] Starting to fetch email for historyId: ${historyId}`)
+
+    // Get decrypted access token
+    const accessToken = await getDecryptedAccessToken(integration.user_id, "gmail")
+
+    if (!accessToken) {
+      const error = 'No access token available for Gmail integration'
+      console.error(`❌ [fetchGmailMessageDetails] ${error}`)
+      logError(logSessionId, error, { userId: integration.user_id })
+      return null
+    }
+
+    // Set up Gmail API client
+    const oauth2Client = new google.auth.OAuth2()
+    oauth2Client.setCredentials({ access_token: accessToken })
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+
+    // Get the user's email address
+    const profile = await gmail.users.getProfile({ userId: 'me' })
+    const emailAddress = profile.data.emailAddress
+
+    logInfo(logSessionId, 'Gmail profile fetched', { emailAddress })
+    console.log(`📧 [fetchGmailMessageDetails] Gmail account: ${emailAddress}`)
+
+    // Fetch recent history
+    const historyRequest: any = {
+      userId: 'me',
+      historyTypes: ['messageAdded'],
+      startHistoryId: String(historyId)
+    }
+
+    logInfo(logSessionId, 'Fetching Gmail history', historyRequest)
+    const history = await gmail.users.history.list(historyRequest)
+
+    if (!history.data.history || history.data.history.length === 0) {
+      const message = 'No new messages found in Gmail history'
+      console.log(`ℹ️ [fetchGmailMessageDetails] ${message}`)
+      logWarning(logSessionId, message, { historyId })
+      return null
+    }
+
+    // Find the first new message
+    const messageId = history.data.history
+      ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
+      ?.map(entry => entry.message || entry)
+      ?.find(msg => msg?.id)?.id
+
+    if (!messageId) {
+      const message = 'No message ID found in Gmail history'
+      console.log(`ℹ️ [fetchGmailMessageDetails] ${message}`)
+      logWarning(logSessionId, message, { historyLength: history.data.history.length })
+      return null
+    }
+
+    logInfo(logSessionId, 'Found Gmail message', { messageId })
+    console.log(`📧 [fetchGmailMessageDetails] Found message ID: ${messageId}`)
+
+    // Fetch the full message details
+    const message = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+      format: 'full'
+    })
+
+    // Extract email details
+    const headers = message.data.payload?.headers || []
+    const emailDetails: any = {
+      id: message.data.id,
+      threadId: message.data.threadId,
+      labelIds: message.data.labelIds,
+      snippet: message.data.snippet
+    }
+
+    // Parse headers
+    headers.forEach((header: any) => {
+      const name = header.name.toLowerCase()
+      if (name === 'from') emailDetails.from = header.value
+      if (name === 'to') emailDetails.to = header.value
+      if (name === 'subject') emailDetails.subject = header.value
+      if (name === 'date') emailDetails.date = header.value
+    })
+
+    // Check for attachments
+    emailDetails.hasAttachments = false
+    if (message.data.payload?.parts) {
+      emailDetails.hasAttachments = message.data.payload.parts.some(
+        (part: any) => part.filename && part.filename.length > 0
+      )
+    }
+
+    // Extract body
+    let body = ''
+    if (message.data.payload?.parts) {
+      for (const part of message.data.payload.parts) {
+        if (part.mimeType === 'text/plain' && part.body?.data) {
+          body += Buffer.from(part.body.data, 'base64').toString('utf-8')
+        }
+      }
+    } else if (message.data.payload?.body?.data) {
+      body = Buffer.from(message.data.payload.body.data, 'base64').toString('utf-8')
+    }
+    emailDetails.body = body
+
+    logSuccess(logSessionId, 'Successfully fetched Gmail message details', {
+      from: emailDetails.from,
+      subject: emailDetails.subject,
+      hasAttachments: emailDetails.hasAttachments
+    })
+
+    console.log(`✅ [fetchGmailMessageDetails] Successfully fetched email:`, {
+      from: emailDetails.from,
+      subject: emailDetails.subject,
+      hasAttachments: emailDetails.hasAttachments,
+      bodyLength: body.length
+    })
+
+    return emailDetails
+  } catch (error: any) {
+    const errorMessage = error?.message || 'Unknown error'
+    console.error(`❌ [fetchGmailMessageDetails] Failed to fetch email details:`, error)
+    logError(logSessionId, 'Failed to fetch Gmail message details', {
+      error: errorMessage,
+      stack: error?.stack,
+      historyId
+    })
+    return null
+  }
+}
+
 async function fetchEmailDetails(
   notification: GmailNotification,
   userId: string,
   webhookConfigId: string,
   webhookConfigData: any
 ): Promise<any | null> {
+  const sessionId = `gmail-fetch-regular-${Date.now()}`
+
   try {
+    logInfo(sessionId, 'Fetching email details for regular workflow', {
+      historyId: notification.historyId,
+      emailAddress: notification.emailAddress,
+      userId
+    })
+
     console.log(`🔍 Fetching email details for historyId: ${notification.historyId}`)
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
+
+    if (!accessToken) {
+      const error = 'No access token available for Gmail'
+      console.error(`❌ ${error}`)
+      logError(sessionId, error, { userId })
+      return null
+    }
 
     const oauth2Client = new google.auth.OAuth2()
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -276,14 +453,21 @@ async function fetchEmailDetails(
     const watchConfig = webhookConfigData.watch || {}
 
     if (watchConfig.emailAddress && watchConfig.emailAddress !== notification.emailAddress) {
-      console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
+      const message = 'Gmail notification email does not match workflow configuration, skipping'
+      console.log(`⚠️ ${message}`)
+      logWarning(sessionId, message, {
+        expected: watchConfig.emailAddress,
+        received: notification.emailAddress
+      })
       return null
     }
 
     const startHistoryId = watchConfig.historyId
 
     if (!startHistoryId) {
-      console.warn('⚠️ No stored historyId for Gmail watch; skipping workflow until watch metadata saved')
+      const message = 'No stored historyId for Gmail watch; skipping workflow until watch metadata saved'
+      console.warn(`⚠️ ${message}`)
+      logWarning(sessionId, message, { webhookConfigId })
       return null
     }
 
@@ -293,6 +477,7 @@ async function fetchEmailDetails(
       startHistoryId: startHistoryId
     }
 
+    logInfo(sessionId, 'Requesting Gmail history', historyRequest)
     const history = await gmail.users.history.list(historyRequest)
 
     const supabase = await createSupabaseServiceClient()
@@ -310,14 +495,22 @@ async function fetchEmailDetails(
           }
         })
         .eq('id', webhookConfigId)
+
+      logInfo(sessionId, 'Updated webhook config with new historyId', {
+        newHistoryId: history.data.historyId
+      })
     }
 
-    console.log(`📚 History response:`, {
+    const historyInfo = {
       historyLength: history.data.history?.length || 0
-    })
+    }
+    console.log(`📚 History response:`, historyInfo)
+    logInfo(sessionId, 'Gmail history response received', historyInfo)
 
     if (!history.data.history || history.data.history.length === 0) {
-      console.log('No new messages in history')
+      const message = 'No new messages in history'
+      console.log(message)
+      logWarning(sessionId, message)
       return null
     }
 
@@ -327,16 +520,27 @@ async function fetchEmailDetails(
       ?.find(msg => msg?.id)?.id
 
     if (!messageId) {
-      console.log('No message ID found in history')
+      const message = 'No message ID found in history'
+      console.log(message)
+      logWarning(sessionId, message, {
+        historyLength: history.data.history?.length
+      })
       return null
     }
 
     console.log(`📧 Found message ID: ${messageId}`)
+    logInfo(sessionId, 'Found Gmail message ID', { messageId })
 
     const message = await gmail.users.messages.get({
       userId: 'me',
       id: messageId,
       format: 'full'
+    })
+
+    logInfo(sessionId, 'Fetched full Gmail message', {
+      messageId,
+      threadId: message.data.threadId,
+      labelCount: message.data.labelIds?.length || 0
     })
 
     const headers = message.data.payload?.headers || []
@@ -374,15 +578,25 @@ async function fetchEmailDetails(
     }
     emailDetails.body = body
 
-    console.log('📧 Fetched email details:', {
+    const summary = {
       from: emailDetails.from,
       subject: emailDetails.subject,
-      hasAttachments: emailDetails.hasAttachments
-    })
+      hasAttachments: emailDetails.hasAttachments,
+      bodyLength: emailDetails.body?.length || 0
+    }
+
+    console.log('📧 Fetched email details:', summary)
+    logSuccess(sessionId, 'Successfully fetched email details', summary)
 
     return emailDetails
-  } catch (error) {
+  } catch (error: any) {
+    const errorMessage = error?.message || 'Unknown error'
     console.error('Failed to fetch email details:', error)
+    logError(sessionId, 'Failed to fetch email details', {
+      error: errorMessage,
+      stack: error?.stack,
+      historyId: notification.historyId
+    })
     return null
   }
 }
@@ -446,7 +660,159 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
     console.log('🚀 [Gmail Processor] Starting to find matching workflows for Gmail event')
     const supabase = await createSupabaseServiceClient()
 
-    // Find all active workflows with Gmail webhook triggers
+    // FIRST: Check for active test sessions waiting for Gmail triggers
+    const { data: testSessions, error: sessionError } = await supabase
+      .from('workflow_test_sessions')
+      .select('*, workflows!inner(id, user_id, nodes, connections, name)')
+      .eq('trigger_type', 'gmail_trigger_new_email')
+      .in('status', ['listening'])
+
+    if (!sessionError && testSessions && testSessions.length > 0) {
+      console.log(`[Gmail] Found ${testSessions.length} active test session(s) waiting for Gmail trigger`)
+
+      for (const session of testSessions) {
+        try {
+          const workflow = session.workflows
+          if (!workflow) {
+            console.error('[Gmail] No workflow found in test session', { sessionId: session.id })
+            continue
+          }
+
+          console.log('[Gmail] Starting workflow execution for test session', {
+            sessionId: session.id,
+            workflowId: workflow.id,
+            workflowName: workflow.name,
+            userId: workflow.user_id,
+            sessionUserId: session.user_id
+          })
+
+          // Use the user_id from the session (which is guaranteed to exist)
+          const userId = session.user_id || workflow.user_id
+
+          if (!userId) {
+            console.error('[Gmail] No userId found - cannot execute workflow', {
+              sessionId: session.id,
+              workflowId: workflow.id
+            })
+            continue
+          }
+
+          // Create execution session using the advanced execution engine
+          const executionEngine = new AdvancedExecutionEngine()
+          const executionSession = await executionEngine.createExecutionSession(
+            workflow.id,
+            userId, // Use the userId from session (more reliable)
+            'webhook',
+            {
+              inputData: {
+                provider: 'gmail',
+                emailAddress: event.eventData.emailAddress,
+                historyId: event.eventData.historyId,
+                timestamp: new Date().toISOString()
+              },
+              webhookEvent: {
+                provider: 'gmail',
+                event: event.eventData
+              }
+            }
+          )
+
+          // Log to backend logger for debug modal
+          logInfo(executionSession.id, 'Gmail webhook received - creating execution session', {
+            sessionId: session.id,
+            executionId: executionSession.id,
+            workflow: workflow.name,
+            emailAddress: event.eventData.emailAddress
+          })
+
+          // Update test session to executing
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'executing',
+              execution_id: executionSession.id
+            })
+            .eq('id', session.id)
+
+          // Get email details first for proper context
+          let emailDetails = null
+          try {
+            logInfo(executionSession.id, 'Fetching Gmail integration for test session', {
+              userId,
+              provider: 'gmail'
+            })
+
+            const { data: integration } = await supabase
+              .from('integrations')
+              .select('*')
+              .eq('user_id', userId)
+              .eq('provider', 'gmail')
+              .eq('status', 'connected')
+              .single()
+
+            if (integration) {
+              logInfo(executionSession.id, 'Gmail integration found, fetching email details', {
+                integrationId: integration.id,
+                historyId: event.eventData.historyId
+              })
+              emailDetails = await fetchGmailMessageDetails(integration, event.eventData.historyId, executionSession.id)
+
+              if (emailDetails) {
+                logSuccess(executionSession.id, 'Email details fetched successfully', {
+                  from: emailDetails.from,
+                  subject: emailDetails.subject,
+                  hasAttachments: emailDetails.hasAttachments
+                })
+              } else {
+                logWarning(executionSession.id, 'No email details could be fetched')
+              }
+            } else {
+              logWarning(executionSession.id, 'No connected Gmail integration found for user', { userId })
+            }
+          } catch (err: any) {
+            const errorMessage = err?.message || 'Unknown error'
+            console.log('[Gmail] Could not fetch email details:', err)
+            logError(executionSession.id, 'Failed to fetch email details for test session', {
+              error: errorMessage,
+              stack: err?.stack
+            })
+          }
+
+          // Start workflow execution with full context
+          await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+            provider: 'gmail',
+            emailAddress: event.eventData.emailAddress,
+            historyId: event.eventData.historyId,
+            timestamp: new Date().toISOString(),
+            // Include email details for AI field resolution
+            trigger: {
+              type: 'gmail_trigger_new_email',
+              data: emailDetails || {
+                from: event.eventData.emailAddress,
+                subject: 'New Email',
+                content: ''
+              }
+            },
+            emailDetails: emailDetails
+          })
+
+          console.log('[Gmail] Workflow execution started for test session', {
+            sessionId: session.id,
+            workflowId: workflow.id,
+            executionId: executionSession.id
+          })
+
+        } catch (workflowError) {
+          console.error(`[Gmail] Failed to execute workflow for test session ${session.id}:`, workflowError)
+        }
+      }
+
+      // If test sessions were found, don't process regular workflows
+      console.log('[Gmail] Test sessions processed, skipping regular workflow processing')
+      return
+    }
+
+    // SECOND: Find all active workflows with Gmail webhook triggers (only if no test sessions)
     const { data: workflows, error } = await supabase
       .from('workflows')
       .select(`

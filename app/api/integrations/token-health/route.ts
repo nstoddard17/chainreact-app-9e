@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         attention,
         timestamp: new Date().toISOString(),
       })
-    } else {
+    } 
       // Return summary only
       const report = await getTokenHealthReport()
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         hasIssues: report.summary.expired > 0 || report.summary.failed > 0,
         timestamp: new Date().toISOString(),
       })
-    }
+    
   } catch (error: any) {
     console.error("Error getting token health:", error)
     return NextResponse.json({ error: "Failed to get token health", details: error.message }, { status: 500 })

@@ -84,7 +84,7 @@ export async function uploadGoogleDriveFile(
     const uploadedFileResults = []
 
     // Determine files to upload
-    let filesToUpload: Array<{
+    const filesToUpload: Array<{
       name: string
       data: Buffer | string
       mimeType: string
@@ -110,14 +110,14 @@ export async function uploadGoogleDriveFile(
                 data: Buffer.from(base64Data, 'base64'),
                 mimeType: mimeType || 'application/octet-stream'
               };
-            } else {
+            } 
               // Plain base64 without data URL prefix
               return {
                 name: fileName || 'file-from-node',
                 data: Buffer.from(fileData, 'base64'),
                 mimeType: mimeType || 'application/octet-stream'
               };
-            }
+            
           } else if (fileData && typeof fileData === 'object') {
             // Object with file data
             const fileBuffer = fileData.data 
@@ -325,7 +325,7 @@ export async function uploadGoogleDriveFile(
         }
 
         // Set MIME type for conversion
-        let uploadMimeType = file.mimeType
+        const uploadMimeType = file.mimeType
         if (convertToGoogleDocs) {
           const conversionMap: Record<string, string> = {
             'application/msword': 'application/vnd.google-apps.document',

@@ -6,6 +6,7 @@ import { OAuthPopupManager } from "@/lib/oauth/popup-manager"
 import { IntegrationService, Provider } from "@/services/integration-service"
 import { ScopeValidator } from "@/lib/integrations/scope-validator"
 import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
+import { useWorkflowStore } from "./workflowStore"
 
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
@@ -87,7 +88,46 @@ function emitIntegrationEvent(eventType: keyof typeof INTEGRATION_EVENTS, data?:
 }
 
 export const useIntegrationStore = create<IntegrationStore>()(
-  (set, get) => ({
+  (set, get) => {
+    const normalizeProviderId = (integration: any) =>
+      integration?.provider || integration?.id || integration?.provider_id
+
+    const mapIntegrationStatus = (integration: any) =>
+      integration?.status || (integration?.isConnected ? "connected" : "disconnected")
+
+    const handleIntegrationStatusChanges = (
+      previousIntegrations: any[] = [],
+      nextIntegrations: any[] = []
+    ) => {
+      const previousStatusMap = new Map<string, string>(
+        previousIntegrations.map((integration) => [
+          normalizeProviderId(integration),
+          mapIntegrationStatus(integration)
+        ])
+      )
+
+      nextIntegrations.forEach((integration) => {
+        const providerId = normalizeProviderId(integration)
+        if (!providerId) return
+
+        const currentStatus = mapIntegrationStatus(integration)
+        const previousStatus = previousStatusMap.get(providerId)
+        if (previousStatus === currentStatus) return
+
+        if (currentStatus === "connected") {
+          useWorkflowStore.getState().resumeWorkflowsForIntegration(providerId)
+        } else if ([
+          "disconnected",
+          "needs_reauthorization",
+          "unauthorized",
+          "error",
+        ].includes(currentStatus)) {
+          useWorkflowStore.getState().pauseWorkflowsForIntegration(providerId)
+        }
+      })
+    }
+
+    return {
     providers: [],
     integrations: [],
     integrationData: {},
@@ -273,6 +313,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
           });
 
           setLoading('integrations', false)
+          const previousIntegrations = get().integrations
+          handleIntegrationStatusChanges(previousIntegrations, integrations)
           set({
             integrations,
             lastFetchTime: Date.now()
@@ -382,6 +424,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                     ? { ...i, status: 'connected' as const, error_message: null, updated_at: new Date().toISOString() }
                     : i
                 )
+                handleIntegrationStatusChanges(state.integrations, updatedIntegrations)
                 return { integrations: updatedIntegrations }
               })
 
@@ -439,6 +482,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                   newIntegrations.push(newIntegration)
                 }
 
+                handleIntegrationStatusChanges(state.integrations, newIntegrations)
                 return { integrations: newIntegrations }
               })
 
@@ -462,6 +506,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                 try {
                   // Force fetch fresh data from database
                   const freshIntegrations = await IntegrationService.fetchIntegrations(true)
+                  handleIntegrationStatusChanges(get().integrations, freshIntegrations)
                   set({ integrations: freshIntegrations })
                   const hubspotIntegration = freshIntegrations.find(i => i.provider === 'hubspot')
                   if (hubspotIntegration && hubspotIntegration.status === 'connected') {
@@ -535,9 +580,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.disconnectIntegration(integrationId)
 
         // Immediately remove the integration from the state for instant UI update
-        set((state) => ({
-          integrations: state.integrations.filter(i => i.id !== integrationId)
-        }))
+        set((state) => {
+          const updatedIntegrations = state.integrations.filter(i => i.id !== integrationId)
+          handleIntegrationStatusChanges(state.integrations, updatedIntegrations)
+          return {
+            integrations: updatedIntegrations
+          }
+        })
 
         // Emit event for other components to listen to
         emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
@@ -623,6 +672,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                   ? { ...i, status: 'connected' as const, error_message: null, updated_at: new Date().toISOString() }
                   : i
               )
+              handleIntegrationStatusChanges(state.integrations, updatedIntegrations)
               return { integrations: updatedIntegrations }
             })
 
@@ -809,9 +859,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.disconnectIntegration(integrationId)
         
         // Immediately remove the integration from the state for instant UI update
-        set((state) => ({
-          integrations: state.integrations.filter(i => i.id !== integrationId)
-        }))
+        set((state) => {
+          const updatedIntegrations = state.integrations.filter(i => i.id !== integrationId)
+          handleIntegrationStatusChanges(state.integrations, updatedIntegrations)
+          return {
+            integrations: updatedIntegrations
+          }
+        })
         
         // Emit event for other components to listen to
         emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
@@ -992,5 +1046,5 @@ export const useIntegrationStore = create<IntegrationStore>()(
       
       return { needsReconnection: false, reason: "All required scopes present" }
     },
-  })
-)
+  }
+})

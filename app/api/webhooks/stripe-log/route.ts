@@ -69,7 +69,7 @@ export async function POST(request: Request) {
             user_id: sessionData?.metadata?.user_id || '00000000-0000-0000-0000-000000000000',
             plan_id: sessionData?.metadata?.plan_id || 'webhook_test',
             stripe_customer_id: sessionData?.customer || 'cus_webhook_test',
-            stripe_subscription_id: sessionData?.subscription || 'sub_webhook_test_' + Date.now(),
+            stripe_subscription_id: sessionData?.subscription || `sub_webhook_test_${ Date.now()}`,
             status: 'webhook_test',
             billing_cycle: sessionData?.metadata?.billing_cycle || 'test',
             customer_email: sessionData?.customer_details?.email || null,

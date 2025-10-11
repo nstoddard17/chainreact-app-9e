@@ -11,8 +11,8 @@ export interface DataFlowContext {
   
   // Data storage
   nodeOutputs: Record<string, any> // nodeId -> output data
-  variables: Record<string, any>   // custom variables set by users
-  globalData: Record<string, any>  // workflow-level data
+  variables: Record<string, any> // custom variables set by users
+  globalData: Record<string, any> // workflow-level data
   
   // Node metadata for variable resolution
   nodeMetadata: Record<string, {
@@ -208,7 +208,7 @@ export class DataFlowManager {
             const result = this.getNestedValue(output.data, field.name)
             console.log(`✅ Resolved value:`, result)
             return result
-          } else {
+          } 
             console.log(`⚠️ Field not found in schema, trying fallback approaches...`)
             // Fallback: try to get the value directly if it's a simple structure
             if (output.data && typeof output.data === 'object') {
@@ -224,10 +224,10 @@ export class DataFlowManager {
             }
             console.log(`✅ Returning raw output data:`, output.data)
             return output.data
-          }
-        } else {
+          
+        } 
           console.log(`❌ No valid output or metadata found for nodeId: ${fallbackNodeId}`)
-        }
+        
       }
     }
 

@@ -14,7 +14,7 @@ export class SalesforceAdapter implements CRMProvider {
   readonly capabilities: CapabilityDescriptor = {
     supportsWebhooks: true,
     rateLimits: [
-      { type: 'requests', limit: 20, window: 1000 },    // 20 requests per second
+      { type: 'requests', limit: 20, window: 1000 }, // 20 requests per second
       { type: 'requests', limit: 100000, window: 86400000 } // 100,000 requests per day
     ],
     supportedFeatures: [

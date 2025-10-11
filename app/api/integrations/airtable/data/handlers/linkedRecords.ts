@@ -53,7 +53,7 @@ function extractTaskName(taskText: string): string {
   }
 
   // If still too long, take first 50 characters and add ellipsis
-  return taskText.substring(0, 50).trim() + '...'
+  return `${taskText.substring(0, 50).trim() }...`
 }
 
 // Map field names to their likely linked table names
@@ -230,5 +230,5 @@ export function guessLinkedTableName(fieldName: string): string {
   }
 
   // Default fallback - capitalize the field name
-  return fieldName.replace(/s$/, '') + 's' // e.g., "Task" -> "Tasks"
+  return `${fieldName.replace(/s$/, '') }s` // e.g., "Task" -> "Tasks"
 }

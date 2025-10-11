@@ -710,14 +710,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           } else {
             // Default fallback: Try to make it plural
             // Remove common suffixes and add 's'
-            let baseName = tableField.name
-              .replace(/^Associated\s*/i, '')  // Remove "Associated" prefix
-              .replace(/\s*Links?$/i, '')      // Remove "Link" or "Links" suffix
-              .replace(/\s*Records?$/i, '');   // Remove "Record" or "Records" suffix
+            const baseName = tableField.name
+              .replace(/^Associated\s*/i, '') // Remove "Associated" prefix
+              .replace(/\s*Links?$/i, '') // Remove "Link" or "Links" suffix
+              .replace(/\s*Records?$/i, ''); // Remove "Record" or "Records" suffix
             
             // Make it plural if not already
             if (!baseName.match(/s$/i)) {
-              linkedTableName = baseName + 's';
+              linkedTableName = `${baseName }s`;
             } else {
               linkedTableName = baseName;
             }
@@ -851,7 +851,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                 
                 // Truncate label if too long
                 if (label.length > 50) {
-                  label = label.substring(0, 47) + '...';
+                  label = `${label.substring(0, 47) }...`;
                 }
               }
             }
@@ -914,7 +914,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           console.log(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
           // For Airtable fields that depend on tableName, ensure baseId and tableName are in extraOptions
-          let enhancedExtraOptions = extraOptions || {};
+          const enhancedExtraOptions = extraOptions || {};
           if (providerId === 'airtable') {
             const formValues = getFormValues?.() || {};
             if (!enhancedExtraOptions.baseId && formValues.baseId) {

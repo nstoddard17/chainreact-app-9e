@@ -1,11 +1,13 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContentWithoutClose, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Maximize2, X, Save } from "lucide-react";
+import { Maximize2, X, Save, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useVariableDropTarget } from "../hooks/useVariableDropTarget";
+import { insertVariableIntoTextInput, normalizeDraggedVariable } from "@/lib/workflows/variableInsertion";
 
 interface FullscreenTextEditorProps {
   value: string;
@@ -25,6 +27,42 @@ export function FullscreenTextEditor({
   onOpenChange,
 }: FullscreenTextEditorProps) {
   const [localValue, setLocalValue] = useState(value || "");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!textareaRef.current) return;
+
+    const variableText = normalizeDraggedVariable(rawVariable);
+    if (!variableText) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart ?? localValue.length;
+    const end = textarea.selectionEnd ?? start;
+
+    const newValue =
+      localValue.slice(0, start) +
+      variableText +
+      localValue.slice(end);
+
+    setLocalValue(newValue);
+
+    queueMicrotask(() => {
+      try {
+        const cursorPosition = start + variableText.length;
+        textarea.focus();
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      } catch {
+        /* focus best-effort */
+      }
+    });
+  }, [localValue]);
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: "fullscreen-editor",
+    fieldLabel: title,
+    elementRef: textareaRef,
+    onInsert: handleVariableInsert,
+  });
 
   // Update local value when prop changes
   useEffect(() => {
@@ -73,11 +111,20 @@ export function FullscreenTextEditor({
         
         <div className="flex-1 px-6 py-4 overflow-hidden">
           <Textarea
+            ref={textareaRef}
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full h-full resize-none font-mono text-sm"
+            onFocus={dropHandlers.onFocus}
+            onBlur={dropHandlers.onBlur}
+            onDragOver={dropHandlers.onDragOver}
+            onDragLeave={dropHandlers.onDragLeave}
+            onDrop={dropHandlers.onDrop}
+            className={cn(
+              "w-full h-full resize-none font-mono text-sm",
+              isDragOver && "ring-2 ring-blue-500 ring-offset-1"
+            )}
             style={{ minHeight: "100%" }}
             autoFocus
           />
@@ -113,6 +160,9 @@ interface FullscreenTextAreaProps {
   rows?: number;
   fieldLabel?: string;
   disabled?: boolean;
+  showPlaceholderOverlay?: boolean;
+  placeholderOverlayLabel?: string;
+  onPlaceholderClear?: () => void;
 }
 
 export function FullscreenTextArea({
@@ -124,10 +174,14 @@ export function FullscreenTextArea({
   rows = 6,
   fieldLabel = "Content",
   disabled = false,
+  showPlaceholderOverlay = false,
+  placeholderOverlayLabel = "Defined by the model",
+  onPlaceholderClear,
 }: FullscreenTextAreaProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [localValue, setLocalValue] = useState(value || "");
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Update local value when prop changes
   useEffect(() => {
@@ -159,25 +213,85 @@ export function FullscreenTextArea({
     };
   }, []);
 
+  const showOverlay = showPlaceholderOverlay && !disabled;
+
+  const handleClearPlaceholder = () => {
+    if (showOverlay) {
+      setLocalValue("");
+      onPlaceholderClear?.();
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+      });
+    }
+  };
+
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!textareaRef.current) return;
+
+    const variableText = normalizeDraggedVariable(rawVariable);
+    if (!variableText) return;
+
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart ?? localValue.length;
+    const end = textarea.selectionEnd ?? start;
+
+    const newValue =
+      localValue.slice(0, start) +
+      variableText +
+      localValue.slice(end);
+
+    setLocalValue(newValue);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    onChange(newValue);
+
+    queueMicrotask(() => {
+      try {
+        const cursorPosition = start + variableText.length;
+        textarea.focus();
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      } catch {
+        /* focus best-effort */
+      }
+    });
+  }, [localValue, onChange]);
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: fieldLabel || "fullscreen-text-area",
+    fieldLabel: fieldLabel || "Content",
+    elementRef: textareaRef,
+    onInsert: handleVariableInsert,
+  });
+
   return (
     <>
       <div className="relative">
         <Textarea
+          ref={textareaRef}
           value={localValue}
           onChange={handleChange}
           placeholder={placeholder}
+          onFocus={dropHandlers.onFocus}
+          onBlur={dropHandlers.onBlur}
+          onDragOver={dropHandlers.onDragOver}
+          onDragLeave={dropHandlers.onDragLeave}
+          onDrop={dropHandlers.onDrop}
           className={cn(
             "min-h-[120px] resize-y",
             !disabled && "pr-10",
             error && "border-red-500",
             disabled && "bg-muted cursor-not-allowed opacity-75",
+            showOverlay && "opacity-0 pointer-events-none select-none",
+            isDragOver && "ring-2 ring-blue-500 ring-offset-1",
             className
           )}
           rows={rows}
           disabled={disabled}
-          readOnly={disabled}
+          readOnly={disabled || showOverlay}
         />
-        {!disabled && (
+        {!disabled && !showOverlay && (
           <Button
             type="button"
             variant="ghost"
@@ -188,6 +302,21 @@ export function FullscreenTextArea({
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
+        )}
+        {showOverlay && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-between rounded-md bg-muted/80 text-muted-foreground px-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Bot className="h-4 w-4" />
+              <span>{placeholderOverlayLabel}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClearPlaceholder}
+              className="pointer-events-auto text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
       

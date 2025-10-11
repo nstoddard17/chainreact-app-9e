@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
         const filesResponse = await drive.files.list({
           q: query,
           fields: 'files(id, name, mimeType, size, modifiedTime, webViewLink, webContentLink, parents)',
-          pageSize: 1000,  // Increase page size to get more files
+          pageSize: 1000, // Increase page size to get more files
           orderBy: 'name'
         })
 

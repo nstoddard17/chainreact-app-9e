@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -8,6 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FileSignature, ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
+import { insertVariableIntoTextInput, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
 interface GmailSignature {
   id: string
@@ -38,6 +40,28 @@ export function GmailEmailRichTextEditor({
   const [selectedSignature, setSelectedSignature] = useState<string>('')
   const [isLoadingSignatures, setIsLoadingSignatures] = useState(false)
   const { toast } = useToast()
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!textareaRef.current) return
+
+    const variableText = normalizeDraggedVariable(rawVariable)
+    if (!variableText) return
+
+    insertVariableIntoTextInput(
+      textareaRef.current,
+      variableText,
+      value,
+      onChange
+    )
+  }, [onChange, value])
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: "gmail-email-body",
+    fieldLabel: "Email Body",
+    elementRef: textareaRef,
+    onInsert: handleVariableInsert
+  })
 
   // Load Gmail signatures
   useEffect(() => {
@@ -97,8 +121,8 @@ export function GmailEmailRichTextEditor({
           // Try multiple ways to remove the signature
           const patterns = [
             sig.content,
-            '\n\n' + sig.content,
-            '\n' + sig.content,
+            `\n\n${ sig.content}`,
+            `\n${ sig.content}`,
             sig.content.replace(/\s+/g, ' ').trim()
           ]
           patterns.forEach(pattern => {
@@ -110,11 +134,11 @@ export function GmailEmailRichTextEditor({
         newValue = newValue.trim()
         
         // Now add the new signature
-        newValue = newValue + '\n\n' + signature.content
+        newValue = `${newValue }\n\n${ signature.content}`
         onChange(newValue)
       } else {
         // No existing signature, just add the new one
-        const newValue = value.trim() + '\n\n' + signature.content
+        const newValue = `${value.trim() }\n\n${ signature.content}`
         onChange(newValue)
       }
       
@@ -179,12 +203,18 @@ export function GmailEmailRichTextEditor({
       {/* Simple textarea for Gmail */}
       <div>
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
+          onFocus={dropHandlers.onFocus}
+          onBlur={dropHandlers.onBlur}
+          onDragOver={dropHandlers.onDragOver}
+          onDragLeave={dropHandlers.onDragLeave}
+          onDrop={dropHandlers.onDrop}
           className={`w-full min-h-[200px] p-3 border rounded-lg resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             error ? 'border-red-500' : 'border-gray-300'
-          }`}
+          } ${isDragOver ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`}
         />
         {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
       </div>

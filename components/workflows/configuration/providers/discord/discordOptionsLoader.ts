@@ -14,10 +14,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     'guildId',
     'channelId',
     'messageId',
-    'messageIds',  // Support plural for multi-select
+    'messageIds', // Support plural for multi-select
     'filterAuthor',
     'userId',
-    'userIds',     // Support plural for multi-select
+    'userIds', // Support plural for multi-select
     'roleId',
     'parentId',
     'categoryId',
@@ -71,13 +71,13 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
               break;
             
             case 'messageId':
-            case 'messageIds':  // Handle both singular and plural
+            case 'messageIds': // Handle both singular and plural
               result = await this.loadMessages(params);
               break;
             
             case 'filterAuthor':
             case 'userId':
-            case 'userIds':     // Handle plural
+            case 'userIds': // Handle plural
             case 'allowedUsers':
               result = await this.loadMembers(params);
               break;
@@ -467,7 +467,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       case 'channelId':
       case 'filterAuthor':
       case 'userId':
-      case 'userIds':      // Plural version
+      case 'userIds': // Plural version
       case 'roleId':
       case 'roleFilter':
       case 'parentId':
@@ -478,7 +478,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         return ['guildId'];
 
       case 'messageId':
-      case 'messageIds':   // Plural version
+      case 'messageIds': // Plural version
         return ['channelId'];
       
       default:

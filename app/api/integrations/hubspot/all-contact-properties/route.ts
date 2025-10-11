@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    let existingValues: Record<string, string[]> = {}
+    const existingValues: Record<string, string[]> = {}
     if (contactsResponse.ok) {
       const contactsData = await contactsResponse.json()
       

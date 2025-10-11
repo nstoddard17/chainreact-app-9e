@@ -1,0 +1,222 @@
+import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
+import { processNotionEvent } from '@/lib/webhooks/processor'
+import { logWebhookEvent } from '@/lib/webhooks/event-logger'
+import { getWebhookUrl } from '@/lib/webhooks/utils'
+
+// Comprehensive logging colors for terminal
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+}
+
+function logSection(title: string, data: any, color: string = colors.cyan) {
+  console.log(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
+  console.log(`${color}${colors.bright}📌 ${title}${colors.reset}`)
+  console.log(`${color}${'='.repeat(60)}${colors.reset}`)
+
+  if (typeof data === 'object' && data !== null) {
+    console.log(JSON.stringify(data, null, 2))
+  } else {
+    console.log(data)
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const requestId = crypto.randomBytes(16).toString('hex')
+  const timestamp = new Date().toISOString()
+
+  try {
+    // Log incoming request details
+    logSection('NOTION WEBHOOK RECEIVED', {
+      timestamp,
+      requestId,
+      url: req.url,
+      method: req.method,
+    }, colors.magenta)
+
+    // Log all headers
+    const headers: Record<string, string> = {}
+    req.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+    logSection('REQUEST HEADERS', headers, colors.blue)
+
+    // Get and log the raw body
+    const rawBody = await req.text()
+    logSection('RAW BODY (as string)', rawBody, colors.yellow)
+
+    // Parse the body
+    let body: any = {}
+    try {
+      body = JSON.parse(rawBody)
+      logSection('PARSED BODY', body, colors.green)
+    } catch (parseError) {
+      console.error(`${colors.red}❌ Failed to parse body as JSON${colors.reset}`)
+      console.error(parseError)
+      body = { raw: rawBody }
+    }
+
+    // Check for verification token (Notion sends this in the initial verification)
+    if (body.type === 'url_verification') {
+      logSection('URL VERIFICATION REQUEST DETECTED', {
+        challenge: body.challenge,
+        token: body.token,
+      }, colors.magenta)
+
+      // Respond with the challenge for verification
+      const response = NextResponse.json({ challenge: body.challenge })
+
+      logSection('VERIFICATION RESPONSE', {
+        status: 200,
+        body: { challenge: body.challenge }
+      }, colors.green)
+
+      return response
+    }
+
+    // Log webhook signature if present
+    const notionSignature = headers['x-notion-signature'] || headers['notion-signature']
+    if (notionSignature) {
+      logSection('NOTION SIGNATURE', {
+        signature: notionSignature,
+        note: 'This should be validated with your webhook secret'
+      }, colors.cyan)
+    }
+
+    // Log webhook type and event details
+    const eventType = body.type || body.event_type || 'unknown'
+    const eventData = body.data || body.payload || body
+
+    logSection('EVENT DETAILS', {
+      type: eventType,
+      hasData: !!body.data,
+      hasPayload: !!body.payload,
+      dataKeys: body.data ? Object.keys(body.data) : [],
+      payloadKeys: body.payload ? Object.keys(body.payload) : [],
+      topLevelKeys: Object.keys(body),
+    }, colors.magenta)
+
+    // Process the webhook event
+    const webhookEvent = {
+      id: body.id || requestId,
+      provider: 'notion',
+      eventType,
+      eventData,
+      requestId,
+      timestamp: new Date(),
+    }
+
+    logSection('PROCESSING WEBHOOK EVENT', webhookEvent, colors.cyan)
+
+    // Process the event (this will trigger workflows)
+    const result = await processNotionEvent(webhookEvent)
+
+    logSection('PROCESSING RESULT', result, colors.green)
+
+    // Log the event for audit
+    await logWebhookEvent({
+      provider: 'notion',
+      requestId,
+      eventType,
+      status: 'success',
+      processingTime: Date.now() - new Date(timestamp).getTime(),
+      timestamp,
+      result,
+    })
+
+    // Return success response
+    const response = NextResponse.json({
+      success: true,
+      requestId,
+      processed: true,
+      result,
+    })
+
+    logSection('FINAL RESPONSE', {
+      status: 200,
+      body: {
+        success: true,
+        requestId,
+        processed: true,
+        result,
+      }
+    }, colors.green)
+
+    console.log(`\n${colors.green}${colors.bright}✅ Notion webhook processed successfully!${colors.reset}\n`)
+
+    return response
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    logSection('ERROR PROCESSING WEBHOOK', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      requestId,
+    }, colors.red)
+
+    // Log error event
+    await logWebhookEvent({
+      provider: 'notion',
+      requestId,
+      eventType: 'error',
+      status: 'error',
+      processingTime: Date.now() - new Date(timestamp).getTime(),
+      timestamp,
+      error: errorMessage,
+    })
+
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        requestId,
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// Handle GET requests for testing
+export async function GET(req: NextRequest) {
+  const webhookUrl = getWebhookUrl('/api/webhooks/notion', req)
+
+  logSection('NOTION WEBHOOK ENDPOINT INFO', {
+    status: 'ready',
+    endpoint: webhookUrl,
+    method: 'POST',
+    actualUrl: webhookUrl,
+    instructions: [
+      '1. Use this URL in your Notion integration settings',
+      '2. Notion will send a verification request first',
+      '3. This endpoint will respond with the challenge',
+      '4. After verification, Notion will send actual webhook events',
+      '5. All data will be logged in your terminal'
+    ],
+    supportedEvents: [
+      'page.created',
+      'page.updated',
+      'page.deleted',
+      'database.created',
+      'database.updated',
+      'block.created',
+      'block.updated',
+      'block.deleted',
+    ],
+  }, colors.cyan)
+
+  return NextResponse.json({
+    status: 'ready',
+    endpoint: webhookUrl,
+    environment: process.env.NODE_ENV,
+    instructions: 'Use POST method to send webhook events',
+  })
+}

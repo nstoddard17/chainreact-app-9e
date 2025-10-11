@@ -54,7 +54,7 @@ export async function updateMicrosoftExcelRow(
     const baseUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${workbookId}/workbook`
 
     let rowsToUpdate: number[] = []
-    let updatedRanges: string[] = []
+    const updatedRanges: string[] = []
 
     // If row number is specified directly
     if (rowNumber) {

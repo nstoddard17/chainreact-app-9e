@@ -375,7 +375,7 @@ export function FieldRenderer({
                                 };
                                 reader.readAsDataURL(file);
                               });
-                            } else {
+                            } 
                               // For larger files, we'll need to upload to Supabase storage
                               // This will be handled by the action handler
                               // For now, just mark it as a file to be uploaded
@@ -386,7 +386,7 @@ export function FieldRenderer({
                                 size: file.size,
                                 mimeType: file.type
                               };
-                            }
+                            
                           })
                         );
                         onChange(field.multiple ? processedFiles : processedFiles[0]);
@@ -646,8 +646,8 @@ export function FieldRenderer({
             <GenericTextInput
               field={{
                 ...field,
-                rows: 15,  // Make it larger for better preview
-                disabled: true  // Keep it read-only
+                rows: 15, // Make it larger for better preview
+                disabled: true // Keep it read-only
               }}
               value={value}
               onChange={onChange}
@@ -697,8 +697,8 @@ export function FieldRenderer({
               setFieldValue={setFieldValue}
             />
           );
-        } else {
-        }
+        } 
+        
         
         // Special handling for Airtable image/attachment fields
         if (integrationProvider === 'airtable' && field.name?.startsWith('airtable_field_')) {
@@ -927,7 +927,7 @@ export function FieldRenderer({
                 <Combobox
                   value={value || ""}
                   onChange={onChange}
-                  options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions}  // Show existing options while loading new ones
+                  options={loadingDynamic && comboboxOptions.length === 0 ? [] : comboboxOptions} // Show existing options while loading new ones
                   placeholder={
                     loadingDynamic && field.dynamic && !value
                       ? `Loading ${field.label?.toLowerCase() || 'options'}...`
@@ -935,7 +935,7 @@ export function FieldRenderer({
                   }
                   searchPlaceholder={`Search ${field.label || field.name}...`}
                   emptyPlaceholder={loadingDynamic ? "Loading options..." : getComboboxEmptyMessage(field)}
-                  disabled={false}  // Don't disable during loading so dropdown can stay open
+                  disabled={false} // Don't disable during loading so dropdown can stay open
                   creatable={field.creatable || false}
                     onOpenChange={(open) => {
                       // Only trigger load on actual open (not close)
@@ -976,7 +976,7 @@ export function FieldRenderer({
                       // Determine if this is a refresh (has options) or initial load
                       const isRefresh = comboboxOptions.length > 0;
 
-                      console.log('🔄 [FieldRenderer] ' + (isRefresh ? 'Refreshing' : 'Loading') + ' options for combobox:', field.name);
+                      console.log(`🔄 [FieldRenderer] ${ isRefresh ? 'Refreshing' : 'Loading' } options for combobox:`, field.name);
                       window[loadKey] = true;
 
                       // Track refresh time

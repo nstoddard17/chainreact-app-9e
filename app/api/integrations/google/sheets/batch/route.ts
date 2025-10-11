@@ -150,10 +150,10 @@ async function batchAddRows(
           }
         });
         return rowData;
-      } else {
+      } 
         // Direct array data
         return Array.isArray(item) ? item : Object.values(item);
-      }
+      
     });
 
     const requestBody = {

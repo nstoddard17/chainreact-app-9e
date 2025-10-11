@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
           const metadata = data.user.user_metadata
           let firstName = metadata?.given_name || ''
           let lastName = metadata?.family_name || ''
-          let fullName = metadata?.full_name || metadata?.name || ''
+          const fullName = metadata?.full_name || metadata?.name || ''
           
           // If we don't have first/last name but have full name, split it
           if ((!firstName || !lastName) && fullName) {

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     const allTimeTotals = calculateTotals(allTimeStats.data)
 
     // Calculate usage percentage and remaining (using a default budget of $10)
-    const monthlyBudget = 10.00  // Default budget, can be made configurable later
+    const monthlyBudget = 10.00 // Default budget, can be made configurable later
     const usagePercent = Math.round((monthTotals.cost_usd / monthlyBudget) * 100)
     const remainingBudget = Math.max(0, monthlyBudget - monthTotals.cost_usd)
 
@@ -103,11 +103,11 @@ export async function GET(request: NextRequest) {
         remaining_budget_usd: remainingBudget,
         usage_percent: usagePercent,
         estimated_remaining_uses: estimatedRemainingUses,
-        enforcement_mode: 'soft'  // Default enforcement mode
+        enforcement_mode: 'soft' // Default enforcement mode
       },
       today: todayTotals,
       all_time: allTimeTotals,
-      alerts: [],  // No alerts table exists yet
+      alerts: [], // No alerts table exists yet
       thresholds: {
         warning: 75,
         alert: 90,

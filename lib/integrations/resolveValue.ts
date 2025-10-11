@@ -24,14 +24,14 @@ export function resolveValue<T>(
     if (Array.isArray(template)) {
       // Handle arrays
       return template.map(item => resolveValue(item, context, dataFlowManager)) as T
-    } else {
+    } 
       // Handle objects
       const result: Record<string, any> = {}
       for (const [key, value] of Object.entries(template)) {
         result[key] = resolveValue(value, context, dataFlowManager)
       }
       return result as T
-    }
+    
   }
   
   // For primitives, just return as is
@@ -79,9 +79,9 @@ function resolveStringTemplate(
           return typeof dataFlowValue === 'object' 
             ? JSON.stringify(dataFlowValue) 
             : String(dataFlowValue)
-        } else {
+        } 
           console.log(`⚠️ DataFlowManager could not resolve: "${match}"`)
-        }
+        
       } catch (error) {
         console.error(`❌ DataFlowManager error for "${match}":`, error)
       }

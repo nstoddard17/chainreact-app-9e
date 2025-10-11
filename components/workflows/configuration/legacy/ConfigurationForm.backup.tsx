@@ -2849,7 +2849,7 @@ export default function ConfigurationForm({
               const hasMore = result.data?.hasMore || result.hasMore;
               
               if (hasMore) {
-                setValue('documentPreview', preview + '\n\n... (document continues)');
+                setValue('documentPreview', `${preview }\n\n... (document continues)`);
               } else {
                 setValue('documentPreview', preview);
               }
@@ -2881,7 +2881,7 @@ export default function ConfigurationForm({
     if (providerHandlers.handleProviderFieldChange(fieldName, value)) {
       console.log('🌐 Field handled by provider handler');
       setValue(fieldName, value);
-      return;
+      
     }
     
     // OLD Discord handling - now handled by provider handlers
@@ -3603,7 +3603,7 @@ export default function ConfigurationForm({
         }
         
         // Create suggestion object with proper display value
-        let suggestionValue = existingValue;
+        const suggestionValue = existingValue;
         let suggestionLabel = existingValue;
         
         // For linked records, convert IDs to names
@@ -3926,7 +3926,7 @@ export default function ConfigurationForm({
     if (nodeInfo.providerId === 'airtable' && nodeInfo.type === 'airtable_action_list_records') {
       // Always show baseId field
       const baseField = visibleFields.find(field => field.name === 'baseId');
-      let result = [baseField];
+      const result = [baseField];
       
       // Show tableName field if baseId is selected
       if (values.baseId) {
@@ -5273,12 +5273,12 @@ export default function ConfigurationForm({
                                     ...prev,
                                     [field.name]: current.filter(i => i !== idx)
                                   };
-                                } else {
+                                } 
                                   return {
                                     ...prev,
                                     [field.name]: [...current, idx]
                                   };
-                                }
+                                
                               });
                             } else {
                               // Single-value field - toggle selection
@@ -5435,13 +5435,13 @@ export default function ConfigurationForm({
                               ...prev,
                               [field.name]: current.filter(i => i !== idx)
                             };
-                          } else {
+                          } 
                             // Selecting - add to active bubbles
                             return {
                               ...prev,
                               [field.name]: [...current, idx]
                             };
-                          }
+                          
                         });
                         
                         // Toggle value in field
@@ -5677,7 +5677,7 @@ export default function ConfigurationForm({
                                   ...prev, 
                                   [field.name]: [deleted.bubble] 
                                 };
-                              } else {
+                              } 
                                 // For multi-value fields, restore at original position
                                 const fieldSugs = [...(prev[field.name] || [])];
                                 if (deleted.index < fieldSugs.length) {
@@ -5686,7 +5686,7 @@ export default function ConfigurationForm({
                                   fieldSugs.push(deleted.bubble);
                                 }
                                 return { ...prev, [field.name]: fieldSugs };
-                              }
+                              
                             });
                             
                             // For single-value fields, always set as active
@@ -6231,7 +6231,7 @@ export default function ConfigurationForm({
                                                           />
                                                         </div>
                                                       );
-                                                    } else {
+                                                    } 
                                                       // Non-image attachment - show file icon
                                                       return (
                                                         <div 
@@ -6242,7 +6242,7 @@ export default function ConfigurationForm({
                                                           <span className="text-xs text-slate-500">📎</span>
                                                         </div>
                                                       );
-                                                    }
+                                                    
                                                   })}
                                                   {fieldValue.length > 3 && (
                                                     <div className="w-8 h-8 bg-slate-50 rounded border border-slate-200 flex items-center justify-center">
@@ -7074,7 +7074,7 @@ export default function ConfigurationForm({
         } catch (error) {
           console.error('❌ [ConfigForm] Failed to save configuration:', error);
           // Don't close modal on error - let user retry
-          return;
+          
         }
       }} className="h-full flex flex-col">
         <div className="flex-1 flex flex-col min-h-0">
@@ -8407,7 +8407,7 @@ export default function ConfigurationForm({
                                                               />
                                                             </div>
                                                           );
-                                                        } else {
+                                                        } 
                                                           // Non-image attachment - show file icon
                                                           return (
                                                             <div 
@@ -8418,7 +8418,7 @@ export default function ConfigurationForm({
                                                               <span className="text-xs text-slate-500">📎</span>
                                                             </div>
                                                           );
-                                                        }
+                                                        
                                                       })}
                                                       {fieldValue.length > 3 && (
                                                         <div className="w-8 h-8 bg-slate-50 rounded border border-slate-200 flex items-center justify-center">
@@ -8448,7 +8448,7 @@ export default function ConfigurationForm({
                                                 // Regular field value
                                                 const displayValue = String(fieldValue || '');
                                                 const isTruncated = displayValue.length > 25;
-                                                const truncatedValue = isTruncated ? displayValue.substring(0, 25) + '...' : displayValue;
+                                                const truncatedValue = isTruncated ? `${displayValue.substring(0, 25) }...` : displayValue;
                                                 
                                                 return (
                                                   <div className="text-xs text-slate-900 text-center py-2 px-1 flex items-center justify-center">

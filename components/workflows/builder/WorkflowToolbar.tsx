@@ -17,10 +17,11 @@ import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
   Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown,
   MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2,
-  TrendingUp, Clock, CheckCircle, XCircle, Activity
+  TrendingUp, Clock, CheckCircle, XCircle, Activity, ClipboardCheck
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
+import { useAuthStore } from '@/stores/authStore'
 import type { Node, Edge } from '@xyflow/react'
 
 interface WorkflowToolbarProps {
@@ -44,6 +45,9 @@ interface WorkflowToolbarProps {
   // New props for missing buttons
   handleTestSandbox?: () => void
   handleExecuteLive?: () => void
+  handleExecuteLiveSequential?: () => void
+  handleRunPreflight?: () => void
+  isRunningPreflight?: boolean
   isStepMode?: boolean
   showSandboxPreview?: boolean
   setShowSandboxPreview?: (show: boolean) => void
@@ -57,6 +61,13 @@ interface WorkflowToolbarProps {
   setEdges?: (edges: any) => void
   handleConfigureNode?: (nodeId: string) => void
   ensureOneAddActionPerChain?: () => void
+  handleUndo?: () => void
+  handleRedo?: () => void
+  canUndo?: boolean
+  canRedo?: boolean
+  // Edge selection and deletion
+  selectedEdgeId?: string | null
+  deleteSelectedEdge?: () => void
 }
 
 export function WorkflowToolbar({
@@ -79,6 +90,9 @@ export function WorkflowToolbar({
   editTemplateId,
   handleTestSandbox,
   handleExecuteLive,
+  handleExecuteLiveSequential,
+  handleRunPreflight,
+  isRunningPreflight = false,
   isStepMode = false,
   showSandboxPreview = false,
   setShowSandboxPreview,
@@ -95,9 +109,13 @@ export function WorkflowToolbar({
   handleRedo,
   canUndo = false,
   canRedo = false,
+  selectedEdgeId,
+  deleteSelectedEdge,
 }: WorkflowToolbarProps) {
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, shareWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
+  const { profile } = useAuthStore()
+  const isAdmin = profile?.role === 'admin'
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareEmail, setShareEmail] = useState('')
@@ -215,9 +233,33 @@ export function WorkflowToolbar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {selectedEdgeId && deleteSelectedEdge && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={deleteSelectedEdge}
+                      className="h-8 w-8 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Delete Connection (Delete/Backspace)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           {/* Status badges */}
           <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+          {selectedEdgeId && (
+            <Badge variant="outline" className="ml-2">
+              Connection Selected
+            </Badge>
+          )}
           {hasUnsavedChanges && (
             <Badge variant="outline" className="text-orange-600 border-orange-600">
               Unsaved Changes
@@ -337,7 +379,38 @@ export function WorkflowToolbar({
                       </TooltipProvider>
                     )}
 
-                    {handleTestSandbox && handleExecuteLive && <DropdownMenuSeparator />}
+                    {handleRunPreflight && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuItem
+                              onClick={handleRunPreflight}
+                              disabled={isSaving || isExecuting || isRunningPreflight}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-start w-full">
+                                <ClipboardCheck className="w-5 h-5 mr-3 mt-0.5 text-emerald-500" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Preflight Check</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Verify integrations and required fields before running
+                                  </div>
+                                </div>
+                              </div>
+                              {isRunningPreflight && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
+                            </DropdownMenuItem>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-sm">
+                            <p className="font-semibold mb-1">Run Preflight Checklist</p>
+                            <p className="text-xs">
+                              Checks that every integration is connected and each action has the required configuration. Fix issues before sending real data.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+
+                    {(!!handleTestSandbox || !!handleRunPreflight) && handleExecuteLive && <DropdownMenuSeparator />}
 
                     {handleExecuteLive && (
                       <TooltipProvider>
@@ -353,16 +426,48 @@ export function WorkflowToolbar({
                                 <div className="flex-1">
                                   <div className="font-medium">Live Mode</div>
                                   <div className="text-xs text-muted-foreground mt-1">
-                                    Execute with real data and actions
+                                    Execute with real data (parallel processing)
                                   </div>
                                 </div>
                               </div>
                             </DropdownMenuItem>
                           </TooltipTrigger>
                           <TooltipContent side="left" className="max-w-sm">
-                            <p className="font-semibold mb-1">Run Once with Live Data</p>
+                            <p className="font-semibold mb-1">Run with Live Data (Parallel)</p>
                             <p className="text-xs">
-                              Execute workflow immediately with test trigger data. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                              Execute workflow immediately with real data. Multiple nodes will run simultaneously for faster execution. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+
+                    {/* Admin-only sequential mode for debugging */}
+                    {isAdmin && handleExecuteLiveSequential && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuItem
+                              onClick={handleExecuteLiveSequential}
+                              disabled={isSaving || isExecuting}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-start w-full">
+                                <Activity className="w-5 h-5 mr-3 mt-0.5 text-purple-500" />
+                                <div className="flex-1">
+                                  <div className="font-medium">Live Mode Sequential</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Debug mode - one node at a time
+                                  </div>
+                                  <Badge variant="outline" className="text-xs mt-1">Admin</Badge>
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-sm">
+                            <p className="font-semibold mb-1">Sequential Execution (Debug Mode)</p>
+                            <p className="text-xs">
+                              Execute workflow with real data but process nodes one at a time. Easier for debugging and understanding flow. <span className="text-yellow-500 font-semibold">Warning:</span> Still performs real actions.
                             </p>
                           </TooltipContent>
                         </Tooltip>

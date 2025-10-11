@@ -36,6 +36,8 @@ import {
   Calendar
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
+import { insertVariableIntoTextInput, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
 interface DiscordRichTextEditorProps {
   value: string
@@ -125,6 +127,40 @@ export function DiscordRichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
   const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!textareaRef.current) return
+
+    const variableText = normalizeDraggedVariable(rawVariable)
+    if (!variableText) return
+
+    const textarea = textareaRef.current
+    const start = textarea.selectionStart ?? displayValue.length
+    const end = textarea.selectionEnd ?? start
+
+    const newDisplayValue = displayValue.slice(0, start) + variableText + displayValue.slice(end)
+    setDisplayValue(newDisplayValue)
+
+    const newInternalValue = convertToDiscordFormat(newDisplayValue)
+    setInternalValue(newInternalValue)
+    onChange(newInternalValue)
+
+    queueMicrotask(() => {
+      try {
+        const cursorPosition = start + variableText.length
+        textarea.focus()
+        textarea.setSelectionRange(cursorPosition, cursorPosition)
+      } catch {
+        /* focus best effort */
+      }
+    })
+  }, [convertToDiscordFormat, displayValue, onChange])
+
+  const { eventHandlers: dropHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: "discord-message-content",
+    fieldLabel: "Message Content",
+    elementRef: textareaRef,
+    onInsert: handleVariableInsert
+  })
 
   // Debug logging to identify freeze cause
   console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
@@ -835,7 +871,15 @@ export function DiscordRichTextEditor({
                   setInternalValue(newInternalValue)
                   onChange(newInternalValue)
                 }}
-                className="min-h-[100px] font-mono text-sm"
+                onFocus={dropHandlers.onFocus}
+                onBlur={dropHandlers.onBlur}
+                onDragOver={dropHandlers.onDragOver}
+                onDragLeave={dropHandlers.onDragLeave}
+                onDrop={dropHandlers.onDrop}
+                className={cn(
+                  "min-h-[100px] font-mono text-sm",
+                  isDragOver && "ring-2 ring-blue-500 ring-offset-1"
+                )}
               />
             </div>
             

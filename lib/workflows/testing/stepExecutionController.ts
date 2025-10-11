@@ -406,7 +406,7 @@ export class StepExecutionController {
     switch (nodeType) {
       case 'gmail_action_send':
         return {
-          messageId: 'mock_' + Date.now(),
+          messageId: `mock_${ Date.now()}`,
           threadId: 'thread_123',
           status: 'sent',
           timestamp: new Date().toISOString()
@@ -414,7 +414,7 @@ export class StepExecutionController {
 
       case 'discord_action_send_message':
         return {
-          messageId: 'discord_' + Date.now(),
+          messageId: `discord_${ Date.now()}`,
           channelId: inputData.channelId || 'channel_123',
           content: inputData.message || 'Test message',
           timestamp: new Date().toISOString()
@@ -433,7 +433,7 @@ export class StepExecutionController {
 
       case 'airtable_action_create':
         return {
-          id: 'rec' + Date.now(),
+          id: `rec${ Date.now()}`,
           fields: inputData.fields || {},
           createdTime: new Date().toISOString()
         }

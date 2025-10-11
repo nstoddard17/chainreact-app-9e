@@ -51,7 +51,7 @@ export class AIAssistantService {
         }
       }
 
-      console.log("📝 Processing message:", message.substring(0, 100) + "...")
+      console.log("📝 Processing message:", `${message.substring(0, 100) }...`)
 
       // 3. Authenticate user
       const authResult = await this.authService.authenticateRequest(request)

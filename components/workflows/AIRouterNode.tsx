@@ -14,6 +14,7 @@ interface OutputPath {
   name: string
   color: string
   description?: string
+  chainId?: string
 }
 
 interface AIRouterNodeData {
@@ -222,6 +223,11 @@ function AIRouterNode({ id, data, selected }: NodeProps) {
                       {path.description && (
                         <div className="text-xs text-gray-500">
                           {path.description}
+                        </div>
+                      )}
+                      {path.chainId && (
+                        <div className="mt-1 inline-flex items-center rounded bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                          Chain: {path.chainId}
                         </div>
                       )}
                     </div>

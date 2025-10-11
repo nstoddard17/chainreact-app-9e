@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const days = parseInt(searchParams.get("days") || "30")
+    const days = parseInt(searchParams.get("days") || "30", 10)
     const tierFilter = searchParams.get("tier") || "all"
 
     const supabase = createAdminClient()
@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
     // Estimate cost (rough calculation based on OpenAI pricing)
     const estimatedCost = (
       totalUsage.ai_assistant_calls * 0.03 + // ~$0.03 per assistant call
-      totalUsage.ai_compose_uses * 0.02 +    // ~$0.02 per compose use
-      totalUsage.ai_agent_executions * 0.05  // ~$0.05 per agent execution
+      totalUsage.ai_compose_uses * 0.02 + // ~$0.02 per compose use
+      totalUsage.ai_agent_executions * 0.05 // ~$0.05 per agent execution
     )
 
     // Group usage by tier

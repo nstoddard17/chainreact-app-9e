@@ -132,18 +132,30 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Create Gmail watch
+   * Gmail uses Google Cloud Pub/Sub instead of direct webhooks
    */
   private async createGmailWatch(auth: any, webhookUrl: string, channelId: string): Promise<any> {
     const gmail = google.gmail({ version: 'v1', auth })
 
+    // Gmail requires a Pub/Sub topic, not a webhook URL
+    const pubsubTopic = process.env.GMAIL_PUBSUB_TOPIC
+
+    if (!pubsubTopic) {
+      throw new Error('GMAIL_PUBSUB_TOPIC environment variable is not set. Gmail requires Google Cloud Pub/Sub to be configured.')
+    }
+
+    console.log(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`)
+
     const response = await gmail.users.watch({
       userId: 'me',
       requestBody: {
-        topicName: webhookUrl, // For Gmail, this would be a Pub/Sub topic
+        topicName: pubsubTopic, // Use Pub/Sub topic from environment
         labelIds: ['INBOX'],
         labelFilterAction: 'include'
       }
     })
+
+    console.log(`✅ Gmail watch created - historyId: ${response.data.historyId}`)
 
     return {
       id: channelId,

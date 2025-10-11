@@ -57,9 +57,9 @@ class ApiClient {
         return {
           "Authorization": `Bearer ${session.access_token}`,
         }
-      } else {
+      } 
         console.warn("⚠️ No session or access token found")
-      }
+      
     } catch (error) {
       console.error("❌ Failed to get auth token:", error)
     }

@@ -1,16 +1,16 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { useDragDrop } from "@/hooks/use-drag-drop";
 import { FullscreenTextArea } from "../FullscreenTextEditor";
 import { formatVariableForDisplay } from "@/lib/utils/variableDisplay";
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes";
 import { Bot, X } from "lucide-react";
+import { useVariableDropTarget } from "../../hooks/useVariableDropTarget";
+import { insertVariableIntoTextInput, normalizeDraggedVariable } from "@/lib/workflows/variableInsertion";
 
 interface GenericTextInputProps {
   field: any;
@@ -44,7 +44,7 @@ export function GenericTextInput({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<Array<{value: string; label: string;}>>([]);
   const [isEditing, setIsEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Check if this field is in AI mode
@@ -62,7 +62,23 @@ export function GenericTextInput({
       outputSchema: nodeComponent?.outputSchema || node.data?.outputSchema
     };
   });
-  const { display: displayValue, actual: actualValue } = formatVariableForDisplay(value || "", nodeInfo);
+  const { display: formattedDisplay } = formatVariableForDisplay(value || "", nodeInfo);
+
+  const trimmedValue = typeof value === 'string' ? value.trim() : ''
+  const isPureVariableReference =
+    typeof trimmedValue === 'string' &&
+    trimmedValue.startsWith('{{') &&
+    trimmedValue.endsWith('}}') &&
+    trimmedValue.length > 4
+
+  const aiPlaceholderText = field.aiPlaceholder || 'Defined by the model'
+  const placeholderText = isPureVariableReference
+    ? aiPlaceholderText
+    : (field.placeholder || `Enter ${field.label || field.name}...`)
+
+  const renderedValue = isEditing
+    ? (value || '')
+    : (isPureVariableReference ? '' : formattedDisplay)
 
   // Load suggestions when field has dynamic options
   useEffect(() => {
@@ -71,17 +87,35 @@ export function GenericTextInput({
     }
   }, [field.dynamic, field.name, onDynamicLoad, dynamicOptions]);
 
-  // Drag and drop functionality
-  const { handleDragOver, handleDrop } = useDragDrop({
-    onVariableDrop: (variable: string) => {
-      if (typeof value === 'string') {
-        const newValue = value + variable;
-        onChange(newValue);
-      } else {
-        onChange(variable);
-      }
-    }
-  });
+  const resolveCurrentValue = useCallback(() => {
+    if (typeof value === "string") return value
+    if (value === null || value === undefined) return ""
+    return String(value)
+  }, [value])
+
+  const handleVariableInsert = useCallback((rawVariable: string) => {
+    if (!inputRef.current) return
+
+    const variableText = normalizeDraggedVariable(rawVariable)
+    if (!variableText) return
+
+    insertVariableIntoTextInput(
+      inputRef.current,
+      variableText,
+      resolveCurrentValue(),
+      onChange
+    )
+
+    setIsEditing(true)
+    setShowSuggestions(false)
+  }, [onChange, resolveCurrentValue, setShowSuggestions])
+
+  const { eventHandlers: dropEventHandlers, isDragOver } = useVariableDropTarget({
+    fieldId: field.name,
+    fieldLabel: field.label || field.name,
+    elementRef: inputRef,
+    onInsert: handleVariableInsert
+  })
 
   // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -119,7 +153,7 @@ export function GenericTextInput({
     let newValue;
     if (lastCommaIndex >= 0) {
       // Replace the text after the last comma
-      newValue = currentValue.substring(0, lastCommaIndex + 1) + ' ' + suggestion.value;
+      newValue = `${currentValue.substring(0, lastCommaIndex + 1) } ${ suggestion.value}`;
     } else {
       // Replace the entire value
       newValue = suggestion.value;
@@ -143,19 +177,52 @@ export function GenericTextInput({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const showAiPlaceholderOverlay = isPureVariableReference && !isEditing;
+
+  const clearAiPlaceholderValue = () => {
+    if (setAiFields && aiFields && aiFields[field.name]) {
+      const newAiFields = { ...aiFields };
+      delete newAiFields[field.name];
+      setAiFields(newAiFields);
+    }
+    onChange('');
+  };
+
+  const handleRemoveAiPlaceholder = () => {
+    clearAiPlaceholderValue();
+    setIsEditing(true);
+    setShowSuggestions(false);
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  };
+
   const commonProps = {
     id: field.name,
-    placeholder: field.placeholder || `Enter ${field.label || field.name}...`,
-    value: isEditing ? (value || "") : displayValue,
+    placeholder: placeholderText,
+    value: renderedValue,
     onChange: handleChange,
-    onDragOver: handleDragOver,
-    onDrop: handleDrop,
-    onFocus: () => setIsEditing(true),
-    onBlur: () => setIsEditing(false),
+    onDragOver: dropEventHandlers.onDragOver,
+    onDragLeave: dropEventHandlers.onDragLeave,
+    onDrop: dropEventHandlers.onDrop,
+    onFocus: () => {
+      dropEventHandlers.onFocus()
+      if (!showAiPlaceholderOverlay) {
+        setIsEditing(true);
+      }
+    },
+    onBlur: () => {
+      dropEventHandlers.onBlur()
+      setIsEditing(false)
+    },
     className: cn(
       error && "border-red-500",
-      !isEditing && displayValue !== value && "text-blue-600" // Show in blue when displaying human-readable format
+      !isEditing && !isPureVariableReference && formattedDisplay !== (value || '') && "text-blue-600",
+      !isEditing && isPureVariableReference && "text-muted-foreground",
+      isDragOver && "ring-2 ring-blue-400 ring-offset-1"
     ),
+    readOnly: showAiPlaceholderOverlay,
+    ref: inputRef
   };
 
   // If in AI mode, show the "Defined by AI" UI
@@ -210,6 +277,11 @@ export function GenericTextInput({
           rows={(field as any).rows || 6}
           fieldLabel={field.label || field.name}
           disabled={field.disabled || false}
+          showPlaceholderOverlay={isPureVariableReference}
+          placeholderOverlayLabel={aiPlaceholderText}
+          onPlaceholderClear={() => {
+            clearAiPlaceholderValue();
+          }}
         />
       );
 
@@ -500,10 +572,29 @@ export function GenericTextInput({
         <div className="relative">
           <Input
             {...commonProps}
-            ref={inputRef}
             type="text"
+            tabIndex={showAiPlaceholderOverlay ? -1 : undefined}
+            className={cn(
+              commonProps.className,
+              showAiPlaceholderOverlay && "opacity-0 pointer-events-none select-none"
+            )}
           />
-          {showSuggestions && (
+          {showAiPlaceholderOverlay && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-between rounded-md bg-muted/80 text-muted-foreground px-3">
+              <div className="flex items-center gap-2 text-sm">
+                <Bot className="h-4 w-4" />
+                <span>{aiPlaceholderText}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveAiPlaceholder}
+                className="pointer-events-auto text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {showSuggestions && !showAiPlaceholderOverlay && (
             <div
               ref={suggestionsRef}
               className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-auto"

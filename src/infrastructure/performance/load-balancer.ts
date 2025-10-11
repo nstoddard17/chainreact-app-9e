@@ -119,11 +119,11 @@ export class LoadBalancer extends EventEmitter {
     this.config = {
       strategy: LoadBalancingStrategy.WEIGHTED_ROUND_ROBIN,
       healthCheckInterval: 30000, // 30 seconds
-      healthCheckTimeout: 5000,   // 5 seconds
+      healthCheckTimeout: 5000, // 5 seconds
       maxRetries: 3,
       retryDelay: 1000,
       stickySessions: false,
-      sessionTimeout: 3600000,    // 1 hour
+      sessionTimeout: 3600000, // 1 hour
       failover: true,
       adaptiveWeighting: true,
       performanceThreshold: 2000, // 2 seconds

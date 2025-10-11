@@ -79,7 +79,7 @@ async function executeGmailTriggerNode(node: any, context: any) {
     type: "gmail_trigger_new_email",
     test: true,
     mock_email: {
-      id: "mock_email_" + Date.now(),
+      id: `mock_email_${ Date.now()}`,
       subject: "Test Email Subject",
       from: "sender@example.com",
       to: context.userId ? `user-${context.userId}@example.com` : "user@example.com",

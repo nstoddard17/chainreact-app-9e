@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { data: subscriptions, error: subError } = await supabase
       .from('microsoft_graph_subscriptions')
       .select('*')
-      .eq('status', 'active')  // Only show active subscriptions
+      .eq('status', 'active') // Only show active subscriptions
       .order('created_at', { ascending: false })
 
     if (subError) {

@@ -84,7 +84,7 @@ export function GlobalErrorHandler() {
       )) {
         console.debug("👥 Presence channel error (expected):", event.message)
         event.preventDefault()
-        return
+        
       }
     }
 
@@ -127,7 +127,7 @@ export function GlobalErrorHandler() {
       )) {
         console.debug("👥 Presence channel rejection (expected):", event.reason)
         event.preventDefault()
-        return
+        
       }
     }
 
