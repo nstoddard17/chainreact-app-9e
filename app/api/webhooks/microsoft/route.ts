@@ -301,6 +301,24 @@ async function processNotifications(
                 }
               }
 
+              // Check to filter (for Email Sent trigger)
+              if (triggerConfig.to) {
+                const configTo = triggerConfig.to.toLowerCase().trim()
+                const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
+
+                const hasMatch = emailTo.some((addr: string) => addr === configTo)
+
+                if (!hasMatch) {
+                  // SECURITY: Don't log actual email addresses (PII)
+                  console.log('⏭️ Skipping email - to address does not match filter:', {
+                    hasExpected: !!configTo,
+                    recipientCount: emailTo.length,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
               // Check importance filter
               if (triggerConfig.importance && triggerConfig.importance !== 'any') {
                 const configImportance = triggerConfig.importance.toLowerCase()
