@@ -70,11 +70,23 @@ export class MicrosoftGraphSubscriptionManager {
         clientState: clientState
       }
 
-      // Add associatedApplications for OneDrive subscriptions
+      // Add associatedApplications for OneDrive, OneNote, and Teams subscriptions
       if (resource.includes('/drive')) {
         subscriptionPayload.associatedApplications = [
           {
             applicationId: "bd7755bd-cba6-4de5-88f5-40439239fcd2"
+          }
+        ]
+      } else if (resource.includes('/onenote')) {
+        subscriptionPayload.associatedApplications = [
+          {
+            applicationId: "ecb3e2b0-4a12-4ea4-86aa-d5b17eac864f"
+          }
+        ]
+      } else if (resource.includes('/teams') || resource.includes('/chats')) {
+        subscriptionPayload.associatedApplications = [
+          {
+            applicationId: "427ee8d6-c7ca-45b1-909a-cc23a5ead5ae"
           }
         ]
       }
