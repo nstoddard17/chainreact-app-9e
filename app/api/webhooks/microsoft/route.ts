@@ -142,6 +142,22 @@ async function processNotifications(
         }
       }
 
+      // Check if this changeType should trigger the workflow
+      // Get the expected changeTypes from trigger config
+      const configuredChangeType = triggerResource.config?.changeType
+      if (configuredChangeType && changeType) {
+        const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
+
+        if (!allowedTypes.includes(changeType)) {
+          console.log('⏭️ Skipping notification - changeType not configured:', {
+            received: changeType,
+            configured: configuredChangeType,
+            subscriptionId: subId
+          })
+          continue
+        }
+      }
+
       // Trigger workflow execution directly (no queue needed)
       if (workflowId && userId) {
         console.log('🚀 Triggering workflow execution:', {
