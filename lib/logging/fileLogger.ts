@@ -138,11 +138,22 @@ class FileLogger {
     return `[${timestamp}] [${levelStr}] ${messages}\n`
   }
 
+  private safeWrite(fn: Function, args: any[]) {
+    try {
+      fn.apply(console, args)
+    } catch (error: any) {
+      // Ignore EPIPE and other console write errors
+      if (error?.code !== 'EPIPE') {
+        // Silently ignore - can't do much if console is broken
+      }
+    }
+  }
+
   private interceptConsole() {
     // Intercept console.log
     console.log = (...args) => {
       if (this.writeToConsole) {
-        this.originalConsole.log.apply(console, args)
+        this.safeWrite(this.originalConsole.log, args)
       }
       this.writeToLogFile(this.formatLogMessage('info', args))
     }
@@ -150,7 +161,7 @@ class FileLogger {
     // Intercept console.error
     console.error = (...args) => {
       if (this.writeToConsole) {
-        this.originalConsole.error.apply(console, args)
+        this.safeWrite(this.originalConsole.error, args)
       }
       this.writeToLogFile(this.formatLogMessage('error', args))
     }
@@ -158,7 +169,7 @@ class FileLogger {
     // Intercept console.warn
     console.warn = (...args) => {
       if (this.writeToConsole) {
-        this.originalConsole.warn.apply(console, args)
+        this.safeWrite(this.originalConsole.warn, args)
       }
       this.writeToLogFile(this.formatLogMessage('warn', args))
     }
@@ -166,7 +177,7 @@ class FileLogger {
     // Intercept console.info
     console.info = (...args) => {
       if (this.writeToConsole) {
-        this.originalConsole.info.apply(console, args)
+        this.safeWrite(this.originalConsole.info, args)
       }
       this.writeToLogFile(this.formatLogMessage('info', args))
     }
@@ -174,7 +185,7 @@ class FileLogger {
     // Intercept console.debug
     console.debug = (...args) => {
       if (this.writeToConsole) {
-        this.originalConsole.debug.apply(console, args)
+        this.safeWrite(this.originalConsole.debug, args)
       }
       this.writeToLogFile(this.formatLogMessage('debug', args))
     }
@@ -194,7 +205,7 @@ class FileLogger {
     // Write to console with color
     if (this.writeToConsole) {
       const prefix = `${color}[${level.toUpperCase()}]${colors.reset}`
-      this.originalConsole.log(prefix, ...args)
+      this.safeWrite(this.originalConsole.log, [prefix, ...args])
     }
 
     // Write to file
