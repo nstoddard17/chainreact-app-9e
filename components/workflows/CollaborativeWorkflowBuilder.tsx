@@ -95,6 +95,7 @@ function WorkflowBuilderContent() {
     handleNavigation,
     handleActionDialogClose,
     handleTriggerSelect,
+    handleTriggerDialogClose,
     handleActionSelect,
     handleAddActionClick,
     handleAddTrigger,
@@ -120,6 +121,7 @@ function WorkflowBuilderContent() {
     pendingNode,
     setPendingNode,
     handleSaveConfiguration,
+    handleConfigurationClose,
     aiAgentActionCallback,
 
     // Integration selection
@@ -298,7 +300,7 @@ function WorkflowBuilderContent() {
       {/* Dialogs */}
       <TriggerSelectionDialog
         open={showTriggerDialog}
-        onOpenChange={setShowTriggerDialog}
+        onOpenChange={handleTriggerDialogClose}
         selectedIntegration={selectedIntegration}
         setSelectedIntegration={setSelectedIntegration}
         selectedTrigger={selectedTrigger}
@@ -1350,7 +1352,7 @@ function WorkflowBuilderContent() {
         ) : (
           <ConfigurationModal
             isOpen={!!configuringNode}
-            onClose={() => setConfiguringNode(null)}
+            onClose={handleConfigurationClose}
             onBack={() => {
               // Close configuration modal and reopen the appropriate selection dialog
               const isPendingTrigger = configuringNode.id === 'pending-trigger'

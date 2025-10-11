@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
         // This check should catch ALL Google users without usernames
         if (!profileData?.username || profileData.username === '' || profileData.username === null) {
           console.log('Google user without username detected, redirecting to setup:', {
-            username: profileData?.username,
+            hasUsername: !!profileData?.username,
             provider: profileData?.provider
           })
           return NextResponse.redirect(`${origin}/auth/setup-username`)

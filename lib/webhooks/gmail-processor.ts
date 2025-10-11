@@ -627,11 +627,11 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       })
 
       if (!matches) {
-        console.log(`❌ Sender filter mismatch: "${emailFromRaw}" didn't match any of ${normalizedFilters.join(', ')}`)
+        console.log(`❌ Sender filter mismatch: email didn't match ${normalizedFilters.length} filter(s)`)
         return false
       }
 
-      console.log(`✅ Sender filter matched: "${emailFromRaw}" matched one of ${normalizedFilters.join(', ')}`)
+      console.log(`✅ Sender filter matched: email matched one of ${normalizedFilters.length} filter(s)`)
     }
   }
 
@@ -645,10 +645,10 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       : emailSubject.includes(subjectFilter)
 
     if (!isMatch) {
-      console.log(`❌ Subject filter mismatch: "${emailSubject}" doesn't match "${subjectFilter}" (exactMatch: ${exactMatch})`)
+      console.log(`❌ Subject filter mismatch: subject length ${emailSubject.length} doesn't match filter (exactMatch: ${exactMatch})`)
       return false
     }
-    console.log(`✅ Subject filter matched: "${emailSubject}" matches "${subjectFilter}" (exactMatch: ${exactMatch})`)
+    console.log(`✅ Subject filter matched: subject length ${emailSubject.length} matches filter (exactMatch: ${exactMatch})`)
   }
 
   if (filters.hasAttachment && filters.hasAttachment !== 'any') {

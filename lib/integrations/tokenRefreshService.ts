@@ -662,7 +662,7 @@ export async function refreshTokenForProvider(
     // Log the request details
     if (verbose) {
       console.log(`Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-      console.log(`Request body: ${bodyString}`)
+      console.log(`Request body params:`, Object.keys(bodyParams).join(', '))
     } else {
       console.log(`Refreshing token for ${provider}`)
     }
@@ -721,7 +721,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Airtable errors
       if (provider === "airtable") {
-        if (verbose) console.log(`Airtable error details: ${JSON.stringify(responseData)}`)
+        if (verbose) console.log(`Airtable error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
           needsReauth = true
@@ -730,7 +730,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Microsoft-related providers (Teams, OneDrive)
       if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-        if (verbose) console.log(`Microsoft error details: ${JSON.stringify(responseData)}`)
+        if (verbose) console.log(`Microsoft error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
           needsReauth = true
@@ -739,7 +739,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for TikTok
       else if (provider === "tiktok") {
-        if (verbose) console.log(`TikTok error details: ${JSON.stringify(responseData)}`)
+        if (verbose) console.log(`TikTok error type: ${responseData.error}`)
         
         // Common TikTok error patterns
         if (responseData.error === "invalid_client") {
@@ -757,7 +757,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for Kit
       else if (provider === "kit") {
-        if (verbose) console.log(`Kit error details: ${JSON.stringify(responseData)}`)
+        if (verbose) console.log(`Kit error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
           finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
@@ -770,7 +770,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for PayPal
       else if (provider === "paypal") {
-        if (verbose) console.log(`PayPal error details: ${JSON.stringify(responseData)}`)
+        if (verbose) console.log(`PayPal error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_client") {
           finalErrorMessage = "PayPal client credentials are invalid. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET."

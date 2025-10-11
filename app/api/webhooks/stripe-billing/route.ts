@@ -100,17 +100,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   console.log("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
   console.log("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
   console.log("[Stripe Webhook] Customer:", session.customer)
-  console.log("[Stripe Webhook] Customer email:", session.customer_details?.email)
+  console.log("[Stripe Webhook] Has customer email:", !!session.customer_details?.email)
   console.log("[Stripe Webhook] Subscription ID:", session.subscription)
-  
+
   // Try multiple sources for user info
   let userId = session.metadata?.user_id
   const planId = session.metadata?.plan_id || 'pro' // Default to pro if not specified
   const billingCycle = session.metadata?.billing_cycle || 'monthly'
-  
+
   // If no userId in metadata, try to find from customer email
   if (!userId && session.customer_details?.email) {
-    console.log("[Stripe Webhook] No userId in metadata, attempting to find by email:", session.customer_details.email)
+    console.log("[Stripe Webhook] No userId in metadata, attempting to find by email")
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")

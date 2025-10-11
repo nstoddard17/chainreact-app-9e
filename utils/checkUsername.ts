@@ -51,9 +51,8 @@ export async function requireUsername() {
   
   console.log('[Username Check]', {
     userId: user.id,
-    email: user.email,
+    hasEmail: !!user.email,
     provider: profile?.provider,
-    username: profile?.username,
     hasUsername: !!(profile?.username && profile.username.trim() !== ''),
     isGoogleUser: profile?.provider === 'google'
   })

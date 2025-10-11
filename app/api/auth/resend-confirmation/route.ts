@@ -178,8 +178,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Log the resend attempt for monitoring
-    console.log(`Confirmation email resent to: ${email} from IP: ${clientIp}`)
+    // Log the resend attempt for monitoring (PII masked)
+    const { maskEmail } = await import('@/lib/utils/logging')
+    console.log(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
 
     return NextResponse.json(
       { message: 'Confirmation email has been resent. Please check your inbox.' },

@@ -75,15 +75,15 @@ export async function POST(request: Request) {
         )
 
         if (!result.success) {
-          console.error(`Failed to send email to ${tester.email}:`, result.error)
+          console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, result.error)
           // Log the signup URL as fallback
-          console.log(`Beta Tester Invitation for ${tester.email}:`)
+          console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
           console.log(`Signup URL: ${signupUrl}`)
         }
       } catch (emailError) {
-        console.error(`Failed to send email to ${tester.email}:`, emailError)
+        console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, emailError)
         // Log the signup URL as fallback
-        console.log(`Beta Tester Invitation for ${tester.email}:`)
+        console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
         console.log(`Signup URL: ${signupUrl}`)
       }
     })

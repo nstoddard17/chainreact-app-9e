@@ -109,10 +109,9 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     }
 
     console.log(`Attempting to decrypt access token for ${provider}`)
-    // SECURITY: Never log token values or previews
+    // SECURITY: Never log token values, previews, or metadata
     console.log(`Token format check:`, {
       hasColon: accessToken.includes(':'),
-      tokenLength: accessToken.length,
       isEncrypted: accessToken.includes(':')
     })
 
@@ -130,8 +129,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     } catch (decryptError: any) {
       console.error(`Decryption failed for ${provider}:`, {
         error: decryptError.message,
-        tokenFormat: 'encrypted',
-        tokenLength: accessToken.length
+        tokenFormat: 'encrypted'
       })
       
       throw new Error(`Failed to decrypt ${provider} access token: ${decryptError.message}`)

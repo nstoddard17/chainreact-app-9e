@@ -243,7 +243,6 @@ export class DataFlowManager {
       if (output) {
         console.log(`📎 Output success:`, output.success)
         console.log(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
-        console.log(`📎 Output data:`, JSON.stringify(output.data, null, 2))
       }
       
       if (output && output.success) {
