@@ -190,6 +190,70 @@ async function processNotifications(
             if (emailResponse.ok) {
               const email = await emailResponse.json()
 
+              // Check folder filter
+              // Default to Inbox if no folder configured (folder field always has a value or defaults to Inbox)
+              if (email.parentFolderId) {
+                let configFolderId = triggerConfig.folder
+
+                // If no folder configured, default to Inbox
+                if (!configFolderId) {
+                  try {
+                    const foldersResponse = await fetch(
+                      'https://graph.microsoft.com/v1.0/me/mailFolders',
+                      {
+                        headers: {
+                          'Authorization': `Bearer ${accessToken}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    )
+
+                    if (foldersResponse.ok) {
+                      const folders = await foldersResponse.json()
+                      const inboxFolder = folders.value.find((f: any) =>
+                        f.displayName?.toLowerCase() === 'inbox'
+                      )
+                      configFolderId = inboxFolder?.id || null
+                    }
+                  } catch (folderError) {
+                    console.warn('⚠️ Failed to get Inbox folder ID, allowing all folders:', folderError)
+                  }
+                }
+
+                // Check if current email is in the configured folder
+                if (configFolderId && email.parentFolderId !== configFolderId) {
+                  try {
+                    const folderResponse = await fetch(
+                      `https://graph.microsoft.com/v1.0/me/mailFolders/${email.parentFolderId}`,
+                      {
+                        headers: {
+                          'Authorization': `Bearer ${accessToken}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    )
+
+                    const folderName = folderResponse.ok
+                      ? (await folderResponse.json()).displayName
+                      : email.parentFolderId
+
+                    console.log('⏭️ Skipping email - not in configured folder:', {
+                      expectedFolderId: configFolderId,
+                      actualFolderId: email.parentFolderId,
+                      actualFolderName: folderName,
+                      subscriptionId: subId
+                    })
+                  } catch (folderError) {
+                    console.log('⏭️ Skipping email - not in configured folder:', {
+                      expectedFolderId: configFolderId,
+                      actualFolderId: email.parentFolderId,
+                      subscriptionId: subId
+                    })
+                  }
+                  continue
+                }
+              }
+
               // Check subject filter
               if (triggerConfig.subject) {
                 const configSubject = triggerConfig.subject.toLowerCase().trim()
