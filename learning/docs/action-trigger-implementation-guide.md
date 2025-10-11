@@ -786,26 +786,55 @@ const dedupKey = isEmailNotification
 
 #### Issue 3: Deletions Triggering Workflows
 
-**Problem**: Deleting emails from Outlook triggers the workflow because:
-- Moving to "Deleted Items" folder sends `changeType: "updated"` notification
-- Your subscription had `"created,updated"` configured
+**Problem**: Deleting emails from Outlook triggers the workflow because Microsoft sends `changeType: "created"` notifications when emails are moved to the "Deleted Items" folder (treating it as a "new email" in that folder).
 
-**Solutions** (layered approach):
-1. **Subscription level**: Only subscribe to "created" (prevents most deletion triggers)
-2. **Webhook filtering**: Check incoming `changeType` against configured types
-3. **Content filtering**: Fetch actual email and check subject/from/importance filters
+**Root Cause**:
+- Microsoft Graph subscriptions to `/me/messages` monitor ALL folders
+- When you delete an email, it moves to "Deleted Items"
+- Microsoft sends a `changeType: "created"` notification with a NEW message ID for the email in the deleted folder
 
+**Solution**: Respect the folder configuration field. The Outlook trigger has a `folder` field that defaults to Inbox.
+
+In webhook handler (`/app/api/webhooks/microsoft/route.ts`):
 ```typescript
-// Check if this changeType should trigger the workflow
-if (configuredChangeType && changeType) {
-  const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
+// Check folder filter - defaults to Inbox if not configured
+if (email.parentFolderId) {
+  let configFolderId = triggerConfig.folder
 
-  if (!allowedTypes.includes(changeType)) {
-    console.log('⏭️ Skipping notification - changeType not configured')
-    continue // Skip this notification
+  // If no folder configured, default to Inbox
+  if (!configFolderId) {
+    const foldersResponse = await fetch(
+      'https://graph.microsoft.com/v1.0/me/mailFolders',
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (foldersResponse.ok) {
+      const folders = await foldersResponse.json()
+      const inboxFolder = folders.value.find((f: any) =>
+        f.displayName?.toLowerCase() === 'inbox'
+      )
+      configFolderId = inboxFolder?.id || null
+    }
+  }
+
+  // Check if current email is in the configured folder
+  if (configFolderId && email.parentFolderId !== configFolderId) {
+    console.log('⏭️ Skipping email - not in configured folder:', {
+      expectedFolderId: configFolderId,
+      actualFolderId: email.parentFolderId,
+      subscriptionId: subId
+    })
+    continue
   }
 }
 ```
+
+**Key Insight**: The folder field in the node config is ALWAYS set (or should default to Inbox). By checking that the email's `parentFolderId` matches the configured folder, deletions are automatically filtered out because deleted emails move to a different folder.
 
 #### Issue 4: Missing Content Filtering
 
@@ -948,13 +977,13 @@ const params = new URLSearchParams({
 1. **Always subscribe to specific changeTypes** - Never use "created,updated,deleted" for new item triggers
 2. **Implement deduplication** - Store processed notification IDs to prevent duplicates
 3. **Filter at webhook level** - Fetch actual resource and check filters before triggering workflow
-4. **Handle changeType filtering** - Check incoming changeType matches subscription config
+4. **Respect folder configuration** - Check email's `parentFolderId` matches configured folder (defaults to Inbox)
 5. **Use clientState for security** - Verify webhook authenticity
 6. **Implement exponential backoff** - For subscription renewal and API calls
 7. **Log extensively** - Microsoft Graph webhooks can be tricky to debug
 8. **Fail-open for filters** - If filter check fails, allow execution (reliability > perfection)
 9. **Test edge cases**:
-   - Deleting items
+   - Deleting items (should NOT trigger if folder filter is set)
    - Moving items between folders
    - Bulk operations
    - Items created by other apps
@@ -963,32 +992,40 @@ const params = new URLSearchParams({
 ### Common Microsoft Graph Webhook Gotchas
 
 ❌ **Don't**:
-- Subscribe to all changeTypes ("created,updated,deleted")
+- Subscribe to all changeTypes ("created,updated,deleted") for new item triggers
 - Assume notification order (they can arrive out of order)
 - Trust notification timestamps (use actual resource timestamps)
 - Skip deduplication (Microsoft can send duplicates)
 - Ignore webhook signature validation
 - Create subscriptions during integration connection (use Trigger Lifecycle Pattern)
+- Assume `/me/messages` only monitors one folder (it monitors ALL folders including Deleted Items)
 
 ✅ **Do**:
-- Subscribe to specific changeTypes only
+- Subscribe to specific changeTypes only ("created" for new items)
 - Implement deduplication at webhook level
-- Fetch actual resource to verify state
-- Check filters before triggering workflow
+- Fetch actual resource to verify state and folder
+- Check folder filter to prevent deletion triggers
+- Check content filters (subject, from, importance) before triggering workflow
 - Store subscription metadata in `trigger_resources`
 - Clean up subscriptions when workflows are deactivated
 - Test with actual Microsoft accounts (dev accounts behave differently)
+- Default to Inbox folder if no folder is configured
 
 ### Testing Microsoft Graph Triggers
 
-1. **Test subscription creation**: Check `trigger_resources` table has entries
+1. **Test subscription creation**: Check `trigger_resources` table has entries with correct `folder` config
 2. **Test new item**: Verify workflow triggers once (not twice)
 3. **Test subject filter**: Send email with wrong subject, verify no trigger
 4. **Test from filter**: Send from different address, verify no trigger
-5. **Test deletions**: Delete item, verify no trigger
-6. **Test deactivation**: Deactivate workflow, verify no more triggers
-7. **Test reactivation**: Reactivate, verify fresh subscription works
-8. **Test bulk operations**: Create/delete multiple items, verify correct behavior
+5. **Test folder filter**:
+   - Send email to Inbox → should trigger ✅
+   - Send email to different folder → should NOT trigger ❌
+6. **Test deletions**:
+   - Delete email from configured folder → should NOT trigger ❌
+   - Check logs show "⏭️ Skipping email - not in configured folder"
+7. **Test deactivation**: Deactivate workflow, verify no more triggers
+8. **Test reactivation**: Reactivate, verify fresh subscription works with correct folder
+9. **Test bulk operations**: Create/delete multiple items, verify correct behavior and deduplication
 
 ### Microsoft Graph Subscription Lifecycle
 

@@ -34,6 +34,14 @@ const outlookTriggerNewEmail: NodeComponent = {
       description: "Filter emails by sender address"
     },
     {
+      name: "subjectExactMatch",
+      label: "Exact match",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Match the subject exactly (case-insensitive). Turn off to match emails that contain the subject text anywhere in the subject line."
+    },
+    {
       name: "subject",
       label: "Subject",
       type: "text",
