@@ -1,1 +1,16 @@
-{"associatedApplications":[{"applicationId":"68058b0d-f7cf-464f-a459-f686a36869d7"}]}
+{
+  "associatedApplications": [
+    {
+      "applicationId": "68058b0d-f7cf-464f-a459-f686a36869d7"
+    },
+    {
+      "applicationId": "bd7755bd-cba6-4de5-88f5-40439239fcd2"
+    },
+    {
+      "applicationId": "ecb3e2b0-4a12-4ea4-86aa-d5b17eac864f"
+    },
+    {
+      "applicationId": "427ee8d6-c7ca-45b1-909a-cc23a5ead5ae"
+    }
+  ]
+}
