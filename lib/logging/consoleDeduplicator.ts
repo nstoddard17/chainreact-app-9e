@@ -15,6 +15,25 @@ const originalConsole = {
 }
 
 /**
+ * Safe write wrapper to handle EPIPE errors
+ */
+function safeWrite(fn: Function, args: any[]) {
+  try {
+    fn.apply(console, args)
+  } catch (error: any) {
+    // Ignore EPIPE errors (broken pipe) which occur when stdout/stderr is closed
+    if (error?.code !== 'EPIPE') {
+      // For other errors, attempt to report them but ignore if that also fails
+      try {
+        process.stderr.write(`Console write error: ${error?.message}\n`)
+      } catch {
+        // Silently ignore if we can't even write the error
+      }
+    }
+  }
+}
+
+/**
  * Initialize console deduplication
  * Call this once at application startup
  */
@@ -24,7 +43,7 @@ export function initConsoleDeduplication() {
     const message = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
 
     if (shouldLog(message, args, 'log')) {
-      originalConsole.log.apply(console, args)
+      safeWrite(originalConsole.log, args)
     }
   }
 
@@ -33,7 +52,7 @@ export function initConsoleDeduplication() {
     const message = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
 
     if (shouldLog(message, args, 'error')) {
-      originalConsole.error.apply(console, args)
+      safeWrite(originalConsole.error, args)
     }
   }
 
@@ -42,7 +61,7 @@ export function initConsoleDeduplication() {
     const message = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
 
     if (shouldLog(message, args, 'warn')) {
-      originalConsole.warn.apply(console, args)
+      safeWrite(originalConsole.warn, args)
     }
   }
 
@@ -51,7 +70,7 @@ export function initConsoleDeduplication() {
     const message = typeof args[0] === 'string' ? args[0] : JSON.stringify(args[0])
 
     if (shouldLog(message, args, 'info')) {
-      originalConsole.info.apply(console, args)
+      safeWrite(originalConsole.info, args)
     }
   }
 }
@@ -92,10 +111,10 @@ function shouldLog(message: string, args: any[], level: string): boolean {
 
     // If this is becoming repetitive, show a count
     if (existing.count === 2) {
-      originalConsole.log(`⚡ Previous message is repeating...`)
+      safeWrite(originalConsole.log, [`⚡ Previous message is repeating...`])
     } else if (existing.count % 10 === 0) {
       // Every 10 repetitions, show a count
-      originalConsole.log(`⚡ Previous message repeated ${existing.count} times`)
+      safeWrite(originalConsole.log, [`⚡ Previous message repeated ${existing.count} times`])
     }
 
     return false // Don't log the duplicate

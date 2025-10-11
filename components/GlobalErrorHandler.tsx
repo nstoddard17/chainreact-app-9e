@@ -45,7 +45,14 @@ export function GlobalErrorHandler() {
       }
 
       // Call the original console.error for all other errors
-      originalConsoleError.apply(console, args)
+      try {
+        originalConsoleError.apply(console, args)
+      } catch (error: any) {
+        // Ignore EPIPE errors (broken pipe) which occur when stdout/stderr is closed
+        if (error?.code !== 'EPIPE') {
+          // Silently ignore - can't do much if console itself is broken
+        }
+      }
     }
 
     // Restore original console.warn (no special filtering needed)
