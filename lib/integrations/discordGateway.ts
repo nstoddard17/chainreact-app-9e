@@ -224,7 +224,7 @@ class DiscordGateway extends SimpleEventEmitter {
         // Remove quotes if they exist (common mistake in .env files)
         this.botToken = this.botToken.replace(/^["']|["']$/g, '')
 
-        console.log(`🔑 Discord bot token loaded, length: ${this.botToken.length}`)
+        console.log('🔑 Discord bot token loaded')
 
         // Basic token format validation
         if (!validateDiscordBotToken(this.botToken)) {

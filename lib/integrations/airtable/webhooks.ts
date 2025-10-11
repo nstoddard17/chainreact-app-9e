@@ -380,7 +380,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     console.log(`🎯 Webhook will monitor entire base: ${baseId}`)
   }
 
-  console.log(`📤 Creating webhook for base ${baseId} with payload:`, JSON.stringify(webhookPayload, null, 2))
+  console.log(`📤 Creating webhook for base ${baseId} with payload keys:`, Object.keys(webhookPayload))
 
   const res = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
     method: 'POST',

@@ -113,25 +113,25 @@ export default function DashboardContent() {
 
     // First try username from profile
     if (profile?.username) {
-      console.log('✅ [Dashboard] Using username:', profile.username)
+      console.log('✅ [Dashboard] Using username from profile')
       return profile.username
     }
     // Then try full name and extract first part
     if (profile?.full_name) {
       const firstName = profile.full_name.split(" ")[0]
-      console.log('✅ [Dashboard] Using full_name first part:', firstName)
+      console.log('✅ [Dashboard] Using full_name first part')
       return firstName
     }
     // Fallback to user name if available
     if (user?.name) {
       const firstName = user.name.split(" ")[0]
-      console.log('⚠️ [Dashboard] Falling back to user.name:', firstName)
+      console.log('⚠️ [Dashboard] Falling back to user.name')
       return firstName
     }
     // Last resort: extract from email
     if (user?.email) {
       const emailName = user.email.split("@")[0]
-      console.log('⚠️ [Dashboard] Falling back to email:', emailName)
+      console.log('⚠️ [Dashboard] Falling back to email prefix')
       return emailName
     }
     console.log('❌ [Dashboard] No name found, using default "User"')

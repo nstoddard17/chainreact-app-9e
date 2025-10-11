@@ -123,7 +123,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
         console.log('[Slack] ✅ Successfully using USER token (xoxp-) - message will appear as sent by the user');
       } else if (userToken) {
         // Token exists but might not be the right format
-        console.warn('[Slack] User token exists but may not be valid format:', `${userToken.substring(0, 5) }...`);
+        console.warn('[Slack] User token exists but may not be valid format');
         tokenToUse = userToken;
         isActuallyUsingUserToken = true;
       } else {
@@ -150,9 +150,9 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     throw new Error('Failed to decrypt Slack token. Please reconnect your Slack account.');
   }
 
-  // Log token type for debugging (safely, without exposing the full token)
+  // Log token type for debugging (without exposing token data)
   const tokenType = tokenToUse.startsWith('xoxp-') ? 'USER' : tokenToUse.startsWith('xoxb-') ? 'BOT' : 'UNKNOWN';
-  console.log(`[Slack] Using ${tokenType} token (${tokenToUse.substring(0, 10)}...)`);
+  console.log(`[Slack] Using ${tokenType} token`);
   console.log('[Slack] Will message appear as user?', isActuallyUsingUserToken);
 
   try {

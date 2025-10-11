@@ -997,6 +997,90 @@ const params = new URLSearchParams({
 - Trust notification timestamps (use actual resource timestamps)
 - Skip deduplication (Microsoft can send duplicates)
 - Ignore webhook signature validation
+
+---
+
+## Trigger Deletion UX Pattern
+
+### The Problem
+When users delete a trigger node from a workflow, they're left with orphaned action nodes and no way to add a new trigger without deleting everything.
+
+### The Solution: Automatic Trigger Replacement Flow
+
+When a user deletes a trigger, the system automatically prompts them to select a replacement trigger. If they cancel, the original trigger is restored.
+
+#### Implementation Details
+
+**Files Modified:**
+1. [useWorkflowBuilder.ts:80](../../hooks/workflows/useWorkflowBuilder.ts#L80) - Added `deletedTriggerBackupRef` to store deleted trigger state
+2. [useWorkflowBuilder.ts:2891-2914](../../hooks/workflows/useWorkflowBuilder.ts#L2891) - Modified `confirmDeleteNode` to detect trigger deletion and open trigger selection dialog
+3. [useWorkflowBuilder.ts:2206-2235](../../hooks/workflows/useWorkflowBuilder.ts#L2206) - Added `handleTriggerDialogClose` to handle restoration logic
+4. [useWorkflowBuilder.ts:3195-3219](../../hooks/workflows/useWorkflowBuilder.ts#L3195) - Modified `handleConfigurationClose` to restore trigger when user cancels config
+5. [CollaborativeWorkflowBuilder.tsx:302](../../components/workflows/CollaborativeWorkflowBuilder.tsx#L302) - Connected trigger dialog to restoration handler
+
+**User Flow:**
+
+**Scenario 1: Cancel without selecting new trigger**
+1. User deletes trigger → Backup stored
+2. Deletion confirmation modal appears → User confirms
+3. Trigger deleted → Trigger selection dialog opens automatically
+4. User clicks "Cancel" → Original trigger restored ✅
+
+**Scenario 2: Select trigger without configuration**
+1. User deletes trigger → Backup stored
+2. Trigger selection dialog opens
+3. User selects simple trigger (e.g., manual trigger) → Trigger added immediately
+4. Backup cleared ✅
+
+**Scenario 3: Select trigger with configuration, then cancel config**
+1. User deletes trigger → Backup stored
+2. Trigger selection dialog opens
+3. User selects trigger that needs config (e.g., Outlook) → Config modal opens
+4. Trigger selection dialog closes → Backup preserved (NOT cleared yet)
+5. User clicks X on config modal → `handleConfigurationClose` runs → Original trigger restored ✅
+
+**Scenario 4: Select trigger with configuration, then save config**
+1. User deletes trigger → Backup stored
+2. Trigger selection dialog opens
+3. User selects trigger that needs config → Config modal opens
+4. User fills config and saves → `handleAddTrigger` runs → New trigger added → Backup cleared ✅
+
+**Key Implementation Points:**
+
+1. **Backup Storage**: Store deleted trigger node + edges in a ref when trigger is deleted
+2. **Backup Clearing**: Only clear backup when:
+   - User selects a trigger that doesn't need config (added immediately)
+   - User successfully saves configuration for new trigger
+3. **Restoration Check**: When trigger dialog or config modal closes, check:
+   - Does workflow have a trigger now?
+   - Is there a pending trigger configuration?
+   - If both are false → restore backup
+
+**Code Pattern:**
+```typescript
+// Store backup on deletion
+deletedTriggerBackupRef.current = {
+  node: { ...nodeToDelete },
+  edges: currentEdges.filter(e => e.source === nodeId || e.target === nodeId)
+}
+
+// Restore on cancel
+if (!hasNewTrigger && !isPendingTriggerConfig && backup) {
+  setNodes((prevNodes) => [...prevNodes, backup.node])
+  setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+}
+
+// Clear on success
+deletedTriggerBackupRef.current = null
+```
+
+**Why This Matters:**
+- Prevents users from getting stuck with orphaned actions
+- Maintains workflow integrity
+- Provides clear path forward (replace or keep existing trigger)
+- Better UX than forcing manual trigger re-addition
+
+**Related Issue:** Without this fix, users who deleted triggers could only add new triggers by using the "EmptyWorkflowState" component, which only appears when ALL nodes are deleted.
 - Create subscriptions during integration connection (use Trigger Lifecycle Pattern)
 - Assume `/me/messages` only monitors one folder (it monitors ALL folders including Deleted Items)
 

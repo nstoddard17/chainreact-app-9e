@@ -320,8 +320,8 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
     const { userId, config, input, workflowContext } = params
 
     console.log("🤖 AI Agent execution started:")
-    console.log("📋 Raw Config:", JSON.stringify(config, null, 2))
-    console.log("📥 Raw Input data:", JSON.stringify(input, null, 2))
+    console.log("📋 Config keys:", Object.keys(config || {}))
+    console.log("📥 Input data keys:", Object.keys(input || {}))
     console.log("👤 User ID:", userId)
     console.log("🔧 Workflow context:", workflowContext ? "present" : "missing")
 
@@ -374,19 +374,19 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
     
-    console.log("🔍 Filtered input data:", JSON.stringify(filteredInput, null, 2))
-    console.log("🔍 Selected variables:", JSON.stringify(selectedVariables, null, 2))
-    console.log("🔍 Use static values:", JSON.stringify(useStaticValues, null, 2))
-    console.log("🔍 Variable values:", JSON.stringify(variableValues, null, 2))
-    
+    console.log("🔍 Filtered input keys:", Object.keys(filteredInput))
+    console.log("🔍 Selected variables count:", Object.keys(selectedVariables).length)
+    console.log("🔍 Use static values count:", Object.keys(useStaticValues).length)
+    console.log("🔍 Variable values count:", Object.keys(variableValues).length)
+
     // Now resolve templated values with the filtered input available
-    const resolvedConfig = resolveValue(config, { 
-      input: filteredInput, 
-      ...filteredInput, 
+    const resolvedConfig = resolveValue(config, {
+      input: filteredInput,
+      ...filteredInput,
       dataFlowManager: input.dataFlowManager,
-      nodeOutputs: input.nodeOutputs 
+      nodeOutputs: input.nodeOutputs
     }, config.triggerOutputs)
-    console.log("🔧 Resolved config:", JSON.stringify(resolvedConfig, null, 2))
+    console.log("🔧 Resolved config keys:", Object.keys(resolvedConfig || {}))
     
     // 2. Extract parameters
     const {

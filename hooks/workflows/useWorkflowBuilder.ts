@@ -77,6 +77,7 @@ export function useWorkflowBuilder() {
   
   // Store onClick handlers for AddActionNodes - needs to be before setNodes
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
+  const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
 
   // React Flow state
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
@@ -2183,6 +2184,11 @@ export function useWorkflowBuilder() {
       setHasUnsavedChanges(true)
     }
     dialogsHook.setShowTriggerDialog(false)
+    // Only clear the backup if this trigger doesn't need configuration
+    // (if it needs config, backup will be cleared on successful save or restored on cancel)
+    if (!configHook.nodeNeedsConfiguration(trigger)) {
+      deletedTriggerBackupRef.current = null
+    }
   }, [
     configHook,
     dialogsHook,
@@ -2198,6 +2204,38 @@ export function useWorkflowBuilder() {
     fitView,
     setHasUnsavedChanges
   ])
+
+  // Handle trigger dialog close (for restoration logic)
+  const handleTriggerDialogClose = useCallback((open: boolean) => {
+    // Always call the original setter first
+    dialogsHook.setShowTriggerDialog(open)
+
+    // Only handle restoration when dialog is actually closing and we have a backup
+    if (!open && deletedTriggerBackupRef.current) {
+      // Store backup in local variable to avoid null issues
+      const backup = deletedTriggerBackupRef.current
+
+      // Clear backup immediately to prevent re-processing
+      deletedTriggerBackupRef.current = null
+
+      // Small delay to let the dialog close and any pending trigger selection complete
+      setTimeout(() => {
+        // Check if a new trigger was selected or is being configured
+        const hasNewTrigger = getNodes().some(n => {
+          const comp = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+          return comp?.isTrigger === true
+        })
+
+        const isPendingTriggerConfig = configHook.pendingNode?.type === 'trigger'
+
+        if (!hasNewTrigger && !isPendingTriggerConfig && backup) {
+          // No new trigger selected and no pending configuration - restore the old one
+          setNodes((prevNodes) => [...prevNodes, backup.node])
+          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+        }
+      }, 100)
+    }
+  }, [getNodes, setNodes, setEdges, dialogsHook, configHook])
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
@@ -2288,6 +2326,9 @@ export function useWorkflowBuilder() {
 
   // Handle adding a trigger node
   const handleAddTrigger = useCallback((integration: any, nodeComponent: any, config: Record<string, any>) => {
+    // Clear the backup since we're successfully adding a new trigger
+    deletedTriggerBackupRef.current = null
+
     const newNodeId = `trigger-${Date.now()}`
     const newNode: Node = {
       id: newNodeId,
@@ -2306,7 +2347,7 @@ export function useWorkflowBuilder() {
         onRename: handleNodeRename
       }
     }
-    
+
     // Add the trigger node
     setNodes(nds => {
       const updatedNodes = [...nds, newNode]
@@ -2883,6 +2924,35 @@ export function useWorkflowBuilder() {
     const currentEdges = getEdges()
     const currentNodes = getNodes()
 
+    // Check if this is a trigger node
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToDelete.data?.type)
+    const isTriggerNode = nodeComponent?.isTrigger === true
+
+    // If deleting a trigger, show trigger selection dialog instead
+    if (isTriggerNode) {
+      // Store the deleted trigger info for potential restoration
+      deletedTriggerBackupRef.current = {
+        node: { ...nodeToDelete },
+        edges: currentEdges.filter(e => e.source === nodeId || e.target === nodeId)
+      }
+
+      // Close the deletion modal
+      dialogsHook.setDeletingNode(null)
+
+      // First, actually delete the node
+      setNodes((prevNodes) => prevNodes.filter(n => n.id !== nodeId))
+      setEdges((prevEdges) => prevEdges.filter(e => e.source !== nodeId && e.target !== nodeId))
+      setHasUnsavedChanges(true)
+
+      // Small delay to ensure deletion is processed
+      setTimeout(() => {
+        // Now open the trigger selection dialog
+        dialogsHook.setShowTriggerDialog(true)
+      }, 100)
+
+      return
+    }
+
     // Check if this is an AI Agent node
     const isAIAgent = nodeToDelete.data?.type === 'ai_agent'
 
@@ -3129,8 +3199,30 @@ export function useWorkflowBuilder() {
   const [filteredIntegrations, setFilteredIntegrations] = useState<any[]>([])
 
   const handleConfigurationClose = useCallback(() => {
+    // Check if we're cancelling a pending trigger configuration after deleting an old trigger
+    const wasPendingTrigger = configHook.pendingNode?.type === 'trigger' && deletedTriggerBackupRef.current
+
     configHook.setConfiguringNode(null)
-  }, [configHook])
+
+    // If user was configuring a new trigger to replace a deleted one, and they cancelled, restore the old trigger
+    if (wasPendingTrigger && deletedTriggerBackupRef.current) {
+      const backup = deletedTriggerBackupRef.current
+      deletedTriggerBackupRef.current = null
+
+      // Small delay to let config modal close
+      setTimeout(() => {
+        const hasNewTrigger = getNodes().some(n => {
+          const comp = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+          return comp?.isTrigger === true
+        })
+
+        if (!hasNewTrigger && backup) {
+          setNodes((prevNodes) => [...prevNodes, backup.node])
+          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+        }
+      }, 50)
+    }
+  }, [configHook, getNodes, setNodes, setEdges])
 
   const handleConfigurationSave = useCallback(async (config: any) => {
     if (configHook.configuringNode) {
@@ -3229,14 +3321,15 @@ export function useWorkflowBuilder() {
     handleToggleLive,
     isUpdatingStatus,
     handleTriggerSelect,
+    handleTriggerDialogClose,
     handleActionSelect,
     handleAddActionClick,
     handleAddTrigger,
     handleAddAction,
-    
+
     // Collaboration
     collaborators,
-    
+
     // From custom hooks (spread but override certain handlers)
     ...executionHook,
     handleTestSandbox,  // Override with wrapped version

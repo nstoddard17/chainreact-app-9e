@@ -75,9 +75,7 @@ export class MicrosoftGraphSubscriptionManager {
         changeType,
         expirationDateTime: expirationDateTime.toISOString(),
         notificationUrl,
-        userId,
-        userIdLength: userId?.length,
-        userIdType: typeof userId
+        userId
       })
 
       console.log('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))

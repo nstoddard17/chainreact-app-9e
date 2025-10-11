@@ -614,7 +614,6 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     return { processed: true, eventType: 'drive.notification' }
   }
 
-  const pageTokenPreview = `${String(subscription.page_token).slice(0, 8) }...`
   if (channelId) {
     const lastToken = lastDrivePageTokenProcessed.get(channelId)
     if (lastToken && lastToken === subscription.page_token) {
@@ -624,7 +623,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     lastDrivePageTokenProcessed.set(channelId, subscription.page_token)
   }
   const fetchLogLabel = isSheetsWatch ? '[Google Sheets] Fetching changes' : '[Google Drive] Fetching changes'
-  console.log(fetchLogLabel, { pageToken: pageTokenPreview, updatedAt: subscription?.updated_at })
+  console.log(fetchLogLabel, { hasPageToken: !!subscription.page_token, updatedAt: subscription?.updated_at })
   const integrationProvider = isSheetsWatch ? 'google-sheets' : 'google-drive'
   const changes = await getGoogleDriveChanges(
     metadata.userId,

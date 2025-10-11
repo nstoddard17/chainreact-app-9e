@@ -26,15 +26,15 @@ export function mapWorkflowData(data: any, mapping: Record<string, string>): any
 export function replaceTemplateVariables(template: string, data: any): any {
   if (typeof template !== 'string') return template
 
-  console.log(`🔧 Replacing variables in template: "${template}"`)
-  console.log(`🔧 Available data:`, JSON.stringify(data, null, 2))
+  console.log(`🔧 Replacing variables in template length: ${template.length}`)
+  console.log(`🔧 Available data keys:`, Object.keys(data || {}))
 
   // Special debug for message content
   if (template.includes('Message Content')) {
     console.log(`🔧 🚨 MESSAGE CONTENT DEBUG:`)
-    console.log(`🔧   - template contains: ${template}`)
-    console.log(`🔧   - data.message: ${JSON.stringify(data?.message, null, 2)}`)
-    console.log(`🔧   - data.message.content: "${data?.message?.content}"`)
+    console.log(`🔧   - template length: ${template.length}`)
+    console.log(`🔧   - data.message exists: ${!!data?.message}`)
+    console.log(`🔧   - data.message.content length: ${data?.message?.content?.length || 0}`)
   }
 
   // Handle template syntax like {{New Message in Channel.Message Content}}
@@ -83,15 +83,15 @@ function resolveDiscordMessageField(fieldName: string, data: any): any {
   switch (fieldName) {
     case 'Message Content':
       const content = data?.message?.content || ''
-      console.log(`🔧 Found Message Content: "${content}"`)
+      console.log(`🔧 Found Message Content length: ${content.length}`)
       return content
     case 'Channel Name':
       const channelName = data?.message?.channelName || data?.message?.channelId || ''
-      console.log(`🔧 Found Channel Name: "${channelName}"`)
+      console.log(`🔧 Found Channel Name length: ${channelName.length}`)
       return channelName
     case 'Author Name':
       const authorName = data?.message?.authorName || data?.message?.authorDisplayName || data?.message?.authorId || ''
-      console.log(`🔧 Found Author Name: "${authorName}"`)
+      console.log(`🔧 Found Author Name length: ${authorName.length}`)
       return authorName
     case 'Guild Name':
       const guildName = data?.message?.guildName || data?.message?.guildId || ''

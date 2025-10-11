@@ -34,7 +34,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     console.log(`🔔 Activating Microsoft Graph trigger for workflow ${workflowId}`, {
       triggerType,
-      config
+      configKeys: Object.keys(config || {})
     })
 
     // Get valid access token (automatically refreshes if expired)
@@ -68,8 +68,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       if (!meResponse.ok) {
         console.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
       } else {
-        const meData = await meResponse.json()
-        console.log('✅ /me call succeeded:', meData.displayName, meData.mail || meData.userPrincipalName)
+        console.log('✅ /me call succeeded')
       }
 
       const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
