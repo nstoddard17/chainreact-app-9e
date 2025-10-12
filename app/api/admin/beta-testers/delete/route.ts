@@ -99,7 +99,7 @@ export async function DELETE(request: Request) {
       )
     }
 
-    console.log(`Successfully deleted beta tester: ${tester.email} (ID: ${testerId})`)
+    console.log(`Successfully deleted beta tester (ID: ${testerId})`)
 
     return NextResponse.json({
       success: true,

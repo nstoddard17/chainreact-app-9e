@@ -11,6 +11,7 @@ const supabase = createClient(
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
 // Helper function - hoisted above POST handler to avoid TDZ
+// SECURITY: Logs webhook metadata only, not full payload (contains PII)
 async function logWebhookExecution(
   provider: string,
   payload: any,
@@ -19,12 +20,19 @@ async function logWebhookExecution(
   executionTime: number
 ): Promise<void> {
   try {
+    // Don't log full payload - contains PII and resource IDs
+    const safePayload = {
+      hasValue: !!payload?.value,
+      notificationCount: Array.isArray(payload?.value) ? payload.value.length : 0,
+      payloadKeys: payload ? Object.keys(payload) : []
+    }
+
     await supabase
       .from('webhook_logs')
       .insert({
         provider: provider,
-        payload: payload,
-        headers: headers,
+        payload: safePayload, // Sanitized payload
+        headers: { 'content-type': headers['content-type'] }, // Only log content type
         status: status,
         execution_time: executionTime,
         timestamp: new Date().toISOString()
@@ -42,12 +50,13 @@ async function processNotifications(
 ): Promise<void> {
   for (const change of notifications) {
     try {
+      // SECURITY: Don't log full resource data (contains PII/IDs)
       console.log('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
-        resource: change?.resource,
-        hasClientState: !!change?.clientState,
-        resourceData: change?.resourceData
+        resourceType: change?.resourceData?.['@odata.type'],
+        hasResource: !!change?.resource,
+        hasClientState: !!change?.clientState
       })
       const subId: string | undefined = change?.subscriptionId
       const changeType: string | undefined = change?.changeType
@@ -58,6 +67,8 @@ async function processNotifications(
       let userId: string | null = null
       let workflowId: string | null = null
       let triggerResourceId: string | null = null
+      let configuredChangeType: string | null = null
+      let triggerConfig: any = null
       if (subId) {
         console.log('🔍 Looking up subscription:', subId)
 
@@ -80,6 +91,8 @@ async function processNotifications(
         userId = triggerResource.user_id
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
+        configuredChangeType = triggerResource.config?.changeType || null
+        triggerConfig = triggerResource.config || null
 
         // Verify clientState if present
         if (bodyClientState && triggerResource.config?.clientState) {
@@ -103,13 +116,21 @@ async function processNotifications(
 
       // Enhanced dedup per notification - use message/resource ID to prevent duplicate processing across multiple subscriptions
       const messageId = change?.resourceData?.id || change?.resourceData?.['@odata.id'] || resource || 'unknown'
-      // Deduplicate based on user + message + changeType (ignore subscription ID to catch duplicates across multiple subscriptions)
-      const dedupKey = `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}`
+
+      // For email notifications (messages), ignore changeType in dedup key because Microsoft sends both 'created' and 'updated'
+      // For other resources, include changeType to allow separate processing
+      const resourceLower = resource?.toLowerCase() || ''
+      const isEmailNotification = resourceLower.includes('/messages') || resourceLower.includes('/mailfolders')
+      const dedupKey = isEmailNotification
+        ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
+        : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
       console.log('🔑 Deduplication check:', {
         dedupKey,
         messageId,
         changeType,
+        isEmailNotification,
+        resource,
         subscriptionId: subId,
         userId
       })
@@ -132,6 +153,195 @@ async function processNotifications(
         } else {
           // Other error, log but continue processing
           console.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+        }
+      }
+
+      // Check if this changeType should trigger the workflow
+      // Get the expected changeTypes from trigger config
+      if (configuredChangeType && changeType) {
+        const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
+
+        if (!allowedTypes.includes(changeType)) {
+          console.log('⏭️ Skipping notification - changeType not configured:', {
+            received: changeType,
+            configured: configuredChangeType,
+            subscriptionId: subId
+          })
+          continue
+        }
+      }
+
+      // For Outlook email triggers, fetch the actual email and check filters before triggering
+      const isOutlookEmailTrigger = resourceLower.includes('/messages')
+      if (isOutlookEmailTrigger && userId && triggerConfig) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+
+          // Get access token for this user
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+          // Extract message ID from resource
+          const messageId = change?.resourceData?.id
+
+          if (messageId) {
+            // Fetch the actual email to check filters
+            const emailResponse = await fetch(
+              `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            )
+
+            if (emailResponse.ok) {
+              const email = await emailResponse.json()
+
+              // Check folder filter
+              // Default to Inbox if no folder configured (folder field always has a value or defaults to Inbox)
+              if (email.parentFolderId) {
+                let configFolderId = triggerConfig.folder
+
+                // If no folder configured, default to Inbox
+                if (!configFolderId) {
+                  try {
+                    const foldersResponse = await fetch(
+                      'https://graph.microsoft.com/v1.0/me/mailFolders',
+                      {
+                        headers: {
+                          'Authorization': `Bearer ${accessToken}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    )
+
+                    if (foldersResponse.ok) {
+                      const folders = await foldersResponse.json()
+                      const inboxFolder = folders.value.find((f: any) =>
+                        f.displayName?.toLowerCase() === 'inbox'
+                      )
+                      configFolderId = inboxFolder?.id || null
+                    }
+                  } catch (folderError) {
+                    console.warn('⚠️ Failed to get Inbox folder ID, allowing all folders:', folderError)
+                  }
+                }
+
+                // Check if current email is in the configured folder
+                if (configFolderId && email.parentFolderId !== configFolderId) {
+                  try {
+                    const folderResponse = await fetch(
+                      `https://graph.microsoft.com/v1.0/me/mailFolders/${email.parentFolderId}`,
+                      {
+                        headers: {
+                          'Authorization': `Bearer ${accessToken}`,
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    )
+
+                    const folderName = folderResponse.ok
+                      ? (await folderResponse.json()).displayName
+                      : email.parentFolderId
+
+                    console.log('⏭️ Skipping email - not in configured folder:', {
+                      expectedFolderId: configFolderId,
+                      actualFolderId: email.parentFolderId,
+                      actualFolderName: folderName,
+                      subscriptionId: subId
+                    })
+                  } catch (folderError) {
+                    console.log('⏭️ Skipping email - not in configured folder:', {
+                      expectedFolderId: configFolderId,
+                      actualFolderId: email.parentFolderId,
+                      subscriptionId: subId
+                    })
+                  }
+                  continue
+                }
+              }
+
+              // Check subject filter
+              if (triggerConfig.subject) {
+                const configSubject = triggerConfig.subject.toLowerCase().trim()
+                const emailSubject = (email.subject || '').toLowerCase().trim()
+                const exactMatch = triggerConfig.subjectExactMatch !== false // Default to true
+
+                const isMatch = exactMatch
+                  ? emailSubject === configSubject
+                  : emailSubject.includes(configSubject)
+
+                if (!isMatch) {
+                  // SECURITY: Don't log actual subject content (PII)
+                  console.log('⏭️ Skipping email - subject does not match filter:', {
+                    expectedLength: configSubject.length,
+                    receivedLength: emailSubject.length,
+                    exactMatch,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check from filter
+              if (triggerConfig.from) {
+                const configFrom = triggerConfig.from.toLowerCase().trim()
+                const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
+
+                if (emailFrom !== configFrom) {
+                  // SECURITY: Don't log actual email addresses (PII)
+                  console.log('⏭️ Skipping email - from address does not match filter:', {
+                    hasExpected: !!configFrom,
+                    hasReceived: !!emailFrom,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check to filter (for Email Sent trigger)
+              if (triggerConfig.to) {
+                const configTo = triggerConfig.to.toLowerCase().trim()
+                const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
+
+                const hasMatch = emailTo.some((addr: string) => addr === configTo)
+
+                if (!hasMatch) {
+                  // SECURITY: Don't log actual email addresses (PII)
+                  console.log('⏭️ Skipping email - to address does not match filter:', {
+                    hasExpected: !!configTo,
+                    recipientCount: emailTo.length,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check importance filter
+              if (triggerConfig.importance && triggerConfig.importance !== 'any') {
+                const configImportance = triggerConfig.importance.toLowerCase()
+                const emailImportance = (email.importance || 'normal').toLowerCase()
+
+                if (emailImportance !== configImportance) {
+                  console.log('⏭️ Skipping email - importance does not match filter:', {
+                    expected: configImportance,
+                    received: emailImportance,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              console.log('✅ Email matches all filters, proceeding with workflow execution')
+            } else {
+              console.warn('⚠️ Failed to fetch email details for filtering, allowing execution:', emailResponse.status)
+            }
+          }
+        } catch (filterError) {
+          console.error('❌ Error checking email filters (allowing execution):', filterError)
+          // Continue to execute even if filter check fails
         }
       }
 
@@ -166,7 +376,14 @@ async function processNotifications(
           }
 
           console.log('📤 Calling execution API:', executionUrl)
-          console.log('📦 Execution payload:', JSON.stringify(executionPayload, null, 2))
+          // SECURITY: Don't log full execution payload (contains resource data/PII)
+          console.log('📦 Execution payload metadata:', {
+            workflowId: executionPayload.workflowId,
+            testMode: executionPayload.testMode,
+            executionMode: executionPayload.executionMode,
+            skipTriggers: executionPayload.skipTriggers,
+            hasInputData: !!executionPayload.inputData
+          })
 
           const response = await fetch(executionUrl, {
             method: 'POST',
@@ -242,12 +459,12 @@ export async function POST(request: NextRequest) {
 
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
+    // SECURITY: Don't log full payload (contains PII/resource IDs)
     console.log('📋 Webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
-      payloadKeys: Object.keys(payload || {}),
-      fullPayload: JSON.stringify(payload, null, 2)
+      payloadKeys: Object.keys(payload || {})
     })
 
     if (notifications.length === 0) {

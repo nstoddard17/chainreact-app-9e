@@ -517,7 +517,12 @@ export class SafetyValidator {
     };
 
     // In production, send to monitoring service
-    console.log('🛡️ Validation Log:', JSON.stringify(logEntry, null, 2));
+    console.log('🛡️ Validation Log:', {
+      workflowId: logEntry.workflowId,
+      nodeId: logEntry.nodeId,
+      errorCount: logEntry.errors.length,
+      flagCount: logEntry.flags.length
+    });
 
     // Alert on critical issues
     const criticalIssues = [...errors, ...flags].filter(issue => issue.severity === 'critical');

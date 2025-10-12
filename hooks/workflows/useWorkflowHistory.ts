@@ -12,17 +12,13 @@ const MAX_HISTORY_SIZE = 50
 export function useWorkflowHistory() {
   const [history, setHistory] = useState<HistoryState[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
-  const [canUndo, setCanUndo] = useState(false)
-  const [canRedo, setCanRedo] = useState(false)
 
   // Track if we're in the middle of an undo/redo operation
   const isUndoRedoOperation = useRef(false)
 
-  // Update can undo/redo states
-  useEffect(() => {
-    setCanUndo(currentIndex > 0)
-    setCanRedo(currentIndex < history.length - 1)
-  }, [currentIndex, history.length])
+  // Compute canUndo and canRedo as derived values instead of state
+  const canUndo = currentIndex > 0
+  const canRedo = currentIndex < history.length - 1
 
   // Push a new state to history
   const pushState = useCallback((nodes: Node[], edges: Edge[]) => {

@@ -242,11 +242,11 @@ export function ConfigurationModal({
       if (nodeInfo?.type === 'gmail_action_send_email') {
         console.log('📎 [ConfigurationModal] Gmail send email config being saved:', {
           sourceType: config.sourceType,
-          uploadedFiles: config.uploadedFiles,
-          fileUrl: config.fileUrl,
-          fileFromNode: config.fileFromNode,
-          attachments: config.attachments,
-          fullConfig: JSON.stringify(config, null, 2)
+          hasUploadedFiles: !!config.uploadedFiles,
+          hasFileUrl: !!config.fileUrl,
+          hasFileFromNode: !!config.fileFromNode,
+          hasAttachments: !!config.attachments,
+          configKeys: Object.keys(config || {})
         });
       }
       

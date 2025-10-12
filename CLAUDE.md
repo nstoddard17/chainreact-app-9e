@@ -27,7 +27,7 @@ Guidance for Claude Code when working with this repository.
 - **Dependency injection** - Pass deps, don't create
 - **Type safety** - Strict TypeScript, no `any`
 - **Error handling** - try-catch with specific types
-- **Logging** - Consistent, structured
+- **Logging** - **CRITICAL**: MUST follow `/learning/docs/logging-best-practices.md` - NO tokens, keys, PII, or message content in logs
 
 ### Refactor When
 - File >500 lines → Split
@@ -195,9 +195,81 @@ See `/learning/docs/modal-column-overflow-solution.md`
 Unit: Jest + RTL
 Browser: **FOLLOW `/PLAYWRIGHT.md`** - Use Chrome, no new dev server, test from scratch, fix errors immediately
 
-## Documentation Requirements
-**⚠️ UPDATE AFTER EVERY SIGNIFICANT CHANGE**:
-- `/learning/walkthroughs/` - complex fixes
+## 🚨 Documentation Requirements - MANDATORY
+
+**THIS IS NOT OPTIONAL - TREAT AS PART OF THE TASK:**
+
+After implementing, fixing, or discovering anything significant, you MUST proactively update documentation:
+
+### When to Document (Checklist)
+Ask yourself after completing any work:
+- [ ] Did we fix a bug that took more than 30 minutes to solve?
+- [ ] Did we discover a gotcha, edge case, or non-obvious behavior?
+- [ ] Did we implement a new integration, action, or trigger?
+- [ ] Did we learn something about how a provider/API actually works vs how we thought it worked?
+- [ ] Did we solve a problem that could happen again?
+- [ ] Did we discover a pattern that should be reused?
+
+**If you answered YES to any of these → DOCUMENT IT IMMEDIATELY**
+
+### What to Update
+
+**After bug fixes / troubleshooting:**
+- `/learning/walkthroughs/[descriptive-name].md` - Step-by-step of what was wrong and how we fixed it
+
+**After implementing actions/triggers:**
+- `/learning/docs/action-trigger-implementation-guide.md` - Add gotchas, patterns, lessons learned
+
+**After architectural changes:**
+- `/learning/docs/[relevant-guide].md` - Update architecture docs with new patterns
+
+**After significant changes to logs/changelogs:**
+- `/learning/logs/CHANGELOG.md` - Major feature additions, breaking changes
+- `/learning/logs/socialMedia.md` - ADD AT TOP, use date headers ONCE/day, paragraph form for Twitter, delete >8 days old
+
+### Documentation Workflow
+
+**IMPORTANT: Don't wait for the user to ask "update the docs"**
+
+1. **Complete the technical work** (fix bug, implement feature, etc.)
+2. **IMMEDIATELY ask yourself**: "What did we learn that would help future us?"
+3. **Proactively say**: "Let me document what we learned in [specific file]"
+4. **Update the relevant documentation**
+5. **Confirm**: "I've updated [file] with [what was added]"
+
+### Example of Correct Behavior
+
+```
+User: "The Outlook trigger is firing twice for new emails"
+Assistant: [investigates and fixes the issue]
+Assistant: "Fixed! The issue was Microsoft sending both 'created' and 'updated'
+           notifications. I changed the subscription to only 'created' and added
+           deduplication logic.
+
+           Let me document this in the action-trigger implementation guide so
+           we don't forget this Microsoft Graph gotcha."
+[Updates docs]
+Assistant: "I've added a new 'Microsoft Graph Webhook Implementation' section
+           to action-trigger-implementation-guide.md covering:
+           - Why 'created,updated' causes duplicates
+           - Deduplication strategy
+           - Content filtering approach
+           - All 6 issues we discovered"
+```
+
+### Why This Matters
+
+**Without documentation:**
+- ❌ We'll hit the same bug again in 3 months
+- ❌ New team members will make the same mistakes
+- ❌ Solutions are lost when conversation history is gone
+- ❌ Patterns don't become reusable
+
+**With documentation:**
+- ✅ Future fixes take minutes, not hours
+- ✅ Institutional knowledge grows
+- ✅ Patterns become standard practices
+- ✅ Onboarding is faster and easier
 
 ## Workflow Template Layout
 - Template spacing/layout rules live in `learning/docs/template-quick-reference.md` (see **Node Positioning Guide**).
@@ -258,6 +330,7 @@ setTimeout(() => {
 ## Implementation Guides
 
 ### Critical Guides - ALWAYS CONSULT
+- **Logging Best Practices**: `/learning/docs/logging-best-practices.md` - **MANDATORY** for ANY logging - NO tokens/keys/PII/content
 - **Modal Overflow**: `/learning/docs/modal-column-overflow-solution.md` - Use ConfigurationContainer, no ScrollArea
 - **Field Implementation**: `/learning/docs/field-implementation-guide.md` - Complete checklist, field mappings critical
 - **Workflow Execution**: `/learning/docs/workflow-execution-implementation-guide.md` - Service patterns, ExecutionContext, filter UI nodes

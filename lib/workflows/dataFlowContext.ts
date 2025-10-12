@@ -233,11 +233,18 @@ export class DataFlowManager {
       }
     }
 
+    // Handle node output references using normalized variable reference parser
     const normalizedReference = normalizeVariableReference(reference)
     const parsedReference = parseVariableReference(normalizedReference)
     if (parsedReference && parsedReference.kind === 'node' && parsedReference.nodeId) {
       const output = this.getNodeOutput(parsedReference.nodeId)
       console.log(`📎 Resolving node output reference: nodeId="${parsedReference.nodeId}", field="${parsedReference.fieldPath.join('.') || '(all)'}"`)
+      console.log(`📎 Node output found:`, output ? 'yes' : 'no')
+      if (output) {
+        console.log(`📎 Output success:`, output.success)
+        console.log(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
+      }
+
       if (output && output.success) {
         if (parsedReference.fieldPath.length > 0) {
           const fieldValue = this.getNestedValue(output.data, parsedReference.fieldPath.join('.'))

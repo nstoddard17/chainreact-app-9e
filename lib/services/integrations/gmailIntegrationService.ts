@@ -37,7 +37,7 @@ export class GmailIntegrationService {
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
     console.log("📧 Executing Gmail send email")
-    console.log("📧 [GmailIntegrationService] Raw node data:", JSON.stringify(node.data, null, 2))
+    console.log("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
     
     const config = node.data.config || {}
     

@@ -53,9 +53,20 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
         info: console.info,
       }
 
+      // Safe write wrapper to handle EPIPE errors
+      const safeWrite = (fn: Function, args: any[]) => {
+        try {
+          fn.apply(console, args)
+        } catch (error: any) {
+          if (error?.code !== 'EPIPE') {
+            // Silently ignore other errors too - can't do much if console is broken
+          }
+        }
+      }
+
       // Intercept console.error - capture ALL errors without filtering
       console.error = (...args) => {
-        originalConsole.error.apply(console, args)
+        safeWrite(originalConsole.error, args)
 
         // Capture ALL errors (no filtering)
         addDebugLog({
@@ -67,7 +78,7 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
 
       // Intercept console.warn - capture ALL warnings without filtering
       console.warn = (...args) => {
-        originalConsole.warn.apply(console, args)
+        safeWrite(originalConsole.warn, args)
 
         // Capture ALL warnings (no filtering)
         addDebugLog({
@@ -83,7 +94,7 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
 
       // Intercept console.log - capture logs but deduplicate repetitive ones
       console.log = (...args) => {
-        originalConsole.log.apply(console, args)
+        safeWrite(originalConsole.log, args)
 
         const message = typeof args[0] === 'string' ? args[0] : 'Console Log'
 

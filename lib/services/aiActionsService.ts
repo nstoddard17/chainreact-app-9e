@@ -30,8 +30,8 @@ export class AIActionsService {
     
     // Resolve variable references in config before executing
     const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
-    
-    console.log("🤖 AI Agent executing with resolved config:", JSON.stringify(aiResolvedConfig, null, 2))
+
+    console.log("🤖 AI Agent executing with resolved config keys:", Object.keys(aiResolvedConfig || {}))
     
     // Call AI agent directly
     const { executeAIAgent } = await import('@/lib/workflows/aiAgent')

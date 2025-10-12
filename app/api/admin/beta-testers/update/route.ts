@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
     const supabaseAdmin = await createSupabaseServiceClient()
 
     // Check if user is admin using the service client
-    console.log("Checking admin status for user:", user.id, user.email)
+    console.log("Checking admin status for user:", user.id)
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -101,7 +101,7 @@ export async function PATCH(request: Request) {
       )
     }
 
-    console.log(`Successfully updated beta tester: ${data.email} (ID: ${id})`)
+    console.log(`Successfully updated beta tester (ID: ${id})`)
 
     return NextResponse.json({
       success: true,
