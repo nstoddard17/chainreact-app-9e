@@ -73,7 +73,7 @@ export async function GET() {
     const activities = activitiesResult.status === 'fulfilled' ? activitiesResult.value.data || [] : []
 
     // Calculate metrics
-    const activeWorkflows = workflows.filter((w: any) => w.status !== 'draft').length
+    const activeWorkflows = workflows.filter((w: any) => w.status === 'active').length
     const successfulExecutions = executions.filter((e: any) => e.status === 'success').length
     const totalExecutionTime = executions.reduce((sum: number, e: any) => sum + (e.execution_time_ms || 0), 0)
     const hoursSaved = Math.round(totalExecutionTime / (1000 * 60 * 60) * 10) / 10 // Rough estimate
