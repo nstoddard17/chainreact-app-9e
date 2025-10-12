@@ -341,7 +341,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group overflow-hidden ${
+      className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group ${
         selected
           ? "border-primary"
           : isIntegrationDisconnected
@@ -586,17 +586,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
           className="!w-3 !h-3 !bg-muted-foreground border-2 border-background"
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
+            top: "-6px",
           }}
         />
       )}
 
       {hasMultipleOutputs ? (
         <>
-          <Handle type="source" position={Position.Bottom} id="true" className="!w-3 !h-3 !bg-green-500" style={{ left: "25%" }} />
-          <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%" }} />
+          <Handle type="source" position={Position.Bottom} id="true" className="!w-3 !h-3 !bg-green-500" style={{ left: "25%", bottom: "-6px" }} />
+          <Handle type="source" position={Position.Bottom} id="false" className="!w-3 !h-3 !bg-red-500" style={{ left: "75%", bottom: "-6px" }} />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" />
+        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-muted-foreground border-2 border-background" style={{ bottom: "-6px" }} />
       )}
     </div>
   )

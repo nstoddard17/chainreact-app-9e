@@ -267,6 +267,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Draft",
           description: "Summarize the submitted content for blog planning",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 260,
@@ -283,9 +285,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Blog Article",
           description: "Create a polished blog-ready version of the content",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              sourceSummary: "{{node.blog-summary.output.summary}}",
+              sourceSummary: "{{blog-summary.summary}}",
               originalFields: "{{trigger.fields}}",
             },
             contentType: "report",
@@ -302,9 +306,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Craft Blog Title",
           description: "Generate a compelling title for the blog post",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.blog-summary.output.summary}}",
+              summary: "{{blog-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -323,8 +329,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.blog-title.output.content}}",
-            content: "{{node.blog-article.output.content}}",
+            title: "{{blog-title.content}}",
+            content: "{{blog-article.content}}",
           },
           validationState: {
             missingRequired: ["databaseId"],
@@ -339,10 +345,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Blog Announcement",
           description: "Draft a marketing-ready announcement for the new blog post",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.blog-summary.output.summary}}",
-              title: "{{node.blog-title.output.content}}",
+              summary: "{{blog-summary.summary}}",
+              title: "{{blog-title.content}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -361,7 +369,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.blog-notify.output.content}}",
+            message: "{{blog-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -376,6 +384,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize for Social",
           description: "Extract the core message for social promotion",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 200,
@@ -392,9 +402,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Social Caption",
           description: "Craft a social-ready caption with CTA",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.social-summary.output.summary}}",
+              summary: "{{social-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -410,8 +422,10 @@ const templateUpdates = {
           type: "ai_action_classify",
           title: "Select Platform",
           description: "Recommend the best social platform for this content",
+          needsConfiguration: true,
+
           config: {
-            inputText: "{{node.social-summary.output.summary}}",
+            inputText: "{{social-summary.summary}}",
             categories: [
               "LinkedIn",
               "Instagram",
@@ -432,10 +446,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Schedule Recommendation",
           description: "Recommend when to publish the post",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              platform: "{{node.social-platform.output.classification}}",
-              summary: "{{node.social-summary.output.summary}}",
+              platform: "{{social-platform.classification}}",
+              summary: "{{social-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -456,9 +472,9 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Post: "{{node.social-caption.output.content}}",
-              Platform: "{{node.social-platform.output.classification}}",
-              Scheduled: "{{node.social-schedule.output.content}}",
+              Post: "{{social-caption.content}}",
+              Platform: "{{social-platform.classification}}",
+              Scheduled: "{{social-schedule.content}}",
             },
           },
           validationState: {
@@ -474,11 +490,13 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Social Team Update",
           description: "Summarize what is scheduled for the social team",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              post: "{{node.social-caption.output.content}}",
-              platform: "{{node.social-platform.output.classification}}",
-              scheduled: "{{node.social-schedule.output.content}}",
+              post: "{{social-caption.content}}",
+              platform: "{{social-platform.classification}}",
+              scheduled: "{{social-schedule.content}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -497,7 +515,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.social-notify.output.content}}",
+            message: "{{social-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -512,6 +530,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize for Newsletter",
           description: "Summarize the content focusing on newsletter readers",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 220,
@@ -528,9 +548,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Newsletter Section",
           description: "Generate copy ready for newsletter inclusion",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.newsletter-summary.output.summary}}",
+              summary: "{{newsletter-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -546,9 +568,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Newsletter Title",
           description: "Craft a strong subject-style title for the feature",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.newsletter-summary.output.summary}}",
+              summary: "{{newsletter-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -569,8 +593,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Title: "{{node.newsletter-title.output.content}}",
-              Content: "{{node.newsletter-draft.output.content}}",
+              Title: "{{newsletter-title.content}}",
+              Content: "{{newsletter-draft.content}}",
               Status: "Queued",
             },
           },
@@ -587,10 +611,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Newsletter Team Update",
           description: "Let the newsletter team know what is queued",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              title: "{{node.newsletter-title.output.content}}",
-              summary: "{{node.newsletter-summary.output.summary}}",
+              title: "{{newsletter-title.content}}",
+              summary: "{{newsletter-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -609,7 +635,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.newsletter-notify.output.content}}",
+            message: "{{newsletter-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -738,6 +764,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Sales Inquiry",
           description: "Summarize the sales interest",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 150,
@@ -754,9 +782,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Extract Contact Email",
           description: "Provide sender email for CRM record",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
               headers: "{{trigger.email}}",
             },
             contentType: "summary",
@@ -773,9 +803,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Capture Interest",
           description: "Describe product interest or ask",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -791,9 +823,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Lead Name",
           description: "Provide contact name for CRM",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
               original: "{{trigger.email}}",
             },
             contentType: "summary",
@@ -815,9 +849,9 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Email: "{{node.sales-email-address.output.content}}",
-              Interest: "{{node.sales-interest.output.content}}",
-              "Lead Name": "{{node.sales-name.output.content}}",
+              Email: "{{sales-email-address.content}}",
+              Interest: "{{sales-interest.content}}",
+              "Lead Name": "{{sales-name.content}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -831,10 +865,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Sales Slack Notification",
           description: "Draft Slack update for sales team",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
-              email: "{{node.sales-email-address.output.content}}",
+              summary: "{{sales-summary.summary}}",
+              email: "{{sales-email-address.content}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -853,7 +889,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.sales-notification.output.content}}",
+            message: "{{sales-notification.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -867,6 +903,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Support Request",
           description: "Summarize the support issue",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 150,
@@ -883,9 +921,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Customer",
           description: "Provide customer name",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.support-summary.output.summary}}",
+              summary: "{{support-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -901,9 +941,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Describe Issue",
           description: "Create ticket-ready issue summary",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.support-summary.output.summary}}",
+              summary: "{{support-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -919,9 +961,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Ticket Reference",
           description: "Create human-readable ticket identifier",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.support-summary.output.summary}}",
+              summary: "{{support-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -942,9 +986,9 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Issue: "{{node.support-issue.output.content}}",
-              Customer: "{{node.support-customer.output.content}}",
-              "Ticket ID": "{{node.support-ticket-id.output.content}}",
+              Issue: "{{support-issue.content}}",
+              Customer: "{{support-customer.content}}",
+              "Ticket ID": "{{support-ticket-id.content}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -958,10 +1002,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Support Slack Alert",
           description: "Draft alert for support channel",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.support-summary.output.summary}}",
-              ticket: "{{node.support-ticket-id.output.content}}",
+              summary: "{{support-summary.summary}}",
+              ticket: "{{support-ticket-id.content}}",
             },
             contentType: "response",
             tone: "professional",
@@ -980,7 +1026,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.support-alert.output.content}}",
+            message: "{{support-alert.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -994,6 +1040,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Internal Email",
           description: "Summarize internal communication",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 150,
@@ -1010,9 +1058,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Doc Title",
           description: "Generate Notion document title",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.internal-summary.output.summary}}",
+              summary: "{{internal-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1028,9 +1078,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Doc Content",
           description: "Create structured notes for Notion",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.internal-summary.output.summary}}",
+              summary: "{{internal-summary.summary}}",
               emailBody: "{{trigger.email.body}}",
             },
             contentType: "report",
@@ -1050,8 +1102,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.internal-doc-title.output.content}}",
-            content: "{{node.internal-doc-content.output.content}}",
+            title: "{{internal-doc-title.content}}",
+            content: "{{internal-doc-content.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -1176,6 +1228,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Positive Mention",
           description: "Summarize the praise to capture key points",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 150,
@@ -1192,10 +1246,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Customer",
           description: "Determine the customer name or handle",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.message}}",
-              summary: "{{node.positive-summary.output.summary}}",
+              summary: "{{positive-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -1211,9 +1267,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Highlight Feedback",
           description: "Create a shareable feedback quote",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.positive-summary.output.summary}}",
+              summary: "{{positive-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -1235,8 +1293,8 @@ const templateUpdates = {
             tableName: "",
             fields: {
               Type: "Testimonial",
-              Customer: "{{node.positive-customer.output.content}}",
-              Feedback: "{{node.positive-feedback.output.content}}",
+              Customer: "{{positive-customer.content}}",
+              Feedback: "{{positive-feedback.content}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -1250,10 +1308,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Marketing Highlight",
           description: "Draft message to share with marketing",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.positive-summary.output.summary}}",
-              customer: "{{node.positive-customer.output.content}}",
+              summary: "{{positive-summary.summary}}",
+              customer: "{{positive-customer.content}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -1272,7 +1332,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.positive-marketing.output.content}}",
+            message: "{{positive-marketing.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -1286,6 +1346,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Negative Mention",
           description: "Summarize the complaint or problem",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 160,
@@ -1302,9 +1364,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Customer",
           description: "Provide customer handle or name",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.negative-summary.output.summary}}",
+              summary: "{{negative-summary.summary}}",
               original: "{{trigger.message}}",
             },
             contentType: "summary",
@@ -1321,9 +1385,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Describe Issue",
           description: "Generate issue summary for ticket",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.negative-summary.output.summary}}",
+              summary: "{{negative-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1339,8 +1405,10 @@ const templateUpdates = {
           type: "ai_action_classify",
           title: "Set Priority",
           description: "Assign priority based on sentiment and severity",
+          needsConfiguration: true,
+
           config: {
-            inputText: "{{node.negative-summary.output.summary}}",
+            inputText: "{{negative-summary.summary}}",
             categories: ["Critical", "High", "Medium", "Low"],
             confidence: true,
           },
@@ -1359,9 +1427,9 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Issue: "{{node.negative-issue.output.content}}",
-              Customer: "{{node.negative-customer.output.content}}",
-              Priority: "{{node.negative-priority.output.classification}}",
+              Issue: "{{negative-issue.content}}",
+              Customer: "{{negative-customer.content}}",
+              Priority: "{{negative-priority.classification}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -1375,10 +1443,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Support Alert Message",
           description: "Compose Slack alert for support team",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.negative-summary.output.summary}}",
-              priority: "{{node.negative-priority.output.classification}}",
+              summary: "{{negative-summary.summary}}",
+              priority: "{{negative-priority.classification}}",
             },
             contentType: "response",
             tone: "professional",
@@ -1397,7 +1467,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.negative-alert.output.content}}",
+            message: "{{negative-alert.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -1411,6 +1481,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Discussion",
           description: "Summarize general discussion for tracking",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 140,
@@ -1427,6 +1499,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify User",
           description: "Provide user handle for record",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.message}}",
@@ -1445,9 +1519,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Topic",
           description: "Supply topic keywords for tracking",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.neutral-summary.output.summary}}",
+              summary: "{{neutral-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1469,8 +1545,8 @@ const templateUpdates = {
             tableName: "",
             fields: {
               Type: "Discussion",
-              User: "{{node.neutral-user.output.content}}",
-              Topic: "{{node.neutral-topic.output.content}}",
+              User: "{{neutral-user.content}}",
+              Topic: "{{neutral-topic.content}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -1595,6 +1671,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Critical Bug",
           description: "Summarize the critical incident details",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 180,
@@ -1611,9 +1689,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Incident Title",
           description: "Create concise incident title",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1629,9 +1709,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Incident Details",
           description: "Generate structured bug report details",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
               original: "{{trigger.message.content}}",
             },
             contentType: "report",
@@ -1651,8 +1733,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.critical-title.output.content}}",
-            content: "{{node.critical-details.output.content}}",
+            title: "{{critical-title.content}}",
+            content: "{{critical-details.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -1665,9 +1747,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Critical Alert Message",
           description: "Draft alert for incident channel",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
             },
             contentType: "response",
             tone: "professional",
@@ -1686,7 +1770,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.critical-alert.output.content}}",
+            message: "{{critical-alert.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -1700,6 +1784,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize High Priority Bug",
           description: "Summarize issue for engineering triage",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 160,
@@ -1716,9 +1802,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Bug Title",
           description: "Create title for bug ticket",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.high-summary.output.summary}}",
+              summary: "{{high-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1734,9 +1822,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Bug Details",
           description: "Draft detailed bug report",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.high-summary.output.summary}}",
+              summary: "{{high-summary.summary}}",
               original: "{{trigger.message.content}}",
             },
             contentType: "report",
@@ -1756,8 +1846,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.high-title.output.content}}",
-            content: "{{node.high-details.output.content}}",
+            title: "{{high-title.content}}",
+            content: "{{high-details.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -1770,9 +1860,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Notify Engineering Team",
           description: "Craft Slack message for engineering channel",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.high-summary.output.summary}}",
+              summary: "{{high-summary.summary}}",
             },
             contentType: "response",
             tone: "professional",
@@ -1791,7 +1883,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.high-team-notify.output.content}}",
+            message: "{{high-team-notify.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -1805,6 +1897,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Routine Bug",
           description: "Summarize routine bug for backlog",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.message.content}}",
             maxLength: 140,
@@ -1821,9 +1915,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Backlog Title",
           description: "Generate backlog-friendly title",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.routine-summary.output.summary}}",
+              summary: "{{routine-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -1839,9 +1935,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Backlog Details",
           description: "Draft details for backlog entry",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.routine-summary.output.summary}}",
+              summary: "{{routine-summary.summary}}",
               original: "{{trigger.message.content}}",
             },
             contentType: "report",
@@ -1861,8 +1959,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.routine-title.output.content}}",
-            content: "{{node.routine-details.output.content}}",
+            title: "{{routine-title.content}}",
+            content: "{{routine-details.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -1983,6 +2081,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Hot Lead",
           description: "Summarize why the lead is hot",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 150,
@@ -1999,9 +2099,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Lead Score",
           description: "Produce a 0-100 score with reasoning",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.hot-summary.output.summary}}",
+              summary: "{{hot-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2023,7 +2125,7 @@ const templateUpdates = {
             tableName: "",
             recordId: "{{trigger.recordId}}",
             fields: {
-              Score: "{{node.hot-score.output.content}}",
+              Score: "{{hot-score.content}}",
               Stage: "Hot Lead",
             },
           },
@@ -2038,9 +2140,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Assign Senior Rep",
           description: "Choose the best senior rep email for follow-up",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.hot-summary.output.summary}}",
+              summary: "{{hot-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2056,10 +2160,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Compose Executive Handoff",
           description: "Write a high urgency email for the senior rep",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.hot-summary.output.summary}}",
-              score: "{{node.hot-score.output.content}}",
+              summary: "{{hot-summary.summary}}",
+              score: "{{hot-score.content}}",
             },
             contentType: "email",
             tone: "professional",
@@ -2075,9 +2181,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Follow-up Subject",
           description: "Subject for executive handoff email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.hot-summary.output.summary}}",
+              summary: "{{hot-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2095,9 +2203,9 @@ const templateUpdates = {
           description: "Send hot lead details to senior rep",
           providerId: "gmail",
           config: {
-            to: "{{node.hot-senior-rep.output.content}}",
-            subject: "{{node.hot-email-subject.output.content}}",
-            body: "{{node.hot-email-body.output.content}}",
+            to: "{{hot-senior-rep.content}}",
+            subject: "{{hot-email-subject.content}}",
+            body: "{{hot-email-body.content}}",
           },
         },
       },
@@ -2110,6 +2218,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Warm Lead",
           description: "Summarize nurture-ready lead",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 150,
@@ -2126,9 +2236,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Warm Score",
           description: "Produce lead score text for warm track",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.warm-summary.output.summary}}",
+              summary: "{{warm-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2150,7 +2262,7 @@ const templateUpdates = {
             tableName: "",
             recordId: "{{trigger.recordId}}",
             fields: {
-              Score: "{{node.warm-score.output.content}}",
+              Score: "{{warm-score.content}}",
               Stage: "Warm Lead",
             },
           },
@@ -2165,6 +2277,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Confirm Lead Email",
           description: "Generate lead email address for outreach",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.fields}}",
@@ -2183,10 +2297,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Demo Invite",
           description: "Compose email inviting the lead to a demo",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.warm-summary.output.summary}}",
-              score: "{{node.warm-score.output.content}}",
+              summary: "{{warm-summary.summary}}",
+              score: "{{warm-score.content}}",
             },
             contentType: "email",
             tone: "friendly",
@@ -2202,9 +2318,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Demo Subject",
           description: "Subject line for demo invite",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.warm-summary.output.summary}}",
+              summary: "{{warm-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -2222,9 +2340,9 @@ const templateUpdates = {
           description: "Email warm lead to book demo",
           providerId: "gmail",
           config: {
-            to: "{{node.warm-lead-email.output.content}}",
-            subject: "{{node.warm-demo-subject.output.content}}",
-            body: "{{node.warm-demo-body.output.content}}",
+            to: "{{warm-lead-email.content}}",
+            subject: "{{warm-demo-subject.content}}",
+            body: "{{warm-demo-body.content}}",
           },
         },
       },
@@ -2237,6 +2355,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Nurture Lead",
           description: "Summarize low urgency lead",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 150,
@@ -2253,9 +2373,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Generate Nurture Score",
           description: "Provide nurture score text",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.nurture-summary.output.summary}}",
+              summary: "{{nurture-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2277,7 +2399,7 @@ const templateUpdates = {
             tableName: "",
             recordId: "{{trigger.recordId}}",
             fields: {
-              Score: "{{node.nurture-score.output.content}}",
+              Score: "{{nurture-score.content}}",
               Stage: "Nurture",
             },
           },
@@ -2401,6 +2523,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Critical Alert",
           description: "Summarize item status for urgent action",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.changedFields}}",
             maxLength: 150,
@@ -2417,6 +2541,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Supplier Email Address",
           description: "Determine supplier contact email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               item: "{{trigger.changedFields}}",
@@ -2435,9 +2561,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Rush Order Email",
           description: "Write urgent rush order email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
             },
             contentType: "email",
             tone: "professional",
@@ -2453,9 +2581,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Rush Order Subject",
           description: "Generate subject for rush order email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2473,9 +2603,9 @@ const templateUpdates = {
           description: "Email supplier for rush order",
           providerId: "gmail",
           config: {
-            to: "{{node.critical-supplier-email.output.content}}",
-            subject: "{{node.critical-rush-subject.output.content}}",
-            body: "{{node.critical-rush-body.output.content}}",
+            to: "{{critical-supplier-email.content}}",
+            subject: "{{critical-rush-subject.content}}",
+            body: "{{critical-rush-body.content}}",
           },
         },
       },
@@ -2487,9 +2617,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Warehouse Alert Message",
           description: "Draft alert for warehouse or ops",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.critical-summary.output.summary}}",
+              summary: "{{critical-summary.summary}}",
             },
             contentType: "response",
             tone: "professional",
@@ -2508,7 +2640,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.critical-alert.output.content}}",
+            message: "{{critical-alert.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -2522,6 +2654,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Reorder Need",
           description: "Summarize data for purchase order",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.changedFields}}",
             maxLength: 150,
@@ -2538,9 +2672,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Item",
           description: "Provide item name/code for PO",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.reorder-summary.output.summary}}",
+              summary: "{{reorder-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2556,9 +2692,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Determine Quantity",
           description: "Recommend reorder quantity",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.reorder-summary.output.summary}}",
+              summary: "{{reorder-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2579,8 +2717,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Item: "{{node.reorder-item.output.content}}",
-              Quantity: "{{node.reorder-quantity.output.content}}",
+              Item: "{{reorder-item.content}}",
+              Quantity: "{{reorder-quantity.content}}",
               Status: "Pending Approval",
             },
           },
@@ -2595,9 +2733,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Supplier Email (Reorder)",
           description: "Confirm supplier contact",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.reorder-summary.output.summary}}",
+              summary: "{{reorder-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2613,10 +2753,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Purchase Order Email",
           description: "Compose standard PO email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.reorder-summary.output.summary}}",
-              quantity: "{{node.reorder-quantity.output.content}}",
+              summary: "{{reorder-summary.summary}}",
+              quantity: "{{reorder-quantity.content}}",
             },
             contentType: "email",
             tone: "professional",
@@ -2632,9 +2774,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Purchase Order Subject",
           description: "Subject line for PO email",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              item: "{{node.reorder-item.output.content}}",
+              item: "{{reorder-item.content}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2652,9 +2796,9 @@ const templateUpdates = {
           description: "Email supplier with PO",
           providerId: "gmail",
           config: {
-            to: "{{node.reorder-supplier-email.output.content}}",
-            subject: "{{node.reorder-po-subject.output.content}}",
-            body: "{{node.reorder-po-body.output.content}}",
+            to: "{{reorder-supplier-email.content}}",
+            subject: "{{reorder-po-subject.content}}",
+            body: "{{reorder-po-body.content}}",
           },
         },
       },
@@ -2667,6 +2811,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Trend",
           description: "Summarize item trend details",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.changedFields}}",
             maxLength: 150,
@@ -2690,7 +2836,7 @@ const templateUpdates = {
             recordId: "{{trigger.recordId}}",
             fields: {
               Watch: "Yes",
-              Notes: "{{node.monitor-summary.output.summary}}",
+              Notes: "{{monitor-summary.summary}}",
             },
           },
           validationState: { missingRequired: ["baseId", "tableName"] },
@@ -2704,9 +2850,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Operations Update",
           description: "Notify ops to monitor trend",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.monitor-summary.output.summary}}",
+              summary: "{{monitor-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -2725,7 +2873,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.monitor-notify.output.content}}",
+            message: "{{monitor-notify.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -2850,6 +2998,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Client Request",
           description: "Summarize the client meeting request",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 200,
@@ -2866,9 +3016,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Meeting Title",
           description: "Generate professional title for the meeting",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.client-summary.output.summary}}",
+              summary: "{{client-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2884,9 +3036,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Draft Client Agenda",
           description: "Generate a detailed agenda for the client meeting",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.client-summary.output.summary}}",
+              summary: "{{client-summary.summary}}",
             },
             contentType: "report",
             tone: "professional",
@@ -2905,8 +3059,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.client-title.output.content}}",
-            content: "{{node.client-agenda.output.content}}",
+            title: "{{client-title.content}}",
+            content: "{{client-agenda.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -2919,9 +3073,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Attendees",
           description: "List the participants for the meeting invite",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.client-summary.output.summary}}",
+              summary: "{{client-summary.summary}}",
               original: "{{trigger.email.body}}",
             },
             contentType: "summary",
@@ -2938,9 +3094,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Compose Invite Body",
           description: "Draft a polished invite message",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.client-summary.output.summary}}",
+              summary: "{{client-summary.summary}}",
             },
             contentType: "email",
             tone: "friendly",
@@ -2956,9 +3114,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Invite Subject",
           description: "Generate subject for calendar invite",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              title: "{{node.client-title.output.content}}",
+              title: "{{client-title.content}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -2976,9 +3136,9 @@ const templateUpdates = {
           description: "Send calendar invite email",
           providerId: "gmail",
           config: {
-            to: "{{node.client-attendees.output.content}}",
-            subject: "{{node.client-invite-subject.output.content}}",
-            body: "{{node.client-invite-body.output.content}}",
+            to: "{{client-attendees.content}}",
+            subject: "{{client-invite-subject.content}}",
+            body: "{{client-invite-body.content}}",
           },
         },
       },
@@ -2991,6 +3151,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Internal Request",
           description: "Summarize the internal sync request",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 160,
@@ -3007,9 +3169,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Sync Title",
           description: "Generate meeting title for internal sync",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.internal-summary.output.summary}}",
+              summary: "{{internal-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -3025,9 +3189,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Prepare Sync Notes Template",
           description: "Draft notes template for the sync",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.internal-summary.output.summary}}",
+              summary: "{{internal-summary.summary}}",
             },
             contentType: "report",
             tone: "professional",
@@ -3046,8 +3212,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.internal-title.output.content}}",
-            content: "{{node.internal-template.output.content}}",
+            title: "{{internal-title.content}}",
+            content: "{{internal-template.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -3060,9 +3226,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Compose Slack Reminder",
           description: "Create reminder for team members",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.internal-summary.output.summary}}",
+              summary: "{{internal-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -3081,7 +3249,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.internal-reminder.output.content}}",
+            message: "{{internal-reminder.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -3095,6 +3263,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Brainstorm Request",
           description: "Summarize brainstorming goals",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 160,
@@ -3111,9 +3281,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Brainstorm Title",
           description: "Generate title for brainstorming session",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.brainstorm-summary.output.summary}}",
+              summary: "{{brainstorm-summary.summary}}",
             },
             contentType: "summary",
             tone: "friendly",
@@ -3129,9 +3301,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Brainstorm Template",
           description: "Create collaborative template for session",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.brainstorm-summary.output.summary}}",
+              summary: "{{brainstorm-summary.summary}}",
             },
             contentType: "report",
             tone: "friendly",
@@ -3150,8 +3324,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.brainstorm-title.output.content}}",
-            content: "{{node.brainstorm-template.output.content}}",
+            title: "{{brainstorm-title.content}}",
+            content: "{{brainstorm-template.content}}",
           },
           validationState: { missingRequired: ["databaseId"] },
         },
@@ -3164,9 +3338,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Prep Message",
           description: "Draft pre-work instructions",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.brainstorm-summary.output.summary}}",
+              summary: "{{brainstorm-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -3185,7 +3361,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.brainstorm-prep.output.content}}",
+            message: "{{brainstorm-prep.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -3310,6 +3486,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Engineering Hire",
           description: "Summarize background for planning tasks",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 160,
@@ -3326,9 +3504,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Set Due Date",
           description: "Recommend due date for onboarding tasks",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.eng-summary.output.summary}}",
+              summary: "{{eng-summary.summary}}",
               startDate: "{{trigger.fields.start_date}}",
             },
             contentType: "summary",
@@ -3345,9 +3525,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Engineering Tasks",
           description: "Generate structured onboarding tasks",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.eng-summary.output.summary}}",
+              summary: "{{eng-summary.summary}}",
             },
             contentType: "report",
             tone: "professional",
@@ -3368,8 +3550,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              "Due Date": "{{node.eng-due-date.output.content}}",
-              Tasks: "{{node.eng-task-list.output.content}}",
+              "Due Date": "{{eng-due-date.content}}",
+              Tasks: "{{eng-task-list.content}}",
               Track: "Engineering",
             },
           },
@@ -3384,9 +3566,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Engineering Welcome Email",
           description: "Draft welcome email for engineering hire",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.eng-summary.output.summary}}",
+              summary: "{{eng-summary.summary}}",
             },
             contentType: "email",
             tone: "friendly",
@@ -3402,6 +3586,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Determine Email",
           description: "Confirm the employee email address",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.fields}}",
@@ -3422,9 +3608,9 @@ const templateUpdates = {
           description: "Send onboarding email",
           providerId: "gmail",
           config: {
-            to: "{{node.eng-email-address.output.content}}",
+            to: "{{eng-email-address.content}}",
             subject: "Welcome to the Engineering Team!",
-            body: "{{node.eng-email.output.content}}",
+            body: "{{eng-email.content}}",
           },
         },
       },
@@ -3437,6 +3623,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Sales Hire",
           description: "Summarize new GTM team hire details",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 160,
@@ -3453,9 +3641,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Set Sales Due Date",
           description: "Recommend due dates for sales onboarding tasks",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -3471,9 +3661,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Sales Onboarding Tasks",
           description: "Create tasks for sales enablement",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
             },
             contentType: "report",
             tone: "professional",
@@ -3494,8 +3686,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              "Due Date": "{{node.sales-due-date.output.content}}",
-              Tasks: "{{node.sales-task-list.output.content}}",
+              "Due Date": "{{sales-due-date.content}}",
+              Tasks: "{{sales-task-list.content}}",
               Track: "Sales",
             },
           },
@@ -3510,9 +3702,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Sales Welcome Email",
           description: "Draft welcome email for the sales hire",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.sales-summary.output.summary}}",
+              summary: "{{sales-summary.summary}}",
             },
             contentType: "email",
             tone: "friendly",
@@ -3528,6 +3722,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Determine Sales Email",
           description: "Confirm the sales hire's email address",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.fields}}",
@@ -3548,9 +3744,9 @@ const templateUpdates = {
           description: "Send onboarding email to sales hire",
           providerId: "gmail",
           config: {
-            to: "{{node.sales-email-address.output.content}}",
+            to: "{{sales-email-address.content}}",
             subject: "Welcome to the Sales Team!",
-            body: "{{node.sales-email.output.content}}",
+            body: "{{sales-email.content}}",
           },
         },
       },
@@ -3563,6 +3759,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize New Hire",
           description: "Summarize general onboarding details",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 160,
@@ -3579,9 +3777,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Set General Due Date",
           description: "Recommend due date for general onboarding tasks",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.general-summary.output.summary}}",
+              summary: "{{general-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -3597,9 +3797,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "General Onboarding Tasks",
           description: "Draft tasks for the onboarding checklist",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.general-summary.output.summary}}",
+              summary: "{{general-summary.summary}}",
             },
             contentType: "report",
             tone: "professional",
@@ -3620,8 +3822,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              "Due Date": "{{node.general-due-date.output.content}}",
-              Tasks: "{{node.general-tasks.output.content}}",
+              "Due Date": "{{general-due-date.content}}",
+              Tasks: "{{general-tasks.content}}",
               Track: "General",
             },
           },
@@ -3636,9 +3838,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Team Introduction Message",
           description: "Prepare a message to introduce new hire",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.general-summary.output.summary}}",
+              summary: "{{general-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -3657,7 +3861,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.team-intro.output.content}}",
+            message: "{{team-intro.content}}",
           },
           validationState: { missingRequired: ["channelId"] },
         },
@@ -3784,6 +3988,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Invoice (Executive)",
           description: "Summarize invoice details for executive review",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 180,
@@ -3800,9 +4006,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Vendor",
           description: "Extract the vendor name",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.exec-summary.output.summary}}",
+              summary: "{{exec-summary.summary}}",
               original: "{{trigger.email.body}}",
             },
             contentType: "summary",
@@ -3819,9 +4027,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Extract Amount",
           description: "Provide the total invoice amount in currency format",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.exec-summary.output.summary}}",
+              summary: "{{exec-summary.summary}}",
               original: "{{trigger.email.body}}",
             },
             contentType: "summary",
@@ -3843,8 +4053,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Vendor: "{{node.exec-vendor.output.content}}",
-              Amount: "{{node.exec-amount.output.content}}",
+              Vendor: "{{exec-vendor.content}}",
+              Amount: "{{exec-amount.content}}",
               Status: "Pending Executive Approval",
             },
           },
@@ -3861,11 +4071,13 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Executive Approval Request",
           description: "Draft message requesting approval",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.exec-summary.output.summary}}",
-              vendor: "{{node.exec-vendor.output.content}}",
-              amount: "{{node.exec-amount.output.content}}",
+              summary: "{{exec-summary.summary}}",
+              vendor: "{{exec-vendor.content}}",
+              amount: "{{exec-amount.content}}",
             },
             contentType: "response",
             tone: "professional",
@@ -3884,7 +4096,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.exec-notify.output.content}}",
+            message: "{{exec-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -3900,6 +4112,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Invoice (Manager)",
           description: "Summarize invoice details for manager review",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 160,
@@ -3916,9 +4130,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Vendor (Manager)",
           description: "Extract vendor for manager workflow",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.mgr-summary.output.summary}}",
+              summary: "{{mgr-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -3934,9 +4150,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Amount (Manager)",
           description: "Extract invoice amount",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.mgr-summary.output.summary}}",
+              summary: "{{mgr-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -3957,8 +4175,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Vendor: "{{node.mgr-vendor.output.content}}",
-              Amount: "{{node.mgr-amount.output.content}}",
+              Vendor: "{{mgr-vendor.content}}",
+              Amount: "{{mgr-amount.content}}",
               Status: "Pending Manager Review",
             },
           },
@@ -3975,11 +4193,13 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Manager Approval Message",
           description: "Draft message for manager review",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.mgr-summary.output.summary}}",
-              vendor: "{{node.mgr-vendor.output.content}}",
-              amount: "{{node.mgr-amount.output.content}}",
+              summary: "{{mgr-summary.summary}}",
+              vendor: "{{mgr-vendor.content}}",
+              amount: "{{mgr-amount.content}}",
             },
             contentType: "response",
             tone: "professional",
@@ -3998,7 +4218,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.mgr-notify.output.content}}",
+            message: "{{mgr-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -4014,6 +4234,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Invoice (Accounting)",
           description: "Summarize for accounting reconciliation",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.email.body}}",
             maxLength: 150,
@@ -4030,9 +4252,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Vendor (Accounting)",
           description: "Extract vendor for accounting entry",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.acct-summary.output.summary}}",
+              summary: "{{acct-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -4048,9 +4272,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Amount (Accounting)",
           description: "Extract amount for accounting record",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.acct-summary.output.summary}}",
+              summary: "{{acct-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -4071,8 +4297,8 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Vendor: "{{node.acct-vendor.output.content}}",
-              Amount: "{{node.acct-amount.output.content}}",
+              Vendor: "{{acct-vendor.content}}",
+              Amount: "{{acct-amount.content}}",
               Status: "In Accounting Queue",
             },
           },
@@ -4089,11 +4315,13 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Accounting Notification",
           description: "Draft update for accounting channel",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.acct-summary.output.summary}}",
-              vendor: "{{node.acct-vendor.output.content}}",
-              amount: "{{node.acct-amount.output.content}}",
+              summary: "{{acct-summary.summary}}",
+              vendor: "{{acct-vendor.content}}",
+              amount: "{{acct-amount.content}}",
             },
             contentType: "response",
             tone: "professional",
@@ -4112,7 +4340,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.acct-notify.output.content}}",
+            message: "{{acct-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -4238,6 +4466,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Feature Idea",
           description: "Summarize the request to capture the core idea",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 220,
@@ -4254,9 +4484,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Outline Feature Details",
           description: "Provide structured detail for product planning",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.product-summary.output.summary}}",
+              summary: "{{product-summary.summary}}",
               original: "{{trigger.fields}}",
             },
             contentType: "report",
@@ -4273,9 +4505,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Create Feature Title",
           description: "Generate a concise feature name",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.product-summary.output.summary}}",
+              summary: "{{product-summary.summary}}",
             },
             contentType: "summary",
             tone: "professional",
@@ -4294,8 +4528,8 @@ const templateUpdates = {
           providerId: "notion",
           config: {
             databaseId: "",
-            title: "{{node.product-title.output.content}}",
-            content: "{{node.product-details.output.content}}",
+            title: "{{product-title.content}}",
+            content: "{{product-details.content}}",
           },
           validationState: {
             missingRequired: ["databaseId"],
@@ -4310,10 +4544,12 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Notify Product Team",
           description: "Share highlights with the product team",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.product-summary.output.summary}}",
-              title: "{{node.product-title.output.content}}",
+              summary: "{{product-summary.summary}}",
+              title: "{{product-title.content}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -4332,7 +4568,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.product-notify.output.content}}",
+            message: "{{product-notify.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -4347,6 +4583,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Support Issue",
           description: "Capture the core problem reported",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 200,
@@ -4363,6 +4601,8 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Identify Customer",
           description: "Provide the customer's name or company",
+          needsConfiguration: true,
+
           config: {
             inputData: {
               original: "{{trigger.fields}}",
@@ -4381,8 +4621,10 @@ const templateUpdates = {
           type: "ai_action_classify",
           title: "Set Priority",
           description: "Classify the urgency of the issue",
+          needsConfiguration: true,
+
           config: {
-            inputText: "{{node.support-summary.output.summary}}",
+            inputText: "{{support-summary.summary}}",
             categories: ["Critical", "High", "Medium", "Low"],
             confidence: true,
           },
@@ -4401,9 +4643,9 @@ const templateUpdates = {
             baseId: "",
             tableName: "",
             fields: {
-              Issue: "{{node.support-summary.output.summary}}",
-              Customer: "{{node.support-customer.output.content}}",
-              Priority: "{{node.support-priority.output.classification}}",
+              Issue: "{{support-summary.summary}}",
+              Customer: "{{support-customer.content}}",
+              Priority: "{{support-priority.classification}}",
             },
           },
           validationState: {
@@ -4419,11 +4661,13 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Support Alert Message",
           description: "Draft an alert for the support channel",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.support-summary.output.summary}}",
-              priority: "{{node.support-priority.output.classification}}",
-              customer: "{{node.support-customer.output.content}}",
+              summary: "{{support-summary.summary}}",
+              priority: "{{support-priority.classification}}",
+              customer: "{{support-customer.content}}",
             },
             contentType: "response",
             tone: "professional",
@@ -4442,7 +4686,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.support-alert.output.content}}",
+            message: "{{support-alert.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],
@@ -4457,6 +4701,8 @@ const templateUpdates = {
           type: "ai_action_summarize",
           title: "Summarize Praise",
           description: "Capture the customer praise details",
+          needsConfiguration: true,
+
           config: {
             inputText: "{{trigger.fields}}",
             maxLength: 180,
@@ -4480,7 +4726,7 @@ const templateUpdates = {
             recordId: "{{trigger.recordId}}",
             fields: {
               Status: "Celebration",
-              Notes: "{{node.praise-summary.output.summary}}",
+              Notes: "{{praise-summary.summary}}",
             },
           },
           validationState: {
@@ -4496,9 +4742,11 @@ const templateUpdates = {
           type: "ai_action_generate",
           title: "Celebrate with Team",
           description: "Create a celebratory message for the team",
+          needsConfiguration: true,
+
           config: {
             inputData: {
-              summary: "{{node.praise-summary.output.summary}}",
+              summary: "{{praise-summary.summary}}",
             },
             contentType: "response",
             tone: "friendly",
@@ -4517,7 +4765,7 @@ const templateUpdates = {
           providerId: "slack",
           config: {
             channelId: "",
-            message: "{{node.praise-message.output.content}}",
+            message: "{{praise-message.content}}",
           },
           validationState: {
             missingRequired: ["channelId"],

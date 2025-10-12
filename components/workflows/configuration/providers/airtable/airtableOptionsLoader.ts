@@ -291,7 +291,15 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to load linked records from ${linkedTableName}: ${response.status}`);
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          console.error(`❌ [Airtable] Failed to load linked records from ${linkedTableName}:`, {
+            status: response.status,
+            error: errorData
+          });
+
+          // Return empty array instead of throwing - this allows the form to still work
+          // The user can manually type values if needed
+          return [];
         }
 
         const result = await response.json();
@@ -309,6 +317,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         }));
       } catch (error) {
         console.error(`❌ [Airtable] Error loading linked records from ${linkedTableName}:`, error);
+        // Return empty array so form still works - user can type values manually
         return [];
       }
     }

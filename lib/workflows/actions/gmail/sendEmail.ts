@@ -317,7 +317,7 @@ export async function sendGmailEmail(
             mimeType: attachment.mimeType || attachment.type || 'application/octet-stream'
           };
         } else if (attachment && typeof attachment === 'object' && attachment.file && attachment.file.content) {
-          // Nested file object (e.g., {{node.output.file}})
+          // Nested file object (e.g., {{nodeId.file}})
           fileData = {
             data: attachment.file.content, // Already base64 encoded
             fileName: attachment.file.filename || attachment.file.fileName || attachment.file.name || attachment.fileName || 'attachment',

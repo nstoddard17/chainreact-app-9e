@@ -44,7 +44,7 @@ export const sendMessageActionSchema: NodeComponent = {
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar",
       maxSize: 50 * 1024 * 1024, // 50MB limit
       multiple: true, // Allow multiple file attachments
-      tooltip: "Attach files to your message (max 50MB per file). Files under 10MB are processed instantly. Files 10-25MB may take a few seconds. Files over 25MB may experience slower processing. Upload: Choose files from your computer. URL: Provide direct links to files. Variables: Drag from the variable panel or type {{node_id.output}} to attach files from previous workflow steps.",
+      tooltip: "Attach files to your message (max 50MB per file). Files under 10MB are processed instantly. Files 10-25MB may take a few seconds. Files over 25MB may experience slower processing. Upload: Choose files from your computer. URL: Provide direct links to files. Variables: Drag from the variable panel or type {{node_id}} to attach files from previous workflow steps.",
       toggleOptions: {
         modes: ["upload", "url"],
         labels: {

@@ -39,7 +39,7 @@ export const getMailchimpMergeFields: MailchimpDataHandler<MailchimpMergeField> 
     }
 
     console.log('🔍 [Mailchimp] Fetching merge fields from API...')
-    const apiUrl = buildMailchimpApiUrl(integration, `/lists/${audienceId}/merge-fields`)
+    const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/merge-fields`)
 
     // Add query parameters
     const url = new URL(apiUrl)

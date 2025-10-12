@@ -1,3 +1,5 @@
+import { parseVariableReference, normalizeVariableReference } from "../workflows/variableReferences"
+
 /**
  * Variable Resolution Utility
  *
@@ -41,6 +43,18 @@ export function replaceTemplateVariables(template: string, data: any): any {
   return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
     const trimmedPath = path.trim()
     console.log(`🔧 Processing variable path: "${trimmedPath}"`)
+
+    const normalizedPath = normalizeVariableReference(`{{${trimmedPath}}}`)
+    const parsed = parseVariableReference(normalizedPath)
+    if (parsed && parsed.kind === 'node' && parsed.nodeId) {
+      const nodeData = data?.[parsed.nodeId]
+      if (nodeData?.output) {
+        const resolved = getNestedValue(nodeData.output, parsed.fieldPath.join('.'))
+        if (resolved !== undefined && resolved !== null) {
+          return resolved
+        }
+      }
+    }
 
     // Handle "New Message in Channel.Field Name" format
     if (trimmedPath.includes('.')) {

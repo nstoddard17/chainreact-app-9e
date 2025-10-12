@@ -191,7 +191,7 @@ function buildConstraintsPrompt(context: PromptContext): string {
 
 3. VARIABLE USAGE:
    - Use {{trigger.x.y}} format for accessing trigger data
-   - Use {{node.nodeId.output.field}} for previous node outputs
+   - Use {{nodeId.field}} for previous node outputs
    - Use {{AI:instruction}} for AI-generated content
    - Extract real values when available, generate appropriate ones when not
 

@@ -45,73 +45,129 @@ export class AIActionsService {
     })
   }
 
+  private normalizeInputText(config: any, fallback: string = ""): string {
+    if (typeof config?.inputText === "string") return config.inputText
+    if (typeof config?.text === "string") return config.text
+    return fallback
+  }
+
+  private normalizeNumber(value: any, defaultValue: number): number {
+    if (value === undefined || value === null) return defaultValue
+    const parsed = Number(value)
+    return Number.isNaN(parsed) ? defaultValue : parsed
+  }
+
+  private normalizeArray(value: any): string[] {
+    if (Array.isArray(value)) return value
+    if (typeof value === "string") {
+      return value
+        .split(/\r?\n|,/)
+        .map(entry => entry.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
+  private normalizeInputData(value: any): Record<string, any> {
+    if (!value) return {}
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value)
+        return parsed && typeof parsed === "object" ? parsed : {}
+      } catch {
+        return {}
+      }
+    }
+    if (typeof value === "object" && !Array.isArray(value)) {
+      return value
+    }
+    return {}
+  }
+
   private async executeSummarize(config: any, context: ExecutionContext) {
-    const text = config.text || context.data?.text || ""
-    const maxLength = config.maxLength || 100
+    const text = this.normalizeInputText(config, context.data?.text || "")
+    const maxLength = this.normalizeNumber(config.maxLength, 300)
+    const style = config.style || ""
+    const focus = config.focus || ""
 
     if (context.testMode) {
       return {
         type: "ai_action_summarize",
-        summary: `Test summary of: ${text.substring(0, 50)}...`,
+        summary: `Test summary of: ${text.substring(0, Math.min(maxLength, 50))}...`,
         originalLength: text.length,
-        summaryLength: Math.min(maxLength, 50)
+        summaryLength: Math.min(maxLength, 50),
+        style,
+        focus
       }
     }
 
-    // TODO: Implement actual AI summarization
+    // TODO: Replace with real AI summarization call
+    const summary = text.substring(0, maxLength)
     return {
       type: "ai_action_summarize",
-      summary: `Summary: ${text.substring(0, maxLength)}...`,
+      summary,
       originalLength: text.length,
-      summaryLength: maxLength
+      summaryLength: summary.length,
+      style,
+      focus
     }
   }
 
   private async executeExtract(config: any, context: ExecutionContext) {
-    const text = config.text || context.data?.text || ""
+    const text = this.normalizeInputText(config, context.data?.text || "")
     const extractionType = config.extractionType || "entities"
+    const instructions = config.instructions || ""
+    const returnFormat = config.returnFormat || "auto"
 
     if (context.testMode) {
       return {
         type: "ai_action_extract",
         extractionType,
         extracted: ["test entity 1", "test entity 2"],
-        text
+        text,
+        instructions,
+        returnFormat
       }
     }
 
-    // TODO: Implement actual AI extraction
+    // TODO: Replace with real AI extraction
     return {
       type: "ai_action_extract",
       extractionType,
       extracted: [],
-      text
+      text,
+      instructions,
+      returnFormat
     }
   }
 
   private async executeSentiment(config: any, context: ExecutionContext) {
-    const text = config.text || context.data?.text || ""
+    const text = this.normalizeInputText(config, context.data?.text || "")
+    const labels = this.normalizeArray(config.labels)
+    const includeConfidence = config.confidence !== false
 
     if (context.testMode) {
       return {
         type: "ai_action_sentiment",
         sentiment: "positive",
-        confidence: 0.85,
-        text
+        confidence: includeConfidence ? 0.85 : undefined,
+        text,
+        labels
       }
     }
 
-    // TODO: Implement actual sentiment analysis
+    // TODO: Replace with real sentiment analysis
     return {
       type: "ai_action_sentiment",
       sentiment: "neutral",
-      confidence: 0.5,
-      text
+      confidence: includeConfidence ? 0.5 : undefined,
+      text,
+      labels
     }
   }
 
   private async executeTranslate(config: any, context: ExecutionContext) {
-    const text = config.text || context.data?.text || ""
+    const text = this.normalizeInputText(config, context.data?.text || "")
     const targetLanguage = config.targetLanguage || "en"
     const sourceLanguage = config.sourceLanguage || "auto"
 
@@ -125,7 +181,7 @@ export class AIActionsService {
       }
     }
 
-    // TODO: Implement actual translation
+    // TODO: Replace with real translation
     return {
       type: "ai_action_translate",
       originalText: text,
@@ -137,47 +193,67 @@ export class AIActionsService {
 
   private async executeGenerate(config: any, context: ExecutionContext) {
     const prompt = config.prompt || ""
-    const maxTokens = config.maxTokens || 100
+    const contentType = config.contentType || "response"
+    const tone = config.tone || "neutral"
+    const length = config.length || "medium"
+    const temperature = this.normalizeNumber(config.temperature, 0.7)
+    const maxTokens = this.normalizeNumber(config.maxTokens, 300)
+    const inputData = this.normalizeInputData(config.inputData)
+    const timestamp = new Date().toISOString()
 
     if (context.testMode) {
       return {
         type: "ai_action_generate",
         prompt,
-        generated: `Test generated content based on: ${prompt.substring(0, 30)}...`,
-        maxTokens
+        content: `Test generated content based on: ${prompt.substring(0, 40)}...`,
+        contentType,
+        tone,
+        length,
+        temperature,
+        maxTokens,
+        inputData,
+        timestamp
       }
     }
 
-    // TODO: Implement actual text generation
+    // TODO: Replace with real text generation
     return {
       type: "ai_action_generate",
       prompt,
-      generated: "Generated content would appear here",
-      maxTokens
+      content: "Generated content would appear here",
+      contentType,
+      tone,
+      length,
+      temperature,
+      maxTokens,
+      inputData,
+      timestamp
     }
   }
 
   private async executeClassify(config: any, context: ExecutionContext) {
-    const text = config.text || context.data?.text || ""
-    const categories = config.categories || ["positive", "negative", "neutral"]
+    const text = this.normalizeInputText(config, context.data?.text || "")
+    const categories = this.normalizeArray(config.categories)
+    const includeConfidence = config.confidence !== false
+    const normalizedCategories = categories.length > 0 ? categories : ["positive", "negative", "neutral"]
 
     if (context.testMode) {
       return {
         type: "ai_action_classify",
         text,
-        classification: categories[0],
-        confidence: 0.85,
-        categories
+        classification: normalizedCategories[0],
+        confidence: includeConfidence ? 0.85 : undefined,
+        categories: normalizedCategories
       }
     }
 
-    // TODO: Implement actual classification
+    // TODO: Replace with real classification
     return {
       type: "ai_action_classify",
       text,
-      classification: categories[0] || "unknown",
-      confidence: 0.5,
-      categories
+      classification: normalizedCategories[0] || "unknown",
+      confidence: includeConfidence ? 0.5 : undefined,
+      categories: normalizedCategories
     }
   }
 }

@@ -33,7 +33,7 @@ export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = as
     }
 
     console.log('🔍 [Mailchimp] Fetching campaigns from API...')
-    const apiUrl = buildMailchimpApiUrl(integration, '/campaigns')
+    const apiUrl = await buildMailchimpApiUrl(integration, '/campaigns')
 
     // Add query parameters - get only unsent campaigns or draft campaigns
     const url = new URL(apiUrl)
