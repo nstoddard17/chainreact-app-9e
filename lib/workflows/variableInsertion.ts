@@ -12,7 +12,10 @@ export function insertVariableIntoTextInput(
   const start = element.selectionStart ?? safeCurrentValue.length
   const end = element.selectionEnd ?? start
 
-  if (typeof element.setRangeText === "function") {
+  // Number inputs don't support setRangeText - handle them separately
+  const isNumberInput = 'type' in element && element.type === 'number'
+
+  if (!isNumberInput && typeof element.setRangeText === "function") {
     element.setRangeText(variable, start, end, "end")
     const updatedValue = element.value
     updateValue(updatedValue)
@@ -28,6 +31,7 @@ export function insertVariableIntoTextInput(
     return element.value
   }
 
+  // For number inputs and fallback: construct new value manually
   const newValue =
     safeCurrentValue.slice(0, start) +
     variable +
@@ -38,8 +42,11 @@ export function insertVariableIntoTextInput(
   queueMicrotask(() => {
     try {
       element.focus()
-      const cursorPosition = start + variable.length
-      element.setSelectionRange(cursorPosition, cursorPosition)
+      // Don't try to set selection range on number inputs
+      if (!isNumberInput) {
+        const cursorPosition = start + variable.length
+        element.setSelectionRange(cursorPosition, cursorPosition)
+      }
     } catch {
       /* Focus management best-effort */
     }

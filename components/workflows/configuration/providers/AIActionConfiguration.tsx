@@ -1,11 +1,12 @@
 "use client"
 
-import React, { useMemo, useEffect, useCallback, useState } from "react"
+import React, { useMemo, useEffect, useCallback, useState, useRef } from "react"
 import { FieldRenderer } from "../fields/FieldRenderer"
 import { ConfigurationContainer } from "../components/ConfigurationContainer"
 import { Button } from "@/components/ui/button"
 import { Loader2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { AI_ACTION_TEMPLATES, getTemplateDefaults } from "@/lib/workflows/nodes/providers/ai/actions/templates"
 
 interface AIActionConfigurationProps {
   nodeInfo: any
@@ -39,6 +40,9 @@ export function AIActionConfiguration({
   const { toast } = useToast()
   const nodeType: string = nodeInfo?.type || ""
   const configFields = useMemo(() => nodeInfo?.configSchema || [], [nodeInfo?.configSchema])
+  const templatesForNode = useMemo(() => AI_ACTION_TEMPLATES[nodeType] || [], [nodeType])
+  const hasInitialisedTemplate = useRef(false)
+  const previousTemplateId = useRef<string | null>(null)
 
   // Apply default values from schema the first time the form mounts
   useEffect(() => {
@@ -61,6 +65,42 @@ export function AIActionConfiguration({
   }, [nodeType, setValue, values.categories, values.labels])
 
   const [isImprovingPrompt, setIsImprovingPrompt] = useState(false)
+
+  useEffect(() => {
+    if (!templatesForNode.length) {
+      return
+    }
+
+    const currentTemplateId = values.template || "custom"
+
+    if (!hasInitialisedTemplate.current) {
+      hasInitialisedTemplate.current = true
+      previousTemplateId.current = currentTemplateId
+      if (values.template === undefined) {
+        setValue("template", "custom")
+      }
+      return
+    }
+
+    if (currentTemplateId === previousTemplateId.current) {
+      return
+    }
+
+    previousTemplateId.current = currentTemplateId
+
+    if (currentTemplateId === "custom") {
+      return
+    }
+
+    const defaults = getTemplateDefaults(nodeType, currentTemplateId)
+    if (!defaults) {
+      return
+    }
+
+    Object.entries(defaults).forEach(([field, defaultValue]) => {
+      setValue(field, defaultValue)
+    })
+  }, [nodeType, setValue, templatesForNode, values.template])
 
   const handleImprovePrompt = useCallback(async () => {
     const currentPrompt = values.prompt?.toString()?.trim()

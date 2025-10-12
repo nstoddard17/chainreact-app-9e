@@ -71,9 +71,18 @@ export function useVariableDropTarget({
     setIsDragOver(false)
     focusField()
 
-    const variable =
-      event.dataTransfer.getData("text/plain") ||
-      event.dataTransfer.getData("application/json")
+    let variable = event.dataTransfer.getData("text/plain")
+    if (!variable) {
+      const jsonPayload = event.dataTransfer.getData("application/json")
+      if (jsonPayload) {
+        try {
+          const parsed = JSON.parse(jsonPayload)
+          variable = typeof parsed?.variable === "string" ? parsed.variable : jsonPayload
+        } catch {
+          variable = jsonPayload
+        }
+      }
+    }
 
     if (variable) {
       onInsert(variable, event)
