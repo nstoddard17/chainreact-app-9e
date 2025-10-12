@@ -74,6 +74,32 @@ interface CollaborationActions {
   cleanupPolling: () => void
 }
 
+const collaboratorsAreEqual = (next: Collaborator[], prev: Collaborator[]): boolean => {
+  if (next === prev) return true
+  if (!Array.isArray(next) || !Array.isArray(prev)) return false
+  if (next.length !== prev.length) return false
+
+  for (let i = 0; i < next.length; i++) {
+    const nextItem = next[i]
+    const prevItem = prev[i]
+    if (!nextItem || !prevItem) return false
+    if (nextItem.id !== prevItem.id) return false
+    if (nextItem.user_id !== prevItem.user_id) return false
+    if (nextItem.color !== prevItem.color) return false
+    const nextCursor = nextItem.cursor_position || { x: 0, y: 0 }
+    const prevCursor = prevItem.cursor_position || { x: 0, y: 0 }
+    if (nextCursor.x !== prevCursor.x || nextCursor.y !== prevCursor.y) return false
+    const nextNodes = nextItem.selected_nodes || []
+    const prevNodes = prevItem.selected_nodes || []
+    if (nextNodes.length !== prevNodes.length) return false
+    for (let j = 0; j < nextNodes.length; j++) {
+      if (nextNodes[j] !== prevNodes[j]) return false
+    }
+  }
+
+  return true
+}
+
 export const useCollaborationStore = create<CollaborationState & CollaborationActions>((set, get) => ({
   collaborationSession: null,
   collaborators: [],
@@ -342,9 +368,15 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
 
       // Handle both array response and success object response
       if (Array.isArray(result)) {
-        set({ collaborators: result })
+        const current = get().collaborators
+        if (!collaboratorsAreEqual(result, current)) {
+          set({ collaborators: result })
+        }
       } else if (result.success && Array.isArray(result.collaborators)) {
-        set({ collaborators: result.collaborators })
+        const current = get().collaborators
+        if (!collaboratorsAreEqual(result.collaborators, current)) {
+          set({ collaborators: result.collaborators })
+        }
       } else {
         console.warn("Unexpected collaborators response format:", result)
       }

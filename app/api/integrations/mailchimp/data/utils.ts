@@ -44,9 +44,38 @@ export function validateMailchimpIntegration(integration: MailchimpIntegration):
 }
 
 /**
+ * Fetch Mailchimp metadata on-demand using the access token
+ */
+async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: string; api_endpoint?: string } | null> {
+  try {
+    console.log('🔍 [Mailchimp] Attempting to fetch metadata on-demand...')
+    const metadataResponse = await fetch('https://login.mailchimp.com/oauth2/metadata', {
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+      },
+    })
+
+    if (!metadataResponse.ok) {
+      console.warn('⚠️ [Mailchimp] Failed to fetch metadata:', metadataResponse.statusText)
+      return null
+    }
+
+    const metadataData = await metadataResponse.json()
+    console.log('✅ [Mailchimp] Successfully fetched metadata on-demand:', { dc: metadataData.dc })
+    return {
+      dc: metadataData.dc,
+      api_endpoint: metadataData.api_endpoint,
+    }
+  } catch (error) {
+    console.warn('⚠️ [Mailchimp] Error fetching metadata:', error)
+    return null
+  }
+}
+
+/**
  * Get Mailchimp server prefix from metadata or token
  */
-export function getMailchimpServerPrefix(integration: MailchimpIntegration): string {
+export async function getMailchimpServerPrefix(integration: MailchimpIntegration): Promise<string> {
   // Try to get from metadata first (OAuth flow)
   if (integration.metadata?.dc) {
     console.log(`📍 [Mailchimp] Using server prefix from metadata: ${integration.metadata.dc}`)
@@ -76,6 +105,19 @@ export function getMailchimpServerPrefix(integration: MailchimpIntegration): str
         return potentialPrefix
       }
     }
+
+    // If we couldn't extract from token format, try fetching metadata on-demand
+    console.log('🔍 [Mailchimp] Server prefix not in metadata, attempting to fetch...')
+    const metadata = await fetchMailchimpMetadata(decryptedToken)
+    if (metadata?.dc) {
+      return metadata.dc
+    }
+    if (metadata?.api_endpoint) {
+      const match = metadata.api_endpoint.match(/https:\/\/([^.]+)\.api\.mailchimp\.com/)
+      if (match && match[1]) {
+        return match[1]
+      }
+    }
   } catch (error) {
     console.warn('Failed to decrypt token for server prefix extraction:', error)
   }
@@ -87,8 +129,8 @@ export function getMailchimpServerPrefix(integration: MailchimpIntegration): str
 /**
  * Build Mailchimp API URL
  */
-export function buildMailchimpApiUrl(integration: MailchimpIntegration, path: string): string {
-  const serverPrefix = getMailchimpServerPrefix(integration)
+export async function buildMailchimpApiUrl(integration: MailchimpIntegration, path: string): Promise<string> {
+  const serverPrefix = await getMailchimpServerPrefix(integration)
   const baseUrl = `https://${serverPrefix}.api.mailchimp.com/3.0`
 
   // Remove leading slash if present
@@ -172,7 +214,7 @@ export async function validateMailchimpToken(integration: MailchimpIntegration):
     const decryptedToken = getDecryptedToken(integration)
 
     // Test the token by making a simple API call
-    const url = buildMailchimpApiUrl(integration, '/ping')
+    const url = await buildMailchimpApiUrl(integration, '/ping')
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${decryptedToken}`,

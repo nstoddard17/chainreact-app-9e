@@ -3,6 +3,8 @@
  * Manages data flow between workflow nodes and provides variable resolution
  */
 
+import { parseVariableReference, normalizeVariableReference } from './variableReferences'
+
 export interface DataFlowContext {
   // Execution context
   executionId: string
@@ -115,7 +117,7 @@ export class DataFlowManager {
   }
 
   /**
-   * Resolve a variable reference (e.g., "{{node1.output.subject}}" or "{{var.customField}}")
+   * Resolve a variable reference (e.g., "{{node1.subject}}" or "{{var.customField}}")
    */
   resolveVariable(reference: string): any {
     console.log(`🔧 DataFlowManager resolving variable: "${reference}"`)
@@ -231,31 +233,22 @@ export class DataFlowManager {
       }
     }
 
-    // Handle node output references: {{nodeId.output.field}}
-    const nodeOutputMatch = reference.match(/\{\{([^.]+)\.output(?:\.([^}]+))?\}\}/)
-    if (nodeOutputMatch) {
-      const nodeId = nodeOutputMatch[1]
-      const field = nodeOutputMatch[2]
-      const output = this.getNodeOutput(nodeId)
-      
-      console.log(`📎 Resolving node output reference: nodeId="${nodeId}", field="${field}"`)
-      console.log(`📎 Node output found:`, output ? 'yes' : 'no')
-      if (output) {
-        console.log(`📎 Output success:`, output.success)
-        console.log(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
-        console.log(`📎 Output data:`, JSON.stringify(output.data, null, 2))
-      }
-      
+    const normalizedReference = normalizeVariableReference(reference)
+    const parsedReference = parseVariableReference(normalizedReference)
+    if (parsedReference && parsedReference.kind === 'node' && parsedReference.nodeId) {
+      const output = this.getNodeOutput(parsedReference.nodeId)
+      console.log(`📎 Resolving node output reference: nodeId="${parsedReference.nodeId}", field="${parsedReference.fieldPath.join('.') || '(all)'}"`)
       if (output && output.success) {
-        if (field) {
-          const fieldValue = this.getNestedValue(output.data, field)
-          console.log(`📎 Field value for "${field}":`, fieldValue ? 'found' : 'not found')
+        if (parsedReference.fieldPath.length > 0) {
+          const fieldValue = this.getNestedValue(output.data, parsedReference.fieldPath.join('.'))
+          console.log(`📎 Field value for "${parsedReference.fieldPath.join('.')}":`, fieldValue ? 'found' : 'not found')
           return fieldValue
         }
         return output.data
       }
-      console.log(`📎 Returning null - output not found or not successful`)
-      return null
+      if (output) {
+        console.log(`📎 Returning null - output not successful`)
+      }
     }
 
     // Handle variable references: {{var.variableName}}

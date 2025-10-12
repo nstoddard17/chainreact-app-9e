@@ -335,7 +335,7 @@ export function GoogleDriveFileField({
             type="text"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
-            placeholder={field.placeholder || "{{node-id.output.file}}"}
+            placeholder={field.placeholder || "{{node-id.file}}"}
             className={cn(error && "border-red-500")}
           />
           <VariablePicker

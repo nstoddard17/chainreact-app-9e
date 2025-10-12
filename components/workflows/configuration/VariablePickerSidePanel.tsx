@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { useVariableDragContext } from './VariableDragContext'
+import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
@@ -602,21 +603,24 @@ export function VariablePickerSidePanel({
       </div>
     </div>
 
-      <div className="px-4 py-2 border-b border-slate-200 bg-white/90">
+      <div className="px-4 py-2.5 border-b border-blue-300 bg-gradient-to-r from-blue-600 to-indigo-600">
         {activeField ? (
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-blue-700 border-blue-200 bg-blue-50">
-              Active Field
-            </Badge>
-            <span
-              className="truncate text-slate-700 font-medium"
-              title={activeField.label || activeField.id}
-            >
-              {activeField.label || activeField.id}
-            </span>
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-blue-100 font-bold">
+              Inserting into
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-sm"></div>
+              <span
+                className="text-sm text-white font-bold truncate"
+                title={activeField.label || activeField.id}
+              >
+                {activeField.label || activeField.id}
+              </span>
+            </div>
           </div>
         ) : (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-blue-100 font-medium">
             Click a form field to enable click-to-insert (copy icon still available).
           </div>
         )}
@@ -665,25 +669,17 @@ export function VariablePickerSidePanel({
               const isNodeTested = nodeResult !== null
               
               return (
-                <Collapsible 
-                  key={node.id} 
-                  open={isExpanded} 
-                  onOpenChange={(open) => {
-                    if (open) {
-                      setExpandedNodes(prev => new Set(prev).add(node.id))
-                    } else {
-                      setExpandedNodes(prev => {
-                        const newSet = new Set(prev)
-                        newSet.delete(node.id)
-                        return newSet
-                      })
-                    }
-                  }}
+                <Collapsible
+                  key={node.id}
+                  open={isExpanded}
                   className={`mb-3 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm ${isNodeTested ? 'border-green-300' : ''}`}
                 >
                   {/* Node Header */}
                   <CollapsibleTrigger asChild>
-                    <div className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}>
+                    <div
+                      className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}
+                      onClick={() => toggleNodeExpansion(node.id)}
+                    >
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div className="w-4 h-4 flex items-center justify-center mt-1 flex-shrink-0">
                           {isExpanded ? (
@@ -726,7 +722,7 @@ export function VariablePickerSidePanel({
                     {hasOutputs ? (
                       node.outputs.map((output: any) => {
                                                   // Use node.id for the actual variable reference, not node.title
-                        const variableRef = `{{${node.id}.output.${output.name}}}`
+                        const variableRef = buildVariableReference(node.id, output.name)
                         const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
                         const variableValue = getVariableValue(node.id, output.name)
                         const hasValue = variableValue !== null
@@ -761,6 +757,8 @@ export function VariablePickerSidePanel({
                             onClick={(e) => {
                               e.stopPropagation() // Prevent collapsible from closing
                               handleVariableSelect(variableRef, node.id, output.name)
+                              // Prevent the collapsible from closing after insertion
+                              e.preventDefault()
                             }}
                           >
                             <div className="flex items-start gap-2 flex-1 min-w-0">

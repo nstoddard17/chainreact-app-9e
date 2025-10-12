@@ -38,6 +38,8 @@ import { ShopifyConfiguration } from './providers/ShopifyConfiguration';
 import { DropboxConfiguration } from './providers/DropboxConfiguration';
 import { YouTubeConfiguration } from './providers/YouTubeConfiguration';
 import { YouTubeStudioConfiguration } from './providers/YouTubeStudioConfiguration';
+import { AIActionConfiguration } from './providers/AIActionConfiguration';
+import { normalizeAllVariablesInObject } from '@/lib/workflows/variableReferences';
 import { BoxConfiguration } from './providers/BoxConfiguration';
 import { GitHubConfiguration } from './providers/GitHubConfiguration';
 import { PayPalConfiguration } from './providers/PayPalConfiguration';
@@ -489,11 +491,12 @@ function ConfigurationForm({
       });
     }
 
-    console.log('🔄 [ConfigForm] Setting form values to:', initialValues);
-    console.log('🔍 [ConfigForm] _allFieldsAI in initialValues:', initialValues._allFieldsAI);
+    const normalizedInitialValues = normalizeAllVariablesInObject(initialValues);
+    console.log('🔄 [ConfigForm] Setting form values to:', normalizedInitialValues);
+    console.log('🔍 [ConfigForm] _allFieldsAI in initialValues:', normalizedInitialValues._allFieldsAI);
     console.log('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
     console.log('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
-    setValues(initialValues);
+    setValues(normalizedInitialValues);
     setIsInitialLoading(false);
   }, [nodeInfo, initialData, isConnectedToAIAgent]);
 
@@ -1014,7 +1017,7 @@ function ConfigurationForm({
       hasValues: Object.keys(values).length > 0
     });
 
-    // Find dynamic fields that have saved values
+    // Find dynamic fields that have saved values OR are dependent fields with parent values
     const fieldsWithValues = nodeInfo.configSchema.filter((field: any) => {
       // Check if it's a dynamic field
       if (!field.dynamic) return false;
@@ -1027,6 +1030,17 @@ function ConfigurationForm({
 
       // Check if it has a saved value
       const savedValue = values[field.name];
+
+      // For dependent fields, also load if parent has value (even if this field doesn't have a saved value yet)
+      // This ensures dropdowns are populated when modal opens with a parent value
+      if (field.dependsOn) {
+        const parentValue = values[field.dependsOn];
+        if (parentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
+          console.log(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
+          return true;
+        }
+      }
+
       if (!savedValue) return false;
 
       // Skip if we've already loaded options for this field
@@ -1090,8 +1104,13 @@ function ConfigurationForm({
           return false;
         }
 
-        // For dependent fields, check if the saved value exists in current options
-        if (hasOptions) {
+        // If no options loaded yet, definitely need to load
+        if (!hasOptions) {
+          return true;
+        }
+
+        // If we have a saved value, check if it exists in current options
+        if (savedValue) {
           // Handle multi-select fields (saved value is an array)
           if (Array.isArray(savedValue)) {
             // Check if all saved values exist in options
@@ -1102,16 +1121,18 @@ function ConfigurationForm({
             );
             // If any value doesn't exist in options, we need to reload
             return !allValuesExist;
-          } 
+          }
             // Single value field
             const valueExists = fieldOptions.some((opt: any) =>
               (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
             );
             // If value doesn't exist in options, we need to reload
             return !valueExists;
-          
+
         }
-        return true; // No options yet, need to load
+
+        // No saved value but parent has value and we have options - don't reload
+        return false;
       }
 
       // Only load if we have a value but no options yet
@@ -1247,10 +1268,11 @@ function ConfigurationForm({
 
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
+    const normalizedSubmissionValues = normalizeAllVariablesInObject({ ...submissionValues });
     console.log('🎯 [ConfigForm] handleSubmit called with values:', {
-      allValues: submissionValues,
-      pageFieldsValue: submissionValues.pageFields,
-      hasPageFields: 'pageFields' in submissionValues
+      allValues: normalizedSubmissionValues,
+      pageFieldsValue: normalizedSubmissionValues.pageFields,
+      hasPageFields: 'pageFields' in normalizedSubmissionValues
     });
     setIsLoading(true);
     try {
@@ -1270,7 +1292,7 @@ function ConfigurationForm({
         const cacheKey = `workflow_${workflowData.id}_node_${currentNodeId}_config`;
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
-            config: submissionValues,
+            config: normalizedSubmissionValues,
             dynamicOptions,
             timestamp: Date.now()
           }));
@@ -1294,7 +1316,7 @@ function ConfigurationForm({
       };
 
       await onSave({
-        ...submissionValues,
+        ...normalizedSubmissionValues,
         __dynamicOptions: dynamicOptions,
         __validationState: validationState
       });
@@ -1393,6 +1415,17 @@ function ConfigurationForm({
       <AIMessageConfiguration
         {...commonProps}
         setValue={setValueBase}
+      />
+    )
+  }
+
+  if (nodeInfo?.type?.startsWith('ai_action_')) {
+    return (
+      <AIActionConfiguration
+        {...commonProps}
+        errors={errors}
+        dynamicOptions={dynamicOptions}
+        loadingDynamic={loadingDynamic}
       />
     )
   }

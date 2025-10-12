@@ -1,5 +1,7 @@
 "use client"
 
+import { buildVariableReference, normalizeVariableExpression } from "./variableReferences"
+
 export function insertVariableIntoTextInput(
   element: HTMLInputElement | HTMLTextAreaElement,
   variable: string,
@@ -88,17 +90,25 @@ export function normalizeDraggedVariable(raw: string) {
 
   const trimmed = raw.trim()
 
+  const normalizeFormat = (value: string) => {
+    const hasBraces = value.startsWith("{{") && value.endsWith("}}");
+    const inner = hasBraces ? value.slice(2, -2) : value;
+    const normalizedInner = normalizeVariableExpression(inner);
+    return `{{${normalizedInner}}}`;
+  }
+
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmed)
       if (parsed && typeof parsed.variable === "string") {
-        return parsed.variable
+        return normalizeFormat(parsed.variable)
       }
     } catch {
-      // Fallback to trimmed text when JSON parsing fails
-      return trimmed
+      return normalizeFormat(trimmed)
     }
   }
 
-  return trimmed
+  return normalizeFormat(trimmed)
 }
+
+export { buildVariableReference, normalizeVariableExpression }

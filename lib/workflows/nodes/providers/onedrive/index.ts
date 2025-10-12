@@ -223,7 +223,7 @@ const onedriveActionUploadFile: NodeComponent = {
       label: "File Variable",
       type: "text",
       required: false,
-      placeholder: "{{node-id.output.file}}",
+      placeholder: "{{node-id.file}}",
       description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
       conditional: { field: "sourceType", value: "node" }
     },

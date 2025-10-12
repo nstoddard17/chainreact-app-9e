@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Bot, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { parseVariableReference } from "@/lib/workflows/variableReferences";
 
 interface GenericSelectFieldProps {
   field: any;
@@ -132,16 +133,11 @@ export function GenericSelectField({
 
   // Function to extract friendly label from variable syntax
   const getFriendlyVariableLabel = React.useCallback((variableStr: string, workflowNodes?: any[]): string | null => {
-    // Match pattern like {{node_id.output.field_name}}
-    const match = variableStr.match(/\{\{([^}]+)\}\}/)
-    if (!match) return null
+    const parsed = parseVariableReference(variableStr)
+    if (!parsed || parsed.kind !== 'node' || !parsed.nodeId) return null
 
-    const parts = match[1].split('.')
-    if (parts.length < 3) return variableStr // Return original if format is unexpected
-
-    // Extract the node ID and field name
-    const nodeId = parts[0]
-    const fieldName = parts[parts.length - 1]
+    const nodeId = parsed.nodeId
+    const fieldName = parsed.fieldPath[parsed.fieldPath.length - 1]
 
     // Try to find the node title if workflowNodes is available
     let nodeTitle = ''

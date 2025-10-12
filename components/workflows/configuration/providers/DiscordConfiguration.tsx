@@ -69,6 +69,8 @@ export function DiscordConfiguration({
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const isLoadingChannels = useRef(false);
   const hasInitializedServers = useRef(false);
+  const channelLoadAbortController = useRef<AbortController | null>(null);
+  const currentGuildIdRef = useRef<string | null>(null);
 
   // Log initial values when component mounts
   useEffect(() => {
@@ -182,14 +184,24 @@ export function DiscordConfiguration({
     
     // Handle server selection
     if (fieldName === 'guildId') {
+      // Cancel any pending channel loading from previous server
+      if (channelLoadAbortController.current) {
+        console.log('🚫 [Discord] Canceling previous channel load');
+        channelLoadAbortController.current.abort();
+        channelLoadAbortController.current = null;
+        isLoadingChannels.current = false;
+        setLocalLoadingFields(prev => {
+          const newSet = new Set(prev);
+          newSet.delete('channelId');
+          return newSet;
+        });
+      }
+
+      // Update current guild ID reference
+      currentGuildIdRef.current = value;
+
       // Only process if we have a value
       if (value) {
-        // Prevent multiple concurrent loads
-        if (isLoadingChannels.current) {
-          console.log('⏳ [Discord] Already loading channels, skipping');
-          return;
-        }
-
         // Clear dependent fields when server changes
         setValue('channelId', '');
         setValue('messageId', '');
@@ -251,8 +263,12 @@ export function DiscordConfiguration({
           }, 400); // Slightly delay role loading to avoid rate limits
         }
 
-        // Check bot status for the selected guild
-        checkBotStatus(value);
+        // Check bot status for the selected guild first, then load channels if bot is connected
+        console.log('🤖 [Discord] Checking bot status before loading channels for guild:', value);
+
+        // Create abort controller for this channel load
+        channelLoadAbortController.current = new AbortController();
+        const currentAbortController = channelLoadAbortController.current;
 
         // Set loading flag
         isLoadingChannels.current = true;
@@ -261,26 +277,48 @@ export function DiscordConfiguration({
           newSet.add('channelId');
           return newSet;
         });
-        
-        // Load channels with a longer delay to prevent UI freeze
+
+        // Check bot status first, then load channels if connected
         setTimeout(() => {
+          // Only proceed if this is still the current guild (not aborted)
+          if (currentAbortController.signal.aborted || currentGuildIdRef.current !== value) {
+            console.log('🚫 [Discord] Channel load aborted or guild changed');
+            isLoadingChannels.current = false;
+            setLocalLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete('channelId');
+              return newSet;
+            });
+            return;
+          }
+
           console.log('📥 [Discord] Loading channels for guild:', value);
-          loadOptions('channelId', 'guildId', value)
+          loadOptions('channelId', 'guildId', value, true) // Force reload with true
             .then(() => {
-              console.log('✅ [Discord] Channels loaded successfully');
+              if (!currentAbortController.signal.aborted && currentGuildIdRef.current === value) {
+                console.log('✅ [Discord] Channels loaded successfully');
+              }
             })
             .catch((error) => {
-              console.error('❌ [Discord] Error loading channels:', error);
+              if (!currentAbortController.signal.aborted && currentGuildIdRef.current === value) {
+                console.error('❌ [Discord] Error loading channels:', error);
+              }
             })
             .finally(() => {
-              isLoadingChannels.current = false;
-              setLocalLoadingFields(prev => {
-                const newSet = new Set(prev);
-                newSet.delete('channelId');
-                return newSet;
-              });
+              if (!currentAbortController.signal.aborted && currentGuildIdRef.current === value) {
+                isLoadingChannels.current = false;
+                setLocalLoadingFields(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete('channelId');
+                  return newSet;
+                });
+                // Clear the abort controller
+                if (channelLoadAbortController.current === currentAbortController) {
+                  channelLoadAbortController.current = null;
+                }
+              }
             });
-        }, 500); // Increased delay to 500ms
+        }, 500); // Delay to allow bot status check to complete
 
         // Also load members if we have a userIds field (for delete message action)
         const hasUsersField = nodeInfo?.configSchema?.some((field: any) => field.name === 'userIds');
@@ -732,14 +770,20 @@ export function DiscordConfiguration({
                 // Show all fields after both are selected
               }
 
-              // Conditionally hide channelId if no guild selected (for other Discord nodes)
-              if (field.name === 'channelId' && !values.guildId) {
-                return null;
+              // Conditionally hide channelId if no guild selected OR if bot is not in guild (for other Discord nodes)
+              if (field.name === 'channelId') {
+                // Hide if no guild selected
+                if (!values.guildId) return null;
+                // Hide if bot status is checked and bot is not in guild
+                if (botStatus && !botStatus.isInGuild && !isBotStatusChecking) return null;
               }
-              
-              // Conditionally hide message field if no channel selected (for send message action)
-              if (field.name === 'message' && !values.channelId) {
-                return null;
+
+              // Conditionally hide message field if no channel selected OR if bot is not in guild (for send message action)
+              if (field.name === 'message') {
+                // Hide if no channel selected
+                if (!values.channelId) return null;
+                // Hide if bot status is checked and bot is not in guild
+                if (botStatus && !botStatus.isInGuild && !isBotStatusChecking) return null;
               }
               
               // Conditionally hide messageId field if no channel selected (for edit/delete message actions)

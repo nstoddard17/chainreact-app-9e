@@ -9,7 +9,7 @@ import { useIntegrationStore } from '@/stores/integrationStore';
 import { useAirtableBubbleHandler } from '../hooks/useAirtableBubbleHandler';
 import { useFieldValidation } from '../hooks/useFieldValidation';
 import { AirtableRecordsTable } from '../AirtableRecordsTable';
-import { getAirtableFieldTypeFromSchema } from '../utils/airtableHelpers';
+import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/airtableHelpers';
 import { BubbleDisplay } from '../components/BubbleDisplay';
 
 interface AirtableConfigurationProps {
@@ -190,10 +190,87 @@ export function AirtableConfiguration({
             type: f.type,
             id: f.id
           })));
-          
+
+          const visibilityByFieldId: Record<string, string> = {};
+
+          if (Array.isArray(metadata.views)) {
+            metadata.views.forEach((view: any) => {
+              const visibleFieldIdsFromOrder: string[] =
+                view?.fieldOrder?.visibleFieldIds ||
+                view?.fieldOrder?.visible_field_ids ||
+                view?.visibleFieldIds ||
+                view?.visible_field_ids ||
+                [];
+
+              const allFieldIdsFromOrder: string[] =
+                view?.fieldOrder?.fieldIds ||
+                view?.fieldOrder?.field_ids ||
+                view?.fieldIds ||
+                view?.field_ids ||
+                [];
+
+              const visibleFieldSet = new Set<string>();
+              visibleFieldIdsFromOrder?.forEach((fieldId: string) => {
+                if (fieldId) {
+                  visibleFieldSet.add(fieldId);
+                  if (!visibilityByFieldId[fieldId]) {
+                    visibilityByFieldId[fieldId] = 'visible';
+                  }
+                }
+              });
+
+              if (Array.isArray(view?.fields)) {
+                view.fields.forEach((viewField: any) => {
+                  const viewFieldId = viewField?.fieldId || viewField?.id;
+                  if (!viewFieldId || visibilityByFieldId[viewFieldId]) return;
+
+                  let visibility: string | null = null;
+
+                  if (typeof viewField.visibilityType === 'string') {
+                    visibility = viewField.visibilityType;
+                  } else if (typeof viewField.visibility === 'string') {
+                    visibility = viewField.visibility;
+                  } else if (typeof viewField.isHidden === 'boolean') {
+                    visibility = viewField.isHidden ? 'hidden' : 'visible';
+                  } else if (typeof viewField.hidden === 'boolean') {
+                    visibility = viewField.hidden ? 'hidden' : 'visible';
+                  }
+
+                  if (!visibility) {
+                    if (visibleFieldSet.has(viewFieldId)) {
+                      visibility = 'visible';
+                    } else if (
+                      Array.isArray(allFieldIdsFromOrder) &&
+                      allFieldIdsFromOrder.includes(viewFieldId)
+                    ) {
+                      visibility = 'hidden';
+                    }
+                  }
+
+                  if (visibility) {
+                    visibilityByFieldId[viewFieldId] = visibility;
+                  }
+                });
+              }
+
+              if (
+                Array.isArray(allFieldIdsFromOrder) &&
+                allFieldIdsFromOrder.length > 0
+              ) {
+                allFieldIdsFromOrder.forEach((fieldId: string) => {
+                  if (!fieldId || visibilityByFieldId[fieldId]) return;
+                  const isVisible = visibleFieldSet.has(fieldId);
+                  visibilityByFieldId[fieldId] = isVisible ? 'visible' : 'hidden';
+                });
+              }
+            });
+          }
+
           setAirtableTableSchema({
             table: { name: tableName, id: metadata.id },
-            fields: metadata.fields
+            fields: metadata.fields,
+            views: metadata.views || [],
+            visibilityByFieldId
           });
           return;
         }
@@ -269,7 +346,9 @@ export function AirtableConfiguration({
       
       setAirtableTableSchema({
         table: { name: tableName },
-        fields: Array.from(fieldMap.values())
+        fields: Array.from(fieldMap.values()),
+        views: [],
+        visibilityByFieldId: {}
       });
     } catch (error) {
       console.error('Error fetching table schema:', error);
@@ -383,25 +462,16 @@ export function AirtableConfiguration({
   const getDynamicFields = () => {
     if (!airtableTableSchema?.fields) return [];
 
-    // Filter out fields that are computed or read-only
-    // These fields are managed by Airtable and should not be editable
-    const readOnlyFieldTypes = new Set([
-      'createdTime',
-      'lastModifiedTime',
-      'createdBy',
-      'lastModifiedBy',
-      'autoNumber',
-      'formula',
-      'rollup',
-      'count',
-      'lookup'
-    ]);
+    const visibilityByFieldId: Record<string, string> = airtableTableSchema?.visibilityByFieldId || {};
+
+    // Skip field types that we cannot meaningfully represent
+    const unsupportedFieldTypes = new Set(['button']);
 
     return airtableTableSchema.fields
       .filter((field: any) => {
-        // Filter out read-only/computed field types
-        if (readOnlyFieldTypes.has(field.type)) {
-          console.log('🚫 [AirtableConfig] Excluding read-only field:', field.name, field.type);
+        if (!field) return false;
+        if (unsupportedFieldTypes.has(field.type)) {
+          console.log('🚫 [AirtableConfig] Excluding unsupported field:', field.name, field.type);
           return false;
         }
         return true;
@@ -438,14 +508,20 @@ export function AirtableConfiguration({
 
       // Use the helper function to determine field type
       let fieldType = getAirtableFieldTypeFromSchema(field);
+      const originalAirtableType = field.type;
+      const isEditable = isEditableFieldType(originalAirtableType);
+      const isComputedField = !isEditable;
+      const visibilitySetting = visibilityByFieldId[field.id] || null;
+      const isHiddenInView = visibilitySetting
+        ? typeof visibilitySetting === 'string' &&
+          visibilitySetting.toLowerCase() !== 'visible' &&
+          visibilitySetting.toLowerCase() !== 'shown'
+        : false;
 
       // Override field type for specific fields
       if (shouldUseDynamicDropdown) {
         fieldType = 'select';
       }
-
-      // Store the original Airtable field type before any modifications
-      const originalAirtableType = field.type;
 
       // Override field type for image fields to ensure they use the image component
       if (isImageField && (field.type === 'multipleAttachments' || field.type === 'attachment' || fieldType === 'file')) {
@@ -463,26 +539,49 @@ export function AirtableConfiguration({
         }));
       }
 
+      const readOnlyDescription = isComputedField
+        ? (field.description
+            ? `${field.description} (Read-only in Airtable)`
+            : 'This field is calculated by Airtable and cannot be edited.')
+        : field.description;
+
+      const placeholder = isEditable
+        ? shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`
+        : `${field.name} is managed by Airtable`;
+
       return {
         name: `airtable_field_${field.name}`, // Use field name instead of ID for consistency
         label: field.name,
         type: fieldType,
         required: false,
-        placeholder: shouldUseDynamicDropdown ? `Select ${field.name}` : `Enter value for ${field.name}`,
-        dynamic: shouldUseDynamicDropdown ? dynamicDataType : true,
+        placeholder,
+        dynamic: isEditable
+          ? (shouldUseDynamicDropdown ? dynamicDataType : true)
+          : false,
         airtableFieldType: originalAirtableType, // Use the original type before modifications
         airtableFieldId: field.id, // Store the ID separately if needed
         options: fieldOptions,
-        dependsOn: shouldUseDynamicDropdown ? 'tableName' : undefined,
-        multiple: fieldNameLower.includes('tasks') ||
+        dependsOn: shouldUseDynamicDropdown && isEditable ? 'tableName' : undefined,
+        multiple: isEditable && (
+                 fieldNameLower.includes('tasks') ||
                  fieldNameLower.includes('associated project') ||
                  fieldNameLower.includes('feedback') ||
-                 field.type === 'multipleRecordLinks', // Multiple selection for linked fields
+                 field.type === 'multipleRecordLinks'), // Multiple selection for linked fields
         // Add metadata for special field types
         ...(originalAirtableType === 'multipleAttachments' && { multiple: true }),
         ...(field.type === 'rating' && { max: field.options?.max || 5 }),
         ...(field.type === 'percent' && { min: 0, max: 100 }),
         ...(field.type === 'currency' && { prefix: field.options?.symbol || '$' }),
+        autoNumber: originalAirtableType === 'autoNumber',
+        autoGenerated: originalAirtableType === 'autoNumber',
+        readOnly: !isEditable,
+        computed: isComputedField,
+        formula: originalAirtableType === 'formula',
+        hidden: isHiddenInView,
+        visibilityType: visibilitySetting,
+        description: originalAirtableType === 'autoNumber'
+          ? 'Automatically generated by Airtable when the record is created.'
+          : readOnlyDescription,
       };
     });
   };
@@ -1362,8 +1461,18 @@ export function AirtableConfiguration({
   const renderFields = (fields: any[], isDynamic = false) => {
     // Filter out fields that aren't visible
     const visibleFields = fields.filter(field => {
-      // For dynamic fields, always show them if we're in the right context
-      if (isDynamic) return true;
+      // For dynamic fields, respect Airtable visibility settings
+      if (isDynamic) {
+        if (field.hidden) {
+          console.log('👁️‍🗨️ [AirtableConfig] Hiding field marked as hidden in Airtable view:', {
+            fieldName: field.name,
+            airtableFieldId: field.airtableFieldId,
+            visibilityType: field.visibilityType
+          });
+          return false;
+        }
+        return true;
+      }
       
       // Use the validation hook to determine visibility
       return isFieldVisible(field);
@@ -1376,7 +1485,9 @@ export function AirtableConfiguration({
         dynamic: field.dynamic,
         hasOptions: !!dynamicOptions[field.name],
         optionCount: dynamicOptions[field.name]?.length || 0,
-        firstOption: dynamicOptions[field.name]?.[0]
+        firstOption: dynamicOptions[field.name]?.[0],
+        autoGenerated: field.autoGenerated,
+        autoNumber: field.autoNumber
       });
 
       // Get active bubble values for this field
@@ -1408,7 +1519,7 @@ export function AirtableConfiguration({
           workflowData={workflowData}
           currentNodeId={currentNodeId}
           dynamicOptions={dynamicOptions}
-          loadingDynamic={loadingFields.has(field.name) || loadingDynamic}
+          loadingDynamic={(loadingFields.has(field.name) || loadingDynamic) && !values[field.name]}
           nodeInfo={nodeInfo}
           onDynamicLoad={handleDynamicLoad}
           parentValues={values}

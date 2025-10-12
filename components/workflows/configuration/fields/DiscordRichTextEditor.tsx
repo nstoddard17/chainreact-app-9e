@@ -127,6 +127,61 @@ export function DiscordRichTextEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
   const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
+
+  // Debug logging to identify freeze cause
+  console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
+
+  // Convert display format back to Discord format - defined BEFORE handleVariableInsert
+  const convertToDiscordFormat = useCallback((text: string) => {
+    if (!text) return ''
+
+    let discordText = text
+
+    // Sort mentions by length (longest first) to avoid partial replacements
+    const sortedMentions = Array.from(mentionMapRef.current.entries()).sort((a, b) => b[0].length - a[0].length)
+
+    sortedMentions.forEach(([displayFormat, discordFormat]) => {
+      // Use word boundaries to avoid partial replacements
+      const regex = new RegExp(`(?<!\\w)${displayFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\w)`, 'g')
+      discordText = discordText.replace(regex, discordFormat)
+    })
+
+    return discordText
+  }, [])
+
+  // Convert Discord format to display format
+  const convertToDisplayFormat = useCallback((text: string) => {
+    if (!text) return ''
+
+    let displayText = text
+
+    // Convert user mentions
+    availableMembers.forEach(member => {
+      const discordFormat = `<@${member.id}>`
+      const displayFormat = `@${member.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+
+    // Convert role mentions
+    availableRoles.forEach(role => {
+      const discordFormat = `<@&${role.id}>`
+      const displayFormat = `@${role.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+
+    // Convert channel mentions
+    availableChannels.forEach(channel => {
+      const discordFormat = `<#${channel.id}>`
+      const displayFormat = `#${channel.name}`
+      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
+      mentionMapRef.current.set(displayFormat, discordFormat)
+    })
+
+    return displayText
+  }, [availableMembers, availableRoles, availableChannels])
+
   const handleVariableInsert = useCallback((rawVariable: string) => {
     if (!textareaRef.current) return
 
@@ -161,60 +216,6 @@ export function DiscordRichTextEditor({
     elementRef: textareaRef,
     onInsert: handleVariableInsert
   })
-
-  // Debug logging to identify freeze cause
-  console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
-  
-  // Convert Discord format to display format
-  const convertToDisplayFormat = useCallback((text: string) => {
-    if (!text) return ''
-    
-    let displayText = text
-    
-    // Convert user mentions
-    availableMembers.forEach(member => {
-      const discordFormat = `<@${member.id}>`
-      const displayFormat = `@${member.name}`
-      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
-      mentionMapRef.current.set(displayFormat, discordFormat)
-    })
-    
-    // Convert role mentions
-    availableRoles.forEach(role => {
-      const discordFormat = `<@&${role.id}>`
-      const displayFormat = `@${role.name}`
-      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
-      mentionMapRef.current.set(displayFormat, discordFormat)
-    })
-    
-    // Convert channel mentions
-    availableChannels.forEach(channel => {
-      const discordFormat = `<#${channel.id}>`
-      const displayFormat = `#${channel.name}`
-      displayText = displayText.replace(new RegExp(discordFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), displayFormat)
-      mentionMapRef.current.set(displayFormat, discordFormat)
-    })
-    
-    return displayText
-  }, [availableMembers, availableRoles, availableChannels])
-  
-  // Convert display format back to Discord format
-  const convertToDiscordFormat = useCallback((text: string) => {
-    if (!text) return ''
-    
-    let discordText = text
-    
-    // Sort mentions by length (longest first) to avoid partial replacements
-    const sortedMentions = Array.from(mentionMapRef.current.entries()).sort((a, b) => b[0].length - a[0].length)
-    
-    sortedMentions.forEach(([displayFormat, discordFormat]) => {
-      // Use word boundaries to avoid partial replacements
-      const regex = new RegExp(`(?<!\\w)${displayFormat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\w)`, 'g')
-      discordText = discordText.replace(regex, discordFormat)
-    })
-    
-    return discordText
-  }, [])
 
   const loadDiscordGuildData = useCallback(async () => {
     if (!guildId || !userId) {
