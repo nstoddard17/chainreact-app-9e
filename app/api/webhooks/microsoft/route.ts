@@ -10,6 +10,57 @@ const supabase = createClient(
 
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
+/**
+ * Trigger-specific metadata for filtering logic
+ * Defines which filters apply to each trigger type for easy expansion
+ */
+interface TriggerFilterConfig {
+  supportsFolder: boolean; // Does this trigger support folder filtering?
+  supportsSender: boolean; // Does this trigger filter by sender (from)?
+  supportsRecipient: boolean; // Does this trigger filter by recipient (to)?
+  supportsSubject: boolean; // Does this trigger filter by subject?
+  supportsImportance: boolean; // Does this trigger filter by importance?
+  supportsAttachment: boolean; // Does this trigger filter by attachment?
+  defaultFolder?: string; // Default folder if not specified (e.g., 'inbox', 'sentitems')
+}
+
+const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
+  // New Email trigger - monitors Inbox (or custom folder), filters by sender
+  'microsoft-outlook_trigger_new_email': {
+    supportsFolder: true,
+    supportsSender: true,
+    supportsRecipient: false,
+    supportsSubject: true,
+    supportsImportance: true,
+    supportsAttachment: true,
+    defaultFolder: 'inbox'
+  },
+  // Email Sent trigger - monitors Sent Items only, filters by recipient
+  'microsoft-outlook_trigger_email_sent': {
+    supportsFolder: false, // Subscription already scoped to Sent Items
+    supportsSender: false,
+    supportsRecipient: true,
+    supportsSubject: true,
+    supportsImportance: false,
+    supportsAttachment: false,
+    defaultFolder: 'sentitems'
+  },
+  // Email Received trigger (alias for new_email)
+  'microsoft-outlook_trigger_email_received': {
+    supportsFolder: true,
+    supportsSender: true,
+    supportsRecipient: false,
+    supportsSubject: true,
+    supportsImportance: true,
+    supportsAttachment: true,
+    defaultFolder: 'inbox'
+  }
+  // Future triggers can be added here:
+  // 'microsoft-outlook_trigger_email_draft': { ... }
+  // 'microsoft-outlook_trigger_email_deleted': { ... }
+  // 'microsoft-outlook_trigger_email_flagged': { ... }
+}
+
 // Helper function - hoisted above POST handler to avoid TDZ
 // SECURITY: Logs webhook metadata only, not full payload (contains PII)
 async function logWebhookExecution(
@@ -74,7 +125,7 @@ async function processNotifications(
 
         const { data: triggerResource, error: resourceError } = await supabase
           .from('trigger_resources')
-          .select('id, user_id, workflow_id, config')
+          .select('id, user_id, workflow_id, trigger_type, config')
           .eq('external_id', subId)
           .eq('resource_type', 'subscription')
           .like('provider_id', 'microsoft%')
@@ -91,6 +142,7 @@ async function processNotifications(
         userId = triggerResource.user_id
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
+        const triggerType = triggerResource.trigger_type
         configuredChangeType = triggerResource.config?.changeType || null
         triggerConfig = triggerResource.config || null
 
@@ -199,13 +251,19 @@ async function processNotifications(
             if (emailResponse.ok) {
               const email = await emailResponse.json()
 
-              // Check folder filter
-              // Default to Inbox if no folder configured (folder field always has a value or defaults to Inbox)
-              if (email.parentFolderId) {
+              // Get trigger-specific filter configuration
+              const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+              if (!filterConfig) {
+                console.warn(`⚠️ Unknown trigger type: ${triggerType}, allowing all filters`)
+              }
+
+              // Check folder filter (only for triggers that support folder filtering)
+              if (filterConfig?.supportsFolder && email.parentFolderId) {
                 let configFolderId = triggerConfig.folder
 
-                // If no folder configured, default to Inbox
-                if (!configFolderId) {
+                // If no folder configured, use default from trigger config
+                if (!configFolderId && filterConfig.defaultFolder) {
                   try {
                     const foldersResponse = await fetch(
                       'https://graph.microsoft.com/v1.0/me/mailFolders',
@@ -263,8 +321,8 @@ async function processNotifications(
                 }
               }
 
-              // Check subject filter
-              if (triggerConfig.subject) {
+              // Check subject filter (if trigger supports it)
+              if (filterConfig?.supportsSubject && triggerConfig.subject) {
                 const configSubject = triggerConfig.subject.toLowerCase().trim()
                 const emailSubject = (email.subject || '').toLowerCase().trim()
                 const exactMatch = triggerConfig.subjectExactMatch !== false // Default to true
@@ -285,8 +343,8 @@ async function processNotifications(
                 }
               }
 
-              // Check from filter
-              if (triggerConfig.from) {
+              // Check from filter (sender) - if trigger supports it
+              if (filterConfig?.supportsSender && triggerConfig.from) {
                 const configFrom = triggerConfig.from.toLowerCase().trim()
                 const emailFrom = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
 
@@ -301,8 +359,8 @@ async function processNotifications(
                 }
               }
 
-              // Check to filter (for Email Sent trigger)
-              if (triggerConfig.to) {
+              // Check to filter (recipient) - if trigger supports it
+              if (filterConfig?.supportsRecipient && triggerConfig.to) {
                 const configTo = triggerConfig.to.toLowerCase().trim()
                 const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
 
@@ -319,8 +377,8 @@ async function processNotifications(
                 }
               }
 
-              // Check importance filter
-              if (triggerConfig.importance && triggerConfig.importance !== 'any') {
+              // Check importance filter (if trigger supports it)
+              if (filterConfig?.supportsImportance && triggerConfig.importance && triggerConfig.importance !== 'any') {
                 const configImportance = triggerConfig.importance.toLowerCase()
                 const emailImportance = (email.importance || 'normal').toLowerCase()
 
