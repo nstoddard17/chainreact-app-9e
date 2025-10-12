@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -19,10 +19,13 @@ import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
-  // Discord Actions (removed triggers as they don't provide full data)
+  // Discord Trigger - NOW PROVIDES FULL DATA
+  'discord_trigger_new_message': ['messageId', 'content', 'authorId', 'authorName', 'channelId', 'channelName', 'guildId', 'guildName', 'timestamp', 'attachments', 'mentions'],
+
+  // Discord Actions
   'discord_action_send_message': ['messageId', 'content', 'channelName'],
   'discord_action_add_reaction': ['success', 'messageId'],
-  
+
   // Gmail Actions
   'gmail_action_send_email': ['messageId', 'subject'],
   'gmail_action_reply_email': ['messageId', 'subject'],
@@ -113,6 +116,8 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
+  const isDraggingVariable = useRef(false)
+  const allowClickSelect = useRef(true)
   const { activeField, insertIntoActiveField } = useVariableDragContext()
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
@@ -394,6 +399,15 @@ export function VariablePickerSidePanel({
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 
   const handleVariableSelect = (variable: string, nodeId: string, outputName: string) => {
+    if (!allowClickSelect.current) {
+      allowClickSelect.current = true
+      return
+    }
+
+    if (isDraggingVariable.current) {
+      return
+    }
+
     if (onVariableSelect) {
       // Try to resolve the actual value using our new resolution system
       const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
@@ -437,6 +451,8 @@ export function VariablePickerSidePanel({
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, variable: string) => {
+    isDraggingVariable.current = true
+    allowClickSelect.current = false
     console.log('🚀 [VariablePickerSidePanel] Drag started:', {
       variable,
       dataTransferTypes: e.dataTransfer.types,
@@ -447,6 +463,10 @@ export function VariablePickerSidePanel({
   }
 
   const handleDragEnd = (e?: React.DragEvent) => {
+    requestAnimationFrame(() => {
+      isDraggingVariable.current = false
+      allowClickSelect.current = true
+    })
     console.log('🏁 [VariablePickerSidePanel] Drag ended', {
       dropEffect: e?.dataTransfer?.dropEffect
     })
@@ -732,6 +752,9 @@ export function VariablePickerSidePanel({
                             key={`${node.id}-${output.name}`}
                             className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
+                            onMouseDown={() => {
+                              allowClickSelect.current = true
+                            }}
                             onDragStart={(e) => {
                               console.log('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                 variableRef,
@@ -740,9 +763,8 @@ export function VariablePickerSidePanel({
                                 outputLabel: output.label,
                                 dataTransfer: e.dataTransfer
                               })
+                              handleDragStart(e, variableRef)
                               e.stopPropagation() // Prevent collapsible from closing
-                              e.dataTransfer.effectAllowed = 'copy'
-                              e.dataTransfer.setData('text/plain', variableRef)
                               e.dataTransfer.setData('application/json', JSON.stringify({
                                 variable: variableRef,
                                 nodeTitle: node.title,

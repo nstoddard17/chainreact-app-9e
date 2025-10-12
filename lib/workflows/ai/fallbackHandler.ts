@@ -374,6 +374,7 @@ export class FallbackHandler {
 
     // Check for meaningful data
     if (triggerData) {
+      // Support both nested (old) and flat (new) Discord format
       if (triggerData.message?.content || triggerData.content || triggerData.text) {
         return true;
       }
@@ -395,18 +396,19 @@ export class FallbackHandler {
     if (triggerData?.subject) {
       return `Re: ${triggerData.subject}`;
     }
-    
-    if (triggerData?.message?.content) {
-      const content = triggerData.message.content;
+
+    // Support both nested (old) and flat (new) Discord format
+    const content = triggerData?.message?.content || triggerData?.content;
+    if (content) {
       const firstLine = content.split('\n')[0];
       return firstLine.length > 50 ? `${firstLine.substring(0, 47)}...` : firstLine;
     }
-    
+
     if (triggerData?.text) {
       const firstWords = triggerData.text.split(' ').slice(0, 8).join(' ');
       return firstWords.length > 0 ? firstWords : null;
     }
-    
+
     return null;
   }
 
@@ -436,22 +438,28 @@ export class FallbackHandler {
    * Derive name from context
    */
   private static deriveName(triggerData: any, previousResults: any): string | null {
+    // Support both nested (old) and flat (new) Discord format
     if (triggerData?.message?.author?.username) {
       return triggerData.message.author.username;
     }
-    
+
+    // Flat format: authorName directly on triggerData
+    if (triggerData?.authorName) {
+      return triggerData.authorName;
+    }
+
     if (triggerData?.author?.username) {
       return triggerData.author.username;
     }
-    
+
     if (triggerData?.user) {
       return triggerData.user;
     }
-    
+
     if (triggerData?.name) {
       return triggerData.name;
     }
-    
+
     return null;
   }
 
@@ -496,23 +504,24 @@ export class FallbackHandler {
    */
   private static deriveMessage(triggerData: any, platformContext: any): string | null {
     if (!triggerData) return null;
-    
+
     let message = '';
-    
-    if (triggerData.message?.content || triggerData.content || triggerData.text) {
-      const content = triggerData.message?.content || triggerData.content || triggerData.text;
+
+    // Support both nested (old) and flat (new) Discord format
+    const content = triggerData.message?.content || triggerData.content || triggerData.text;
+    if (content) {
       message = `Regarding: "${content}"`;
     } else if (triggerData.subject) {
       message = `Following up on: ${triggerData.subject}`;
     } else {
       message = 'Automated message from workflow';
     }
-    
+
     // Add platform-specific formatting
     if (platformContext?.providerId === 'slack' || platformContext?.providerId === 'discord') {
       message = `👋 ${message}`;
     }
-    
+
     return message;
   }
 

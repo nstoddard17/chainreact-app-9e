@@ -1,5 +1,6 @@
 import { NodeComponent } from "../../../types"
 import { Bot } from "lucide-react"
+import { getTemplateOptionsForAction } from "./templates"
 
 const modelField = {
   name: "model",
@@ -27,12 +28,37 @@ const baseAiActionConfig = {
   needsConfiguration: true,
 } satisfies Partial<NodeComponent>
 
+const createTemplateField = (actionType: string) => {
+  const options = getTemplateOptionsForAction(actionType)
+  if (options.length === 0) return null
+
+  return {
+    name: "template",
+    label: "Template",
+    type: "select" as const,
+    defaultValue: "custom",
+    options: [
+      { value: "custom", label: "Custom", description: "Start from scratch with your own instructions." },
+      ...options
+    ],
+    description: "Pick a preset to pre-fill the configuration or choose Custom to supply your own settings."
+  }
+}
+
+const summarizeTemplateField = createTemplateField("ai_action_summarize")
+const extractTemplateField = createTemplateField("ai_action_extract")
+const sentimentTemplateField = createTemplateField("ai_action_sentiment")
+const translateTemplateField = createTemplateField("ai_action_translate")
+const generateTemplateField = createTemplateField("ai_action_generate")
+const classifyTemplateField = createTemplateField("ai_action_classify")
+
 export const summarizeActionSchema: NodeComponent = {
   type: "ai_action_summarize",
   title: "AI Summarize",
   description: "Summarize text with optional style or focus instructions.",
   ...baseAiActionConfig,
   configSchema: [
+    ...(summarizeTemplateField ? [summarizeTemplateField] : []),
     modelField,
     {
       name: "inputText",
@@ -82,6 +108,7 @@ export const extractActionSchema: NodeComponent = {
   description: "Extract structured information from text (emails, names, urls, custom prompts, etc).",
   ...baseAiActionConfig,
   configSchema: [
+    ...(extractTemplateField ? [extractTemplateField] : []),
     modelField,
     {
       name: "inputText",
@@ -138,6 +165,7 @@ export const sentimentActionSchema: NodeComponent = {
   description: "Analyze tone or sentiment for a given message.",
   ...baseAiActionConfig,
   configSchema: [
+    ...(sentimentTemplateField ? [sentimentTemplateField] : []),
     modelField,
     {
       name: "inputText",
@@ -175,6 +203,7 @@ export const translateActionSchema: NodeComponent = {
   description: "Translate text between languages or normalize language usage.",
   ...baseAiActionConfig,
   configSchema: [
+    ...(translateTemplateField ? [translateTemplateField] : []),
     modelField,
     {
       name: "inputText",
@@ -215,6 +244,7 @@ export const generateActionSchema: NodeComponent = {
   description: "Generate custom content such as replies, summaries, or formatted documents.",
   ...baseAiActionConfig,
   configSchema: [
+    ...(generateTemplateField ? [generateTemplateField] : []),
     modelField,
     {
       name: "prompt",
@@ -308,6 +338,7 @@ export const classifyActionSchema: NodeComponent = {
   description: "Assign categories or labels to text based on provided options.",
   ...baseAiActionConfig,
   configSchema: [
+    ...(classifyTemplateField ? [classifyTemplateField] : []),
     modelField,
     {
       name: "inputText",
