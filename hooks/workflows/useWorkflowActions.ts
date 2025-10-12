@@ -8,9 +8,17 @@ import type { WorkflowNode, WorkflowConnection } from '@/stores/workflowStore'
 export function useWorkflowActions() {
   const router = useRouter()
   const { toast } = useToast()
-  const { fetchWorkflows } = useWorkflowStore()
+  const { fetchWorkflows, addWorkflowToStore } = useWorkflowStore()
   const [isDuplicating, setIsDuplicating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const removeWorkflowFromStore = useCallback((workflowId: string) => {
+    useWorkflowStore.setState((state) => ({
+      workflows: state.workflows.filter((workflow) => workflow.id !== workflowId),
+      currentWorkflow:
+        state.currentWorkflow?.id === workflowId ? null : state.currentWorkflow,
+    }))
+  }, [])
 
   // Duplicate workflow
   const duplicateWorkflow = useCallback(async (workflowId: string) => {
@@ -64,8 +72,13 @@ export function useWorkflowActions() {
         throw insertError || new Error('Failed to duplicate workflow')
       }
 
-      // Refresh the workflows list
-      await fetchWorkflows()
+      // Optimistically add the new workflow so lists update immediately
+      addWorkflowToStore(duplicated as any)
+
+      // Refresh in the background to keep things in sync
+      void fetchWorkflows().catch((err) => {
+        console.warn("Background workflow refresh after duplicate failed:", err)
+      })
 
       toast({
         title: "Success",
@@ -85,7 +98,7 @@ export function useWorkflowActions() {
     } finally {
       setIsDuplicating(false)
     }
-  }, [router, toast, fetchWorkflows])
+  }, [router, toast, fetchWorkflows, addWorkflowToStore])
 
   // Delete workflow
   const deleteWorkflow = useCallback(async (workflowId: string) => {
@@ -110,6 +123,9 @@ export function useWorkflowActions() {
       if (error) {
         throw error
       }
+
+      // Optimistically remove from local store so UI updates immediately
+      removeWorkflowFromStore(workflowId)
 
       // Refresh the workflows list
       await fetchWorkflows()

@@ -311,24 +311,24 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
     
     case 'discord':
       console.log('🔧 Discord payload received for transformation:', JSON.stringify(payload, null, 2))
-      
+
       // Resolve Discord names from IDs
       const channelName = await resolveDiscordChannelName(payload.channel_id, payload.guild_id)
       const guildName = await resolveDiscordGuildName(payload.guild_id)
-      
+
+      // Return flat data structure that matches the outputSchema in discord node definition
       const transformedData = {
-        message: {
-          content: payload.content || '',
-          channelId: payload.channel_id || '',
-          channelName: channelName || `Channel ${payload.channel_id}`,
-          authorId: payload.author?.id || '',
-          authorName: payload.author?.username || payload.author?.global_name || payload.author?.display_name || 'Unknown User',
-          authorDisplayName: payload.author?.display_name || payload.author?.username || payload.author?.global_name || 'Unknown User',
-          guildId: payload.guild_id || '',
-          guildName: guildName || `Server ${payload.guild_id}`,
-          messageId: payload.id || '',
-          timestamp: payload.timestamp || new Date().toISOString()
-        }
+        messageId: payload.id || '',
+        content: payload.content || '',
+        authorId: payload.author?.id || '',
+        authorName: payload.author?.username || payload.author?.global_name || payload.author?.display_name || 'Unknown User',
+        channelId: payload.channel_id || '',
+        channelName: channelName || `Channel ${payload.channel_id}`,
+        guildId: payload.guild_id || '',
+        guildName: guildName || `Server ${payload.guild_id}`,
+        timestamp: payload.timestamp || new Date().toISOString(),
+        attachments: payload.attachments || [],
+        mentions: payload.mentions || []
       }
       console.log('🔧 Transformed Discord data:', JSON.stringify(transformedData, null, 2))
       return transformedData

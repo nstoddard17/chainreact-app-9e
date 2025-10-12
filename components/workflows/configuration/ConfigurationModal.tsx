@@ -267,49 +267,6 @@ export function ConfigurationModal({
     onClose(false);
   };
 
-  // Global drag and drop handling for the modal
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleDragOver = (e: DragEvent) => {
-      // Allow drops everywhere in the modal
-      e.preventDefault();
-
-      // Log what we're dragging over
-      const target = e.target as HTMLElement;
-      if (target.getAttribute('role') === 'combobox' ||
-          target.closest('[role="combobox"]') ||
-          target.className?.includes('justify-between')) {
-        console.log('🎯 [ConfigModal] Dragging over a dropdown field', {
-          targetTag: target.tagName,
-          targetClass: target.className,
-          targetRole: target.getAttribute('role')
-        });
-      }
-    };
-
-    const handleDrop = (e: DragEvent) => {
-      const target = e.target as HTMLElement;
-      const droppedData = e.dataTransfer?.getData('text/plain');
-
-      console.log('💧 [ConfigModal] Drop detected in modal', {
-        target: target.tagName,
-        targetClass: target.className,
-        data: droppedData,
-        isCombobox: target.getAttribute('role') === 'combobox',
-        closestCombobox: !!target.closest('[role="combobox"]')
-      });
-    };
-
-    document.addEventListener('dragover', handleDragOver, true);
-    document.addEventListener('drop', handleDrop, true);
-
-    return () => {
-      document.removeEventListener('dragover', handleDragOver, true);
-      document.removeEventListener('drop', handleDrop, true);
-    };
-  }, [isOpen]);
-
   // Generate title for the modal
   const getModalTitle = () => {
     if (!nodeInfo) return "Configure Node";
@@ -356,11 +313,12 @@ export function ConfigurationModal({
         <div
           className="modal-container flex flex-col lg:flex-row h-full max-h-[95vh] overflow-hidden"
           onMouseDown={(e) => {
-            // Prevent text selection in modal background but allow in form elements
+            // Prevent text selection in modal background but allow in form elements or draggable elements
             const target = e.target as HTMLElement;
-            const isFormElement = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
-                                 target.closest('input, textarea, select, [contenteditable="true"]');
-            if (!isFormElement) {
+            const isFormElement = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName) ||
+                                 target.closest('input, textarea, select, button, [contenteditable="true"]');
+            const isDraggable = target.closest('[draggable="true"]');
+            if (!isFormElement && !isDraggable) {
               e.preventDefault();
             }
           }}>

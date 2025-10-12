@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Search, Copy, Check } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { resolveVariableValue } from '@/lib/workflows/variableResolution'
+import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
 interface VariablePickerProps {
   value?: string
@@ -65,12 +66,30 @@ export function VariablePicker({
   const handleChange = isLegacyMode ? onVariableSelect : onChange
 
   // Get available nodes from either new or legacy interface
-  const allNodes = availableNodes.length > 0 ? availableNodes : 
-    (workflowData?.nodes?.map((node: any) => ({
-      id: node.id,
-      title: node.data?.title || node.data?.type || 'Unknown Node',
-      outputs: node.data?.outputSchema || []
-    })) || [])
+  const allNodes = availableNodes.length > 0 ? availableNodes :
+    (workflowData?.nodes?.map((node: any) => {
+      // Get the outputSchema from node.data, or fallback to looking it up from ALL_NODE_COMPONENTS
+      let outputs = node.data?.outputSchema || []
+
+      // If no outputSchema, try to find it from the node definition
+      if (outputs.length === 0 && node.data?.type) {
+        try {
+          const { ALL_NODE_COMPONENTS } = require('@/lib/workflows/nodes')
+          const nodeDefinition = ALL_NODE_COMPONENTS.find((n: any) => n.type === node.data.type)
+          if (nodeDefinition?.outputSchema) {
+            outputs = nodeDefinition.outputSchema
+          }
+        } catch (error) {
+          console.warn('Failed to load node definitions:', error)
+        }
+      }
+
+      return {
+        id: node.id,
+        title: node.data?.title || node.data?.type || 'Unknown Node',
+        outputs
+      }
+    }) || [])
     
   // Filter nodes to only show previous nodes if we have a current node ID
   const nodes = currentNodeId ? getPreviousNodes(allNodes, currentNodeId, workflowData) : allNodes
@@ -277,10 +296,10 @@ export function VariablePicker({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => copyToClipboard(`{{${node.id}.output}}`)}
+                          onClick={() => copyToClipboard(buildVariableReference(node.id))}
                           className="h-6 px-2"
                         >
-                          {copiedVariable === `{{${node.id}.output}}` ? (
+                          {copiedVariable === buildVariableReference(node.id) ? (
                             <Check className="h-3 w-3" />
                           ) : (
                             <Copy className="h-3 w-3" />
@@ -299,7 +318,7 @@ export function VariablePicker({
                             <div
                               key={output.name}
                               className="flex items-center justify-between p-2 rounded-md hover:bg-muted cursor-pointer"
-                              onClick={() => insertVariable(`{{${node.id}.output.${output.name}}}`)}
+                              onClick={() => insertVariable(buildVariableReference(node.id, output.name))}
                             >
                               <div className="flex-1">
                                 <div className="text-sm font-medium">{output.label}</div>
@@ -310,7 +329,7 @@ export function VariablePicker({
                                   {`{{${node.title} → ${output.label}}}`}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  {`{{${node.id}.output.${output.name}}}`}
+                                  {buildVariableReference(node.id, output.name)}
                                 </div>
                               </div>
                               <Button
@@ -318,11 +337,11 @@ export function VariablePicker({
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  copyToClipboard(`{{${node.id}.output.${output.name}}}`)
+                                  copyToClipboard(buildVariableReference(node.id, output.name))
                                 }}
                                 className="h-6 px-2"
                               >
-                                {copiedVariable === `{{${node.id}.output.${output.name}}}` ? (
+                                {copiedVariable === buildVariableReference(node.id, output.name) ? (
                                   <Check className="h-3 w-3" />
                                 ) : (
                                   <Copy className="h-3 w-3" />
@@ -341,8 +360,8 @@ export function VariablePicker({
               <div className="text-xs text-muted-foreground">
                 <p className="mb-2">Variable Reference Format:</p>
                 <ul className="space-y-1">
-                  <li><code className="bg-background px-1 rounded">{"{{nodeId.output}}"}</code> - All output data</li>
-                  <li><code className="bg-background px-1 rounded">{"{{nodeId.output.fieldName}}"}</code> - Specific field</li>
+                  <li><code className="bg-background px-1 rounded">{"{{nodeId}}"}</code> - All output data</li>
+                  <li><code className="bg-background px-1 rounded">{"{{nodeId.fieldName}}"}</code> - Specific field</li>
                   <li><code className="bg-background px-1 rounded">{"{{var.variableName}}"}</code> - Custom variable</li>
                 </ul>
               </div>

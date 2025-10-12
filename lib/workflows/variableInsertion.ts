@@ -1,5 +1,7 @@
 "use client"
 
+import { buildVariableReference, normalizeVariableExpression } from "./variableReferences"
+
 export function insertVariableIntoTextInput(
   element: HTMLInputElement | HTMLTextAreaElement,
   variable: string,
@@ -10,7 +12,10 @@ export function insertVariableIntoTextInput(
   const start = element.selectionStart ?? safeCurrentValue.length
   const end = element.selectionEnd ?? start
 
-  if (typeof element.setRangeText === "function") {
+  // Number inputs don't support setRangeText - handle them separately
+  const isNumberInput = 'type' in element && element.type === 'number'
+
+  if (!isNumberInput && typeof element.setRangeText === "function") {
     element.setRangeText(variable, start, end, "end")
     const updatedValue = element.value
     updateValue(updatedValue)
@@ -26,6 +31,7 @@ export function insertVariableIntoTextInput(
     return element.value
   }
 
+  // For number inputs and fallback: construct new value manually
   const newValue =
     safeCurrentValue.slice(0, start) +
     variable +
@@ -36,8 +42,11 @@ export function insertVariableIntoTextInput(
   queueMicrotask(() => {
     try {
       element.focus()
-      const cursorPosition = start + variable.length
-      element.setSelectionRange(cursorPosition, cursorPosition)
+      // Don't try to set selection range on number inputs
+      if (!isNumberInput) {
+        const cursorPosition = start + variable.length
+        element.setSelectionRange(cursorPosition, cursorPosition)
+      }
     } catch {
       /* Focus management best-effort */
     }
@@ -88,17 +97,25 @@ export function normalizeDraggedVariable(raw: string) {
 
   const trimmed = raw.trim()
 
+  const normalizeFormat = (value: string) => {
+    const hasBraces = value.startsWith("{{") && value.endsWith("}}");
+    const inner = hasBraces ? value.slice(2, -2) : value;
+    const normalizedInner = normalizeVariableExpression(inner);
+    return `{{${normalizedInner}}}`;
+  }
+
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmed)
       if (parsed && typeof parsed.variable === "string") {
-        return parsed.variable
+        return normalizeFormat(parsed.variable)
       }
     } catch {
-      // Fallback to trimmed text when JSON parsing fails
-      return trimmed
+      return normalizeFormat(trimmed)
     }
   }
 
-  return trimmed
+  return normalizeFormat(trimmed)
 }
+
+export { buildVariableReference, normalizeVariableExpression }

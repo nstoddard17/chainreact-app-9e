@@ -206,11 +206,14 @@ export class PromptGenerator {
       contextStr += `Trigger Data:\n`;
       
       // Extract key information based on trigger type
-      if (context.triggerData.message) {
-        contextStr += `- Message: "${context.triggerData.message.content || context.triggerData.content}"\n`;
-        contextStr += `- Author: ${context.triggerData.message.author?.username || context.triggerData.author?.username || 'Unknown'}\n`;
-        if (context.triggerData.channel_id) {
-          contextStr += `- Channel: ${context.triggerData.channel_id}\n`;
+      // Support both nested (old) and flat (new) Discord format
+      if (context.triggerData.message || context.triggerData.content) {
+        const content = context.triggerData.message?.content || context.triggerData.content;
+        const author = context.triggerData.message?.author?.username || context.triggerData.authorName || context.triggerData.author?.username || 'Unknown';
+        contextStr += `- Message: "${content}"\n`;
+        contextStr += `- Author: ${author}\n`;
+        if (context.triggerData.channelId || context.triggerData.channel_id) {
+          contextStr += `- Channel: ${context.triggerData.channelName || context.triggerData.channelId || context.triggerData.channel_id}\n`;
         }
       } else if (context.triggerData.subject || context.triggerData.from) {
         contextStr += `- Subject: ${context.triggerData.subject || 'No subject'}\n`;

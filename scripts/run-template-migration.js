@@ -109,6 +109,8 @@ async function runMigration() {
             type: "ai_action_summarize",
             title: "Summarize Support Request",
             description: "Summarize the customer message to capture the core issue.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               maxLength: 300,
@@ -125,6 +127,8 @@ async function runMigration() {
             type: "ai_action_classify",
             title: "Classify Priority Level",
             description: "Classify the urgency of the support request.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               categories: ["Low", "Medium", "High"],
@@ -140,12 +144,15 @@ async function runMigration() {
             type: "ai_action_generate",
             title: "Draft Support Reply",
             description: "Generate a friendly acknowledgement message with next steps.",
+            needsConfiguration: true,
+
             config: {
               inputData: {
                 customer: "{{trigger.message.author.username}}",
-                summary: "{{node.support-summarize.output.summary}}",
-                priority: "{{node.support-prioritize.output.classification}}"
+                summary: "{{support-summarize.summary}}",
+                priority: "{{support-prioritize.classification}}"
               },
+              prompt: "Use the structured context provided to craft a clear, helpful response. Address the customer's concern, acknowledge their situation, reference the ticket priority if provided (e.g. {{priority}}), and outline next steps. Maintain a confident and empathetic tone.",
               contentType: "response",
               tone: "friendly",
               length: "short"
@@ -164,10 +171,10 @@ async function runMigration() {
               baseId: "",
               tableName: "",
               fields: {
-                "Ticket Summary": "{{node.support-summarize.output.summary}}",
+                "Ticket Summary": "{{support-summarize.summary}}",
                 "Customer": "{{trigger.message.author.username}}",
-                "Priority": "{{node.support-prioritize.output.classification}}",
-                "Priority Confidence": "{{node.support-prioritize.output.confidence}}",
+                "Priority": "{{support-prioritize.classification}}",
+                "Priority Confidence": "{{support-prioritize.confidence}}",
                 "Status": "Open",
                 "Channel": "Discord"
               }
@@ -187,7 +194,7 @@ async function runMigration() {
             description: "Send an acknowledgement back to the user in Discord.",
             config: {
               webhookUrl: "",
-              message: "{{node.support-response.output.content}}",
+              message: "{{support-response.content}}",
               username: "Support Bot"
             },
             validationState: {
@@ -203,6 +210,8 @@ async function runMigration() {
             type: "ai_action_summarize",
             title: "Summarize Feedback",
             description: "Extract the main feedback insight from the message.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               maxLength: 220,
@@ -219,6 +228,8 @@ async function runMigration() {
             type: "ai_action_sentiment",
             title: "Analyze Sentiment",
             description: "Determine the sentiment of the feedback message.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               analysisType: "detailed"
@@ -233,11 +244,13 @@ async function runMigration() {
             type: "ai_action_generate",
             title: "Draft Feedback Reply",
             description: "Generate a thoughtful acknowledgement for the feedback.",
+            needsConfiguration: true,
+
             config: {
               inputData: {
                 customer: "{{trigger.message.author.username}}",
-                summary: "{{node.feedback-summarize.output.summary}}",
-                sentiment: "{{node.feedback-sentiment.output.sentiment}}"
+                summary: "{{feedback-summarize.summary}}",
+                sentiment: "{{feedback-sentiment.sentiment}}"
               },
               contentType: "response",
               tone: "friendly",
@@ -257,9 +270,9 @@ async function runMigration() {
               baseId: "",
               tableName: "",
               fields: {
-                "Feedback Insight": "{{node.feedback-summarize.output.summary}}",
-                "Sentiment": "{{node.feedback-sentiment.output.sentiment}}",
-                "Sentiment Confidence": "{{node.feedback-sentiment.output.confidence}}",
+                "Feedback Insight": "{{feedback-summarize.summary}}",
+                "Sentiment": "{{feedback-sentiment.sentiment}}",
+                "Sentiment Confidence": "{{feedback-sentiment.confidence}}",
                 "Customer": "{{trigger.message.author.username}}",
                 "Source": "Discord"
               }
@@ -279,7 +292,7 @@ async function runMigration() {
             description: "Respond to the user thanking them for feedback.",
             config: {
               webhookUrl: "",
-              message: "{{node.feedback-response.output.content}}",
+              message: "{{feedback-response.content}}",
               username: "Feedback Bot"
             },
             validationState: {
@@ -295,6 +308,8 @@ async function runMigration() {
             type: "ai_action_extract",
             title: "Extract Email Address",
             description: "Pull any email address mentioned in the message.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               extractionType: "emails",
@@ -310,6 +325,8 @@ async function runMigration() {
             type: "ai_action_generate",
             title: "Draft Welcome Email",
             description: "Generate a friendly welcome email summary.",
+            needsConfiguration: true,
+
             config: {
               inputData: {
                 subscriber: "{{trigger.message.author.username}}",
@@ -334,7 +351,7 @@ async function runMigration() {
               tableName: "",
               fields: {
                 "Name": "{{trigger.message.author.username}}",
-                "Email": "{{node.newsletter-extract.output.extracted}}",
+                "Email": "{{newsletter-extract.extracted}}",
                 "Source": "Discord",
                 "Status": "Subscribed"
               }
@@ -353,9 +370,9 @@ async function runMigration() {
             title: "Send Welcome Email",
             description: "Send a welcome email to the subscriber.",
             config: {
-              to: "{{node.newsletter-extract.output.extracted}}",
+              to: "{{newsletter-extract.extracted}}",
               subject: "Welcome to our newsletter!",
-              body: "{{node.newsletter-generate.output.content}}",
+              body: "{{newsletter-generate.content}}",
               isHtml: false
             }
           }
@@ -368,6 +385,8 @@ async function runMigration() {
             type: "ai_action_summarize",
             title: "Summarize General Inquiry",
             description: "Capture a quick summary for unclassified requests.",
+            needsConfiguration: true,
+
             config: {
               inputText: "{{trigger.message.content}}",
               maxLength: 200,
@@ -386,7 +405,7 @@ async function runMigration() {
             description: "Log general inquiries in a Discord channel.",
             config: {
               webhookUrl: "",
-              message: "General inquiry from {{trigger.message.author.username}}: {{node.general-summarize.output.summary}}",
+              message: "General inquiry from {{trigger.message.author.username}}: {{general-summarize.summary}}",
               username: "Support Bot"
             },
             validationState: {
@@ -412,7 +431,8 @@ async function runMigration() {
         { id: "edge-newsletter-3", source: "newsletter-generate", target: "airtable-newsletter" },
         { id: "edge-newsletter-4", source: "airtable-newsletter", target: "gmail-newsletter-welcome" },
         { id: "edge-general-1", source: "ai-router-helpdesk", target: "general-summarize", sourceHandle: "general" },
-        { id: "edge-general-2", source: "general-summarize", target: "discord-general-log" },
+        { id: "edge-general-2", source: "general-summarize", target: "discord-general-log" }
+      ],
       workflow_json: {
         nodes: [],
         edges: []

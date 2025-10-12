@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       id: table.id,
       name: table.name,
-      fields: table.fields || []
+      fields: table.fields || [],
+      views: table.views || []
     });
 
   } catch (error: any) {
