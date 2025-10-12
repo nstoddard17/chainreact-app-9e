@@ -278,18 +278,27 @@ export function FullscreenTextArea({
           onDragOver={dropHandlers.onDragOver}
           onDragLeave={dropHandlers.onDragLeave}
           onDrop={dropHandlers.onDrop}
+          onKeyDown={(e) => {
+            // For computed fields with overlay, prevent typing but allow shortcuts
+            if (showOverlay && !e.metaKey && !e.ctrlKey) {
+              // Allow selection shortcuts
+              if (!['a', 'c', 'x', 'v'].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+              }
+            }
+          }}
           className={cn(
             "min-h-[120px] resize-y",
             !disabled && "pr-10",
             error && "border-red-500",
             disabled && "bg-muted cursor-not-allowed opacity-75",
-            showOverlay && "opacity-0 pointer-events-none select-none",
+            showOverlay && "opacity-0 select-none",
             isDragOver && "ring-2 ring-blue-500 ring-offset-1",
             className
           )}
           rows={rows}
           disabled={disabled}
-          readOnly={disabled || showOverlay}
+          readOnly={disabled}
         />
         {!disabled && !showOverlay && (
           <Button

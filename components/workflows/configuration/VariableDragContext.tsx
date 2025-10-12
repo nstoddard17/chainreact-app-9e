@@ -38,9 +38,9 @@ export function VariableDragProvider({ children }: { children: React.ReactNode }
 
   const clearActiveField = useCallback((fieldId?: string) => {
     setActiveFieldState(prev => {
-      if (!prev) return null
+      if (!prev) return prev
       if (!fieldId || prev.id === fieldId) {
-        return null
+        return prev
       }
       return prev
     })

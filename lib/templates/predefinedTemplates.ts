@@ -84,7 +84,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               apiSource: "chainreact",
               temperature: 0.3,
               contextNodeIds: ["discord-trigger-1"],
-              userPrompt: "Discord support request: {{trigger.message.content}}. Summarize the problem, suggest a priority (Low/Medium/High), and craft a short acknowledgement response.",
+              userPrompt: "Discord support request: {{discord-trigger-1.content}}. Summarize the problem, suggest a priority (Low/Medium/High), and craft a short acknowledgement response.",
               outputFields: "summary | Problem summary\npriority | Priority level\nresponse_message | Short acknowledgement message",
               includeRawOutput: false,
               memoryNotes: "Use prior support history if available."
@@ -104,10 +104,9 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               tableName: "",
               fields: {
                 "Ticket Summary": "{{ai-message-support.summary}}",
-                "Customer": "{{trigger.message.author.username}}",
                 "Priority": "{{ai-message-support.priority}}",
                 "Status": "Open",
-                "Channel": "Discord"
+                "Channel": "{{discord-trigger-1.channelName}}"
               }
             },
             needsConfiguration: true
@@ -140,7 +139,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               apiSource: "chainreact",
               temperature: 0.4,
               contextNodeIds: ["discord-trigger-1"],
-              userPrompt: "Customer feedback message: {{trigger.message.content}}. Extract the main idea and sentiment, and suggest a short acknowledgement.",
+              userPrompt: "Customer feedback message: {{discord-trigger-1.content}}. Extract the main idea and sentiment, and suggest a short acknowledgement.",
               outputFields: "insight | Feedback insight\nsentiment | Sentiment\nacknowledgement | Acknowledgement message",
               includeRawOutput: false
             },
@@ -160,7 +159,6 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               fields: {
                 "Feedback Insight": "{{ai-message-feedback.insight}}",
                 "Sentiment": "{{ai-message-feedback.sentiment}}",
-                "Customer": "{{trigger.message.author.username}}",
                 "Source": "Discord"
               }
             },
@@ -194,7 +192,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               apiSource: "chainreact",
               temperature: 0.5,
               contextNodeIds: ["discord-trigger-1"],
-              userPrompt: "A Discord user asked about the newsletter: {{trigger.message.content}}. Draft a friendly welcome email body and extract their email if mentioned.",
+              userPrompt: "A Discord user asked about the newsletter: {{discord-trigger-1.content}}. Draft a friendly welcome email body and extract their email if mentioned.",
               outputFields: "welcome_email | Welcome email body\nextracted_email | Email address if present",
               includeRawOutput: true
             },
@@ -212,7 +210,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
               baseId: "",
               tableName: "",
               fields: {
-                "Name": "{{trigger.message.author.username}}",
+                "Name": "",
                 "Email": "{{ai-message-newsletter.extracted_email}}",
                 "Source": "Discord",
                 "Status": "Subscribed"
@@ -246,7 +244,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
             title: "General Log",
             config: {
               webhookUrl: "",
-              message: "General inquiry from {{trigger.message.author.username}}: {{trigger.message.content}}",
+              message: "General inquiry from {{discord-trigger-1.authorName}}: {{discord-trigger-1.content}}",
               username: "Support Bot"
             },
             needsConfiguration: true
