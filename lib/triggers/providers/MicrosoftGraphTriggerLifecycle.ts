@@ -60,7 +60,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Unknown Microsoft Graph trigger type: ${triggerType}`)
     }
 
-    // Test the token by calling /me and /me/messages to verify permissions
+    // Test the token by calling appropriate endpoint to verify permissions
     logger.debug('🧪 Testing token permissions...')
     try {
       const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
@@ -73,18 +73,35 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         logger.debug('✅ /me call succeeded')
       }
 
-      const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      })
+      // Test provider-specific permissions
+      if (provider === 'microsoft-outlook') {
+        const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
 
-      if (!messagesResponse.ok) {
-        const errorText = await messagesResponse.text()
-        logger.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
-        logger.error('   Error details:', errorText)
-        throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
-      } else {
-        logger.debug('✅ /me/messages call succeeded - token has mail read permission')
+        if (!messagesResponse.ok) {
+          const errorText = await messagesResponse.text()
+          logger.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
+          logger.error('   Error details:', errorText)
+          throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
+        } else {
+          logger.debug('✅ /me/messages call succeeded - token has mail read permission')
+        }
+      } else if (provider === 'microsoft-onenote') {
+        const notebooksResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$top=1', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+
+        if (!notebooksResponse.ok) {
+          const errorText = await notebooksResponse.text()
+          logger.error('❌ /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
+          logger.error('   Error details:', errorText)
+          throw new Error(`Token lacks Notes.Read permission. Status: ${notebooksResponse.status}. Please reconnect Microsoft OneNote integration.`)
+        } else {
+          logger.debug('✅ /me/onenote/notebooks call succeeded - token has OneNote read permission')
+        }
       }
+      // Add other providers (Teams, OneDrive) here as needed
     } catch (testError) {
       logger.error('❌ Token permission test failed:', testError)
       throw testError

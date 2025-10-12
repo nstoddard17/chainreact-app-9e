@@ -30,8 +30,8 @@ export default function DashboardContent() {
   const isProductionReady = useProductionReady()
   const connectedIntegrationsCount = getConnectedProviders().length
 
-  // Count active workflows (workflows that are not drafts)
-  const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
+  // Count active workflows (only workflows with status 'active', not paused or draft)
+  const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status === 'active').length
 
   // Ensure client-side only code runs after mount
   useEffect(() => {
