@@ -118,6 +118,10 @@ export function VariablePickerSidePanel({
   const { toast } = useToast()
   const isDraggingVariable = useRef(false)
   const allowClickSelect = useRef(true)
+  const manualExpandedNodesRef = useRef<Set<string>>(new Set())
+  const expandedBeforeSearchRef = useRef<Set<string> | null>(null)
+  const prevSearchTermRef = useRef("")
+  const autoExpandedFromTestsRef = useRef(false)
   const { activeField, insertIntoActiveField } = useVariableDragContext()
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
@@ -368,6 +372,7 @@ export function VariablePickerSidePanel({
       } else {
         newSet.add(nodeId)
       }
+      manualExpandedNodesRef.current = new Set(newSet)
       return newSet
     })
   }
@@ -375,6 +380,10 @@ export function VariablePickerSidePanel({
   // Auto-expand nodes when searching or when test results are available
   useEffect(() => {
     if (searchTerm) {
+      if (!prevSearchTermRef.current) {
+        expandedBeforeSearchRef.current = new Set(manualExpandedNodesRef.current)
+      }
+      prevSearchTermRef.current = searchTerm
       const nodesToExpand = new Set<string>()
       filteredNodes.forEach(node => {
         const hasMatchingOutputs = node.outputs.some((output: any) => 
@@ -386,15 +395,35 @@ export function VariablePickerSidePanel({
         }
       })
       setExpandedNodes(nodesToExpand)
-    } else if (hasTestResults()) {
-      // Expand nodes that were executed in the test
-      const nodesToExpand = new Set<string>()
+      return
+    }
+
+    if (prevSearchTermRef.current && !searchTerm) {
+      prevSearchTermRef.current = ""
+      const restore =
+        expandedBeforeSearchRef.current
+          ? new Set(expandedBeforeSearchRef.current)
+          : new Set(manualExpandedNodesRef.current)
+      manualExpandedNodesRef.current = new Set(restore)
+      setExpandedNodes(restore)
+      expandedBeforeSearchRef.current = null
+      return
+    }
+
+    const hasResults = hasTestResults()
+    if (!searchTerm && hasResults && !autoExpandedFromTestsRef.current) {
+      const nodesToExpand = new Set(manualExpandedNodesRef.current)
       executionPath.forEach(nodeId => {
         nodesToExpand.add(nodeId)
       })
+      manualExpandedNodesRef.current = new Set(nodesToExpand)
       setExpandedNodes(nodesToExpand)
-    } else {
-      setExpandedNodes(new Set())
+      autoExpandedFromTestsRef.current = true
+      return
+    }
+
+    if (!hasResults) {
+      autoExpandedFromTestsRef.current = false
     }
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 

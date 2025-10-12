@@ -539,9 +539,11 @@ export function MultiCombobox({
   React.useEffect(() => {
     if (!onDrop) return;
 
+    const buttonId = `combobox-${uniqueId}`;
+
     const handleGlobalDragOver = (e: DragEvent) => {
       const target = e.target as HTMLElement;
-      const button = document.getElementById(uniqueId);
+      const button = document.getElementById(buttonId);
       if (button && button.contains(target)) {
         e.preventDefault();
         e.stopPropagation();
@@ -553,7 +555,7 @@ export function MultiCombobox({
 
     const handleGlobalDrop = (e: DragEvent) => {
       const target = e.target as HTMLElement;
-      const button = document.getElementById(uniqueId);
+      const button = document.getElementById(buttonId);
       if (button && button.contains(target)) {
         e.preventDefault();
         e.stopPropagation();
