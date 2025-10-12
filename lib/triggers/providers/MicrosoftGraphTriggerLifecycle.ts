@@ -303,9 +303,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Map trigger type to change type
    */
   private getChangeTypeForTrigger(triggerType: string): string {
-    // For new/created triggers, only watch 'created' to avoid duplicate notifications
+    // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
-    if (triggerType.includes('new') || triggerType.includes('created')) {
+    if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {
       return 'created'
     }
 
