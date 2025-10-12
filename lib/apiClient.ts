@@ -99,7 +99,8 @@ class ApiClient {
         console.log(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
       }
       if (config.body) {
-        console.log(`🌐 API Request Body:`, config.body)
+        const bodyLength = typeof config.body === 'string' ? config.body.length : JSON.stringify(config.body).length
+        console.log(`🌐 API Request Body length:`, bodyLength)
       }
 
       let response: Response;
@@ -126,7 +127,7 @@ class ApiClient {
 
         try {
           const responseText = await response.text()
-          console.error(`❌ API Error Response Body: ${endpoint}`, responseText)
+          console.error(`❌ API Error Response Body length: ${endpoint}`, responseText.length)
           
           if (responseText.trim()) {
             const errorData = JSON.parse(responseText)

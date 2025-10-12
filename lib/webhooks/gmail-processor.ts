@@ -21,6 +21,7 @@ const GMAIL_DEDUPE_WINDOW_MS = 5 * 60 * 1000
 type GmailTriggerFilters = {
   from: string[]
   subject: string
+  subjectExactMatch?: boolean
   hasAttachment: 'any' | 'yes' | 'no'
 }
 
@@ -401,9 +402,10 @@ async function fetchGmailMessageDetails(
       hasAttachments: emailDetails.hasAttachments
     })
 
+    // SECURITY: Don't log email addresses or subject content (PII)
     console.log(`✅ [fetchGmailMessageDetails] Successfully fetched email:`, {
-      from: emailDetails.from,
-      subject: emailDetails.subject,
+      hasFrom: !!emailDetails.from,
+      subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
       bodyLength: body.length
     })
@@ -578,9 +580,10 @@ async function fetchEmailDetails(
     }
     emailDetails.body = body
 
+    // SECURITY: Don't log email addresses or subject content (PII)
     const summary = {
-      from: emailDetails.from,
-      subject: emailDetails.subject,
+      hasFrom: !!emailDetails.from,
+      subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
       bodyLength: emailDetails.body?.length || 0
     }
@@ -602,9 +605,10 @@ async function fetchEmailDetails(
 }
 
 function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boolean {
+  // SECURITY: Don't log email content (PII)
   console.log('🔍 Checking email against filters:', {
-    email: { from: email.from, subject: email.subject, hasAttachments: email.hasAttachments },
-    filters
+    email: { hasFrom: !!email.from, subjectLength: email.subject?.length || 0, hasAttachments: email.hasAttachments },
+    hasFilters: !!(filters.from || filters.subject)
   })
 
   if (filters.from && filters.from.length > 0) {
@@ -623,23 +627,28 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       })
 
       if (!matches) {
-        console.log(`❌ Sender filter mismatch: "${emailFromRaw}" didn't match any of ${normalizedFilters.join(', ')}`)
+        console.log(`❌ Sender filter mismatch: email didn't match ${normalizedFilters.length} filter(s)`)
         return false
       }
 
-      console.log(`✅ Sender filter matched: "${emailFromRaw}" matched one of ${normalizedFilters.join(', ')}`)
+      console.log(`✅ Sender filter matched: email matched one of ${normalizedFilters.length} filter(s)`)
     }
   }
 
   if (filters.subject && filters.subject.trim() !== '') {
     const subjectFilter = filters.subject.toLowerCase().trim()
-    const emailSubject = (email.subject || '').toLowerCase()
+    const emailSubject = (email.subject || '').toLowerCase().trim()
+    const exactMatch = filters.subjectExactMatch !== false // Default to true
 
-    if (!emailSubject.includes(subjectFilter)) {
-      console.log(`❌ Subject filter mismatch: "${emailSubject}" doesn't contain "${subjectFilter}"`)
+    const isMatch = exactMatch
+      ? emailSubject === subjectFilter
+      : emailSubject.includes(subjectFilter)
+
+    if (!isMatch) {
+      console.log(`❌ Subject filter mismatch: subject length ${emailSubject.length} doesn't match filter (exactMatch: ${exactMatch})`)
       return false
     }
-    console.log(`✅ Subject filter matched: "${emailSubject}" contains "${subjectFilter}"`)
+    console.log(`✅ Subject filter matched: subject length ${emailSubject.length} matches filter (exactMatch: ${exactMatch})`)
   }
 
   if (filters.hasAttachment && filters.hasAttachment !== 'any') {
@@ -758,9 +767,10 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               emailDetails = await fetchGmailMessageDetails(integration, event.eventData.historyId, executionSession.id)
 
               if (emailDetails) {
+                // SECURITY: Don't log email addresses or subject content (PII)
                 logSuccess(executionSession.id, 'Email details fetched successfully', {
-                  from: emailDetails.from,
-                  subject: emailDetails.subject,
+                  hasFrom: !!emailDetails.from,
+                  subjectLength: emailDetails.subject?.length || 0,
                   hasAttachments: emailDetails.hasAttachments
                 })
               } else {

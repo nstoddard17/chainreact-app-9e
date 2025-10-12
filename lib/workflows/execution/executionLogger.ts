@@ -1,10 +1,14 @@
 /**
  * Execution Logger - Formats workflow execution data in human-readable format
  * Captures inputs, outputs, and context for all workflow nodes
+ *
+ * SECURITY: Follows logging best practices from /learning/docs/logging-best-practices.md
+ * Never logs tokens, keys, passwords, PII, or message content
  */
 
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { logInfo } from '@/lib/logging/backendLogger'
+import { maskEmail, redactConfig } from '@/lib/utils/logging'
 
 export interface ExecutionLogEntry {
   nodeId: string
@@ -43,42 +47,95 @@ export interface ErrorLog {
 }
 
 /**
+ * Check if a field contains sensitive data that should be redacted
+ */
+function isSensitiveField(fieldName: string): boolean {
+  const lowerName = fieldName.toLowerCase()
+  const sensitiveFields = [
+    'to', 'from', 'cc', 'bcc', 'email', 'emailaddress',
+    'subject', 'body', 'message', 'content', 'text', 'html',
+    'token', 'password', 'secret', 'key', 'apikey',
+    'phone', 'address', 'ssn'
+  ]
+  return sensitiveFields.some(field => lowerName.includes(field))
+}
+
+/**
+ * Sanitize value for logging - redacts PII and sensitive data
+ */
+function sanitizeValue(value: any, fieldName?: string): any {
+  // Check if field name indicates sensitive data
+  if (fieldName && isSensitiveField(fieldName)) {
+    // Return metadata instead of actual value
+    if (typeof value === 'string') {
+      // For email fields, mask the address
+      if (fieldName.toLowerCase().includes('email') ||
+          fieldName === 'to' || fieldName === 'from' ||
+          fieldName === 'cc' || fieldName === 'bcc') {
+        return maskEmail(value)
+      }
+      // For other sensitive text, return length only
+      return `[REDACTED-PII: ${value.length} chars]`
+    }
+    return '[REDACTED-PII]'
+  }
+
+  // Recursively sanitize objects and arrays
+  if (Array.isArray(value)) {
+    return value.map(item => sanitizeValue(item))
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const sanitized: any = {}
+    for (const [key, val] of Object.entries(value)) {
+      sanitized[key] = sanitizeValue(val, key)
+    }
+    return sanitized
+  }
+
+  return value
+}
+
+/**
  * Format a value for human-readable display
  */
-function formatValue(value: any, indent: number = 0): string {
+function formatValue(value: any, indent: number = 0, fieldName?: string): string {
   const spaces = ' '.repeat(indent)
-  
-  if (value === null || value === undefined) {
+
+  // Sanitize value before formatting
+  const sanitized = sanitizeValue(value, fieldName)
+
+  if (sanitized === null || sanitized === undefined) {
     return `${spaces}(empty)`
   }
-  
-  if (typeof value === 'boolean') {
-    return `${spaces}${value ? 'Yes' : 'No'}`
+
+  if (typeof sanitized === 'boolean') {
+    return `${spaces}${sanitized ? 'Yes' : 'No'}`
   }
-  
-  if (typeof value === 'string') {
+
+  if (typeof sanitized === 'string') {
     // Truncate very long strings
-    if (value.length > 500) {
-      return `${spaces}"${value.substring(0, 497)}..." (truncated)`
+    if (sanitized.length > 500) {
+      return `${spaces}"${sanitized.substring(0, 497)}..." (truncated)`
     }
-    return `${spaces}"${value}"`
+    return `${spaces}"${sanitized}"`
   }
-  
-  if (typeof value === 'number') {
-    return `${spaces}${value}`
+
+  if (typeof sanitized === 'number') {
+    return `${spaces}${sanitized}`
   }
-  
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
+
+  if (Array.isArray(sanitized)) {
+    if (sanitized.length === 0) {
       return `${spaces}(empty list)`
     }
-    return value.map((item, i) => 
+    return sanitized.map((item, i) =>
       `${spaces}[${i + 1}] ${formatValue(item, 0)}`
     ).join('\n')
   }
-  
-  if (typeof value === 'object') {
-    const entries = Object.entries(value)
+
+  if (typeof sanitized === 'object') {
+    const entries = Object.entries(sanitized)
     if (entries.length === 0) {
       return `${spaces}(empty object)`
     }
@@ -86,12 +143,12 @@ function formatValue(value: any, indent: number = 0): string {
       .filter(([key]) => !key.startsWith('_')) // Filter out internal fields
       .map(([key, val]) => {
         const formattedKey = formatFieldName(key)
-        return `${spaces}${formattedKey}: ${formatValue(val, 0)}`
+        return `${spaces}${formattedKey}: ${formatValue(val, 0, key)}`
       })
       .join('\n')
   }
-  
-  return `${spaces}${JSON.stringify(value)}`
+
+  return `${spaces}${JSON.stringify(sanitized)}`
 }
 
 /**
@@ -195,24 +252,27 @@ export function formatTriggerData(triggerType: string, data: any): string[] {
       
     case 'gmail_new_email':
       formatted.push('📧 New Gmail Email')
-      if (data.from) formatted.push(`From: ${data.from}`)
-      if (data.to) formatted.push(`To: ${data.to}`)
-      if (data.subject) formatted.push(`Subject: ${data.subject}`)
-      if (data.snippet) formatted.push(`Preview: ${data.snippet}`)
+      // SECURITY: Mask email addresses and don't log content
+      if (data.from) formatted.push(`From: ${maskEmail(data.from)}`)
+      if (data.to) formatted.push(`To: ${maskEmail(data.to)}`)
+      if (data.subject) formatted.push(`Subject: [REDACTED: ${data.subject?.length || 0} chars]`)
+      if (data.snippet) formatted.push(`Preview: [REDACTED: ${data.snippet?.length || 0} chars]`)
       break
       
     case 'discord_trigger_new_message':
       formatted.push('💬 New Discord Message')
       if (data.authorName) formatted.push(`Author: ${data.authorName}`)
       if (data.channelName) formatted.push(`Channel: #${data.channelName}`)
-      if (data.content) formatted.push(`Message: "${data.content}"`)
+      // SECURITY: Don't log message content
+      if (data.content) formatted.push(`Message length: ${data.content.length} chars`)
       break
-      
+
     case 'slack_new_message':
       formatted.push('💬 New Slack Message')
       if (data.user) formatted.push(`User: ${data.user}`)
       if (data.channel) formatted.push(`Channel: #${data.channel}`)
-      if (data.text) formatted.push(`Message: "${data.text}"`)
+      // SECURITY: Don't log message content
+      if (data.text) formatted.push(`Message length: ${data.text.length} chars`)
       break
       
     case 'airtable_record_created':

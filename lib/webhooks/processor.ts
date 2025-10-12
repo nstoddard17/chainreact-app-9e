@@ -349,12 +349,12 @@ async function storeWebhookEvent(event: WebhookEvent, dedupeKey?: string | null,
 
 // Provider-specific processors
 export async function processDiscordEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing Discord message:', event.eventData.content)
+  console.log('Processing Discord message with length:', event.eventData.content?.length || 0)
   return await processWebhookEvent(event)
 }
 
 export async function processSlackEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing Slack message:', event.eventData.text)
+  console.log('Processing Slack message with length:', event.eventData.text?.length || 0)
   return await processWebhookEvent(event)
 }
 

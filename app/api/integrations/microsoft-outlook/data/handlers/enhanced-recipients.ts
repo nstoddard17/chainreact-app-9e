@@ -171,6 +171,13 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     }
 
     console.log('[Outlook API] Fetching fresh recipients (contacts + people + recent)')
+    console.log('[Outlook API] Integration info:', {
+      id: integration.id,
+      provider: integration.provider,
+      userId: integration.user_id,
+      email: integration.email,
+      accountName: integration.account_name
+    })
 
     if (!integration.access_token && !integration.refresh_token) {
       throw new Error('No access credentials available for this Outlook integration')
@@ -196,6 +203,24 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
     })
+
+    // First, verify which account we're using
+    try {
+      const meResponse = await fetch(buildGraphUrl('me?$select=mail,userPrincipalName,displayName'), {
+        headers: getHeaders(),
+        cache: 'no-store'
+      })
+      if (meResponse.ok) {
+        const meData = await meResponse.json()
+        console.log('[Outlook API] Authenticated as:', {
+          email: meData.mail,
+          userPrincipalName: meData.userPrincipalName,
+          displayName: meData.displayName
+        })
+      }
+    } catch (error) {
+      console.warn('[Outlook API] Could not fetch user info:', error)
+    }
 
     const fetchGraph = async (path: string) => {
       const url = buildGraphUrl(path)
@@ -228,6 +253,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       if (contactsResponse.ok) {
         const contactsData = await contactsResponse.json()
         const contacts = contactsData.value || []
+
+        console.log(`[Outlook API] Contacts API response:`, {
+          totalCount: contactsData['@odata.count'],
+          valueLength: contacts.length,
+          firstContact: contacts[0]
+        })
 
         contacts.forEach((contact: any) => {
           const primaryEmail = contact.emailAddresses?.[0]?.address
@@ -304,6 +335,15 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       if (inboxResponse.ok) {
         const inboxData = await inboxResponse.json()
         const messages = inboxData.value || []
+
+        console.log(`[Outlook API] Inbox API response:`, {
+          totalCount: inboxData['@odata.count'],
+          valueLength: messages.length,
+          firstMessage: messages[0] ? {
+            from: messages[0].from,
+            hasTo: !!messages[0].toRecipients
+          } : null
+        })
 
         messages.forEach((message: any) => {
           const senderEmail = message.from?.emailAddress?.address

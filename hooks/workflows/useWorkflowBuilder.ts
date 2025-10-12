@@ -77,6 +77,7 @@ export function useWorkflowBuilder() {
   
   // Store onClick handlers for AddActionNodes - needs to be before setNodes
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
+  const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
 
   // React Flow state
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
@@ -1899,16 +1900,34 @@ export function useWorkflowBuilder() {
       const data = await response.json()
       console.log('Update result:', data)
 
-      // Update the local state
+      // Check if there was a trigger activation error (API returns 200 but rolls back status)
+      if (data.triggerActivationError) {
+        console.error('Trigger activation failed:', data.triggerActivationError)
+
+        // Update with the actual status from the response (rolled back to paused)
+        setCurrentWorkflow({
+          ...currentWorkflow,
+          ...data
+        })
+
+        toast({
+          title: "Activation Failed",
+          description: data.triggerActivationError.message || "Failed to activate workflow triggers",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Update the local state with the actual status from response
       setCurrentWorkflow({
         ...currentWorkflow,
-        status: newStatus
+        ...data
       })
 
       toast({
         title: "Success",
-        description: `Workflow ${newStatus === 'active' ? 'is now live' : 'has been paused'}`,
-        variant: newStatus === 'active' ? 'default' : 'secondary',
+        description: `Workflow ${data.status === 'active' ? 'is now live' : 'has been paused'}`,
+        variant: data.status === 'active' ? 'default' : 'secondary',
       })
     } catch (error: any) {
       console.error('Error updating workflow status:', error)
@@ -2109,11 +2128,23 @@ export function useWorkflowBuilder() {
         }
       }
 
+      // Check if we're replacing a deleted trigger
+      const replacingTrigger = deletedTriggerBackupRef.current
+      const firstActionEdge = replacingTrigger?.edges.find(e =>
+        e.source === replacingTrigger.node.id &&
+        !e.target.startsWith('add-action-')
+      )
+
       // Add the trigger node
       setNodes(nds => {
         const updatedNodes = [...nds, newNode]
 
-        // Add AddActionNode after the trigger
+        // If we're replacing a trigger and there was a connected action, skip AddActionNode
+        if (firstActionEdge) {
+          return updatedNodes
+        }
+
+        // Otherwise, add AddActionNode after the trigger
         const addActionId = `add-action-${newNodeId}`
 
         // Store the handler in ref
@@ -2138,15 +2169,35 @@ export function useWorkflowBuilder() {
         return [...updatedNodes, addActionNode]
       })
 
-      // Add edge between trigger and AddActionNode
-      setEdges(eds => [...eds, {
-        id: `e-${newNodeId}-add-action-${newNodeId}`,
-        source: newNodeId,
-        target: `add-action-${newNodeId}`,
-        type: 'custom',
-        animated: false,
-        style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
-      }])
+      // Add edges
+      setEdges(eds => {
+        const newEdges = [...eds]
+
+        // If we're replacing a trigger, reconnect to the first action node
+        if (firstActionEdge) {
+          const reconnectedEdge: Edge = {
+            id: `e-${newNodeId}-${firstActionEdge.target}`,
+            source: newNodeId,
+            target: firstActionEdge.target,
+            type: firstActionEdge.type,
+            animated: firstActionEdge.animated,
+            style: firstActionEdge.style
+          }
+          newEdges.push(reconnectedEdge)
+        } else {
+          // Otherwise, add edge between trigger and AddActionNode
+          newEdges.push({
+            id: `e-${newNodeId}-add-action-${newNodeId}`,
+            source: newNodeId,
+            target: `add-action-${newNodeId}`,
+            type: 'custom',
+            animated: false,
+            style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
+          })
+        }
+
+        return newEdges
+      })
 
       // Auto-fit view after adding trigger to keep everything visible
       setTimeout(() => {
@@ -2165,6 +2216,11 @@ export function useWorkflowBuilder() {
       setHasUnsavedChanges(true)
     }
     dialogsHook.setShowTriggerDialog(false)
+    // Only clear the backup if this trigger doesn't need configuration
+    // (if it needs config, backup will be cleared on successful save or restored on cancel)
+    if (!configHook.nodeNeedsConfiguration(trigger)) {
+      deletedTriggerBackupRef.current = null
+    }
   }, [
     configHook,
     dialogsHook,
@@ -2180,6 +2236,38 @@ export function useWorkflowBuilder() {
     fitView,
     setHasUnsavedChanges
   ])
+
+  // Handle trigger dialog close (for restoration logic)
+  const handleTriggerDialogClose = useCallback((open: boolean) => {
+    // Always call the original setter first
+    dialogsHook.setShowTriggerDialog(open)
+
+    // Only handle restoration when dialog is actually closing and we have a backup
+    if (!open && deletedTriggerBackupRef.current) {
+      // Store backup in local variable to avoid null issues
+      const backup = deletedTriggerBackupRef.current
+
+      // Clear backup immediately to prevent re-processing
+      deletedTriggerBackupRef.current = null
+
+      // Small delay to let the dialog close and any pending trigger selection complete
+      setTimeout(() => {
+        // Check if a new trigger was selected or is being configured
+        const hasNewTrigger = getNodes().some(n => {
+          const comp = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+          return comp?.isTrigger === true
+        })
+
+        const isPendingTriggerConfig = configHook.pendingNode?.type === 'trigger'
+
+        if (!hasNewTrigger && !isPendingTriggerConfig && backup) {
+          // No new trigger selected and no pending configuration - restore the old one
+          setNodes((prevNodes) => [...prevNodes, backup.node])
+          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+        }
+      }, 100)
+    }
+  }, [getNodes, setNodes, setEdges, dialogsHook, configHook])
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
@@ -2270,6 +2358,16 @@ export function useWorkflowBuilder() {
 
   // Handle adding a trigger node
   const handleAddTrigger = useCallback((integration: any, nodeComponent: any, config: Record<string, any>) => {
+    // Check if we're replacing a deleted trigger before clearing the backup
+    const replacingTrigger = deletedTriggerBackupRef.current
+    const firstActionEdge = replacingTrigger?.edges.find(e =>
+      e.source === replacingTrigger.node.id &&
+      !e.target.startsWith('add-action-')
+    )
+
+    // Clear the backup since we're successfully adding a new trigger
+    deletedTriggerBackupRef.current = null
+
     const newNodeId = `trigger-${Date.now()}`
     const newNode: Node = {
       id: newNodeId,
@@ -2288,18 +2386,23 @@ export function useWorkflowBuilder() {
         onRename: handleNodeRename
       }
     }
-    
+
     // Add the trigger node
     setNodes(nds => {
       const updatedNodes = [...nds, newNode]
-      
-      // Add AddActionNode after the trigger
+
+      // If we're replacing a trigger and there was a connected action, skip AddActionNode
+      if (firstActionEdge) {
+        return updatedNodes
+      }
+
+      // Otherwise, add AddActionNode after the trigger
       const addActionId = `add-action-${newNodeId}`
-      
+
       // Store the handler in ref
       const clickHandler = () => handleAddActionClick(addActionId, newNodeId)
       addActionHandlersRef.current[addActionId] = clickHandler
-      
+
       const addActionNode: Node = {
         id: addActionId,
         type: 'addAction',
@@ -2314,19 +2417,39 @@ export function useWorkflowBuilder() {
           onClick: clickHandler
         }
       }
-      
+
       return [...updatedNodes, addActionNode]
     })
-    
-    // Add edge between trigger and AddActionNode
-    setEdges(eds => [...eds, {
-      id: `e-${newNodeId}-add-action-${newNodeId}`,
-      source: newNodeId,
-      target: `add-action-${newNodeId}`,
-      type: 'custom',
-      animated: false,
-      style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
-    }])
+
+    // Add edges
+    setEdges(eds => {
+      const newEdges = [...eds]
+
+      // If we're replacing a trigger, reconnect to the first action node
+      if (firstActionEdge) {
+        const reconnectedEdge: Edge = {
+          id: `e-${newNodeId}-${firstActionEdge.target}`,
+          source: newNodeId,
+          target: firstActionEdge.target,
+          type: firstActionEdge.type,
+          animated: firstActionEdge.animated,
+          style: firstActionEdge.style
+        }
+        newEdges.push(reconnectedEdge)
+      } else {
+        // Otherwise, add edge between trigger and AddActionNode
+        newEdges.push({
+          id: `e-${newNodeId}-add-action-${newNodeId}`,
+          source: newNodeId,
+          target: `add-action-${newNodeId}`,
+          type: 'custom',
+          animated: false,
+          style: { stroke: "#9ca3af", strokeWidth: 2, strokeLinecap: "round", strokeDasharray: "5 5" }
+        })
+      }
+
+      return newEdges
+    })
 
     // Auto-fit view after adding trigger to keep everything visible
     setTimeout(() => {
@@ -2865,6 +2988,35 @@ export function useWorkflowBuilder() {
     const currentEdges = getEdges()
     const currentNodes = getNodes()
 
+    // Check if this is a trigger node
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToDelete.data?.type)
+    const isTriggerNode = nodeComponent?.isTrigger === true
+
+    // If deleting a trigger, show trigger selection dialog instead
+    if (isTriggerNode) {
+      // Store the deleted trigger info for potential restoration
+      deletedTriggerBackupRef.current = {
+        node: { ...nodeToDelete },
+        edges: currentEdges.filter(e => e.source === nodeId || e.target === nodeId)
+      }
+
+      // Close the deletion modal
+      dialogsHook.setDeletingNode(null)
+
+      // First, actually delete the node
+      setNodes((prevNodes) => prevNodes.filter(n => n.id !== nodeId))
+      setEdges((prevEdges) => prevEdges.filter(e => e.source !== nodeId && e.target !== nodeId))
+      setHasUnsavedChanges(true)
+
+      // Small delay to ensure deletion is processed
+      setTimeout(() => {
+        // Now open the trigger selection dialog
+        dialogsHook.setShowTriggerDialog(true)
+      }, 100)
+
+      return
+    }
+
     // Check if this is an AI Agent node
     const isAIAgent = nodeToDelete.data?.type === 'ai_agent'
 
@@ -3111,8 +3263,30 @@ export function useWorkflowBuilder() {
   const [filteredIntegrations, setFilteredIntegrations] = useState<any[]>([])
 
   const handleConfigurationClose = useCallback(() => {
+    // Check if we're cancelling a pending trigger configuration after deleting an old trigger
+    const wasPendingTrigger = configHook.pendingNode?.type === 'trigger' && deletedTriggerBackupRef.current
+
     configHook.setConfiguringNode(null)
-  }, [configHook])
+
+    // If user was configuring a new trigger to replace a deleted one, and they cancelled, restore the old trigger
+    if (wasPendingTrigger && deletedTriggerBackupRef.current) {
+      const backup = deletedTriggerBackupRef.current
+      deletedTriggerBackupRef.current = null
+
+      // Small delay to let config modal close
+      setTimeout(() => {
+        const hasNewTrigger = getNodes().some(n => {
+          const comp = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+          return comp?.isTrigger === true
+        })
+
+        if (!hasNewTrigger && backup) {
+          setNodes((prevNodes) => [...prevNodes, backup.node])
+          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+        }
+      }, 50)
+    }
+  }, [configHook, getNodes, setNodes, setEdges])
 
   const handleConfigurationSave = useCallback(async (config: any) => {
     if (configHook.configuringNode) {
@@ -3211,14 +3385,15 @@ export function useWorkflowBuilder() {
     handleToggleLive,
     isUpdatingStatus,
     handleTriggerSelect,
+    handleTriggerDialogClose,
     handleActionSelect,
     handleAddActionClick,
     handleAddTrigger,
     handleAddAction,
-    
+
     // Collaboration
     collaborators,
-    
+
     // From custom hooks (spread but override certain handlers)
     ...executionHook,
     handleTestSandbox,  // Override with wrapped version

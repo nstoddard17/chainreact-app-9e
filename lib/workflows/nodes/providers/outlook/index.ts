@@ -34,6 +34,14 @@ const outlookTriggerNewEmail: NodeComponent = {
       description: "Filter emails by sender address"
     },
     {
+      name: "subjectExactMatch",
+      label: "Exact match",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Match the subject exactly (case-insensitive). Turn off to match emails that contain the subject text anywhere in the subject line."
+    },
+    {
       name: "subject",
       label: "Subject",
       type: "text",
@@ -182,6 +190,120 @@ const outlookTriggerEmailSent: NodeComponent = {
   category: "Communication",
   isTrigger: true,
   requiredScopes: ["Mail.Send"],
+  producesOutput: true,
+  supportsWebhook: true,
+  webhookConfig: {
+    method: "POST",
+    responseFormat: "json"
+  },
+  configSchema: [
+    {
+      name: "to",
+      label: "To",
+      type: "email-autocomplete",
+      dynamic: "outlook-enhanced-recipients",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Enter recipient email address",
+      description: "Filter sent emails by recipient address"
+    },
+    {
+      name: "subjectExactMatch",
+      label: "Exact match",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Match the subject exactly (case-insensitive). Turn off to match emails that contain the subject text anywhere in the subject line."
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "text",
+      required: false,
+      placeholder: "Optional: filter by subject",
+      description: "Filter sent emails by subject line"
+    }
+  ],
+  outputSchema: [
+    {
+      name: "id",
+      label: "Email ID",
+      type: "string",
+      description: "The unique ID of the sent email"
+    },
+    {
+      name: "conversationId",
+      label: "Conversation ID",
+      type: "string",
+      description: "The ID of the email conversation/thread"
+    },
+    {
+      name: "from",
+      label: "From",
+      type: "object",
+      description: "The sender's information (name and email)"
+    },
+    {
+      name: "to",
+      label: "To",
+      type: "array",
+      description: "The recipients' information"
+    },
+    {
+      name: "cc",
+      label: "CC",
+      type: "array",
+      description: "The CC recipients' information"
+    },
+    {
+      name: "bcc",
+      label: "BCC",
+      type: "array",
+      description: "The BCC recipients' information"
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "string",
+      description: "The subject of the sent email"
+    },
+    {
+      name: "body",
+      label: "Body",
+      type: "string",
+      description: "The full body of the sent email (HTML)"
+    },
+    {
+      name: "bodyPreview",
+      label: "Body Preview",
+      type: "string",
+      description: "A preview/snippet of the email's content"
+    },
+    {
+      name: "attachments",
+      label: "Attachments",
+      type: "array",
+      description: "An array of attachment objects"
+    },
+    {
+      name: "sentDateTime",
+      label: "Sent At",
+      type: "string",
+      description: "The timestamp when the email was sent"
+    },
+    {
+      name: "importance",
+      label: "Importance",
+      type: "string",
+      description: "The importance level of the email"
+    },
+    {
+      name: "hasAttachments",
+      label: "Has Attachments",
+      type: "boolean",
+      description: "Whether the email has attachments"
+    }
+  ]
 }
 
 // Microsoft Outlook Actions

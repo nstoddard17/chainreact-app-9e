@@ -94,7 +94,10 @@ export class IntegrationNodeHandlers {
               }
 
               const email = await response.json()
-              console.log('📧 Fetched email:', { subject: email.subject, from: email.from?.emailAddress?.address })
+              console.log('📧 Fetched email:', {
+                subjectLength: email.subject?.length || 0,
+                hasFrom: !!email.from?.emailAddress?.address
+              })
 
               return {
                 id: email.id,

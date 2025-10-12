@@ -1098,11 +1098,11 @@ async function generateMicrosoftOutlookAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("microsoft-outlook")
   if (!config) throw new Error("Outlook OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("Outlook client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
@@ -1113,7 +1113,7 @@ async function generateMicrosoftOutlookAuthUrl(state: string): Promise<string> {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 

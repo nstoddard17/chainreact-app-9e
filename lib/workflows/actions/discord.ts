@@ -123,8 +123,8 @@ export async function sendDiscordMessage(
   try {
     console.log("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
     console.log(`   userId: ${userId}`)
-    console.log(`   config:`, JSON.stringify(config, null, 2))
-    console.log(`   input:`, JSON.stringify(input, null, 2))
+    console.log(`   config keys:`, Object.keys(config || {}))
+    console.log(`   input keys:`, Object.keys(input || {}))
 
     // Resolve templated values
     const resolvedConfig = resolveValue(config, { input })
