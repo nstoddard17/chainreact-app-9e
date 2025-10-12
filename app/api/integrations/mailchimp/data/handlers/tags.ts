@@ -39,7 +39,7 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
     }
 
     console.log('🔍 [Mailchimp] Fetching tags from API...')
-    const apiUrl = buildMailchimpApiUrl(integration, `/lists/${audienceId}/tag-search`)
+    const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/tag-search`)
 
     // Add query parameters - we need to search with an empty string to get all tags
     const url = new URL(apiUrl)

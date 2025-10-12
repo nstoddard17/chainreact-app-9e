@@ -1,6 +1,4 @@
-/**
- * Utility functions for displaying variable references in a human-readable format
- */
+import { parseVariableReference } from "../workflows/variableReferences"
 
 interface NodeInfo {
   id: string
@@ -34,42 +32,26 @@ export function formatVariableForDisplay(
 
   let displayValue = value
 
-  // Find all variable references in the format {{node-id.output.field}}
-  const variablePattern = /\{\{(node-[\w-]+|trigger-[\w-]+)\.(output)\.([^}]+)\}\}/g
-  const matches = value.matchAll(variablePattern)
+  const matches = value.matchAll(/\{\{([^}]+)\}\}/g)
 
   for (const match of matches) {
-    const [fullMatch, nodeId, outputPrefix, fieldPath] = match
-    
-    // Find the node metadata
-    const node = nodes?.find(n => n.id === nodeId)
-    
-    if (node) {
-      // Find the field in the output schema
-      const fieldName = fieldPath.split('.')[0] // Get the first part of the path
-      const outputField = node.outputSchema?.find(f => f.name === fieldName)
-      
-      // Create a human-readable label
-      let humanReadable = ''
-      
-      // Use node title and field label
-      const nodeTitle = node.title || getNodeTypeLabel(node.type)
-      const fieldLabel = outputField?.label || fieldName
-      
-      // Format based on the field type
-      if (outputField?.type === 'object' || fieldPath.includes('.')) {
-        // For complex objects, show the full path
-        humanReadable = `${nodeTitle} → ${fieldLabel}`
-      } else {
-        humanReadable = `${nodeTitle}: ${fieldLabel}`
+    const [fullMatch] = match
+    const parsed = parseVariableReference(fullMatch)
+    if (!parsed) continue
+
+    if (parsed.kind === 'node' && parsed.nodeId) {
+      const node = nodes?.find(n => n.id === parsed.nodeId)
+      if (node) {
+        const fieldName = parsed.fieldPath[0] || ''
+        const outputField = node.outputSchema?.find(f => f.name === fieldName)
+        const nodeTitle = node.title || getNodeTypeLabel(node.type)
+        const fieldLabel = outputField?.label || fieldName
+        const humanReadable = parsed.fieldPath.length > 1
+          ? `${nodeTitle} → ${fieldLabel}`
+          : `${nodeTitle}: ${fieldLabel}`
+
+        displayValue = displayValue.replace(fullMatch, `{{${humanReadable}}}`)
       }
-      
-      // Replace only in display value, keep actual value unchanged
-      displayValue = displayValue.replace(fullMatch, `{{${humanReadable}}}`)
-    } else {
-      // If we can't find the node, at least make it more readable
-      const fieldName = fieldPath.split('.')[0]
-      displayValue = displayValue.replace(fullMatch, `{{Previous Node: ${fieldName}}}`)
     }
   }
 

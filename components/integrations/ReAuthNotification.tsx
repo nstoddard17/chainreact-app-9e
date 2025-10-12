@@ -185,7 +185,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="fixed inset-0 z-[100] flex items-center justify-center p-4"
             >
-              <Alert className="border-red-200 bg-red-50 shadow-xl border-l-4 w-full max-w-md">
+              <Alert className="border-red-200 bg-red-50 shadow-xl border-l-4 w-full max-w-lg">
                 <AlertTriangle className="h-4 w-4 text-red-600" />
                 <AlertDescription className="text-red-800">
                   <div className="flex items-start justify-between">

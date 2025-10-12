@@ -1,0 +1,769 @@
+=== Log Session Started: 2025-10-12T01:18:13.495Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-12T01:18:13.495Z] [INFO   ] File logging initialized
+[2025-10-12T01:18:13.495Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-11_20-18-13.log
+[2025-10-12T01:18:13.496Z] [INFO   ] 📁 File logging enabled
+[2025-10-12T01:18:13.496Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-11_20-18-13.log
+[2025-10-12T01:18:13.496Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-11_20-18-13.log
+[2025-10-12T01:18:13.496Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-11_20-18-13.log
+[2025-10-12T01:18:13.496Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-11_20-18-13.log
+[2025-10-12T01:18:13.496Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-12T01:18:13.496Z] [INFO   ] 📁 File logging system initialized
+[2025-10-12T01:18:13.517Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.8s
+[2025-10-12T01:18:14.503Z] [INFO   ] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-12T01:18:16.250Z] [INFO   ] Initializing Discord Gateway connection (singleton)...
+[2025-10-12T01:18:16.250Z] [INFO   ] 🔑 Discord bot token loaded
+[2025-10-12T01:18:16.961Z] [INFO   ] Discord Gateway initialization complete
+[2025-10-12T01:18:16.962Z] [INFO   ] ✅ Discord bot gateway connection initialized
+[2025-10-12T01:18:17.141Z] [INFO   ] Discord Gateway WebSocket connection established
+[2025-10-12T01:18:17.144Z] [INFO   ] 🔑 Sending identify with intents: {
+  "GUILDS": true,
+  "GUILD_MEMBERS": true,
+  "GUILD_INVITES": true,
+  "GUILD_MESSAGES": true,
+  "MESSAGE_CONTENT": true,
+  "intentsValue": 33347
+}
+[2025-10-12T01:18:17.532Z] [INFO   ] 🎉 Discord bot ready! {
+  "sessionId": "1c7a161fdb436a82c0a35779c0db7a96",
+  "username": "ChainReact-Bot",
+  "userId": "1378595955212812308",
+  "guildCount": 2
+}
+[2025-10-12T01:18:17.532Z] [INFO   ] 📋 Initializing invite cache...
+[2025-10-12T01:18:17.695Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-12T01:18:17.785Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-12T01:18:18.207Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-12T01:21:09.178Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-12T01:21:12.965Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 4.3s (3692 modules)
+[2025-10-12T01:21:13.690Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 709ms (640 modules)
+[2025-10-12T01:21:15.524Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-12T01:21:16.006Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1083ms (4033 modules)
+[2025-10-12T01:21:16.724Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 241ms (3804 modules)
+[2025-10-12T01:21:20.109Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 270ms (3806 modules)
+[2025-10-12T01:21:20.179Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T01:21:20.178Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T01:21:20.381Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T01:21:20.522Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T01:21:29.386Z] [INFO   ] [Middleware] Username check: {
+  path: '/dashboard',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665401985,
+  profileError: undefined
+}
+[2025-10-12T01:21:29.924Z] [INFO   ]  [37m[1m○[22m[39m Compiling /dashboard ...
+[2025-10-12T01:21:31.343Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /dashboard in 1921ms (4818 modules)
+[2025-10-12T01:21:32.409Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/usage/ai ...
+[2025-10-12T01:21:32.534Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/usage/ai in 719ms (4822 modules)
+[2025-10-12T01:21:33.704Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665406305,
+  profileError: undefined
+}
+[2025-10-12T01:21:34.237Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-12T01:21:34.808Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 1072ms (5176 modules)
+[2025-10-12T01:21:35.136Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:21:53.552Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665426152,
+  profileError: undefined
+}
+[2025-10-12T01:21:53.962Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:21:54.541Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T01:21:54.541Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T01:21:54.677Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T01:21:54.830Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T01:21:59.664Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665432264,
+  profileError: undefined
+}
+[2025-10-12T01:22:00.196Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-12T01:22:01.088Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665433689,
+  profileError: undefined
+}
+[2025-10-12T01:22:02.761Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 3.1s (6586 modules)
+[2025-10-12T01:22:03.266Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:22:03.354Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:22:06.208Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-12T01:22:07.952Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 2.2s (6589 modules)
+[2025-10-12T01:22:39.347Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 490ms (6182 modules)
+[2025-10-12T01:23:07.527Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665500126,
+  profileError: undefined
+}
+[2025-10-12T01:23:08.056Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:23:23.349Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665515949,
+  profileError: undefined
+}
+[2025-10-12T01:23:23.919Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:23:33.849Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T01:23:33.849Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T01:23:33.975Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T01:23:34.113Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T01:23:34.517Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665527118,
+  profileError: undefined
+}
+[2025-10-12T01:23:34.835Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:23:35.116Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T01:23:35.116Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T01:23:35.202Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T01:23:35.362Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T01:23:44.423Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-10-12T01:23:45.291Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 1473ms (6203 modules)
+[2025-10-12T01:23:45.396Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:23:45.397Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:23:45.537Z] [INFO   ] 🔍 [Airtable API] Processing request: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "dataType": "airtable_bases",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-12T01:23:45.538Z] [INFO   ] 🔍 Airtable bases fetcher called with integration: {
+  "id": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "provider": "airtable",
+  "hasToken": true,
+  "tokenLength": 334
+}
+[2025-10-12T01:23:45.538Z] [INFO   ] 🔍 Validating Airtable token...
+[2025-10-12T01:23:45.538Z] [INFO   ] 🔍 Fetching Airtable bases from API...
+[2025-10-12T01:23:45.540Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:23:45.540Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:23:45.541Z] [INFO   ] 🔍 [Airtable API] Processing request: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "dataType": "airtable_tables",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-12T01:23:45.541Z] [INFO   ] 🔍 Airtable tables fetcher called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "hasToken": true
+}
+[2025-10-12T01:23:45.542Z] [INFO   ] 🔍 Validating Airtable token...
+[2025-10-12T01:23:45.542Z] [INFO   ] 🔍 Fetching Airtable tables from API...
+[2025-10-12T01:23:45.543Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:23:45.543Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:23:45.675Z] [INFO   ] 🔍 [Airtable API] Processing request: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "dataType": "airtable_bases",
+  "status": "connected",
+  "hasToken": true
+}
+[2025-10-12T01:23:45.676Z] [INFO   ] 🔍 Airtable bases fetcher called with integration: {
+  "id": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "provider": "airtable",
+  "hasToken": true,
+  "tokenLength": 334
+}
+[2025-10-12T01:23:45.676Z] [INFO   ] 🔍 Validating Airtable token...
+[2025-10-12T01:23:45.676Z] [INFO   ] 🔍 Fetching Airtable bases from API...
+[2025-10-12T01:23:46.005Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:23:46.007Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:23:46.036Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:23:46.036Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:23:46.683Z] [INFO   ] ✅ Airtable tables fetched successfully: 3 tables from base "appk6lVvLcx0lRw6o"
+[2025-10-12T01:23:46.684Z] [INFO   ] 🔍 Available tables: [
+  {
+    "id": "tblTCbO8fHDEpRO36",
+    "name": "Support Tickets"
+  },
+  {
+    "id": "tblYPgZZdCoDolLKu",
+    "name": "Feedback Log"
+  },
+  {
+    "id": "tblngBCCBkGfgzR9j",
+    "name": "Newsletter Signups"
+  }
+]
+[2025-10-12T01:23:46.685Z] [INFO   ] ✅ [Airtable API] Successfully processed airtable_tables: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "resultCount": 3
+}
+[2025-10-12T01:23:46.708Z] [INFO   ] ✅ Airtable bases fetched successfully: 3 bases
+[2025-10-12T01:23:46.709Z] [INFO   ] ✅ [Airtable API] Successfully processed airtable_bases: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "resultCount": 3
+}
+[2025-10-12T01:23:47.002Z] [INFO   ] ✅ Airtable bases fetched successfully: 3 bases
+[2025-10-12T01:23:47.003Z] [INFO   ] ✅ [Airtable API] Successfully processed airtable_bases: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "resultCount": 3
+}
+[2025-10-12T01:24:41.220Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:24:41.249Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:24:41.353Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:24:41.354Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:24:41.377Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:24:41.377Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:24:41.741Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:24:41.742Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:24:41.761Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:24:41.762Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:26:07.301Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (6185 modules)
+[2025-10-12T01:26:07.643Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665680244,
+  profileError: undefined
+}
+[2025-10-12T01:26:07.829Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:26:11.961Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-12T01:26:11.969Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 514ms (6173 modules)
+[2025-10-12T01:26:14.276Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-12T01:26:14.437Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11665687038,
+  profileError: undefined
+}
+[2025-10-12T01:26:14.839Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T01:26:15.687Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 376ms (4175 modules)
+[2025-10-12T01:26:16.277Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 325ms (4177 modules)
+[2025-10-12T01:26:17.642Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4182 modules)
+[2025-10-12T01:26:17.693Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T01:26:17.693Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T01:26:17.777Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T01:26:17.896Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T01:29:34.944Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/metadata ...
+[2025-10-12T01:29:35.200Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 756ms (4174 modules)
+[2025-10-12T01:29:35.279Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:29:35.279Z] [INFO   ] Metadata API called with: {
+  "integrationId": "122e7cb6-965d-4012-a810-bccb27a1caaf",
+  "baseId": "appk6lVvLcx0lRw6o",
+  "tableName": "Support Tickets"
+}
+[2025-10-12T01:29:35.426Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:29:35.426Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:29:35.441Z] [INFO   ] Access token decrypted successfully
+[2025-10-12T01:29:35.442Z] [INFO   ] Fetching metadata from Airtable: https://api.airtable.com/v0/meta/bases/appk6lVvLcx0lRw6o/tables
+[2025-10-12T01:29:45.027Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:29:45.028Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:29:45.049Z] [INFO   ] Airtable metadata response received: {
+  "hasData": true,
+  "tableCount": 3,
+  "baseId": "appk6lVvLcx0lRw6o",
+  "requestedTable": "Support Tickets"
+}
+[2025-10-12T01:29:45.050Z] [INFO   ] Table fields found: [
+  {
+    "name": "Ticket ID",
+    "type": "formula",
+    "id": "fldeduI6zzws0z8El"
+  },
+  {
+    "name": "Ticket Summary",
+    "type": "multilineText",
+    "id": "fld69GV06hMc8RuzB"
+  },
+  {
+    "name": "Customer",
+    "type": "singleLineText",
+    "id": "fld7c0fsd4IiSAsCv"
+  },
+  {
+    "name": "Priority",
+    "type": "singleSelect",
+    "id": "fldQJ6DiG7Yhk1ICA"
+  },
+  {
+    "name": "Priority Confidence",
+    "type": "percent",
+    "id": "fld9qhhbykmcnkVIA"
+  },
+  {
+    "name": "Status",
+    "type": "singleSelect",
+    "id": "fldzH7QoSQ6iiTrc8"
+  },
+  {
+    "name": "Channel",
+    "type": "singleLineText",
+    "id": "fldrHxtqqYhX1HbK1"
+  },
+  {
+    "name": "Auto Ticket Counter",
+    "type": "autoNumber",
+    "id": "fldNGvMzlfglqijqR"
+  }
+]
+[2025-10-12T01:31:16.889Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-12T01:31:16.938Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 900ms (4173 modules)

@@ -33,7 +33,7 @@ export const getMailchimpAudiences: MailchimpDataHandler<MailchimpAudience> = as
     }
 
     console.log('🔍 [Mailchimp] Fetching audiences from API...')
-    const apiUrl = buildMailchimpApiUrl(integration, '/lists')
+    const apiUrl = await buildMailchimpApiUrl(integration, '/lists')
 
     // Add query parameters
     const url = new URL(apiUrl)

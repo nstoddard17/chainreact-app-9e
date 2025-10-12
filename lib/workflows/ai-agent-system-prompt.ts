@@ -68,7 +68,7 @@ Key patterns to recognize:
 ## VARIABLES
 
 - **[var]**: Simple text replacement
-- **{{node.field}}**: Access node outputs
+- **{{nodeId.field}}**: Access node outputs
 - **{{trigger.data}}**: Parse trigger data
 - **{{AI:instruction}}**: Generate dynamic content
 

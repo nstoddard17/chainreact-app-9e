@@ -6,6 +6,7 @@
  */
 
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
+import { parseVariableReference, normalizeVariableReference } from './variableReferences'
 
 /**
  * Resolves a variable reference to its actual value
@@ -19,36 +20,41 @@ export function resolveVariableValue(
   workflowData: { nodes: any[], edges: any[] },
   testResults?: any
 ): string {
-  // Extract node title and output name from variable reference
-  const match = variableRef.match(/\{\{([^}]+)\.([^}]+)\}\}/)
-  if (!match) return variableRef
-  
-  const [, nodeTitle, outputName] = match
-  
-  // Find the node by title
-  const node = workflowData.nodes.find(n => 
-    n.data?.title === nodeTitle || n.data?.type === nodeTitle
-  )
-  
-  if (!node) return variableRef
+  const normalized = normalizeVariableReference(variableRef)
+  const parsed = parseVariableReference(normalized)
+  if (!parsed) return normalized
+
+  if (parsed.kind === 'trigger') {
+    const triggerNode = workflowData.nodes.find(n => n.data?.isTrigger)
+    if (!triggerNode) return normalized
+    const fieldValue = parsed.fieldPath.reduce((acc: any, key) => acc?.[key], triggerNode.data)
+    return fieldValue !== undefined ? String(fieldValue) : normalized
+  }
+
+  if (parsed.kind !== 'node' || !parsed.nodeId) return normalized
+
+  const node = workflowData.nodes.find(n => n.id === parsed.nodeId || n.data?.type === parsed.nodeId || n.data?.title === parsed.nodeId)
+  if (!node) return normalized
   
   // If we have test results, try to get the actual value
   if (testResults && testResults[node.id]) {
     const nodeResult = testResults[node.id]
     
-    // Handle AI agent's nested output structure: { output: { output: "actual value" } }
-    if (nodeResult.output && nodeResult.output.output && outputName === "output") {
-      return String(nodeResult.output.output)
-    }
-    
-    // Handle regular output structure: { output: { fieldName: "value" } }
-    if (nodeResult.output && nodeResult.output[outputName] !== undefined) {
-      return String(nodeResult.output[outputName])
+    if (nodeResult.output) {
+      let current: any = nodeResult.output
+      for (const segment of parsed.fieldPath) {
+        if (current == null) break
+        current = current[segment]
+      }
+
+      if (current !== undefined && current !== null) {
+        return typeof current === 'string' ? current : JSON.stringify(current)
+      }
     }
   }
   
   // Fallback to variable reference if we can't resolve it
-  return variableRef
+  return normalized
 }
 
 /**
@@ -69,13 +75,6 @@ export function getNodeVariableValues(
   
   const nodeResult = testResults[nodeId]
   const output = nodeResult.output || {}
-  
-  // Handle AI agent's nested output structure: { output: { output: "actual value" } }
-  if (output.output !== undefined && Object.keys(output).length === 1) {
-    // This is likely an AI agent output, return the nested output
-    return { output: output.output }
-  }
-  
   return output
 }
 
@@ -92,4 +91,3 @@ export function useResolvedVariableValue(
   const { testResults } = useWorkflowTestStore()
   return resolveVariableValue(variableRef, workflowData, testResults)
 }
-

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -15,13 +15,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { useVariableDragContext } from './VariableDragContext'
+import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
-  // Discord Actions (removed triggers as they don't provide full data)
+  // Discord Trigger - NOW PROVIDES FULL DATA
+  'discord_trigger_new_message': ['messageId', 'content', 'authorId', 'authorName', 'channelId', 'channelName', 'guildId', 'guildName', 'timestamp', 'attachments', 'mentions'],
+
+  // Discord Actions
   'discord_action_send_message': ['messageId', 'content', 'channelName'],
   'discord_action_add_reaction': ['success', 'messageId'],
-  
+
   // Gmail Actions
   'gmail_action_send_email': ['messageId', 'subject'],
   'gmail_action_reply_email': ['messageId', 'subject'],
@@ -112,6 +116,12 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const { toast } = useToast()
+  const isDraggingVariable = useRef(false)
+  const allowClickSelect = useRef(true)
+  const manualExpandedNodesRef = useRef<Set<string>>(new Set())
+  const expandedBeforeSearchRef = useRef<Set<string> | null>(null)
+  const prevSearchTermRef = useRef("")
+  const autoExpandedFromTestsRef = useRef(false)
   const { activeField, insertIntoActiveField } = useVariableDragContext()
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
@@ -362,6 +372,7 @@ export function VariablePickerSidePanel({
       } else {
         newSet.add(nodeId)
       }
+      manualExpandedNodesRef.current = new Set(newSet)
       return newSet
     })
   }
@@ -369,6 +380,10 @@ export function VariablePickerSidePanel({
   // Auto-expand nodes when searching or when test results are available
   useEffect(() => {
     if (searchTerm) {
+      if (!prevSearchTermRef.current) {
+        expandedBeforeSearchRef.current = new Set(manualExpandedNodesRef.current)
+      }
+      prevSearchTermRef.current = searchTerm
       const nodesToExpand = new Set<string>()
       filteredNodes.forEach(node => {
         const hasMatchingOutputs = node.outputs.some((output: any) => 
@@ -380,19 +395,48 @@ export function VariablePickerSidePanel({
         }
       })
       setExpandedNodes(nodesToExpand)
-    } else if (hasTestResults()) {
-      // Expand nodes that were executed in the test
-      const nodesToExpand = new Set<string>()
+      return
+    }
+
+    if (prevSearchTermRef.current && !searchTerm) {
+      prevSearchTermRef.current = ""
+      const restore =
+        expandedBeforeSearchRef.current
+          ? new Set(expandedBeforeSearchRef.current)
+          : new Set(manualExpandedNodesRef.current)
+      manualExpandedNodesRef.current = new Set(restore)
+      setExpandedNodes(restore)
+      expandedBeforeSearchRef.current = null
+      return
+    }
+
+    const hasResults = hasTestResults()
+    if (!searchTerm && hasResults && !autoExpandedFromTestsRef.current) {
+      const nodesToExpand = new Set(manualExpandedNodesRef.current)
       executionPath.forEach(nodeId => {
         nodesToExpand.add(nodeId)
       })
+      manualExpandedNodesRef.current = new Set(nodesToExpand)
       setExpandedNodes(nodesToExpand)
-    } else {
-      setExpandedNodes(new Set())
+      autoExpandedFromTestsRef.current = true
+      return
+    }
+
+    if (!hasResults) {
+      autoExpandedFromTestsRef.current = false
     }
   }, [searchTerm, filteredNodes, executionPath, hasTestResults])
 
   const handleVariableSelect = (variable: string, nodeId: string, outputName: string) => {
+    if (!allowClickSelect.current) {
+      allowClickSelect.current = true
+      return
+    }
+
+    if (isDraggingVariable.current) {
+      return
+    }
+
     if (onVariableSelect) {
       // Try to resolve the actual value using our new resolution system
       const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
@@ -436,6 +480,8 @@ export function VariablePickerSidePanel({
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, variable: string) => {
+    isDraggingVariable.current = true
+    allowClickSelect.current = false
     console.log('🚀 [VariablePickerSidePanel] Drag started:', {
       variable,
       dataTransferTypes: e.dataTransfer.types,
@@ -446,6 +492,10 @@ export function VariablePickerSidePanel({
   }
 
   const handleDragEnd = (e?: React.DragEvent) => {
+    requestAnimationFrame(() => {
+      isDraggingVariable.current = false
+      allowClickSelect.current = true
+    })
     console.log('🏁 [VariablePickerSidePanel] Drag ended', {
       dropEffect: e?.dataTransfer?.dropEffect
     })
@@ -602,21 +652,24 @@ export function VariablePickerSidePanel({
       </div>
     </div>
 
-      <div className="px-4 py-2 border-b border-slate-200 bg-white/90">
+      <div className="px-4 py-2.5 border-b border-blue-300 bg-gradient-to-r from-blue-600 to-indigo-600">
         {activeField ? (
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-blue-700 border-blue-200 bg-blue-50">
-              Active Field
-            </Badge>
-            <span
-              className="truncate text-slate-700 font-medium"
-              title={activeField.label || activeField.id}
-            >
-              {activeField.label || activeField.id}
-            </span>
+          <div className="space-y-1">
+            <div className="text-[10px] uppercase tracking-wider text-blue-100 font-bold">
+              Inserting into
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-sm"></div>
+              <span
+                className="text-sm text-white font-bold truncate"
+                title={activeField.label || activeField.id}
+              >
+                {activeField.label || activeField.id}
+              </span>
+            </div>
           </div>
         ) : (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-blue-100 font-medium">
             Click a form field to enable click-to-insert (copy icon still available).
           </div>
         )}
@@ -665,25 +718,17 @@ export function VariablePickerSidePanel({
               const isNodeTested = nodeResult !== null
               
               return (
-                <Collapsible 
-                  key={node.id} 
-                  open={isExpanded} 
-                  onOpenChange={(open) => {
-                    if (open) {
-                      setExpandedNodes(prev => new Set(prev).add(node.id))
-                    } else {
-                      setExpandedNodes(prev => {
-                        const newSet = new Set(prev)
-                        newSet.delete(node.id)
-                        return newSet
-                      })
-                    }
-                  }}
+                <Collapsible
+                  key={node.id}
+                  open={isExpanded}
                   className={`mb-3 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm ${isNodeTested ? 'border-green-300' : ''}`}
                 >
                   {/* Node Header */}
                   <CollapsibleTrigger asChild>
-                    <div className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}>
+                    <div
+                      className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}
+                      onClick={() => toggleNodeExpansion(node.id)}
+                    >
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div className="w-4 h-4 flex items-center justify-center mt-1 flex-shrink-0">
                           {isExpanded ? (
@@ -726,7 +771,7 @@ export function VariablePickerSidePanel({
                     {hasOutputs ? (
                       node.outputs.map((output: any) => {
                                                   // Use node.id for the actual variable reference, not node.title
-                        const variableRef = `{{${node.id}.output.${output.name}}}`
+                        const variableRef = buildVariableReference(node.id, output.name)
                         const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
                         const variableValue = getVariableValue(node.id, output.name)
                         const hasValue = variableValue !== null
@@ -736,6 +781,9 @@ export function VariablePickerSidePanel({
                             key={`${node.id}-${output.name}`}
                             className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
                             draggable
+                            onMouseDown={() => {
+                              allowClickSelect.current = true
+                            }}
                             onDragStart={(e) => {
                               console.log('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                 variableRef,
@@ -744,9 +792,8 @@ export function VariablePickerSidePanel({
                                 outputLabel: output.label,
                                 dataTransfer: e.dataTransfer
                               })
+                              handleDragStart(e, variableRef)
                               e.stopPropagation() // Prevent collapsible from closing
-                              e.dataTransfer.effectAllowed = 'copy'
-                              e.dataTransfer.setData('text/plain', variableRef)
                               e.dataTransfer.setData('application/json', JSON.stringify({
                                 variable: variableRef,
                                 nodeTitle: node.title,
@@ -761,6 +808,8 @@ export function VariablePickerSidePanel({
                             onClick={(e) => {
                               e.stopPropagation() // Prevent collapsible from closing
                               handleVariableSelect(variableRef, node.id, output.name)
+                              // Prevent the collapsible from closing after insertion
+                              e.preventDefault()
                             }}
                           >
                             <div className="flex items-start gap-2 flex-1 min-w-0">
