@@ -56,6 +56,23 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsImportance: true,
     supportsAttachment: true,
     defaultFolder: 'inbox'
+  },
+  // OneNote triggers
+  'microsoft-onenote_trigger_new_note': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false
+  },
+  'microsoft-onenote_trigger_note_modified': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false
   }
   // Future triggers can be added here:
   // 'microsoft-outlook_trigger_email_draft': { ... }
@@ -222,6 +239,72 @@ async function processNotifications(
             subscriptionId: subId
           })
           continue
+        }
+      }
+
+      // For OneNote triggers, fetch the actual page and check filters before triggering
+      const isOneNoteTrigger = resourceLower.includes('/onenote/') && resourceLower.includes('/pages')
+      if (isOneNoteTrigger && userId && triggerConfig) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+
+          // Get access token for this user
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
+
+          // Extract page ID from resource
+          const pageId = change?.resourceData?.id
+
+          if (pageId) {
+            // Fetch the actual page to check filters
+            const pageResponse = await fetch(
+              `https://graph.microsoft.com/v1.0/me/onenote/pages/${pageId}?$expand=parentNotebook,parentSection`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            )
+
+            if (pageResponse.ok) {
+              const page = await pageResponse.json()
+
+              // Check section filter
+              if (triggerConfig.sectionId && page.parentSection?.id) {
+                if (page.parentSection.id !== triggerConfig.sectionId) {
+                  logger.debug('⏭️ Skipping page - not in configured section:', {
+                    expectedSectionId: triggerConfig.sectionId,
+                    actualSectionId: page.parentSection.id,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check title filter
+              if (triggerConfig.titleContains) {
+                const filterText = triggerConfig.titleContains.toLowerCase().trim()
+                const pageTitle = (page.title || '').toLowerCase().trim()
+
+                if (!pageTitle.includes(filterText)) {
+                  logger.debug('⏭️ Skipping page - title does not contain filter:', {
+                    filterLength: filterText.length,
+                    titleLength: pageTitle.length,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              logger.debug('✅ OneNote page matches all filters, proceeding with workflow execution')
+            } else {
+              logger.warn('⚠️ Failed to fetch OneNote page details for filtering, allowing execution:', pageResponse.status)
+            }
+          }
+        } catch (filterError) {
+          logger.error('❌ Error checking OneNote filters (allowing execution):', filterError)
+          // Continue to execute even if filter check fails
         }
       }
 
