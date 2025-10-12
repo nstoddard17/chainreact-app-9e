@@ -49,8 +49,11 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         break;
       case 'channelId':
         // Channels depend on teamId
-        if (!params?.dependencyValue) {
-          logger.debug('[TeamsOptionsLoader] No teamId provided for channels');
+        if (!params?.dependencyValue || params.dependencyValue === '') {
+          logger.debug('[TeamsOptionsLoader] No teamId provided for channels', {
+            hasDependencyValue: !!params?.dependencyValue,
+            dependencyValue: params?.dependencyValue
+          });
           return [];
         }
         resourceType = 'teams_channels';
