@@ -120,6 +120,11 @@ const nextConfig = {
               ? 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
               : 'no-store, must-revalidate',
           },
+          // Security: Prevent MIME-sniffing attacks
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
           // Additional headers to prevent caching in dev
           ...(isDev ? [
             {
@@ -145,6 +150,10 @@ const nextConfig = {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
           },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
         ],
       },
       // Specific caching for static assets
@@ -154,6 +163,37 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      // Caching for public static assets (images, SVGs, fonts)
+      {
+        source: '/integrations/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
+        source: '/:path*.(svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|otf)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
           },
         ],
       },

@@ -20,6 +20,47 @@ const onenoteTriggerNewNote: NodeComponent = {
   category: "Productivity",
   isTrigger: true,
   requiredScopes: ["Notes.ReadWrite.All"],
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "Select the notebook to monitor for new notes"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: false,
+      placeholder: "All sections",
+      dependsOn: "notebookId",
+      showWhen: { notebookId: { $exists: true } },
+      description: "Optionally filter to a specific section within the notebook"
+    },
+    {
+      name: "includeSubsections",
+      label: "Include Subsections",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      dependsOn: "sectionId",
+      showWhen: { sectionId: { $exists: true } },
+      description: "Monitor all child sections within the selected section"
+    },
+    {
+      name: "titleContains",
+      label: "Title Contains",
+      type: "text",
+      required: false,
+      placeholder: "Filter by title text",
+      description: "Only trigger when note title contains this text"
+    }
+  ]
 }
 
 const onenoteTriggerNoteModified: NodeComponent = {
@@ -31,6 +72,47 @@ const onenoteTriggerNoteModified: NodeComponent = {
   category: "Productivity",
   isTrigger: true,
   requiredScopes: ["Notes.ReadWrite.All"],
+  configSchema: [
+    {
+      name: "notebookId",
+      label: "Notebook",
+      type: "select",
+      dynamic: "onenote_notebooks",
+      required: true,
+      placeholder: "Select a notebook",
+      loadOnMount: true,
+      description: "Select the notebook to monitor for modified notes"
+    },
+    {
+      name: "sectionId",
+      label: "Section",
+      type: "select",
+      dynamic: "onenote_sections",
+      required: false,
+      placeholder: "All sections",
+      dependsOn: "notebookId",
+      showWhen: { notebookId: { $exists: true } },
+      description: "Optionally filter to a specific section within the notebook"
+    },
+    {
+      name: "includeSubsections",
+      label: "Include Subsections",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      dependsOn: "sectionId",
+      showWhen: { sectionId: { $exists: true } },
+      description: "Monitor all child sections within the selected section"
+    },
+    {
+      name: "titleContains",
+      label: "Title Contains",
+      type: "text",
+      required: false,
+      placeholder: "Filter by title text",
+      description: "Only trigger when modified note title contains this text"
+    }
+  ]
 }
 
 // Microsoft OneNote Actions
