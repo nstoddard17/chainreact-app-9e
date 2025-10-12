@@ -1,7 +1,34 @@
-# OneNote "New Note Created" Trigger - Implementation Checklist
+# OneNote "New Note Created" Trigger - ⚠️ NOT IMPLEMENTED
 
-## Overview
-Trigger fires when a new note (page) is created in OneNote. Uses Microsoft Graph webhooks with subscription-based monitoring.
+## ❌ Implementation Status: REMOVED
+
+**Microsoft Graph does NOT support webhook subscriptions for OneNote resources.**
+
+The OneNote Webhooks API was deprecated in May 2023:
+- Official Deprecation: https://devblogs.microsoft.com/microsoft365dev/onenote-webhooks-api-deprecation/
+- Microsoft Graph change notifications don't support OneNote resources
+- Real-time triggers are not possible with current Microsoft Graph API
+
+## Alternative Approaches
+
+### Option 1: Polling-Based Triggers (Future Implementation)
+- Query OneNote API every X minutes
+- Check `createdDateTime` and `lastModifiedDateTime` fields
+- Store last-checked timestamp to detect new/modified notes
+- Requires scheduled job infrastructure
+
+### Option 2: Manual Trigger
+- User manually triggers workflow
+- Use OneNote actions (Get Pages, Search) to fetch recent notes
+- Process them through the workflow
+
+---
+
+# Original Implementation Plan (For Reference Only)
+
+~~Trigger fires when a new note (page) is created in OneNote. Uses Microsoft Graph webhooks with subscription-based monitoring.~~
+
+**Note: This approach is no longer viable due to API limitations.**
 
 ---
 
