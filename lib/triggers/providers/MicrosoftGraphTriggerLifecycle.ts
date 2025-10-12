@@ -87,20 +87,8 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         } else {
           logger.debug('✅ /me/messages call succeeded - token has mail read permission')
         }
-      } else if (provider === 'microsoft-onenote') {
-        const notebooksResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$top=1', {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        })
-
-        if (!notebooksResponse.ok) {
-          const errorText = await notebooksResponse.text()
-          logger.error('❌ /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
-          logger.error('   Error details:', errorText)
-          throw new Error(`Token lacks Notes.Read permission. Status: ${notebooksResponse.status}. Please reconnect Microsoft OneNote integration.`)
-        } else {
-          logger.debug('✅ /me/onenote/notebooks call succeeded - token has OneNote read permission')
-        }
       }
+      // OneNote removed - doesn't support webhooks (API deprecated May 2023)
       // Add other providers (Teams, OneDrive) here as needed
     } catch (testError) {
       logger.error('❌ Token permission test failed:', testError)
@@ -274,9 +262,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   private getProviderFromTriggerType(triggerType: string): string {
     // Extract provider prefix from trigger type
     if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
-    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
     if (triggerType.startsWith('teams_')) return 'teams'
     if (triggerType.startsWith('onedrive_')) return 'onedrive'
+    // OneNote removed - doesn't support webhooks
 
     // Default to microsoft-outlook for generic microsoft triggers
     return 'microsoft-outlook'
@@ -288,22 +276,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft-onenote|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|teams|onedrive)_/, '')
 
-    // Handle OneNote triggers with config-based resource paths
-    if (simplifiedType === 'trigger_new_note' || simplifiedType === 'trigger_note_modified') {
-      if (config?.notebookId && config?.sectionId) {
-        // Monitor specific section
-        return `/me/onenote/sections/${config.sectionId}/pages`
-      } else if (config?.notebookId) {
-        // Monitor entire notebook
-        return `/me/onenote/notebooks/${config.notebookId}/pages`
-      }
-      // Fallback to all pages (though this might not be supported by Microsoft Graph)
-      return '/me/onenote/pages'
-    }
-
-    const resourceMap: Record<string, string> = {
+    const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
       'trigger_new_email': '/me/messages',
       'trigger_email_received': '/me/messages',
@@ -315,20 +290,31 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_event_updated': '/me/events',
 
       // Teams triggers
+      'trigger_new_message': (config?: Record<string, any>) => {
+        if (config?.teamId && config?.channelId) {
+          return `/teams/${config.teamId}/channels/${config.channelId}/messages`
+        }
+        return '/me/chats/getAllMessages'
+      },
       'trigger_message_sent': '/me/chats/getAllMessages',
       'trigger_channel_message': '/teams/{teamId}/channels/{channelId}/messages',
 
       // OneDrive triggers
       'trigger_file_created': '/me/drive/root',
       'trigger_file_modified': '/me/drive/root',
-      'trigger_file_shared': '/me/drive/root',
+      'trigger_file_shared': '/me/drive/root'
 
-      // OneNote triggers (legacy)
-      'trigger_note_created': '/me/onenote/notebooks',
-      'trigger_note_updated': '/me/onenote/notebooks'
+      // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
     }
 
-    return resourceMap[simplifiedType] || null
+    const resource = resourceMap[simplifiedType]
+
+    // If resource is a function, call it with config
+    if (typeof resource === 'function') {
+      return resource(config)
+    }
+
+    return resource || null
   }
 
   /**

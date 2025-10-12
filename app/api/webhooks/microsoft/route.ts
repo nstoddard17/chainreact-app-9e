@@ -56,24 +56,8 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsImportance: true,
     supportsAttachment: true,
     defaultFolder: 'inbox'
-  },
-  // OneNote triggers
-  'microsoft-onenote_trigger_new_note': {
-    supportsFolder: false,
-    supportsSender: false,
-    supportsRecipient: false,
-    supportsSubject: false,
-    supportsImportance: false,
-    supportsAttachment: false
-  },
-  'microsoft-onenote_trigger_note_modified': {
-    supportsFolder: false,
-    supportsSender: false,
-    supportsRecipient: false,
-    supportsSubject: false,
-    supportsImportance: false,
-    supportsAttachment: false
   }
+  // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
   // Future triggers can be added here:
   // 'microsoft-outlook_trigger_email_draft': { ... }
   // 'microsoft-outlook_trigger_email_deleted': { ... }
@@ -242,23 +226,25 @@ async function processNotifications(
         }
       }
 
-      // For OneNote triggers, fetch the actual page and check filters before triggering
-      const isOneNoteTrigger = resourceLower.includes('/onenote/') && resourceLower.includes('/pages')
-      if (isOneNoteTrigger && userId && triggerConfig) {
+      // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
+
+      // For Teams channel message triggers, fetch the actual message data
+      const isTeamsMessageTrigger = resourceLower.includes('/teams/') && resourceLower.includes('/channels/') && resourceLower.includes('/messages')
+      if (isTeamsMessageTrigger && userId && triggerConfig) {
         try {
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
           const graphAuth = new MicrosoftGraphAuth()
 
           // Get access token for this user
-          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'teams')
 
-          // Extract page ID from resource
-          const pageId = change?.resourceData?.id
+          // Extract message ID from resource or resourceData
+          const messageId = change?.resourceData?.id
 
-          if (pageId) {
-            // Fetch the actual page to check filters
-            const pageResponse = await fetch(
-              `https://graph.microsoft.com/v1.0/me/onenote/pages/${pageId}?$expand=parentNotebook,parentSection`,
+          if (messageId && triggerConfig.teamId && triggerConfig.channelId) {
+            // Fetch the actual Teams message to get full content
+            const messageResponse = await fetch(
+              `https://graph.microsoft.com/v1.0/teams/${triggerConfig.teamId}/channels/${triggerConfig.channelId}/messages/${messageId}`,
               {
                 headers: {
                   'Authorization': `Bearer ${accessToken}`,
@@ -267,49 +253,37 @@ async function processNotifications(
               }
             )
 
-            if (pageResponse.ok) {
-              const page = await pageResponse.json()
+            if (messageResponse.ok) {
+              const message = await messageResponse.json()
 
-              // Check section filter
-              if (triggerConfig.sectionId && page.parentSection?.id) {
-                if (page.parentSection.id !== triggerConfig.sectionId) {
-                  logger.debug('⏭️ Skipping page - not in configured section:', {
-                    expectedSectionId: triggerConfig.sectionId,
-                    actualSectionId: page.parentSection.id,
-                    subscriptionId: subId
-                  })
-                  continue
-                }
+              logger.debug('✅ Fetched full Teams message data')
+
+              // Update the resourceData with the full message
+              change.resourceData = {
+                ...change.resourceData,
+                ...message,
+                // Add our standard fields
+                messageId: message.id,
+                content: message.body?.content || '',
+                senderId: message.from?.user?.id || '',
+                senderName: message.from?.user?.displayName || '',
+                channelId: triggerConfig.channelId,
+                teamId: triggerConfig.teamId,
+                timestamp: message.createdDateTime,
+                attachments: message.attachments || []
               }
-
-              // Check title filter
-              if (triggerConfig.titleContains) {
-                const filterText = triggerConfig.titleContains.toLowerCase().trim()
-                const pageTitle = (page.title || '').toLowerCase().trim()
-
-                if (!pageTitle.includes(filterText)) {
-                  logger.debug('⏭️ Skipping page - title does not contain filter:', {
-                    filterLength: filterText.length,
-                    titleLength: pageTitle.length,
-                    subscriptionId: subId
-                  })
-                  continue
-                }
-              }
-
-              logger.debug('✅ OneNote page matches all filters, proceeding with workflow execution')
             } else {
-              logger.warn('⚠️ Failed to fetch OneNote page details for filtering, allowing execution:', pageResponse.status)
+              logger.warn('⚠️ Failed to fetch Teams message details, using notification data only:', messageResponse.status)
             }
           }
-        } catch (filterError) {
-          logger.error('❌ Error checking OneNote filters (allowing execution):', filterError)
-          // Continue to execute even if filter check fails
+        } catch (teamsError) {
+          logger.error('❌ Error fetching Teams message data (allowing execution with notification data):', teamsError)
+          // Continue to execute even if full message fetch fails
         }
       }
 
       // For Outlook email triggers, fetch the actual email and check filters before triggering
-      const isOutlookEmailTrigger = resourceLower.includes('/messages')
+      const isOutlookEmailTrigger = resourceLower.includes('/messages') && !isTeamsMessageTrigger
       if (isOutlookEmailTrigger && userId && triggerConfig) {
         try {
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
