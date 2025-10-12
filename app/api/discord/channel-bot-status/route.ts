@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { validateDiscordToken, makeDiscordApiRequest } from '../../integrations/discord/data/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface ChannelBotStatus {
   isInChannel: boolean
   canSendMessages: boolean
@@ -85,12 +87,12 @@ async function checkChannelBotStatus(
             botHasChannelPerms = true
           }
         } catch (channelError) {
-          console.log('Bot cannot access channel:', channelError)
+          logger.debug('Bot cannot access channel:', channelError)
           botHasChannelPerms = false
         }
       }
     } catch (guildError) {
-      console.log('Bot not in guild:', guildError)
+      logger.debug('Bot not in guild:', guildError)
       botInGuild = false
     }
 
@@ -115,7 +117,7 @@ async function checkChannelBotStatus(
         }
       }
     } catch (userError) {
-      console.log('Error checking user permissions:', userError)
+      logger.debug('Error checking user permissions:', userError)
     }
 
     return {
@@ -125,7 +127,7 @@ async function checkChannelBotStatus(
       userCanInviteBot: userCanInvite
     }
   } catch (error) {
-    console.error('Error checking channel bot status:', error)
+    logger.error('Error checking channel bot status:', error)
     return {
       isInChannel: false,
       canSendMessages: false,
@@ -179,11 +181,11 @@ export async function GET(request: NextRequest) {
     // Check channel bot status
     const status = await checkChannelBotStatus(channelId, guildId, integration)
     
-    console.log(`🤖 Channel bot status for ${channelId}:`, status)
+    logger.debug(`🤖 Channel bot status for ${channelId}:`, status)
 
     return NextResponse.json(status)
   } catch (error) {
-    console.error('Error in channel bot status API:', error)
+    logger.error('Error in channel bot status API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

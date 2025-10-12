@@ -3,6 +3,8 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { logger } from '@/lib/utils/logger'
+
 export default function TrelloAuthCallback() {
   const router = useRouter()
 
@@ -36,7 +38,7 @@ export default function TrelloAuthCallback() {
             const stateData = JSON.parse(atob(state))
             userId = stateData.userId
           } catch (e) {
-            console.error('Failed to parse state:', e)
+            logger.error('Failed to parse state:', e)
           }
         }
 
@@ -76,15 +78,15 @@ export default function TrelloAuthCallback() {
         try {
           const channel = new BroadcastChannel('oauth_channel')
           channel.postMessage(oauthData)
-          console.log('Sent OAuth response via BroadcastChannel')
+          logger.debug('Sent OAuth response via BroadcastChannel')
           channel.close()
         } catch (e) {
-          console.log('BroadcastChannel not available or failed:', e)
+          logger.debug('BroadcastChannel not available or failed:', e)
         }
         
         // Method 2: Store in localStorage (both current and parent if possible)
         localStorage.setItem(storageKey, JSON.stringify(oauthData))
-        console.log('Stored OAuth response in localStorage with key:', storageKey)
+        logger.debug('Stored OAuth response in localStorage with key:', storageKey)
         
         // Method 3: PostMessage to parent window
         if (window.opener) {
@@ -94,14 +96,14 @@ export default function TrelloAuthCallback() {
             provider: 'trello',
             message: 'Trello connected successfully'
           }, window.location.origin)
-          console.log('Sent OAuth response via postMessage')
+          logger.debug('Sent OAuth response via postMessage')
           
           // Try to access parent localStorage (may fail due to COOP)
           try {
             window.opener.localStorage.setItem(storageKey, JSON.stringify(oauthData))
-            console.log('Also stored in parent localStorage')
+            logger.debug('Also stored in parent localStorage')
           } catch (e) {
-            console.log('Could not access parent localStorage due to COOP')
+            logger.debug('Could not access parent localStorage due to COOP')
           }
         }
 
@@ -126,7 +128,7 @@ export default function TrelloAuthCallback() {
         }, 2000)
 
       } catch (error: any) {
-        console.error('Trello auth error:', error)
+        logger.error('Trello auth error:', error)
         
         // Send error message to parent window if it exists
         if (window.opener) {
@@ -151,9 +153,9 @@ export default function TrelloAuthCallback() {
             
             // Try to store in parent window's localStorage
             window.opener.localStorage.setItem(storageKey, oauthData)
-            console.log('Stored OAuth error in parent localStorage with key:', storageKey)
+            logger.debug('Stored OAuth error in parent localStorage with key:', storageKey)
           } catch (e) {
-            console.log('Could not access parent localStorage due to COOP, will rely on postMessage')
+            logger.debug('Could not access parent localStorage due to COOP, will rely on postMessage')
           }
         } else {
           // No parent window, store in current window's localStorage as fallback
@@ -166,7 +168,7 @@ export default function TrelloAuthCallback() {
             error: error.message || 'Failed to connect Trello',
             timestamp: new Date().toISOString()
           }))
-          console.log('No parent window, stored OAuth error in current localStorage with key:', storageKey)
+          logger.debug('No parent window, stored OAuth error in current localStorage with key:', storageKey)
         }
 
         // Show error message with app theme

@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (createError) {
-      console.error('Error creating user:', createError)
+      logger.error('Error creating user:', createError)
       return NextResponse.json(
         { error: createError.message },
         { status: 400 }
@@ -86,7 +88,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (profileError) {
-      console.error('Error creating user profile:', profileError)
+      logger.error('Error creating user profile:', profileError)
       // Try to cleanup the created user
       await adminSupabase.auth.admin.deleteUser(newUser.user.id)
       return NextResponse.json(
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
           }
         )
       } catch (emailError) {
-        console.error('Error sending welcome email:', emailError)
+        logger.error('Error sending welcome email:', emailError)
         // Don't fail the user creation if email fails
       }
     }
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in user creation API:', error)
+    logger.error('Error in user creation API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

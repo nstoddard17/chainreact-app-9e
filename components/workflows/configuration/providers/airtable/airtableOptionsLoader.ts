@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 export class AirtableOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'baseId',
@@ -27,7 +29,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     // Handle dynamic Airtable fields (including our dropdown fields)
     if (providerId === 'airtable' && fieldName.startsWith('airtable_field_')) {
       // Always handle any field with the airtable_field_ prefix
-      console.log(`✅ [AirtableOptionsLoader] canHandle returning true for ${fieldName}`);
+      logger.debug(`✅ [AirtableOptionsLoader] canHandle returning true for ${fieldName}`);
       return true;
     }
 
@@ -37,7 +39,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, signal, extraOptions } = params;
 
-    console.log(`🔍 [AirtableOptionsLoader] loadOptions called for field: ${fieldName}`, {
+    logger.debug(`🔍 [AirtableOptionsLoader] loadOptions called for field: ${fieldName}`, {
       hasExtraOptions: !!extraOptions,
       baseId: extraOptions?.baseId,
       tableName: extraOptions?.tableName
@@ -47,26 +49,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (fieldName.startsWith('airtable_field_')) {
       // Check if it's one of our special dropdown fields
       const actualFieldName = fieldName.replace('airtable_field_', '').toLowerCase();
-      console.log(`🔍 [AirtableOptionsLoader] Processing dynamic field, actualFieldName: ${actualFieldName}`);
+      logger.debug(`🔍 [AirtableOptionsLoader] Processing dynamic field, actualFieldName: ${actualFieldName}`);
 
       if (actualFieldName.includes('draft') && actualFieldName.includes('name')) {
-        console.log(`🔍 [AirtableOptionsLoader] Loading draft names`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading draft names`);
         return this.loadDynamicFieldOptions(params, 'airtable_draft_names');
       } else if (actualFieldName.includes('designer')) {
-        console.log(`🔍 [AirtableOptionsLoader] Loading designers`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading designers`);
         return this.loadDynamicFieldOptions(params, 'airtable_designers');
       } else if (actualFieldName.includes('project')) {
-        console.log(`🔍 [AirtableOptionsLoader] Loading projects`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading projects`);
         return this.loadDynamicFieldOptions(params, 'airtable_projects');
       } else if (actualFieldName.includes('feedback')) {
-        console.log(`🔍 [AirtableOptionsLoader] Loading feedback`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading feedback`);
         return this.loadDynamicFieldOptions(params, 'airtable_feedback');
       } else if (actualFieldName.includes('task')) {
-        console.log(`🔍 [AirtableOptionsLoader] Loading tasks`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading tasks`);
         return this.loadDynamicFieldOptions(params, 'airtable_tasks');
       } 
         // Handle linked record fields
-        console.log(`🔍 [AirtableOptionsLoader] Loading linked records`);
+        logger.debug(`🔍 [AirtableOptionsLoader] Loading linked records`);
         return this.loadLinkedRecords(params);
       
     }
@@ -108,7 +110,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      console.log('🔍 [Airtable] Cannot load bases without integrationId');
+      logger.debug('🔍 [Airtable] Cannot load bases without integrationId');
       return [];
     }
 
@@ -137,7 +139,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         label: base.name || base.label || base.id,
       }));
     } catch (error) {
-      console.error('❌ [Airtable] Error loading bases:', error);
+      logger.error('❌ [Airtable] Error loading bases:', error);
       return [];
     }
   }
@@ -146,7 +148,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: baseId, integrationId, signal, forceRefresh } = params;
 
     if (!baseId || !integrationId) {
-      console.log('🔍 [Airtable] Cannot load tables without baseId and integrationId');
+      logger.debug('🔍 [Airtable] Cannot load tables without baseId and integrationId');
       return [];
     }
 
@@ -177,7 +179,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         description: table.description
       }));
     } catch (error) {
-      console.error('❌ [Airtable] Error loading tables:', error);
+      logger.error('❌ [Airtable] Error loading tables:', error);
       return [];
     }
   }
@@ -186,13 +188,13 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: tableName, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!tableName || !integrationId) {
-      console.log('🔍 [Airtable] Cannot load fields without tableName and integrationId');
+      logger.debug('🔍 [Airtable] Cannot load fields without tableName and integrationId');
       return [];
     }
 
     const baseId = extraOptions?.baseId;
     if (!baseId) {
-      console.log('🔍 [Airtable] Cannot load fields without baseId');
+      logger.debug('🔍 [Airtable] Cannot load fields without baseId');
       return [];
     }
 
@@ -231,7 +233,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         id: name
       }));
     } catch (error) {
-      console.error('❌ [Airtable] Error loading fields:', error);
+      logger.error('❌ [Airtable] Error loading fields:', error);
       return [];
     }
   }
@@ -239,7 +241,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   private async loadDynamicFieldOptions(params: LoadOptionsParams, dataType: string): Promise<FormattedOption[]> {
     const { extraOptions, integrationId, signal, fieldName, forceRefresh } = params;
 
-    console.log(`📊 [loadDynamicFieldOptions] Called with:`, {
+    logger.debug(`📊 [loadDynamicFieldOptions] Called with:`, {
       fieldName,
       dataType,
       integrationId,
@@ -247,7 +249,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     });
 
     if (!integrationId) {
-      console.log(`🔍 [Airtable] Cannot load ${dataType} without integrationId`);
+      logger.debug(`🔍 [Airtable] Cannot load ${dataType} without integrationId`);
       return [];
     }
 
@@ -255,7 +257,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      console.log(`🔍 [Airtable] Cannot load ${dataType} without baseId and tableName`, {
+      logger.debug(`🔍 [Airtable] Cannot load ${dataType} without baseId and tableName`, {
         baseId,
         tableName,
         extraOptions
@@ -292,7 +294,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-          console.error(`❌ [Airtable] Failed to load linked records from ${linkedTableName}:`, {
+          logger.error(`❌ [Airtable] Failed to load linked records from ${linkedTableName}:`, {
             status: response.status,
             error: errorData
           });
@@ -305,7 +307,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         const result = await response.json();
         const options = result.data || [];
 
-        console.log(`📊 [loadDynamicFieldOptions] Linked table response for ${linkedTableName}:`, {
+        logger.debug(`📊 [loadDynamicFieldOptions] Linked table response for ${linkedTableName}:`, {
           status: response.status,
           dataCount: options.length,
           firstOption: options[0]
@@ -316,7 +318,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           label: option.label || option.name || option.value
         }));
       } catch (error) {
-        console.error(`❌ [Airtable] Error loading linked records from ${linkedTableName}:`, error);
+        logger.error(`❌ [Airtable] Error loading linked records from ${linkedTableName}:`, error);
         // Return empty array so form still works - user can type values manually
         return [];
       }
@@ -346,7 +348,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const options = result.data || [];
 
-      console.log(`📊 [loadDynamicFieldOptions] Regular field response for ${dataType}:`, {
+      logger.debug(`📊 [loadDynamicFieldOptions] Regular field response for ${dataType}:`, {
         status: response.status,
         dataCount: options.length,
         firstOption: options[0]
@@ -357,7 +359,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         label: option.label || option.name || option.value
       }));
     } catch (error) {
-      console.error(`❌ [Airtable] Error loading ${dataType}:`, error);
+      logger.error(`❌ [Airtable] Error loading ${dataType}:`, error);
       return [];
     }
   }
@@ -366,7 +368,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: filterField, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!filterField || !integrationId) {
-      console.log('🔍 [Airtable] Cannot load field values without filterField and integrationId');
+      logger.debug('🔍 [Airtable] Cannot load field values without filterField and integrationId');
       return [];
     }
 
@@ -374,7 +376,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      console.log('🔍 [Airtable] Cannot load field values without baseId and tableName');
+      logger.debug('🔍 [Airtable] Cannot load field values without baseId and tableName');
       return [];
     }
 
@@ -428,7 +430,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           label
         }));
     } catch (error) {
-      console.error('❌ [Airtable] Error loading field values:', error);
+      logger.error('❌ [Airtable] Error loading field values:', error);
       return [];
     }
   }
@@ -437,7 +439,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { fieldName, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      console.log('🔍 [Airtable] Cannot load linked records without integrationId');
+      logger.debug('🔍 [Airtable] Cannot load linked records without integrationId');
       return [];
     }
 
@@ -446,14 +448,14 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableFields = extraOptions?.tableFields;
 
     if (!baseId || !tableName) {
-      console.log('🔍 [Airtable] Cannot load linked records without baseId and tableName');
+      logger.debug('🔍 [Airtable] Cannot load linked records without baseId and tableName');
       return [];
     }
 
     // Extract field name from the prefixed field name (e.g., "airtable_field_Associated Project" -> "Associated Project")
     const actualFieldName = fieldName.replace('airtable_field_', '');
 
-    console.log('🔍 [Airtable] Looking for linked field:', {
+    logger.debug('🔍 [Airtable] Looking for linked field:', {
       fieldName,
       actualFieldName,
       availableFields: tableFields?.map((f: any) => ({ name: f.name, type: f.type, id: f.id }))
@@ -463,7 +465,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableField = tableFields?.find((f: any) => f.name === actualFieldName);
 
     if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
-      console.log('🔍 [Airtable] Field is not a linked record field:', {
+      logger.debug('🔍 [Airtable] Field is not a linked record field:', {
         foundField: tableField,
         actualFieldName,
         fieldType: tableField?.type
@@ -476,7 +478,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const linkedTableName = this.guessLinkedTableName(tableField.name);
 
     if (!linkedTableId && !linkedTableName) {
-      console.log('🔍 [Airtable] Cannot determine linked table');
+      logger.debug('🔍 [Airtable] Cannot determine linked table');
       return [];
     }
 
@@ -510,7 +512,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           );
       
       if (!linkedTable) {
-        console.log('🔍 [Airtable] Linked table not found');
+        logger.debug('🔍 [Airtable] Linked table not found');
         return [];
       }
 
@@ -562,7 +564,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         };
       });
     } catch (error) {
-      console.error('❌ [Airtable] Error loading linked records:', error);
+      logger.error('❌ [Airtable] Error loading linked records:', error);
       return [];
     }
   }

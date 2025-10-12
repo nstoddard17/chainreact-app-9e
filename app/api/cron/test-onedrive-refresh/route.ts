@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
@@ -39,9 +41,9 @@ export async function GET(request: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
-    console.log(`📋 Client ID: ${clientId.substring(0, 10)}...`)
-    console.log(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
+    logger.debug(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
+    logger.debug(`📋 Client ID: ${clientId.substring(0, 10)}...`)
+    logger.debug(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
 
     const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
@@ -57,8 +59,8 @@ export async function GET(request: NextRequest) {
     })
 
     const data = await response.json()
-    console.log(`📊 Response status: ${response.status}`)
-    console.log(`📊 Response data:`, data)
+    logger.debug(`📊 Response status: ${response.status}`)
+    logger.debug(`📊 Response data:`, data)
 
     return NextResponse.json({
       success: true,
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("OneDrive refresh test error:", error)
+    logger.error("OneDrive refresh test error:", error)
     return NextResponse.json({
       success: false,
       error: "Failed to test OneDrive refresh",

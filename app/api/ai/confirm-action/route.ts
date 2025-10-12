@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   // Create a flag to check if connection was closed
   let connectionClosed = false;
@@ -8,7 +10,7 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true;
-    console.log("Client connection aborted for confirm action");
+    logger.debug("Client connection aborted for confirm action");
   });
 
   try {
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     // Early exit if connection closed
     if (connectionClosed) {
-      console.log("Connection closed early, aborting confirmation");
+      logger.debug("Connection closed early, aborting confirmation");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Check again if connection closed before executing action
     if (connectionClosed) {
-      console.log("Connection closed before action execution");
+      logger.debug("Connection closed before action execution");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Confirm action error:", error)
+    logger.error("Confirm action error:", error)
     // Don't send error response if connection was closed
     if (connectionClosed) {
       return new Response(null, { status: 499 });
@@ -94,7 +96,7 @@ async function cancelCalendarEvent(data: any, userId: string, supabaseAdmin: any
       }
     }
   } catch (error) {
-    console.error("Cancel calendar event error:", error)
+    logger.error("Cancel calendar event error:", error)
     return {
       message: "Sorry, I couldn't cancel the event. Please try again.",
       result: { success: false, error: error instanceof Error ? error.message : "Unknown error" }

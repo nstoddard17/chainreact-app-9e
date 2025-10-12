@@ -23,6 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+import { logger } from '@/lib/utils/logger'
+
 interface LandingNavigationProps {
   isAuthenticated: boolean
   user: any
@@ -47,7 +49,7 @@ const LandingNavigation = memo(({
       await onSignOut()
       router.push("/")
     } catch (error) {
-      console.error("Logout error:", error)
+      logger.error("Logout error:", error)
       router.push("/")
     }
   }, [onSignOut, router])

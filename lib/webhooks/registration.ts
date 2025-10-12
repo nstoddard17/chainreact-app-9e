@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WebhookRegistration {
   provider: string
   service?: string
@@ -18,7 +20,7 @@ export async function registerGoogleWebhook(registration: WebhookRegistration): 
     // For Google services, we need to register with Google Cloud Pub/Sub
     // This is a simplified implementation - in production you'd use the Google Cloud API
     
-    console.log(`Registering Google webhook for ${service}:`, {
+    logger.debug(`Registering Google webhook for ${service}:`, {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -40,7 +42,7 @@ export async function registerGoogleWebhook(registration: WebhookRegistration): 
     
     return true
   } catch (error) {
-    console.error('Failed to register Google webhook:', error)
+    logger.error('Failed to register Google webhook:', error)
     return false
   }
 }
@@ -52,7 +54,7 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
     // For Gmail, we use the Gmail API watch method
     // This is a simplified implementation - in production you'd use the Gmail API
     
-    console.log('Registering Gmail webhook:', {
+    logger.debug('Registering Gmail webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -74,18 +76,18 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
     
     return true
   } catch (error) {
-    console.error('Failed to register Gmail webhook:', error)
+    logger.error('Failed to register Gmail webhook:', error)
     return false
   }
 }
 
 export async function registerDiscordWebhook(registration: WebhookRegistration): Promise<boolean> {
-  console.log('🚀 registerDiscordWebhook called!') // Immediate debug
+  logger.debug('🚀 registerDiscordWebhook called!') // Immediate debug
   
   try {
     const { webhookUrl, events, secret, config } = registration
     
-    console.log('🔗 Registering Discord Gateway listener (not webhook):', {
+    logger.debug('🔗 Registering Discord Gateway listener (not webhook):', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined,
@@ -101,26 +103,26 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
     // Check if bot is configured
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.error('Discord bot token not configured in environment variables')
+      logger.error('Discord bot token not configured in environment variables')
       return false
     }
     
     // Check Gateway connection status
-    console.log('🔌 Checking Discord Gateway status...')
+    logger.debug('🔌 Checking Discord Gateway status...')
     const status = discordGateway.getStatus()
-    console.log('🔌 Gateway status:', status)
+    logger.debug('🔌 Gateway status:', status)
     
     if (!status.isConnected) {
-      console.log('Discord Gateway not connected, attempting to connect...')
+      logger.debug('Discord Gateway not connected, attempting to connect...')
       try {
         await discordGateway.connect()
-        console.log('✅ Discord Gateway connected successfully!')
+        logger.debug('✅ Discord Gateway connected successfully!')
       } catch (error) {
-        console.error('Failed to connect Discord Gateway:', error)
+        logger.error('Failed to connect Discord Gateway:', error)
         return false
       }
     } else {
-      console.log('✅ Discord Gateway already connected!')
+      logger.debug('✅ Discord Gateway already connected!')
     }
     
     // Store the registration for tracking (but no external webhook needed)
@@ -144,11 +146,11 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
         created_at: new Date().toISOString()
       })
     
-    console.log('🎉 Discord Gateway listener registered successfully!')
+    logger.debug('🎉 Discord Gateway listener registered successfully!')
     return true
     
   } catch (error) {
-    console.error('Failed to register Discord Gateway listener:', error)
+    logger.error('Failed to register Discord Gateway listener:', error)
     return false
   }
 }
@@ -158,7 +160,7 @@ export async function registerSlackWebhook(registration: WebhookRegistration): P
     const { webhookUrl, events, secret } = registration
     
     // For Slack, we register with Slack's Events API
-    console.log('Registering Slack webhook:', {
+    logger.debug('Registering Slack webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -179,7 +181,7 @@ export async function registerSlackWebhook(registration: WebhookRegistration): P
     
     return true
   } catch (error) {
-    console.error('Failed to register Slack webhook:', error)
+    logger.error('Failed to register Slack webhook:', error)
     return false
   }
 }
@@ -189,7 +191,7 @@ export async function registerGitHubWebhook(registration: WebhookRegistration): 
     const { webhookUrl, events, secret } = registration
     
     // For GitHub, we register with GitHub's webhook system
-    console.log('Registering GitHub webhook:', {
+    logger.debug('Registering GitHub webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -210,7 +212,7 @@ export async function registerGitHubWebhook(registration: WebhookRegistration): 
     
     return true
   } catch (error) {
-    console.error('Failed to register GitHub webhook:', error)
+    logger.error('Failed to register GitHub webhook:', error)
     return false
   }
 }
@@ -220,7 +222,7 @@ export async function registerNotionWebhook(registration: WebhookRegistration): 
     const { webhookUrl, events, secret } = registration
     
     // For Notion, we register with Notion's webhook system
-    console.log('Registering Notion webhook:', {
+    logger.debug('Registering Notion webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -241,7 +243,7 @@ export async function registerNotionWebhook(registration: WebhookRegistration): 
     
     return true
   } catch (error) {
-    console.error('Failed to register Notion webhook:', error)
+    logger.error('Failed to register Notion webhook:', error)
     return false
   }
 }
@@ -262,11 +264,11 @@ export async function registerWebhook(registration: WebhookRegistration): Promis
       case 'notion':
         return await registerNotionWebhook(registration)
       default:
-        console.error(`Unsupported provider: ${registration.provider}`)
+        logger.error(`Unsupported provider: ${registration.provider}`)
         return false
     }
   } catch (error) {
-    console.error('Failed to register webhook:', error)
+    logger.error('Failed to register webhook:', error)
     return false
   }
 }
@@ -286,14 +288,14 @@ export async function unregisterWebhook(provider: string, webhookUrl: string): P
       .eq('webhook_url', webhookUrl)
     
     if (error) {
-      console.error('Failed to unregister webhook:', error)
+      logger.error('Failed to unregister webhook:', error)
       return false
     }
     
-    console.log(`Unregistered webhook for ${provider}:`, webhookUrl)
+    logger.debug(`Unregistered webhook for ${provider}:`, webhookUrl)
     return true
   } catch (error) {
-    console.error('Failed to unregister webhook:', error)
+    logger.error('Failed to unregister webhook:', error)
     return false
   }
 }
@@ -315,13 +317,13 @@ export async function getWebhookRegistrations(provider?: string): Promise<any[]>
     const { data, error } = await query
     
     if (error) {
-      console.error('Failed to fetch webhook registrations:', error)
+      logger.error('Failed to fetch webhook registrations:', error)
       return []
     }
     
     return data || []
   } catch (error) {
-    console.error('Failed to fetch webhook registrations:', error)
+    logger.error('Failed to fetch webhook registrations:', error)
     return []
   }
 } 

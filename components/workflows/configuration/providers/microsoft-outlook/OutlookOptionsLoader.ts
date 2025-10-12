@@ -1,5 +1,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const fieldToTypeMap: Record<string, string> = {
   from: 'outlook-enhanced-recipients',
   to: 'outlook-enhanced-recipients',
@@ -22,7 +24,7 @@ class OutlookOptionsLoader implements ProviderOptionsLoader {
   async loadOptions({ fieldName, integrationId, extraOptions }: LoadOptionsParams): Promise<FormattedOption[]> {
     const dataType = fieldToTypeMap[fieldName]
     if (!dataType) {
-      console.warn(`[OutlookOptionsLoader] Unsupported field requested: ${fieldName}`)
+      logger.warn(`[OutlookOptionsLoader] Unsupported field requested: ${fieldName}`)
       return []
     }
 
@@ -46,14 +48,14 @@ class OutlookOptionsLoader implements ProviderOptionsLoader {
     try {
       const response = await fetch(`${baseUrl}?${params.toString()}`)
       if (!response.ok) {
-        console.error('[OutlookOptionsLoader] Failed to fetch options:', response.status, response.statusText)
+        logger.error('[OutlookOptionsLoader] Failed to fetch options:', response.status, response.statusText)
         return []
       }
 
       const result = await response.json()
       return result.data || []
     } catch (error) {
-      console.error('[OutlookOptionsLoader] Error loading options:', error)
+      logger.error('[OutlookOptionsLoader] Error loading options:', error)
       return []
     }
   }

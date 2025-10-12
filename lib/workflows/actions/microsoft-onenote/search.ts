@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteSearch(
   params: {
     searchQuery: string
@@ -14,7 +16,7 @@ export async function onenoteSearch(
   const { searchQuery, scope = "all", notebookId, sectionId, maxResults = 20 } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would search OneNote:", { searchQuery, scope })
+    logger.debug("[TEST MODE] Would search OneNote:", { searchQuery, scope })
     return {
       success: true,
       data: {
@@ -94,7 +96,7 @@ export async function onenoteSearch(
       }
     }
   } catch (error: any) {
-    console.error("Error searching OneNote:", error)
+    logger.error("Error searching OneNote:", error)
     return {
       success: false,
       error: error.message || "Failed to search OneNote"

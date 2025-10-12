@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 export class FacebookOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'pageId',
@@ -21,7 +23,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { fieldName, integrationId, dependsOnValue, signal } = params;
     
     if (!integrationId) {
-      console.log('🔍 [Facebook] No integration ID provided');
+      logger.debug('🔍 [Facebook] No integration ID provided');
       return [];
     }
 
@@ -49,16 +51,16 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
           result = [];
       }
       
-      console.log(`✅ [Facebook] Loaded ${result.length} options for ${fieldName}`);
+      logger.debug(`✅ [Facebook] Loaded ${result.length} options for ${fieldName}`);
       return result;
       
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('🚫 [Facebook] Request aborted for field:', fieldName);
+        logger.debug('🚫 [Facebook] Request aborted for field:', fieldName);
         return [];
       }
       
-      console.error('❌ [Facebook] Error loading options:', error);
+      logger.error('❌ [Facebook] Error loading options:', error);
       throw error;
     }
   }
@@ -96,7 +98,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       if (error.name === 'AbortError') {
         throw error;
       }
-      console.error('❌ [Facebook] Error loading pages:', error);
+      logger.error('❌ [Facebook] Error loading pages:', error);
       return [];
     }
   }
@@ -105,7 +107,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, dependsOnValue: pageId, signal } = params;
     
     if (!pageId) {
-      console.log('🔍 [Facebook] Cannot load conversations without page ID');
+      logger.debug('🔍 [Facebook] Cannot load conversations without page ID');
       return [];
     }
 
@@ -140,7 +142,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       if (error.name === 'AbortError') {
         throw error;
       }
-      console.error('❌ [Facebook] Error loading conversations:', error);
+      logger.error('❌ [Facebook] Error loading conversations:', error);
       return [];
     }
   }
@@ -149,7 +151,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, dependsOnValue: pageId, signal } = params;
     
     if (!pageId) {
-      console.log('🔍 [Facebook] Cannot load posts without page ID');
+      logger.debug('🔍 [Facebook] Cannot load posts without page ID');
       return [];
     }
 
@@ -188,7 +190,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       if (error.name === 'AbortError') {
         throw error;
       }
-      console.error('❌ [Facebook] Error loading posts:', error);
+      logger.error('❌ [Facebook] Error loading posts:', error);
       return [];
     }
   }
@@ -216,7 +218,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const groups = result.data || [];
       
-      console.log('🔍 [Facebook] Groups data received:', groups);
+      logger.debug('🔍 [Facebook] Groups data received:', groups);
 
       return groups.map((group: any) => ({
         value: group.id, // Always use group.id for the value
@@ -232,7 +234,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       if (error.name === 'AbortError') {
         throw error;
       }
-      console.error('❌ [Facebook] Error loading groups:', error);
+      logger.error('❌ [Facebook] Error loading groups:', error);
       return [];
     }
   }

@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get deals from HubSpot CRM
  */
@@ -62,7 +64,7 @@ export async function hubspotGetDeals(
       message: `Successfully retrieved ${deals.length} deals from HubSpot`
     }
   } catch (error: any) {
-    console.error('HubSpot Get Deals error:', error)
+    logger.error('HubSpot Get Deals error:', error)
     return {
       success: false,
       output: {},

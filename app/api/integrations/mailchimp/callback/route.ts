@@ -4,6 +4,8 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { encrypt } from "@/lib/security/encryption"
 
+import { logger } from '@/lib/utils/logger'
+
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Error with Mailchimp OAuth: ${error}`)
+    logger.error(`Error with Mailchimp OAuth: ${error}`)
     return createPopupResponse("error", "mailchimp", `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error("Failed to exchange Mailchimp code for token:", errorData)
+      logger.error("Failed to exchange Mailchimp code for token:", errorData)
       return createPopupResponse(
         "error",
         "Mailchimp",
@@ -74,9 +76,9 @@ export async function GET(request: NextRequest) {
         login_url: metadataData.login.login_url,
         api_endpoint: metadataData.api_endpoint,
       }
-      console.log('✅ Mailchimp metadata fetched:', { dc: metadataData.dc, accountname: metadataData.accountname })
+      logger.debug('✅ Mailchimp metadata fetched:', { dc: metadataData.dc, accountname: metadataData.accountname })
     } else {
-      console.error('Failed to fetch Mailchimp metadata:', await metadataResponse.text())
+      logger.error('Failed to fetch Mailchimp metadata:', await metadataResponse.text())
     }
 
     // Mailchimp tokens don't expire in the traditional way, they are permanent until revoked.
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
     // Encrypt tokens before storing
     const encryptionKey = process.env.ENCRYPTION_KEY
     if (!encryptionKey) {
-      console.error('❌ [Mailchimp] Encryption key not configured')
+      logger.error('❌ [Mailchimp] Encryption key not configured')
       return createPopupResponse('error', 'mailchimp', 'Encryption key not configured', baseUrl)
     }
 
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (dbError) {
-      console.error("Error saving Mailchimp integration to DB:", dbError)
+      logger.error("Error saving Mailchimp integration to DB:", dbError)
       return createPopupResponse(
         "error",
         "mailchimp",
@@ -118,11 +120,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('✅ [Mailchimp] Integration successfully saved with status: connected')
+    logger.debug('✅ [Mailchimp] Integration successfully saved with status: connected')
 
     return createPopupResponse("success", "mailchimp", "Mailchimp account connected successfully.", baseUrl)
   } catch (error) {
-    console.error("Error during Mailchimp OAuth callback:", error)
+    logger.error("Error during Mailchimp OAuth callback:", error)
     const message = error instanceof Error ? error.message : "An unexpected error occurred"
     return createPopupResponse("error", "mailchimp", message, baseUrl)
   }

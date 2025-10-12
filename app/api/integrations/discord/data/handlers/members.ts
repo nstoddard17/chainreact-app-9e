@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordMember, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordMembers: DiscordDataHandler<DiscordMember> = async (integration: DiscordIntegration, options: any = {}) => {
   // Ultimate safety wrapper to prevent any 500 errors from this handler
   try {
@@ -72,32 +74,32 @@ export const getDiscordMembers: DiscordDataHandler<DiscordMember> = async (integ
         })
         .filter(Boolean) // Remove any null entries from failed mappings
       
-      console.log(`✅ [Discord Members] Successfully loaded ${processedMembers.length} members for guild ${guildId}`)
+      logger.debug(`✅ [Discord Members] Successfully loaded ${processedMembers.length} members for guild ${guildId}`)
       return processedMembers
     } catch (innerError: any) {
       // Handle specific Discord API errors from the fetch call
-      console.error("❌ [Discord Members] Discord API error:", innerError)
+      logger.error("❌ [Discord Members] Discord API error:", innerError)
       
       if (innerError.message?.includes("401")) {
-        console.warn("🔍 [Discord Members] Bot authentication failed - returning empty list")
+        logger.warn("🔍 [Discord Members] Bot authentication failed - returning empty list")
         return []
       }
       if (innerError.message?.includes("403")) {
-        console.warn("🔍 [Discord Members] Bot permission denied - returning empty list")
+        logger.warn("🔍 [Discord Members] Bot permission denied - returning empty list")
         return []
       }
       if (innerError.message?.includes("404")) {
-        console.warn(`🔍 [Discord Members] Bot not in server ${guildId} - returning empty list`)
+        logger.warn(`🔍 [Discord Members] Bot not in server ${guildId} - returning empty list`)
         return []
       }
       
       // For any other Discord API error, return empty array
-      console.warn(`🔍 [Discord Members] Discord API error for guild ${guildId}: ${innerError.message}`)
+      logger.warn(`🔍 [Discord Members] Discord API error for guild ${guildId}: ${innerError.message}`)
       return []
     }
   } catch (error: any) {
     // Final catch-all error handler
-    console.error("💥 [Discord Members] Fatal error in handler:", {
+    logger.error("💥 [Discord Members] Fatal error in handler:", {
       error: error.message,
       stack: error.stack,
       integration: integration?.id,

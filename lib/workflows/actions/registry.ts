@@ -218,6 +218,8 @@ import { stripeGetPayments } from './stripe/getPayments'
 // Import resolveValue for wrapper functions
 import { resolveValue as resolveValueCore } from './core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Wrapper function for AI agent execution that adapts to the executeAction signature
  */
@@ -248,7 +250,7 @@ async function executeAIAgentWrapper(
       message: result.message || "AI Agent execution completed"
     }
   } catch (error: any) {
-    console.error("AI Agent execution error:", error)
+    logger.error("AI Agent execution error:", error)
     return {
       success: false,
       output: {},
@@ -288,7 +290,7 @@ function createExecutionContextWrapper(handler: Function) {
     try {
       return await handler(params.config, context)
     } catch (error: any) {
-      console.error('Action execution error:', error)
+      logger.error('Action execution error:', error)
       return {
         success: false,
         output: {},
@@ -322,7 +324,7 @@ async function executeAIRouterWrapper(params: { config: any; userId: string; inp
       message: result.success ? 'AI routing decision completed' : 'AI routing decision failed'
     }
   } catch (error: any) {
-    console.error('AI Router execution error:', error)
+    logger.error('AI Router execution error:', error)
     return {
       success: false,
       output: {},

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { guildId } = await request.json()
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`🔍 Debug: Fetching channels for guild ${guildId}`)
+    logger.debug(`🔍 Debug: Fetching channels for guild ${guildId}`)
 
     // Fetch all channels
     const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
     const allChannels = await channelsResponse.json()
     const textChannels = allChannels.filter((channel: any) => channel.type === 0)
     
-    console.log(`📋 Found ${textChannels.length} text channels`)
+    logger.debug(`📋 Found ${textChannels.length} text channels`)
 
     // Get bot's guild member info to check permissions
     const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botUserId}`, {
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (memberResponse.status === 200) {
       const memberData = await memberResponse.json()
       guildPermissions = BigInt(memberData.permissions || 0)
-      console.log(`🔑 Bot guild permissions: ${guildPermissions.toString()}`)
+      logger.debug(`🔑 Bot guild permissions: ${guildPermissions.toString()}`)
     }
 
     // Check permissions for each channel
@@ -63,8 +65,8 @@ export async function POST(request: NextRequest) {
     const canViewChannel = (guildPermissions & VIEW_CHANNEL) !== BigInt(0)
     const canSendMessages = (guildPermissions & SEND_MESSAGES) !== BigInt(0)
     
-    console.log(`🔑 Bot can view channels: ${canViewChannel}`)
-    console.log(`🔑 Bot can send messages: ${canSendMessages}`)
+    logger.debug(`🔑 Bot can view channels: ${canViewChannel}`)
+    logger.debug(`🔑 Bot can send messages: ${canSendMessages}`)
 
     // Check individual channel permissions
     const channelsWithAccess = await Promise.all(
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
           })
 
           const accessible = channelResponse.status === 200
-          console.log(`📋 Channel ${channel.name}: accessible=${accessible} (status=${channelResponse.status})`)
+          logger.debug(`📋 Channel ${channel.name}: accessible=${accessible} (status=${channelResponse.status})`)
           
           return {
             id: channel.id,
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
             status: channelResponse.status
           }
         } catch (error) {
-          console.log(`❌ Channel ${channel.name}: error checking access`)
+          logger.debug(`❌ Channel ${channel.name}: error checking access`)
           return {
             id: channel.id,
             name: channel.name,
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     const accessibleChannels = channelsWithAccess.filter((channel: any) => channel.accessible)
     
-    console.log(`✅ Found ${accessibleChannels.length} accessible channels out of ${textChannels.length} total`)
+    logger.debug(`✅ Found ${accessibleChannels.length} accessible channels out of ${textChannels.length} total`)
 
     return NextResponse.json({
       success: true,
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("❌ Debug Discord channels error:", error)
+    logger.error("❌ Debug Discord channels error:", error)
     return NextResponse.json({ 
       error: error.message || "Internal server error" 
     }, { status: 500 })

@@ -1,5 +1,7 @@
 import { securityErrorHandler, SecurityErrorType, SecuritySeverity } from './security-error-handler'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Validation rule types
  */
@@ -166,7 +168,7 @@ export class InputValidator {
   constructor() {
     this.initializeCustomValidators()
     this.initializeCustomSanitizers()
-    console.log('🔒 Input validator initialized with security patterns')
+    logger.debug('🔒 Input validator initialized with security patterns')
   }
 
   /**
@@ -174,7 +176,7 @@ export class InputValidator {
    */
   registerSchema(name: string, schema: ObjectSchema): void {
     this.schemas.set(name, schema)
-    console.log(`📋 Schema registered: ${name}`)
+    logger.debug(`📋 Schema registered: ${name}`)
   }
 
   /**
@@ -264,7 +266,7 @@ export class InputValidator {
 
     // Log access to sensitive fields
     if (fieldSchema.logAccess && context) {
-      console.log(`🔍 Sensitive field accessed: ${fieldName} by ${context.userId || 'unknown'}`)
+      logger.debug(`🔍 Sensitive field accessed: ${fieldName} by ${context.userId || 'unknown'}`)
     }
 
     return {
@@ -326,7 +328,7 @@ export class InputValidator {
    */
   registerCustomValidator(name: string, validator: (value: any) => boolean | string): void {
     this.customValidators.set(name, validator)
-    console.log(`🔧 Custom validator registered: ${name}`)
+    logger.debug(`🔧 Custom validator registered: ${name}`)
   }
 
   /**
@@ -334,7 +336,7 @@ export class InputValidator {
    */
   registerCustomSanitizer(name: string, sanitizer: (value: string) => string): void {
     this.customSanitizers.set(name, sanitizer)
-    console.log(`🧹 Custom sanitizer registered: ${name}`)
+    logger.debug(`🧹 Custom sanitizer registered: ${name}`)
   }
 
   /**
@@ -837,7 +839,7 @@ export function ValidateInput(schema: ObjectSchema | string, options: {
         }
 
         if (result.securityIssues.length > 0 && options.logViolations) {
-          console.warn(`🚨 Security issues detected in ${propertyName}:`, result.securityIssues)
+          logger.warn(`🚨 Security issues detected in ${propertyName}:`, result.securityIssues)
         }
 
         // Replace original input with sanitized version if requested
@@ -847,7 +849,7 @@ export function ValidateInput(schema: ObjectSchema | string, options: {
 
         return await method.apply(this, args)
       } catch (error: any) {
-        console.error(`❌ Input validation error in ${propertyName}:`, error.message)
+        logger.error(`❌ Input validation error in ${propertyName}:`, error.message)
         throw error
       }
     }

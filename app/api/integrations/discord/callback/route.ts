@@ -4,6 +4,8 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Discord OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Discord OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
       "discord",
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
-    console.error("Missing code in Discord callback")
+    logger.error("Missing code in Discord callback")
     return createPopupResponse(
       "error",
       "discord",
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   // If we have a guild_id, this is definitely a bot OAuth flow
   if (guildId) {
-    console.log("Bot OAuth detected by guild_id:", guildId)
+    logger.debug("Bot OAuth detected by guild_id:", guildId)
     return createBotCallbackResponse("success", guildId, baseUrl)
   }
 
@@ -99,12 +101,12 @@ export async function GET(request: NextRequest) {
     // Check if this is a bot OAuth flow (has bot scope)
     if (scopes.includes("bot")) {
       // This is a bot OAuth flow - just return success
-      console.log("Bot OAuth successful, guild_id:", guildId)
+      logger.debug("Bot OAuth successful, guild_id:", guildId)
       return createBotCallbackResponse("success", guildId, baseUrl)
     } 
       // This is a user OAuth flow - handle user integration
       if (!state) {
-        console.error("Missing state in Discord user OAuth callback")
+        logger.error("Missing state in Discord user OAuth callback")
         return createPopupResponse(
           "error",
           "discord",
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
       const { userId } = stateData
 
       if (!userId) {
-        console.error("Missing userId in Discord state")
+        logger.error("Missing userId in Discord state")
         return createPopupResponse("error", "discord", "User ID is missing from state", baseUrl)
       }
 
@@ -167,7 +169,7 @@ export async function GET(request: NextRequest) {
       )
     
   } catch (e: any) {
-    console.error("Discord callback error:", e)
+    logger.error("Discord callback error:", e)
     return createPopupResponse(
       "error",
       "discord",

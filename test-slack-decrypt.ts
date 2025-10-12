@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from './lib/security/encryption'
 import { config } from 'dotenv'
 
+import { logger } from '@/lib/utils/logger'
+
 // Load environment variables
 config({ path: '.env.local' })
 
@@ -12,7 +14,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 async function testSlackDecryption() {
-  console.log('🔍 Testing Slack token decryption...\n')
+  logger.debug('🔍 Testing Slack token decryption...\n')
   
   try {
     // Get a Slack integration
@@ -23,25 +25,25 @@ async function testSlackDecryption() {
       .limit(1)
     
     if (error || !integrations || integrations.length === 0) {
-      console.error('❌ No Slack integrations found')
+      logger.error('❌ No Slack integrations found')
       return
     }
     
     const integration = integrations[0]
-    console.log('✅ Found Slack integration')
-    console.log('  - Token encrypted:', integration.access_token.includes(':'))
+    logger.debug('✅ Found Slack integration')
+    logger.debug('  - Token encrypted:', integration.access_token.includes(':'))
     
     // Get the encryption key from environment
     const encryptionKey = process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef"
     
     // Decrypt the token
     const decryptedToken = safeDecrypt(integration.access_token, encryptionKey)
-    console.log('\n✅ Token decrypted')
-    console.log('  - Format:', decryptedToken.substring(0, 5))
-    console.log('  - Length:', decryptedToken.length)
+    logger.debug('\n✅ Token decrypted')
+    logger.debug('  - Format:', decryptedToken.substring(0, 5))
+    logger.debug('  - Length:', decryptedToken.length)
     
     // Test with Slack API
-    console.log('\n📡 Testing Slack API...')
+    logger.debug('\n📡 Testing Slack API...')
     const response = await fetch('https://slack.com/api/auth.test', {
       headers: {
         'Authorization': `Bearer ${decryptedToken}`,
@@ -49,7 +51,7 @@ async function testSlackDecryption() {
     })
     
     const data = await response.json()
-    console.log('Auth test result:', {
+    logger.debug('Auth test result:', {
       ok: data.ok,
       error: data.error,
       team: data.team,
@@ -68,7 +70,7 @@ async function testSlackDecryption() {
       )
       
       const channelsData = await channelsRes.json()
-      console.log('\nChannels result:', {
+      logger.debug('\nChannels result:', {
         ok: channelsData.ok,
         error: channelsData.error,
         count: channelsData.channels?.length || 0
@@ -76,7 +78,7 @@ async function testSlackDecryption() {
     }
     
   } catch (error) {
-    console.error('❌ Test failed:', error)
+    logger.error('❌ Test failed:', error)
   }
 }
 

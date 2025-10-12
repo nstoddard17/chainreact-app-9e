@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get file from OneDrive
  */
@@ -61,7 +63,7 @@ export async function getOnedriveFile(
       message: `Successfully retrieved file: ${metadata.name}`
     }
   } catch (error: any) {
-    console.error('OneDrive Get File error:', error)
+    logger.error('OneDrive Get File error:', error)
     return {
       success: false,
       output: {},

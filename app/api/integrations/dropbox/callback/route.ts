@@ -5,6 +5,8 @@ import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 import { clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`Dropbox OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Dropbox OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/dropbox/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Dropbox OAuth credentials not configured')
+      logger.error('Dropbox OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Dropbox token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Dropbox token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -113,10 +115,10 @@ export async function GET(request: NextRequest) {
         if (accountResponse.ok) {
           accountInfo = await accountResponse.json()
         } else {
-          console.warn('Could not fetch Dropbox account information:', await accountResponse.text())
+          logger.warn('Could not fetch Dropbox account information:', await accountResponse.text())
         }
       } catch (accountError) {
-        console.warn('Error fetching Dropbox account information:', accountError)
+        logger.warn('Error fetching Dropbox account information:', accountError)
       }
     }
 
@@ -151,7 +153,7 @@ export async function GET(request: NextRequest) {
     }).select('id').single()
 
     if (upsertError) {
-      console.error('Failed to save Dropbox integration:', upsertError)
+      logger.error('Failed to save Dropbox integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
@@ -165,7 +167,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse('success', provider, 'Dropbox connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Dropbox callback error:', error)
+    logger.error('Dropbox callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

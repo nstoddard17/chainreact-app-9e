@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 // Simple in-memory fallback cache
 let fallbackCount = 0
 
@@ -53,7 +55,7 @@ export async function GET() {
       })
     }
   } catch (error) {
-    console.error('Error fetching presence count:', error)
+    logger.error('Error fetching presence count:', error)
     return NextResponse.json({ 
       count: 0,
       error: 'Failed to fetch count'

@@ -1,6 +1,8 @@
 import { Client, GuildMember, Invite, Collection } from "discord.js"
 import { createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 interface InviteData {
   code: string
   uses: number
@@ -54,7 +56,7 @@ class DiscordInviteTracker {
   private setupEventListeners() {
     // Bot is ready
     this.client.once("ready", async () => {
-      console.log(`Discord Invite Tracker Bot logged in as ${this.client.user?.tag}`)
+      logger.debug(`Discord Invite Tracker Bot logged in as ${this.client.user?.tag}`)
       await this.cacheAllInvites()
       this.isInitialized = true
     })
@@ -120,7 +122,7 @@ class DiscordInviteTracker {
 
       this.inviteCache.set(guildId, inviteMap)
     } catch (error) {
-      console.error(`Failed to cache invites for guild ${guildId}:`, error)
+      logger.error(`Failed to cache invites for guild ${guildId}:`, error)
     }
   }
 
@@ -158,7 +160,7 @@ class DiscordInviteTracker {
 
       if (usedInvite) {
         const normalizedCode = normalizeInviteCode(usedInvite.code) || usedInvite.code
-        console.log(`Member ${member.user.tag} joined using invite ${normalizedCode}`)
+        logger.debug(`Member ${member.user.tag} joined using invite ${normalizedCode}`)
 
         // Check for role assignment based on invite
         await this.assignRoleBasedOnInvite(member, normalizedCode)
@@ -167,13 +169,13 @@ class DiscordInviteTracker {
         await this.triggerMemberJoinWorkflow(member, usedInvite)
       } else {
         // Check if it's a vanity URL or direct invite
-        console.log(`Member ${member.user.tag} joined but couldn't determine invite used`)
+        logger.debug(`Member ${member.user.tag} joined but couldn't determine invite used`)
 
         // Still trigger workflow but without invite data
         await this.triggerMemberJoinWorkflow(member, null)
       }
     } catch (error) {
-      console.error("Error handling member join:", error)
+      logger.error("Error handling member join:", error)
     }
   }
 
@@ -198,9 +200,9 @@ class DiscordInviteTracker {
 
         try {
           await member.roles.add(roleId)
-          console.log(`Assigned role ${roleId} to ${member.user.tag} via hardcoded config`)
+          logger.debug(`Assigned role ${roleId} to ${member.user.tag} via hardcoded config`)
         } catch (error) {
-          console.error(`Failed to assign role ${roleId}:`, error)
+          logger.error(`Failed to assign role ${roleId}:`, error)
         }
         return
       }
@@ -216,13 +218,13 @@ class DiscordInviteTracker {
       if (mapping) {
         try {
           await member.roles.add(mapping.role_id)
-          console.log(`Assigned role ${mapping.role_id} to ${member.user.tag} based on invite ${inviteCode}`)
+          logger.debug(`Assigned role ${mapping.role_id} to ${member.user.tag} based on invite ${inviteCode}`)
         } catch (error) {
-          console.error(`Failed to assign role ${mapping.role_id}:`, error)
+          logger.error(`Failed to assign role ${mapping.role_id}:`, error)
         }
       }
     } catch (error) {
-      console.error("Error assigning role based on invite:", error)
+      logger.error("Error assigning role based on invite:", error)
     }
   }
 
@@ -238,11 +240,11 @@ class DiscordInviteTracker {
         .contains("nodes", [{ type: "discord_trigger_member_join" }])
 
       if (workflowsError) {
-        console.error('[Discord] Failed to load member join workflows:', workflowsError)
+        logger.error('[Discord] Failed to load member join workflows:', workflowsError)
         return
       }
 
-      console.log('[Discord] Evaluating member join workflows', {
+      logger.debug('[Discord] Evaluating member join workflows', {
         workflowsCount: workflows?.length || 0,
         guildId: member.guild.id
       })
@@ -277,7 +279,7 @@ class DiscordInviteTracker {
 
         // Check if guild matches (if specified in trigger config)
         if (triggerNode.data?.guildId && triggerNode.data.guildId !== member.guild.id) {
-          console.log('[Discord] Skipping workflow due to guild mismatch', {
+          logger.debug('[Discord] Skipping workflow due to guild mismatch', {
             workflowId: workflow.id,
             expected: triggerNode.data.guildId,
             actual: member.guild.id
@@ -288,7 +290,7 @@ class DiscordInviteTracker {
         // Check invite filter if specified
         const filterCode = normalizeInviteCode(triggerNode.data?.inviteFilter)
         if (filterCode && filterCode !== inviteCode) {
-          console.log('[Discord] Skipping workflow due to invite filter mismatch', {
+          logger.debug('[Discord] Skipping workflow due to invite filter mismatch', {
             workflowId: workflow.id,
             expected: filterCode,
             actual: inviteCode
@@ -316,36 +318,36 @@ class DiscordInviteTracker {
           )
 
           await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerData)
-          console.log('[Discord] Workflow triggered successfully for member join', {
+          logger.debug('[Discord] Workflow triggered successfully for member join', {
             workflowId: workflow.id,
             memberId: member.id,
             inviteCode
           })
         } catch (executionError) {
-          console.error(`Failed to execute workflow ${workflow.id} for member join`, executionError)
+          logger.error(`Failed to execute workflow ${workflow.id} for member join`, executionError)
         }
       }
     } catch (error) {
-      console.error("Error triggering member join workflow:", error)
+      logger.error("Error triggering member join workflow:", error)
     }
   }
 
   async initialize() {
     if (this.isInitialized) {
-      console.log("Discord Invite Tracker already initialized")
+      logger.debug("Discord Invite Tracker already initialized")
       return
     }
 
     const token = process.env.DISCORD_BOT_TOKEN
     if (!token) {
-      console.error("Discord bot token not found in environment variables")
+      logger.error("Discord bot token not found in environment variables")
       return
     }
 
     try {
       await this.client.login(token)
     } catch (error) {
-      console.error("Failed to initialize Discord Invite Tracker:", error)
+      logger.error("Failed to initialize Discord Invite Tracker:", error)
     }
   }
 

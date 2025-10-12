@@ -8,6 +8,8 @@ import { Loader2, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AI_ACTION_TEMPLATES, getTemplateDefaults } from "@/lib/workflows/nodes/providers/ai/actions/templates"
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIActionConfigurationProps {
   nodeInfo: any
   values: Record<string, any>
@@ -135,7 +137,7 @@ export function AIActionConfiguration({
         })
       }
     } catch (error: any) {
-      console.error("[AIActionConfiguration] Improve prompt failed", error)
+      logger.error("[AIActionConfiguration] Improve prompt failed", error)
       toast({
         title: "Unable to improve prompt",
         description: error?.message || "Try again in a moment.",

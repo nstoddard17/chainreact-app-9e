@@ -2,6 +2,8 @@ import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
+import { logger } from '@/lib/utils/logger'
+
 const OptimizationSuggestionSchema = z.object({
   type: z.enum(["performance", "reliability", "cost", "maintainability"]),
   title: z.string(),
@@ -62,7 +64,7 @@ export async function analyzeWorkflowPerformance(workflow: any, executionHistory
       analysis: object,
     }
   } catch (error) {
-    console.error("Error analyzing workflow:", error)
+    logger.error("Error analyzing workflow:", error)
     return {
       success: false,
       error: "Failed to analyze workflow",
@@ -109,7 +111,7 @@ export async function detectWorkflowAnomalies(workflow: any, recentExecutions: a
       anomalies: object.anomalies,
     }
   } catch (error) {
-    console.error("Error detecting anomalies:", error)
+    logger.error("Error detecting anomalies:", error)
     return {
       success: false,
       error: "Failed to detect anomalies",
@@ -153,7 +155,7 @@ export async function suggestWorkflowConsolidation(workflows: any[]) {
       opportunities: object.consolidation_opportunities,
     }
   } catch (error) {
-    console.error("Error suggesting consolidation:", error)
+    logger.error("Error suggesting consolidation:", error)
     return {
       success: false,
       error: "Failed to suggest consolidation",

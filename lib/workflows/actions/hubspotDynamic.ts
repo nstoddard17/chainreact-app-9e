@@ -1,6 +1,8 @@
 import { ActionResult } from './core/executeWait';
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken';
 import { resolveValue } from '@/lib/integrations/resolveValue';
+
+import { logger } from '@/lib/utils/logger'
 import type { ExecuteRequest } from '@/lib/workflows/nodes/providers/hubspot/types';
 
 /**
@@ -65,7 +67,7 @@ export async function createHubSpotObject(
       message: result.message || `HubSpot ${objectType} created successfully`,
     };
   } catch (error: any) {
-    console.error("HubSpot create object error:", error);
+    logger.error("HubSpot create object error:", error);
     return {
       success: false,
       output: {},
@@ -139,7 +141,7 @@ export async function updateHubSpotObject(
       message: result.message || `HubSpot ${objectType} updated successfully`,
     };
   } catch (error: any) {
-    console.error("HubSpot update object error:", error);
+    logger.error("HubSpot update object error:", error);
     return {
       success: false,
       output: {},
@@ -227,7 +229,7 @@ export async function upsertHubSpotObject(
       message: result.message || `HubSpot ${objectType} ${result.data.operation}d successfully`,
     };
   } catch (error: any) {
-    console.error("HubSpot upsert object error:", error);
+    logger.error("HubSpot upsert object error:", error);
     return {
       success: false,
       output: {},
@@ -275,7 +277,7 @@ export async function refreshHubSpotProperties(
         : "All HubSpot property schemas refreshed successfully",
     };
   } catch (error: any) {
-    console.error("HubSpot refresh properties error:", error);
+    logger.error("HubSpot refresh properties error:", error);
     return {
       success: false,
       output: {},

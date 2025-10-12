@@ -31,6 +31,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Trello adapter implementing ProjectProvider interface
  */
@@ -268,7 +270,7 @@ export class TrelloAdapter implements ProjectProvider {
           throw new Error(`Trello method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`Trello API call failed for method ${method}:`, error)
+      logger.error(`Trello API call failed for method ${method}:`, error)
       throw error
     }
   }

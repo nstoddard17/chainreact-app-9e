@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
       .lt('expires_at', new Date().toISOString());
 
     if (queryError) {
-      console.error('Error querying expired files:', queryError);
+      logger.error('Error querying expired files:', queryError);
       return NextResponse.json({ 
         error: 'Failed to query expired files',
         details: queryError.message 
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
       });
     }
 
-    console.log(`Found ${expiredFiles.length} expired files to clean up`);
+    logger.debug(`Found ${expiredFiles.length} expired files to clean up`);
     let cleanedCount = 0;
     let failedCount = 0;
 
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
           .remove([file.file_path]);
 
         if (storageError) {
-          console.warn(`Failed to delete file from storage: ${file.file_path}`, storageError);
+          logger.warn(`Failed to delete file from storage: ${file.file_path}`, storageError);
         }
 
         // Delete from database
@@ -61,13 +63,13 @@ export async function POST(request: Request) {
           .eq('id', file.id);
 
         if (dbError) {
-          console.error(`Failed to delete file record: ${file.id}`, dbError);
+          logger.error(`Failed to delete file record: ${file.id}`, dbError);
           failedCount++;
         } else {
           cleanedCount++;
         }
       } catch (error) {
-        console.error(`Error cleaning up file ${file.id}:`, error);
+        logger.error(`Error cleaning up file ${file.id}:`, error);
         failedCount++;
       }
     }
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
         });
 
         if (orphanedFiles.length > 0) {
-          console.log(`Found ${orphanedFiles.length} orphaned files in storage`);
+          logger.debug(`Found ${orphanedFiles.length} orphaned files in storage`);
           const orphanedPaths = orphanedFiles.map(f => `temp-attachments/${f.name}`);
           
           // Delete orphaned files from storage
@@ -111,10 +113,10 @@ export async function POST(request: Request) {
         }
       }
     } catch (error) {
-      console.error('Error cleaning up orphaned storage files:', error);
+      logger.error('Error cleaning up orphaned storage files:', error);
     }
 
-    console.log(`Cleanup completed: ${cleanedCount} files cleaned, ${failedCount} failed`);
+    logger.debug(`Cleanup completed: ${cleanedCount} files cleaned, ${failedCount} failed`);
 
     return NextResponse.json({ 
       message: 'Cleanup completed',
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('File cleanup error:', error);
+    logger.error('File cleanup error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to clean up expired files' 
     }, { status: 500 });
@@ -154,7 +156,7 @@ export async function GET(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('Status check error:', error);
+    logger.error('Status check error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to check cleanup status' 
     }, { status: 500 });

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -104,7 +106,7 @@ export async function PUT(
       .single()
 
     if (updateError) {
-      console.error("Error updating workflow:", updateError)
+      logger.error("Error updating workflow:", updateError)
       return NextResponse.json(
         { error: "Failed to move workflow to organization" },
         { status: 500 }
@@ -114,7 +116,7 @@ export async function PUT(
     return NextResponse.json(updatedWorkflow)
 
   } catch (error) {
-    console.error("Error in move-to-organization:", error)
+    logger.error("Error in move-to-organization:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
-    console.log("Debug endpoint called")
+    logger.debug("Debug endpoint called")
 
     const supabase = getSupabaseClient()
     if (!supabase) {
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { data: integrations, error } = await supabase.from("integrations").select("*").eq("user_id", user.id)
 
     if (error) {
-      console.error("Database error:", error)
+      logger.error("Database error:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
       byStatus
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
+    logger.error("Debug endpoint error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

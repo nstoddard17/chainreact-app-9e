@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 // Implementation for shell command execution and result parsing
 export async function POST(request: Request, { params }: { params: { id: string; suiteId: string } }) {
   try {
@@ -62,7 +64,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
       testResults,
     })
   } catch (error) {
-    console.error("Error generating tests:", error)
+    logger.error("Error generating tests:", error)
     return NextResponse.json({ error: "Failed to generate tests" }, { status: 500 })
   }
 }

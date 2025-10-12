@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
@@ -45,7 +47,7 @@ export async function PUT(
       .single()
 
     if (updateError) {
-      console.error("Error updating member:", updateError)
+      logger.error("Error updating member:", updateError)
       return NextResponse.json({ error: "Failed to update member" }, { status: 500 })
     }
 
@@ -62,7 +64,7 @@ export async function PUT(
       }
       return NextResponse.json(memberWithUserInfo)
     } catch (error) {
-      console.error("Error fetching user data for updated member:", error)
+      logger.error("Error fetching user data for updated member:", error)
       const memberWithUserInfo = {
         ...updatedMember,
         user: {
@@ -74,7 +76,7 @@ export async function PUT(
       return NextResponse.json(memberWithUserInfo)
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -131,13 +133,13 @@ export async function DELETE(
       .eq("organization_id", organizationId)
 
     if (deleteError) {
-      console.error("Error deleting member:", deleteError)
+      logger.error("Error deleting member:", deleteError)
       return NextResponse.json({ error: "Failed to delete member" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

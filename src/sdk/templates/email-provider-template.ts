@@ -12,6 +12,8 @@ import {
 } from '../../domains/integrations/ports/capability-interfaces'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Template for Email Provider integrations
  * 
@@ -162,7 +164,7 @@ export class TemplateEmailAdapter extends BaseProvider implements EmailProvider 
       }))
 
     } catch (error: any) {
-      console.error('Email search error:', error)
+      logger.error('Email search error:', error)
       return []
     }
   }
@@ -200,7 +202,7 @@ export class TemplateEmailAdapter extends BaseProvider implements EmailProvider 
       }))
 
     } catch (error: any) {
-      console.error('Get messages error:', error)
+      logger.error('Get messages error:', error)
       return []
     }
   }
@@ -292,7 +294,7 @@ export class TemplateEmailAdapter extends BaseProvider implements EmailProvider 
       }))
 
     } catch (error: any) {
-      console.error('Get contacts error:', error)
+      logger.error('Get contacts error:', error)
       return []
     }
   }
@@ -379,7 +381,7 @@ export function registerTemplateEmailProvider(): void {
       // TODO: Add more actions as needed
     ])
 
-    console.log('✅ Template Email provider registered')
+    logger.debug('✅ Template Email provider registered')
   }
   */
 }

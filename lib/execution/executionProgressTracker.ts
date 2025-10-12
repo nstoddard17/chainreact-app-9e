@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 // Helper to safely clone data and remove circular references
 function safeClone(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -58,7 +60,7 @@ export class ExecutionProgressTracker {
     totalNodes: number
   ): Promise<void> {
     try {
-      console.log('🔄 ExecutionProgressTracker.initialize called', {
+      logger.debug('🔄 ExecutionProgressTracker.initialize called', {
         executionId,
         workflowId,
         userId,
@@ -86,14 +88,14 @@ export class ExecutionProgressTracker {
         .single()
 
       if (error) {
-        console.error('Failed to initialize execution progress:', error)
+        logger.error('Failed to initialize execution progress:', error)
 
         // Check if this is a table doesn't exist error
         if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-          console.log('⚠️ execution_progress table does not exist. Please create it using the SQL script.')
-          console.log('Continuing without progress tracking...')
+          logger.debug('⚠️ execution_progress table does not exist. Please create it using the SQL script.')
+          logger.debug('Continuing without progress tracking...')
         } else {
-          console.log('Will continue without progress tracking due to error:', error.message)
+          logger.debug('Will continue without progress tracking due to error:', error.message)
         }
 
         return
@@ -101,7 +103,7 @@ export class ExecutionProgressTracker {
 
       if (data) {
         this.progressId = data.id
-        console.log('✅ Execution progress tracker initialized:', this.progressId)
+        logger.debug('✅ Execution progress tracker initialized:', this.progressId)
       }
 
       // Also check if this execution is part of a test session
@@ -123,13 +125,13 @@ export class ExecutionProgressTracker {
             })
             .eq('id', testSession.id)
 
-          console.log('📝 Updated test session status to executing:', testSession.id)
+          logger.debug('📝 Updated test session status to executing:', testSession.id)
         }
       } catch (testSessionError) {
-        console.log('Test session check skipped:', testSessionError)
+        logger.debug('Test session check skipped:', testSessionError)
       }
     } catch (error) {
-      console.error('Error initializing execution progress:', error)
+      logger.error('Error initializing execution progress:', error)
     }
   }
 
@@ -138,11 +140,11 @@ export class ExecutionProgressTracker {
    */
   async update(update: ExecutionProgressUpdate): Promise<void> {
     if (!this.progressId) {
-      console.warn('Progress tracker not initialized, skipping update')
+      logger.warn('Progress tracker not initialized, skipping update')
       return
     }
 
-    console.log('Updating execution progress:', update)
+    logger.debug('Updating execution progress:', update)
 
     try {
       const updateData: any = {
@@ -197,10 +199,10 @@ export class ExecutionProgressTracker {
         .eq('id', this.progressId)
 
       if (error) {
-        console.error('Failed to update execution progress:', error)
+        logger.error('Failed to update execution progress:', error)
       }
     } catch (error) {
-      console.error('Error updating execution progress:', error)
+      logger.error('Error updating execution progress:', error)
     }
   }
 
@@ -249,7 +251,7 @@ export class ExecutionProgressTracker {
       progressPercentage: 100,
     })
 
-    console.log(`✅ Execution ${success ? 'completed' : 'failed'}`)
+    logger.debug(`✅ Execution ${success ? 'completed' : 'failed'}`)
   }
 
   /**
@@ -270,7 +272,7 @@ export class ExecutionProgressTracker {
       .maybeSingle()
 
     if (error) {
-      console.error('Failed to get execution progress:', error)
+      logger.error('Failed to get execution progress:', error)
       return null
     }
 

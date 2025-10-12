@@ -31,6 +31,8 @@ import { getRelativeTime, formatDateTime } from "@/lib/utils/formatTime"
 import { createClient } from "@/utils/supabaseClient"
 import { useIntegrationStore } from "@/stores/integrationStore"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function WorkflowsContent() {
   const { profile } = useAuthStore()
   const { currentOrganization } = useOrganizationStore()
@@ -118,7 +120,7 @@ export default function WorkflowsContent() {
     forceRefreshOnMount: true, // Always refresh workflows on mount
     onError: (error) => {
       // Don't show toast for timeouts - just log
-      console.warn('Workflow loading error (non-blocking):', error)
+      logger.warn('Workflow loading error (non-blocking):', error)
     },
     onSuccess: () => {
       setForceShowContent(false)
@@ -136,7 +138,7 @@ export default function WorkflowsContent() {
 
     const fallbackTimeout = setTimeout(() => {
       if (refreshing && !hasWorkflows) {
-        console.warn('⚠️ Workflows page stuck in loading state - forcing content display')
+        logger.warn('⚠️ Workflows page stuck in loading state - forcing content display')
         setForceShowContent(true)
       }
     }, 8000) // 8 second fallback (longer than useTimeoutLoading)
@@ -148,20 +150,20 @@ export default function WorkflowsContent() {
   const safeFetchIntegrations = useCallback(async (force = false) => {
     const state = useIntegrationStore.getState()
     if (state.loadingStates?.['integrations']) {
-      console.log('⏳ Integration fetch already in progress, skipping duplicate request')
+      logger.debug('⏳ Integration fetch already in progress, skipping duplicate request')
       return null
     }
     return fetchIntegrations(force)
   }, [fetchIntegrations])
 
   useEffect(() => {
-    console.log('🔧 Fetching integrations on mount...')
+    logger.debug('🔧 Fetching integrations on mount...')
     safeFetchIntegrations()
       .then(() => {
-        console.log('✅ Integrations fetched')
+        logger.debug('✅ Integrations fetched')
       })
       .catch((err) => {
-        console.error('❌ Failed to fetch integrations:', err)
+        logger.error('❌ Failed to fetch integrations:', err)
       })
   }, [safeFetchIntegrations])
 
@@ -269,7 +271,7 @@ export default function WorkflowsContent() {
     }
 
     if (!workflowToUpdate) {
-      console.error(`Workflow with id ${id} not found`)
+      logger.error(`Workflow with id ${id} not found`)
       toast({
         title: "Error",
         description: "Workflow not found",
@@ -340,30 +342,30 @@ export default function WorkflowsContent() {
               }).then(response => {
                 if (!response.ok) {
                   response.json().then(errorData => {
-                    console.error('⚠️ Gmail webhook registration failed (non-blocking):', errorData)
+                    logger.error('⚠️ Gmail webhook registration failed (non-blocking):', errorData)
                   })
                 } else {
                   response.json().then(webhookData => {
-                    console.log('✅ Gmail webhook registered successfully:', webhookData)
+                    logger.debug('✅ Gmail webhook registered successfully:', webhookData)
                   })
                 }
               }).catch(webhookError => {
-                console.error('⚠️ Gmail webhook registration error (non-blocking):', webhookError)
+                logger.error('⚠️ Gmail webhook registration error (non-blocking):', webhookError)
               })
             }
           }
         }
       }
 
-      console.log(`📝 About to call updateWorkflowById for ${id} with status: ${newStatus}`)
+      logger.debug(`📝 About to call updateWorkflowById for ${id} with status: ${newStatus}`)
       let updatedWorkflow
       try {
         updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
-        console.log(`✅ Workflow update completed:`, updatedWorkflow)
+        logger.debug(`✅ Workflow update completed:`, updatedWorkflow)
 
         if ((updatedWorkflow as any)?.triggerActivationError) {
           const error = (updatedWorkflow as any).triggerActivationError
-          console.error('❌ Trigger activation failed:', error)
+          logger.error('❌ Trigger activation failed:', error)
           toast({
             title: "Failed to activate workflow",
             description: error.message || "Could not activate triggers",
@@ -374,18 +376,18 @@ export default function WorkflowsContent() {
         }
 
         const verifyWorkflow = (workflows || []).find(w => w.id === id)
-        console.log(`✔️ Verified workflow status:`, {
+        logger.debug(`✔️ Verified workflow status:`, {
           id: verifyWorkflow?.id,
           status: verifyWorkflow?.status,
           expectedStatus: newStatus,
           statusMatches: verifyWorkflow?.status === newStatus
         })
       } catch (updateError) {
-        console.error(`❌ updateWorkflowById failed:`, updateError)
+        logger.error(`❌ updateWorkflowById failed:`, updateError)
         throw updateError
       }
 
-      console.log(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
+      logger.debug(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
 
       toast({
         title: "Success",
@@ -393,11 +395,11 @@ export default function WorkflowsContent() {
       })
 
       if (webhookRegistrationPromise) {
-        console.log('🚀 Starting Gmail webhook registration in background...')
+        logger.debug('🚀 Starting Gmail webhook registration in background...')
         webhookRegistrationPromise
       }
     } catch (error) {
-      console.error("Failed to update workflow status:", error)
+      logger.error("Failed to update workflow status:", error)
 
       toast({
         title: "Error",
@@ -405,7 +407,7 @@ export default function WorkflowsContent() {
         variant: "destructive",
       })
     } finally {
-      console.log(`🧹 Clearing loading state for workflow ${id}`)
+      logger.debug(`🧹 Clearing loading state for workflow ${id}`)
       setUpdatingWorkflows(prev => {
         const newSet = new Set(prev)
         newSet.delete(id)
@@ -432,7 +434,7 @@ export default function WorkflowsContent() {
         description: "Workflow deleted successfully",
       })
     } catch (error) {
-      console.error("Failed to delete workflow:", error)
+      logger.error("Failed to delete workflow:", error)
       toast({
         title: "Error",
         description: "Failed to delete workflow",
@@ -482,16 +484,16 @@ export default function WorkflowsContent() {
           try {
             // Group logs for readability
             console.groupCollapsed('AI Debug: Workflow Generation')
-            console.log('Model:', data.debug.model)
-            console.log('Detected Scenarios:', data.debug.detectedScenarios)
-            console.log('System Prompt:\n', data.debug.systemPrompt)
-            console.log('User Prompt:\n', data.debug.userPrompt)
-            console.log('Raw OpenAI Response (JSON string):\n', data.debug.rawResponse)
+            logger.debug('Model:', data.debug.model)
+            logger.debug('Detected Scenarios:', data.debug.detectedScenarios)
+            logger.debug('System Prompt:\n', data.debug.systemPrompt)
+            logger.debug('User Prompt:\n', data.debug.userPrompt)
+            logger.debug('Raw OpenAI Response (JSON string):\n', data.debug.rawResponse)
             if (data.debug.errors?.length) {
-              console.warn('Validation Errors:', data.debug.errors)
+              logger.warn('Validation Errors:', data.debug.errors)
             }
             // Also provide a single JSON object for copying
-            console.log('Debug Bundle JSON:', JSON.stringify({
+            logger.debug('Debug Bundle JSON:', JSON.stringify({
               workflowId: data.workflow?.id,
               model: data.debug.model,
               detectedScenarios: data.debug.detectedScenarios,
@@ -556,7 +558,7 @@ export default function WorkflowsContent() {
         }
       }
     } catch (error: any) {
-      console.error("Failed to generate workflow:", error)
+      logger.error("Failed to generate workflow:", error)
       // Show error in modal instead of just toast
       setErrorModal({
         open: true,
@@ -586,7 +588,7 @@ export default function WorkflowsContent() {
         description: "Template creation is not implemented in the cached version yet",
       })
     } catch (error) {
-      console.error("Failed to create template:", error)
+      logger.error("Failed to create template:", error)
       toast({
         title: "Error",
         description: "Failed to create template",

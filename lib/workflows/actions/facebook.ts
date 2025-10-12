@@ -3,6 +3,8 @@ import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -69,14 +71,14 @@ export async function createFacebookPost(
     // Get page access token for the specific page
     const pageAccessToken = await getPageAccessToken(pageId, accessToken)
 
-    console.log('[Facebook] Starting create post action')
-    console.log('[Facebook] Parameters:', { pageId, message, mediaFile })
+    logger.debug('[Facebook] Starting create post action')
+    logger.debug('[Facebook] Parameters:', { pageId, message, mediaFile })
 
     // Step 1: Upload media files and collect their IDs
     const mediaIds: string[] = []
     
     if (mediaFile) {
-      console.log("Processing media file:", JSON.stringify(mediaFile, null, 2))
+      logger.debug("Processing media file:", JSON.stringify(mediaFile, null, 2))
       
       // Handle different media file formats
       let fileIds: string[] = []
@@ -97,12 +99,12 @@ export async function createFacebookPost(
       }
       
       for (const fileId of fileIds) {
-        console.log(`[Facebook] Processing file ID: ${fileId}`)
+        logger.debug(`[Facebook] Processing file ID: ${fileId}`)
         
         // Get file buffer from storage
         const fileBuffer = await getFileBuffer(fileId, userId)
         if (!fileBuffer) {
-          console.error(`[Facebook] Failed to get file buffer for ID: ${fileId}`)
+          logger.error(`[Facebook] Failed to get file buffer for ID: ${fileId}`)
           continue
         }
 
@@ -119,9 +121,9 @@ export async function createFacebookPost(
         
         if (uploadResult.success) {
           mediaIds.push(uploadResult.id)
-          console.log(`[Facebook] Media uploaded successfully: ${uploadResult.id}`)
+          logger.debug(`[Facebook] Media uploaded successfully: ${uploadResult.id}`)
         } else {
-          console.error(`[Facebook] Failed to upload media: ${uploadResult.error}`)
+          logger.error(`[Facebook] Failed to upload media: ${uploadResult.error}`)
         }
       }
     }
@@ -188,7 +190,7 @@ export async function createFacebookPost(
 
     const result = await response.json()
 
-    console.log('[Facebook] Create post action completed successfully')
+    logger.debug('[Facebook] Create post action completed successfully')
     
     return {
       success: true,
@@ -213,7 +215,7 @@ export async function createFacebookPost(
     }
 
   } catch (error: any) {
-    console.error('[Facebook] Create post action failed:', error)
+    logger.error('[Facebook] Create post action failed:', error)
     return {
       success: false,
       error: error.message || "Failed to create Facebook post",
@@ -273,7 +275,7 @@ async function uploadPhotoToFacebook(
   fileName: string
 ): Promise<FacebookMediaUploadResult> {
   try {
-    console.log(`[Facebook] Uploading photo to page ${pageId}`)
+    logger.debug(`[Facebook] Uploading photo to page ${pageId}`)
     
     const formData = new FormData()
     // Convert Buffer to Blob for native FormData
@@ -293,7 +295,7 @@ async function uploadPhotoToFacebook(
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[Facebook] Photo upload failed:', result)
+      logger.error('[Facebook] Photo upload failed:', result)
       return {
         id: '',
         success: false,
@@ -301,13 +303,13 @@ async function uploadPhotoToFacebook(
       }
     }
 
-    console.log(`[Facebook] Photo uploaded successfully, ID: ${result.id}`)
+    logger.debug(`[Facebook] Photo uploaded successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
     }
   } catch (error) {
-    console.error('[Facebook] Photo upload error:', error)
+    logger.error('[Facebook] Photo upload error:', error)
     return {
       id: '',
       success: false,
@@ -328,7 +330,7 @@ async function uploadVideoToFacebook(
   title?: string
 ): Promise<FacebookMediaUploadResult> {
   try {
-    console.log(`[Facebook] Uploading video to page ${pageId}`)
+    logger.debug(`[Facebook] Uploading video to page ${pageId}`)
     
     const formData = new FormData()
     // Convert Buffer to Blob for native FormData
@@ -355,7 +357,7 @@ async function uploadVideoToFacebook(
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[Facebook] Video upload failed:', result)
+      logger.error('[Facebook] Video upload failed:', result)
       return {
         id: '',
         success: false,
@@ -363,13 +365,13 @@ async function uploadVideoToFacebook(
       }
     }
 
-    console.log(`[Facebook] Video uploaded successfully, ID: ${result.id}`)
+    logger.debug(`[Facebook] Video uploaded successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
     }
   } catch (error) {
-    console.error('[Facebook] Video upload error:', error)
+    logger.error('[Facebook] Video upload error:', error)
     return {
       id: '',
       success: false,
@@ -388,7 +390,7 @@ async function createFacebookPostWithMedia(
   mediaIds: string[]
 ): Promise<FacebookPostResult> {
   try {
-    console.log(`[Facebook] Creating post with ${mediaIds.length} media items`)
+    logger.debug(`[Facebook] Creating post with ${mediaIds.length} media items`)
     
     const payload: any = {
       message: message
@@ -413,7 +415,7 @@ async function createFacebookPostWithMedia(
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[Facebook] Post creation failed:', result)
+      logger.error('[Facebook] Post creation failed:', result)
       return {
         id: '',
         success: false,
@@ -421,13 +423,13 @@ async function createFacebookPostWithMedia(
       }
     }
 
-    console.log(`[Facebook] Post created successfully, ID: ${result.id}`)
+    logger.debug(`[Facebook] Post created successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
     }
   } catch (error) {
-    console.error('[Facebook] Post creation error:', error)
+    logger.error('[Facebook] Post creation error:', error)
     return {
       id: '',
       success: false,
@@ -446,7 +448,7 @@ async function getFileBuffer(fileId: string, userId: string): Promise<Buffer | n
     const fileResult = await FileStorageService.getFile(fileId, userId)
     
     if (!fileResult) {
-      console.error(`[Facebook] Failed to retrieve file for ID: ${fileId}`)
+      logger.error(`[Facebook] Failed to retrieve file for ID: ${fileId}`)
       return null
     }
 
@@ -454,10 +456,10 @@ async function getFileBuffer(fileId: string, userId: string): Promise<Buffer | n
     const arrayBuffer = await fileResult.file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     
-    console.log(`[Facebook] Successfully retrieved file: ${fileResult.metadata.fileName} (${buffer.length} bytes)`)
+    logger.debug(`[Facebook] Successfully retrieved file: ${fileResult.metadata.fileName} (${buffer.length} bytes)`)
     return buffer
   } catch (error) {
-    console.error('[Facebook] Error getting file buffer:', error)
+    logger.error('[Facebook] Error getting file buffer:', error)
     return null
   }
 }
@@ -471,14 +473,14 @@ export async function uploadMediaToFacebook(
   mediaFileIds: string[],
   userId: string
 ): Promise<string[]> {
-  console.log('[Facebook] Legacy uploadMediaToFacebook called')
+  logger.debug('[Facebook] Legacy uploadMediaToFacebook called')
   
   const mediaIds: string[] = []
   
   for (const fileId of mediaFileIds) {
     const fileBuffer = await getFileBuffer(fileId, userId)
     if (!fileBuffer) {
-      console.error(`[Facebook] Failed to get file buffer for ID: ${fileId}`)
+      logger.error(`[Facebook] Failed to get file buffer for ID: ${fileId}`)
       continue
     }
 

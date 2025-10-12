@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseDiscordFieldHandlerProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -28,11 +30,11 @@ export function useDiscordFieldHandler({
    * Handle guildId (server) changes
    */
   const handleGuildIdChange = useCallback(async (value: any, previousValue?: any) => {
-    console.log('🔍 Discord guildId changed:', { newValue: value, previousValue });
+    logger.debug('🔍 Discord guildId changed:', { newValue: value, previousValue });
     
     // Only clear fields and reset if the value actually changed
     if (value === previousValue) {
-      console.log('📌 Discord guildId unchanged, skipping field operations');
+      logger.debug('📌 Discord guildId unchanged, skipping field operations');
       return;
     }
     
@@ -53,7 +55,7 @@ export function useDiscordFieldHandler({
     if (value) {
       // For triggers, check bot status first before loading any fields
       if (nodeInfo?.type?.startsWith('discord_trigger_')) {
-        console.log('🤖 Checking bot status for trigger, guild:', value);
+        logger.debug('🤖 Checking bot status for trigger, guild:', value);
         discordState?.checkBotStatus(value);
         // Don't set loading states here - let the bot status check trigger the loading
         // The DiscordConfiguration component will handle loading channels when bot is confirmed
@@ -91,7 +93,7 @@ export function useDiscordFieldHandler({
    * Handle channelId changes
    */
   const handleChannelIdChange = useCallback(async (value: any) => {
-    console.log('🔍 Discord channelId changed:', value);
+    logger.debug('🔍 Discord channelId changed:', value);
     
     // Check for dependent fields
     const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
@@ -120,7 +122,7 @@ export function useDiscordFieldHandler({
     }
     
     if (hasAuthorFilter) {
-      console.log('🔄 Clearing authorFilter field due to channelId change');
+      logger.debug('🔄 Clearing authorFilter field due to channelId change');
       setValue('authorFilter', '');
       resetOptions('authorFilter');
       // Don't set loading here - let the actual load handle it
@@ -158,7 +160,7 @@ export function useDiscordFieldHandler({
       
       // Load users for authorFilter if needed (use channelId for member loading)
       if (hasAuthorFilter && value) {
-        console.log('📥 Loading Discord users for channel:', value);
+        logger.debug('📥 Loading Discord users for channel:', value);
         // Ensure we clear any existing loading state first
         setLoadingFields((prev: Set<string>) => {
           const newSet = new Set(prev);
@@ -170,13 +172,13 @@ export function useDiscordFieldHandler({
           // Pass channelId since discord_channel_members requires it
           loadOptions('authorFilter', 'channelId', value, true)
             .then(() => {
-              console.log('✅ Successfully loaded Discord users for authorFilter');
+              logger.debug('✅ Successfully loaded Discord users for authorFilter');
             })
             .catch((error) => {
-              console.error('❌ Failed to load Discord users for authorFilter:', error);
+              logger.error('❌ Failed to load Discord users for authorFilter:', error);
             })
             .finally(() => {
-              console.log('🔄 Clearing loading state for authorFilter');
+              logger.debug('🔄 Clearing loading state for authorFilter');
               setLoadingFields((prev: Set<string>) => {
                 const newSet = new Set(prev);
                 newSet.delete('authorFilter');
@@ -208,7 +210,7 @@ export function useDiscordFieldHandler({
   const handleMessageIdChange = useCallback((value: any) => {
     if (nodeInfo?.type !== 'discord_action_remove_reaction') return;
     
-    console.log('🔍 Discord messageId changed for remove reaction:', value);
+    logger.debug('🔍 Discord messageId changed for remove reaction:', value);
     
     // Clear emoji field
     setValue('emoji', '');

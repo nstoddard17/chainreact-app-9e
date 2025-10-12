@@ -5,6 +5,8 @@ import { processWebhookEvent } from '@/lib/webhooks/processor'
 import { handleDropboxWebhookEvent } from '@/lib/webhooks/dropboxTriggerHandler'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ provider: string }> }
@@ -27,7 +29,7 @@ export async function POST(
     const requestForVerification = request.clone()
     const isValid = await verifyWebhookSignature(requestForVerification, provider)
     if (!isValid) {
-      console.error(`[${requestId}] Invalid ${provider} webhook signature`)
+      logger.error(`[${requestId}] Invalid ${provider} webhook signature`)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -38,7 +40,7 @@ export async function POST(
     try {
       eventData = JSON.parse(body)
     } catch (parseError) {
-      console.error(`[${requestId}] Failed to parse ${provider} webhook body:`, parseError)
+      logger.error(`[${requestId}] Failed to parse ${provider} webhook body:`, parseError)
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
@@ -52,7 +54,7 @@ export async function POST(
     })
 
     if (provider === 'slack' && eventData?.type === 'url_verification' && eventData?.challenge) {
-      console.log(`[${requestId}] Responding to Slack URL verification challenge`);
+      logger.debug(`[${requestId}] Responding to Slack URL verification challenge`);
       return NextResponse.json({ challenge: eventData.challenge })
     }
 
@@ -92,7 +94,7 @@ export async function POST(
     const { eventType, normalizedData, eventId, ignore } = normalizeWebhookEvent(provider, eventData, requestId)
 
     if (ignore) {
-      console.log(`[${requestId}] Ignoring ${provider} event based on normalization rules`, {
+      logger.debug(`[${requestId}] Ignoring ${provider} event based on normalization rules`, {
         provider,
         eventType,
         eventId
@@ -100,7 +102,7 @@ export async function POST(
       return NextResponse.json({ success: true, ignored: true })
     }
 
-    console.log(`[${requestId}] Normalized ${provider} webhook event`, {
+    logger.debug(`[${requestId}] Normalized ${provider} webhook event`, {
       eventType,
       eventId,
       summary: normalizedData && typeof normalizedData === 'object' ? {
@@ -139,7 +141,7 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('Webhook error:', error)
+    logger.error('Webhook error:', error)
     
     // Log error
     await logWebhookEvent({
@@ -161,7 +163,7 @@ export async function HEAD(
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider } = await params
-  console.log(`[Webhook HEAD] Provider: ${provider}`)
+  logger.debug(`[Webhook HEAD] Provider: ${provider}`)
   return new Response(null, {
     status: 200,
     headers: {
@@ -181,11 +183,11 @@ export async function GET(
   const url = new URL(request.url)
   const challenge = url.searchParams.get('challenge')
   
-  console.log(`[Webhook GET] Provider: ${provider}, Challenge: ${challenge}`)
+  logger.debug(`[Webhook GET] Provider: ${provider}, Challenge: ${challenge}`)
   
   // Dropbox webhook verification
   if (provider === 'dropbox' && challenge) {
-    console.log(`[Dropbox] Responding to challenge: ${challenge}`)
+    logger.debug(`[Dropbox] Responding to challenge: ${challenge}`)
     // Return ONLY the challenge string as plain text, nothing else
     return new Response(challenge, {
       status: 200,
@@ -198,13 +200,13 @@ export async function GET(
   
   // Slack webhook verification
   if (provider === 'slack' && challenge) {
-    console.log(`[Slack] Responding to challenge: ${challenge}`)
+    logger.debug(`[Slack] Responding to challenge: ${challenge}`)
     return NextResponse.json({ challenge })
   }
 
   // Trello webhook verification - echo the challenge string
   if (provider === 'trello' && challenge) {
-    console.log(`[Trello] Responding to challenge: ${challenge}`)
+    logger.debug(`[Trello] Responding to challenge: ${challenge}`)
     return new Response(challenge, {
       status: 200,
       headers: {
@@ -256,7 +258,7 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
 
       // Handle reaction_added events
       if (eventTypeFromSlack === 'reaction_added') {
-        console.log(`[${requestId}] Processing Slack reaction_added event`, {
+        logger.debug(`[${requestId}] Processing Slack reaction_added event`, {
           reaction: slackEvent.reaction,
           user: slackEvent.user,
           item: slackEvent.item
@@ -280,7 +282,7 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
 
       // Handle reaction_removed events
       if (eventTypeFromSlack === 'reaction_removed') {
-        console.log(`[${requestId}] Processing Slack reaction_removed event`, {
+        logger.debug(`[${requestId}] Processing Slack reaction_removed event`, {
           reaction: slackEvent.reaction,
           user: slackEvent.user,
           item: slackEvent.item

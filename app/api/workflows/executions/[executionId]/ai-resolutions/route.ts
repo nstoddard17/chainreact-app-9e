@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * GET /api/workflows/executions/[executionId]/ai-resolutions
  * Retrieve AI field resolution history for a specific execution
@@ -28,7 +30,7 @@ export async function GET(
       .order('resolved_at', { ascending: true })
 
     if (error) {
-      console.error('Error fetching AI field resolutions:', error)
+      logger.error('Error fetching AI field resolutions:', error)
       return NextResponse.json(
         { error: 'Failed to fetch AI field resolutions' },
         { status: 500 }
@@ -73,7 +75,7 @@ export async function GET(
       totalTokens: resolutions?.reduce((sum: number, r: any) => sum + (r.tokens_used || 0), 0) || 0
     })
   } catch (error) {
-    console.error('Error in AI resolutions API:', error)
+    logger.error('Error in AI resolutions API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -108,7 +110,7 @@ export async function GET_WORKFLOW(
       .limit(100) // Limit to last 100 resolutions
 
     if (error) {
-      console.error('Error fetching workflow AI resolutions:', error)
+      logger.error('Error fetching workflow AI resolutions:', error)
       return NextResponse.json(
         { error: 'Failed to fetch AI field resolutions' },
         { status: 500 }
@@ -143,7 +145,7 @@ export async function GET_WORKFLOW(
       totalExecutions: Object.keys(executionGroups || {}).length
     })
   } catch (error) {
-    console.error('Error in workflow AI resolutions API:', error)
+    logger.error('Error in workflow AI resolutions API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

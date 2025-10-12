@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -131,7 +133,7 @@ export async function sendSlackMessage(params: ActionParams): Promise<ActionResu
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("Slack send message failed:", error)
+    logger.error("Slack send message failed:", error)
     return {
       success: false,
       error: error.message || "Failed to send Slack message"

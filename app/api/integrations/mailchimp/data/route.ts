@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { mailchimpHandlers } from './handlers'
 import { MailchimpIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Mailchimp API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Mailchimp API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Mailchimp integration not found'
       }, { status: 404 })
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Mailchimp API] Integration not connected:', {
+      logger.error('❌ [Mailchimp API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -54,14 +56,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = mailchimpHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Mailchimp API] Unknown data type:', dataType)
+      logger.error('❌ [Mailchimp API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Mailchimp data type: ${dataType}`,
         availableTypes: Object.keys(mailchimpHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Mailchimp API] Processing request:`, {
+    logger.debug(`🔍 [Mailchimp API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as MailchimpIntegration, options)
 
-    console.log(`✅ [Mailchimp API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Mailchimp API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Mailchimp API] Unexpected error:', {
+    logger.error('❌ [Mailchimp API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

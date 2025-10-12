@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import type { Integration } from "@/types/integration"
 import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegrations"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     cookies()
@@ -45,7 +47,7 @@ export async function GET() {
       !internalIntegrationIds.includes(integration.id)
     )
 
-    console.log(`🔍 Integration Metrics Debug:
+    logger.debug(`🔍 Integration Metrics Debug:
       - Total available integrations: ${availableIntegrations.length}
       - External integrations (excluding internal): ${externalIntegrations.length}
       - Internal integrations filtered out: ${internalIntegrationIds.join(', ')}
@@ -124,7 +126,7 @@ export async function GET() {
       !configuredProviderIds.includes(providerId)
     ).length
     
-    console.log(`🔍 Disconnected Count Debug:
+    logger.debug(`🔍 Disconnected Count Debug:
       - Available external provider IDs: ${availableProviderIds.join(', ')}
       - Configured provider IDs: ${configuredProviderIds.join(', ')}
       - Disconnected count: ${disconnectedCount}
@@ -143,13 +145,13 @@ export async function GET() {
     });
 
     if (expiringForDebug.length > 0) {
-      console.log(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
+      logger.debug(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
     }
 
     // Update expired integrations in the database
     let updatedCount = 0
     if (integrationsToUpdate.length > 0) {
-      console.log(
+      logger.debug(
         `Found ${integrationsToUpdate.length} integrations with outdated status that need updating`,
       )
 
@@ -163,10 +165,10 @@ export async function GET() {
           .eq("id", item.id)
 
         if (updateError) {
-          console.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
+          logger.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
         } else {
           updatedCount++
-          console.log(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
+          logger.debug(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
         }
       }
     }
@@ -182,7 +184,7 @@ export async function GET() {
     } catch (timeoutError: any) {
       clearTimeout(timeoutId)
       if (timeoutError.name === 'AbortError') {
-        console.error("Integration metrics request timeout")
+        logger.error("Integration metrics request timeout")
         return NextResponse.json(
           {
             success: false,
@@ -194,7 +196,7 @@ export async function GET() {
       throw timeoutError
     }
   } catch (error: any) {
-    console.error("Failed to fetch integration metrics:", error)
+    logger.error("Failed to fetch integration metrics:", error)
     return NextResponse.json(
       {
         success: false,

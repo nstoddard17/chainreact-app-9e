@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
+import { logger } from '@/lib/utils/logger'
+
 const reviewSchema = z.object({
   rating: z.number().min(1).max(5),
   review_text: z.string().optional(),
@@ -36,13 +38,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .single()
 
     if (error) {
-      console.error("Error creating review:", error)
+      logger.error("Error creating review:", error)
       return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
     }
 
     return NextResponse.json(review)
   } catch (error) {
-    console.error("Error in POST /api/templates/[id]/reviews:", error)
+    logger.error("Error in POST /api/templates/[id]/reviews:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -62,13 +64,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching reviews:", error)
+      logger.error("Error fetching reviews:", error)
       return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
     }
 
     return NextResponse.json(reviews)
   } catch (error) {
-    console.error("Error in GET /api/templates/[id]/reviews:", error)
+    logger.error("Error in GET /api/templates/[id]/reviews:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

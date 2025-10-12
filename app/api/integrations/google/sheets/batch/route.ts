@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../../data/utils';
 
+import { logger } from '@/lib/utils/logger'
+
 interface BatchExecuteRequest {
   integrationId: string;
   spreadsheetId: string;
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, result });
 
   } catch (error: any) {
-    console.error('❌ [Google Sheets Batch] Error:', error);
+    logger.error('❌ [Google Sheets Batch] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to execute batch Google Sheets operation' },
       { status: 500 }
@@ -189,7 +191,7 @@ async function batchAddRows(
       });
       
       // Continue with next batch even if one fails
-      console.error(`Batch ${i} failed:`, error);
+      logger.error(`Batch ${i} failed:`, error);
     }
   }
 
@@ -309,7 +311,7 @@ async function batchUpdateRows(
           batchSize: batch.length,
           error: error.message
         });
-        console.error(`Batch ${i} failed:`, error);
+        logger.error(`Batch ${i} failed:`, error);
       }
     } else {
       results.push({
@@ -452,7 +454,7 @@ async function batchDeleteRows(
         batchSize: batch.length,
         error: error.message
       });
-      console.error(`Batch ${i} failed:`, error);
+      logger.error(`Batch ${i} failed:`, error);
     }
 
     // Add delay between batches

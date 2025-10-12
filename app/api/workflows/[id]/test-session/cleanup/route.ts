@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Cleanup endpoint for test sessions
  * Designed to work with navigator.sendBeacon (POST only)
@@ -36,7 +38,7 @@ export async function POST(
     // Use service role client to avoid auth issues during page unload
     const supabase = await createSupabaseServiceClient()
 
-    console.log(`🧹 Cleanup request received for session ${sessionId}`)
+    logger.debug(`🧹 Cleanup request received for session ${sessionId}`)
 
     // Verify session exists and belongs to this workflow
     const { data: session } = await supabase
@@ -48,7 +50,7 @@ export async function POST(
       .single()
 
     if (!session) {
-      console.log('Session not found or already cleaned up')
+      logger.debug('Session not found or already cleaned up')
       return NextResponse.json({ success: true })
     }
 
@@ -63,11 +65,11 @@ export async function POST(
     if (workflow?.nodes) {
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
-        console.log('🔄 Deactivating trigger for live test mode...')
+        logger.debug('🔄 Deactivating trigger for live test mode...')
         await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, userId)
-        console.log('✅ Trigger deactivated successfully')
+        logger.debug('✅ Trigger deactivated successfully')
       } catch (error) {
-        console.error('Error deactivating triggers:', error)
+        logger.error('Error deactivating triggers:', error)
         // Continue with cleanup even if deactivation fails
       }
     }
@@ -81,14 +83,14 @@ export async function POST(
       })
       .eq('id', sessionId)
 
-    console.log(`✅ Test session ${sessionId} cleaned up successfully`)
+    logger.debug(`✅ Test session ${sessionId} cleaned up successfully`)
 
     return NextResponse.json({
       success: true,
       message: 'Test session cleaned up',
     })
   } catch (error: any) {
-    console.error('Error during cleanup:', error)
+    logger.error('Error during cleanup:', error)
     // Don't fail during cleanup - best effort
     return NextResponse.json({ success: true })
   }

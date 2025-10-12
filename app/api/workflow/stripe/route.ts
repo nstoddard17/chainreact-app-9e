@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,29 +17,29 @@ export async function POST(
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
     
-    console.log('🔍 Debug - signature:', signature ? 'present' : 'missing')
+    logger.debug('🔍 Debug - signature:', signature ? 'present' : 'missing')
     if (!signature && !isTestMode) {
-      console.error('❌ Missing Stripe signature')
+      logger.error('❌ Missing Stripe signature')
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
     }
 
     // Verify webhook signature
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!webhookSecret) {
-      console.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable')
+      logger.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable')
       return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
     }
 
     // For testing purposes, allow requests without signature verification
     const isTestMode = process.env.NODE_ENV === 'development' || webhookSecret === 'whsec_test_secret_for_testing'
-    console.log('🔍 Debug - NODE_ENV:', process.env.NODE_ENV)
-    console.log('🔍 Debug - webhookSecret:', webhookSecret ? `${webhookSecret.substring(0, 20) }...` : 'undefined')
-    console.log('🔍 Debug - isTestMode:', isTestMode)
+    logger.debug('🔍 Debug - NODE_ENV:', process.env.NODE_ENV)
+    logger.debug('🔍 Debug - webhookSecret:', webhookSecret ? `${webhookSecret.substring(0, 20) }...` : 'undefined')
+    logger.debug('🔍 Debug - isTestMode:', isTestMode)
 
     let event
     try {
       if (isTestMode) {
-        console.log('🧪 Test mode: Skipping signature verification')
+        logger.debug('🧪 Test mode: Skipping signature verification')
         event = JSON.parse(body)
       } else {
         // Parse the signature header
@@ -46,7 +48,7 @@ export async function POST(
         const signatureValue = signatureParts.find(part => part.startsWith('v1='))?.split('=')[1]
         
         if (!timestamp || !signatureValue) {
-          console.error('❌ Invalid signature format')
+          logger.error('❌ Invalid signature format')
           return NextResponse.json({ error: 'Invalid signature format' }, { status: 400 })
         }
 
@@ -59,20 +61,20 @@ export async function POST(
         const expectedSignature = hmac.digest('hex')
         
         if (signatureValue !== expectedSignature) {
-          console.error('❌ Invalid Stripe signature')
-          console.error(`Expected: ${expectedSignature}`)
-          console.error(`Received: ${signatureValue}`)
+          logger.error('❌ Invalid Stripe signature')
+          logger.error(`Expected: ${expectedSignature}`)
+          logger.error(`Received: ${signatureValue}`)
           return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
         }
 
         event = JSON.parse(body)
       }
     } catch (err) {
-      console.error('❌ Error verifying webhook signature:', err)
+      logger.error('❌ Error verifying webhook signature:', err)
       return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 })
     }
 
-    console.log(`🔔 Received Stripe webhook: ${event.type}`)
+    logger.debug(`🔔 Received Stripe webhook: ${event.type}`)
 
     // Log webhook for debugging
     await supabase
@@ -97,7 +99,7 @@ export async function POST(
       .eq('is_active', true)
 
     if (workflowsError) {
-      console.error('❌ Error fetching workflows:', workflowsError)
+      logger.error('❌ Error fetching workflows:', workflowsError)
       return NextResponse.json({ error: 'Failed to fetch workflows' }, { status: 500 })
     }
 
@@ -109,18 +111,18 @@ export async function POST(
           return node.type === triggerType
         })
       } catch (err) {
-        console.error('❌ Error parsing workflow nodes:', err)
+        logger.error('❌ Error parsing workflow nodes:', err)
         return false
       }
     }) || []
 
-    console.log(`📋 Found ${matchingWorkflows.length} matching workflows for event ${event.type}`)
+    logger.debug(`📋 Found ${matchingWorkflows.length} matching workflows for event ${event.type}`)
 
     // Process each matching workflow
     const results = []
     for (const workflow of matchingWorkflows) {
       try {
-        console.log(`🚀 Executing workflow: ${workflow.name} (${workflow.id})`)
+        logger.debug(`🚀 Executing workflow: ${workflow.name} (${workflow.id})`)
         
         // Extract relevant data from the Stripe event
         const eventData = extractStripeEventData(event)
@@ -135,9 +137,9 @@ export async function POST(
           result
         })
 
-        console.log(`✅ Workflow ${workflow.name} executed successfully`)
+        logger.debug(`✅ Workflow ${workflow.name} executed successfully`)
       } catch (error) {
-        console.error(`❌ Error executing workflow ${workflow.name}:`, error)
+        logger.error(`❌ Error executing workflow ${workflow.name}:`, error)
         results.push({
           workflowId: workflow.id,
           workflowName: workflow.name,
@@ -155,7 +157,7 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('❌ Error processing Stripe webhook:', error)
+    logger.error('❌ Error processing Stripe webhook:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -254,7 +256,7 @@ async function executeWorkflow(workflow: any, eventData: any) {
   // 3. Pass the event data to the trigger node
   // 4. Execute subsequent nodes in the workflow
   
-  console.log(`🔄 Executing workflow ${workflow.id} with event data:`, eventData)
+  logger.debug(`🔄 Executing workflow ${workflow.id} with event data:`, eventData)
   
   // For now, just return success
   return {

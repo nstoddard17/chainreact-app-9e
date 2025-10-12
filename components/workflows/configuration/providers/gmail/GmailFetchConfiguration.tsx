@@ -8,6 +8,8 @@ import { ChevronLeft, Search, Settings } from "lucide-react";
 import { FieldRenderer } from '../../fields/FieldRenderer';
 import { AIFieldWrapper } from '../../fields/AIFieldWrapper';
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailFetchConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -56,7 +58,7 @@ export function GmailFetchConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    console.log('🔍 [GmailFetchConfig] handleDynamicLoad called:', { 
+    logger.debug('🔍 [GmailFetchConfig] handleDynamicLoad called:', { 
       fieldName, 
       dependsOn, 
       dependsOnValue,
@@ -65,7 +67,7 @@ export function GmailFetchConfiguration({
     
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
-      console.warn('Field not found in schema:', fieldName);
+      logger.warn('Field not found in schema:', fieldName);
       return;
     }
     
@@ -83,7 +85,7 @@ export function GmailFetchConfiguration({
         await loadOptions(fieldName, undefined, undefined, forceReload);
       }
     } catch (error) {
-      console.error('❌ [GmailFetchConfig] Error loading dynamic options:', error);
+      logger.error('❌ [GmailFetchConfig] Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions]);
 

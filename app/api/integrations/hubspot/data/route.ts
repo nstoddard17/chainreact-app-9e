@@ -8,11 +8,13 @@ import { createClient } from "@supabase/supabase-js"
 import { hubspotHandlers } from './handlers'
 import { HubSpotIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ [HubSpot API] Missing Supabase environment variables')
+  logger.error('❌ [HubSpot API] Missing Supabase environment variables')
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -27,13 +29,13 @@ export async function POST(req: NextRequest) {
       dataType = body.dataType
       options = body.options || {}
       
-      console.log('📥 [HubSpot API] Received request:', {
+      logger.debug('📥 [HubSpot API] Received request:', {
         integrationId,
         dataType,
         options
       })
     } catch (parseError) {
-      console.error('❌ [HubSpot API] Failed to parse request body:', parseError)
+      logger.error('❌ [HubSpot API] Failed to parse request body:', parseError)
       return NextResponse.json({
         error: 'Invalid JSON in request body',
         details: parseError.message
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [HubSpot API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [HubSpot API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'HubSpot integration not found'
       }, { status: 404 })
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [HubSpot API] Integration not connected:', {
+      logger.error('❌ [HubSpot API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -78,14 +80,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = hubspotHandlers[dataType]
     if (!handler) {
-      console.error('❌ [HubSpot API] Unknown data type:', dataType)
+      logger.error('❌ [HubSpot API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown HubSpot data type: ${dataType}`,
         availableTypes: Object.keys(hubspotHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [HubSpot API] Processing request:`, {
+    logger.debug(`🔍 [HubSpot API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
     try {
       data = await handler(integration as HubSpotIntegration, options)
     } catch (handlerError: any) {
-      console.error('❌ [HubSpot API] Handler execution failed:', {
+      logger.error('❌ [HubSpot API] Handler execution failed:', {
         dataType,
         error: handlerError.message,
         stack: handlerError.stack,
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [HubSpot API] Unexpected error:', {
+    logger.error('❌ [HubSpot API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

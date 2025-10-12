@@ -1,5 +1,7 @@
 import { google, drive_v3 } from "googleapis"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function getGoogleDriveFiles(
   accessToken: string,
   folderId?: string,
@@ -32,7 +34,7 @@ export async function getGoogleDriveFiles(
 
     return files
   } catch (error) {
-    console.error("Failed to get Google Drive files:", error)
+    logger.error("Failed to get Google Drive files:", error)
     throw new Error("Failed to get Google Drive files")
   }
 }

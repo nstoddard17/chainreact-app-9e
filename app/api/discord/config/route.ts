@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     const clientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const botToken = process.env.DISCORD_BOT_TOKEN;
     
-    console.log('🔍 Discord config check:', {
+    logger.debug('🔍 Discord config check:', {
       clientId: clientId ? 'Present' : 'Missing',
       botToken: botToken ? 'Present' : 'Missing',
       env_DISCORD_CLIENT_ID: !!process.env.DISCORD_CLIENT_ID,
@@ -47,7 +49,7 @@ export async function GET() {
       hasBotToken: true
     })
   } catch (error) {
-    console.error('Error checking Discord config:', error)
+    logger.error('Error checking Discord config:', error)
     return NextResponse.json(
       { 
         configured: false,

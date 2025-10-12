@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { OpenAI } from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 // Dynamic import for Anthropic SDK (optional dependency)
 let Anthropic: any
 try {
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
     const cacheKey = `${userId}-${fieldType}-${userPrompt.substring(0, 100)}`
     const cached = fieldCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('📦 Returning cached field value')
+      logger.debug('📦 Returning cached field value')
       return NextResponse.json({ value: cached.value })
     }
 
@@ -121,7 +123,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ value })
 
   } catch (error: any) {
-    console.error('Field generation API error:', error)
+    logger.error('Field generation API error:', error)
     return NextResponse.json(
       { error: 'Failed to generate field value' },
       { status: 500 }
@@ -176,7 +178,7 @@ async function generateFieldValue(
         value = content.type === 'text' ? content.text : ''
       } else {
         // Fallback to OpenAI if Anthropic not available
-        console.warn('Anthropic SDK not installed, using OpenAI as fallback for field generation')
+        logger.warn('Anthropic SDK not installed, using OpenAI as fallback for field generation')
         const openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY
         })
@@ -221,7 +223,7 @@ async function generateFieldValue(
     return value
 
   } catch (error: any) {
-    console.error('AI generation error:', error)
+    logger.error('AI generation error:', error)
 
     // Return default value based on field type
     return getDefaultFieldValue(fieldType)

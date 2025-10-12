@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Request Manager
  * Handles request deduplication, abort controllers, and request tracking
@@ -29,7 +31,7 @@ export class RequestManager {
   cancelExistingRequest(cacheKey: string): void {
     const existingController = this.abortControllers.get(cacheKey);
     if (existingController) {
-      console.log('🚫 [RequestManager] Cancelling existing request for:', {
+      logger.debug('🚫 [RequestManager] Cancelling existing request for:', {
         cacheKey,
         oldRequestId: this.activeRequestIds.get(cacheKey)
       });
@@ -97,11 +99,11 @@ export class RequestManager {
    * Cancel all active requests (useful for cleanup)
    */
   cancelAllRequests(): void {
-    console.log('🚫 [RequestManager] Cancelling all active requests');
+    logger.debug('🚫 [RequestManager] Cancelling all active requests');
     
     // Abort all fetch requests
     this.abortControllers.forEach((controller, key) => {
-      console.log('🚫 [RequestManager] Aborting request:', key);
+      logger.debug('🚫 [RequestManager] Aborting request:', key);
       controller.abort();
     });
 
@@ -143,13 +145,13 @@ export class RequestManager {
   ): Promise<T | undefined> {
     // Check if there's already an active request for this key
     if (!forceRefresh && this.hasActiveRequest(cacheKey)) {
-      console.log('🔄 [RequestManager] Waiting for existing request:', cacheKey);
+      logger.debug('🔄 [RequestManager] Waiting for existing request:', cacheKey);
       try {
         await this.getActiveRequest(cacheKey);
         // Request completed, data should be available
         return undefined; // Caller should check cache
       } catch (error) {
-        console.error('🔄 [RequestManager] Existing request failed:', error);
+        logger.error('🔄 [RequestManager] Existing request failed:', error);
         // Continue with new request
       }
     }

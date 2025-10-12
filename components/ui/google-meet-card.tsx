@@ -1,6 +1,8 @@
 import React, { useState } from "react"
 import { Video, Settings, Copy, X, ChevronDown, Users, Lock, Globe } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleMeetCardProps {
   meetUrl?: string
   guestLimit?: number
@@ -27,7 +29,7 @@ export const GoogleMeetCard: React.FC<GoogleMeetCardProps> = ({
         setTimeout(() => setShowCopyNotification(false), 2000)
         onCopy?.()
       } catch (err) {
-        console.error('Failed to copy link:', err)
+        logger.error('Failed to copy link:', err)
       }
     }
   }

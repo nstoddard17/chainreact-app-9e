@@ -5,30 +5,32 @@
 import { DiscordIntegration, DiscordReaction, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
-    console.log("🔍 Discord reactions fetcher called with options:", options)
+    logger.debug("🔍 Discord reactions fetcher called with options:", options)
     const { channelId, messageId } = options
     
     if (!channelId || !messageId) {
-      console.error("❌ Channel ID and Message ID are required for fetching reactions")
+      logger.error("❌ Channel ID and Message ID are required for fetching reactions")
       throw new Error("Channel ID and Message ID are required to fetch Discord reactions")
     }
 
-    console.log("🔍 Fetching reactions for message:", messageId, "in channel:", channelId)
+    logger.debug("🔍 Fetching reactions for message:", messageId, "in channel:", channelId)
 
     // Use bot token for server operations
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not available - returning empty reactions list")
+      logger.warn("Discord bot token not available - returning empty reactions list")
       return []
     }
 
-    console.log("🔍 Bot token available, making Discord API call...")
+    logger.debug("🔍 Bot token available, making Discord API call...")
 
     try {
       // First, get the specific message to see its reactions
-      console.log(`🔍 Making Discord API call to fetch message ${messageId} in channel ${channelId}`)
+      logger.debug(`🔍 Making Discord API call to fetch message ${messageId} in channel ${channelId}`)
       const messageResponse = await fetchDiscordWithRateLimit<any>(() => 
         fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
           headers: {
@@ -38,7 +40,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
         })
       )
 
-      console.log("🔍 Discord API response received:", {
+      logger.debug("🔍 Discord API response received:", {
         hasMessage: !!messageResponse,
         hasReactions: !!(messageResponse && messageResponse.reactions),
         reactionsCount: messageResponse?.reactions?.length || 0,
@@ -46,7 +48,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       })
 
       if (!messageResponse || !messageResponse.reactions) {
-        console.log("🔍 No reactions found on this message")
+        logger.debug("🔍 No reactions found on this message")
         return []
       }
 
@@ -73,15 +75,15 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
         }
       })
 
-      console.log("🔍 Processed reactions:", reactions.length)
+      logger.debug("🔍 Processed reactions:", reactions.length)
       if (reactions.length === 0) {
-        console.log("🔍 No reactions found - this is normal if the message has no reactions")
+        logger.debug("🔍 No reactions found - this is normal if the message has no reactions")
       } else {
-        console.log("🔍 Found reactions:", reactions.map((r: any) => `${r.emoji} (${r.count})`))
+        logger.debug("🔍 Found reactions:", reactions.map((r: any) => `${r.emoji} (${r.count})`))
       }
       return reactions
     } catch (error: any) {
-      console.error("🔍 Discord API error:", error.message)
+      logger.error("🔍 Discord API error:", error.message)
       // Handle specific Discord API errors
       if (error.message.includes("401")) {
         throw new Error("Discord authentication failed. Please reconnect your Discord account.")
@@ -91,13 +93,13 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       }
       if (error.message.includes("404")) {
         // Message not found - return empty array instead of throwing error
-        console.log(`Message ${messageId} not found - returning empty reactions list`)
+        logger.debug(`Message ${messageId} not found - returning empty reactions list`)
         return []
       }
       throw error
     }
   } catch (error: any) {
-    console.error("Error fetching Discord reactions:", error)
+    logger.error("Error fetching Discord reactions:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

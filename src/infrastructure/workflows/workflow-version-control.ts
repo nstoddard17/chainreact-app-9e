@@ -3,6 +3,8 @@ import { createHash } from 'crypto'
 import { WorkflowDefinition, WorkflowStatus } from './workflow-engine'
 import { auditLogger, AuditEventType } from '../security/audit-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Version change type
  */
@@ -235,7 +237,7 @@ export class WorkflowVersionControl extends EventEmitter {
 
   constructor() {
     super()
-    console.log('📋 Workflow version control initialized')
+    logger.debug('📋 Workflow version control initialized')
   }
 
   /**
@@ -341,7 +343,7 @@ export class WorkflowVersionControl extends EventEmitter {
     })
 
     this.emit('versionCreated', version)
-    console.log(`📝 Version created: ${workflowDefinition.name} v${nextVersion}`)
+    logger.debug(`📝 Version created: ${workflowDefinition.name} v${nextVersion}`)
 
     return version
   }
@@ -431,7 +433,7 @@ export class WorkflowVersionControl extends EventEmitter {
       })
 
       this.emit('versionPublished', versionRecord, result)
-      console.log(`🚀 Version published: ${versionRecord.definition.name} v${version}`)
+      logger.debug(`🚀 Version published: ${versionRecord.definition.name} v${version}`)
 
       return result
 
@@ -541,7 +543,7 @@ export class WorkflowVersionControl extends EventEmitter {
       })
 
       this.emit('workflowRolledBack', currentVersion, targetVersion, result)
-      console.log(`⏪ Workflow rolled back: ${targetVersion.definition.name} v${currentVersion.version} -> v${options.targetVersion}`)
+      logger.debug(`⏪ Workflow rolled back: ${targetVersion.definition.name} v${currentVersion.version} -> v${options.targetVersion}`)
 
       return result
 
@@ -603,7 +605,7 @@ export class WorkflowVersionControl extends EventEmitter {
     })
 
     this.emit('versionApproved', change, approver)
-    console.log(`✅ Version approved: ${workflowId} v${version} by ${approver}`)
+    logger.debug(`✅ Version approved: ${workflowId} v${version} by ${approver}`)
 
     return true
   }
@@ -881,7 +883,7 @@ export class WorkflowVersionControl extends EventEmitter {
   private async deployImmediate(version: WorkflowVersion): Promise<void> {
     // Replace current version immediately
     // In production, this would update the workflow engine's active workflows
-    console.log(`🚀 Immediate deployment: ${version.definition.name} v${version.version}`)
+    logger.debug(`🚀 Immediate deployment: ${version.definition.name} v${version.version}`)
   }
 
   /**
@@ -889,7 +891,7 @@ export class WorkflowVersionControl extends EventEmitter {
    */
   private async deployBlueGreen(version: WorkflowVersion): Promise<void> {
     // Deploy to "green" environment, then switch traffic
-    console.log(`🔵🟢 Blue-green deployment: ${version.definition.name} v${version.version}`)
+    logger.debug(`🔵🟢 Blue-green deployment: ${version.definition.name} v${version.version}`)
   }
 
   /**
@@ -897,7 +899,7 @@ export class WorkflowVersionControl extends EventEmitter {
    */
   private async deployCanary(version: WorkflowVersion): Promise<void> {
     // Deploy to small subset of traffic first
-    console.log(`🐦 Canary deployment: ${version.definition.name} v${version.version}`)
+    logger.debug(`🐦 Canary deployment: ${version.definition.name} v${version.version}`)
   }
 
   /**
@@ -905,7 +907,7 @@ export class WorkflowVersionControl extends EventEmitter {
    */
   private async deployRolling(version: WorkflowVersion): Promise<void> {
     // Gradually replace instances
-    console.log(`🔄 Rolling deployment: ${version.definition.name} v${version.version}`)
+    logger.debug(`🔄 Rolling deployment: ${version.definition.name} v${version.version}`)
   }
 
   /**
@@ -949,7 +951,7 @@ export class WorkflowVersionControl extends EventEmitter {
    */
   private async createBackup(version: WorkflowVersion): Promise<void> {
     // Create backup - in production, this would store to external storage
-    console.log(`💾 Backup created for: ${version.definition.name} v${version.version}`)
+    logger.debug(`💾 Backup created for: ${version.definition.name} v${version.version}`)
   }
 
   /**
@@ -957,7 +959,7 @@ export class WorkflowVersionControl extends EventEmitter {
    */
   private async executeValidationStep(step: string, version: WorkflowVersion): Promise<void> {
     // Execute custom validation step
-    console.log(`✅ Validation step executed: ${step}`)
+    logger.debug(`✅ Validation step executed: ${step}`)
   }
 
   /**
@@ -1064,7 +1066,7 @@ export class WorkflowVersionControl extends EventEmitter {
     }
 
     if (cleanedUp > 0) {
-      console.log(`🧹 Version control cleanup: ${cleanedUp} versions archived`)
+      logger.debug(`🧹 Version control cleanup: ${cleanedUp} versions archived`)
     }
   }
 
@@ -1076,7 +1078,7 @@ export class WorkflowVersionControl extends EventEmitter {
     this.changes.clear()
     this.activeVersions.clear()
     this.removeAllListeners()
-    console.log('🛑 Workflow version control shutdown')
+    logger.debug('🛑 Workflow version control shutdown')
   }
 }
 

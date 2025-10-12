@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -8,8 +10,8 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('\n🔍 CHECKING MAIL WEBHOOK STATUS')
-    console.log('================================\n')
+    logger.debug('\n🔍 CHECKING MAIL WEBHOOK STATUS')
+    logger.debug('================================\n')
 
     // Check webhook queue for mail events
     const { data: queueItems } = await supabase
@@ -19,9 +21,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    console.log('📧 Mail webhook queue items:', queueItems?.length || 0)
+    logger.debug('📧 Mail webhook queue items:', queueItems?.length || 0)
     if (queueItems && queueItems.length > 0) {
-      console.log('📧 Latest mail webhook:', {
+      logger.debug('📧 Latest mail webhook:', {
         id: queueItems[0].id,
         resource: queueItems[0].resource,
         changeType: queueItems[0].change_type,
@@ -38,9 +40,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    console.log('📧 Mail events found:', mailEvents?.length || 0)
+    logger.debug('📧 Mail events found:', mailEvents?.length || 0)
     if (mailEvents && mailEvents.length > 0) {
-      console.log('📧 Latest mail event:', {
+      logger.debug('📧 Latest mail event:', {
         id: mailEvents[0].id,
         type: mailEvents[0].event_type,
         action: mailEvents[0].event_action,
@@ -58,9 +60,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(5)
 
-    console.log('📝 Active subscriptions:', subscriptions?.length || 0)
+    logger.debug('📝 Active subscriptions:', subscriptions?.length || 0)
     if (subscriptions && subscriptions.length > 0) {
-      console.log('📝 Latest subscription:', {
+      logger.debug('📝 Latest subscription:', {
         id: `${subscriptions[0].id.substring(0, 8) }...`,
         userId: `${subscriptions[0].user_id?.substring(0, 8) }...`,
         status: subscriptions[0].status,
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Mail webhook check error:', error)
+    logger.error('❌ Mail webhook check error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

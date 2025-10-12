@@ -17,6 +17,8 @@ import {
 } from '../../../lib/workflows/actions/facebook'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class FacebookAdapter implements SocialProvider {
   readonly providerId = 'facebook'
   readonly capabilities: CapabilityDescriptor = {
@@ -177,11 +179,11 @@ export class FacebookAdapter implements SocialProvider {
     try {
       // Facebook mentions would require webhook subscriptions or page mention monitoring
       // This is a placeholder implementation
-      console.warn('Facebook mentions require webhook setup or specific page access')
+      logger.warn('Facebook mentions require webhook setup or specific page access')
       
       return []
     } catch (error: any) {
-      console.error('Failed to get Facebook mentions:', error)
+      logger.error('Failed to get Facebook mentions:', error)
       return []
     }
   }

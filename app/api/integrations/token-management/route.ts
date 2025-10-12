@@ -5,6 +5,8 @@ import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
 
+import { logger } from '@/lib/utils/logger'
+
 const getSupabase = async () => {
   cookies()
   return await createSupabaseServerClient()
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
     )
 
     if (error) {
-      console.error("Failed to save API key:", error)
+      logger.error("Failed to save API key:", error)
       return NextResponse.json({ error: error.message || JSON.stringify(error) || "Failed to save API key" }, { status: 500 })
     }
 
@@ -70,12 +72,12 @@ export async function POST(request: NextRequest) {
         { method: "api_key" }
       )
     } catch (auditError) {
-      console.warn("Failed to log API key connection:", auditError)
+      logger.warn("Failed to log API key connection:", auditError)
     }
 
     return NextResponse.json({ success: true, message: `${provider} API key saved.` })
   } catch (error: any) {
-    console.error("API Key Management Error (POST):", error)
+    logger.error("API Key Management Error (POST):", error)
     return NextResponse.json({ error: error.message || JSON.stringify(error) || "Internal Server Error" }, { status: 500 })
   }
 }
@@ -105,13 +107,13 @@ export async function DELETE(request: NextRequest) {
       .match({ user_id: user.id, provider: provider })
 
     if (error) {
-      console.error("Failed to delete API key:", error)
+      logger.error("Failed to delete API key:", error)
       return NextResponse.json({ error: "Failed to delete API key" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, message: `${provider} API key removed.` })
   } catch (error: any) {
-    console.error("API Key Management Error (DELETE):", error)
+    logger.error("API Key Management Error (DELETE):", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -149,7 +151,7 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (fetchError || !integration) {
-      console.error("Failed to fetch integration:", fetchError)
+      logger.error("Failed to fetch integration:", fetchError)
       return NextResponse.json({ error: "Integration not found" }, { status: 404 })
     }
 
@@ -165,7 +167,7 @@ export async function PUT(request: NextRequest) {
       .eq("user_id", user.id)
 
     if (updateError) {
-      console.error("Failed to update integration for reconnection:", updateError)
+      logger.error("Failed to update integration for reconnection:", updateError)
       return NextResponse.json({ error: "Failed to reconnect integration" }, { status: 500 })
     }
 
@@ -179,7 +181,7 @@ export async function PUT(request: NextRequest) {
         { reason: "Manual reconnection requested" }
       )
     } catch (auditError) {
-      console.warn("Failed to log reconnection request:", auditError)
+      logger.warn("Failed to log reconnection request:", auditError)
     }
 
     return NextResponse.json({ 
@@ -187,7 +189,7 @@ export async function PUT(request: NextRequest) {
       message: `${integration.provider} integration marked for reconnection.` 
     })
   } catch (error: any) {
-    console.error("Integration Reconnection Error (PUT):", error)
+    logger.error("Integration Reconnection Error (PUT):", error)
     return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
   }
 }

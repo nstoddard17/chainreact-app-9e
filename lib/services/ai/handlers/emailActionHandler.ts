@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class EmailActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -37,7 +39,7 @@ export class EmailActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Email query "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Email query error:", error)
+      logger.error("❌ Email query error:", error)
       return this.getErrorResponse("Failed to fetch emails. Please try again.")
     }
   }
@@ -72,7 +74,7 @@ export class EmailActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Email action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Email action error:", error)
+      logger.error("❌ Email action error:", error)
       return this.getErrorResponse("Failed to perform email action. Please try again.")
     }
   }

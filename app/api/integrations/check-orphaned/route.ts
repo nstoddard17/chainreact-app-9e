@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -73,7 +75,7 @@ export async function POST() {
     })
     
   } catch (error: any) {
-    console.error("Check orphaned error:", error)
+    logger.error("Check orphaned error:", error)
     // Don't fail the check, just return false
     return NextResponse.json({
       hasOrphaned: false,

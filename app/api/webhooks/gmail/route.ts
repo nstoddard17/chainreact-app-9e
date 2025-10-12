@@ -4,18 +4,20 @@ import { verifyGmailWebhook } from '@/lib/webhooks/gmail-verification'
 import { processGmailEvent } from '@/lib/webhooks/gmail-processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
-  console.log('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
+  logger.debug('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
 
   // Log headers to debug
   const headers = Object.fromEntries(request.headers.entries())
-  console.log('📋 Request headers:', headers)
+  logger.debug('📋 Request headers:', headers)
 
   try {
     const startTime = Date.now()
     const requestId = crypto.randomUUID()
 
-    console.log(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
+    logger.debug(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
 
     // Log incoming webhook
     await logWebhookEvent({
@@ -28,11 +30,11 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.text()
-    console.log(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
+    logger.debug(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
 
     // Check if body is empty or invalid
     if (!body || body.trim() === '') {
-      console.warn(`⚠️ [${requestId}] Empty request body received, possibly aborted connection`)
+      logger.warn(`⚠️ [${requestId}] Empty request body received, possibly aborted connection`)
       return new Response('OK', { status: 200 }) // Return OK to acknowledge receipt
     }
 
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const parsedBody = JSON.parse(body)
-      console.log(`📦 [${requestId}] Parsed body structure:`, {
+      logger.debug(`📦 [${requestId}] Parsed body structure:`, {
         hasMessage: !!parsedBody.message,
         hasMessageData: !!parsedBody.message?.data,
         messageKeys: parsedBody.message ? Object.keys(parsedBody.message) : [],
@@ -49,11 +51,11 @@ export async function POST(request: NextRequest) {
 
       // Check if this is a Pub/Sub message
       if (parsedBody.message && parsedBody.message.data) {
-        console.log(`[${requestId}] Received Pub/Sub message from Gmail`)
+        logger.debug(`[${requestId}] Received Pub/Sub message from Gmail`)
 
         // Decode the Pub/Sub message data (base64 encoded)
         const decodedData = Buffer.from(parsedBody.message.data, 'base64').toString()
-        console.log(`🔓 [${requestId}] Decoded Pub/Sub data:`, decodedData)
+        logger.debug(`🔓 [${requestId}] Decoded Pub/Sub data:`, decodedData)
 
         const gmailNotification = JSON.parse(decodedData)
 
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
           publishTime: parsedBody.message.publishTime
         }
 
-        console.log(`[${requestId}] 📧 Gmail notification received:`, {
+        logger.debug(`[${requestId}] 📧 Gmail notification received:`, {
           emailAddress: eventData.emailAddress,
           historyId: eventData.historyId,
           messageId: parsedBody.message.messageId,
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
         })
 
         // SECURITY: Don't log email addresses (PII)
-        console.log(`[${requestId}] 🔍 Processing Gmail webhook, historyId: ${eventData.historyId}`)
+        logger.debug(`[${requestId}] 🔍 Processing Gmail webhook, historyId: ${eventData.historyId}`)
       } else {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody
@@ -82,19 +84,19 @@ export async function POST(request: NextRequest) {
     } catch (parseError: any) {
       // Handle specific JSON parsing errors
       if (parseError instanceof SyntaxError) {
-        console.error(`[${requestId}] JSON parsing error:`, parseError.message)
-        console.error(`[${requestId}] Body that failed to parse:`, body.substring(0, 100))
+        logger.error(`[${requestId}] JSON parsing error:`, parseError.message)
+        logger.error(`[${requestId}] Body that failed to parse:`, body.substring(0, 100))
 
         // Check if this might be a connection reset issue
         if (body.length === 0) {
-          console.warn(`[${requestId}] Received empty body, likely due to connection reset`)
+          logger.warn(`[${requestId}] Received empty body, likely due to connection reset`)
           return new Response('OK', { status: 200 })
         }
 
         return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
       }
 
-      console.error(`[${requestId}] Unexpected error parsing Gmail webhook:`, parseError)
+      logger.error(`[${requestId}] Unexpected error parsing Gmail webhook:`, parseError)
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
     }
 
@@ -139,12 +141,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     // Handle connection reset errors gracefully
     if (error.code === 'ECONNRESET' || error.message?.includes('aborted')) {
-      console.warn(`⚠️ [${requestId}] Connection reset/aborted during webhook processing`)
+      logger.warn(`⚠️ [${requestId}] Connection reset/aborted during webhook processing`)
       // Return OK to prevent retries for connection issues
       return new Response('OK', { status: 200 })
     }
 
-    console.error(`❌ [${requestId}] Gmail webhook error:`, error)
+    logger.error(`❌ [${requestId}] Gmail webhook error:`, error)
 
     // Log error
     await logWebhookEvent({
@@ -165,11 +167,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
 
-  console.log('🔍 Gmail webhook GET request received, token:', token)
+  logger.debug('🔍 Gmail webhook GET request received, token:', token)
 
   // If this is a verification request from Google, echo back the challenge token
   if (token) {
-    console.log('✅ Responding to Google Pub/Sub verification with token:', token)
+    logger.debug('✅ Responding to Google Pub/Sub verification with token:', token)
     return new Response(token, { status: 200 })
   }
 

@@ -4,6 +4,8 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils
 import { getOutlookEnhancedRecipients } from "./handlers/enhanced-recipients"
 import { getOutlookCalendars } from "./handlers/calendars"
 
+import { logger } from '@/lib/utils/logger'
+
 interface OutlookOptions {
   search?: string
 }
@@ -103,7 +105,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (integrationError || !integration) {
-      console.error('[Outlook Data API] No connected integration found:', integrationError)
+      logger.error('[Outlook Data API] No connected integration found:', integrationError)
       return NextResponse.json(
         { error: 'No connected Microsoft Outlook integration found' },
         { status: 404 }
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
     const data = await buildResponse(dataType, integration, { search })
     return NextResponse.json({ data })
   } catch (error: any) {
-    console.error('[Outlook Data API] Error:', error)
+    logger.error('[Outlook Data API] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch Outlook data' },
       { status: 500 }
@@ -147,7 +149,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (integrationError || !integration) {
-      console.error('[Outlook Data API] No connected integration found for POST:', integrationError)
+      logger.error('[Outlook Data API] No connected integration found for POST:', integrationError)
       return NextResponse.json(
         { error: 'No connected Microsoft Outlook integration found' },
         { status: 404 }
@@ -157,7 +159,7 @@ export async function POST(request: NextRequest) {
     const data = await buildResponse(dataType, integration, options)
     return NextResponse.json({ data })
   } catch (error: any) {
-    console.error('[Outlook Data API] POST error:', error)
+    logger.error('[Outlook Data API] POST error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch Outlook data' },
       { status: 500 }

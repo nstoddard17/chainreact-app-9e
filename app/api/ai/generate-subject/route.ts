@@ -3,6 +3,8 @@ import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -81,7 +83,7 @@ Respond with ONLY the subject line, no additional text.`
     })
     
   } catch (error: any) {
-    console.error("AI subject generation error:", error)
+    logger.error("AI subject generation error:", error)
     return NextResponse.json({ 
       error: "Failed to generate subject line" 
     }, { status: 500 })

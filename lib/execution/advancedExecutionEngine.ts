@@ -4,6 +4,8 @@ import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variab
 import { ExecutionProgressTracker } from "./executionProgressTracker"
 import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backendLogger"
 
+import { logger } from '@/lib/utils/logger'
+
 // Helper to safely clone data and remove circular references
 function safeClone(obj: any, seen = new WeakSet()): any {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -113,7 +115,7 @@ export class AdvancedExecutionEngine {
       startNodeId: options.startNodeId,
       inputKeys: Object.keys(inputData || {})
     }
-    console.log('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
+    logger.debug('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
     logInfo(sessionId, 'AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
 
     // Log to backend logger for debug modal
@@ -126,7 +128,7 @@ export class AdvancedExecutionEngine {
 
     // Check if session is already running to prevent duplicate executions
     if (session.status === "running") {
-      console.log(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
+      logger.debug(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
       logWarning(sessionId, 'Session already running, skipping duplicate execution')
       return { success: false, message: "Session already running" }
     }
@@ -176,7 +178,7 @@ export class AdvancedExecutionEngine {
         sessionId,
         workflowId: session.workflow_id
       }
-      console.log('✅ AdvancedExecutionEngine execution completed', completionInfo)
+      logger.debug('✅ AdvancedExecutionEngine execution completed', completionInfo)
       logSuccess(sessionId, 'AdvancedExecutionEngine execution completed', completionInfo)
       return result
     } catch (error) {
@@ -310,7 +312,7 @@ export class AdvancedExecutionEngine {
 
     // For now, disable parallel processing to prevent duplicate executions
     // Only execute the main workflow path to avoid duplicate emails
-    console.log(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
+    logger.debug(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
     logInfo(context.session.id, 'Executing workflow - main path only (parallel processing disabled)', { workflowId: workflow.id })
 
     // Execute main workflow path only
@@ -321,7 +323,7 @@ export class AdvancedExecutionEngine {
       sessionId: session.id,
       workflowId: workflow.id
     }
-    console.log('✅ Main workflow path finished', mainPathInfo)
+    logger.debug('✅ Main workflow path finished', mainPathInfo)
     logSuccess(context.session.id, 'Main workflow path finished', mainPathInfo)
 
     return results
@@ -688,7 +690,7 @@ export class AdvancedExecutionEngine {
       connectionCount: Array.isArray(connections) ? connections.length : 0,
       hasStartNodeOverride: Boolean(startNodeId)
     }
-    console.log('🧱 executeMainWorkflowPath', pathInfo)
+    logger.debug('🧱 executeMainWorkflowPath', pathInfo)
     logInfo(sessionId, 'executeMainWorkflowPath', pathInfo)
 
     const executionQueue: any[] = [];
@@ -708,7 +710,7 @@ export class AdvancedExecutionEngine {
         throw new Error("No trigger node found in the workflow.");
       }
       
-      console.log(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
+      logger.debug(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
       logInfo(sessionId, `Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
       
       // Execute the trigger first to pass through data
@@ -727,7 +729,7 @@ export class AdvancedExecutionEngine {
       const initialConnections = connections.filter((c: any) => c.source === triggerNode.id);
       const firstActionNodes = initialConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
       
-      console.log(`🎯 Found ${firstActionNodes.length} action node(s) connected to trigger`)
+      logger.debug(`🎯 Found ${firstActionNodes.length} action node(s) connected to trigger`)
       logInfo(sessionId, `Found ${firstActionNodes.length} action node(s) connected to trigger`)
       executionQueue.push(...firstActionNodes);
     }
@@ -737,12 +739,12 @@ export class AdvancedExecutionEngine {
       
       // Skip if node has already been executed to prevent duplicates
       if (executedNodeIds.has(currentNode.id)) {
-        console.log(`🔄 Skipping already executed node: ${currentNode.id}`);
+        logger.debug(`🔄 Skipping already executed node: ${currentNode.id}`);
         logInfo(sessionId, `Skipping already executed node: ${currentNode.id}`);
         continue;
       }
 
-      console.log(`🎯 Executing node: ${currentNode.id} (${currentNode.data.type})`);
+      logger.debug(`🎯 Executing node: ${currentNode.id} (${currentNode.data.type})`);
       logInfo(sessionId, `Executing node: ${currentNode.id} (${currentNode.data.type})`);
 
       // Create a clean context for the node execution
@@ -799,7 +801,7 @@ export class AdvancedExecutionEngine {
           });
 
           if (filteredConnections.length === 0) {
-            console.warn(`⚠️ AI Router node ${currentNode.id} returned paths with no matching connections`, {
+            logger.warn(`⚠️ AI Router node ${currentNode.id} returned paths with no matching connections`, {
               selectedPaths,
               availableHandles: nextConnections.map((c: any) => c.sourceHandle),
             });
@@ -808,7 +810,7 @@ export class AdvancedExecutionEngine {
               availableHandles: nextConnections.map((c: any) => c.sourceHandle),
             });
           } else {
-            console.log(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
+            logger.debug(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
             logInfo(sessionId, `AI Router selected paths`, {
               nodeId: currentNode.id,
               selectedPaths,
@@ -816,7 +818,7 @@ export class AdvancedExecutionEngine {
             nextConnections = filteredConnections;
           }
         } else {
-          console.warn(`⚠️ AI Router node ${currentNode.id} did not return any selected paths`);
+          logger.warn(`⚠️ AI Router node ${currentNode.id} did not return any selected paths`);
           logWarning(sessionId, `AI Router node ${currentNode.id} did not return any selected paths`);
           nextConnections = [];
         }
@@ -827,7 +829,7 @@ export class AdvancedExecutionEngine {
       // Add next nodes to queue only if they haven't been executed and aren't already in queue
       for (const nextNode of nextNodes) {
         if (!executedNodeIds.has(nextNode.id) && !executionQueue.some(queuedNode => queuedNode.id === nextNode.id)) {
-          console.log(`➡️ Adding node to queue: ${nextNode.id}`);
+          logger.debug(`➡️ Adding node to queue: ${nextNode.id}`);
           logInfo(sessionId, `Adding node to queue: ${nextNode.id}`);
           executionQueue.push(nextNode);
         }
@@ -854,13 +856,13 @@ export class AdvancedExecutionEngine {
         .maybeSingle()
 
       if (existingNodeExecution) {
-        console.log(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
+        logger.debug(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
         logInfo(context.session.id, `Node ${node.id} already executed in session ${context.session.id}, skipping`)
         return context.data
       }
 
       await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type })
-      console.log(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
+      logger.debug(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
       logInfo(context.session.id, `Executing node via delegated handler: ${node.id} (${node.data.type})`)
 
       // Log to backend logger
@@ -898,7 +900,7 @@ export class AdvancedExecutionEngine {
 
       // Log specific node details for debugging
       if (node.id.includes('slack')) {
-        console.log(`📧 Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
+        logger.debug(`📧 Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
         logInfo(context.session.id, `Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
       }
 
@@ -926,9 +928,9 @@ export class AdvancedExecutionEngine {
           result: actionResult.output || { success: actionResult.success }
         })
       } catch (logError) {
-        console.error('Error logging execution event:', logError)
+        logger.error('Error logging execution event:', logError)
       }
-      console.log(`✅ Node completed: ${node.id}`)
+      logger.debug(`✅ Node completed: ${node.id}`)
       logSuccess(context.session.id, `Node completed: ${node.id}`)
 
       // Log successful node execution
@@ -944,7 +946,7 @@ export class AdvancedExecutionEngine {
 
       return result
     } catch (error) {
-      console.error(`❌ Node failed: ${node.id}`, error)
+      logger.error(`❌ Node failed: ${node.id}`, error)
 
       // Log error to backend logger
       logError(context.session.id, `Node failed: ${node.data?.title || node.data?.type}`, {
@@ -1010,7 +1012,7 @@ export class AdvancedExecutionEngine {
     // Get workflow_id from session
     const session = await this.getExecutionSession(sessionId)
     if (!session) {
-      console.error("Cannot log execution event: session not found")
+      logger.error("Cannot log execution event: session not found")
       return
     }
 

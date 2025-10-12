@@ -4,6 +4,8 @@
 
 import { BoxApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Box API error with proper context
  */
@@ -81,7 +83,7 @@ export function getBoxApiHeaders(accessToken: string): Record<string, string> {
 export async function parseBoxApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
-    console.error(`❌ Box API error: ${response.status}`, errorData)
+    logger.error(`❌ Box API error: ${response.status}`, errorData)
     
     throw createBoxApiError(
       `Box API error: ${response.status}`,

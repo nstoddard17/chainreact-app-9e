@@ -2,6 +2,8 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { ExecutionContext } from "../workflowExecutionService"
 import { AIActionsService } from "../aiActionsService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class ActionNodeHandlers {
   private aiActionsService: AIActionsService
 
@@ -64,7 +66,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeFilter(node: any, context: ExecutionContext) {
-    console.log("🔍 Executing filter node")
+    logger.debug("🔍 Executing filter node")
     
     const condition = node.data.config?.condition || "true"
     const result = this.evaluateExpression(condition, context)
@@ -78,7 +80,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeDelay(node: any, context: ExecutionContext) {
-    console.log("⏳ Executing delay node")
+    logger.debug("⏳ Executing delay node")
     
     const delayMs = Number(node.data.config?.delay || 1000)
     
@@ -94,7 +96,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeConditional(node: any, context: ExecutionContext) {
-    console.log("❓ Executing conditional node")
+    logger.debug("❓ Executing conditional node")
     
     // TODO: Implement conditional logic
     return {
@@ -105,7 +107,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeCustomScript(node: any, context: ExecutionContext) {
-    console.log("📜 Executing custom script node")
+    logger.debug("📜 Executing custom script node")
     
     // TODO: Implement custom script logic
     return {
@@ -121,7 +123,7 @@ export class ActionNodeHandlers {
     connections: any[], 
     context: ExecutionContext
   ) {
-    console.log("🔄 Executing loop node")
+    logger.debug("🔄 Executing loop node")
     
     const arrayPath = node.data.config?.array_path || "data.items"
     const itemVariable = node.data.config?.item_variable || "item"
@@ -168,7 +170,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeVariableSet(node: any, context: ExecutionContext) {
-    console.log("📝 Executing variable set node")
+    logger.debug("📝 Executing variable set node")
     
     const variableName = node.data.config?.variable_name
     const value = this.evaluateExpression(node.data.config?.value || "", context)
@@ -201,7 +203,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeVariableGet(node: any, context: ExecutionContext) {
-    console.log("📖 Executing variable get node")
+    logger.debug("📖 Executing variable get node")
     
     const variableName = node.data.config?.variable_name
     const defaultValue = node.data.config?.default_value
@@ -221,7 +223,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeIfCondition(node: any, context: ExecutionContext) {
-    console.log("🤔 Executing if condition node")
+    logger.debug("🤔 Executing if condition node")
     
     const condition = node.data.config?.condition || "true"
     const result = this.evaluateExpression(condition, context)
@@ -235,7 +237,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeSwitchCase(node: any, context: ExecutionContext) {
-    console.log("🔀 Executing switch case node")
+    logger.debug("🔀 Executing switch case node")
     
     const switchValue = this.evaluateExpression(node.data.config?.switch_value || "", context)
     const cases = node.data.config?.cases || []
@@ -249,7 +251,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeDataTransform(node: any, context: ExecutionContext) {
-    console.log("🔄 Executing data transform node")
+    logger.debug("🔄 Executing data transform node")
     
     const transformType = node.data.config?.transform_type || "map"
     const transformConfig = node.data.config?.transform_config || {}
@@ -263,7 +265,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeTemplate(node: any, context: ExecutionContext) {
-    console.log("📄 Executing template node")
+    logger.debug("📄 Executing template node")
     
     const template = node.data.config?.template || ""
     const rendered = this.renderTemplate(template, context)
@@ -277,7 +279,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeJavaScript(node: any, context: ExecutionContext) {
-    console.log("⚡ Executing JavaScript node")
+    logger.debug("⚡ Executing JavaScript node")
     
     const script = node.data.config?.script || ""
     
@@ -302,7 +304,7 @@ export class ActionNodeHandlers {
     connections: any[], 
     context: ExecutionContext
   ) {
-    console.log("🛡️ Executing try-catch node")
+    logger.debug("🛡️ Executing try-catch node")
     
     // TODO: Implement try-catch logic with proper error handling
     return {
@@ -318,7 +320,7 @@ export class ActionNodeHandlers {
     connections: any[], 
     context: ExecutionContext
   ) {
-    console.log("🔄 Executing retry node")
+    logger.debug("🔄 Executing retry node")
     
     const maxRetries = Number(node.data.config?.max_retries || 3)
     const retryDelay = Number(node.data.config?.retry_delay || 1000)
@@ -338,7 +340,7 @@ export class ActionNodeHandlers {
       // Simple expression evaluation - in production, use a proper expression parser
       return eval(`(function(data, variables) { return ${expression}; })`)(context.data, context.variables)
     } catch (error) {
-      console.warn(`Expression evaluation failed: ${expression}`, error)
+      logger.warn(`Expression evaluation failed: ${expression}`, error)
       return null
     }
   }
@@ -351,7 +353,7 @@ export class ActionNodeHandlers {
         return value !== null ? String(value) : match
       })
     } catch (error) {
-      console.warn(`Template rendering failed: ${template}`, error)
+      logger.warn(`Template rendering failed: ${template}`, error)
       return template
     }
   }

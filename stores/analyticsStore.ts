@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { apiClient } from "@/lib/apiClient"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Execution {
   id: string
   status: "pending" | "running" | "success" | "error"
@@ -55,7 +57,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const response = await apiClient.get<any>("/api/analytics/metrics")
 
       if (!response.success) {
-        console.warn("Failed to fetch metrics, using defaults:", response.error)
+        logger.warn("Failed to fetch metrics, using defaults:", response.error)
         // Provide default metrics if API fails
         set({
           metrics: {
@@ -72,7 +74,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const metricsData = response.data?.data || response.data;
       set({ metrics: metricsData, loading: false })
     } catch (error) {
-      console.warn("Error fetching metrics (using defaults):", error)
+      logger.warn("Error fetching metrics (using defaults):", error)
       // Silently provide default metrics on error - don't treat as error state
       set({
         metrics: {
@@ -92,7 +94,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const response = await apiClient.get<any>("/api/analytics/chart-data")
 
       if (!response.success) {
-        console.warn("Failed to fetch chart data, using defaults:", response.error)
+        logger.warn("Failed to fetch chart data, using defaults:", response.error)
         // Provide default chart data if API fails
         set({
           chartData: [
@@ -112,7 +114,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       const chartData = response.data?.data || response.data
       set({ chartData: chartData, loading: false })
     } catch (error) {
-      console.warn("Error fetching chart data (using defaults):", error)
+      logger.warn("Error fetching chart data (using defaults):", error)
       // Silently provide default chart data on error
       set({
         chartData: [
@@ -137,14 +139,14 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       )
 
       if (!response.success) {
-        console.warn("Failed to fetch executions, using defaults:", response.error)
+        logger.warn("Failed to fetch executions, using defaults:", response.error)
         set({ executions: [], loading: false })
         return
       }
 
       set({ executions: response.data || [], loading: false })
     } catch (error) {
-      console.error("Error fetching executions:", error)
+      logger.error("Error fetching executions:", error)
       set({ executions: [], loading: false, error: "Failed to load executions" })
     }
   },

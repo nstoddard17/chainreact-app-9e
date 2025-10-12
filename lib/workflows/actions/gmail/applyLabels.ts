@@ -3,6 +3,8 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Apply labels to Gmail messages
  */
@@ -61,9 +63,9 @@ export async function applyGmailLabels(
             }
           })
           labelId = newLabel.data.id
-          console.log(`Created new label: ${labelName} (${labelId})`)
+          logger.debug(`Created new label: ${labelName} (${labelId})`)
         } catch (error) {
-          console.warn(`Failed to create label ${labelName}:`, error)
+          logger.warn(`Failed to create label ${labelName}:`, error)
           continue
         }
       }
@@ -137,7 +139,7 @@ export async function applyGmailLabels(
           })
         }
       } catch (error) {
-        console.warn(`Failed to modify message ${msgId}:`, error)
+        logger.warn(`Failed to modify message ${msgId}:`, error)
         results.push({
           messageId: msgId,
           success: false,
@@ -161,7 +163,7 @@ export async function applyGmailLabels(
     }
 
   } catch (error: any) {
-    console.error('Apply Gmail labels error:', error)
+    logger.error('Apply Gmail labels error:', error)
     return {
       success: false,
       output: {},

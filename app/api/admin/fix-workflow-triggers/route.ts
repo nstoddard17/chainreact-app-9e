@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fixWorkflowTriggerNodes } from '@/lib/utils/fixWorkflowTriggerNodes'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,12 +15,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const workflowId = body.workflowId
 
-    console.log('🔧 Running workflow trigger fix...')
+    logger.debug('🔧 Running workflow trigger fix...')
     const result = await fixWorkflowTriggerNodes(workflowId)
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Error in fix-workflow-triggers API:', error)
+    logger.error('Error in fix-workflow-triggers API:', error)
     return NextResponse.json(
       { error: 'Internal server error', details: error },
       { status: 500 }

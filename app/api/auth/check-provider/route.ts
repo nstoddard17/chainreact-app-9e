@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
       users = result.data;
       authError = result.error;
     } catch (timeoutError: any) {
-      console.error('Supabase timeout or error:', timeoutError.message);
+      logger.error('Supabase timeout or error:', timeoutError.message);
       // In case of timeout or network error, allow the user to proceed
       // This is better than blocking the entire auth flow
       return NextResponse.json({
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (authError) {
-      console.error('Error fetching users:', authError);
+      logger.error('Error fetching users:', authError);
       // Allow user to proceed even if we can't check
       return NextResponse.json({
         exists: false,
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError) {
-      console.error('Error fetching user profile:', profileError);
+      logger.error('Error fetching user profile:', profileError);
       // Fallback to auth.users metadata if profile doesn't exist
       const hasGoogleProvider = user.app_metadata?.provider === 'google' || 
                                user.app_metadata?.providers?.includes('google') ||
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error in check-provider:', error);
+    logger.error('Error in check-provider:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

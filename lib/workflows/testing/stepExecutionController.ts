@@ -9,6 +9,8 @@ import { Node, Edge } from '@xyflow/react'
 import { triggerListeningManager } from './triggerListeningManager'
 import { useWorkflowStepExecutionStore } from '@/stores/workflowStepExecutionStore'
 
+import { logger } from '@/lib/utils/logger'
+
 export type ExecutionMode = 'continuous' | 'step-by-step' | 'breakpoint'
 export type NodeExecutionStatus = 'pending' | 'waiting' | 'running' | 'success' | 'error' | 'skipped'
 
@@ -143,7 +145,7 @@ export class StepExecutionController {
       )
 
       if (!listeningStarted) {
-        console.error('Failed to start trigger listening')
+        logger.error('Failed to start trigger listening')
         return
       }
 
@@ -307,7 +309,7 @@ export class StepExecutionController {
     const mockData = this.generateMockData(node.data.type, inputData)
 
     // Log what would happen
-    console.log(`🧪 [SANDBOX] Node ${node.id} would execute:`, {
+    logger.debug(`🧪 [SANDBOX] Node ${node.id} would execute:`, {
       type: node.data.type,
       config: node.data.config,
       input: inputData,

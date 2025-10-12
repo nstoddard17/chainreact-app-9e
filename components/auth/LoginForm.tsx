@@ -12,6 +12,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Lock, Eye, EyeOff } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
+import { logger } from '@/lib/utils/logger'
+
 function LoginFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -33,7 +35,7 @@ function LoginFormContent() {
           return returnUrl
         }
       } catch (error) {
-        console.error('Invalid return URL:', error)
+        logger.error('Invalid return URL:', error)
       }
     }
     return "/dashboard"
@@ -59,7 +61,7 @@ function LoginFormContent() {
         return true;
       
     } catch (error) {
-      console.error('Error checking provider:', error);
+      logger.error('Error checking provider:', error);
       return true; // Allow login if check fails
     }
   }
@@ -86,7 +88,7 @@ function LoginFormContent() {
         router.push(getRedirectUrl())
       }, 100)
     } catch (error: any) {
-      console.error("Login error:", error)
+      logger.error("Login error:", error)
       
       // Set specific error message based on error type
       let errorMessage = "Invalid email or password. Please check your credentials and try again.";
@@ -124,7 +126,7 @@ function LoginFormContent() {
       // Google sign-in redirects automatically via OAuth flow
       // No need for manual navigation
     } catch (error) {
-      console.error("Google sign in error:", error)
+      logger.error("Google sign in error:", error)
       toast({
         title: "Google Sign In Failed",
         description: "Could not sign in with Google. Please try again.",

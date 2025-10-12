@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class DeveloperActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -60,7 +62,7 @@ export class DeveloperActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Developer action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Developer action error:", error)
+      logger.error("❌ Developer action error:", error)
       return this.getErrorResponse("Failed to perform the developer action.")
     }
   }

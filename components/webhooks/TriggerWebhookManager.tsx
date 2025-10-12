@@ -26,6 +26,8 @@ import {
   Eye
 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface WebhookConfig {
   id: string
   workflow_id: string
@@ -89,7 +91,7 @@ export default function TriggerWebhookManager() {
         throw new Error('Failed to fetch webhooks')
       }
     } catch (error) {
-      console.error('Error fetching webhooks:', error)
+      logger.error('Error fetching webhooks:', error)
       toast({
         title: "Error",
         description: "Failed to load webhooks",
@@ -109,7 +111,7 @@ export default function TriggerWebhookManager() {
         setWebhookExecutions(data.executions || [])
       }
     } catch (error) {
-      console.error('Error fetching webhook executions:', error)
+      logger.error('Error fetching webhook executions:', error)
     }
   }
 
@@ -130,7 +132,7 @@ export default function TriggerWebhookManager() {
         throw new Error('Failed to delete webhook')
       }
     } catch (error) {
-      console.error('Error deleting webhook:', error)
+      logger.error('Error deleting webhook:', error)
       toast({
         title: "Error",
         description: "Failed to delete webhook",
@@ -150,7 +152,7 @@ export default function TriggerWebhookManager() {
       })
       setTimeout(() => setCopiedWebhookId(null), 2000)
     } catch (error) {
-      console.error('Error copying to clipboard:', error)
+      logger.error('Error copying to clipboard:', error)
     }
   }
 

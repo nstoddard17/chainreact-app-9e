@@ -1,6 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes, pbkdf2Sync, createHmac } from 'crypto'
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Token types
  */
@@ -119,14 +121,14 @@ export class SecureTokenManager extends EventEmitter {
     } else {
       this.masterKey = this.generateMasterKey()
       // SECURITY: Never log the actual key value
-      console.warn('⚠️ Generated new master key. Set TOKEN_MASTER_KEY environment variable to persist it.')
+      logger.warn('⚠️ Generated new master key. Set TOKEN_MASTER_KEY environment variable to persist it.')
     }
 
     this.initializeDefaultPolicies()
     this.startRotationScheduler()
     this.startCleanupScheduler()
 
-    console.log('🔐 Secure token manager initialized')
+    logger.debug('🔐 Secure token manager initialized')
   }
 
   /**
@@ -175,7 +177,7 @@ export class SecureTokenManager extends EventEmitter {
     })
 
     this.emit('tokenStored', tokenId, metadata)
-    console.log(`🔒 Token stored securely: ${tokenId} (${metadata.type})`)
+    logger.debug(`🔒 Token stored securely: ${tokenId} (${metadata.type})`)
     
     return tokenId
   }
@@ -273,7 +275,7 @@ export class SecureTokenManager extends EventEmitter {
       
       // Mark token as suspicious
       this.suspiciousTokens.add(tokenId)
-      console.error(`🚨 Token decryption failed: ${tokenId}`)
+      logger.error(`🚨 Token decryption failed: ${tokenId}`)
       return null
     }
   }
@@ -338,7 +340,7 @@ export class SecureTokenManager extends EventEmitter {
     })
 
     this.emit('tokenRotated', tokenId, newTokenId, newMetadata)
-    console.log(`🔄 Token rotated: ${tokenId} -> ${newTokenId}`)
+    logger.debug(`🔄 Token rotated: ${tokenId} -> ${newTokenId}`)
     
     return newTokenId
   }
@@ -365,7 +367,7 @@ export class SecureTokenManager extends EventEmitter {
     })
 
     this.emit('tokenRevoked', tokenId, token.metadata, reason)
-    console.log(`❌ Token revoked: ${tokenId} (${reason})`)
+    logger.debug(`❌ Token revoked: ${tokenId} (${reason})`)
     
     return true
   }
@@ -402,7 +404,7 @@ export class SecureTokenManager extends EventEmitter {
       }
     }
     
-    console.log(`🗑️ Bulk revoked ${revokedCount} tokens (${reason})`)
+    logger.debug(`🗑️ Bulk revoked ${revokedCount} tokens (${reason})`)
     return revokedCount
   }
 
@@ -457,7 +459,7 @@ export class SecureTokenManager extends EventEmitter {
   setRotationPolicy(providerId: string, tokenType: TokenType, policy: TokenRotationPolicy): void {
     const key = `${providerId}:${tokenType}`
     this.rotationPolicies.set(key, policy)
-    console.log(`🔄 Rotation policy set: ${key}`)
+    logger.debug(`🔄 Rotation policy set: ${key}`)
   }
 
   /**
@@ -819,7 +821,7 @@ export class SecureTokenManager extends EventEmitter {
    */
   private initializeDefaultPolicies(): void {
     // Policies are handled by getDefaultRotationPolicy
-    console.log('📋 Default token rotation policies initialized')
+    logger.debug('📋 Default token rotation policies initialized')
   }
 
   /**
@@ -849,7 +851,7 @@ export class SecureTokenManager extends EventEmitter {
     }
     
     if (rotationCount > 0) {
-      console.log(`🔄 Scheduled rotation required for ${rotationCount} tokens`)
+      logger.debug(`🔄 Scheduled rotation required for ${rotationCount} tokens`)
     }
   }
 
@@ -892,7 +894,7 @@ export class SecureTokenManager extends EventEmitter {
     cleanedLogs = initialLogCount - this.accessLogs.length
     
     if (cleanedTokens > 0 || cleanedLogs > 0) {
-      console.log(`🧹 Token cleanup: ${cleanedTokens} tokens, ${cleanedLogs} logs removed`)
+      logger.debug(`🧹 Token cleanup: ${cleanedTokens} tokens, ${cleanedLogs} logs removed`)
     }
   }
 
@@ -921,7 +923,7 @@ export class SecureTokenManager extends EventEmitter {
     this.masterKey.fill(0)
     
     this.removeAllListeners()
-    console.log('🛑 Secure token manager shutdown')
+    logger.debug('🛑 Secure token manager shutdown')
   }
 }
 
@@ -957,13 +959,13 @@ export function SecureToken(options: {
             source: 'oauth'
           })
           
-          console.log(`🔐 Token secured: ${tokenId}`)
+          logger.debug(`🔐 Token secured: ${tokenId}`)
           return tokenId // Return token ID instead of actual token
         }
         
         return result
       } catch (error: any) {
-        console.error(`❌ Token operation failed: ${error.message}`)
+        logger.error(`❌ Token operation failed: ${error.message}`)
         throw error
       }
     }

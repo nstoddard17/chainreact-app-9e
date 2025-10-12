@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleSheetsDataPreviewProps {
   field: any;
   value: any;
@@ -76,7 +78,7 @@ export function GoogleSheetsDataPreview({
         setPreviewData(dynamicOptions[0]);
       }
     } catch (error: any) {
-      console.error('Failed to load preview data:', error);
+      logger.error('Failed to load preview data:', error);
       setLoadError(error.message || 'Failed to load sheet preview');
     } finally {
       setLoading(false);
@@ -232,7 +234,7 @@ export function GoogleSheetsDataPreview({
                           className="bg-gray-50 min-w-32 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => {
                             // This would trigger column selection in parent form
-                            console.log('Column selected:', header);
+                            logger.debug('Column selected:', header);
                           }}
                         >
                           <div className="flex flex-col p-2">
@@ -268,7 +270,7 @@ export function GoogleSheetsDataPreview({
                           className="bg-gray-50 text-gray-600 font-mono text-sm text-center cursor-pointer hover:bg-gray-100 font-medium"
                           onClick={() => {
                             // This would trigger row selection in parent form
-                            console.log('Row selected:', rowIndex + 2);
+                            logger.debug('Row selected:', rowIndex + 2);
                           }}
                         >
                           {rowIndex + 2}

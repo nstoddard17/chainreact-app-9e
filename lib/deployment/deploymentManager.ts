@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface DeploymentConfiguration {
   id: string
   organization_id: string
@@ -382,7 +384,7 @@ export class DeploymentManager {
 
   private async initiateCloudDeployment(deployment: DeploymentConfiguration): Promise<void> {
     // In production, this would integrate with cloud provider APIs
-    console.log("Initiating cloud deployment:", deployment.id)
+    logger.debug("Initiating cloud deployment:", deployment.id)
 
     // Simulate deployment process
     setTimeout(async () => {
@@ -402,12 +404,12 @@ export class DeploymentManager {
     }
 
     // In production, generate actual deployment package
-    console.log("Generated on-premise package:", packageConfig)
+    logger.debug("Generated on-premise package:", packageConfig)
   }
 
   private async initiatePrivateCloudDeployment(deployment: DeploymentConfiguration, config: any): Promise<void> {
     // In production, use Terraform or CloudFormation
-    console.log("Initiating private cloud deployment:", deployment.id, config)
+    logger.debug("Initiating private cloud deployment:", deployment.id, config)
 
     // Simulate private cloud setup
     setTimeout(async () => {
@@ -417,7 +419,7 @@ export class DeploymentManager {
 
   private async applyWhiteLabelConfig(deploymentId: string, config: any): Promise<void> {
     // In production, update CDN and application configuration
-    console.log("Applying white-label configuration:", deploymentId, config)
+    logger.debug("Applying white-label configuration:", deploymentId, config)
   }
 
   private async validateDomainOwnership(domain: string): Promise<{ valid: boolean; error?: string }> {
@@ -442,7 +444,7 @@ export class DeploymentManager {
 
   private async configureDNS(deploymentId: string, domain: string): Promise<void> {
     // In production, configure DNS records and load balancer
-    console.log("Configuring DNS for deployment:", deploymentId, domain)
+    logger.debug("Configuring DNS for deployment:", deploymentId, domain)
   }
 
   private async getDeployment(deploymentId: string): Promise<DeploymentConfiguration | null> {
@@ -462,7 +464,7 @@ export class DeploymentManager {
     backupPath: string,
   ): Promise<{ size: number; checksum: string }> {
     // In production, perform actual backup based on deployment type
-    console.log("Performing backup:", deployment.id, backupType, backupPath)
+    logger.debug("Performing backup:", deployment.id, backupType, backupPath)
 
     return {
       size: 1024 * 1024 * 100, // 100MB
@@ -472,7 +474,7 @@ export class DeploymentManager {
 
   private async performRestore(deployment: DeploymentConfiguration, backupPath: string): Promise<void> {
     // In production, perform actual restore
-    console.log("Performing restore:", deployment.id, backupPath)
+    logger.debug("Performing restore:", deployment.id, backupPath)
   }
 
   private getBackupRegion(primaryRegion: string): string {

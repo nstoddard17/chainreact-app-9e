@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 interface InstagramBusinessAccount {
   id: string;
   username?: string;
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`Instagram OAuth error: ${error} - ${errorReason} - ${errorDescription}`)
+    logger.error(`Instagram OAuth error: ${error} - ${errorReason} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Instagram OAuth credentials not configured')
+      logger.error('Instagram OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Instagram token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Instagram token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
     const userId_instagram = tokenData.user_id
     const grantedPermissions = tokenData.permissions || ''
     
-    console.log('Instagram permissions granted:', grantedPermissions)
+    logger.debug('Instagram permissions granted:', grantedPermissions)
 
     // Exchange short-lived token for long-lived token
     const longLivedTokenResponse = await fetch(
@@ -112,7 +114,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!longLivedTokenResponse.ok) {
-      console.error('Failed to exchange for long-lived token:', await longLivedTokenResponse.text())
+      logger.error('Failed to exchange for long-lived token:', await longLivedTokenResponse.text())
       return createPopupResponse('error', provider, 'Failed to obtain long-lived access token', baseUrl)
     }
 
@@ -127,7 +129,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!userInfoResponse.ok) {
-      console.error('Failed to fetch Instagram user info:', await userInfoResponse.text())
+      logger.error('Failed to fetch Instagram user info:', await userInfoResponse.text())
       return createPopupResponse('error', provider, 'Failed to fetch account information', baseUrl)
     }
 
@@ -165,13 +167,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save Instagram integration:', upsertError)
+      logger.error('Failed to save Instagram integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Instagram Professional account connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Instagram callback error:', error)
+    logger.error('Instagram callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

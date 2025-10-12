@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation"
 import { RoleBadgeCompact } from "@/components/ui/role-badge"
 import { type UserRole } from "@/lib/utils/roles"
 
+import { logger } from '@/lib/utils/logger'
+
 interface PublicLayoutProps {
   children: React.ReactNode
 }
@@ -43,7 +45,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         router.push("/")
       }
     } catch (error) {
-      console.error("Logout error:", error)
+      logger.error("Logout error:", error)
       setMobileMenuOpen(false)
       // Still try to navigate on error
       if (window.location.pathname !== '/') {

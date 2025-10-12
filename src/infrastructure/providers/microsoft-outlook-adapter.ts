@@ -12,6 +12,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class MicrosoftOutlookAdapter implements EmailProvider {
   readonly providerId = 'microsoft-outlook'
   readonly capabilities: CapabilityDescriptor = {
@@ -115,7 +117,7 @@ export class MicrosoftOutlookAdapter implements EmailProvider {
         message: 'Email sent successfully via Microsoft Outlook'
       }
     } catch (error: any) {
-      console.error('Microsoft Outlook send message error:', error)
+      logger.error('Microsoft Outlook send message error:', error)
       return {
         success: false,
         error: error.message || 'Failed to send email via Microsoft Outlook',
@@ -207,7 +209,7 @@ export class MicrosoftOutlookAdapter implements EmailProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Microsoft Outlook search messages error:', error)
+      logger.error('Microsoft Outlook search messages error:', error)
       return []
     }
   }
@@ -273,7 +275,7 @@ export class MicrosoftOutlookAdapter implements EmailProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Microsoft Outlook get messages error:', error)
+      logger.error('Microsoft Outlook get messages error:', error)
       return []
     }
   }
@@ -439,7 +441,7 @@ export class MicrosoftOutlookAdapter implements EmailProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Microsoft Outlook get contacts error:', error)
+      logger.error('Microsoft Outlook get contacts error:', error)
       return []
     }
   }

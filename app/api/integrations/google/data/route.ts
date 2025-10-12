@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { googleHandlers } from './handlers'
 import { GoogleIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
     const requestBody = await req.json()
     const { integrationId, dataType, options = {} } = requestBody
 
-    console.log(`🔍 [Google Data API] Request received:`, {
+    logger.debug(`🔍 [Google Data API] Request received:`, {
       integrationId,
       dataType,
       options,
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      console.error(`❌ [Google Data API] Missing required parameters:`, {
+      logger.error(`❌ [Google Data API] Missing required parameters:`, {
         integrationId,
         dataType
       })
@@ -43,14 +45,14 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Google API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Google API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Google integration not found'
       }, { status: 404 })
     }
 
     // Log the actual provider for debugging
-    console.log('📊 [Google API] Integration provider check:', {
+    logger.debug('📊 [Google API] Integration provider check:', {
       integrationId,
       actualProvider: integration.provider,
       dataType,
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
     ) || hasGoogleScopes;
 
     if (!isValidProvider) {
-      console.error('❌ [Google API] Invalid provider:', {
+      logger.error('❌ [Google API] Invalid provider:', {
         integrationId,
         provider: integration.provider,
         scopes: integration.scopes,
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status - allow both 'connected' and 'active' status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [Google API] Integration not connected:', {
+      logger.error('❌ [Google API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -109,14 +111,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = googleHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Google API] Unknown data type:', dataType)
+      logger.error('❌ [Google API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Google data type: ${dataType}`,
         availableTypes: Object.keys(googleHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Google API] Processing request:`, {
+    logger.debug(`🔍 [Google API] Processing request:`, {
       integrationId,
       dataType,
       provider: integration.provider,
@@ -127,7 +129,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as GoogleIntegration, options)
 
-    console.log(`✅ [Google API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Google API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Google API] Unexpected error:', {
+    logger.error('❌ [Google API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

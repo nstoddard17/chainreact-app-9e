@@ -4,6 +4,8 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { encrypt } from "@/lib/security/encryption"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Airtable OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       "error",
       "airtable",
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error("Airtable token exchange error:", errorData)
+      logger.error("Airtable token exchange error:", errorData)
       throw new Error(
         `Airtable token exchange failed: ${errorData.error_description || errorData.error.message}`,
       )
@@ -108,22 +110,22 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       const errorData = await userResponse.json()
-      console.error("Airtable whoami error:", errorData)
+      logger.error("Airtable whoami error:", errorData)
       throw new Error("Failed to get Airtable user info")
     }
     const userData = await userResponse.json()
 
     // Log the scopes we received
-    console.log('🔐 Airtable OAuth callback - User:', userData.email)
-    console.log('📋 Scopes from token:', tokenData.scope)
-    console.log('📋 User scopes from API:', userData.scopes)
+    logger.debug('🔐 Airtable OAuth callback - User:', userData.email)
+    logger.debug('📋 Scopes from token:', tokenData.scope)
+    logger.debug('📋 User scopes from API:', userData.scopes)
 
     // Verify webhook:manage scope
     const hasWebhookScope = userData.scopes?.includes('webhook:manage') || tokenData.scope?.includes('webhook:manage')
     if (!hasWebhookScope) {
-      console.warn('⚠️ WARNING: webhook:manage scope not present in token!')
+      logger.warn('⚠️ WARNING: webhook:manage scope not present in token!')
     } else {
-      console.log('✅ webhook:manage scope confirmed')
+      logger.debug('✅ webhook:manage scope confirmed')
     }
 
     // Encrypt tokens before storing
@@ -155,7 +157,7 @@ export async function GET(request: NextRequest) {
     // Delete the PKCE record from the database
     const { error: deleteError } = await supabase.from("pkce_flow").delete().eq("state", state)
     if (deleteError) {
-      console.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
+      logger.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
     }
 
     // Return success response immediately
@@ -168,19 +170,19 @@ export async function GET(request: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId }),
-        }).catch(e => console.warn('Failed to sync Airtable bases', e)),
+        }).catch(e => logger.warn('Failed to sync Airtable bases', e)),
         
         fetch(`${baseUrl}/api/integrations/airtable/register-webhooks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId }),
-        }).catch(e => console.warn('Failed to register Airtable webhooks', e))
-      ]).catch(e => console.warn('Background Airtable setup failed', e))
+        }).catch(e => logger.warn('Failed to register Airtable webhooks', e))
+      ]).catch(e => logger.warn('Background Airtable setup failed', e))
     })
 
     return successResponse
   } catch (e: any) {
-    console.error("Airtable callback error:", e)
+    logger.error("Airtable callback error:", e)
     return createPopupResponse("error", "airtable", e.message || "An unexpected error occurred.", baseUrl)
   }
 }

@@ -5,6 +5,8 @@
 import { DiscordDataHandler, DiscordIntegration } from '../types'
 import { fetchDiscordWithRateLimit } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordApplicationCommand {
   id: string
   type?: number
@@ -20,7 +22,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
 ) => {
   const botToken = process.env.DISCORD_BOT_TOKEN
   if (!botToken) {
-    console.warn('Discord bot token not configured - returning empty commands list')
+    logger.warn('Discord bot token not configured - returning empty commands list')
     return []
   }
 
@@ -51,7 +53,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
       type: cmd.type,
     }))
   } catch (error: any) {
-    console.error('Error fetching Discord commands:', error.message || error)
+    logger.error('Error fetching Discord commands:', error.message || error)
     return []
   }
 }

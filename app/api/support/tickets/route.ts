@@ -3,6 +3,8 @@ import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { Resend } from 'resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (ticketError) {
-      console.error('Error creating ticket:', ticketError)
+      logger.error('Error creating ticket:', ticketError)
       return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
     }
 
@@ -82,13 +84,13 @@ export async function POST(request: NextRequest) {
         `,
       })
     } catch (emailError) {
-      console.error('Error sending support email:', emailError)
+      logger.error('Error sending support email:', emailError)
       // Don't fail the request if email fails
     }
 
     return NextResponse.json({ ticket })
   } catch (error) {
-    console.error('Error in POST /api/support/tickets:', error)
+    logger.error('Error in POST /api/support/tickets:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -129,7 +131,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error('Error fetching tickets:', error)
+      logger.error('Error fetching tickets:', error)
       return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 })
     }
 
@@ -143,7 +145,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error in GET /api/support/tickets:', error)
+    logger.error('Error in GET /api/support/tickets:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

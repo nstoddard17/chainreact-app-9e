@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listDiscordChannels } from "@/lib/workflows/actions/discord";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { config, userId } = await request.json();
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Discord fetch channels preview error:", error)
+    logger.error("Discord fetch channels preview error:", error)
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

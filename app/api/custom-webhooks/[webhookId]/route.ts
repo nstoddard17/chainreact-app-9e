@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: Request,
   { params }: { params: { webhookId: string } }
@@ -22,14 +24,14 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error(`Error fetching webhook ${webhookId}:`, error)
+      logger.error(`Error fetching webhook ${webhookId}:`, error)
       return NextResponse.json({ error: "Webhook not found or unauthorized" }, { status: 404 })
     }
 
     return NextResponse.json(webhook)
 
   } catch (error: any) {
-    console.error(`Error in GET /api/custom-webhooks/${webhookId}:`, error)
+    logger.error(`Error in GET /api/custom-webhooks/${webhookId}:`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -67,14 +69,14 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error(`Error updating webhook ${webhookId}:`, error)
+      logger.error(`Error updating webhook ${webhookId}:`, error)
       return NextResponse.json({ error: "Failed to update webhook" }, { status: 500 })
     }
 
     return NextResponse.json(webhook)
 
   } catch (error: any) {
-    console.error(`Error in PUT /api/custom-webhooks/${webhookId}:`, error)
+    logger.error(`Error in PUT /api/custom-webhooks/${webhookId}:`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -99,14 +101,14 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (error) {
-      console.error(`Error deleting webhook ${webhookId}:`, error)
+      logger.error(`Error deleting webhook ${webhookId}:`, error)
       return NextResponse.json({ error: "Failed to delete webhook" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
 
   } catch (error: any) {
-    console.error(`Error in DELETE /api/custom-webhooks/${webhookId}:`, error)
+    logger.error(`Error in DELETE /api/custom-webhooks/${webhookId}:`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

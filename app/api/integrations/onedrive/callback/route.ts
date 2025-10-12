@@ -4,6 +4,8 @@ import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const message = errorDescription || error
-    console.error(`Error with OneDrive OAuth: ${message}`)
+    logger.error(`Error with OneDrive OAuth: ${message}`)
     return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
@@ -82,8 +84,8 @@ export async function GET(request: NextRequest) {
                                  email.includes("gmail.com")
         
         if (isPersonalAccount) {
-          console.log("ℹ️ Personal Microsoft account detected:", email)
-          console.log("   OneDrive works with personal accounts but has storage limits")
+          logger.debug("ℹ️ Personal Microsoft account detected:", email)
+          logger.debug("   OneDrive works with personal accounts but has storage limits")
           
           // Store account info in metadata
           const metadata = {
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
           
           tokenData._metadata = metadata
         } else {
-          console.log("✅ Work/School account detected:", email)
+          logger.debug("✅ Work/School account detected:", email)
           tokenData._metadata = {
             accountType: "work",
             email: email
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (checkError) {
-      console.error("Could not check account type:", checkError)
+      logger.error("Could not check account type:", checkError)
     }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
@@ -135,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
   } catch (e: any) {
-    console.error("OneDrive callback error:", e)
+    logger.error("OneDrive callback error:", e)
     return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }

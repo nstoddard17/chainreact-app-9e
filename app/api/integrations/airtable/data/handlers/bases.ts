@@ -5,8 +5,10 @@
 import { AirtableIntegration, AirtableBase, AirtableDataHandler } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integration: AirtableIntegration, options: any = {}): Promise<AirtableBase[]> => {
-  console.log("🔍 Airtable bases fetcher called with integration:", {
+  logger.debug("🔍 Airtable bases fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integr
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    console.log(`🔍 Validating Airtable token...`)
+    logger.debug(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Airtable bases from API...')
+    logger.debug('🔍 Fetching Airtable bases from API...')
     const apiUrl = buildAirtableApiUrl('/v0/meta/bases')
     
     const response = await makeAirtableApiRequest(apiUrl, tokenResult.token!)
@@ -39,11 +41,11 @@ export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integr
       permissionLevel: base.permissionLevel || 'read'
     }))
     
-    console.log(`✅ Airtable bases fetched successfully: ${transformedBases.length} bases`)
+    logger.debug(`✅ Airtable bases fetched successfully: ${transformedBases.length} bases`)
     return transformedBases
     
   } catch (error: any) {
-    console.error("Error fetching Airtable bases:", error)
+    logger.error("Error fetching Airtable bases:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

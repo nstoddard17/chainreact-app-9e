@@ -14,6 +14,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -28,7 +30,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    console.log(`🔔 Activating Shopify trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Shopify trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -65,7 +67,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
     // Get topic for this trigger type
     const topic = this.getTopicForTrigger(triggerType)
 
-    console.log(`📤 Creating Shopify webhook`, {
+    logger.debug(`📤 Creating Shopify webhook`, {
       shopDomain,
       topic,
       webhookUrl
@@ -113,7 +115,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       status: 'active'
     })
 
-    console.log(`✅ Shopify webhook created: ${webhook.id}`)
+    logger.debug(`✅ Shopify webhook created: ${webhook.id}`)
   }
 
   /**
@@ -123,7 +125,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    console.log(`🛑 Deactivating Shopify triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Shopify triggers for workflow ${workflowId}`)
 
     // Get all Shopify webhooks for this workflow
     const { data: resources } = await supabase
@@ -134,7 +136,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No active Shopify webhooks for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Shopify webhooks for workflow ${workflowId}`)
       return
     }
 
@@ -147,7 +149,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       .single()
 
     if (!integration) {
-      console.warn(`⚠️ Shopify integration not found, marking webhooks as deleted`)
+      logger.warn(`⚠️ Shopify integration not found, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -162,7 +164,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       : null
 
     if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Shopify access token, marking webhooks as deleted`)
+      logger.warn(`⚠️ Failed to decrypt Shopify access token, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -173,7 +175,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
 
     const shopDomain = integration.metadata?.shop_domain
     if (!shopDomain) {
-      console.warn(`⚠️ Shop domain not found, marking webhooks as deleted`)
+      logger.warn(`⚠️ Shop domain not found, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -207,9 +209,9 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        console.log(`✅ Deleted Shopify webhook: ${resource.external_id}`)
+        logger.debug(`✅ Deleted Shopify webhook: ${resource.external_id}`)
       } catch (error) {
-        console.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
+        logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         await supabase
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })

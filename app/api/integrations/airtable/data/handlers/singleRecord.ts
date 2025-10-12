@@ -5,10 +5,12 @@
 import { AirtableIntegration, AirtableRecord, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableRecord> => {
   const { baseId, tableName, recordId } = options
   
-  console.log("🔍 Airtable single record fetcher called with:", {
+  logger.debug("🔍 Airtable single record fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -20,11 +22,11 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    console.log(`🔍 Validating Airtable token...`)
+    logger.debug(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -40,7 +42,7 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
       throw new Error('Record ID is required for fetching a record')
     }
     
-    console.log('🔍 Fetching single Airtable record from API...')
+    logger.debug('🔍 Fetching single Airtable record from API...')
     
     const apiUrl = buildAirtableApiUrl(`/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`)
     
@@ -53,11 +55,11 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
     
     const record = await response.json()
     
-    console.log(`✅ Airtable record fetched successfully: ${record.id}`)
+    logger.debug(`✅ Airtable record fetched successfully: ${record.id}`)
     return record as AirtableRecord
     
   } catch (error: any) {
-    console.error("Error fetching Airtable single record:", error)
+    logger.error("Error fetching Airtable single record:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

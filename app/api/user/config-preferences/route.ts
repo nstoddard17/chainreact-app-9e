@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query
 
     if (error) {
-      console.error("Error fetching config preferences:", error)
+      logger.error("Error fetching config preferences:", error)
       return NextResponse.json({ error: "Failed to fetch preferences" }, { status: 500 })
     }
 
@@ -68,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ preferences })
   } catch (error) {
-    console.error("Error in config preferences GET:", error)
+    logger.error("Error in config preferences GET:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -127,13 +129,13 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (error) {
-      console.error("Error saving config preferences:", error)
+      logger.error("Error saving config preferences:", error)
       return NextResponse.json({ error: "Failed to save preferences" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data })
   } catch (error) {
-    console.error("Error in config preferences POST:", error)
+    logger.error("Error in config preferences POST:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -174,13 +176,13 @@ export async function DELETE(request: NextRequest) {
     const { error } = await query
 
     if (error) {
-      console.error("Error deleting config preferences:", error)
+      logger.error("Error deleting config preferences:", error)
       return NextResponse.json({ error: "Failed to delete preferences" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in config preferences DELETE:", error)
+    logger.error("Error in config preferences DELETE:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

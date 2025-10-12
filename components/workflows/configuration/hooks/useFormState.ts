@@ -5,6 +5,8 @@ import { FormState, FormAction } from '../utils/types';
 import { validateAllRequiredFields } from '../utils/validation';
 import { NodeComponent } from '@/lib/workflows/nodes';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Form state reducer function
  */
@@ -24,7 +26,7 @@ const formReducer = (state: FormState, action: FormAction): FormState => {
         isDirty: true
       };
       
-      console.log('🔍 formReducer SET_VALUE:', { 
+      logger.debug('🔍 formReducer SET_VALUE:', { 
         field: action.field, 
         value: action.value, 
         oldValues: state.values, 
@@ -119,7 +121,7 @@ export const useFormState = (
 
   // Set a single form value
   const setValue = useCallback((field: string, value: any) => {
-    console.log('🔍 useFormState setValue called:', { field, value, currentState: state.values });
+    logger.debug('🔍 useFormState setValue called:', { field, value, currentState: state.values });
     dispatch({ type: 'SET_VALUE', field, value });
     
     // Clear error for this field if it exists
@@ -130,7 +132,7 @@ export const useFormState = (
 
   // Set multiple form values at once
   const setValues = useCallback((values: Record<string, any>) => {
-    console.log('🔍 useFormState setValues called:', { values, currentState: state.values });
+    logger.debug('🔍 useFormState setValues called:', { values, currentState: state.values });
     dispatch({ type: 'SET_VALUES', values });
     
     // Clear all errors when setting new values

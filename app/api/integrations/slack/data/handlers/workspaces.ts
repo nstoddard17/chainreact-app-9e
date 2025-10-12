@@ -5,13 +5,15 @@
 import { SlackIntegration, SlackWorkspace, SlackDataHandler } from '../types'
 import { validateSlackIntegration, makeSlackApiRequest } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Slack workspace information (team info)
  */
 export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    console.log("🏢 [Slack Workspaces] Fetching workspace info")
+    logger.debug("🏢 [Slack Workspaces] Fetching workspace info")
 
     // Slack doesn't have a direct API for multiple workspaces, but we can get team info
     const response = await makeSlackApiRequest(
@@ -39,11 +41,11 @@ export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integ
       icon: data.team.icon
     }]
     
-    console.log(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name}`)
+    logger.debug(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name}`)
     return workspaces
 
   } catch (error: any) {
-    console.error("❌ [Slack Workspaces] Error fetching workspaces:", error)
+    logger.error("❌ [Slack Workspaces] Error fetching workspaces:", error)
     throw error
   }
 }

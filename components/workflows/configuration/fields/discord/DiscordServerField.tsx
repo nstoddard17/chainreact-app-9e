@@ -7,6 +7,8 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordServerFieldProps {
   field: any;
   value: any;
@@ -152,7 +154,7 @@ function DiscordServerFieldComponent({
         onDynamicLoad(field.name);
       }
     } catch (error) {
-      console.error('Error refreshing Discord servers:', error);
+      logger.error('Error refreshing Discord servers:', error);
     } finally {
       setIsRefreshing(false);
     }
@@ -202,7 +204,7 @@ function DiscordServerFieldComponent({
       const storageKey = `discord_server_label_${serverId}`;
       return localStorage.getItem(storageKey);
     } catch (e) {
-      console.error('Error reading saved label:', e);
+      logger.error('Error reading saved label:', e);
       return null;
     }
   };
@@ -255,7 +257,7 @@ function DiscordServerFieldComponent({
                 );
               }
             } catch (e) {
-              console.error('Error saving label to storage:', e);
+              logger.error('Error saving label to storage:', e);
             }
           }}
           onOpenChange={handleServerFieldOpen}

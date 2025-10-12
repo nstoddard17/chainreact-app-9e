@@ -7,6 +7,8 @@ import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
 
+import { logger } from '@/lib/utils/logger'
+
 interface GenericConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -71,7 +73,7 @@ export function GenericConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    console.log('🔍 [GenericConfig] handleDynamicLoad called:', { 
+    logger.debug('🔍 [GenericConfig] handleDynamicLoad called:', { 
       fieldName, 
       dependsOn, 
       dependsOnValue,
@@ -80,7 +82,7 @@ export function GenericConfiguration({
     
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
-      console.warn('Field not found in schema:', fieldName);
+      logger.warn('Field not found in schema:', fieldName);
       return;
     }
 
@@ -89,24 +91,24 @@ export function GenericConfiguration({
     try {
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
-        console.log('🔄 [GenericConfig] Calling loadOptions with dependencies:', { fieldName, dependsOn, dependsOnValue, forceReload });
+        logger.debug('🔄 [GenericConfig] Calling loadOptions with dependencies:', { fieldName, dependsOn, dependsOnValue, forceReload });
         await loadOptions(fieldName, dependsOn, dependsOnValue, forceReload);
       } 
       // Otherwise check field's defined dependencies
       else if (field.dependsOn && values[field.dependsOn]) {
-        console.log('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: values[field.dependsOn], forceReload });
+        logger.debug('🔄 [GenericConfig] Calling loadOptions with field dependencies:', { fieldName, dependsOn: field.dependsOn, dependsOnValue: values[field.dependsOn], forceReload });
         await loadOptions(fieldName, field.dependsOn, values[field.dependsOn], forceReload);
       } 
       // No dependencies, just load the field
       else if (!field.dependsOn) {
-        console.log('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
+        logger.debug('🔄 [GenericConfig] Calling loadOptions without dependencies:', { fieldName, forceReload });
         await loadOptions(fieldName, undefined, undefined, forceReload);
       } else {
         // Field has dependency but no value yet - don't try to load
-        console.log('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
+        logger.debug('⏸️ [GenericConfig] Skipping load - field has dependency but no parent value:', { fieldName, dependsOn: field.dependsOn });
       }
     } catch (error) {
-      console.error('❌ [GenericConfig] Error loading dynamic options:', error);
+      logger.error('❌ [GenericConfig] Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions]);
 
@@ -145,7 +147,7 @@ export function GenericConfiguration({
 
     // Special handling for Trello board selection
     if (nodeInfo?.providerId === 'trello' && fieldName === 'boardId') {
-      console.log('🔄 [GenericConfig] Board selected, handling dependent fields:', value);
+      logger.debug('🔄 [GenericConfig] Board selected, handling dependent fields:', value);
 
       // Find all fields that depend on boardId
       const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'boardId' && f.dynamic) || [];
@@ -158,31 +160,31 @@ export function GenericConfiguration({
       if (value) {
         // For Move Card action, load both cardId and listId simultaneously
         if (nodeInfo?.type === 'trello_action_move_card') {
-          console.log('🎯 [GenericConfig] Loading card and list fields for Move Card action');
+          logger.debug('🎯 [GenericConfig] Loading card and list fields for Move Card action');
 
           // Load all dependent fields in parallel for better performance
           const loadPromises = dependentFields.map(async (field: any) => {
-            console.log(`  Loading ${field.name} with boardId: ${value}`);
+            logger.debug(`  Loading ${field.name} with boardId: ${value}`);
             try {
               await loadOptions(field.name, 'boardId', value, true);
-              console.log(`  ✅ Successfully loaded ${field.name}`);
+              logger.debug(`  ✅ Successfully loaded ${field.name}`);
             } catch (error) {
-              console.error(`  Failed to load ${field.name}:`, error);
+              logger.error(`  Failed to load ${field.name}:`, error);
             }
           });
 
           // Wait for all to complete
           await Promise.all(loadPromises);
-          console.log('✅ All dependent fields loaded');
+          logger.debug('✅ All dependent fields loaded');
         } else {
           // For other actions, load sequentially as before
           for (const field of dependentFields) {
-            console.log(`  Loading ${field.name} with boardId: ${value}`);
+            logger.debug(`  Loading ${field.name} with boardId: ${value}`);
             try {
               await loadOptions(field.name, 'boardId', value, true);
-              console.log(`  ✅ Successfully loaded ${field.name}`);
+              logger.debug(`  ✅ Successfully loaded ${field.name}`);
             } catch (error) {
-              console.error(`  Failed to load ${field.name}:`, error);
+              logger.error(`  Failed to load ${field.name}:`, error);
             }
           }
         }
@@ -226,7 +228,7 @@ export function GenericConfiguration({
 
     // Load options for each field
     fieldsToLoad.forEach((field: any) => {
-      console.log('🔄 [GenericConfig] Background loading options for field:', field.name, 'with value:', values[field.name]);
+      logger.debug('🔄 [GenericConfig] Background loading options for field:', field.name, 'with value:', values[field.name]);
       
       // Set a small delay to ensure UI renders first with the ID
       setTimeout(() => {
@@ -398,7 +400,7 @@ export function GenericConfiguration({
   const baseFields = nodeInfo?.configSchema?.filter((field: any) => {
     const shouldShow = !field.advanced && shouldShowField(field);
     if (field.hidden !== undefined) {
-      console.log(`🔍 [GenericConfig] Field ${field.name} - hidden: ${field.hidden}, shouldShow: ${shouldShow}`);
+      logger.debug(`🔍 [GenericConfig] Field ${field.name} - hidden: ${field.hidden}, shouldShow: ${shouldShow}`);
     }
     return shouldShow;
   }) || [];
@@ -471,7 +473,7 @@ export function GenericConfiguration({
       const isExcluded = isFieldExcludedFromAI(field.name);
       const isAIEnabled = isExcluded ? false : (aiFields[field.name] || aiFields._allFieldsAI || false);
 
-      console.log('🤖 [GenericConfig] Rendering field:', {
+      logger.debug('🤖 [GenericConfig] Rendering field:', {
         fieldName: field.name,
         isConnectedToAIAgent,
         shouldUseAIWrapper,
@@ -495,7 +497,7 @@ export function GenericConfiguration({
             loadingDynamic={(() => {
               const isLoading = loadingFields.has(field.name);
               if (field.name === 'cardId' || field.name === 'listId') {
-                console.log(`🔍 [GenericConfig] Loading state for ${field.name}:`, {
+                logger.debug(`🔍 [GenericConfig] Loading state for ${field.name}:`, {
                   fieldName: field.name,
                   hasInLoadingFields: loadingFields.has(field.name),
                   finalIsLoading: isLoading,
@@ -573,12 +575,12 @@ export function GenericConfiguration({
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
+    logger.debug('🚀 [GenericConfiguration] handleSubmit called for:', nodeInfo?.type);
     e.preventDefault();
 
     // Debug logging for HubSpot
     if (nodeInfo?.type === 'hubspot_action_create_contact') {
-      console.log('🎯 [GenericConfiguration] HubSpot create contact submission:', {
+      logger.debug('🎯 [GenericConfiguration] HubSpot create contact submission:', {
         nodeType: nodeInfo.type,
         values,
         baseFields: baseFields.map(f => ({ name: f.name, required: f.required, visible: shouldShowField(f) })),
@@ -591,7 +593,7 @@ export function GenericConfiguration({
 
     // Debug log for Notion validation
     if (nodeInfo?.type?.includes('notion')) {
-      console.log('🔍 [GenericConfig] Notion validation debug:', {
+      logger.debug('🔍 [GenericConfig] Notion validation debug:', {
         nodeType: nodeInfo.type,
         operation: values.operation,
         allFieldsCount: allFields.length,
@@ -606,7 +608,7 @@ export function GenericConfiguration({
     const validatedFieldNames = new Set<string>();
     const errors: Record<string, string> = {};
 
-    console.log('📋 [GenericConfiguration] Validating fields:', {
+    logger.debug('📋 [GenericConfiguration] Validating fields:', {
       totalFields: allFields.length,
       visibleFields: allFields.filter(f => shouldShowField(f)).map(f => f.name),
       currentValues: values
@@ -628,7 +630,7 @@ export function GenericConfiguration({
     });
 
     const hasErrors = Object.keys(errors).length > 0;
-    console.log('🔍 [GenericConfiguration] Validation check:', {
+    logger.debug('🔍 [GenericConfiguration] Validation check:', {
       hasErrors,
       errorCount: Object.keys(errors).length,
       nodeType: nodeInfo?.type,
@@ -640,7 +642,7 @@ export function GenericConfiguration({
 
     // Log attachment-related fields for Gmail send email and OneDrive upload
     if (nodeInfo?.type === 'gmail_action_send_email' || nodeInfo?.type === 'onedrive_action_upload_file') {
-      console.log(`📎 [GenericConfiguration] ${nodeInfo?.type} values being saved:`, {
+      logger.debug(`📎 [GenericConfiguration] ${nodeInfo?.type} values being saved:`, {
         sourceType: values.sourceType,
         uploadedFiles: values.uploadedFiles,
         uploadedFilesType: typeof values.uploadedFiles,
@@ -655,20 +657,20 @@ export function GenericConfiguration({
       });
     }
 
-    console.log('✅ [GenericConfiguration] Submitting values:', {
+    logger.debug('✅ [GenericConfiguration] Submitting values:', {
       nodeType: nodeInfo?.type,
       values,
       onSubmitAvailable: !!onSubmit
     });
 
     if (!onSubmit) {
-      console.error('❌ [GenericConfiguration] onSubmit is not defined!');
+      logger.error('❌ [GenericConfiguration] onSubmit is not defined!');
       return;
     }
 
-    console.log('📤 [GenericConfiguration] Calling onSubmit...');
+    logger.debug('📤 [GenericConfiguration] Calling onSubmit...');
     await onSubmit(values);
-    console.log('✅ [GenericConfiguration] onSubmit completed');
+    logger.debug('✅ [GenericConfiguration] onSubmit completed');
   };
 
   // Show connection required state

@@ -2,6 +2,8 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Reads data from a Google Sheets spreadsheet
  * Supports different output formats (objects, array, raw)
@@ -34,7 +36,7 @@ export async function readGoogleSheetsData(
       rangeParam = `${formattedSheetName}!${range}`
     }
     
-    console.log(`Reading Google Sheets data from ${spreadsheetId}, range: ${rangeParam}`)
+    logger.debug(`Reading Google Sheets data from ${spreadsheetId}, range: ${rangeParam}`)
     
     // Fetch the data from Google Sheets API
     const response = await fetch(
@@ -102,7 +104,7 @@ export async function readGoogleSheetsData(
       message: `Successfully read ${formattedData.length} rows from Google Sheets`,
     }
   } catch (error: any) {
-    console.error("Google Sheets read data error:", error)
+    logger.error("Google Sheets read data error:", error)
     return {
       success: false,
       message: `Failed to read Google Sheets data: ${error.message}`,

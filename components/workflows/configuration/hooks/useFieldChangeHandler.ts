@@ -4,6 +4,8 @@ import { useDiscordFieldHandler } from './providers/useDiscordFieldHandler';
 import { useGoogleSheetsFieldHandler } from './providers/useGoogleSheetsFieldHandler';
 import { useNotionFieldHandler } from './providers/useNotionFieldHandler';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseFieldChangeHandlerProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -87,7 +89,7 @@ export function useFieldChangeHandler({
 
     nodeInfo.configSchema.forEach((field: any) => {
       if (field.dependsOn === parentFieldName) {
-        console.log('🔍 Clearing dependent field:', field.name);
+        logger.debug('🔍 Clearing dependent field:', field.name);
         setValue(field.name, '');
       }
     });
@@ -108,7 +110,7 @@ export function useFieldChangeHandler({
     );
 
     for (const field of dependentFields) {
-      console.log('🔍 Loading options for dependent field:', field.name);
+      logger.debug('🔍 Loading options for dependent field:', field.name);
       
       // Set loading state
       setLoadingFields((prev: Set<string>) => {
@@ -192,11 +194,11 @@ export function useFieldChangeHandler({
 
     // Handle guildId (server) changes
     if (fieldName === 'guildId') {
-      console.log('🔍 Discord guildId changed:', value);
+      logger.debug('🔍 Discord guildId changed:', value);
       
       // Only proceed if value actually changed
       if (value === values.guildId) {
-        console.log('📌 Discord guildId unchanged, skipping field operations');
+        logger.debug('📌 Discord guildId unchanged, skipping field operations');
         return true;
       }
       
@@ -226,7 +228,7 @@ export function useFieldChangeHandler({
       
       if (value) {
         // Always check bot status when a guild is selected (for both actions and triggers)
-        console.log('🤖 Checking bot status for guild:', value);
+        logger.debug('🤖 Checking bot status for guild:', value);
         discordState?.checkBotStatus(value);
         
         // Don't load channels immediately - they will be loaded after bot status is confirmed
@@ -246,7 +248,7 @@ export function useFieldChangeHandler({
 
     // Handle channelId changes
     if (fieldName === 'channelId') {
-      console.log('🔍 Discord channelId changed:', value);
+      logger.debug('🔍 Discord channelId changed:', value);
       
       // Check for messageId field
       const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
@@ -331,7 +333,7 @@ export function useFieldChangeHandler({
 
     // Handle messageId changes for remove reaction action
     if (fieldName === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
-      console.log('🔍 Discord messageId changed for remove reaction:', value);
+      logger.debug('🔍 Discord messageId changed for remove reaction:', value);
       
       // Clear emoji field
       setValue('emoji', '');
@@ -355,7 +357,7 @@ export function useFieldChangeHandler({
 
     // Handle spreadsheetId changes
     if (fieldName === 'spreadsheetId') {
-      console.log('🔍 Google Sheets spreadsheetId changed:', value);
+      logger.debug('🔍 Google Sheets spreadsheetId changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -385,7 +387,7 @@ export function useFieldChangeHandler({
 
     // Handle sheetName changes
     if (fieldName === 'sheetName') {
-      console.log('🔍 Google Sheets sheetName changed:', value);
+      logger.debug('🔍 Google Sheets sheetName changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -465,7 +467,7 @@ export function useFieldChangeHandler({
 
     // Handle baseId changes
     if (fieldName === 'baseId') {
-      console.log('🔍 Airtable baseId changed:', value);
+      logger.debug('🔍 Airtable baseId changed:', value);
       
       // Clear ALL dependent fields
       setValue('tableName', '');
@@ -515,7 +517,7 @@ export function useFieldChangeHandler({
 
     // Handle tableName changes
     if (fieldName === 'tableName') {
-      console.log('🔍 Airtable tableName changed:', value);
+      logger.debug('🔍 Airtable tableName changed:', value);
       
       // Clear dependent fields (everything except baseId)
       setValue('recordId', '');
@@ -562,7 +564,7 @@ export function useFieldChangeHandler({
 
     // Handle filterField changes
     if (fieldName === 'filterField' && nodeInfo?.type === 'airtable_action_list_records') {
-      console.log('🔍 Airtable filterField changed:', value);
+      logger.debug('🔍 Airtable filterField changed:', value);
       
       // Clear filterValue
       setValue('filterValue', '');
@@ -594,7 +596,7 @@ export function useFieldChangeHandler({
 
     // Handle recordId change (from manual input or selection)
     if (fieldName === 'recordId' && value && selectedRecord?.fields) {
-      console.log('🔍 Airtable recordId changed, populating dynamic fields');
+      logger.debug('🔍 Airtable recordId changed, populating dynamic fields');
       
       // Populate dynamic fields from selected record
       Object.entries(selectedRecord.fields).forEach(([fieldName, fieldValue]) => {
@@ -636,14 +638,14 @@ export function useFieldChangeHandler({
 
     // Handle folderId changes for OneDrive
     if (fieldName === 'folderId') {
-      console.log('🔍 OneDrive folderId changed:', value);
+      logger.debug('🔍 OneDrive folderId changed:', value);
 
       // Clear the fileId field
       setValue('fileId', '');
 
       if (value) {
         // Reset options first
-        console.log('📁 OneDrive folder selected, loading files...');
+        logger.debug('📁 OneDrive folder selected, loading files...');
         resetOptions('fileId');
 
         // Set loading state for fileId
@@ -703,14 +705,14 @@ export function useFieldChangeHandler({
 
     // Check if this exact change is already being processed
     if (processingFieldChanges.current.has(changeKey)) {
-      console.log(`🚫 Already processing change for ${fieldName} = ${value}, skipping duplicate call`);
+      logger.debug(`🚫 Already processing change for ${fieldName} = ${value}, skipping duplicate call`);
       return true;
     }
 
     // Mark this change as being processed
     processingFieldChanges.current.add(changeKey);
 
-    console.log('🔍 Generic dependent field change:', {
+    logger.debug('🔍 Generic dependent field change:', {
       fieldName,
       value,
       dependentFields: dependentFields.map((f: any) => f.name),
@@ -719,12 +721,12 @@ export function useFieldChangeHandler({
 
     // Clear all dependent fields
     dependentFields.forEach((depField: any) => {
-      console.log(`🧹 Clearing dependent field: ${depField.name}`);
+      logger.debug(`🧹 Clearing dependent field: ${depField.name}`);
       setValue(depField.name, '');
 
       // Skip dynamic_fields type - they handle their own data loading
       if (depField.type === 'dynamic_fields') {
-        console.log(`⏭️ Skipping dynamic_fields type field: ${depField.name}`);
+        logger.debug(`⏭️ Skipping dynamic_fields type field: ${depField.name}`);
         return;
       }
 
@@ -750,7 +752,7 @@ export function useFieldChangeHandler({
 
         // Check if already loading
         if (activelyLoadingFields.current.has(depField.name)) {
-          console.log(`⏭️ Skipping ${depField.name} - already loading`);
+          logger.debug(`⏭️ Skipping ${depField.name} - already loading`);
           return false;
         }
 
@@ -759,7 +761,7 @@ export function useFieldChangeHandler({
 
       // If no fields to load, skip the setTimeout entirely
       if (fieldsToLoad.length === 0) {
-        console.log(`⏭️ No dependent fields to load - all already loading or not dynamic`);
+        logger.debug(`⏭️ No dependent fields to load - all already loading or not dynamic`);
         return true;
       }
 
@@ -819,7 +821,7 @@ export function useFieldChangeHandler({
               }
             }
           } catch (error) {
-            console.error(`Error loading dependent field ${depField.name}:`, error);
+            logger.error(`Error loading dependent field ${depField.name}:`, error);
             setLoadingFields((prev: Set<string>) => {
               const newSet = new Set(prev);
               newSet.delete(depField.name);
@@ -897,7 +899,7 @@ export function useFieldChangeHandler({
     const currentValue = values[fieldName];
     const hasChanged = value !== currentValue;
 
-    console.log('🔍 handleFieldChange called:', {
+    logger.debug('🔍 handleFieldChange called:', {
       fieldName,
       value,
       currentValue,
@@ -910,7 +912,7 @@ export function useFieldChangeHandler({
 
     // Skip if value hasn't changed (prevents unnecessary resets)
     if (!hasChanged) {
-      console.log('⏭️ Skipping field change - value unchanged:', fieldName);
+      logger.debug('⏭️ Skipping field change - value unchanged:', fieldName);
       return;
     }
 
@@ -918,7 +920,7 @@ export function useFieldChangeHandler({
     // This allows the field to be reloaded if needed after a manual change
     if (loadedFieldsWithValues?.current) {
       if (loadedFieldsWithValues.current.has(fieldName)) {
-        console.log(`🔄 [handleFieldChange] Clearing tracking for manually changed field: ${fieldName}`);
+        logger.debug(`🔄 [handleFieldChange] Clearing tracking for manually changed field: ${fieldName}`);
         loadedFieldsWithValues.current.delete(fieldName);
       }
 
@@ -926,7 +928,7 @@ export function useFieldChangeHandler({
       if (nodeInfo?.configSchema) {
         nodeInfo.configSchema.forEach((field: any) => {
           if (field.dependsOn === fieldName && loadedFieldsWithValues.current.has(field.name)) {
-            console.log(`🔄 [handleFieldChange] Clearing tracking for dependent field: ${field.name}`);
+            logger.debug(`🔄 [handleFieldChange] Clearing tracking for dependent field: ${field.name}`);
             loadedFieldsWithValues.current.delete(field.name);
           }
         });
@@ -935,7 +937,7 @@ export function useFieldChangeHandler({
 
     // Special logging for uploadedFiles field
     if (fieldName === 'uploadedFiles') {
-      console.log('📎 [useFieldChangeHandler] uploadedFiles being set:', {
+      logger.debug('📎 [useFieldChangeHandler] uploadedFiles being set:', {
         value,
         hasValue: value !== null && value !== undefined,
         isArray: Array.isArray(value),
@@ -948,7 +950,7 @@ export function useFieldChangeHandler({
     // This allows it to be restored from initialData next time the modal opens
     if (value !== '' && value !== null && value !== undefined && clearedFieldsRef?.current) {
       if (clearedFieldsRef.current.has(fieldName)) {
-        console.log(`✅ [handleFieldChange] Removing ${fieldName} from cleared fields (user manually set value)`);
+        logger.debug(`✅ [handleFieldChange] Removing ${fieldName} from cleared fields (user manually set value)`);
         clearedFieldsRef.current.delete(fieldName);
       }
     }
@@ -961,7 +963,7 @@ export function useFieldChangeHandler({
     handleProviderFieldChange(fieldName, value).then(handled => {
       // Log if field was handled by a provider
       if (handled) {
-        console.log('✅ Field handled by provider logic:', fieldName);
+        logger.debug('✅ Field handled by provider logic:', fieldName);
       }
     });
   }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues, clearedFieldsRef]);

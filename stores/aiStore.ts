@@ -9,6 +9,8 @@ import {
 } from "@/lib/ai/workflowOptimizer"
 import { generateDataMapping, suggestDataTransformations, detectDataPatterns } from "@/lib/ai/dataMapper"
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIState {
   optimizations: Record<string, any[]>
   anomalies: Record<string, any[]>
@@ -369,7 +371,7 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
 
       if (result.success) {
         // Could store patterns for future reference
-        console.log("Data patterns detected:", result.patterns)
+        logger.debug("Data patterns detected:", result.patterns)
       }
     } catch (error: any) {
       set({ error: error.message })

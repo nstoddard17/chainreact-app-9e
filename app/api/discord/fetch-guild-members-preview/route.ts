@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { fetchDiscordGuildMembers } from '@/lib/workflows/actions/discord'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { config } = await request.json()
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Error in fetch guild members preview:', error)
+    logger.error('Error in fetch guild members preview:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch guild members preview' }, 
       { status: 500 }

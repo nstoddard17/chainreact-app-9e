@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { FileStorageService } from '@/lib/storage/fileStorage'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     // Verify that this is being called by a cron job or authorized source
@@ -14,11 +16,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('Starting cleanup of expired workflow files...')
+    logger.debug('Starting cleanup of expired workflow files...')
     
     const cleanedCount = await FileStorageService.cleanupExpiredFiles()
     
-    console.log(`Cleanup completed. Removed ${cleanedCount} expired files.`)
+    logger.debug(`Cleanup completed. Removed ${cleanedCount} expired files.`)
     
     return NextResponse.json({
       success: true,
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('File cleanup error:', error)
+    logger.error('File cleanup error:', error)
     return NextResponse.json(
       { error: 'Failed to cleanup files', details: error.message },
       { status: 500 }

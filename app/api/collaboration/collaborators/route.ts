@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const workflowId = searchParams.get("workflowId")
@@ -19,7 +21,7 @@ export async function GET(request: Request) {
       .eq("is_active", true)
 
     if (sessionsError) {
-      console.error("Error fetching collaboration sessions:", sessionsError)
+      logger.error("Error fetching collaboration sessions:", sessionsError)
       throw sessionsError
     }
 
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(collaborators)
   } catch (error) {
-    console.error("Failed to get collaborators:", error)
+    logger.error("Failed to get collaborators:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }

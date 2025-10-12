@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { webhookManager } from "@/lib/webhooks/webhookManager"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseRouteHandlerClient()
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(webhooks)
   } catch (error: any) {
-    console.error("Error fetching webhooks:", error)
+    logger.error("Error fetching webhooks:", error)
     return NextResponse.json(
       { error: "Failed to fetch webhooks" },
       { status: 500 }
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(webhook)
   } catch (error: any) {
-    console.error("Error creating webhook:", error)
+    logger.error("Error creating webhook:", error)
     return NextResponse.json(
       { error: "Failed to create webhook" },
       { status: 500 }

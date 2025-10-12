@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runWebhookTaskProcessor } from '@/lib/webhooks/task-queue'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     // Verify the request is from a legitimate cron job
@@ -8,16 +10,16 @@ export async function POST(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron job request')
+      logger.error('Unauthorized cron job request')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('[Cron] Starting webhook task processing')
+    logger.debug('[Cron] Starting webhook task processing')
     
     // Process webhook tasks
     await runWebhookTaskProcessor()
     
-    console.log('[Cron] Completed webhook task processing')
+    logger.debug('[Cron] Completed webhook task processing')
     
     return NextResponse.json({ 
       success: true, 
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('[Cron] Error processing webhook tasks:', error)
+    logger.error('[Cron] Error processing webhook tasks:', error)
     
     return NextResponse.json({ 
       error: 'Failed to process webhook tasks',

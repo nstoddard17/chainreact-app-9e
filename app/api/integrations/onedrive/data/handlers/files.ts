@@ -1,4 +1,6 @@
 import { makeOneDriveApiRequest, buildOneDriveApiUrl, validateOneDriveIntegration } from '../utils'
+
+import { logger } from '@/lib/utils/logger'
 import type { OneDriveDataHandler, OneDriveFile } from '../types'
 
 export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integration, options = {}) => {
@@ -34,7 +36,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
     // Note: buildOneDriveApiUrl automatically adds /v1.0 if not present
     const url = buildOneDriveApiUrl(`${baseEndpoint}?$top=200`)
 
-    console.log('🔍 [OneDrive] Fetching files from:', {
+    logger.debug('🔍 [OneDrive] Fetching files from:', {
       baseEndpoint,
       folderId,
       fullUrl: url
@@ -44,7 +46,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ [OneDrive] API error:', {
+      logger.error('❌ [OneDrive] API error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText
@@ -54,7 +56,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
 
     const payload = await response.json()
 
-    console.log('📦 [OneDrive] Raw API response:', {
+    logger.debug('📦 [OneDrive] Raw API response:', {
       totalItems: payload?.value?.length || 0,
       hasValue: !!payload?.value,
       firstFewItems: payload?.value?.slice(0, 3)?.map((item: any) => ({
@@ -71,12 +73,12 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
     const files = (payload?.value ?? []).filter((item: any) => {
       const isFile = item.file !== undefined && item.folder === undefined
       if (!isFile && item.name) {
-        console.log(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder})`)
+        logger.debug(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder})`)
       }
       return isFile
     })
 
-    console.log('✅ [OneDrive] Filtered files:', {
+    logger.debug('✅ [OneDrive] Filtered files:', {
       totalFiles: files.length,
       fileNames: files.map((f: any) => f.name)
     })
@@ -92,7 +94,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
       file: file.file,
     }))
   } catch (error: any) {
-    console.error('❌ [OneDrive] Failed to load files', { folderId, error: error?.message || error })
+    logger.error('❌ [OneDrive] Failed to load files', { folderId, error: error?.message || error })
     throw new Error(error?.message || 'Failed to load OneDrive files')
   }
 }

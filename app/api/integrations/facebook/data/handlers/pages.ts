@@ -5,18 +5,20 @@
 import { FacebookIntegration, FacebookPage, FacebookDataHandler } from '../types'
 import { makeFacebookApiRequest, validateFacebookToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integration: FacebookIntegration, options: any = {}) => {
   try {
-    console.log("🔍 Facebook pages fetcher called with integration:", {
+    logger.debug("🔍 Facebook pages fetcher called with integration:", {
       id: integration.id,
       provider: integration.provider,
       hasToken: !!integration.access_token
     })
     
     // Validate and get token
-    console.log("🔍 Validating Facebook token...")
+    logger.debug("🔍 Validating Facebook token...")
     const tokenResult = await validateFacebookToken(integration)
-    console.log("🔍 Token validation result:", {
+    logger.debug("🔍 Token validation result:", {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -25,11 +27,11 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
     })
     
     if (!tokenResult.success) {
-      console.log(`❌ Facebook token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Facebook token validation failed: ${tokenResult.error}`)
       return []
     }
 
-    console.log("🔍 Making Facebook API call with appsecret_proof")
+    logger.debug("🔍 Making Facebook API call with appsecret_proof")
     const response = await makeFacebookApiRequest(
       'https://graph.facebook.com/v19.0/me/accounts',
       tokenResult.token!
@@ -37,16 +39,16 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
 
     if (!response.ok) {
       if (response.status === 401) {
-        console.log("❌ Facebook API returned 401 - token may be invalid")
+        logger.debug("❌ Facebook API returned 401 - token may be invalid")
         return []
       }
       const errorData = await response.json().catch(() => ({}))
-      console.error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      logger.error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
       return []
     }
 
     const data = await response.json()
-    console.log("🔍 Facebook API response:", data)
+    logger.debug("🔍 Facebook API response:", data)
     
     const pages = (data.data || []).map((page: any) => ({
       id: page.id,
@@ -57,10 +59,10 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
       tasks: page.tasks || [],
     }))
     
-    console.log("🔍 Processed Facebook pages:", pages)
+    logger.debug("🔍 Processed Facebook pages:", pages)
     return pages
   } catch (error: any) {
-    console.error("Error fetching Facebook pages:", error)
+    logger.error("Error fetching Facebook pages:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Facebook authentication expired. Please reconnect your account.')
@@ -71,7 +73,7 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
     }
     
     // Return empty array instead of throwing to prevent breaking the UI
-    console.warn("Returning empty array to prevent UI breakage")
+    logger.warn("Returning empty array to prevent UI breakage")
     return []
   }
 }

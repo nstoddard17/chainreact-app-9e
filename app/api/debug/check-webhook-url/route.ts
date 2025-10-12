@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error checking webhook URL:', error)
+    logger.error('Error checking webhook URL:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
 }

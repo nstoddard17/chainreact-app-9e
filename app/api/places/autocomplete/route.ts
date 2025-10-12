@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!googleMapsApiKey) {
-      console.error("Google Maps API key not configured")
+      logger.error("Google Maps API key not configured")
       return NextResponse.json({
         predictions: [],
         status: "REQUEST_DENIED",
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      console.error("Google Places API error:", data)
+      logger.error("Google Places API error:", data)
       return NextResponse.json({
         predictions: [],
         status: data.status,
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Places autocomplete error:", error)
+    logger.error("Places autocomplete error:", error)
     return NextResponse.json({
       predictions: [],
       status: "REQUEST_DENIED",

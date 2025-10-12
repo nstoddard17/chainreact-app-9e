@@ -5,13 +5,15 @@
 import { GoogleIntegration, GoogleCalendar, GoogleDataHandler } from '../types'
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Google Calendar calendars for the authenticated user
  */
 export const getGoogleCalendars: GoogleDataHandler<GoogleCalendar> = async (integration: GoogleIntegration) => {
   try {
     validateGoogleIntegration(integration)
-    console.log("📅 [Google Calendar] Fetching calendars")
+    logger.debug("📅 [Google Calendar] Fetching calendars")
 
     const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
@@ -35,11 +37,11 @@ export const getGoogleCalendars: GoogleDataHandler<GoogleCalendar> = async (inte
       time_zone: calendar.timeZone,
     }))
 
-    console.log(`✅ [Google Calendar] Retrieved ${calendars.length} calendars`)
+    logger.debug(`✅ [Google Calendar] Retrieved ${calendars.length} calendars`)
     return calendars
 
   } catch (error: any) {
-    console.error("❌ [Google Calendar] Error fetching calendars:", error)
+    logger.error("❌ [Google Calendar] Error fetching calendars:", error)
     throw error
   }
 }
@@ -57,10 +59,10 @@ export const getGoogleCalendarEvents: GoogleDataHandler = async (
     // Get calendarId from options (passed from dependent field)
     const calendarId = options?.calendarId || options?.dependsOnValue
 
-    console.log("📅 [Google Calendar] Fetching events from calendar:", calendarId)
+    logger.debug("📅 [Google Calendar] Fetching events from calendar:", calendarId)
 
     if (!calendarId) {
-      console.log("📅 [Google Calendar] No calendarId provided, returning empty array")
+      logger.debug("📅 [Google Calendar] No calendarId provided, returning empty array")
       return []
     }
 
@@ -147,11 +149,11 @@ export const getGoogleCalendarEvents: GoogleDataHandler = async (
       }
     })
 
-    console.log(`✅ [Google Calendar] Retrieved ${events.length} events`)
+    logger.debug(`✅ [Google Calendar] Retrieved ${events.length} events`)
     return events
 
   } catch (error: any) {
-    console.error("❌ [Google Calendar] Error fetching events:", error)
+    logger.error("❌ [Google Calendar] Error fetching events:", error)
     // Return empty array on error to avoid breaking the UI
     return []
   }

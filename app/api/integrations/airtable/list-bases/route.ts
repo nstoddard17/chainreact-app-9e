@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -30,7 +32,7 @@ export async function GET() {
     // Decrypt token
     const encryptionKey = process.env.ENCRYPTION_KEY
     if (!encryptionKey) {
-      console.error("ENCRYPTION_KEY not configured")
+      logger.error("ENCRYPTION_KEY not configured")
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
@@ -45,7 +47,7 @@ export async function GET() {
 
     if (!userInfoRes.ok) {
       const error = await userInfoRes.text()
-      console.error("Failed to get Airtable user info:", error)
+      logger.error("Failed to get Airtable user info:", error)
       return NextResponse.json({
         error: "Invalid Airtable token. Please reconnect your Airtable integration."
       }, { status: 401 })
@@ -63,7 +65,7 @@ export async function GET() {
 
     if (!basesRes.ok) {
       const error = await basesRes.text()
-      console.error("Failed to list Airtable bases:", error)
+      logger.error("Failed to list Airtable bases:", error)
       return NextResponse.json({
         error: "Failed to fetch Airtable bases"
       }, { status: 500 })
@@ -92,7 +94,7 @@ export async function GET() {
     return NextResponse.json(response)
 
   } catch (error: any) {
-    console.error("Error listing Airtable bases:", error)
+    logger.error("Error listing Airtable bases:", error)
     return NextResponse.json({
       error: error.message || "Failed to list Airtable bases"
     }, { status: 500 })

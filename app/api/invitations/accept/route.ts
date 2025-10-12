@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (addError) {
-      console.error("Error adding member:", addError)
+      logger.error("Error adding member:", addError)
       return NextResponse.json({ error: "Failed to add you to the organization" }, { status: 500 })
     }
 
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
       .eq("id", invitation.id)
 
     if (updateError) {
-      console.error("Error updating invitation:", updateError)
+      logger.error("Error updating invitation:", updateError)
       // Don't fail the whole request if this fails
     }
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
       organization: invitation.organization
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

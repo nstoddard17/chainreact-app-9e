@@ -5,6 +5,8 @@
 import { GoogleApiError } from './types'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Google API error with proper context
  */
@@ -71,7 +73,7 @@ export function validateGoogleIntegration(integration: any): void {
   );
 
   if (!isValidProvider) {
-    console.error('validateGoogleIntegration: Invalid provider', {
+    logger.error('validateGoogleIntegration: Invalid provider', {
       actualProvider: integration.provider,
       validProviders
     });

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "./use-auth"
 import { useAuthStore } from "@/stores/authStore"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ConfigPreferences {
   [nodeType: string]: {
     [fieldName: string]: any
@@ -33,19 +35,19 @@ export function useConfigPreferences({
 
   // Helper function to handle authentication failures
   const handleAuthFailure = useCallback(async (originalError: any) => {
-    console.log("🔄 Authentication failed in config preferences, attempting session refresh...")
+    logger.debug("🔄 Authentication failed in config preferences, attempting session refresh...")
     
     try {
       const refreshSuccess = await refreshSession()
       if (refreshSuccess) {
-        console.log("✅ Session refreshed successfully in config preferences")
+        logger.debug("✅ Session refreshed successfully in config preferences")
         return true
       } else {
-        console.error("❌ Session refresh failed in config preferences")
+        logger.error("❌ Session refresh failed in config preferences")
         return false
       }
     } catch (refreshError) {
-      console.error("❌ Session refresh error in config preferences:", refreshError)
+      logger.error("❌ Session refresh error in config preferences:", refreshError)
       return false
     }
   }, [refreshSession])
@@ -66,7 +68,7 @@ export function useConfigPreferences({
           setPreferences(data.preferences || {})
         } else if (response.status === 401) {
           // Authentication error, try to refresh session
-          console.log("🔐 Authentication error in config preferences, attempting session refresh...")
+          logger.debug("🔐 Authentication error in config preferences, attempting session refresh...")
           const refreshSuccess = await handleAuthFailure(null)
           
           if (refreshSuccess) {
@@ -81,12 +83,12 @@ export function useConfigPreferences({
                 setPreferences(retryData.preferences || {})
               }
             } catch (retryError) {
-              console.error("Error retrying config preferences load:", retryError)
+              logger.error("Error retrying config preferences load:", retryError)
             }
           }
         }
       } catch (error) {
-        console.error("Error loading config preferences:", error)
+        logger.error("Error loading config preferences:", error)
       } finally {
         setLoading(false)
       }
@@ -117,7 +119,7 @@ export function useConfigPreferences({
         setLastSaved(new Date())
       } else if (response.status === 401) {
         // Authentication error, try to refresh session
-        console.log("🔐 Authentication error in config preferences save, attempting session refresh...")
+        logger.debug("🔐 Authentication error in config preferences save, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(null)
         
         if (refreshSuccess) {
@@ -138,19 +140,19 @@ export function useConfigPreferences({
             if (retryResponse.ok) {
               setLastSaved(new Date())
             } else {
-              console.error("Failed to save preferences after refresh")
+              logger.error("Failed to save preferences after refresh")
             }
           } catch (retryError) {
-            console.error("Error retrying config preferences save:", retryError)
+            logger.error("Error retrying config preferences save:", retryError)
           }
         } else {
-          console.error("Failed to save preferences - authentication failed")
+          logger.error("Failed to save preferences - authentication failed")
         }
       } else {
-        console.error("Failed to save preferences")
+        logger.error("Failed to save preferences")
       }
     } catch (error) {
-      console.error("Error saving config preferences:", error)
+      logger.error("Error saving config preferences:", error)
     } finally {
       setSaving(false)
     }
@@ -227,7 +229,7 @@ export function useConfigPreferences({
         })
       }
     } catch (error) {
-      console.error("Error clearing preferences:", error)
+      logger.error("Error clearing preferences:", error)
     }
   }, [nodeType, providerId])
 
@@ -249,7 +251,7 @@ export function useConfigPreferences({
         }))
       }
     } catch (error) {
-      console.error("Error clearing field:", error)
+      logger.error("Error clearing field:", error)
     }
   }, [nodeType, providerId])
 

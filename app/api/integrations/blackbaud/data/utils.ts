@@ -4,6 +4,8 @@
 
 import { BlackbaudApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Blackbaud API error with proper context
  */
@@ -81,7 +83,7 @@ export function getBlackbaudApiHeaders(subscriptionKey: string): Record<string, 
 export async function parseBlackbaudApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ Blackbaud API error: ${response.status} ${errorText}`)
+    logger.error(`❌ Blackbaud API error: ${response.status} ${errorText}`)
     
     throw createBlackbaudApiError(
       `Blackbaud API error: ${response.status}`,

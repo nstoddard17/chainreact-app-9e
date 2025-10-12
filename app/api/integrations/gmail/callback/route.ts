@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 export const maxDuration = 30
 
 export async function GET(request: NextRequest) {
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
   const provider = 'gmail'
   
-  console.log('🔍 Gmail callback called:', { 
+  logger.debug('🔍 Gmail callback called:', { 
     url: url.toString(),
     code: !!code, 
     state: !!state, 
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (error) {
-    console.error(`Error with Gmail OAuth: ${error}`)
+    logger.error(`Error with Gmail OAuth: ${error}`)
     return createPopupResponse('error', provider, `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Missing userId in Gmail state.', baseUrl)
     }
 
-    console.log('Gmail OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
+    logger.debug('Gmail OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
 
     const supabase = createAdminClient()
 
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange Gmail code for token:', errorData)
+      logger.error('Failed to exchange Gmail code for token:', errorData)
       return createPopupResponse(
         'error',
         provider,
@@ -76,8 +78,8 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
-    console.log('🔍 Gmail token response keys:', Object.keys(tokenData))
-    console.log('🔍 Gmail token scopes:', tokenData.scope)
+    logger.debug('🔍 Gmail token response keys:', Object.keys(tokenData))
+    logger.debug('🔍 Gmail token scopes:', tokenData.scope)
 
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
@@ -104,15 +106,15 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Error saving Gmail integration to DB:', upsertError)
+      logger.error('Error saving Gmail integration to DB:', upsertError)
       return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
-    console.log('✅ Gmail integration successfully saved with status: connected')
+    logger.debug('✅ Gmail integration successfully saved with status: connected')
     
     return createPopupResponse('success', provider, 'Gmail connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Error during Gmail OAuth callback:', error)
+    logger.error('Error during Gmail OAuth callback:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
     return createPopupResponse('error', provider, message, baseUrl)
   }

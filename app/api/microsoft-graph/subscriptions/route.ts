@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
       count: formattedSubscriptions.length
     })
   } catch (error: any) {
-    console.error('Error fetching subscriptions:', error)
+    logger.error('Error fetching subscriptions:', error)
     return NextResponse.json({ error: error.message || 'Failed to fetch subscriptions' }, { status: 500 })
   }
 }
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error creating subscription:', error)
+    logger.error('Error creating subscription:', error)
     return NextResponse.json({ error: error.message || 'Failed to create subscription' }, { status: 500 })
   }
 }
@@ -131,7 +133,7 @@ export async function DELETE(req: NextRequest) {
       message: 'Subscription deleted successfully'
     })
   } catch (error: any) {
-    console.error('Error deleting subscription:', error)
+    logger.error('Error deleting subscription:', error)
     return NextResponse.json({ error: error.message || 'Failed to delete subscription' }, { status: 500 })
   }
 }

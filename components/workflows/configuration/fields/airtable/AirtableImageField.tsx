@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ImageIcon, Upload, X, Eye, Trash2, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { logger } from '@/lib/utils/logger'
+
 interface AirtableImageFieldProps {
   field: any;
   value: any;
@@ -119,7 +121,7 @@ export function AirtableImageField({
   const handleFileSelect = () => {
     // When replacing an image (images already exist), ensure we're ready for a clean replacement
     if (images.length > 0 && !field.multiple) {
-      console.log('🔄 [AirtableImageField] Replacing existing image...');
+      logger.debug('🔄 [AirtableImageField] Replacing existing image...');
     }
     fileInputRef.current?.click();
   };
@@ -149,11 +151,11 @@ export function AirtableImageField({
 
         // If field allows multiple, append to existing
         if (field.multiple && Array.isArray(value)) {
-          console.log('📎 [AirtableImageField] Adding image to multiple:', newImage.filename);
+          logger.debug('📎 [AirtableImageField] Adding image to multiple:', newImage.filename);
           onChange([...value, newImage]);
         } else {
           // Single image - completely replace existing
-          console.log('🔄 [AirtableImageField] Replacing image. Old:', value?.filename || 'none', '→ New:', newImage.filename);
+          logger.debug('🔄 [AirtableImageField] Replacing image. Old:', value?.filename || 'none', '→ New:', newImage.filename);
 
           // First clear the old value to ensure clean replacement
           onChange(null);
@@ -161,7 +163,7 @@ export function AirtableImageField({
           // Then set the new value after a microtask to ensure React processes the clear
           setTimeout(() => {
             onChange(newImage);
-            console.log('✅ [AirtableImageField] Image replaced successfully');
+            logger.debug('✅ [AirtableImageField] Image replaced successfully');
           }, 0);
         }
 
@@ -169,13 +171,13 @@ export function AirtableImageField({
       };
 
       reader.onerror = () => {
-        console.error('Error reading file');
+        logger.error('Error reading file');
         setUploadingFile(false);
       };
 
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error uploading file:', error);
+      logger.error('Error uploading file:', error);
       setUploadingFile(false);
     }
 
@@ -195,7 +197,7 @@ export function AirtableImageField({
   };
 
   const handleClearAll = () => {
-    console.log('🗑️ [AirtableImageField] Clearing all images');
+    logger.debug('🗑️ [AirtableImageField] Clearing all images');
     onChange(null);
   };
 

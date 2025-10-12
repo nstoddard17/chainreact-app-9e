@@ -9,6 +9,8 @@ import { FieldRenderer } from '../fields/FieldRenderer';
 import { useDiscordState } from '../hooks/useDiscordState';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -75,7 +77,7 @@ export function DiscordConfiguration({
       
       await loadOptions(fieldName);
     } catch (error) {
-      console.error('Error loading dynamic options:', error);
+      logger.error('Error loading dynamic options:', error);
     } finally {
       setLoadingFields(prev => {
         const newSet = new Set(prev);

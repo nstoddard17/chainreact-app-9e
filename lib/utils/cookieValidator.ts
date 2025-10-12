@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Cookie validation utilities to prevent parsing errors
  */
@@ -7,13 +9,13 @@ export function validateCookie(cookieString: string): boolean {
   
   // Check for common corruption patterns
   if (cookieString.startsWith('base64-')) {
-    console.warn('Detected base64 prefix in cookie, likely corrupted')
+    logger.warn('Detected base64 prefix in cookie, likely corrupted')
     return false
   }
   
   // Check if it looks like raw JWT/base64 without proper formatting
   if (cookieString.match(/^eyJ[A-Za-z0-9+/]/) && !cookieString.includes('=')) {
-    console.warn('Detected malformed JWT/base64 in cookie')
+    logger.warn('Detected malformed JWT/base64 in cookie')
     return false
   }
   
@@ -35,7 +37,7 @@ export function sanitizeCookies(cookies: string): string {
         try {
           // Try to decode if it looks like base64
           if (value.startsWith('base64-') || value.includes('eyJ')) {
-            console.warn(`Removing corrupted cookie: ${name}`)
+            logger.warn(`Removing corrupted cookie: ${name}`)
             return false
           }
         } catch {
@@ -48,7 +50,7 @@ export function sanitizeCookies(cookies: string): string {
     
     return validCookies.join('; ')
   } catch (error) {
-    console.error('Error sanitizing cookies:', error)
+    logger.error('Error sanitizing cookies:', error)
     return ''
   }
 }
@@ -72,12 +74,12 @@ export function clearCorruptedAuthData(): void {
         try {
           JSON.parse(value)
         } catch {
-          console.warn(`Clearing corrupted localStorage key: ${key}`)
+          logger.warn(`Clearing corrupted localStorage key: ${key}`)
           localStorage.removeItem(key)
         }
       }
     } catch (error) {
-      console.error(`Error checking localStorage key ${key}:`, error)
+      logger.error(`Error checking localStorage key ${key}:`, error)
     }
   })
   
@@ -91,13 +93,13 @@ export function clearCorruptedAuthData(): void {
           try {
             JSON.parse(value)
           } catch {
-            console.warn(`Clearing corrupted sessionStorage key: ${key}`)
+            logger.warn(`Clearing corrupted sessionStorage key: ${key}`)
             sessionStorage.removeItem(key)
           }
         }
       }
     })
   } catch (error) {
-    console.error('Error clearing session storage:', error)
+    logger.error('Error clearing session storage:', error)
   }
 }

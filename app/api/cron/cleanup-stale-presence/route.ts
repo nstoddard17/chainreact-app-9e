@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST() {
   try {
     const supabase = await createSupabaseServerClient()
@@ -15,11 +17,11 @@ export async function POST() {
       .select('id, full_name')
 
     if (error) {
-      console.error('Error cleaning up stale presence:', error)
+      logger.error('Error cleaning up stale presence:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log(`Cleaned up ${data?.length || 0} stale presence records`)
+    logger.debug(`Cleaned up ${data?.length || 0} stale presence records`)
     
     return NextResponse.json({ 
       success: true, 
@@ -27,7 +29,7 @@ export async function POST() {
       message: `Cleaned up ${data?.length || 0} stale presence records`
     })
   } catch (error: any) {
-    console.error('Cleanup error:', error)
+    logger.error('Cleanup error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

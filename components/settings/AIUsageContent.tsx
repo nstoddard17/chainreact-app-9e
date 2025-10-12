@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+import { logger } from '@/lib/utils/logger'
+
 interface UsageData {
   current_period: {
     start_date: string
@@ -75,13 +77,13 @@ export default function AIUsageContent() {
 
     return () => {
       clearInterval(interval)
-      console.log('🛑 Stopped AI usage polling - user left settings page')
+      logger.debug('🛑 Stopped AI usage polling - user left settings page')
     }
   }, [])
 
   const fetchUsage = async () => {
     try {
-      console.log('📊 Fetching AI usage data for settings page')
+      logger.debug('📊 Fetching AI usage data for settings page')
       const response = await fetch('/api/ai/usage')
       if (!response.ok) throw new Error('Failed to fetch usage data')
       const data = await response.json()
@@ -89,7 +91,7 @@ export default function AIUsageContent() {
       setError(null)
     } catch (err) {
       setError('Unable to load usage data')
-      console.error(err)
+      logger.error(err)
     } finally {
       setLoading(false)
     }

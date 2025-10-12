@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Monitoring and metrics endpoint
  */
@@ -136,7 +138,7 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Monitoring endpoint failed:", error)
+    logger.error("❌ Monitoring endpoint failed:", error)
     
     return NextResponse.json({
       success: false,

@@ -4,6 +4,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { getDecryptedAccessToken } from "@/lib/integrations/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 export class CalendarActionHandler extends BaseActionHandler {
   async handleQuery(
     intent: IntentAnalysisResult,
@@ -37,7 +39,7 @@ export class CalendarActionHandler extends BaseActionHandler {
         }
       )
     } catch (error: any) {
-      console.error("❌ Calendar query error:", error)
+      logger.error("❌ Calendar query error:", error)
       return this.getErrorResponse("Failed to fetch calendar events. Please try again.")
     }
   }
@@ -73,7 +75,7 @@ export class CalendarActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Calendar action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Calendar action error:", error)
+      logger.error("❌ Calendar action error:", error)
       return this.getErrorResponse("Failed to perform calendar action. Please try again.")
     }
   }

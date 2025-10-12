@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { decrypt } from '@/lib/security/encryption';
+
+import { logger } from '@/lib/utils/logger'
 import type { HubspotObjectType, HubspotObjectsResponse } from '@/lib/workflows/nodes/providers/hubspot/types';
 
 // Standard HubSpot CRM objects
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      console.error('Encryption key not configured');
+      logger.error('Encryption key not configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
@@ -91,13 +93,13 @@ export async function GET(request: NextRequest) {
         allObjects = [...allObjects, ...customObjects];
       } else if (customObjectsResponse.status === 403) {
         // User doesn't have permission to view custom objects, just return standard objects
-        console.log('No permission to view custom objects, returning standard objects only');
+        logger.debug('No permission to view custom objects, returning standard objects only');
       } else {
-        console.error('Failed to fetch custom objects:', customObjectsResponse.status, await customObjectsResponse.text());
+        logger.error('Failed to fetch custom objects:', customObjectsResponse.status, await customObjectsResponse.text());
       }
     } catch (error) {
       // If fetching custom objects fails, just return standard objects
-      console.error('Error fetching custom objects:', error);
+      logger.error('Error fetching custom objects:', error);
     }
 
     // Sort objects: standard first, then custom alphabetically
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(allObjects);
   } catch (error) {
-    console.error('Error in HubSpot objects route:', error);
+    logger.error('Error in HubSpot objects route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

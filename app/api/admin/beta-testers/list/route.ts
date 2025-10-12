@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: Request) {
   try {
     // Create route handler client for auth verification
@@ -10,7 +12,7 @@ export async function GET(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error("Auth error:", authError)
+      logger.error("Auth error:", authError)
       return NextResponse.json(
         { error: "Unauthorized - please log in" },
         { status: 401 }
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
       .single()
 
     if (profileError) {
-      console.error("Error fetching profile:", profileError)
+      logger.error("Error fetching profile:", profileError)
       return NextResponse.json(
         { error: "Failed to verify admin status" },
         { status: 500 }
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     if (!profile) {
-      console.error("No profile found for user:", user.id)
+      logger.error("No profile found for user:", user.id)
       return NextResponse.json(
         { error: "User profile not found" },
         { status: 404 }
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
     }
 
     if (profile.role !== 'admin') {
-      console.log("User is not admin. Role:", profile.role)
+      logger.debug("User is not admin. Role:", profile.role)
       return NextResponse.json(
         { error: `Only admins can view beta testers. Your role: ${profile.role || 'user'}` },
         { status: 403 }
@@ -58,14 +60,14 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching beta testers:", error)
+      logger.error("Error fetching beta testers:", error)
       return NextResponse.json(
         { error: error.message || "Failed to fetch beta testers" },
         { status: 500 }
       )
     }
 
-    console.log(`Returning ${data?.length || 0} beta testers`)
+    logger.debug(`Returning ${data?.length || 0} beta testers`)
 
     return NextResponse.json({
       success: true,
@@ -73,7 +75,7 @@ export async function GET(request: Request) {
     })
 
   } catch (error) {
-    console.error("Error in list beta testers API:", error)
+    logger.error("Error in list beta testers API:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

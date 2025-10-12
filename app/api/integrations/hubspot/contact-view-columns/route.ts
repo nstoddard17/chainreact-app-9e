@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * API endpoint to fetch the actual columns visible in HubSpot's contacts table view
  * This uses HubSpot's Views API to get the configured columns for the default contacts view
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     const accessToken = await getDecryptedAccessToken(user.id, "hubspot")
 
     // First, let's fetch ALL contact properties to see what's available
-    console.log("Fetching all HubSpot contact properties...")
+    logger.debug("Fetching all HubSpot contact properties...")
 
     const allPropertiesResponse = await fetch(
       "https://api.hubapi.com/crm/v3/properties/contacts",
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     const allPropertiesData = await allPropertiesResponse.json()
-    console.log(`Found ${allPropertiesData.results.length} total contact properties`)
+    logger.debug(`Found ${allPropertiesData.results.length} total contact properties`)
 
     // Try to fetch the views to see configured columns
     const viewsResponse = await fetch(
@@ -74,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     if (!viewsResponse.ok) {
       // If views API is not available, return ALL properties with metadata
-      console.log("Views API not available, returning all properties with metadata")
+      logger.debug("Views API not available, returning all properties with metadata")
 
       // Since we already fetched all properties above, use that data
       const allProperties = allPropertiesData.results
@@ -202,7 +204,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("HubSpot contact view columns error:", error)
+    logger.error("HubSpot contact view columns error:", error)
     return NextResponse.json(
       {
         error: "Internal server error",

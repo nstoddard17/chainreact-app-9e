@@ -9,6 +9,8 @@ import { MessageSquare, PenTool, Zap, TrendingUp, AlertTriangle } from "lucide-r
 import { useBillingStore } from "@/stores/billingStore"
 import Link from "next/link"
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIUsageData {
   ai_assistant_calls: number
   ai_compose_uses: number
@@ -35,7 +37,7 @@ export default function AIUsageCard() {
         setUsage(data)
       }
     } catch (error) {
-      console.error('Failed to fetch AI usage:', error)
+      logger.error('Failed to fetch AI usage:', error)
     } finally {
       setLoading(false)
     }

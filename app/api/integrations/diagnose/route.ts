@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import type { Database } from "@/types/supabase"
 import { getRequiredScopes, getOptionalScopes } from "@/lib/integrations/integrationScopes"
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiagnosticResult {
   integrationId: string
   provider: string
@@ -279,7 +281,7 @@ export async function GET(request: NextRequest) {
       .eq("status", "connected")
 
     if (error) {
-      console.error("Database error:", error)
+      logger.error("Database error:", error)
       throw error
     }
 
@@ -288,7 +290,7 @@ export async function GET(request: NextRequest) {
     for (const integration of integrations || []) {
       const { provider } = integration
 
-      console.log(`Processing integration: ${provider}`)
+      logger.debug(`Processing integration: ${provider}`)
 
       // Check token validity based on database information only
       const tokenCheck = checkTokenExpiry(integration)
@@ -304,7 +306,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ diagnostics })
   } catch (error: any) {
-    console.error("Error running diagnostics:", error)
+    logger.error("Error running diagnostics:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

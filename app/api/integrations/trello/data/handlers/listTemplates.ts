@@ -5,8 +5,10 @@
 import { TrelloIntegration, TrelloListTemplate, TrelloDataHandler } from '../types'
 import { validateTrelloIntegration, validateTrelloToken, makeTrelloApiRequest, parseTrelloApiResponse, buildTrelloApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = async (integration: TrelloIntegration, options: any = {}): Promise<TrelloListTemplate[]> => {
-  console.log("🔍 Trello list templates fetcher called with integration:", {
+  logger.debug("🔍 Trello list templates fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    console.log(`🔍 Validating Trello token...`)
+    logger.debug(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Trello boards and their lists from API...')
+    logger.debug('🔍 Fetching Trello boards and their lists from API...')
     
     // First get all boards
     const boardsApiUrl = buildTrelloApiUrl('/1/members/me/boards?fields=id,name,desc,url,closed')
@@ -56,16 +58,16 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
           })
         }
       } catch (error) {
-        console.warn(`Failed to fetch lists for board ${board.id}:`, error)
+        logger.warn(`Failed to fetch lists for board ${board.id}:`, error)
         continue
       }
     }
     
-    console.log(`✅ Trello list templates fetched successfully: ${listTemplates.length} lists`)
+    logger.debug(`✅ Trello list templates fetched successfully: ${listTemplates.length} lists`)
     return listTemplates
     
   } catch (error: any) {
-    console.error("Error fetching Trello list templates:", error)
+    logger.error("Error fetching Trello list templates:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Trello authentication expired. Please reconnect your account.')

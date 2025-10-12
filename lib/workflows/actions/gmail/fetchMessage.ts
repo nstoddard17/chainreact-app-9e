@@ -3,6 +3,8 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Gmail messages with various options
  */
@@ -80,7 +82,7 @@ export async function fetchGmailMessage(
           })
           messages.push(fullMessage.data)
         } catch (error) {
-          console.warn(`Failed to fetch message ${msg.id}:`, error)
+          logger.warn(`Failed to fetch message ${msg.id}:`, error)
         }
       }
     }
@@ -171,7 +173,7 @@ export async function fetchGmailMessage(
             }
           })
         } catch (error) {
-          console.warn(`Failed to mark message ${msg.id} as read:`, error)
+          logger.warn(`Failed to mark message ${msg.id} as read:`, error)
         }
       }
     }
@@ -186,7 +188,7 @@ export async function fetchGmailMessage(
     }
 
   } catch (error: any) {
-    console.error('Fetch Gmail message error:', error)
+    logger.error('Fetch Gmail message error:', error)
     return {
       success: false,
       output: {},

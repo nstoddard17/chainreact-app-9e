@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { FileStorageService } from '@/lib/storage/fileStorage';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('File upload error:', uploadError);
+      logger.error('File upload error:', uploadError);
       return NextResponse.json({ 
         error: `Failed to upload file: ${uploadError.message}` 
       }, { status: 500 });
@@ -141,7 +143,7 @@ export async function POST(request: NextRequest) {
     if (isTemporaryUpload) {
       // For temporary uploads, just return the file info without database storage
       // The file is already uploaded to Supabase storage
-      console.log('Temporary file upload - skipping database record for:', { workflowId, nodeId, fileName: file.name });
+      logger.debug('Temporary file upload - skipping database record for:', { workflowId, nodeId, fileName: file.name });
       return NextResponse.json({
         success: true,
         fileId: nodeId, // Use the node ID as identifier
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       // Clean up uploaded file if database insert fails
       await supabase.storage.from('workflow-files').remove([filePath]);
-      console.error('Database insert error:', dbError);
+      logger.error('Database insert error:', dbError);
       return NextResponse.json({ 
         error: `Failed to store file metadata: ${dbError.message}` 
       }, { status: 500 });
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('File upload error:', error);
+    logger.error('File upload error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to upload file' 
     }, { status: 500 });
@@ -243,7 +245,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('File deletion error:', error);
+    logger.error('File deletion error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to delete file' 
     }, { status: 500 });

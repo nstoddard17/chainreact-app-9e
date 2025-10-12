@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -89,7 +91,7 @@ async function logWebhookExecution(
         timestamp: new Date().toISOString()
       })
   } catch (error) {
-    console.error('Failed to log webhook execution:', error)
+    logger.error('Failed to log webhook execution:', error)
   }
 }
 
@@ -102,7 +104,7 @@ async function processNotifications(
   for (const change of notifications) {
     try {
       // SECURITY: Don't log full resource data (contains PII/IDs)
-      console.log('🔍 Processing notification:', {
+      logger.debug('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
         resourceType: change?.resourceData?.['@odata.type'],
@@ -121,7 +123,7 @@ async function processNotifications(
       let configuredChangeType: string | null = null
       let triggerConfig: any = null
       if (subId) {
-        console.log('🔍 Looking up subscription:', subId)
+        logger.debug('🔍 Looking up subscription:', subId)
 
         const { data: triggerResource, error: resourceError } = await supabase
           .from('trigger_resources')
@@ -132,7 +134,7 @@ async function processNotifications(
           .maybeSingle()
 
         if (!triggerResource) {
-          console.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
+          logger.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
             subId,
             message: 'This subscription is not tracked in trigger_resources. Deactivate/reactivate workflow to clean up.'
           })
@@ -149,7 +151,7 @@ async function processNotifications(
         // Verify clientState if present
         if (bodyClientState && triggerResource.config?.clientState) {
           if (bodyClientState !== triggerResource.config.clientState) {
-            console.warn('⚠️ Invalid clientState for notification, skipping', {
+            logger.warn('⚠️ Invalid clientState for notification, skipping', {
               subId,
               expected: triggerResource.config.clientState,
               received: bodyClientState
@@ -158,7 +160,7 @@ async function processNotifications(
           }
         }
 
-        console.log('✅ Resolved from trigger_resources:', {
+        logger.debug('✅ Resolved from trigger_resources:', {
           subscriptionId: subId,
           userId,
           workflowId,
@@ -177,7 +179,7 @@ async function processNotifications(
         ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
         : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
-      console.log('🔑 Deduplication check:', {
+      logger.debug('🔑 Deduplication check:', {
         dedupKey,
         messageId,
         changeType,
@@ -196,7 +198,7 @@ async function processNotifications(
         // Duplicate key violation (unique constraint) or other error
         if (dedupError.code === '23505') {
           // PostgreSQL unique violation error code
-          console.log('⏭️ Skipping duplicate notification (already processed):', {
+          logger.debug('⏭️ Skipping duplicate notification (already processed):', {
             dedupKey,
             messageId,
             subscriptionId: subId
@@ -204,7 +206,7 @@ async function processNotifications(
           continue
         } else {
           // Other error, log but continue processing
-          console.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+          logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
         }
       }
 
@@ -214,7 +216,7 @@ async function processNotifications(
         const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
 
         if (!allowedTypes.includes(changeType)) {
-          console.log('⏭️ Skipping notification - changeType not configured:', {
+          logger.debug('⏭️ Skipping notification - changeType not configured:', {
             received: changeType,
             configured: configuredChangeType,
             subscriptionId: subId
@@ -255,7 +257,7 @@ async function processNotifications(
               const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
 
               if (!filterConfig) {
-                console.warn(`⚠️ Unknown trigger type: ${triggerType}, allowing all filters`)
+                logger.warn(`⚠️ Unknown trigger type: ${triggerType}, allowing all filters`)
               }
 
               // Check folder filter (only for triggers that support folder filtering)
@@ -283,7 +285,7 @@ async function processNotifications(
                       configFolderId = inboxFolder?.id || null
                     }
                   } catch (folderError) {
-                    console.warn('⚠️ Failed to get Inbox folder ID, allowing all folders:', folderError)
+                    logger.warn('⚠️ Failed to get Inbox folder ID, allowing all folders:', folderError)
                   }
                 }
 
@@ -304,14 +306,14 @@ async function processNotifications(
                       ? (await folderResponse.json()).displayName
                       : email.parentFolderId
 
-                    console.log('⏭️ Skipping email - not in configured folder:', {
+                    logger.debug('⏭️ Skipping email - not in configured folder:', {
                       expectedFolderId: configFolderId,
                       actualFolderId: email.parentFolderId,
                       actualFolderName: folderName,
                       subscriptionId: subId
                     })
                   } catch (folderError) {
-                    console.log('⏭️ Skipping email - not in configured folder:', {
+                    logger.debug('⏭️ Skipping email - not in configured folder:', {
                       expectedFolderId: configFolderId,
                       actualFolderId: email.parentFolderId,
                       subscriptionId: subId
@@ -333,7 +335,7 @@ async function processNotifications(
 
                 if (!isMatch) {
                   // SECURITY: Don't log actual subject content (PII)
-                  console.log('⏭️ Skipping email - subject does not match filter:', {
+                  logger.debug('⏭️ Skipping email - subject does not match filter:', {
                     expectedLength: configSubject.length,
                     receivedLength: emailSubject.length,
                     exactMatch,
@@ -350,7 +352,7 @@ async function processNotifications(
 
                 if (emailFrom !== configFrom) {
                   // SECURITY: Don't log actual email addresses (PII)
-                  console.log('⏭️ Skipping email - from address does not match filter:', {
+                  logger.debug('⏭️ Skipping email - from address does not match filter:', {
                     hasExpected: !!configFrom,
                     hasReceived: !!emailFrom,
                     subscriptionId: subId
@@ -368,7 +370,7 @@ async function processNotifications(
 
                 if (!hasMatch) {
                   // SECURITY: Don't log actual email addresses (PII)
-                  console.log('⏭️ Skipping email - to address does not match filter:', {
+                  logger.debug('⏭️ Skipping email - to address does not match filter:', {
                     hasExpected: !!configTo,
                     recipientCount: emailTo.length,
                     subscriptionId: subId
@@ -383,7 +385,7 @@ async function processNotifications(
                 const emailImportance = (email.importance || 'normal').toLowerCase()
 
                 if (emailImportance !== configImportance) {
-                  console.log('⏭️ Skipping email - importance does not match filter:', {
+                  logger.debug('⏭️ Skipping email - importance does not match filter:', {
                     expected: configImportance,
                     received: emailImportance,
                     subscriptionId: subId
@@ -392,20 +394,20 @@ async function processNotifications(
                 }
               }
 
-              console.log('✅ Email matches all filters, proceeding with workflow execution')
+              logger.debug('✅ Email matches all filters, proceeding with workflow execution')
             } else {
-              console.warn('⚠️ Failed to fetch email details for filtering, allowing execution:', emailResponse.status)
+              logger.warn('⚠️ Failed to fetch email details for filtering, allowing execution:', emailResponse.status)
             }
           }
         } catch (filterError) {
-          console.error('❌ Error checking email filters (allowing execution):', filterError)
+          logger.error('❌ Error checking email filters (allowing execution):', filterError)
           // Continue to execute even if filter check fails
         }
       }
 
       // Trigger workflow execution directly (no queue needed)
       if (workflowId && userId) {
-        console.log('🚀 Triggering workflow execution:', {
+        logger.debug('🚀 Triggering workflow execution:', {
           workflowId,
           userId,
           subscriptionId: subId,
@@ -433,9 +435,9 @@ async function processNotifications(
             }
           }
 
-          console.log('📤 Calling execution API:', executionUrl)
+          logger.debug('📤 Calling execution API:', executionUrl)
           // SECURITY: Don't log full execution payload (contains resource data/PII)
-          console.log('📦 Execution payload metadata:', {
+          logger.debug('📦 Execution payload metadata:', {
             workflowId: executionPayload.workflowId,
             testMode: executionPayload.testMode,
             executionMode: executionPayload.executionMode,
@@ -454,30 +456,30 @@ async function processNotifications(
 
           if (response.ok) {
             const result = await response.json()
-            console.log('✅ Workflow execution triggered:', {
+            logger.debug('✅ Workflow execution triggered:', {
               workflowId,
               executionId: result?.executionId,
               status: result?.status
             })
           } else {
             const errorText = await response.text()
-            console.error('❌ Workflow execution failed:', {
+            logger.error('❌ Workflow execution failed:', {
               status: response.status,
               error: errorText
             })
           }
         } catch (execError) {
-          console.error('❌ Error triggering workflow:', execError)
+          logger.error('❌ Error triggering workflow:', execError)
         }
       } else {
-        console.warn('⚠️ Cannot trigger workflow - missing workflowId or userId')
+        logger.warn('⚠️ Cannot trigger workflow - missing workflowId or userId')
       }
     } catch (error) {
-      console.error('❌ Error processing individual notification:', error)
+      logger.error('❌ Error processing individual notification:', error)
     }
   }
 
-  console.log('✅ All notifications processed')
+  logger.debug('✅ All notifications processed')
 }
 
 export async function POST(request: NextRequest) {
@@ -487,7 +489,7 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
 
-    console.log('📥 Microsoft Graph webhook received:', {
+    logger.debug('📥 Microsoft Graph webhook received:', {
       headers: Object.keys(headers),
       bodyLength: body.length,
       timestamp: new Date().toISOString()
@@ -496,13 +498,13 @@ export async function POST(request: NextRequest) {
     // Handle validation request from Microsoft (either via validationToken query or text/plain body)
     if (validationToken || headers['content-type']?.includes('text/plain')) {
       const token = validationToken || body
-      console.log('🔍 Validation request received')
+      logger.debug('🔍 Validation request received')
       return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
     // Handle empty body (some Microsoft notifications are empty)
     if (!body || body.length === 0) {
-      console.log('⚠️ Empty webhook payload received, skipping')
+      logger.debug('⚠️ Empty webhook payload received, skipping')
       return NextResponse.json({ success: true, empty: true })
     }
 
@@ -511,14 +513,14 @@ export async function POST(request: NextRequest) {
     try {
       payload = JSON.parse(body)
     } catch (error) {
-      console.error('❌ Failed to parse webhook payload:', error)
+      logger.error('❌ Failed to parse webhook payload:', error)
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
     }
 
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
     // SECURITY: Don't log full payload (contains PII/resource IDs)
-    console.log('📋 Webhook payload analysis:', {
+    logger.debug('📋 Webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
@@ -526,7 +528,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (notifications.length === 0) {
-      console.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
+      logger.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
       return NextResponse.json({ success: true, empty: true })
     }
 
@@ -541,13 +543,13 @@ export async function POST(request: NextRequest) {
       // Return 202 after processing
       return new NextResponse(null, { status: 202 })
     } catch (error) {
-      console.error('❌ Notification processing error:', error)
+      logger.error('❌ Notification processing error:', error)
       await logWebhookExecution('microsoft-graph', payload, headers, 'error', Date.now() - startTime)
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
     }
 
   } catch (error: any) {
-    console.error('❌ Microsoft Graph webhook error:', error)
+    logger.error('❌ Microsoft Graph webhook error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -556,7 +558,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
   if (validationToken) {
-    console.log('🔍 Validation request (GET) received')
+    logger.debug('🔍 Validation request (GET) received')
     return new NextResponse(validationToken, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   }
 

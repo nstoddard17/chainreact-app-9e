@@ -8,6 +8,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Loader2, Brain, ChevronDown, ChevronRight, DollarSign, Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIFieldResolution {
   fieldName: string
   fieldType: string
@@ -71,7 +73,7 @@ export function AIFieldResolutionDisplay({
         setError(data.error || 'Failed to load AI field resolutions')
       }
     } catch (err) {
-      console.error('Error fetching AI resolutions:', err)
+      logger.error('Error fetching AI resolutions:', err)
       setError('Failed to load AI field resolutions')
     } finally {
       setLoading(false)
@@ -299,7 +301,7 @@ export function AIFieldResolutionSummary({
         })
       }
     } catch (err) {
-      console.error('Error fetching AI resolution summary:', err)
+      logger.error('Error fetching AI resolution summary:', err)
     } finally {
       setLoading(false)
     }

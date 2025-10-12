@@ -1,5 +1,7 @@
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ErrorReportOptions {
   context?: string
   userId?: string
@@ -59,7 +61,7 @@ export class ErrorReporter {
     }
     
     // Log error to console for debugging
-    console.error(`[ErrorReporter] ${context}:`, error)
+    logger.error(`[ErrorReporter] ${context}:`, error)
     
     // Show user-friendly error message
     if (showToast) {
@@ -144,10 +146,10 @@ export class ErrorReporter {
         const data = await response.json()
         toast.success(`Support ticket ${data.ticket.ticket_number} created for this error`)
       } else {
-        console.error('Failed to create support ticket for error')
+        logger.error('Failed to create support ticket for error')
       }
     } catch (ticketError) {
-      console.error('Failed to create support ticket:', ticketError)
+      logger.error('Failed to create support ticket:', ticketError)
       toast.error('Failed to report error. Please contact support manually.')
     }
   }

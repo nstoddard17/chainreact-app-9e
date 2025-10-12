@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   const testResults = [];
   
@@ -14,7 +16,7 @@ export async function GET() {
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Test 1: Service role can access everything
-    console.log('Testing service role access...');
+    logger.debug('Testing service role access...');
     const criticalTables = ['user_profiles', 'integrations', 'workflows', 'organizations', 'subscriptions'];
     
     for (const table of criticalTables) {
@@ -31,7 +33,7 @@ export async function GET() {
     }
 
     // Test 2: Anonymous client is properly restricted
-    console.log('Testing anonymous restrictions...');
+    logger.debug('Testing anonymous restrictions...');
     const restrictedTables = ['integrations', 'workflows', 'subscriptions', 'user_profiles'];
     
     for (const table of restrictedTables) {
@@ -53,7 +55,7 @@ export async function GET() {
     }
 
     // Test 3: Public tables are accessible
-    console.log('Testing public access...');
+    logger.debug('Testing public access...');
     const { data: plans, error: plansError } = await anonClient
       .from('plans')
       .select('*');
@@ -67,7 +69,7 @@ export async function GET() {
     });
 
     // Test 4: Check RLS is enabled on all tables
-    console.log('Checking RLS status...');
+    logger.debug('Checking RLS status...');
     const { data: rlsCheck } = await serviceClient.rpc('query_database', {
       query: `
         SELECT COUNT(*) as total,
@@ -106,7 +108,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('RLS test error:', error);
+    logger.error('RLS test error:', error);
     return NextResponse.json({
       success: false,
       error: 'Test failed',

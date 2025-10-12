@@ -12,6 +12,8 @@ import { Loader2, Sparkles } from "lucide-react"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { type UserRole } from "@/lib/utils/roles"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
   const [formData, setFormData] = useState({
@@ -64,7 +66,7 @@ export default function ProfileSettings() {
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     } catch (error) {
-      console.error("Failed to update profile:", error)
+      logger.error("Failed to update profile:", error)
       setError(error instanceof Error ? error.message : "Failed to update profile. Please try again.")
     } finally {
       clearTimeout(timeoutId)

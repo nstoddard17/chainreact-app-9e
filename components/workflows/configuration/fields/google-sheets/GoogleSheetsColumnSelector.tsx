@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Plus, Table } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleSheetsColumnSelectorProps {
   field: any;
   value: string[];
@@ -59,7 +61,7 @@ export function GoogleSheetsColumnSelector({
     try {
       await onDynamicLoad('google-sheets_columns', 'sheetName', sheetName, true);
     } catch (error) {
-      console.error('Failed to load columns:', error);
+      logger.error('Failed to load columns:', error);
     }
   };
 

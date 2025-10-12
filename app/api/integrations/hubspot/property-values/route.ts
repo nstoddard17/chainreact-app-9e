@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("HubSpot property values error:", error)
+    logger.error("HubSpot property values error:", error)
     return NextResponse.json(
       { 
         error: "Internal server error", 

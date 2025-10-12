@@ -4,6 +4,8 @@ import { decrypt } from '@/lib/security/encryption';
 import type { HubspotFieldDef, HubspotPropertiesResponse } from '@/lib/workflows/nodes/providers/hubspot/types';
 import { hubspotPropertyToFieldDef } from '@/lib/workflows/nodes/providers/hubspot/types';
 
+import { logger } from '@/lib/utils/logger'
+
 // Cache for property schemas (in-memory for now, could be moved to Redis)
 const propertyCache = new Map<string, { data: HubspotFieldDef[], timestamp: number }>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest) {
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      console.error('Encryption key not configured');
+      logger.error('Encryption key not configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
 
         if (!customPropertiesResponse.ok) {
           const errorText = await propertiesResponse.text();
-          console.error('Failed to fetch properties:', propertiesResponse.status, errorText);
+          logger.error('Failed to fetch properties:', propertiesResponse.status, errorText);
           return NextResponse.json(
             { error: `Failed to fetch properties for object type: ${objectType}` },
             { status: propertiesResponse.status }
@@ -158,7 +160,7 @@ export async function GET(request: NextRequest) {
       }
 
       const errorText = await propertiesResponse.text();
-      console.error('Failed to fetch properties:', propertiesResponse.status, errorText);
+      logger.error('Failed to fetch properties:', propertiesResponse.status, errorText);
       return NextResponse.json(
         { error: `Failed to fetch properties: ${errorText}` },
         { status: propertiesResponse.status }
@@ -206,7 +208,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(fieldDefs);
   } catch (error) {
-    console.error('Error in HubSpot properties route:', error);
+    logger.error('Error in HubSpot properties route:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -234,7 +236,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, message: 'Cache cleared' });
   } catch (error) {
-    console.error('Error clearing cache:', error);
+    logger.error('Error clearing cache:', error);
     return NextResponse.json(
       { error: 'Failed to clear cache' },
       { status: 500 }

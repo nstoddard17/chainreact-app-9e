@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
     const supabase = await createSupabaseServerClient();
 
@@ -28,7 +30,7 @@ export async function GET() {
             .select('*', { count: 'exact', head: true });
 
         if (totalError) {
-            console.error("Error fetching total users:", totalError);
+            logger.error("Error fetching total users:", totalError);
             return NextResponse.json({ error: "Failed to fetch total users" }, { status: 500 });
         }
 
@@ -38,7 +40,7 @@ export async function GET() {
             .select('role');
 
         if (roleError) {
-            console.error("Error fetching role data:", roleError);
+            logger.error("Error fetching role data:", roleError);
             return NextResponse.json({ error: "Failed to fetch role data" }, { status: 500 });
         }
 
@@ -71,7 +73,7 @@ export async function GET() {
 
         return NextResponse.json({ success: true, data: userStats });
     } catch (error) {
-        console.error("Error fetching user stats:", error);
+        logger.error("Error fetching user stats:", error);
         return NextResponse.json({ error: "Failed to fetch user statistics" }, { status: 500 });
     }
 } 

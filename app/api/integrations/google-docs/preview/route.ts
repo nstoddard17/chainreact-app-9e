@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Google Docs API error:", errorData);
+      logger.error("Google Docs API error:", errorData);
       return NextResponse.json(
         { error: errorData.error?.message || "Failed to fetch document" },
         { status: response.status }
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("Error fetching document preview:", error);
+    logger.error("Error fetching document preview:", error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch document preview" },
       { status: 500 }

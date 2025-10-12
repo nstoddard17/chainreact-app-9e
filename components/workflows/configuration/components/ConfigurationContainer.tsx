@@ -4,6 +4,8 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 
+import { logger } from '@/lib/utils/logger'
+
 interface ConfigurationContainerProps {
   children: React.ReactNode;
   onSubmit: (e: React.FormEvent) => void;
@@ -39,11 +41,11 @@ export function ConfigurationContainer({
   isFormValid = true
 }: ConfigurationContainerProps) {
   const handleFormSubmit = (e: React.FormEvent) => {
-    console.log('🎯 [ConfigurationContainer] Form submit event triggered');
+    logger.debug('🎯 [ConfigurationContainer] Form submit event triggered');
     if (onSubmit) {
       onSubmit(e);
     } else {
-      console.error('❌ [ConfigurationContainer] onSubmit is not defined!');
+      logger.error('❌ [ConfigurationContainer] onSubmit is not defined!');
     }
   };
 
@@ -77,7 +79,7 @@ export function ConfigurationContainer({
               <Button
                 type="submit"
                 onClick={() => {
-                  console.log('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
+                  logger.debug('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
                 }}
               >
                 {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}

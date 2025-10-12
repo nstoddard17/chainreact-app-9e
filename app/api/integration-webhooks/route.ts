@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegrations"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   const supabase = await createSupabaseRouteHandlerClient()
   
@@ -190,7 +192,7 @@ export async function GET() {
     return NextResponse.json({ webhooks })
 
   } catch (error: any) {
-    console.error("Error in GET /api/integration-webhooks:", error)
+    logger.error("Error in GET /api/integration-webhooks:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

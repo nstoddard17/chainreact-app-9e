@@ -29,6 +29,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * HubSpot adapter implementing CRMProvider interface
  */
@@ -242,7 +244,7 @@ export class HubSpotAdapter implements CRMProvider {
           throw new Error(`HubSpot method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`HubSpot API call failed for method ${method}:`, error)
+      logger.error(`HubSpot API call failed for method ${method}:`, error)
       throw error
     }
   }

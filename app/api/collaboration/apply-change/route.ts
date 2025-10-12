@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { RealTimeCollaboration } from "@/lib/collaboration/realTimeCollaboration"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error("Apply change error:", error)
+    logger.error("Apply change error:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

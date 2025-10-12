@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getWebhookUrl } from '@/lib/utils/getBaseUrl'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -49,7 +51,7 @@ export async function registerTrelloWebhooksForUser(userId: string) {
     } catch (e) {
       // ignore duplicates
       // eslint-disable-next-line no-console
-      console.warn('trello webhook create warn', e)
+      logger.warn('trello webhook create warn', e)
     }
   }
 }

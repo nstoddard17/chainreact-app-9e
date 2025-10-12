@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`Notion OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Notion OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/notion/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Notion OAuth credentials not configured')
+      logger.error('Notion OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Notion token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Notion token exchange failed:', tokenResponse.status, errorText)
       
       // Check for specific error types and provide better error messages
       let errorMessage = 'Failed to retrieve access token';
@@ -152,19 +154,19 @@ export async function GET(request: NextRequest) {
             }
           }
         } else {
-          console.warn('Failed to fetch Notion users:', await usersResponse.text())
+          logger.warn('Failed to fetch Notion users:', await usersResponse.text())
         }
       } catch (userError) {
-        console.warn('Error fetching Notion users:', userError)
+        logger.warn('Error fetching Notion users:', userError)
       }
     }
 
     // Store the integration data - support multiple Notion workspaces in a single record
     const supabase = createAdminClient()
     
-    console.log(`🔍 Checking for existing Notion integration for user: ${userId}`)
-    console.log(`🔍 Workspace name: ${workspaceName}`)
-    console.log(`🔍 Workspace ID: ${workspaceId}`)
+    logger.debug(`🔍 Checking for existing Notion integration for user: ${userId}`)
+    logger.debug(`🔍 Workspace name: ${workspaceName}`)
+    logger.debug(`🔍 Workspace ID: ${workspaceId}`)
     
     // Get existing Notion integration for this user
     const { data: existingIntegrations, error: queryError } = await supabase
@@ -174,10 +176,10 @@ export async function GET(request: NextRequest) {
       .eq('provider', provider)
     
     if (queryError) {
-      console.error('🔍 Error querying existing integrations:', queryError)
+      logger.error('🔍 Error querying existing integrations:', queryError)
     }
     
-    console.log(`🔍 Found ${existingIntegrations?.length || 0} existing Notion integrations`)
+    logger.debug(`🔍 Found ${existingIntegrations?.length || 0} existing Notion integrations`)
     
     // Prepare workspace data
     const workspaceData = {
@@ -226,7 +228,7 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      console.log(`🔍 Updating existing integration with ${Object.keys(existingWorkspaces).length} workspaces`)
+      logger.debug(`🔍 Updating existing integration with ${Object.keys(existingWorkspaces).length} workspaces`)
       const { error } = await supabase
         .from('integrations')
         .update(integrationData)
@@ -234,9 +236,9 @@ export async function GET(request: NextRequest) {
       upsertError = error;
       
       if (error) {
-        console.error('🔍 Error updating integration:', error)
+        logger.error('🔍 Error updating integration:', error)
       } else {
-        console.log('🔍 Successfully updated integration with multiple workspaces')
+        logger.debug('🔍 Successfully updated integration with multiple workspaces')
       }
     } else {
       // Create new integration with this workspace
@@ -258,27 +260,27 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      console.log(`🔍 Creating new integration with workspace: ${workspaceName}`)
+      logger.debug(`🔍 Creating new integration with workspace: ${workspaceName}`)
       const { error } = await supabase
         .from('integrations')
         .insert(integrationData)
       upsertError = error;
       
       if (error) {
-        console.error('🔍 Error creating new integration:', error)
+        logger.error('🔍 Error creating new integration:', error)
       } else {
-        console.log('🔍 Successfully created new integration')
+        logger.debug('🔍 Successfully created new integration')
       }
     }
 
     if (upsertError) {
-      console.error('Failed to save Notion integration:', upsertError)
+      logger.error('Failed to save Notion integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Notion connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Notion callback error:', error)
+    logger.error('Notion callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

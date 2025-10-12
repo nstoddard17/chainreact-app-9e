@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     cookies()
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
 
     if (error) {
-      console.error("Error leaving collaboration:", error)
+      logger.error("Error leaving collaboration:", error)
       return NextResponse.json(
         { success: false, error: "Failed to leave collaboration" },
         { status: 500 }
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in leave collaboration:", error)
+    logger.error("Error in leave collaboration:", error)
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

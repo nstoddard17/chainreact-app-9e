@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
   const provider = 'google-sheets'
 
   if (error) {
-    console.error(`Error with Google Sheets OAuth: ${error}`)
+    logger.error(`Error with Google Sheets OAuth: ${error}`)
     return createPopupResponse('error', provider, `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('Google Sheets callback error:', e)
+    logger.error('Google Sheets callback error:', e)
     return createPopupResponse(
       'error',
       provider,

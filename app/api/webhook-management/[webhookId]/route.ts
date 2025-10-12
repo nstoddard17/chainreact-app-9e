@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { webhookManager } from "@/lib/webhooks/webhookManager"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { webhookId: string } }
@@ -28,7 +30,7 @@ export async function GET(
 
     return NextResponse.json(webhook)
   } catch (error: any) {
-    console.error(`Error fetching webhook ${webhookId}:`, error)
+    logger.error(`Error fetching webhook ${webhookId}:`, error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -66,7 +68,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error(`Error deleting webhook ${webhookId}:`, error)
+    logger.error(`Error deleting webhook ${webhookId}:`, error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

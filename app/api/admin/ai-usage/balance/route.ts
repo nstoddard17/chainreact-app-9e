@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 // Initialize Supabase with service role for admin access
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
         .lte('created_at', endOfMonth.toISOString())
 
       if (deleteError) {
-        console.error('Error resetting balance:', deleteError)
+        logger.error('Error resetting balance:', deleteError)
         return NextResponse.json({ error: 'Failed to reset balance' }, { status: 500 })
       }
 
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
         .lte('created_at', endOfMonth.toISOString())
 
       if (fetchError) {
-        console.error('Error fetching current balance:', fetchError)
+        logger.error('Error fetching current balance:', fetchError)
         return NextResponse.json({ error: 'Failed to fetch current balance' }, { status: 500 })
       }
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
         })
 
       if (insertError) {
-        console.error('Error adjusting balance:', insertError)
+        logger.error('Error adjusting balance:', insertError)
         return NextResponse.json({ error: 'Failed to adjust balance' }, { status: 500 })
       }
 
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
     
 
   } catch (error) {
-    console.error("Error managing AI usage balance:", error)
+    logger.error("Error managing AI usage balance:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

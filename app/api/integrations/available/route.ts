@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { detectAvailableIntegrations, getIntegrationStats } from "@/lib/integrations/availableIntegrations"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     const integrations = detectAvailableIntegrations()
@@ -14,7 +16,7 @@ export async function GET() {
       },
     })
   } catch (error: any) {
-    console.error("Failed to get available integrations:", error)
+    logger.error("Failed to get available integrations:", error)
     return NextResponse.json(
       {
         success: false,

@@ -8,6 +8,8 @@
 import OpenAI from 'openai'
 import { resolveValue } from './actions/core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 // Special markers for AI-controlled fields and variables
 export const AI_FIELD_MARKER = '{{AI_FIELD}}'
 export const AI_VARIABLE_PATTERN = /\[([^\]]+)\]/g // Matches [variable_name]
@@ -92,7 +94,7 @@ export async function generateAIFieldValue(
     // Parse response based on field type
     return parseAIResponse(response, field.fieldType)
   } catch (error) {
-    console.error('AI field generation error:', error)
+    logger.error('AI field generation error:', error)
     return getDefaultValue(field.fieldType)
   }
 }
@@ -176,7 +178,7 @@ Respond with ONLY a valid JSON object.`
     
     return resolvedText
   } catch (error) {
-    console.error('AI variable resolution error:', error)
+    logger.error('AI variable resolution error:', error)
     // Return original text if AI fails
     return text
   }

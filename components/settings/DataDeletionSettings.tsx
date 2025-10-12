@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Trash2, AlertTriangle, Clock, Shield, Database } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
+import { logger } from '@/lib/utils/logger'
+
 interface DeletionRequest {
   id: string
   deletion_type: string
@@ -40,7 +42,7 @@ export default function DataDeletionSettings() {
         setDeletionRequests(data.deletionRequests || [])
       }
     } catch (error) {
-      console.error("Failed to fetch deletion requests:", error)
+      logger.error("Failed to fetch deletion requests:", error)
     }
   }
 

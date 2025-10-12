@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { RealTimeCollaboration } from "@/lib/collaboration/realTimeCollaboration"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
         .select("id")
         .limit(1)
     } catch (tableError: any) {
-      console.error("Collaboration tables not found:", tableError)
+      logger.error("Collaboration tables not found:", tableError)
       return NextResponse.json({ 
         error: "Collaboration feature not available. Please contact support." 
       }, { status: 503 })
@@ -87,7 +89,7 @@ export async function POST(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error("Collaboration join error:", error)
+    logger.error("Collaboration join error:", error)
     
     // Provide more specific error messages
     if (error.message?.includes('relation') && error.message?.includes('does not exist')) {

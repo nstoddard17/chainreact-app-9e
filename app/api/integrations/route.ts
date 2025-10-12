@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 import type { Integration } from "@/types/integration"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
-  console.log('📍 [API /api/integrations] GET request received', {
+  logger.debug('📍 [API /api/integrations] GET request received', {
     timestamp: new Date().toISOString(),
     headers: {
       referer: 'check-console', // Will be logged from request
@@ -23,14 +25,14 @@ export async function GET() {
     } = await supabaseAuth.auth.getUser()
 
     if (userError || !user) {
-      console.error('❌ [API /api/integrations] Auth error', { 
+      logger.error('❌ [API /api/integrations] Auth error', { 
         userError,
         hasUser: !!user 
       });
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    console.log('✅ [API /api/integrations] User authenticated', { userId: user.id });
+    logger.debug('✅ [API /api/integrations] User authenticated', { userId: user.id });
 
     // Use service role client to bypass RLS for reading integrations
     const supabaseService = await createSupabaseServiceClient()
@@ -41,7 +43,7 @@ export async function GET() {
     
     // Fallback: If no integrations found, check for orphaned ones based on email
     if ((!integrations || integrations.length === 0) && user.email) {
-      console.log('🔍 [API /api/integrations] No integrations found, checking for orphaned ones...')
+      logger.debug('🔍 [API /api/integrations] No integrations found, checking for orphaned ones...')
       
       // Try to find integrations from old user IDs
       const { data: userProfiles } = await supabaseService
@@ -58,7 +60,7 @@ export async function GET() {
           .in("user_id", oldUserIds)
         
         if (orphanedIntegrations && orphanedIntegrations.length > 0) {
-          console.log(`🔄 [API /api/integrations] Found ${orphanedIntegrations.length} orphaned integrations, auto-migrating...`)
+          logger.debug(`🔄 [API /api/integrations] Found ${orphanedIntegrations.length} orphaned integrations, auto-migrating...`)
           
           // Auto-migrate these integrations
           await supabaseService
@@ -78,12 +80,12 @@ export async function GET() {
           integrations = result.data
           integrationsError = result.error
           
-          console.log(`✅ [API /api/integrations] Auto-migrated and fetched ${integrations?.length || 0} integrations`)
+          logger.debug(`✅ [API /api/integrations] Auto-migrated and fetched ${integrations?.length || 0} integrations`)
         }
       }
     }
     
-    console.log('📊 [API /api/integrations] Query result', {
+    logger.debug('📊 [API /api/integrations] Query result', {
       count: integrations?.length || 0,
       error: integrationsError,
       errorMessage: integrationsError?.message,
@@ -95,7 +97,7 @@ export async function GET() {
     });
 
     if (integrationsError) {
-      console.error('❌ [API /api/integrations] Database error:', {
+      logger.error('❌ [API /api/integrations] Database error:', {
         message: integrationsError.message,
         code: integrationsError.code,
         details: integrationsError.details,

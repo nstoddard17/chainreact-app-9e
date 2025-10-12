@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renewExpiringGoogleWatches, cleanupExpiredSubscriptions } from '@/lib/webhooks/google-watch-renewal'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     // Verify this is an authorized request (e.g., from a cron job service)
@@ -11,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('🔄 Starting Google watch renewal process...')
+    logger.debug('🔄 Starting Google watch renewal process...')
 
     // Renew expiring watches
     await renewExpiringGoogleWatches()
@@ -19,7 +21,7 @@ export async function POST(request: NextRequest) {
     // Clean up old expired subscriptions
     await cleanupExpiredSubscriptions()
 
-    console.log('✅ Google watch renewal process completed')
+    logger.debug('✅ Google watch renewal process completed')
 
     return NextResponse.json({
       success: true,
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Failed to renew Google watches:', error)
+    logger.error('Failed to renew Google watches:', error)
     return NextResponse.json(
       {
         error: 'Failed to renew watches',

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(
   request: Request,
   { params }: { params: { webhookId: string } }
@@ -103,7 +105,7 @@ export async function POST(
     })
 
   } catch (error: any) {
-    console.error(`Error in POST /api/custom-webhooks/${webhookId}/test:`, error)
+    logger.error(`Error in POST /api/custom-webhooks/${webhookId}/test:`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

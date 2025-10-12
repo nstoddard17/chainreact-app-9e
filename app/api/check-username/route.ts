@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { logger } from '@/lib/utils/logger'
+
 // Create a service role client to bypass RLS
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ available: true })
       }
       // For any other error, log it but assume available
-      console.log('Username check error:', error)
+      logger.debug('Username check error:', error)
       return NextResponse.json({ available: true })
     }
 
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ available: false })
 
   } catch (error) {
-    console.error('Username availability check failed:', error)
+    logger.error('Username availability check failed:', error)
     // Default to available on error - actual constraint will be enforced at signup
     return NextResponse.json({ available: true })
   }

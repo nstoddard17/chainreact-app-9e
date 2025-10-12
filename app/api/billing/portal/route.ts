@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
 
+import { logger } from '@/lib/utils/logger'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 // Helper function to get base URL from request
@@ -14,7 +16,7 @@ function getBaseUrlFromRequest(request: NextRequest): string {
   if (host) {
     // Check if it's localhost - if so, ALWAYS use localhost regardless of env vars
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      console.log("[Portal API] Detected localhost, using local URL")
+      logger.debug("[Portal API] Detected localhost, using local URL")
       return `http://${host}`
     }
     
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: portalSession.url })
   } catch (error: any) {
-    console.error("Portal session error:", error)
+    logger.error("Portal session error:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { discordHandlers } from './handlers'
 import { DiscordIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Discord API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Discord API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Discord integration not found'
       }, { status: 404 })
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status - check for re-authorization needed
     if (integration.status === 'needs_reauthorization') {
-      console.error('❌ [Discord API] Integration needs re-authorization:', {
+      logger.error('❌ [Discord API] Integration needs re-authorization:', {
         integrationId,
         status: integration.status
       })
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest) {
     // Check for other invalid statuses - be more lenient
     // Only fail if status is explicitly disconnected or error
     if (integration.status === 'disconnected' || integration.status === 'error') {
-      console.error('❌ [Discord API] Integration not connected:', {
+      logger.error('❌ [Discord API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     
     // Log warning for non-standard statuses but continue
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.warn('⚠️ [Discord API] Non-standard integration status, continuing anyway:', {
+      logger.warn('⚠️ [Discord API] Non-standard integration status, continuing anyway:', {
         integrationId,
         status: integration.status
       })
@@ -80,14 +82,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = discordHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Discord API] Unknown data type:', dataType, 'Available:', Object.keys(discordHandlers))
+      logger.error('❌ [Discord API] Unknown data type:', dataType, 'Available:', Object.keys(discordHandlers))
       return NextResponse.json({
         error: `Unknown Discord data type: ${dataType}`,
         availableTypes: Object.keys(discordHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Discord API] Processing request:`, {
+    logger.debug(`🔍 [Discord API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as DiscordIntegration, options)
 
-    console.log(`✅ [Discord API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Discord API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -110,7 +112,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Discord API] Unexpected error:', {
+    logger.error('❌ [Discord API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 // This file contains the updates needed for the CollaborativeWorkflowBuilder.tsx
 // These changes implement:
 // 1. Change "Listen" button to "Test"
@@ -70,7 +72,7 @@ export const WORKFLOW_BUILDER_UPDATES = {
         await setupWebhookListener(triggerNode)
       }
     } catch (error) {
-      console.error("Test failed:", error)
+      logger.error("Test failed:", error)
       toast({
         title: "Test Failed",
         description: error.message,
@@ -111,7 +113,7 @@ export const WORKFLOW_BUILDER_UPDATES = {
       }, 1000)
       
     } catch (error) {
-      console.error("Failed to enable workflow:", error)
+      logger.error("Failed to enable workflow:", error)
       toast({
         title: "Failed to Enable",
         description: "Could not enable the workflow. Please try again.",
@@ -183,7 +185,7 @@ export const WORKFLOW_BUILDER_UPDATES = {
       }
       
     } catch (error) {
-      console.error("Workflow execution error:", error)
+      logger.error("Workflow execution error:", error)
       toast({
         title: "Execution Error",
         description: error.message,

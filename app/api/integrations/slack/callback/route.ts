@@ -4,6 +4,8 @@ import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { prepareIntegrationData } from '@/lib/integrations/tokenUtils'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -13,9 +15,9 @@ export async function GET(request: NextRequest) {
   const devWebhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
   const redirectBase = devWebhookUrl || baseUrl
   
-  console.log('📍 Slack callback - Base URL:', baseUrl)
-  console.log('📍 Slack callback - Request URL:', request.url)
-  console.log('📍 Slack callback - Using redirect base:', redirectBase)
+  logger.debug('📍 Slack callback - Base URL:', baseUrl)
+  logger.debug('📍 Slack callback - Request URL:', request.url)
+  logger.debug('📍 Slack callback - Using redirect base:', redirectBase)
   
   const supabase = createAdminClient()
 
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
     const { userId } = stateData
 
     if (!userId) {
-      console.error("Missing userId in Slack state")
+      logger.error("Missing userId in Slack state")
       return createPopupResponse("error", "slack", "User ID is missing from state", redirectBase)
     }
 
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Log token data structure (without sensitive values)
-    console.log('Slack token response structure:', {
+    logger.debug('Slack token response structure:', {
       ok: tokenData.ok,
       app_id: tokenData.app_id,
       authed_user: tokenData.authed_user ? { id: tokenData.authed_user.id } : null,
@@ -152,7 +154,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse("success", "slack", "Slack account connected successfully.", redirectBase)
   } catch (e: any) {
-    console.error("Slack callback error:", e)
+    logger.error("Slack callback error:", e)
     const message = e.message || "An unexpected error occurred."
     return createPopupResponse("error", "slack", message, redirectBase)
   }

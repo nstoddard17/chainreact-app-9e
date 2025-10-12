@@ -29,6 +29,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Discord adapter implementing ChatProvider interface
  */
@@ -250,7 +252,7 @@ export class DiscordAdapter implements ChatProvider {
           throw new Error(`Discord method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`Discord API call failed for method ${method}:`, error)
+      logger.error(`Discord API call failed for method ${method}:`, error)
       throw error
     }
   }

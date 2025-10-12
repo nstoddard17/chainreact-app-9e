@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -37,7 +39,7 @@ export async function GET(
 
     return NextResponse.json({ history })
   } catch (error) {
-    console.error('Error fetching workflow history:', error)
+    logger.error('Error fetching workflow history:', error)
     return NextResponse.json(
       { error: 'Failed to fetch workflow history' },
       { status: 500 }
@@ -80,7 +82,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting workflow history:', error)
+    logger.error('Error deleting workflow history:', error)
     return NextResponse.json(
       { error: 'Failed to delete workflow history' },
       { status: 500 }

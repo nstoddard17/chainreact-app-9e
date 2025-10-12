@@ -11,6 +11,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoTextInput, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailSignature {
   id: string
   name: string
@@ -94,10 +96,10 @@ export function GmailEmailRichTextEditor({
         }
         // Don't auto-add signature - user must manually add it using the signature button
       } else {
-        console.error('Failed to load Gmail signatures:', response.status)
+        logger.error('Failed to load Gmail signatures:', response.status)
       }
     } catch (error) {
-      console.error('Failed to load Gmail signatures:', error)
+      logger.error('Failed to load Gmail signatures:', error)
     } finally {
       setIsLoadingSignatures(false)
     }

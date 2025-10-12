@@ -4,6 +4,8 @@
 
 import { HubSpotApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create HubSpot API error with proper context
  */
@@ -80,7 +82,7 @@ export function getHubSpotApiHeaders(accessToken: string): Record<string, string
 export async function parseHubSpotApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ HubSpot API error: ${response.status} ${errorText}`)
+    logger.error(`❌ HubSpot API error: ${response.status} ${errorText}`)
     
     throw createHubSpotApiError(
       `HubSpot API error: ${response.status}`,
@@ -124,7 +126,7 @@ export async function validateHubSpotToken(integration: any): Promise<{ success:
     try {
       decryptedToken = await decrypt(integration.access_token)
     } catch (decryptError) {
-      console.error('❌ [HubSpot] Failed to decrypt access token:', decryptError)
+      logger.error('❌ [HubSpot] Failed to decrypt access token:', decryptError)
       return {
         success: false,
         error: "Failed to decrypt access token"

@@ -10,6 +10,8 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -59,7 +61,7 @@ function InvitePageContent() {
         await autoAcceptInvitation()
       }
     } catch (error) {
-      console.error('Error validating invitation:', error)
+      logger.error('Error validating invitation:', error)
       setError(error instanceof Error ? error.message : 'Failed to validate invitation')
     } finally {
       setLoading(false)
@@ -86,7 +88,7 @@ function InvitePageContent() {
       // Redirect to the organization page
       router.push(`/teams/${result.organization.slug}`)
     } catch (error) {
-      console.error('Error auto-accepting invitation:', error)
+      logger.error('Error auto-accepting invitation:', error)
       // Don't show error toast for auto-accept, just let user manually accept
       setAutoAccepting(false)
     }
@@ -112,7 +114,7 @@ function InvitePageContent() {
       // Redirect to the organization page
       router.push(`/teams/${result.organization.slug}`)
     } catch (error) {
-      console.error('Error accepting invitation:', error)
+      logger.error('Error accepting invitation:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to accept invitation')
     } finally {
       setLoading(false)

@@ -4,6 +4,8 @@ import { cookies } from "next/headers"
 import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
 
+import { logger } from '@/lib/utils/logger'
+
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       // TODO: Add proper admin check here
       // For now, we'll allow any authenticated user to test
       // In production, you should verify the user has admin role
-      console.log(`Admin test mode: User ${user.id} testing as ${testUserId}`)
+      logger.debug(`Admin test mode: User ${user.id} testing as ${testUserId}`)
       userId = testUserId
     } else {
       // Normal mode - use authenticated user
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingRequest) {
-      console.log('Request already processed:', requestId)
+      logger.debug('Request already processed:', requestId)
       return NextResponse.json({
         requestId,
         cached: true,
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (costLogError) {
-        console.error('Failed to save cost log:', costLogError)
+        logger.error('Failed to save cost log:', costLogError)
       }
 
       // Save to chat history for backward compatibility
@@ -185,7 +187,7 @@ export async function POST(request: NextRequest) {
       
     } catch (error) {
       // Log the error for debugging
-      console.error('OpenAI API error:', error)
+      logger.error('OpenAI API error:', error)
 
       // Still try to save error to cost logs for tracking
       await supabase
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error("AI chat error:", error)
+    logger.error("AI chat error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

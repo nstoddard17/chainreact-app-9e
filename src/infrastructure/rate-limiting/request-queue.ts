@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Request queue configuration
  */
@@ -146,7 +148,7 @@ export class RequestQueue<T = any> extends EventEmitter {
       this.stats.queued++
       this.emit('enqueued', request)
       
-      console.log(`📝 Request queued: ${request.id} (priority: ${request.priority}, queue size: ${this.queue.length})`)
+      logger.debug(`📝 Request queued: ${request.id} (priority: ${request.priority}, queue size: ${this.queue.length})`)
     })
   }
 
@@ -187,7 +189,7 @@ export class RequestQueue<T = any> extends EventEmitter {
     }
     
     this.queue = []
-    console.log(`🗑️ Queue cleared: ${cleared} requests rejected`)
+    logger.debug(`🗑️ Queue cleared: ${cleared} requests rejected`)
     this.emit('cleared', cleared)
   }
 
@@ -198,7 +200,7 @@ export class RequestQueue<T = any> extends EventEmitter {
     if (this.processingInterval) {
       clearInterval(this.processingInterval)
       this.processingInterval = null
-      console.log('⏸️ Queue processing paused')
+      logger.debug('⏸️ Queue processing paused')
       this.emit('paused')
     }
   }
@@ -209,7 +211,7 @@ export class RequestQueue<T = any> extends EventEmitter {
   resume(): void {
     if (!this.processingInterval) {
       this.startProcessing()
-      console.log('▶️ Queue processing resumed')
+      logger.debug('▶️ Queue processing resumed')
       this.emit('resumed')
     }
   }
@@ -226,7 +228,7 @@ export class RequestQueue<T = any> extends EventEmitter {
     }
     
     this.clear()
-    console.log('🛑 Request queue shutdown complete')
+    logger.debug('🛑 Request queue shutdown complete')
     this.emit('shutdown')
   }
 
@@ -266,7 +268,7 @@ export class RequestQueue<T = any> extends EventEmitter {
     try {
       await this.executeRequest(request)
     } catch (error) {
-      console.error(`❌ Error processing request ${request.id}:`, error)
+      logger.error(`❌ Error processing request ${request.id}:`, error)
     } finally {
       this.processing.delete(request.id)
       this.stats.processing = this.processing.size
@@ -304,7 +306,7 @@ export class RequestQueue<T = any> extends EventEmitter {
       request.resolve(result)
       this.emit('completed', request, result)
       
-      console.log(`✅ Request completed: ${request.id} (wait: ${waitTime}ms, processing: ${processingTime}ms)`)
+      logger.debug(`✅ Request completed: ${request.id} (wait: ${waitTime}ms, processing: ${processingTime}ms)`)
 
     } catch (error: any) {
       const shouldRetry = this.shouldRetry(request, error)
@@ -314,7 +316,7 @@ export class RequestQueue<T = any> extends EventEmitter {
         this.stats.retries++
         const delay = this.calculateRetryDelay(request)
         
-        console.log(`🔄 Retrying request ${request.id} in ${delay}ms (attempt ${request.attempts}/${request.maxAttempts})`)
+        logger.debug(`🔄 Retrying request ${request.id} in ${delay}ms (attempt ${request.attempts}/${request.maxAttempts})`)
         
         setTimeout(() => {
           // Re-add to queue for retry
@@ -332,7 +334,7 @@ export class RequestQueue<T = any> extends EventEmitter {
         request.reject(error)
         this.emit('failed', request, error)
         
-        console.log(`❌ Request failed permanently: ${request.id} (${error.message})`)
+        logger.debug(`❌ Request failed permanently: ${request.id} (${error.message})`)
       }
     }
   }
@@ -473,7 +475,7 @@ export async function withRetry<T>(
         delay = delay + (Math.random() * 0.1 * delay)
       }
       
-      console.log(`🔄 Retrying operation in ${Math.round(delay)}ms (attempt ${attempt}/${config.attempts})`)
+      logger.debug(`🔄 Retrying operation in ${Math.round(delay)}ms (attempt ${attempt}/${config.attempts})`)
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }

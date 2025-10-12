@@ -11,11 +11,13 @@ import {
   buildMailchimpApiUrl
 } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = async (
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpCampaign[]> => {
-  console.log("🔍 [Mailchimp] Fetching campaigns for integration:", {
+  logger.debug("🔍 [Mailchimp] Fetching campaigns for integration:", {
     id: integration.id,
     hasToken: !!integration.access_token
   })
@@ -24,15 +26,15 @@ export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = as
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    console.log(`🔍 [Mailchimp] Validating token...`)
+    logger.debug(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    console.log('🔍 [Mailchimp] Fetching campaigns from API...')
+    logger.debug('🔍 [Mailchimp] Fetching campaigns from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, '/campaigns')
 
     // Add query parameters - get only unsent campaigns or draft campaigns
@@ -47,11 +49,11 @@ export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = as
 
     const campaigns = await parseMailchimpApiResponse<MailchimpCampaign>(response)
 
-    console.log(`✅ [Mailchimp] Campaigns fetched successfully: ${campaigns.length} campaigns`)
+    logger.debug(`✅ [Mailchimp] Campaigns fetched successfully: ${campaigns.length} campaigns`)
     return campaigns
 
   } catch (error: any) {
-    console.error("❌ [Mailchimp] Error fetching campaigns:", error)
+    logger.error("❌ [Mailchimp] Error fetching campaigns:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Mailchimp authentication expired. Please reconnect your account.')

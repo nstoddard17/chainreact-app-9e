@@ -5,6 +5,8 @@
 import { NotionIntegration, NotionDataHandler } from '../types'
 import { validateNotionToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface NotionTeamspace {
   id: string
   name: string
@@ -26,7 +28,7 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
   try {
     // Check for both workspace and workspaceId for compatibility
     const targetWorkspaceId = options?.workspace || options?.workspaceId
-    console.log("🏢 [Notion Teamspaces] Fetching teamspaces", targetWorkspaceId ? `for workspace: ${targetWorkspaceId}` : '(all workspaces)')
+    logger.debug("🏢 [Notion Teamspaces] Fetching teamspaces", targetWorkspaceId ? `for workspace: ${targetWorkspaceId}` : '(all workspaces)')
 
     // Get workspace-specific token if workspace is specified
     let tokenToUse = integration.access_token
@@ -34,7 +36,7 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
     if (targetWorkspaceId && integration.metadata?.workspaces) {
       const workspace = integration.metadata.workspaces[targetWorkspaceId]
       if (workspace?.access_token) {
-        console.log("🔑 [Notion Teamspaces] Using workspace-specific token")
+        logger.debug("🔑 [Notion Teamspaces] Using workspace-specific token")
         tokenToUse = workspace.access_token
       }
     }
@@ -76,10 +78,10 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
 
     const data = await response.json()
     
-    console.log(`🔍 [Notion Teamspaces] Found ${data.results?.length || 0} total search results`)
+    logger.debug(`🔍 [Notion Teamspaces] Found ${data.results?.length || 0} total search results`)
     
     // DEBUG: Log ALL items to see what we're getting from Notion
-    console.log(`📋 [Notion Teamspaces] ALL ITEMS FROM API:`)
+    logger.debug(`📋 [Notion Teamspaces] ALL ITEMS FROM API:`)
     ;(data.results || []).forEach((item: any, index: number) => {
       // Extract title for logging
       let title = "Untitled"
@@ -94,16 +96,16 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
         }
       }
       
-      console.log(`  ${index + 1}. ${item.object.toUpperCase()}: "${title}"`)
-      console.log(`     ID: ${item.id}`)
-      console.log(`     Parent Type: ${item.parent?.type}`)
-      console.log(`     Parent ID: ${item.parent?.page_id || item.parent?.database_id || item.parent?.workspace || 'N/A'}`)
-      console.log(`     Icon: ${item.icon?.emoji || item.icon?.type || 'none'}`)
-      console.log(`     Created: ${item.created_time}`)
-      console.log(`     ---`)
+      logger.debug(`  ${index + 1}. ${item.object.toUpperCase()}: "${title}"`)
+      logger.debug(`     ID: ${item.id}`)
+      logger.debug(`     Parent Type: ${item.parent?.type}`)
+      logger.debug(`     Parent ID: ${item.parent?.page_id || item.parent?.database_id || item.parent?.workspace || 'N/A'}`)
+      logger.debug(`     Icon: ${item.icon?.emoji || item.icon?.type || 'none'}`)
+      logger.debug(`     Created: ${item.created_time}`)
+      logger.debug(`     ---`)
     })
     
-    console.log(`\n🎯 [Notion Teamspaces] PLEASE IDENTIFY WHICH ITEM ABOVE IS YOUR TEAMSPACE\n`)
+    logger.debug(`\n🎯 [Notion Teamspaces] PLEASE IDENTIFY WHICH ITEM ABOVE IS YOUR TEAMSPACE\n`)
     
     // TEMPORARILY: Show ALL items in the dropdown for debugging
     // Once we identify the pattern for teamspaces, we'll filter properly
@@ -140,7 +142,7 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
         
         const label = `${item.icon?.emoji || (item.object === 'database' ? '📊' : '📁')} ${title}${parentInfo} (${item.object})`
         
-        console.log(`📁 [Notion Teamspaces] Found ${item.object}: "${title}" (${item.id})`)
+        logger.debug(`📁 [Notion Teamspaces] Found ${item.object}: "${title}" (${item.id})`)
         
         return {
           id: item.id,
@@ -171,12 +173,12 @@ export const getNotionTeamspaces: NotionDataHandler<NotionTeamspace> = async (in
 
     const allTeamspaces = [rootOption, ...teamspaces]
 
-    console.log(`✅ [Notion Teamspaces] Retrieved ${allTeamspaces.length} teamspaces (including root)`)
-    console.log(`📋 [Notion Teamspaces] Teamspace list:`, allTeamspaces.map(t => ({ id: t.id, name: t.name })))
+    logger.debug(`✅ [Notion Teamspaces] Retrieved ${allTeamspaces.length} teamspaces (including root)`)
+    logger.debug(`📋 [Notion Teamspaces] Teamspace list:`, allTeamspaces.map(t => ({ id: t.id, name: t.name })))
     return allTeamspaces
 
   } catch (error: any) {
-    console.error("❌ [Notion Teamspaces] Error fetching teamspaces:", error)
+    logger.error("❌ [Notion Teamspaces] Error fetching teamspaces:", error)
     throw error
   }
 }

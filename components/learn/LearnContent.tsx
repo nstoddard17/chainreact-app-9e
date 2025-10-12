@@ -42,6 +42,8 @@ import { useAuthStore } from "@/stores/authStore"
 import { hasPermission } from "@/lib/utils/roles"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Resource {
   id: string
   title: string
@@ -159,7 +161,7 @@ export default function LearnContent() {
         setResources(fallbackResources)
       }
     } catch (error) {
-      console.error('Error fetching resources:', error)
+      logger.error('Error fetching resources:', error)
       toast.error('Failed to load learning resources')
       setResources(fallbackResources)
     } finally {
@@ -289,7 +291,7 @@ export default function LearnContent() {
       setEditingResource(null)
       setIsAddingNew(false)
     } catch (error) {
-      console.error('Error saving resource:', error)
+      logger.error('Error saving resource:', error)
       toast.error('Failed to save resource')
     } finally {
       setSaving(false)
@@ -313,7 +315,7 @@ export default function LearnContent() {
       toast.success('Resource deleted successfully')
       await fetchResources()
     } catch (error) {
-      console.error('Error deleting resource:', error)
+      logger.error('Error deleting resource:', error)
       toast.error('Failed to delete resource')
     }
   }

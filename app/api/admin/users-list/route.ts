@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
     const supabase = await createSupabaseServerClient()
 
@@ -39,7 +41,7 @@ export async function GET() {
         const { data: authUsers, error: authError } = await adminSupabase.auth.admin.listUsers()
         
         if (authError) {
-            console.error('Error fetching auth users:', authError)
+            logger.error('Error fetching auth users:', authError)
             return NextResponse.json({ error: 'Failed to fetch user emails' }, { status: 500 })
         }
 

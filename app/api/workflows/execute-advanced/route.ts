@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { AdvancedExecutionEngine } from "@/lib/execution/advancedExecutionEngine"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       result,
     })
   } catch (error: any) {
-    console.error("Advanced workflow execution error:", error)
+    logger.error("Advanced workflow execution error:", error)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

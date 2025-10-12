@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
+import { logger } from '@/lib/utils/logger'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-05-28.basil",
 })
@@ -15,30 +17,30 @@ function safeTimestampToISO(timestamp: number | null | undefined): string | null
   try {
     return new Date(timestamp * 1000).toISOString();
   } catch (e) {
-    console.error("[Stripe Webhook] Invalid timestamp:", timestamp, e);
+    logger.error("[Stripe Webhook] Invalid timestamp:", timestamp, e);
     return null;
   }
 }
 
 export async function POST(request: Request) {
-  console.log("[Stripe Billing Webhook] ========================================")
-  console.log("[Stripe Billing Webhook] Received billing webhook request at:", new Date().toISOString())
-  console.log("[Stripe Billing Webhook] Headers:", Object.fromEntries(request.headers.entries()))
+  logger.debug("[Stripe Billing Webhook] ========================================")
+  logger.debug("[Stripe Billing Webhook] Received billing webhook request at:", new Date().toISOString())
+  logger.debug("[Stripe Billing Webhook] Headers:", Object.fromEntries(request.headers.entries()))
   
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")!
   
-  console.log("[Stripe Billing Webhook] Has signature:", !!signature)
-  console.log("[Stripe Billing Webhook] Body length:", body.length)
-  console.log("[Stripe Billing Webhook] Webhook secret configured:", !!webhookSecret)
+  logger.debug("[Stripe Billing Webhook] Has signature:", !!signature)
+  logger.debug("[Stripe Billing Webhook] Body length:", body.length)
+  logger.debug("[Stripe Billing Webhook] Webhook secret configured:", !!webhookSecret)
 
   let event: Stripe.Event
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-    console.log(`[Stripe Webhook] Event type: ${event.type}, ID: ${event.id}`)
+    logger.debug(`[Stripe Webhook] Event type: ${event.type}, ID: ${event.id}`)
   } catch (error: any) {
-    console.error("[Stripe Webhook] Signature verification failed:", error.message)
+    logger.error("[Stripe Webhook] Signature verification failed:", error.message)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
@@ -49,59 +51,59 @@ export async function POST(request: Request) {
   )
 
   try {
-    console.log(`[Stripe Webhook] Processing event: ${event.type}`)
+    logger.debug(`[Stripe Webhook] Processing event: ${event.type}`)
     
     switch (event.type) {
       case "checkout.session.completed":
-        console.log("[Stripe Webhook] Processing checkout.session.completed")
+        logger.debug("[Stripe Webhook] Processing checkout.session.completed")
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session, supabase, stripe)
         break
 
       case "customer.subscription.created":
-        console.log("[Stripe Webhook] Processing customer.subscription.created")
+        logger.debug("[Stripe Webhook] Processing customer.subscription.created")
         await handleSubscriptionCreated(event.data.object as Stripe.Subscription, supabase)
         break
 
       case "customer.subscription.updated":
-        console.log("[Stripe Webhook] Processing customer.subscription.updated")
+        logger.debug("[Stripe Webhook] Processing customer.subscription.updated")
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase)
         break
 
       case "customer.subscription.deleted":
-        console.log("[Stripe Webhook] Processing customer.subscription.deleted")
+        logger.debug("[Stripe Webhook] Processing customer.subscription.deleted")
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase)
         break
 
       case "invoice.payment_succeeded":
-        console.log("[Stripe Webhook] Processing invoice.payment_succeeded")
+        logger.debug("[Stripe Webhook] Processing invoice.payment_succeeded")
         await handlePaymentSucceeded(event.data.object as Stripe.Invoice, supabase)
         break
 
       case "invoice.payment_failed":
-        console.log("[Stripe Webhook] Processing invoice.payment_failed")
+        logger.debug("[Stripe Webhook] Processing invoice.payment_failed")
         await handlePaymentFailed(event.data.object as Stripe.Invoice, supabase)
         break
 
       default:
-        console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`)
+        logger.debug(`[Stripe Webhook] Unhandled event type: ${event.type}`)
     }
 
-    console.log(`[Stripe Webhook] Successfully processed event: ${event.type}`)
+    logger.debug(`[Stripe Webhook] Successfully processed event: ${event.type}`)
     return NextResponse.json({ received: true })
   } catch (error: any) {
-    console.error("[Stripe Webhook] Handler error:", error)
-    console.error("[Stripe Webhook] Error details:", JSON.stringify(error, null, 2))
+    logger.error("[Stripe Webhook] Handler error:", error)
+    logger.error("[Stripe Webhook] Error details:", JSON.stringify(error, null, 2))
     return NextResponse.json({ error: "Webhook handler failed", details: error.message }, { status: 500 })
   }
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, stripeClient: Stripe) {
-  console.log("[Stripe Webhook] ========================================")
-  console.log("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
-  console.log("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
-  console.log("[Stripe Webhook] Customer:", session.customer)
-  console.log("[Stripe Webhook] Has customer email:", !!session.customer_details?.email)
-  console.log("[Stripe Webhook] Subscription ID:", session.subscription)
+  logger.debug("[Stripe Webhook] ========================================")
+  logger.debug("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
+  logger.debug("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
+  logger.debug("[Stripe Webhook] Customer:", session.customer)
+  logger.debug("[Stripe Webhook] Has customer email:", !!session.customer_details?.email)
+  logger.debug("[Stripe Webhook] Subscription ID:", session.subscription)
 
   // Try multiple sources for user info
   let userId = session.metadata?.user_id
@@ -110,7 +112,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 
   // If no userId in metadata, try to find from customer email
   if (!userId && session.customer_details?.email) {
-    console.log("[Stripe Webhook] No userId in metadata, attempting to find by email")
+    logger.debug("[Stripe Webhook] No userId in metadata, attempting to find by email")
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id")
@@ -119,15 +121,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     
     if (userData && !userError) {
       userId = userData.id
-      console.log("[Stripe Webhook] Found userId from email:", userId)
+      logger.debug("[Stripe Webhook] Found userId from email:", userId)
     } else {
-      console.error("[Stripe Webhook] Could not find user by email:", userError)
+      logger.error("[Stripe Webhook] Could not find user by email:", userError)
     }
   }
 
   if (!userId) {
-    console.error("[Stripe Webhook] CRITICAL: Could not determine userId from metadata or email")
-    console.error("Session data:", {
+    logger.error("[Stripe Webhook] CRITICAL: Could not determine userId from metadata or email")
+    logger.error("Session data:", {
       metadata: session.metadata,
       customer: session.customer,
       customer_email: session.customer_details?.email
@@ -135,7 +137,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     // Don't return - try to store as much as possible
   }
 
-  console.log(`[Stripe Webhook] Processing for user: ${userId || 'UNKNOWN'}, plan: ${planId}, cycle: ${billingCycle}`)
+  logger.debug(`[Stripe Webhook] Processing for user: ${userId || 'UNKNOWN'}, plan: ${planId}, cycle: ${billingCycle}`)
 
   // Get the full subscription details from Stripe
   let subscription
@@ -144,7 +146,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       expand: ['default_payment_method', 'latest_invoice', 'discount']
     })
   } catch (retrieveError) {
-    console.error("[Stripe Webhook] Failed to retrieve subscription:", retrieveError)
+    logger.error("[Stripe Webhook] Failed to retrieve subscription:", retrieveError)
     // Try to create minimal record with session data
     const minimalData = {
       user_id: userId || null,
@@ -158,7 +160,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       updated_at: new Date().toISOString()
     }
     
-    console.log("[Stripe Webhook] Attempting minimal record creation:", minimalData)
+    logger.debug("[Stripe Webhook] Attempting minimal record creation:", minimalData)
     const { error: minimalError } = await supabase
       .from("subscriptions")
       .upsert(minimalData, {
@@ -166,14 +168,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       })
     
     if (minimalError) {
-      console.error("[Stripe Webhook] Failed to create minimal record:", minimalError)
+      logger.error("[Stripe Webhook] Failed to create minimal record:", minimalError)
     } else {
-      console.log("[Stripe Webhook] Created minimal subscription record")
+      logger.debug("[Stripe Webhook] Created minimal subscription record")
     }
     return
   }
 
-  console.log("[Stripe Webhook] Retrieved subscription:", subscription.id)
+  logger.debug("[Stripe Webhook] Retrieved subscription:", subscription.id)
 
   // Extract ONLY the fields that exist in the database
   const subscriptionData = {
@@ -189,7 +191,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     updated_at: new Date().toISOString()
   }
 
-  console.log("[Stripe Webhook] Upserting subscription data:", JSON.stringify(subscriptionData, null, 2))
+  logger.debug("[Stripe Webhook] Upserting subscription data:", JSON.stringify(subscriptionData, null, 2))
 
   // First, try to check if subscription already exists
   const { data: existing } = await supabase
@@ -201,7 +203,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   let result
   if (existing) {
     // Update existing subscription
-    console.log("[Stripe Webhook] Updating existing subscription")
+    logger.debug("[Stripe Webhook] Updating existing subscription")
     const { data, error } = await supabase
       .from("subscriptions")
       .update(subscriptionData)
@@ -210,7 +212,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     result = { data, error }
   } else {
     // Insert new subscription
-    console.log("[Stripe Webhook] Creating new subscription")
+    logger.debug("[Stripe Webhook] Creating new subscription")
     const { data, error } = await supabase
       .from("subscriptions")
       .insert(subscriptionData)
@@ -219,10 +221,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   }
 
   if (result.error) {
-    console.error("[Stripe Webhook] Error saving subscription:", result.error)
+    logger.error("[Stripe Webhook] Error saving subscription:", result.error)
     throw result.error
   } else {
-    console.log("[Stripe Webhook] Successfully saved subscription:", result.data)
+    logger.debug("[Stripe Webhook] Successfully saved subscription:", result.data)
   }
 
   // Update user's role to 'pro' after successful subscription (skip beta testers)
@@ -235,20 +237,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
       .single()
 
     if (profileData?.role !== 'beta-pro') {
-      console.log("[Stripe Webhook] Updating user role to 'pro' for user:", userId)
+      logger.debug("[Stripe Webhook] Updating user role to 'pro' for user:", userId)
       const { error: roleUpdateError } = await supabase
         .from("profiles")
         .update({ role: 'pro', updated_at: new Date().toISOString() })
         .eq("id", userId)
 
       if (roleUpdateError) {
-        console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+        logger.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
         // Don't throw - subscription is saved, role update is secondary
       } else {
-        console.log("[Stripe Webhook] Successfully updated user role to 'pro'")
+        logger.debug("[Stripe Webhook] Successfully updated user role to 'pro'")
       }
     } else {
-      console.log("[Stripe Webhook] User is a beta tester, skipping role update")
+      logger.debug("[Stripe Webhook] User is a beta tester, skipping role update")
     }
   }
 
@@ -263,7 +265,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription, supabase: any) {
-  console.log("[Stripe Webhook] handleSubscriptionCreated - ID:", subscription.id)
+  logger.debug("[Stripe Webhook] handleSubscriptionCreated - ID:", subscription.id)
   
   // Extract user_id from metadata or customer
   const { data: existingCustomer } = await supabase
@@ -273,7 +275,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
     .single()
 
   if (!existingCustomer?.user_id) {
-    console.error("[Stripe Webhook] Could not find user_id for customer:", subscription.customer)
+    logger.error("[Stripe Webhook] Could not find user_id for customer:", subscription.customer)
     return
   }
 
@@ -319,32 +321,32 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription, supa
         .insert(subscriptionData)
 
   if (error) {
-    console.error("[Stripe Webhook] Error creating subscription:", error)
+    logger.error("[Stripe Webhook] Error creating subscription:", error)
     throw error
   } else {
-    console.log("[Stripe Webhook] Successfully created subscription")
+    logger.debug("[Stripe Webhook] Successfully created subscription")
   }
 
   // Update user's role to 'pro' for active subscriptions
   if (existingCustomer.user_id && subscription.status === 'active') {
-    console.log("[Stripe Webhook] Updating user role to 'pro' for user:", existingCustomer.user_id)
+    logger.debug("[Stripe Webhook] Updating user role to 'pro' for user:", existingCustomer.user_id)
     const { error: roleUpdateError } = await supabase
       .from("profiles")
       .update({ role: 'pro', updated_at: new Date().toISOString() })
       .eq("id", existingCustomer.user_id)
 
     if (roleUpdateError) {
-      console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+      logger.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
       // Don't throw - subscription is saved, role update is secondary
     } else {
-      console.log("[Stripe Webhook] Successfully updated user role to 'pro'")
+      logger.debug("[Stripe Webhook] Successfully updated user role to 'pro'")
     }
   }
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supabase: any) {
-  console.log("[Stripe Webhook] handleSubscriptionUpdated - ID:", subscription.id)
-  console.log("[Stripe Webhook] Subscription status:", subscription.status)
+  logger.debug("[Stripe Webhook] handleSubscriptionUpdated - ID:", subscription.id)
+  logger.debug("[Stripe Webhook] Subscription status:", subscription.status)
 
   // First get the user_id from the subscription
   const { data: existingSubscription } = await supabase
@@ -368,10 +370,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     .eq("stripe_subscription_id", subscription.id)
 
   if (error) {
-    console.error("[Stripe Webhook] Error updating subscription:", error)
+    logger.error("[Stripe Webhook] Error updating subscription:", error)
     throw error
   } else {
-    console.log("[Stripe Webhook] Successfully updated subscription")
+    logger.debug("[Stripe Webhook] Successfully updated subscription")
   }
 
   // Update user's role based on subscription status
@@ -385,23 +387,23 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription, supa
     // Uncomment the next line if you want to maintain access during payment issues
     // else if (subscription.status === 'past_due') { newRole = 'pro' }
 
-    console.log(`[Stripe Webhook] Updating user role to '${newRole}' for user:`, userId)
+    logger.debug(`[Stripe Webhook] Updating user role to '${newRole}' for user:`, userId)
     const { error: roleUpdateError } = await supabase
       .from("profiles")
       .update({ role: newRole, updated_at: new Date().toISOString() })
       .eq("id", userId)
 
     if (roleUpdateError) {
-      console.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
+      logger.error("[Stripe Webhook] Failed to update user role:", roleUpdateError)
       // Don't throw - subscription update is primary, role update is secondary
     } else {
-      console.log(`[Stripe Webhook] Successfully updated user role to '${newRole}'`)
+      logger.debug(`[Stripe Webhook] Successfully updated user role to '${newRole}'`)
     }
   }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supabase: any) {
-  console.log("[Stripe Webhook] handleSubscriptionDeleted - ID:", subscription.id)
+  logger.debug("[Stripe Webhook] handleSubscriptionDeleted - ID:", subscription.id)
 
   // First get the user_id from the subscription
   const { data: existingSubscription } = await supabase
@@ -423,31 +425,31 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
     .eq("stripe_subscription_id", subscription.id)
 
   if (error) {
-    console.error("[Stripe Webhook] Error deleting subscription:", error)
+    logger.error("[Stripe Webhook] Error deleting subscription:", error)
     throw error
   } else {
-    console.log("[Stripe Webhook] Successfully marked subscription as canceled")
+    logger.debug("[Stripe Webhook] Successfully marked subscription as canceled")
   }
 
   // Downgrade user's role back to 'free'
   if (userId) {
-    console.log("[Stripe Webhook] Downgrading user role to 'free' for user:", userId)
+    logger.debug("[Stripe Webhook] Downgrading user role to 'free' for user:", userId)
     const { error: roleUpdateError } = await supabase
       .from("profiles")
       .update({ role: 'free', updated_at: new Date().toISOString() })
       .eq("id", userId)
 
     if (roleUpdateError) {
-      console.error("[Stripe Webhook] Failed to downgrade user role:", roleUpdateError)
+      logger.error("[Stripe Webhook] Failed to downgrade user role:", roleUpdateError)
       // Don't throw - subscription update is primary, role update is secondary
     } else {
-      console.log("[Stripe Webhook] Successfully downgraded user role to 'free'")
+      logger.debug("[Stripe Webhook] Successfully downgraded user role to 'free'")
     }
   }
 }
 
 async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: string) {
-  console.log("[Stripe Webhook] Storing invoice:", invoice.id)
+  logger.debug("[Stripe Webhook] Storing invoice:", invoice.id)
   
   // If userId not provided, try to get it from subscription
   if (!userId && invoice.subscription) {
@@ -470,7 +472,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     updated_at: new Date().toISOString()
   }
 
-  console.log("[Stripe Webhook] Invoice data:", JSON.stringify(invoiceData, null, 2))
+  logger.debug("[Stripe Webhook] Invoice data:", JSON.stringify(invoiceData, null, 2))
 
   // Check if invoice exists first to avoid conflicts
   const { data: existing } = await supabase
@@ -482,7 +484,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
   let result
   if (existing) {
     // Update existing invoice
-    console.log("[Stripe Webhook] Updating existing invoice")
+    logger.debug("[Stripe Webhook] Updating existing invoice")
     const { data, error } = await supabase
       .from("invoices")
       .update(invoiceData)
@@ -491,7 +493,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     result = { data, error }
   } else {
     // Insert new invoice
-    console.log("[Stripe Webhook] Creating new invoice")
+    logger.debug("[Stripe Webhook] Creating new invoice")
     const { data, error } = await supabase
       .from("invoices")
       .insert(invoiceData)
@@ -500,20 +502,20 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
   }
 
   if (result.error) {
-    console.error("[Stripe Webhook] Error storing invoice:", result.error)
+    logger.error("[Stripe Webhook] Error storing invoice:", result.error)
     throw result.error
   } else {
-    console.log("[Stripe Webhook] Successfully stored invoice:", result.data)
+    logger.debug("[Stripe Webhook] Successfully stored invoice:", result.data)
   }
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
-  console.log("[Stripe Webhook] handlePaymentSucceeded - Invoice:", invoice.id)
+  logger.debug("[Stripe Webhook] handlePaymentSucceeded - Invoice:", invoice.id)
   await storeInvoice(invoice, supabase)
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
-  console.log("[Stripe Webhook] handlePaymentFailed - Invoice:", invoice.id)
+  logger.debug("[Stripe Webhook] handlePaymentFailed - Invoice:", invoice.id)
   await storeInvoice(invoice, supabase)
   
   // You might want to send notification emails here

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sendDiscordMessage } from '@/lib/workflows/actions/discord'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   try {
     const { guildId, channelId, message } = await request.json()
@@ -27,7 +29,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result)
   } catch (error: any) {
-    console.error('Discord test error:', error)
+    logger.error('Discord test error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to send Discord message' },
       { status: 500 }

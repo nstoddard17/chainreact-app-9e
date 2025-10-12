@@ -30,6 +30,8 @@ import {
   TestTube
 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface CustomWebhook {
   id: string
   user_id: string
@@ -94,7 +96,7 @@ export default function CustomWebhookManager() {
         throw new Error('Failed to fetch webhooks')
       }
     } catch (error) {
-      console.error('Error fetching webhooks:', error)
+      logger.error('Error fetching webhooks:', error)
       toast({
         title: "Error",
         description: "Failed to load webhooks",
@@ -114,7 +116,7 @@ export default function CustomWebhookManager() {
         setExecutions(data.executions || [])
       }
     } catch (error) {
-      console.error('Error fetching webhook executions:', error)
+      logger.error('Error fetching webhook executions:', error)
     }
   }
 
@@ -159,7 +161,7 @@ export default function CustomWebhookManager() {
         throw new Error(error.message || 'Failed to create webhook')
       }
     } catch (error: any) {
-      console.error('Error creating webhook:', error)
+      logger.error('Error creating webhook:', error)
       toast({
         title: "Error",
         description: error.message || "Failed to create webhook",
@@ -185,7 +187,7 @@ export default function CustomWebhookManager() {
         throw new Error('Failed to delete webhook')
       }
     } catch (error) {
-      console.error('Error deleting webhook:', error)
+      logger.error('Error deleting webhook:', error)
       toast({
         title: "Error",
         description: "Failed to delete webhook",
@@ -216,7 +218,7 @@ export default function CustomWebhookManager() {
         })
       }
     } catch (error) {
-      console.error('Error testing webhook:', error)
+      logger.error('Error testing webhook:', error)
       toast({
         title: "Test Failed",
         description: "Failed to test webhook",
@@ -236,7 +238,7 @@ export default function CustomWebhookManager() {
       })
       setTimeout(() => setCopiedWebhookId(null), 2000)
     } catch (error) {
-      console.error('Error copying to clipboard:', error)
+      logger.error('Error copying to clipboard:', error)
     }
   }
 

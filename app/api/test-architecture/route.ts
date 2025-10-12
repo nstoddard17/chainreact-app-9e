@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Test endpoint to validate the new architecture
  */
 export async function GET() {
   try {
-    console.log("🧪 Testing new architecture...")
+    logger.debug("🧪 Testing new architecture...")
 
     // Test bootstrap initialization
     const { getInitializationStatus } = await import("@/src/bootstrap")
@@ -18,7 +20,7 @@ export async function GET() {
     const providers = providerRegistry.listProviders()
     const actions = actionRegistry.listActions()
 
-    console.log(`✅ Found ${providers.length} providers, ${actions.length} actions`)
+    logger.debug(`✅ Found ${providers.length} providers, ${actions.length} actions`)
 
     // Test Gmail provider specifically
     const gmailProvider = providerRegistry.getEmailProvider('gmail')
@@ -53,7 +55,7 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Architecture test failed:", error)
+    logger.error("❌ Architecture test failed:", error)
     
     return NextResponse.json({
       success: false,
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { nodeType, providerId, config } = body
 
-    console.log(`🧪 Testing workflow execution: ${nodeType}`)
+    logger.debug(`🧪 Testing workflow execution: ${nodeType}`)
 
     const { executeWorkflowUseCase } = await import("@/src/domains/workflows/use-cases/execute-workflow")
 
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
     }
 
   } catch (error: any) {
-    console.error("❌ Workflow execution test failed:", error)
+    logger.error("❌ Workflow execution test failed:", error)
     
     return NextResponse.json({
       success: false,

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
       job: data[0],
     })
   } catch (error: any) {
-    console.error("Error checking job status:", error)
+    logger.error("Error checking job status:", error)
     return NextResponse.json(
       {
         success: false,

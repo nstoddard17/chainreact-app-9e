@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get contacts from HubSpot CRM
  */
@@ -62,7 +64,7 @@ export async function hubspotGetContacts(
       message: `Successfully retrieved ${contacts.length} contacts from HubSpot`
     }
   } catch (error: any) {
-    console.error('HubSpot Get Contacts error:', error)
+    logger.error('HubSpot Get Contacts error:', error)
     return {
       success: false,
       output: {},

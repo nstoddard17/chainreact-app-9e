@@ -9,6 +9,8 @@ import {
   matchIntentToActions
 } from '@/lib/workflows/ai/semanticSearch'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * API endpoint for semantic action search
  * POST /api/workflows/ai/search-actions
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
         )
     }
   } catch (error) {
-    console.error('Action search error:', error)
+    logger.error('Action search error:', error)
     return NextResponse.json(
       { error: 'Failed to search actions' },
       { status: 500 }
@@ -102,7 +104,7 @@ async function handleSearch(params: {
       }))
     })
   } catch (error) {
-    console.error('Search failed:', error)
+    logger.error('Search failed:', error)
     return NextResponse.json(
       { 
         success: false,
@@ -139,7 +141,7 @@ async function handleSimilar(params: {
       }))
     })
   } catch (error) {
-    console.error('Similar search failed:', error)
+    logger.error('Similar search failed:', error)
     return NextResponse.json(
       { 
         success: false,
@@ -181,7 +183,7 @@ async function handleSuggest(params: {
       }))
     })
   } catch (error) {
-    console.error('Suggestion failed:', error)
+    logger.error('Suggestion failed:', error)
     return NextResponse.json(
       { 
         success: false,
@@ -219,7 +221,7 @@ async function handleIntent(params: {
       }))
     })
   } catch (error) {
-    console.error('Intent matching failed:', error)
+    logger.error('Intent matching failed:', error)
     return NextResponse.json(
       { 
         success: false,

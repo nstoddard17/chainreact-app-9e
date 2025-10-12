@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WebhookTask {
   provider: string
   service?: string
@@ -27,9 +29,9 @@ export async function queueWebhookTask(task: WebhookTask): Promise<void> {
         created_at: new Date().toISOString()
       })
 
-    console.log(`[Task Queue] Queued ${task.provider} webhook task:`, task.requestId)
+    logger.debug(`[Task Queue] Queued ${task.provider} webhook task:`, task.requestId)
   } catch (error) {
-    console.error('Failed to queue webhook task:', error)
+    logger.error('Failed to queue webhook task:', error)
     // Don't throw - we don't want to fail the webhook processing if queuing fails
   }
 }
@@ -48,7 +50,7 @@ export async function processWebhookTasks(): Promise<void> {
       .limit(10) // Process 10 tasks at a time
 
     if (error) {
-      console.error('Failed to fetch webhook tasks:', error)
+      logger.error('Failed to fetch webhook tasks:', error)
       return
     }
 
@@ -56,7 +58,7 @@ export async function processWebhookTasks(): Promise<void> {
       return
     }
 
-    console.log(`[Task Queue] Processing ${tasks.length} webhook tasks`)
+    logger.debug(`[Task Queue] Processing ${tasks.length} webhook tasks`)
 
     // Process each task
     for (const task of tasks) {
@@ -83,9 +85,9 @@ export async function processWebhookTasks(): Promise<void> {
           })
           .eq('id', task.id)
 
-        console.log(`[Task Queue] Completed task ${task.id}`)
+        logger.debug(`[Task Queue] Completed task ${task.id}`)
       } catch (error) {
-        console.error(`[Task Queue] Failed to process task ${task.id}:`, error)
+        logger.error(`[Task Queue] Failed to process task ${task.id}:`, error)
         
         // Mark task as failed
         await supabase
@@ -99,7 +101,7 @@ export async function processWebhookTasks(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Error processing webhook tasks:', error)
+    logger.error('Error processing webhook tasks:', error)
   }
 }
 
@@ -127,7 +129,7 @@ async function processGmailTask(task: any): Promise<any> {
   // Process Gmail-specific background tasks
   if (task.event_type === 'message.new') {
     // Fetch full message details from Gmail API
-    console.log('Processing Gmail new message task:', task.request_id)
+    logger.debug('Processing Gmail new message task:', task.request_id)
     return { processed: true, type: 'gmail_message_fetched' }
   }
   
@@ -136,43 +138,43 @@ async function processGmailTask(task: any): Promise<any> {
 
 async function processGoogleTask(task: any): Promise<any> {
   // Process Google-specific background tasks
-  console.log('Processing Google task:', task.service, task.event_type)
+  logger.debug('Processing Google task:', task.service, task.event_type)
   return { processed: true, type: 'google_task', service: task.service }
 }
 
 async function processDiscordTask(task: any): Promise<any> {
   // Process Discord-specific background tasks
-  console.log('Processing Discord task:', task.event_type)
+  logger.debug('Processing Discord task:', task.event_type)
   return { processed: true, type: 'discord_task' }
 }
 
 async function processSlackTask(task: any): Promise<any> {
   // Process Slack-specific background tasks
-  console.log('Processing Slack task:', task.event_type)
+  logger.debug('Processing Slack task:', task.event_type)
   return { processed: true, type: 'slack_task' }
 }
 
 async function processGitHubTask(task: any): Promise<any> {
   // Process GitHub-specific background tasks
-  console.log('Processing GitHub task:', task.event_type)
+  logger.debug('Processing GitHub task:', task.event_type)
   return { processed: true, type: 'github_task' }
 }
 
 async function processNotionTask(task: any): Promise<any> {
   // Process Notion-specific background tasks
-  console.log('Processing Notion task:', task.event_type)
+  logger.debug('Processing Notion task:', task.event_type)
   return { processed: true, type: 'notion_task' }
 }
 
 async function processGenericTask(task: any): Promise<any> {
   // Process generic background tasks
-  console.log('Processing generic task:', task.provider)
+  logger.debug('Processing generic task:', task.provider)
   return { processed: true, type: 'generic_task', provider: task.provider }
 }
 
 // Function to be called by a cron job or background worker
 export async function runWebhookTaskProcessor(): Promise<void> {
-  console.log('[Task Queue] Starting webhook task processor')
+  logger.debug('[Task Queue] Starting webhook task processor')
   await processWebhookTasks()
-  console.log('[Task Queue] Completed webhook task processor')
+  logger.debug('[Task Queue] Completed webhook task processor')
 } 

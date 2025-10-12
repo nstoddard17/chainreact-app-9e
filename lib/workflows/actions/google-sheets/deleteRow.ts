@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Deletes rows from a Google Sheets spreadsheet
  */
@@ -22,7 +24,7 @@ export async function deleteGoogleSheetsRow(
     const deleteAll = resolveValue(config.deleteAll, input) || false
     const confirmDelete = resolveValue(config.confirmDelete, input)
 
-    console.log("Resolved delete row values:", {
+    logger.debug("Resolved delete row values:", {
       spreadsheetId,
       sheetName,
       deleteBy,
@@ -37,7 +39,7 @@ export async function deleteGoogleSheetsRow(
 
     if (!spreadsheetId || !sheetName) {
       const message = `Missing required fields: ${!spreadsheetId ? "Spreadsheet ID" : ""} ${!sheetName ? "Sheet Name" : ""}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -207,7 +209,7 @@ export async function deleteGoogleSheetsRow(
     }
 
   } catch (error: any) {
-    console.error("Google Sheets delete row error:", error)
+    logger.error("Google Sheets delete row error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while deleting rows"

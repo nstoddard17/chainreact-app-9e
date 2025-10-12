@@ -1,5 +1,7 @@
 import OpenAI from "openai"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface IntentAnalysisResult {
   intent: string
   action: string
@@ -33,7 +35,7 @@ export class AIIntentAnalysisService {
     integrations: Integration[], 
     timeout: number = 8000
   ): Promise<IntentAnalysisResult> {
-    console.log("🧠 Starting intent analysis for message length:", message.length)
+    logger.debug("🧠 Starting intent analysis for message length:", message.length)
 
     const systemPrompt = this.buildSystemPrompt(integrations, message)
 
@@ -41,7 +43,7 @@ export class AIIntentAnalysisService {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-      console.log("🤖 Making OpenAI API call for intent analysis...")
+      logger.debug("🤖 Making OpenAI API call for intent analysis...")
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "system", content: systemPrompt }],
@@ -52,7 +54,7 @@ export class AIIntentAnalysisService {
       })
 
       clearTimeout(timeoutId)
-      console.log("✅ OpenAI API call completed")
+      logger.debug("✅ OpenAI API call completed")
 
       const content = response.choices[0].message.content
       if (!content) {
@@ -61,19 +63,19 @@ export class AIIntentAnalysisService {
 
       try {
         const result = JSON.parse(content) as IntentAnalysisResult
-        console.log("✅ Intent analysis completed:", {
+        logger.debug("✅ Intent analysis completed:", {
           intent: result.intent,
           action: result.action,
           specifiedIntegration: result.specifiedIntegration
         })
         return result
       } catch (parseError) {
-        console.error("❌ Failed to parse OpenAI response:", parseError)
-        console.error("Raw response:", content)
+        logger.error("❌ Failed to parse OpenAI response:", parseError)
+        logger.error("Raw response:", content)
         return this.getFallbackIntent()
       }
     } catch (error: any) {
-      console.error("❌ OpenAI API error:", error)
+      logger.error("❌ OpenAI API error:", error)
       
       if (error.name === 'AbortError') {
         throw new Error("Intent analysis timed out")

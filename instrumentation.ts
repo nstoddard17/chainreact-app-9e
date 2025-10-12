@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 // Track initialization to prevent multiple attempts
 let isDiscordInitialized = false
 
@@ -8,34 +10,34 @@ export async function register() {
     process.env.NODE_ENV !== 'test' &&
     process.env.NEXT_RUNTIME === 'nodejs'
   ) {
-    console.log('🚀 Starting server-side instrumentation...')
+    logger.debug('🚀 Starting server-side instrumentation...')
 
     // Initialize console deduplication for cleaner terminal logs
     try {
       const { initConsoleDeduplication } = await import('@/lib/logging/consoleDeduplicator')
-      console.log('🔧 Initializing console deduplication for cleaner logs...')
+      logger.debug('🔧 Initializing console deduplication for cleaner logs...')
       initConsoleDeduplication()
     } catch (error) {
-      console.warn('⚠️ Could not initialize console deduplication:', error)
+      logger.warn('⚠️ Could not initialize console deduplication:', error)
     }
 
     // Initialize file logging system
     try {
       const { logger } = await import('@/lib/logging/initLogging')
-      console.log('📁 File logging system initialized')
+      logger.debug('📁 File logging system initialized')
     } catch (error) {
-      console.warn('⚠️ Could not initialize file logging:', error)
+      logger.warn('⚠️ Could not initialize file logging:', error)
     }
 
     // Prevent multiple initializations (Next.js may call register multiple times)
     if (isDiscordInitialized) {
-      console.log('⏭️ Discord bot already initialized, skipping...')
+      logger.debug('⏭️ Discord bot already initialized, skipping...')
       return
     }
 
     // Check if Discord bot should be disabled (for development without Discord)
     if (process.env.DISABLE_DISCORD_BOT === 'true') {
-      console.log('⚠️ Discord bot disabled via DISABLE_DISCORD_BOT environment variable')
+      logger.debug('⚠️ Discord bot disabled via DISABLE_DISCORD_BOT environment variable')
       return
     }
 
@@ -54,7 +56,7 @@ export async function register() {
           const config = checkDiscordBotConfig()
 
           if (config.isConfigured) {
-            console.log('🤖 Discord bot configured, initializing gateway connection in background...')
+            logger.debug('🤖 Discord bot configured, initializing gateway connection in background...')
 
             // Mark as initialized BEFORE attempting connection
             isDiscordInitialized = true
@@ -66,15 +68,15 @@ export async function register() {
             // Don't await - let it complete in the background
             initializeDiscordGateway()
               .then(() => {
-                console.log('✅ Discord bot gateway connection initialized')
+                logger.debug('✅ Discord bot gateway connection initialized')
               })
               .catch((error) => {
-                console.warn('⚠️ Discord bot connection failed (non-critical):', error.message)
+                logger.warn('⚠️ Discord bot connection failed (non-critical):', error.message)
                 // Don't reset the flag - we don't want to retry on every request
               })
           }
         } catch (error) {
-          console.warn('⚠️ Discord bot initialization skipped (non-critical):', error)
+          logger.warn('⚠️ Discord bot initialization skipped (non-critical):', error)
           // This is not critical for the application to function
         }
       })() // Execute immediately without blocking

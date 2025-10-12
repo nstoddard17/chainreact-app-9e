@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
       .eq("organization_members.user_id", user.id)
 
     if (error) {
-      console.error("Error fetching organizations:", error)
+      logger.error("Error fetching organizations:", error)
       return NextResponse.json({ error: "Failed to fetch organizations" }, { status: 500 })
     }
 
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(transformedOrganizations)
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (createError) {
-      console.error("Error creating organization:", createError)
+      logger.error("Error creating organization:", createError)
       return NextResponse.json({ error: "Failed to create organization" }, { status: 500 })
     }
 
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (memberError) {
-      console.error("Error creating member:", memberError)
+      logger.error("Error creating member:", memberError)
       // Don't fail the request, organization was created successfully
     }
 
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

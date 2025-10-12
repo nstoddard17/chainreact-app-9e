@@ -5,6 +5,8 @@
 import { GmailIntegration, GmailLabel, GmailDataHandler } from '../types'
 import { validateGmailIntegration, makeGmailApiRequest, getGmailAccessToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Gmail labels for the authenticated user
  */
@@ -44,7 +46,7 @@ export const getGmailLabels: GmailDataHandler<GmailLabel> = async (integration: 
     return labels
 
   } catch (error: any) {
-    console.error("❌ [Gmail Labels] Error fetching labels:", error)
+    logger.error("❌ [Gmail Labels] Error fetching labels:", error)
     throw new Error(`Failed to fetch Gmail labels: ${error.message}`)
   }
 }

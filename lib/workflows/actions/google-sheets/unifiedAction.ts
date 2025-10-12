@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Unified Google Sheets action that handles create, update, and delete operations
  */
@@ -11,7 +13,7 @@ export async function executeGoogleSheetsUnifiedAction(
   try {
     const action = resolveValue(config.action, input)
     
-    console.log('🔄 [Google Sheets Unified Action] Received config:', {
+    logger.debug('🔄 [Google Sheets Unified Action] Received config:', {
       action,
       configKeys: Object.keys(config),
       deleteSpecific: {
@@ -65,7 +67,7 @@ export async function executeGoogleSheetsUnifiedAction(
           updateMultiple: config.updateMultiple
         }
         
-        console.log('🔄 Google Sheets Update - Unified Action Config:', {
+        logger.debug('🔄 Google Sheets Update - Unified Action Config:', {
           originalConfig: config,
           mappedConfig: updateConfig
         })
@@ -113,7 +115,7 @@ export async function executeGoogleSheetsUnifiedAction(
         }
     }
   } catch (error: any) {
-    console.error("Google Sheets unified action error:", error)
+    logger.error("Google Sheets unified action error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while executing the Google Sheets action"

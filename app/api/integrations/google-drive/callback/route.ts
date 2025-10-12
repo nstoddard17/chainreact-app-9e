@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   const provider = 'google-drive'
 
   if (error) {
-    console.error(`Error with Google Drive OAuth: ${error}`)
+    logger.error(`Error with Google Drive OAuth: ${error}`)
     return createPopupResponse('error', provider, `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
       throw new Error('Missing userId in Google Drive state')
     }
 
-    console.log('Google Drive OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
+    logger.debug('Google Drive OAuth callback state:', { userId, provider: stateProvider, reconnect, integrationId })
 
     const supabase = createAdminClient()
 
@@ -91,10 +93,10 @@ export async function GET(request: NextRequest) {
       throw new Error(`Failed to save Google Drive integration: ${upsertError.message}`)
     }
 
-    console.log('✅ Google Drive integration successfully saved with status: connected')
+    logger.debug('✅ Google Drive integration successfully saved with status: connected')
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('Google Drive callback error:', e)
+    logger.error('Google Drive callback error:', e)
     return createPopupResponse(
       'error',
       provider,

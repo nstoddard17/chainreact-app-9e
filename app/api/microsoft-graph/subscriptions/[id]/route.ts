@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
+import { logger } from '@/lib/utils/logger'
+
 const subscriptionManager = new MicrosoftGraphSubscriptionManager()
 
 export async function PATCH(
@@ -28,7 +30,7 @@ export async function PATCH(
       }, { status: 400 })
     }
 
-    console.log('🔄 Renewing Microsoft Graph subscription:', id)
+    logger.debug('🔄 Renewing Microsoft Graph subscription:', id)
 
     // Renew the subscription
     const subscription = await subscriptionManager.renewSubscription(id, accessToken)
@@ -45,7 +47,7 @@ export async function PATCH(
     })
 
   } catch (error: any) {
-    console.error('❌ Error renewing subscription:', error)
+    logger.error('❌ Error renewing subscription:', error)
     
     // Handle specific Microsoft Graph errors
     if (error.message.includes('401')) {
@@ -91,7 +93,7 @@ export async function DELETE(
       }, { status: 400 })
     }
 
-    console.log('🗑️ Deleting Microsoft Graph subscription:', id)
+    logger.debug('🗑️ Deleting Microsoft Graph subscription:', id)
 
     // Delete the subscription
     await subscriptionManager.deleteSubscription(id, accessToken)
@@ -102,7 +104,7 @@ export async function DELETE(
     })
 
   } catch (error: any) {
-    console.error('❌ Error deleting subscription:', error)
+    logger.error('❌ Error deleting subscription:', error)
     
     // Handle specific Microsoft Graph errors
     if (error.message.includes('401')) {

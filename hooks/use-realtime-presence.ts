@@ -5,6 +5,8 @@ import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface PresenceUser {
   user_id: string
   email: string
@@ -168,7 +170,7 @@ export function useRealtimePresence(options: UseRealtimePresenceOptions = {}) {
             }
           })
       } catch (error) {
-        console.error('Failed to setup presence:', error)
+        logger.error('Failed to setup presence:', error)
         setIsConnected(false)
       }
     }

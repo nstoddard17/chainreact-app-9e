@@ -3,13 +3,15 @@ import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
+import { logger } from '@/lib/utils/logger'
+
 // Create a Supabase client with admin privileges
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function GET(request: NextRequest) {
-  console.log("🔵 Google Calendar OAuth callback received")
-  console.log("🔵 Request URL:", request.url)
-  console.log("🔵 Search params:", Object.fromEntries(request.nextUrl.searchParams.entries()))
+  logger.debug("🔵 Google Calendar OAuth callback received")
+  logger.debug("🔵 Request URL:", request.url)
+  logger.debug("🔵 Search params:", Object.fromEntries(request.nextUrl.searchParams.entries()))
   
   const baseUrl = getBaseUrl()
   const provider = "google-calendar"
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       const errorDescription =
         searchParams.get("error_description") || "An unknown error occurred."
-      console.error("Google Calendar OAuth error:", error, errorDescription)
+      logger.error("Google Calendar OAuth error:", error, errorDescription)
       return createPopupResponse(
         "error",
         provider,
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!code || !state) {
-      console.error("Missing code or state in Google Calendar callback")
+      logger.error("Missing code or state in Google Calendar callback")
       return createPopupResponse(
         "error",
         provider,
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state))
     } catch (e) {
-      console.error("Invalid state parameter in Google Calendar callback:", e)
+      logger.error("Invalid state parameter in Google Calendar callback:", e)
       return createPopupResponse(
         "error",
         provider,
@@ -57,13 +59,13 @@ export async function GET(request: NextRequest) {
 
     const { userId, provider: stateProvider } = stateData
     
-    console.log("🔵 State data:", stateData)
-    console.log("🔵 Expected provider:", provider)
-    console.log("🔵 State provider:", stateProvider)
+    logger.debug("🔵 State data:", stateData)
+    logger.debug("🔵 Expected provider:", provider)
+    logger.debug("🔵 State provider:", stateProvider)
     
     // Validate that this callback is for the correct provider
     if (stateProvider && stateProvider !== provider) {
-      console.error(`❌ Provider mismatch in Google Calendar callback. Expected: ${provider}, Got: ${stateProvider}`)
+      logger.error(`❌ Provider mismatch in Google Calendar callback. Expected: ${provider}, Got: ${stateProvider}`)
       return createPopupResponse(
         "error",
         provider,
@@ -72,10 +74,10 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    console.log("✅ Provider validation passed for Google Calendar")
+    logger.debug("✅ Provider validation passed for Google Calendar")
     
     if (!userId) {
-      console.error("Missing userId in Google Calendar state")
+      logger.error("Missing userId in Google Calendar state")
       return createPopupResponse(
         "error",
         provider,
@@ -99,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error("Google Calendar token exchange failed:", errorText)
+      logger.error("Google Calendar token exchange failed:", errorText)
       let errorDescription = "Could not get access token from Google."
       try {
         const errorJson = JSON.parse(errorText)
@@ -128,7 +130,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userInfoResponse.ok) {
-      console.error("Failed to get Google Calendar user info")
+      logger.error("Failed to get Google Calendar user info")
       return createPopupResponse(
         "error",
         "google-calendar",
@@ -156,7 +158,7 @@ export async function GET(request: NextRequest) {
       .upsert(integrationData, { onConflict: "user_id, provider" })
 
     if (upsertError) {
-      console.error("Error saving Google Calendar integration to DB:", upsertError)
+      logger.error("Error saving Google Calendar integration to DB:", upsertError)
       return createPopupResponse(
         "error",
         provider,
@@ -172,7 +174,7 @@ export async function GET(request: NextRequest) {
       baseUrl,
     )
   } catch (error: any) {
-    console.error("Google Calendar callback error:", error)
+    logger.error("Google Calendar callback error:", error)
     const errorMessage = error.message || "An unexpected error occurred."
     return createPopupResponse("error", provider, errorMessage, baseUrl)
   }

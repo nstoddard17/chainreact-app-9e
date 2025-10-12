@@ -5,6 +5,8 @@
 import { TrelloIntegration, TrelloDataHandler, TrelloHandlerOptions } from '../types'
 import { validateTrelloIntegration, validateTrelloToken, makeTrelloApiRequest, parseTrelloApiResponse, buildTrelloApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface TrelloLabel {
   id: string
   name: string
@@ -15,7 +17,7 @@ interface TrelloLabel {
 export const getTrelloBoardLabels: TrelloDataHandler<TrelloLabel> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloLabel[]> => {
   const { boardId } = options
 
-  console.log("🔍 Trello board labels fetcher called with:", {
+  logger.debug("🔍 Trello board labels fetcher called with:", {
     integrationId: integration.id,
     boardId,
     hasToken: !!integration.access_token
@@ -25,31 +27,31 @@ export const getTrelloBoardLabels: TrelloDataHandler<TrelloLabel> = async (integ
     // Validate integration status
     validateTrelloIntegration(integration)
 
-    console.log(`🔍 Validating Trello token...`)
+    logger.debug(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!boardId) {
-      console.log('⚠️ No board ID provided, returning empty labels array')
+      logger.debug('⚠️ No board ID provided, returning empty labels array')
       return []
     }
 
-    console.log('🔍 Fetching Trello board labels from API...')
+    logger.debug('🔍 Fetching Trello board labels from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/labels?fields=id,name,color,idBoard`)
 
     const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
 
     const labels = await parseTrelloApiResponse<TrelloLabel>(response)
 
-    console.log(`✅ Trello board labels fetched successfully: ${labels.length} labels`)
+    logger.debug(`✅ Trello board labels fetched successfully: ${labels.length} labels`)
     return labels
 
   } catch (error: any) {
-    console.error("Error fetching Trello board labels:", error)
+    logger.error("Error fetching Trello board labels:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Trello authentication expired. Please reconnect your account.')

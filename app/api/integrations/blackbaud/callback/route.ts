@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 interface BlackbaudTokenResponse {
   access_token: string;
   refresh_token?: string;
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`Blackbaud OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Blackbaud OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/blackbaud/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Blackbaud OAuth credentials not configured')
+      logger.error('Blackbaud OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Blackbaud token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Blackbaud token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -117,7 +119,7 @@ export async function GET(request: NextRequest) {
         
       subscriptionKey = configData?.config?.subscription_key
     } catch (configError) {
-      console.warn('Could not fetch Blackbaud subscription key:', configError)
+      logger.warn('Could not fetch Blackbaud subscription key:', configError)
     }
 
     // Optional: Fetch additional account data
@@ -135,10 +137,10 @@ export async function GET(request: NextRequest) {
         if (meResponse.ok) {
           accountInfo = await meResponse.json()
         } else {
-          console.warn('Could not fetch Blackbaud user info:', await meResponse.text())
+          logger.warn('Could not fetch Blackbaud user info:', await meResponse.text())
         }
       } catch (accountError) {
-        console.warn('Error fetching Blackbaud user info:', accountError)
+        logger.warn('Error fetching Blackbaud user info:', accountError)
       }
     }
 
@@ -170,13 +172,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save Blackbaud integration:', upsertError)
+      logger.error('Failed to save Blackbaud integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Blackbaud connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Blackbaud callback error:', error)
+    logger.error('Blackbaud callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

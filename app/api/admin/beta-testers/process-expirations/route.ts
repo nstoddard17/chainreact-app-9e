@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -88,7 +90,7 @@ export async function POST() {
       processed
     })
   } catch (error: any) {
-    console.error("Error processing beta expirations:", error)
+    logger.error("Error processing beta expirations:", error)
     return NextResponse.json(
       { error: "Failed to process expirations", details: error.message },
       { status: 500 }

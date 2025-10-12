@@ -3,6 +3,8 @@
 import { useEffect } from 'react'
 import { initChunkErrorHandler } from '@/lib/utils/chunkErrorHandler'
 
+import { logger } from '@/lib/utils/logger'
+
 export function ChunkErrorHandler() {
   useEffect(() => {
     // Initialize chunk error handler with custom config
@@ -10,7 +12,7 @@ export function ChunkErrorHandler() {
       maxRetries: 3,
       retryDelay: 1500,
       onError: (error) => {
-        console.error('Chunk loading failed after retries:', error)
+        logger.error('Chunk loading failed after retries:', error)
       }
     })
   }, [])

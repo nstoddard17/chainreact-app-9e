@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Updates an existing row in a Google Sheets spreadsheet
  */
@@ -21,7 +23,7 @@ export async function updateGoogleSheetsRow(
     const updateMapping = config.updateMapping || {}
     const updateMultiple = resolveValue(config.updateMultiple, input) || false
 
-    console.log("Resolved update row values:", {
+    logger.debug("Resolved update row values:", {
       spreadsheetId,
       sheetName,
       findRowBy,
@@ -37,7 +39,7 @@ export async function updateGoogleSheetsRow(
 
     if (!spreadsheetId || !sheetName) {
       const message = `Missing required fields: ${!spreadsheetId ? "Spreadsheet ID" : ""} ${!sheetName ? "Sheet Name" : ""}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -168,7 +170,7 @@ export async function updateGoogleSheetsRow(
       const currentRow = rows[rowIndex] || []
       const updatedRow = [...currentRow]
       
-      console.log(`Processing row ${rowNum} (index ${rowIndex}):`, {
+      logger.debug(`Processing row ${rowNum} (index ${rowIndex}):`, {
         currentRow,
         headers
       })
@@ -186,10 +188,10 @@ export async function updateGoogleSheetsRow(
           // and NOT a word like "Address" or "RSVP"
           if (/^[A-Z]$/i.test(columnIdentifier)) {
             columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
-            console.log(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
+            logger.debug(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
           } else {
             columnIndex = headers.findIndex((h: string) => h === columnIdentifier)
-            console.log(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
+            logger.debug(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
           }
 
           if (columnIndex >= 0) {
@@ -197,10 +199,10 @@ export async function updateGoogleSheetsRow(
             while (updatedRow.length <= columnIndex) {
               updatedRow.push('')
             }
-            console.log(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
+            logger.debug(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
             updatedRow[columnIndex] = resolvedValue
           } else {
-            console.warn(`Could not find column index for: ${columnIdentifier}`)
+            logger.warn(`Could not find column index for: ${columnIdentifier}`)
           }
         }
       }
@@ -208,7 +210,7 @@ export async function updateGoogleSheetsRow(
       newValues.push(updatedRow)
 
       const range = `${sheetName}!A${rowNum}:${String.fromCharCode(65 + updatedRow.length - 1)}${rowNum}`
-      console.log(`Update range: ${range}, Updated row:`, updatedRow)
+      logger.debug(`Update range: ${range}, Updated row:`, updatedRow)
       
       updateRequests.push({
         range,
@@ -221,7 +223,7 @@ export async function updateGoogleSheetsRow(
       data: updateRequests
     }
     
-    console.log("Sending batch update request:", JSON.stringify(requestBody, null, 2))
+    logger.debug("Sending batch update request:", JSON.stringify(requestBody, null, 2))
 
     // Batch update all rows
     const updateResponse = await fetch(
@@ -258,7 +260,7 @@ export async function updateGoogleSheetsRow(
     }
 
   } catch (error: any) {
-    console.error("Google Sheets update row error:", error)
+    logger.error("Google Sheets update row error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while updating the row"

@@ -9,11 +9,13 @@ import { AIAgentParams, AIAgentResult } from '../aiAgent'
 import { ChainExecutionEngine, AIAgentExecutionContext } from './chainExecutionEngine'
 import { AIDecisionMaker } from './aiDecisionMaker'
 
+import { logger } from '@/lib/utils/logger'
+
 // AI Agent logging utility - always enabled for AI agent workflows
 const AI_LOGGING_ENABLED = true
 const aiLog = (...args: any[]) => {
   if (AI_LOGGING_ENABLED) {
-    console.log(...args)
+    logger.debug(...args)
   }
 }
 
@@ -45,7 +47,7 @@ export async function executeAIAgentWithChains(
     }
 
     if (!apiKey) {
-      console.error('No API key available (neither user nor platform)')
+      logger.error('No API key available (neither user nor platform)')
       return {
         success: false,
         error: 'No OpenAI API key available. Please configure platform API key or add your own in Settings.'
@@ -228,7 +230,7 @@ export async function executeAIAgentWithChains(
     }
 
   } catch (error: any) {
-    console.error('❌ AI Agent with chains execution failed:', error)
+    logger.error('❌ AI Agent with chains execution failed:', error)
     return {
       success: false,
       error: error.message || 'Failed to execute AI agent with chains',

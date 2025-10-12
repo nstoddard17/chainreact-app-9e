@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   const supabase = await createSupabaseRouteHandlerClient()
   
@@ -17,14 +19,14 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching custom webhooks:', error)
+      logger.error('Error fetching custom webhooks:', error)
       return NextResponse.json({ error: "Failed to fetch webhooks" }, { status: 500 })
     }
 
     return NextResponse.json({ webhooks: webhooks || [] })
 
   } catch (error: any) {
-    console.error("Error in GET /api/custom-webhooks:", error)
+    logger.error("Error in GET /api/custom-webhooks:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -63,14 +65,14 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      console.error('Error creating custom webhook:', error)
+      logger.error('Error creating custom webhook:', error)
       return NextResponse.json({ error: "Failed to create webhook" }, { status: 500 })
     }
 
     return NextResponse.json({ webhook })
 
   } catch (error: any) {
-    console.error("Error in POST /api/custom-webhooks:", error)
+    logger.error("Error in POST /api/custom-webhooks:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

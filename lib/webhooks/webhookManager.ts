@@ -7,6 +7,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WebhookConfig {
   id: string
   workflowId: string
@@ -82,7 +84,7 @@ export class WebhookManager {
 
       return this.mapToWebhookConfig(data)
     } catch (error) {
-      console.error("Failed to register webhook:", error)
+      logger.error("Failed to register webhook:", error)
       throw error
     }
   }
@@ -161,7 +163,7 @@ export class WebhookManager {
       if (error) {
         // If table doesn't exist yet, return empty array
         if (error.code === '42P01') { // Table doesn't exist
-          console.log('Webhook tables not created yet, returning empty array')
+          logger.debug('Webhook tables not created yet, returning empty array')
           return []
         }
         throw error
@@ -169,7 +171,7 @@ export class WebhookManager {
 
       return data.map(this.mapToWebhookConfig)
     } catch (error) {
-      console.error("Failed to get user webhooks:", error)
+      logger.error("Failed to get user webhooks:", error)
       return []
     }
   }
@@ -188,7 +190,7 @@ export class WebhookManager {
       if (error) {
         // If table doesn't exist yet, return null
         if (error.code === '42P01') { // Table doesn't exist
-          console.log('Webhook tables not created yet')
+          logger.debug('Webhook tables not created yet')
           return null
         }
         if (error.code === 'PGRST116') return null
@@ -197,7 +199,7 @@ export class WebhookManager {
 
       return this.mapToWebhookConfig(data)
     } catch (error) {
-      console.error("Failed to get webhook:", error)
+      logger.error("Failed to get webhook:", error)
       return null
     }
   }
@@ -430,7 +432,7 @@ export class WebhookManager {
   ): Promise<void> {
     // Implementation depends on the provider
     // This would make API calls to register webhooks with external services
-    console.log(`Registering webhook with ${providerId} for ${triggerType}`)
+    logger.debug(`Registering webhook with ${providerId} for ${triggerType}`)
   }
 
   /**
@@ -442,7 +444,7 @@ export class WebhookManager {
     webhookUrl: string
   ): Promise<void> {
     // Implementation depends on the provider
-    console.log(`Unregistering webhook from ${providerId} for ${triggerType}`)
+    logger.debug(`Unregistering webhook from ${providerId} for ${triggerType}`)
   }
 
   /**

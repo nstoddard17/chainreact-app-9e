@@ -15,6 +15,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -29,7 +31,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    console.log(`🔔 Activating Airtable trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Airtable trigger for workflow ${workflowId}`, {
       triggerType,
       baseId: config.baseId,
       tableName: config.tableName
@@ -65,7 +67,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
 
-    console.log(`📤 Creating Airtable webhook`, {
+    logger.debug(`📤 Creating Airtable webhook`, {
       baseId,
       tableName: tableName || 'all tables',
       webhookUrl
@@ -123,7 +125,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       expires_at: webhook.expirationTime ? new Date(webhook.expirationTime).toISOString() : null
     })
 
-    console.log(`✅ Airtable webhook created: ${webhook.id}`)
+    logger.debug(`✅ Airtable webhook created: ${webhook.id}`)
   }
 
   /**
@@ -133,7 +135,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    console.log(`🛑 Deactivating Airtable triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Airtable triggers for workflow ${workflowId}`)
 
     // Get all Airtable webhooks for this workflow
     const { data: resources } = await supabase
@@ -144,7 +146,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No active Airtable webhooks for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Airtable webhooks for workflow ${workflowId}`)
       return
     }
 
@@ -157,7 +159,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       .single()
 
     if (!integration) {
-      console.warn(`⚠️ Airtable integration not found, marking webhooks as deleted`)
+      logger.warn(`⚠️ Airtable integration not found, marking webhooks as deleted`)
       // Mark as deleted even if we can't clean up in Airtable
       await supabase
         .from('trigger_resources')
@@ -173,7 +175,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       : null
 
     if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Airtable access token, marking webhooks as deleted`)
+      logger.warn(`⚠️ Failed to decrypt Airtable access token, marking webhooks as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -210,9 +212,9 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        console.log(`✅ Deleted Airtable webhook: ${webhookId}`)
+        logger.debug(`✅ Deleted Airtable webhook: ${webhookId}`)
       } catch (error) {
-        console.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
+        logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         // Mark as error but continue with others
         await supabase
           .from('trigger_resources')

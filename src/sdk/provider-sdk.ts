@@ -2,6 +2,8 @@ import { ConnectorContract, CapabilityDescriptor, ErrorClassification } from '..
 import { providerRegistry } from '../domains/integrations/use-cases/provider-registry'
 import { actionRegistry } from '../domains/workflows/use-cases/action-registry'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Configuration for creating a new provider
  */
@@ -356,7 +358,7 @@ export class ProviderBuilder {
       actionRegistry.registerProvider(this.config.providerId, actionHandlers)
     }
 
-    console.log(`✅ ${this.config.name} provider registered with ${this.actions.length} actions`)
+    logger.debug(`✅ ${this.config.name} provider registered with ${this.actions.length} actions`)
   }
 }
 

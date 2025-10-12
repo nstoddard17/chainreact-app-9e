@@ -4,9 +4,11 @@ import { NextResponse } from "next/server"
 import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 // Import execution functions from the main execute route
 async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[], context: any): Promise<any> {
-  console.log(`Executing node: ${node.id} (${node.data.type})`)
+  logger.debug(`Executing node: ${node.id} (${node.data.type})`)
 
   try {
     let nodeResult
@@ -25,7 +27,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       
       // AI Agent
       case "ai_agent":
-        console.log(`Using executeAction for AI agent node: ${node.id}`)
+        logger.debug(`Using executeAction for AI agent node: ${node.id}`)
         nodeResult = await executeAction({
           node,
           input: context.data,
@@ -37,7 +39,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       // Actions - use the generic executeAction for most
       default:
         if (node.data.type && node.data.type.includes('_action_')) {
-          console.log(`Using generic executeAction for node type: ${node.data.type}`)
+          logger.debug(`Using generic executeAction for node type: ${node.data.type}`)
           nodeResult = await executeAction({
             node,
             input: context.data,
@@ -60,7 +62,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
     context.results[node.id] = nodeResult
     return nodeResult
   } catch (error: any) {
-    console.error(`Error executing node ${node.id}:`, error)
+    logger.error(`Error executing node ${node.id}:`, error)
     throw error
   }
 }
@@ -121,12 +123,12 @@ function renderTemplate(template: string, context: any): string {
         
         return value !== null && value !== undefined ? String(value) : ""
       } catch (error) {
-        console.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
+        logger.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
         return match
       }
     })
   } catch (error) {
-    console.error("Template rendering error:", error)
+    logger.error("Template rendering error:", error)
     return template
   }
 }
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
     const requestData = await request.json()
     const { workflowId, nodeId: targetNodeId, input: triggerData } = requestData
 
-    console.log('Received test request:', { 
+    logger.debug('Received test request:', { 
       workflowId, 
       targetNodeId,
       triggerData
@@ -192,8 +194,8 @@ export async function POST(request: Request) {
     const targetNode = nodes.find((node: any) => node.id === actualTargetNodeId)
     
     if (!targetNode) {
-      console.log('Available node IDs:', nodes.map((n: any) => n.id))
-      console.log('Looking for target node ID:', actualTargetNodeId)
+      logger.debug('Available node IDs:', nodes.map((n: any) => n.id))
+      logger.debug('Looking for target node ID:', actualTargetNodeId)
       return NextResponse.json({ error: "Target node not found" }, { status: 400 })
     }
 
@@ -203,7 +205,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No execution path found from trigger to target node" }, { status: 400 })
     }
 
-    console.log("Execution path:", executionPath)
+    logger.debug("Execution path:", executionPath)
 
     // Initialize execution context
     const context = {
@@ -232,11 +234,11 @@ export async function POST(request: Request) {
       const node = nodes.find((n: any) => n.id === nodeId)
       
       if (!node) {
-        console.warn(`Node ${nodeId} not found, skipping`)
+        logger.warn(`Node ${nodeId} not found, skipping`)
         continue
       }
 
-      console.log(`Executing node ${i + 1}/${executionPath.length}: ${node.data.type} (${nodeId})`)
+      logger.debug(`Executing node ${i + 1}/${executionPath.length}: ${node.data.type} (${nodeId})`)
 
       try {
         // Execute the node
@@ -277,10 +279,10 @@ export async function POST(request: Request) {
           }
         }
 
-        console.log(`Node ${nodeId} executed successfully`)
+        logger.debug(`Node ${nodeId} executed successfully`)
 
       } catch (error: any) {
-        console.error(`Error executing node ${nodeId}:`, error)
+        logger.error(`Error executing node ${nodeId}:`, error)
         
         executionResults.push({
           nodeId: nodeId,
@@ -311,7 +313,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("Workflow segment test error:", error)
+    logger.error("Workflow segment test error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to test workflow segment" },
       { status: 500 }

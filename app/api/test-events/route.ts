@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Test endpoint for event-driven workflow execution
  */
 export async function GET() {
   try {
-    console.log("🧪 Testing event-driven workflow execution...")
+    logger.debug("🧪 Testing event-driven workflow execution...")
 
     // Import event system
     const { eventDrivenExecutor } = await import("@/src/domains/workflows/use-cases/event-driven-execution")
@@ -82,7 +84,7 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Event-driven test failed:", error)
+    logger.error("❌ Event-driven test failed:", error)
     
     return NextResponse.json({
       success: false,
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { nodeType, providerId, config } = body
 
-    console.log(`🧪 Testing async node execution: ${nodeType}`)
+    logger.debug(`🧪 Testing async node execution: ${nodeType}`)
 
     const { eventDrivenExecutor } = await import("@/src/domains/workflows/use-cases/event-driven-execution")
     const { eventBus } = await import("@/src/shared/events/event-bus")
@@ -139,7 +141,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("❌ Async execution test failed:", error)
+    logger.error("❌ Async execution test failed:", error)
     
     return NextResponse.json({
       success: false,

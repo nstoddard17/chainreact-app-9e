@@ -28,6 +28,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Notion adapter implementing DatabaseProvider interface
  */
@@ -264,7 +266,7 @@ export class NotionAdapter implements DatabaseProvider {
           throw new Error(`Notion method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`Notion API call failed for method ${method}:`, error)
+      logger.error(`Notion API call failed for method ${method}:`, error)
       throw error
     }
   }

@@ -6,6 +6,8 @@ import { useMemo } from "react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import CustomNode from "@/components/workflows/CustomNode"
 
+import { logger } from '@/lib/utils/logger'
+
 interface TemplatePreviewProps {
   nodes: any[]
   connections: any[]
@@ -31,7 +33,7 @@ export function TemplatePreview({
     // No-op functions for preview mode
     const noop = () => {}
 
-    console.log('TemplatePreview - nodes:', nodes?.length, 'connections:', connections?.length)
+    logger.debug('TemplatePreview - nodes:', nodes?.length, 'connections:', connections?.length)
 
     return nodes.map((node) => {
       // Get the node component definition

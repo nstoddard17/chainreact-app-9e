@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -36,7 +38,7 @@ export async function GET(
       .order("created_at", { ascending: true })
 
     if (error) {
-      console.error("Error fetching members:", error)
+      logger.error("Error fetching members:", error)
       return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 })
     }
 
@@ -64,7 +66,7 @@ export async function GET(
             }
           }
         } catch (error) {
-          console.error("Error fetching user data for member:", member.user_id, error)
+          logger.error("Error fetching user data for member:", member.user_id, error)
           return {
             ...member,
             user: {
@@ -79,7 +81,7 @@ export async function GET(
 
     return NextResponse.json(membersWithUserInfo)
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -142,7 +144,7 @@ export async function POST(
       .single()
 
     if (addError) {
-      console.error("Error adding member:", addError)
+      logger.error("Error adding member:", addError)
       return NextResponse.json({ error: "Failed to add member" }, { status: 500 })
     }
 
@@ -159,7 +161,7 @@ export async function POST(
       }
       return NextResponse.json(memberWithUserInfo, { status: 201 })
     } catch (error) {
-      console.error("Error fetching user data for new member:", error)
+      logger.error("Error fetching user data for new member:", error)
       const memberWithUserInfo = {
         ...newMember,
         user: {
@@ -171,7 +173,7 @@ export async function POST(
       return NextResponse.json(memberWithUserInfo, { status: 201 })
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

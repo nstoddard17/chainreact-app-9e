@@ -2,6 +2,8 @@ import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from '@/lib/integrations/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create a new HubSpot contact
  */
@@ -169,8 +171,8 @@ export async function createHubSpotContact(
 
     const result = await response.json()
     
-    console.log('HubSpot API response:', result)
-    console.log('Created contact properties:', result.properties)
+    logger.debug('HubSpot API response:', result)
+    logger.debug('Created contact properties:', result.properties)
 
     // Check if we should associate with existing company or create new one
     let companyId = null
@@ -180,7 +182,7 @@ export async function createHubSpotContact(
     if (associatedCompanyId && typeof associatedCompanyId === 'string' && !associatedCompanyId.match(/^\d+$/)) {
       companyName = associatedCompanyId
       try {
-        console.log('Creating company record for:', companyName)
+        logger.debug('Creating company record for:', companyName)
         
         // Prepare company properties
         const companyProperties: Record<string, any> = {
@@ -189,13 +191,13 @@ export async function createHubSpotContact(
         
         // Add company-specific fields if provided
         if (company_fields && Array.isArray(company_fields)) {
-          console.log('Processing company-specific fields:', company_fields)
-          console.log('Company field values:', company_field_values)
+          logger.debug('Processing company-specific fields:', company_fields)
+          logger.debug('Company field values:', company_field_values)
           
           company_fields.forEach(fieldName => {
             if (company_field_values[fieldName] !== undefined && company_field_values[fieldName] !== null && company_field_values[fieldName] !== '') {
               companyProperties[fieldName] = company_field_values[fieldName]
-              console.log(`Added company field ${fieldName} with value:`, company_field_values[fieldName])
+              logger.debug(`Added company field ${fieldName} with value:`, company_field_values[fieldName])
             }
           })
         }
@@ -225,7 +227,7 @@ export async function createHubSpotContact(
         if (companyResponse.ok) {
           const companyResult = await companyResponse.json()
           companyId = companyResult.id
-          console.log('Created company with ID:', companyId)
+          logger.debug('Created company with ID:', companyId)
           
           // Associate contact with company
           const associationResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${result.id}/associations/companies/${companyId}/contact_to_company`, {
@@ -237,15 +239,15 @@ export async function createHubSpotContact(
           })
           
           if (associationResponse.ok) {
-            console.log('Successfully associated contact with company')
+            logger.debug('Successfully associated contact with company')
           } else {
-            console.warn('Failed to associate contact with company:', associationResponse.status)
+            logger.warn('Failed to associate contact with company:', associationResponse.status)
           }
         } else {
-          console.warn('Failed to create company:', companyResponse.status)
+          logger.warn('Failed to create company:', companyResponse.status)
         }
       } catch (error) {
-        console.warn('Error creating company:', error)
+        logger.warn('Error creating company:', error)
       }
     } else if (associatedCompanyId && associatedCompanyId.match(/^\d+$/)) {
       // If associatedCompanyId is an actual ID, associate the contact with the existing company
@@ -260,12 +262,12 @@ export async function createHubSpotContact(
         })
 
         if (associationResponse.ok) {
-          console.log('Successfully associated contact with existing company')
+          logger.debug('Successfully associated contact with existing company')
         } else {
-          console.warn('Failed to associate contact with existing company:', associationResponse.status)
+          logger.warn('Failed to associate contact with existing company:', associationResponse.status)
         }
       } catch (error) {
-        console.warn('Error associating with existing company:', error)
+        logger.warn('Error associating with existing company:', error)
       }
     }
 
@@ -294,7 +296,7 @@ export async function createHubSpotContact(
     }
 
   } catch (error: any) {
-    console.error("HubSpot create contact error:", error)
+    logger.error("HubSpot create contact error:", error)
     return {
       success: false,
       output: {},
@@ -414,7 +416,7 @@ export async function createHubSpotCompany(
     }
 
   } catch (error: any) {
-    console.error("HubSpot create company error:", error)
+    logger.error("HubSpot create company error:", error)
     return {
       success: false,
       output: {},
@@ -532,7 +534,7 @@ export async function addContactToHubSpotList(
     }
 
   } catch (error: any) {
-    console.error("HubSpot add contact to list error:", error)
+    logger.error("HubSpot add contact to list error:", error)
     return {
       success: false,
       output: {},
@@ -634,7 +636,7 @@ export async function updateHubSpotDeal(
     }
 
   } catch (error: any) {
-    console.error("HubSpot update deal error:", error)
+    logger.error("HubSpot update deal error:", error)
     return {
       success: false,
       output: {},
@@ -769,7 +771,7 @@ export async function createHubSpotDeal(
     }
 
   } catch (error: any) {
-    console.error("HubSpot create deal error:", error)
+    logger.error("HubSpot create deal error:", error)
     return {
       success: false,
       output: {},

@@ -15,6 +15,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIFieldWrapperProps {
   field: any;
   value: any;
@@ -64,7 +66,7 @@ export function AIFieldWrapper({
   // Check if field supports AI (all fields except recordId, and only if onAIToggle is provided)
   const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable && !!onAIToggle;
   
-  console.log('🎯 [AIFieldWrapper] Rendering:', {
+  logger.debug('🎯 [AIFieldWrapper] Rendering:', {
     fieldName: field.name,
     isAIEnabled,
     hasOnAIToggle: !!onAIToggle,

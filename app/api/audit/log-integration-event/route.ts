@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     cookies()
@@ -33,13 +35,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error("Error logging integration event:", error)
+      logger.error("Error logging integration event:", error)
       return NextResponse.json({ error: "Failed to log event" }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Audit log error:", error)
+    logger.error("Audit log error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 interface OutlookSignature {
   id: string
   name: string
@@ -89,10 +91,10 @@ export function OutlookEmailRichTextEditor({
           // Don't auto-add signature - user must manually add it using the signature button
         }
       } else {
-        console.error('Failed to load Outlook signatures:', response.status)
+        logger.error('Failed to load Outlook signatures:', response.status)
       }
     } catch (error) {
-      console.error('Failed to load Outlook signatures:', error)
+      logger.error('Failed to load Outlook signatures:', error)
     } finally {
       setIsLoadingSignatures(false)
     }

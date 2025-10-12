@@ -1,6 +1,8 @@
 import { encrypt, decrypt, safeDecrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Encrypts OAuth tokens before storing them in the database
  * @param accessToken The access token to encrypt
@@ -86,7 +88,7 @@ export async function decryptToken(encryptedToken: string): Promise<string | nul
     // Use safeDecrypt which handles both encrypted and unencrypted tokens
     return safeDecrypt(encryptedToken, secret)
   } catch (error) {
-    console.error('Failed to decrypt token:', error)
+    logger.error('Failed to decrypt token:', error)
     // Return the token as-is if decryption fails (might not be encrypted)
     return encryptedToken
   }

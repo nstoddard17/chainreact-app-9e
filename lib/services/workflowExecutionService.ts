@@ -4,6 +4,8 @@ import { NodeExecutionService } from "./nodeExecutionService"
 import { executionHistoryService } from "./executionHistoryService"
 import { ExecutionProgressTracker } from "@/lib/execution/executionProgressTracker"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ExecutionContext {
   userId: string
   workflowId: string
@@ -25,7 +27,7 @@ export class WorkflowExecutionService {
   }
 
   async executeWorkflow(workflow: any, inputData: any, userId: string, testMode: boolean, workflowData?: any, skipTriggers: boolean = false) {
-    console.log("🚀 Starting workflow execution service")
+    logger.debug("🚀 Starting workflow execution service")
     
     const supabase = await createSupabaseRouteHandlerClient()
     
@@ -38,19 +40,19 @@ export class WorkflowExecutionService {
     const validNodes = allNodes.filter((node: any) => {
       // Skip AddActionNodes - these are UI placeholders for adding new nodes
       if (node.type === 'addAction' || node.id?.startsWith('add-action-')) {
-        console.log(`Skipping UI placeholder node: ${node.id}`)
+        logger.debug(`Skipping UI placeholder node: ${node.id}`)
         return false
       }
       
       // Skip InsertActionNodes - these are also UI placeholders
       if (node.type === 'insertAction') {
-        console.log(`Skipping UI insert node: ${node.id}`)
+        logger.debug(`Skipping UI insert node: ${node.id}`)
         return false
       }
       
       // Skip nodes without proper data or type
       if (!node.data || !node.data.type) {
-        console.warn(`Skipping invalid node ${node.id}: missing type or data`, node)
+        logger.warn(`Skipping invalid node ${node.id}: missing type or data`, node)
         return false
       }
       
@@ -66,7 +68,7 @@ export class WorkflowExecutionService {
 
     const nodes = validNodes
 
-    console.log("Executing workflow with:", {
+    logger.debug("Executing workflow with:", {
       originalNodesCount: allNodes.length,
       validNodesCount: nodes.length,
       skippedNodes: allNodes.length - nodes.length,
@@ -103,21 +105,21 @@ export class WorkflowExecutionService {
           const rootActions = nodes.filter((n: any) => !n.data?.isTrigger && !hasIncoming(n.id))
 
           if (rootActions.length > 0) {
-            console.log(`⚙️ Fallback: starting from ${rootActions.length} root action node(s) (no triggers present)`)
+            logger.debug(`⚙️ Fallback: starting from ${rootActions.length} root action node(s) (no triggers present)`)
             startingNodes = rootActions
           } else {
             // Fallback 2: as a last resort, start from the first non-trigger node
             const firstAction = nodes.find((n: any) => !n.data?.isTrigger)
             if (firstAction) {
-              console.log(`⚙️ Fallback: starting from first action node ${firstAction.id} (no roots found)`) 
+              logger.debug(`⚙️ Fallback: starting from first action node ${firstAction.id} (no roots found)`) 
               startingNodes = [firstAction]
             } else {
-              console.log('⚠️ No action nodes available to execute when skipping triggers')
+              logger.debug('⚠️ No action nodes available to execute when skipping triggers')
               startingNodes = []
             }
           }
         } else {
-          console.log('No action nodes connected to triggers, workflow may be trigger-only')
+          logger.debug('No action nodes connected to triggers, workflow may be trigger-only')
           startingNodes = [] // Allow empty for trigger-only workflows
         }
       }
@@ -150,7 +152,7 @@ export class WorkflowExecutionService {
         inputData
       )
     } catch (error) {
-      console.error('Failed to start execution history tracking:', error)
+      logger.error('Failed to start execution history tracking:', error)
       // Continue execution even if history tracking fails
     }
 
@@ -173,23 +175,23 @@ export class WorkflowExecutionService {
     const completedNodeIds: string[] = []
     const failedNodeIds: Array<{ nodeId: string; error: string }> = []
 
-    console.log(`📍 Starting execution with ${startingNodes.length} starting nodes`)
+    logger.debug(`📍 Starting execution with ${startingNodes.length} starting nodes`)
     if (startingNodes.length === 0 && skipTriggers) {
-      console.log('⚠️ No action nodes found connected to triggers')
+      logger.debug('⚠️ No action nodes found connected to triggers')
       // Log the trigger nodes and connections for debugging
       const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger === true)
-      console.log(`   Found ${triggerNodes.length} trigger nodes`)
+      logger.debug(`   Found ${triggerNodes.length} trigger nodes`)
       triggerNodes.forEach((t: any) => {
         const connectedNodes = validConnections
           .filter((c: any) => c.source === t.id)
           .map((c: any) => nodes.find((n: any) => n.id === c.target))
           .filter(Boolean)
-        console.log(`   Trigger ${t.id} connects to ${connectedNodes.length} nodes`)
+        logger.debug(`   Trigger ${t.id} connects to ${connectedNodes.length} nodes`)
       })
     }
 
     for (const startNode of startingNodes) {
-      console.log(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
+      logger.debug(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
 
       // Update progress: starting this node
       await progressTracker.update({
@@ -205,7 +207,7 @@ export class WorkflowExecutionService {
         executionContext
       )
 
-      console.log(`   Node ${startNode.id} execution result:`, {
+      logger.debug(`   Node ${startNode.id} execution result:`, {
         success: result?.success,
         hasError: !!result?.error,
         hasResults: !!result?.results
@@ -231,7 +233,7 @@ export class WorkflowExecutionService {
       results.push(result)
     }
 
-    console.log(`✅ Workflow execution completed with ${results.length} results`)
+    logger.debug(`✅ Workflow execution completed with ${results.length} results`)
 
     // Complete progress tracking
     const hasErrors = failedNodeIds.length > 0
@@ -247,13 +249,13 @@ export class WorkflowExecutionService {
           undefined
         )
       } catch (error) {
-        console.error('Failed to complete execution history:', error)
+        logger.error('Failed to complete execution history:', error)
       }
     }
 
     // If in test mode and we have intercepted actions, return them separately
     if (testMode && executionContext.interceptedActions.length > 0) {
-      console.log(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
+      logger.debug(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
       return {
         results,
         interceptedActions: executionContext.interceptedActions,
@@ -276,7 +278,7 @@ export class WorkflowExecutionService {
     testMode: boolean, 
     supabase: any
   ): Promise<ExecutionContext> {
-    console.log(`🔧 Creating execution context with userId: ${userId}`)
+    logger.debug(`🔧 Creating execution context with userId: ${userId}`)
     
     // Initialize data flow manager
     const dataFlowManager = createDataFlowManager(`exec_${Date.now()}`, workflow.id, userId)
@@ -303,8 +305,8 @@ export class WorkflowExecutionService {
       })
     }
 
-    console.log(`📊 Loaded ${variables?.length || 0} workflow variables`)
-    console.log(`✅ Created execution context with userId: ${executionContext.userId}`)
+    logger.debug(`📊 Loaded ${variables?.length || 0} workflow variables`)
+    logger.debug(`✅ Created execution context with userId: ${executionContext.userId}`)
 
     return executionContext
   }

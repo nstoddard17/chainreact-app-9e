@@ -12,6 +12,8 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -56,7 +58,7 @@ function InviteSignupPageContent() {
       setInvitation(data.invitation)
       setEmail(data.invitation.email) // Pre-fill email
     } catch (error) {
-      console.error('Error validating invitation:', error)
+      logger.error('Error validating invitation:', error)
       setError(error instanceof Error ? error.message : 'Failed to validate invitation')
     } finally {
       setLoading(false)
@@ -109,7 +111,7 @@ function InviteSignupPageContent() {
         toast.success('Please check your email to confirm your account, then return to this page to accept the invitation.')
       }
     } catch (error) {
-      console.error('Error signing up:', error)
+      logger.error('Error signing up:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to create account')
     } finally {
       setSigningUp(false)

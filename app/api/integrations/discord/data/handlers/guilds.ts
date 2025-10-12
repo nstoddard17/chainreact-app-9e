@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordGuild, DiscordDataHandler } from '../types'
 import { makeDiscordApiRequest, validateDiscordToken, fetchDiscordWithRateLimit } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Verify that the Discord bot is actually a member of the specified guild
  */
@@ -21,13 +23,13 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       };
     }
 
-    console.log('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
+    logger.debug('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
     
     const channelsStatus = null;
     
     // First, try to fetch channels (more reliable than member check)
     try {
-      console.log('🔍 Trying to fetch guild channels...');
+      logger.debug('🔍 Trying to fetch guild channels...');
       
       const channels = await fetchDiscordWithRateLimit<any[]>(() =>
         fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
@@ -38,7 +40,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         })
       );
       
-      console.log('🔍 Successfully fetched channels:', channels.length, 'channels found');
+      logger.debug('🔍 Successfully fetched channels:', channels.length, 'channels found');
       
       // Bot can access channels, so it's in the guild with proper permissions
       return {
@@ -46,11 +48,11 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         hasPermissions: true
       };
     } catch (outerError) {
-      console.log('🔍 Outer channels check failed, trying member check...');
+      logger.debug('🔍 Outer channels check failed, trying member check...');
     }
     
     // Fallback to member check
-    console.log('🔍 Trying to check bot membership...');
+    logger.debug('🔍 Trying to check bot membership...');
     
     try {
       const memberData = await fetchDiscordWithRateLimit<any>(() =>
@@ -62,32 +64,32 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         })
       );
       
-      console.log('🔍 Bot is a member of the guild');
+      logger.debug('🔍 Bot is a member of the guild');
       // Bot is in the guild and we have member data
       return {
         isInGuild: true,
         hasPermissions: true
       };
     } catch (memberError: any) {
-      console.log('🔍 Member check failed:', memberError.message);
+      logger.debug('🔍 Member check failed:', memberError.message);
       
       // Parse error to determine the issue
       if (memberError.status === 404) {
-        console.log('🔍 Bot is not a member of the guild');
+        logger.debug('🔍 Bot is not a member of the guild');
         return {
           isInGuild: false,
           hasPermissions: false,
           error: "Bot not added to this server"
         };
       } else if (memberError.status === 403) {
-        console.log('🔍 Bot lacks permissions to check membership - probably not in guild');
+        logger.debug('🔍 Bot lacks permissions to check membership - probably not in guild');
         return {
           isInGuild: false,
           hasPermissions: false,
           error: "Bot not in server or missing permissions"
         };
       } 
-        console.log('🔍 Unknown error checking bot status');
+        logger.debug('🔍 Unknown error checking bot status');
         return {
           isInGuild: false,
           hasPermissions: false,
@@ -96,7 +98,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       
     }
   } catch (error: any) {
-    console.error('Error verifying bot in guild:', error);
+    logger.error('Error verifying bot in guild:', error);
     return {
       isInGuild: false,
       hasPermissions: false,
@@ -136,19 +138,19 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
       approximate_presence_count: guild.approximate_presence_count,
     }))
 
-    console.log(`🔍 [Discord Guilds] Found ${guilds.length} guilds`);
+    logger.debug(`🔍 [Discord Guilds] Found ${guilds.length} guilds`);
 
     // Skip bot status checks by default for faster loading
     // Only check bot status if explicitly requested via options
     if (options?.checkBotStatus === true) {
-      console.log(`🔍 [Discord Guilds] Bot status check requested, checking bot status for guilds...`);
+      logger.debug(`🔍 [Discord Guilds] Bot status check requested, checking bot status for guilds...`);
       
       // Check if bot tokens are configured
       const botToken = process.env.DISCORD_BOT_TOKEN;
       const botClientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
       
       if (!botToken || !botClientId) {
-        console.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without bot status`);
+        logger.warn(`🔍 [Discord Guilds] Discord bot not configured, returning guilds without bot status`);
         return guilds.map(guild => ({
           ...guild,
           botInGuild: undefined,
@@ -159,7 +161,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
 
     // Make bot status checking less aggressive to avoid rate limits
     try {
-      console.log(`🔍 [Discord Guilds] Checking bot status for ${Math.min(guilds.length, 3)} guilds (rate limit protection)`);
+      logger.debug(`🔍 [Discord Guilds] Checking bot status for ${Math.min(guilds.length, 3)} guilds (rate limit protection)`);
       
       // Only check bot status for the first few guilds to avoid rate limits
       const guildsToCheck = guilds.slice(0, 3); // Only check first 3 guilds
@@ -189,7 +191,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
             };
           } catch (error: any) {
             // If bot check fails or times out, return guild without bot status
-            console.warn(`🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`, error?.message || 'Unknown error');
+            logger.warn(`🔍 [Discord Guilds] Bot check failed for guild ${guild.name}:`, error?.message || 'Unknown error');
             return {
               ...guild,
               botInGuild: undefined, // undefined means we couldn't check
@@ -203,7 +205,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
       // Set overall timeout for bot checks (15 seconds for fewer guilds)
       const overallTimeout = new Promise((resolve) => 
         setTimeout(() => {
-          console.warn(`🔍 [Discord Guilds] Bot status checking timed out, returning guilds without full bot status`);
+          logger.warn(`🔍 [Discord Guilds] Bot status checking timed out, returning guilds without full bot status`);
           resolve([...guildsToCheck.map(guild => ({
             ...guild,
             botInGuild: undefined,
@@ -228,7 +230,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
           if (result.status === 'fulfilled') {
             return result.value;
           } 
-            console.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`, result.reason);
+            logger.warn(`🔍 [Discord Guilds] Failed to check bot status for guild ${guildsToCheck[index]?.name}:`, result.reason);
             return {
               ...guildsToCheck[index],
               botInGuild: undefined,
@@ -253,7 +255,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
         processedGuilds = checkedGuildsResult;
       }
 
-      console.log(`🔍 [Discord Guilds] Bot status check complete:`, {
+      logger.debug(`🔍 [Discord Guilds] Bot status check complete:`, {
         totalGuilds: processedGuilds.length,
         botsInGuild: processedGuilds.filter(g => g.botInGuild === true).length,
         withPermissions: processedGuilds.filter(g => g.botInGuild === true && g.hasPermissions).length,
@@ -263,7 +265,7 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
       return processedGuilds;
     } catch (error) {
       // If bot status checking completely fails, return guilds without bot status
-      console.error(`🔍 [Discord Guilds] Bot status checking failed completely:`, error);
+      logger.error(`🔍 [Discord Guilds] Bot status checking failed completely:`, error);
       return guilds.map(guild => ({
         ...guild,
         botInGuild: undefined,
@@ -273,11 +275,11 @@ export const getDiscordGuilds: DiscordDataHandler<DiscordGuild> = async (integra
     }
     } else {
       // Return guilds immediately without bot status checks for faster loading
-      console.log(`🔍 [Discord Guilds] Skipping bot status checks for faster loading`);
+      logger.debug(`🔍 [Discord Guilds] Skipping bot status checks for faster loading`);
       return guilds;
     }
   } catch (error: any) {
-    console.error("Error fetching Discord guilds:", error)
+    logger.error("Error fetching Discord guilds:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

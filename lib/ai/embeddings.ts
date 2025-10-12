@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Embeddings utilities for semantic search and similarity matching
  */
@@ -46,7 +48,7 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
       return data.data[0].embedding;
 
     } catch (error) {
-      console.error('Failed to create OpenAI embedding:', error);
+      logger.error('Failed to create OpenAI embedding:', error);
       throw error;
     }
   }
@@ -443,7 +445,7 @@ if (typeof process !== 'undefined' && process.env) {
         model: process.env.SMART_AI_EMBEDDING_MODEL || 'text-embedding-ada-002'
       });
     } catch (error) {
-      console.warn('Failed to initialize OpenAI embeddings, falling back to local:', error);
+      logger.warn('Failed to initialize OpenAI embeddings, falling back to local:', error);
       initializeEmbeddings({ provider: 'local' });
     }
   } else {

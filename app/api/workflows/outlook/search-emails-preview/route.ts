@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Outlook API error:', response.status, errorText)
+      logger.error('Outlook API error:', response.status, errorText)
       return NextResponse.json({ 
         error: `Outlook API error: ${response.status} - ${errorText}` 
       }, { status: response.status })
@@ -117,7 +119,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Outlook search emails preview error:', error)
+    logger.error('Outlook search emails preview error:', error)
     return NextResponse.json({ 
       error: error.message || 'Internal server error' 
     }, { status: 500 })
