@@ -37,6 +37,39 @@ export async function POST(req: NextRequest) {
       'gmail_signatures',
     ]);
 
+    const teamsDataTypes = new Set([
+      'teams_teams',
+      'teams_channels',
+      'teams_chats',
+    ]);
+
+    // Route Teams-specific data requests through Teams API
+    if (teamsDataTypes.has(dataType)) {
+      logger.debug('🔍 [SERVER] Routing Teams data request', { dataType, integrationId, options });
+
+      const baseUrl = req.nextUrl.origin;
+      const teamsApiResponse = await fetch(`${baseUrl}/api/integrations/teams/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          integrationId,
+          dataType,
+          params: options,
+        }),
+      });
+
+      if (!teamsApiResponse.ok) {
+        const errorText = await teamsApiResponse.text();
+        logger.error('❌ [SERVER] Teams API error:', errorText);
+        return Response.json({ error: errorText || 'Failed to load Teams data' }, { status: teamsApiResponse.status });
+      }
+
+      const teamsData = await teamsApiResponse.json();
+      return Response.json(teamsData);
+    }
+
     // Route Gmail-specific data requests (including enhanced recipients and labels) through Gmail API
     if (gmailDataTypes.has(dataType)) {
       logger.debug('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
