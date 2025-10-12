@@ -38,3 +38,4 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-12T00:41:57.868Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
 [2025-10-12T00:41:57.919Z] [INFO   ] ✅ Cached 4 invites for guild 1378950884045623406
 [2025-10-12T00:41:57.934Z] [INFO   ] 📡 Discord event received: GUILD_CREATE
+[2025-10-12T00:43:13.417Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 793ms (2234 modules)
