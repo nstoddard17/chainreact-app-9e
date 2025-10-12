@@ -213,6 +213,21 @@ export class MicrosoftGraphSubscriptionManager {
           return
         }
 
+        // 403 Forbidden means we don't have permission to delete (token issue or subscription ownership)
+        // This commonly happens when:
+        // - Token expired/refreshed after subscription creation
+        // - Subscription was created by different app/client
+        // - Insufficient token permissions
+        // Microsoft will clean up expired subscriptions automatically, so treat as success
+        if (response.status === 403) {
+          console.warn('⚠️ Access denied when deleting subscription (treating as success - Microsoft will auto-cleanup on expiry):', {
+            subscriptionId,
+            reason: 'Token lacks permissions or subscription created by different client'
+          })
+          await this.markSubscriptionAsDeleted(subscriptionId)
+          return
+        }
+
         const errorText = await response.text()
         console.error('❌ Failed to delete subscription:', {
           status: response.status,
