@@ -17,6 +17,8 @@ import {
 } from '../../../lib/workflows/actions/github'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GitHubAdapter implements DevOpsProvider {
   readonly providerId = 'github'
   readonly capabilities: CapabilityDescriptor = {
@@ -232,7 +234,7 @@ export class GitHubAdapter implements DevOpsProvider {
         defaultBranch: repo.default_branch
       }))
     } catch (error: any) {
-      console.error('Failed to get GitHub repositories:', error)
+      logger.error('Failed to get GitHub repositories:', error)
       return []
     }
   }
@@ -295,7 +297,7 @@ export class GitHubAdapter implements DevOpsProvider {
         state: issue.state
       }))
     } catch (error: any) {
-      console.error('Failed to get GitHub issues:', error)
+      logger.error('Failed to get GitHub issues:', error)
       return []
     }
   }

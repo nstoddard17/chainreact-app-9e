@@ -5,6 +5,8 @@
 import { TrelloApiError } from './types'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Trello API error with proper context
  */
@@ -90,7 +92,7 @@ export function getTrelloApiHeaders(): Record<string, string> {
 export async function parseTrelloApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ Trello API error: ${response.status} ${errorText}`)
+    logger.error(`❌ Trello API error: ${response.status} ${errorText}`)
     
     throw createTrelloApiError(
       `Trello API error: ${response.status}`,

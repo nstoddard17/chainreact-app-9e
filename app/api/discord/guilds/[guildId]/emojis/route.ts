@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ guildId: string }> }
@@ -27,7 +29,7 @@ export async function GET(
     );
 
     if (!response.ok) {
-      console.error("Discord API error:", response.status, response.statusText);
+      logger.error("Discord API error:", response.status, response.statusText);
       return NextResponse.json(
         { error: "Failed to fetch guild emojis" },
         { status: response.status }
@@ -47,7 +49,7 @@ export async function GET(
 
     return NextResponse.json(transformedEmojis);
   } catch (error) {
-    console.error("Error fetching guild emojis:", error);
+    logger.error("Error fetching guild emojis:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

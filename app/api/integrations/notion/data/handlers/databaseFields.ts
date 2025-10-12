@@ -7,9 +7,11 @@ import { NotionIntegration, NotionDataHandler } from '../types'
 import { makeNotionApiRequest } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const getNotionDatabaseFields: NotionDataHandler = async (integration: any, context?: any): Promise<any[]> => {
-  console.log("🔍 Notion database fields fetcher called")
-  console.log("🔍 Context:", context)
+  logger.debug("🔍 Notion database fields fetcher called")
+  logger.debug("🔍 Context:", context)
 
   try {
     // Get the Notion integration
@@ -18,7 +20,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
     let integrationError
 
     if (integration.id) {
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -27,7 +29,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
       notionIntegration = result.data
       integrationError = result.error
     } else if (integration.userId) {
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -42,11 +44,11 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
     }
 
     if (integrationError || !notionIntegration) {
-      console.error('🔍 Integration lookup failed:', integrationError)
+      logger.error('🔍 Integration lookup failed:', integrationError)
       throw new Error("Notion integration not found")
     }
 
-    console.log(`🔍 Found integration: ${notionIntegration.id}`)
+    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
 
     // Get the database ID from context
     const databaseId = context?.databaseId || context?.database_id
@@ -54,7 +56,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
       throw new Error("Database ID is required to fetch fields")
     }
 
-    console.log(`🔍 Fetching database schema and first entry for database: ${databaseId}`)
+    logger.debug(`🔍 Fetching database schema and first entry for database: ${databaseId}`)
 
     // First, get the database schema to understand all properties
     const databaseResponse = await makeNotionApiRequest(
@@ -67,7 +69,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
 
     if (!databaseResponse.ok) {
       const errorData = await databaseResponse.json().catch(() => ({}))
-      console.error(`❌ Failed to get database schema: ${databaseResponse.status}`, errorData)
+      logger.error(`❌ Failed to get database schema: ${databaseResponse.status}`, errorData)
       throw new Error(`Failed to get database schema: ${databaseResponse.status}`)
     }
 
@@ -75,7 +77,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
     const properties = database.properties || {}
     const databaseTitle = database.title?.[0]?.plain_text || 'Untitled Database'
 
-    console.log(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
+    logger.debug(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
 
     // Now, query the database to get the first entry for current values
     const queryResponse = await makeNotionApiRequest(
@@ -96,7 +98,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
     if (queryResponse.ok) {
       const queryData = await queryResponse.json()
       firstEntry = queryData.results?.[0]
-      console.log(`✅ Found first entry with ${firstEntry ? 'data' : 'no data'}`)
+      logger.debug(`✅ Found first entry with ${firstEntry ? 'data' : 'no data'}`)
     }
 
     // Transform properties to field format with current values
@@ -235,12 +237,12 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: an
       fields.push(field)
     })
 
-    console.log(`✅ Returning ${fields.length} fields with current values`)
+    logger.debug(`✅ Returning ${fields.length} fields with current values`)
 
     return fields
 
   } catch (error: any) {
-    console.error("Error fetching Notion database fields:", error)
+    logger.error("Error fetching Notion database fields:", error)
     throw new Error(error.message || "Error fetching Notion database fields")
   }
 }

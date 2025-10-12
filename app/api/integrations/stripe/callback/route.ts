@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   const provider = 'stripe'
 
   if (error) {
-    console.error(`Error with Stripe OAuth: ${error} - ${errorDescription}`)
+    logger.error(`Error with Stripe OAuth: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('Stripe callback error:', e)
+    logger.error('Stripe callback error:', e)
     return createPopupResponse(
       'error',
       provider,

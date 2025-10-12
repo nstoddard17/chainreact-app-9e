@@ -20,6 +20,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
+import { logger } from '@/lib/utils/logger'
+
 interface APIKey {
   id: string
   name: string
@@ -70,7 +72,7 @@ export default function AIAPISettings() {
         setDefaultModel(data.defaultModel || "gpt-4o-mini")
       }
     } catch (error) {
-      console.error("Failed to load API keys:", error)
+      logger.error("Failed to load API keys:", error)
     } finally {
       setLoading(false)
     }

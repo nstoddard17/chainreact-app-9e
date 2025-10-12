@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/utils/supabaseClient'
+
+import { logger } from '@/lib/utils/logger'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
 // Broadcast channel for cross-tab communication
@@ -85,7 +87,7 @@ export function useSingleTabPresence() {
 
   // Elect self as leader
   const becomeLeader = useCallback(async () => {
-    console.log(`Tab ${tabId} becoming leader`)
+    logger.debug(`Tab ${tabId} becoming leader`)
     setIsLeaderTab(true)
     isLeaderTabRef.current = true
     
@@ -178,7 +180,7 @@ export function useSingleTabPresence() {
 
   // Resign from leadership
   const resignLeader = useCallback(async () => {
-    console.log(`Tab ${tabId} resigning leadership`)
+    logger.debug(`Tab ${tabId} resigning leadership`)
     setIsLeaderTab(false)
     isLeaderTabRef.current = false
     
@@ -217,7 +219,7 @@ export function useSingleTabPresence() {
     
     if (timeSinceLastHeartbeat > LEADER_TIMEOUT) {
       // Leader is dead, start election
-      console.log(`Tab ${tabId} detected dead leader, starting election`)
+      logger.debug(`Tab ${tabId} detected dead leader, starting election`)
       
       // Announce election
       if (broadcastChannel.current && user?.id) {
@@ -253,7 +255,7 @@ export function useSingleTabPresence() {
         // If we're the leader but another tab is sending heartbeats, yield
         if (isLeaderTabRef.current && message.tabId !== tabId) {
           if (message.timestamp > Date.now() - LEADER_HEARTBEAT_INTERVAL * 2) {
-            console.log(`Tab ${tabId} yielding to ${message.tabId}`)
+            logger.debug(`Tab ${tabId} yielding to ${message.tabId}`)
             resignLeader()
           }
         }
@@ -343,7 +345,7 @@ export function useSingleTabPresence() {
       }, LEADER_TIMEOUT / 2)
     } else {
       // Fallback: if BroadcastChannel not supported, always be leader
-      console.log('BroadcastChannel not supported, using single tab mode')
+      logger.debug('BroadcastChannel not supported, using single tab mode')
       becomeLeader()
     }
 

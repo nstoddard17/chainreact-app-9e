@@ -5,6 +5,8 @@ import { MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
+import { logger } from '@/lib/utils/logger'
+
 interface OutlookEmailFieldProps {
   field: any;
   value: any;
@@ -103,7 +105,7 @@ export function OutlookEmailField({
 
   // Handle dropdown opening to load data (same as Gmail)
   const handleDropdownOpen = (isOpen: boolean) => {
-    console.log('📧 [OutlookEmailField] Dropdown opened:', {
+    logger.debug('📧 [OutlookEmailField] Dropdown opened:', {
       isOpen,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
@@ -114,7 +116,7 @@ export function OutlookEmailField({
     });
 
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
-      console.log('📧 [OutlookEmailField] Calling onDynamicLoad for:', field.name);
+      logger.debug('📧 [OutlookEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };

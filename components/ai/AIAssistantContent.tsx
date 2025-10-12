@@ -29,6 +29,8 @@ import {
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Message {
   id: string
   role: "user" | "assistant"
@@ -184,7 +186,7 @@ export default function AIAssistantContent() {
 
         if (!response.ok) {
           const errorText = await response.text()
-          console.error("API Error:", response.status, errorText)
+          logger.error("API Error:", response.status, errorText)
           throw new Error(`API error: ${response.status} - ${errorText}`)
         }
 
@@ -217,7 +219,7 @@ export default function AIAssistantContent() {
           abortControllerRef.current = null;
         }
         
-        console.error(`Error sending message (attempt ${retryCount + 1}):`, error)
+        logger.error(`Error sending message (attempt ${retryCount + 1}):`, error)
         
         // If this is the last retry, show error
         if (retryCount === maxRetries) {
@@ -324,7 +326,7 @@ export default function AIAssistantContent() {
 
       setMessages(prev => [...prev, confirmationMessage])
     } catch (error) {
-      console.error("Error confirming action:", error)
+      logger.error("Error confirming action:", error)
       toast({
         title: "Error",
         description: "Failed to confirm action. Please try again.",

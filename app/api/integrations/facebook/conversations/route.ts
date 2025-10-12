@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import crypto from 'crypto'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     if (!conversationsResponse.ok) {
       const errorData = await conversationsResponse.text()
-      console.error('Facebook conversations API error:', errorData)
+      logger.error('Facebook conversations API error:', errorData)
       return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
     }
 
@@ -129,7 +131,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('Error processing conversation:', error)
+        logger.error('Error processing conversation:', error)
         // Continue with other conversations
       }
     }
@@ -140,7 +142,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: conversations })
 
   } catch (error) {
-    console.error('Error fetching Facebook conversations:', error)
+    logger.error('Error fetching Facebook conversations:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

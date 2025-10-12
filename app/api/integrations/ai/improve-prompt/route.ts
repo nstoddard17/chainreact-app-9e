@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ImprovePromptBody {
   prompt?: string
   systemPrompt?: string
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ improvedPrompt: improvedPrompt || prompt })
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("[Improve Prompt] Failed to refine prompt", error)
+    logger.error("[Improve Prompt] Failed to refine prompt", error)
     return NextResponse.json({ error: "Failed to improve prompt" }, { status: 500 })
   }
 }

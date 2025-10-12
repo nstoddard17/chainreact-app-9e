@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch"
 import { Plus, Clock, Edit, Trash2 } from "lucide-react"
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Schedule {
   id: string
   cron_expression: string
@@ -77,7 +79,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
       setSchedules(data || [])
     } catch (error) {
-      console.error("Failed to fetch schedules:", error)
+      logger.error("Failed to fetch schedules:", error)
     } finally {
       setLoading(false)
     }
@@ -106,7 +108,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
       setEditingSchedule(null)
       setFormData({ cron_expression: "0 9 * * 1-5", timezone: "UTC", enabled: true })
     } catch (error) {
-      console.error("Failed to save schedule:", error)
+      logger.error("Failed to save schedule:", error)
     }
   }
 
@@ -131,7 +133,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
         await fetchSchedules()
       } catch (error) {
-        console.error("Failed to delete schedule:", error)
+        logger.error("Failed to delete schedule:", error)
       }
     }
   }
@@ -146,7 +148,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
       await fetchSchedules()
     } catch (error) {
-      console.error("Failed to toggle schedule:", error)
+      logger.error("Failed to toggle schedule:", error)
     }
   }
 

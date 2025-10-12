@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 // Validate environment variables
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable")
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
   const provider = 'facebook'
 
   if (error) {
-    console.error(`Error with Facebook OAuth: ${error} - ${errorDescription}`)
+    logger.error(`Error with Facebook OAuth: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange Facebook code for token:', errorData)
+      logger.error('Failed to exchange Facebook code for token:', errorData)
       return createPopupResponse(
         'error',
         provider,
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (e) {
-      console.warn('Failed to fetch Facebook granted scopes:', e)
+      logger.warn('Failed to fetch Facebook granted scopes:', e)
     }
 
     const expiresIn = tokenData.expires_in
@@ -99,13 +101,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Error saving Facebook integration to DB:', upsertError)
+      logger.error('Error saving Facebook integration to DB:', upsertError)
       return createPopupResponse('error', provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Facebook account connected successfully.', baseUrl)
   } catch (error) {
-    console.error('Error during Facebook OAuth callback:', error)
+    logger.error('Error during Facebook OAuth callback:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
     return createPopupResponse('error', provider, message, baseUrl)
   }

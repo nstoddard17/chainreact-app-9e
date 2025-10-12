@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -10,7 +12,7 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('\n🔄 REFRESHING ONEDRIVE WEBHOOK SUBSCRIPTION')
+    logger.debug('\n🔄 REFRESHING ONEDRIVE WEBHOOK SUBSCRIPTION')
 
     // Get the user's workflow
     const { data: workflows } = await supabase
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const workflow = workflows[0]
-    console.log(`Found workflow: ${workflow.name}`)
+    logger.debug(`Found workflow: ${workflow.name}`)
 
     // Toggle the workflow off
     await supabase
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'inactive' })
       .eq('id', workflow.id)
 
-    console.log('✅ Workflow deactivated')
+    logger.debug('✅ Workflow deactivated')
 
     // Wait a moment
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'active' })
       .eq('id', workflow.id)
 
-    console.log('✅ Workflow reactivated - this should trigger webhook re-registration')
+    logger.debug('✅ Workflow reactivated - this should trigger webhook re-registration')
 
     // Check the new subscription
     await new Promise(resolve => setTimeout(resolve, 3000))
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error refreshing webhook:', error)
+    logger.error('Error refreshing webhook:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
 }

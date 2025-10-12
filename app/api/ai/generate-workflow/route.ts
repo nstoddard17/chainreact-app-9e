@@ -5,6 +5,8 @@ import { generateDynamicWorkflow } from "@/lib/ai/dynamicWorkflowAI"
 import { nodeRegistry, getAllNodes } from "@/lib/workflows/nodes/registry"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     cookies()
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
             parentAIAgentId: parentAIAgentId,
             parentChainIndex: chainIndex
           };
-          console.log(`Setting chain metadata for ${node.id}:`, { parentAIAgentId, chainIndex });
+          logger.debug(`Setting chain metadata for ${node.id}:`, { parentAIAgentId, chainIndex });
         }
       }
       
@@ -125,7 +127,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error("Database error:", dbError)
+      logger.error("Database error:", dbError)
       return NextResponse.json({ error: "Failed to save workflow" }, { status: 500 })
     }
 
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
       debug: debug ? result.debug : undefined,
     })
   } catch (error: any) {
-    console.error("Error generating workflow:", error)
+    logger.error("Error generating workflow:", error)
     const msg: string = error?.message || ''
     if (msg.startsWith('VALIDATION_FAILED')) {
       let errors: string[] = []

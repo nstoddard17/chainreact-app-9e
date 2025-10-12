@@ -15,6 +15,8 @@ import { getGoogleDriveFiles } from '../../../lib/integrations/google-drive'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 import { google, drive_v3 } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleDriveAdapter implements FileProvider {
   readonly providerId = 'google-drive'
   readonly capabilities: CapabilityDescriptor = {
@@ -87,7 +89,7 @@ export class GoogleDriveAdapter implements FileProvider {
         message: 'File uploaded successfully to Google Drive'
       }
     } catch (error: any) {
-      console.error('Google Drive upload error:', error)
+      logger.error('Google Drive upload error:', error)
       return {
         success: false,
         error: error.message || 'Failed to upload file to Google Drive',
@@ -193,7 +195,7 @@ export class GoogleDriveAdapter implements FileProvider {
         parents: file.parents
       })) || []
     } catch (error: any) {
-      console.error('Google Drive list files error:', error)
+      logger.error('Google Drive list files error:', error)
       return []
     }
   }

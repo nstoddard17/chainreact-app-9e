@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error creating Gmail label:', error)
+    logger.error('Error creating Gmail label:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -148,7 +150,7 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error deleting Gmail label:', error)
+    logger.error('Error deleting Gmail label:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

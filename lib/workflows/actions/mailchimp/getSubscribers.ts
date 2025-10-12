@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get subscribers from a Mailchimp audience
  */
@@ -61,7 +63,7 @@ export async function mailchimpGetSubscribers(
       message: `Successfully retrieved ${subscribers.length} subscribers from audience`
     }
   } catch (error: any) {
-    console.error('Mailchimp Get Subscribers error:', error)
+    logger.error('Mailchimp Get Subscribers error:', error)
     return {
       success: false,
       output: {},

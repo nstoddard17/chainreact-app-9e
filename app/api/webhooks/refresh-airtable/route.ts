@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAirtableWebhook } from '@/lib/integrations/airtable/webhooks'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
           status: 'refreshed'
         })
       } catch (error) {
-        console.error(`Failed to refresh webhook for base ${webhook.base_id}:`, error)
+        logger.error(`Failed to refresh webhook for base ${webhook.base_id}:`, error)
         refreshResults.push({
           baseId: webhook.base_id,
           status: 'failed',
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
       results: refreshResults
     })
   } catch (error) {
-    console.error('Error refreshing Airtable webhooks:', error)
+    logger.error('Error refreshing Airtable webhooks:', error)
     return NextResponse.json(
       { error: 'Failed to refresh webhooks' },
       { status: 500 }

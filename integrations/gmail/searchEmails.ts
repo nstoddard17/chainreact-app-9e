@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -167,7 +169,7 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
       })
       
       if (!messageResponse.ok) {
-        console.error(`Failed to fetch email ${messageId}:`, await messageResponse.text())
+        logger.error(`Failed to fetch email ${messageId}:`, await messageResponse.text())
         continue
       }
       
@@ -217,7 +219,7 @@ export async function searchGmailEmails(params: ActionParams): Promise<ActionRes
     
   } catch (error: any) {
     // 10. Handle errors and return failure result
-    console.error("Gmail search emails failed:", error)
+    logger.error("Gmail search emails failed:", error)
     return {
       success: false,
       error: error.message || "Failed to search emails"

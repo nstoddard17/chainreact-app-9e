@@ -3,6 +3,8 @@ import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       )
 
       if (authUpdateError) {
-        console.error('Error updating auth user:', authUpdateError)
+        logger.error('Error updating auth user:', authUpdateError)
         return NextResponse.json(
           { error: authUpdateError.message },
           { status: 400 }
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
       .eq('id', userId)
 
     if (profileUpdateError) {
-      console.error('Error updating user profile:', profileUpdateError)
+      logger.error('Error updating user profile:', profileUpdateError)
       return NextResponse.json(
         { error: 'Failed to update user profile' },
         { status: 500 }
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in user update API:', error)
+    logger.error('Error in user update API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

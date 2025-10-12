@@ -5,6 +5,8 @@
 import { NotionIntegration, NotionDatabase, NotionDataHandler } from '../types'
 import { validateNotionIntegration, validateNotionToken, getDatabaseTitle, getPageTitle } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Notion databases (simplified version without workspace complexity)
  */
@@ -13,7 +15,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     validateNotionIntegration(integration)
     // Check for both workspace and workspaceId for compatibility
     const targetWorkspaceId = options?.workspace || options?.workspaceId
-    console.log("🗄️ [Notion Databases] Fetching databases", targetWorkspaceId ? `for workspace: ${targetWorkspaceId}` : '(all workspaces)')
+    logger.debug("🗄️ [Notion Databases] Fetching databases", targetWorkspaceId ? `for workspace: ${targetWorkspaceId}` : '(all workspaces)')
 
     // Get workspace-specific token if workspace is specified
     let tokenToUse = integration.access_token
@@ -21,10 +23,10 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     if (targetWorkspaceId && integration.metadata?.workspaces) {
       const workspace = integration.metadata.workspaces[targetWorkspaceId]
       if (workspace?.access_token) {
-        console.log("🔑 [Notion Databases] Using workspace-specific token")
+        logger.debug("🔑 [Notion Databases] Using workspace-specific token")
         tokenToUse = workspace.access_token
       } else {
-        console.log("🔑 [Notion Databases] No workspace-specific token, using main integration token")
+        logger.debug("🔑 [Notion Databases] No workspace-specific token, using main integration token")
       }
     }
 
@@ -38,7 +40,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     }
 
     // First, search for ALL content to debug what's available
-    console.log("🔍 [Notion Databases] Searching for ALL content in workspace to debug...")
+    logger.debug("🔍 [Notion Databases] Searching for ALL content in workspace to debug...")
     
     let allContent: any[] = []
     let hasMore = true
@@ -81,35 +83,35 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     }
     
     // Log everything we found
-    console.log(`📊 [Notion Databases] Total items found: ${allContent.length}`)
+    logger.debug(`📊 [Notion Databases] Total items found: ${allContent.length}`)
     
     // Separate by type
     const rawDatabases = allContent.filter(item => item.object === 'database')
     const pages = allContent.filter(item => item.object === 'page')
     
-    console.log(`📊 Breakdown: ${rawDatabases.length} databases, ${pages.length} pages`)
+    logger.debug(`📊 Breakdown: ${rawDatabases.length} databases, ${pages.length} pages`)
     
     // Log ALL databases with their details
-    console.log("🗄️ ALL DATABASES FOUND:")
+    logger.debug("🗄️ ALL DATABASES FOUND:")
     rawDatabases.forEach((db, index) => {
       const title = getDatabaseTitle(db)
-      console.log(`  ${index + 1}. "${title}" (ID: ${db.id.substring(0, 8)}...)`)
-      console.log(`     - Archived: ${db.archived}`)
-      console.log(`     - Is Inline: ${db.is_inline}`)
-      console.log(`     - Parent Type: ${db.parent?.type}`)
-      console.log(`     - Created: ${db.created_time}`)
-      console.log(`     - URL: ${db.url}`)
+      logger.debug(`  ${index + 1}. "${title}" (ID: ${db.id.substring(0, 8)}...)`)
+      logger.debug(`     - Archived: ${db.archived}`)
+      logger.debug(`     - Is Inline: ${db.is_inline}`)
+      logger.debug(`     - Parent Type: ${db.parent?.type}`)
+      logger.debug(`     - Created: ${db.created_time}`)
+      logger.debug(`     - URL: ${db.url}`)
     })
     
     // Also log some pages to see if any contain databases
-    console.log("\n📄 SAMPLE PAGES (first 20):")
+    logger.debug("\n📄 SAMPLE PAGES (first 20):")
     pages.slice(0, 20).forEach((page, index) => {
       const title = getPageTitle(page)
-      console.log(`  ${index + 1}. "${title}" (ID: ${page.id.substring(0, 8)}...)`)
+      logger.debug(`  ${index + 1}. "${title}" (ID: ${page.id.substring(0, 8)}...)`)
     })
     
     // SPECIFICALLY LOOK FOR THE MISSING ITEMS
-    console.log("\n🔍 SEARCHING FOR SPECIFIC MISSING ITEMS:")
+    logger.debug("\n🔍 SEARCHING FOR SPECIFIC MISSING ITEMS:")
     const viewOfGlobalOffices = pages.find(page => {
       const title = getPageTitle(page)
       return title === 'View of Global Offices' || title.toLowerCase().includes('view of global offices')
@@ -121,59 +123,59 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     })
     
     if (viewOfGlobalOffices) {
-      console.log("✅ FOUND 'View of Global Offices' as a PAGE:")
-      console.log(`   - ID: ${viewOfGlobalOffices.id}`)
-      console.log(`   - URL: ${viewOfGlobalOffices.url}`)
-      console.log(`   - Parent Type: ${viewOfGlobalOffices.parent?.type}`)
-      console.log(`   - Created: ${viewOfGlobalOffices.created_time}`)
+      logger.debug("✅ FOUND 'View of Global Offices' as a PAGE:")
+      logger.debug(`   - ID: ${viewOfGlobalOffices.id}`)
+      logger.debug(`   - URL: ${viewOfGlobalOffices.url}`)
+      logger.debug(`   - Parent Type: ${viewOfGlobalOffices.parent?.type}`)
+      logger.debug(`   - Created: ${viewOfGlobalOffices.created_time}`)
     } else {
-      console.log("❌ 'View of Global Offices' NOT FOUND in pages")
+      logger.debug("❌ 'View of Global Offices' NOT FOUND in pages")
       // Check if it's in databases
       const inDatabases = rawDatabases.find(db => {
         const title = getDatabaseTitle(db)
         return title === 'View of Global Offices' || title.toLowerCase().includes('view of global offices')
       })
       if (inDatabases) {
-        console.log("   BUT it IS in databases list! Details:")
-        console.log(`   - ID: ${inDatabases.id}`)
-        console.log(`   - Archived: ${inDatabases.archived}`)
+        logger.debug("   BUT it IS in databases list! Details:")
+        logger.debug(`   - ID: ${inDatabases.id}`)
+        logger.debug(`   - Archived: ${inDatabases.archived}`)
       }
     }
     
     if (projects1) {
-      console.log("✅ FOUND 'Projects (1)' as a PAGE:")
-      console.log(`   - ID: ${projects1.id}`)
-      console.log(`   - URL: ${projects1.url}`)
-      console.log(`   - Parent Type: ${projects1.parent?.type}`)
-      console.log(`   - Created: ${projects1.created_time}`)
+      logger.debug("✅ FOUND 'Projects (1)' as a PAGE:")
+      logger.debug(`   - ID: ${projects1.id}`)
+      logger.debug(`   - URL: ${projects1.url}`)
+      logger.debug(`   - Parent Type: ${projects1.parent?.type}`)
+      logger.debug(`   - Created: ${projects1.created_time}`)
     } else {
-      console.log("❌ 'Projects (1)' NOT FOUND in pages")
+      logger.debug("❌ 'Projects (1)' NOT FOUND in pages")
       // Check if it's in databases
       const inDatabases = rawDatabases.find(db => {
         const title = getDatabaseTitle(db)
         return title === 'Projects (1)' || title.toLowerCase().includes('projects (1)')
       })
       if (inDatabases) {
-        console.log("   BUT it IS in databases list! Details:")
-        console.log(`   - ID: ${inDatabases.id}`)
-        console.log(`   - Archived: ${inDatabases.archived}`)
+        logger.debug("   BUT it IS in databases list! Details:")
+        logger.debug(`   - ID: ${inDatabases.id}`)
+        logger.debug(`   - Archived: ${inDatabases.archived}`)
       }
     }
     
     const allDatabases = [...rawDatabases]
     
-    console.log(`\n📊 [Notion Databases] Starting with ${allDatabases.length} databases`)
+    logger.debug(`\n📊 [Notion Databases] Starting with ${allDatabases.length} databases`)
     
     // If we found the specific missing pages, check them for database content
     const specificPagesToCheck = [viewOfGlobalOffices, projects1].filter(Boolean)
     
     if (specificPagesToCheck.length > 0) {
-      console.log("\n🔍 Checking specific pages for database content...")
+      logger.debug("\n🔍 Checking specific pages for database content...")
       for (const page of specificPagesToCheck) {
         if (!page) continue
         
         const pageTitle = getPageTitle(page)
-        console.log(`\n   Checking page: "${pageTitle}"`)
+        logger.debug(`\n   Checking page: "${pageTitle}"`)
         
         try {
           // Fetch the page's blocks to see if it contains a database view
@@ -189,14 +191,14 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
             const blocksData = await blocksResponse.json()
             const blocks = blocksData.results || []
             
-            console.log(`      Found ${blocks.length} blocks in page`)
+            logger.debug(`      Found ${blocks.length} blocks in page`)
             
             for (const block of blocks) {
-              console.log(`      - Block type: ${block.type}, ID: ${block.id}`)
+              logger.debug(`      - Block type: ${block.type}, ID: ${block.id}`)
               
               // Check for different types of database blocks
               if (block.type === 'child_database') {
-                console.log(`      ✅ FOUND child_database! Adding to database list.`)
+                logger.debug(`      ✅ FOUND child_database! Adding to database list.`)
                 allDatabases.push({
                   id: block.id,
                   object: 'database',
@@ -214,7 +216,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
                   archived: false
                 })
               } else if (block.type === 'synced_block' && block.synced_block?.synced_from?.block_id) {
-                console.log(`      ⚡ Found synced_block - checking if it's a database view...`)
+                logger.debug(`      ⚡ Found synced_block - checking if it's a database view...`)
                 // Synced blocks can contain database views
                 allDatabases.push({
                   id: `${page.id}_synced`,
@@ -235,10 +237,10 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
                   is_synced: true
                 })
               } else if (block.type === 'child_page' && block.child_page) {
-                console.log(`      - Found child_page block`)
+                logger.debug(`      - Found child_page block`)
               } else if (block.type === 'link_to_page' && block.link_to_page?.database_id) {
                 // This is a linked database view
-                console.log(`      ✅ FOUND link_to_page with database_id! Adding as database view.`)
+                logger.debug(`      ✅ FOUND link_to_page with database_id! Adding as database view.`)
                 allDatabases.push({
                   id: block.link_to_page.database_id,
                   object: 'database',
@@ -259,7 +261,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
                 })
               } else if (block[block.type]?.type === 'database_id') {
                 // Generic check for any block with database_id
-                console.log(`      ✅ FOUND block with database_id! Adding as database view.`)
+                logger.debug(`      ✅ FOUND block with database_id! Adding as database view.`)
                 allDatabases.push({
                   id: `${page.id}_linked_db`,
                   object: 'database',
@@ -280,16 +282,16 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
               }
             }
           } else {
-            console.log(`      ❌ Could not fetch blocks: ${blocksResponse.status}`)
+            logger.debug(`      ❌ Could not fetch blocks: ${blocksResponse.status}`)
           }
         } catch (error: any) {
-          console.log(`      ❌ Error fetching blocks: ${error.message}`)
+          logger.debug(`      ❌ Error fetching blocks: ${error.message}`)
         }
       }
     }
     
     // Now search for other database views in pages
-    console.log("\n🔍 [Notion Databases] Searching for other database views in pages...")
+    logger.debug("\n🔍 [Notion Databases] Searching for other database views in pages...")
     
     // Check pages for database views (but limit to avoid timeout)
     const pagesToCheck = pages.slice(0, 30) // Check first 30 pages
@@ -321,7 +323,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
             // Look for child_database blocks (inline databases in pages)
             for (const block of blocks) {
               if (block.type === 'child_database') {
-                console.log(`   ✅ Found inline database in page: "${pageTitle}"`)
+                logger.debug(`   ✅ Found inline database in page: "${pageTitle}"`)
                 // Add this as a database with the parent page's title
                 allDatabases.push({
                   id: block.id,
@@ -349,15 +351,15 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
       }
     }
     
-    console.log(`📊 [Notion Databases] Total databases including views: ${allDatabases.length}`)
+    logger.debug(`📊 [Notion Databases] Total databases including views: ${allDatabases.length}`)
     
     // Log what we're about to filter
     const archivedDatabases = allDatabases.filter((db: any) => db.archived)
     if (archivedDatabases.length > 0) {
-      console.log(`⚠️ FILTERING OUT ${archivedDatabases.length} ARCHIVED DATABASES:`)
+      logger.debug(`⚠️ FILTERING OUT ${archivedDatabases.length} ARCHIVED DATABASES:`)
       archivedDatabases.forEach((db: any) => {
         const title = getDatabaseTitle(db)
-        console.log(`  - "${title}" (archived: ${db.archived})`)
+        logger.debug(`  - "${title}" (archived: ${db.archived})`)
       })
     }
     
@@ -366,7 +368,7 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
       .filter((database: any) => {
         // Log if we're filtering something out
         if (database.archived) {
-          console.log(`  ❌ Excluding archived database: "${getDatabaseTitle(database)}"`)
+          logger.debug(`  ❌ Excluding archived database: "${getDatabaseTitle(database)}"`)
           return false
         }
         return true
@@ -386,9 +388,9 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
         is_inline: database.is_inline
       }))
     
-    console.log(`\n✅ FINAL DATABASE LIST (${databases.length} databases):`)
+    logger.debug(`\n✅ FINAL DATABASE LIST (${databases.length} databases):`)
     databases.forEach((db: any, index: number) => {
-      console.log(`  ${index + 1}. "${db.name}" (ID: ${db.id.substring(0, 8)}...)`)
+      logger.debug(`  ${index + 1}. "${db.name}" (ID: ${db.id.substring(0, 8)}...)`)
     })
 
     // Filter by workspace if specified
@@ -397,14 +399,14 @@ export const getNotionDatabases: NotionDataHandler<NotionDatabase> = async (inte
     if (targetWorkspaceId) {
       // For now, we'll return all databases when workspace is specified
       // since Notion's API doesn't easily filter by workspace
-      console.log(`⚠️ [Notion Databases] Workspace filtering requested but returning all databases (Notion API limitation)`)
+      logger.debug(`⚠️ [Notion Databases] Workspace filtering requested but returning all databases (Notion API limitation)`)
     }
 
-    console.log(`✅ [Notion Databases] Retrieved ${databases.length} databases`)
+    logger.debug(`✅ [Notion Databases] Retrieved ${databases.length} databases`)
     return databases
 
   } catch (error: any) {
-    console.error("❌ [Notion Databases] Error fetching databases:", error)
+    logger.error("❌ [Notion Databases] Error fetching databases:", error)
     throw error
   }
 }

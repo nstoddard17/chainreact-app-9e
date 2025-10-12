@@ -1,4 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr"
+
+import { logger } from '@/lib/utils/logger'
 import type { Database } from "@/types/supabase"
 
 let globalSupabaseClient: ReturnType<typeof createBrowserClient<Database>> | null = null
@@ -19,7 +21,7 @@ export function getSupabaseClient() {
       )
     }
   } catch (error) {
-    console.error("Failed to create Supabase client:", error)
+    logger.error("Failed to create Supabase client:", error)
     return null
   }
 

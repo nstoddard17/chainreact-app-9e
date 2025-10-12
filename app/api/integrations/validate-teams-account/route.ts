@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { accessToken } = await request.json()
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Teams account validation error:", error)
+    logger.error("Teams account validation error:", error)
     return NextResponse.json({
       success: false,
       error: "VALIDATION_ERROR",

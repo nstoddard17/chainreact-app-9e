@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
           preview += `\n\n... (showing first 1500 characters of ${ charCount } total)`
         }
       } catch (error) {
-        console.error('Error fetching file content:', error)
+        logger.error('Error fetching file content:', error)
         preview = 'Unable to load file preview'
       }
     } else if (googleDocsMimeTypes.includes(file.mimeType || '')) {
@@ -157,7 +159,7 @@ export async function POST(req: NextRequest) {
           preview += `\n\n... (showing first 1500 characters of ${ charCount } total)`
         }
       } catch (error) {
-        console.error('Error exporting Google Docs file:', error)
+        logger.error('Error exporting Google Docs file:', error)
         preview = 'Google Docs file - view in Google Drive for full content'
       }
     } else if (file.mimeType?.startsWith('image/')) {
@@ -189,7 +191,7 @@ export async function POST(req: NextRequest) {
         // Store the actual image data in metadata for execution
         // but don't try to display it in the textarea
       } catch (error) {
-        console.error('Error processing image preview:', error)
+        logger.error('Error processing image preview:', error)
         preview = `📷 Image File: ${file.name}\n\nUnable to generate preview. The image will be available during workflow execution.`
       }
     } else {
@@ -208,7 +210,7 @@ export async function POST(req: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error fetching file preview:', error)
+    logger.error('Error fetching file preview:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch file preview' },
       { status: 500 }

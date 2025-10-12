@@ -6,6 +6,8 @@
 import { decryptToken, encryptTokens } from '@/lib/integrations/tokenUtils'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface EmailRecipient {
   value: string
   label: string
@@ -166,12 +168,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     const cacheKey = integration.id
     const cached = modalCache.get(cacheKey)
     if (cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
-      console.log('[Outlook API] Using cached recipients (within modal session)')
+      logger.debug('[Outlook API] Using cached recipients (within modal session)')
       return cached.data
     }
 
-    console.log('[Outlook API] Fetching fresh recipients (contacts + people + recent)')
-    console.log('[Outlook API] Integration info:', {
+    logger.debug('[Outlook API] Fetching fresh recipients (contacts + people + recent)')
+    logger.debug('[Outlook API] Integration info:', {
       id: integration.id,
       provider: integration.provider,
       userId: integration.user_id,
@@ -188,7 +190,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       : null
 
     if (!accessToken && integration.refresh_token) {
-      console.log('[Outlook API] Access token missing, attempting refresh before fetching recipients')
+      logger.debug('[Outlook API] Access token missing, attempting refresh before fetching recipients')
       accessToken = await refreshOutlookAccessToken(integration)
     }
 
@@ -212,14 +214,14 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       })
       if (meResponse.ok) {
         const meData = await meResponse.json()
-        console.log('[Outlook API] Authenticated as:', {
+        logger.debug('[Outlook API] Authenticated as:', {
           email: meData.mail,
           userPrincipalName: meData.userPrincipalName,
           displayName: meData.displayName
         })
       }
     } catch (error) {
-      console.warn('[Outlook API] Could not fetch user info:', error)
+      logger.warn('[Outlook API] Could not fetch user info:', error)
     }
 
     const fetchGraph = async (path: string) => {
@@ -231,7 +233,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
 
       if (shouldAttemptRefresh(response.status) && !attemptedRefresh && integration.refresh_token) {
         attemptedRefresh = true
-        console.warn('[Outlook API] Access token expired. Refreshing and retrying request.')
+        logger.warn('[Outlook API] Access token expired. Refreshing and retrying request.')
         try {
           accessToken = await refreshOutlookAccessToken(integration)
           return await fetch(url, {
@@ -239,7 +241,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
             cache: 'no-store'
           })
         } catch (refreshError) {
-          console.error('[Outlook API] Token refresh failed:', refreshError)
+          logger.error('[Outlook API] Token refresh failed:', refreshError)
         }
       }
 
@@ -254,7 +256,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const contactsData = await contactsResponse.json()
         const contacts = contactsData.value || []
 
-        console.log(`[Outlook API] Contacts API response:`, {
+        logger.debug(`[Outlook API] Contacts API response:`, {
           totalCount: contactsData['@odata.count'],
           valueLength: contacts.length,
           firstContact: contacts[0]
@@ -265,12 +267,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           addRecipient(recipients, primaryEmail, contact.displayName, 'contact')
         })
 
-        console.log(`[Outlook API] Added ${contacts.length} contacts`)
+        logger.debug(`[Outlook API] Added ${contacts.length} contacts`)
       } else {
-        console.warn(`[Outlook API] Contacts API returned status ${contactsResponse.status}`)
+        logger.warn(`[Outlook API] Contacts API returned status ${contactsResponse.status}`)
       }
     } catch (error) {
-      console.warn('[Outlook API] Could not fetch contacts:', error)
+      logger.warn('[Outlook API] Could not fetch contacts:', error)
     }
 
     // Fetch top people suggestions (frequently interacted recipients)
@@ -290,12 +292,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        console.log(`[Outlook API] Added ${people.length} suggested people`)
+        logger.debug(`[Outlook API] Added ${people.length} suggested people`)
       } else {
-        console.warn(`[Outlook API] People API returned status ${peopleResponse.status}`)
+        logger.warn(`[Outlook API] People API returned status ${peopleResponse.status}`)
       }
     } catch (error) {
-      console.warn('[Outlook API] Could not fetch people suggestions:', error)
+      logger.warn('[Outlook API] Could not fetch people suggestions:', error)
     }
 
     // Fetch recent sent messages to gather TO/CC/BCC recipients
@@ -320,12 +322,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        console.log(`[Outlook API] Added recipients from ${messages.length} sent messages`)
+        logger.debug(`[Outlook API] Added recipients from ${messages.length} sent messages`)
       } else {
-        console.warn(`[Outlook API] Sent messages API returned status ${sentResponse.status}`)
+        logger.warn(`[Outlook API] Sent messages API returned status ${sentResponse.status}`)
       }
     } catch (error) {
-      console.warn('[Outlook API] Could not fetch sent messages:', error)
+      logger.warn('[Outlook API] Could not fetch sent messages:', error)
     }
 
     // Fetch recent inbox messages to gather FROM (senders) and other participants
@@ -336,7 +338,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const inboxData = await inboxResponse.json()
         const messages = inboxData.value || []
 
-        console.log(`[Outlook API] Inbox API response:`, {
+        logger.debug(`[Outlook API] Inbox API response:`, {
           totalCount: inboxData['@odata.count'],
           valueLength: messages.length,
           firstMessage: messages[0] ? {
@@ -363,18 +365,18 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        console.log(`[Outlook API] Added participants from ${messages.length} inbox messages`)
+        logger.debug(`[Outlook API] Added participants from ${messages.length} inbox messages`)
       } else {
-        console.warn(`[Outlook API] Inbox messages API returned status ${inboxResponse.status}`)
+        logger.warn(`[Outlook API] Inbox messages API returned status ${inboxResponse.status}`)
       }
     } catch (error) {
-      console.warn('[Outlook API] Could not fetch inbox messages:', error)
+      logger.warn('[Outlook API] Could not fetch inbox messages:', error)
     }
 
     // Convert to array and limit to 75 recipients (contacts + recents + suggested)
     const recipientArray = Array.from(recipients.values()).slice(0, 75)
 
-    console.log(`[Outlook API] Total recipients prepared: ${recipientArray.length}`)
+    logger.debug(`[Outlook API] Total recipients prepared: ${recipientArray.length}`)
 
     // Cache for modal session
     modalCache.set(cacheKey, {
@@ -385,7 +387,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     return recipientArray
 
   } catch (error: any) {
-    console.error('[Outlook API] Failed to get recipients:', error)
+    logger.error('[Outlook API] Failed to get recipients:', error)
     throw new Error(`Failed to get Outlook recipients: ${error.message}`)
   }
 }

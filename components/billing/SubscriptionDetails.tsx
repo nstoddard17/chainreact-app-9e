@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Loader2, CreditCard, AlertCircle } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface SubscriptionDetailsProps {
   subscription: any
 }
@@ -33,7 +35,7 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
     try {
       await cancelSubscription()
     } catch (error) {
-      console.error("Failed to cancel subscription:", error)
+      logger.error("Failed to cancel subscription:", error)
     } finally {
       setLoading(false)
     }
@@ -46,7 +48,7 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
     try {
       await reactivateSubscription()
     } catch (error) {
-      console.error("Failed to reactivate subscription:", error)
+      logger.error("Failed to reactivate subscription:", error)
     } finally {
       setLoading(false)
     }
@@ -60,7 +62,7 @@ export default function SubscriptionDetails({ subscription }: SubscriptionDetail
       const portalUrl = await createPortalSession()
       window.location.href = portalUrl
     } catch (error) {
-      console.error("Failed to create portal session:", error)
+      logger.error("Failed to create portal session:", error)
     } finally {
       setLoading(false)
     }

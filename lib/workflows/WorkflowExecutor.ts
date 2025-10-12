@@ -5,6 +5,8 @@ import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 import { executeAction } from "./executeNode"
 
+import { logger } from '@/lib/utils/logger'
+
 interface WorkflowContext {
   workflowId: string
   userId: string
@@ -125,7 +127,7 @@ export class WorkflowExecutor {
 
       return result
     } catch (error: any) {
-      console.error("Error executing workflow:", error)
+      logger.error("Error executing workflow:", error)
       if (executionId) {
         await this.updateExecutionRecord(executionId, "failed", {
           error: error.message,

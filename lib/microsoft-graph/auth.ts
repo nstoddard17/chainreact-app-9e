@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -134,7 +136,7 @@ export class MicrosoftGraphAuth {
       .eq('provider', provider)
 
     if (error) {
-      console.error('Error storing Microsoft tokens:', error)
+      logger.error('Error storing Microsoft tokens:', error)
       throw error
     }
   }
@@ -188,17 +190,17 @@ export class MicrosoftGraphAuth {
 
     if (now + buffer >= expiresAt) {
       // Token is expired or will expire soon, refresh it
-      console.log('🔄 Refreshing expired Microsoft token for user:', userId, 'provider:', integration.provider)
-      console.log('🔍 Current scopes:', integration.scopes)
+      logger.debug('🔄 Refreshing expired Microsoft token for user:', userId, 'provider:', integration.provider)
+      logger.debug('🔍 Current scopes:', integration.scopes)
 
       const newTokenInfo = await this.refreshAccessToken(refreshToken)
       await this.storeTokens(userId, newTokenInfo, integration.provider)
 
-      console.log('✅ Token refreshed successfully. New scopes:', newTokenInfo.scope)
+      logger.debug('✅ Token refreshed successfully. New scopes:', newTokenInfo.scope)
       return newTokenInfo.accessToken
     }
 
-    console.log('✅ Using existing valid token. Scopes:', integration.scopes?.join(', '))
+    logger.debug('✅ Using existing valid token. Scopes:', integration.scopes?.join(', '))
     return accessToken
   }
 
@@ -261,7 +263,7 @@ export class MicrosoftGraphAuth {
       .eq('provider', provider)
 
     if (error) {
-      console.error('Error revoking Microsoft tokens:', error)
+      logger.error('Error revoking Microsoft tokens:', error)
       throw error
     }
   }

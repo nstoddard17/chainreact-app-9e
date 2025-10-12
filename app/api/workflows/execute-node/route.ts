@@ -3,6 +3,8 @@ import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
 import { executeAction } from '@/lib/workflows/executeNode'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
         error: result.error
       })
     } catch (execError: any) {
-      console.error('Node execution error:', execError)
+      logger.error('Node execution error:', execError)
       return NextResponse.json({
         success: false,
         nodeId,
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('Error executing node:', error)
+    logger.error('Error executing node:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to execute node' },
       { status: 500 }

@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { boxHandlers } from './handlers'
 import { BoxIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Box API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Box API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Box integration not found'
       }, { status: 404 })
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Box API] Integration not connected:', {
+      logger.error('❌ [Box API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -54,14 +56,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = boxHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Box API] Unknown data type:', dataType)
+      logger.error('❌ [Box API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Box data type: ${dataType}`,
         availableTypes: Object.keys(boxHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Box API] Processing request:`, {
+    logger.debug(`🔍 [Box API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as BoxIntegration, options)
 
-    console.log(`✅ [Box API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Box API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Box API] Unexpected error:', {
+    logger.error('❌ [Box API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

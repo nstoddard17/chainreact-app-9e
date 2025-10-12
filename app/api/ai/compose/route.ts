@@ -3,6 +3,8 @@ import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -82,13 +84,13 @@ export async function POST(request: NextRequest) {
         draft_length: draft.length
       })
     } catch (trackingError) {
-      console.error("Failed to track AI usage:", trackingError)
+      logger.error("Failed to track AI usage:", trackingError)
       // Don't fail the request if tracking fails
     }
     
     return NextResponse.json({ draft })
   } catch (error: any) {
-    console.error("AI Compose error:", error)
+    logger.error("AI Compose error:", error)
     return NextResponse.json({ error: error.message || "Failed to generate draft" }, { status: 500 })
   }
 } 

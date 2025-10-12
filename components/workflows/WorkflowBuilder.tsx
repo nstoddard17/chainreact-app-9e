@@ -35,6 +35,8 @@ import { Save, Play, MessageSquare, GitBranch } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+import { logger } from '@/lib/utils/logger'
+
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
 }
@@ -289,7 +291,7 @@ export default function WorkflowBuilder() {
         })
       }
     } catch (error) {
-      console.error("Failed to save workflow:", error)
+      logger.error("Failed to save workflow:", error)
     } finally {
       if (!silent) {
         setSaving(false)
@@ -321,7 +323,7 @@ export default function WorkflowBuilder() {
         alert(`Workflow test failed: ${result.error}`)
       }
     } catch (error) {
-      console.error("Failed to test workflow:", error)
+      logger.error("Failed to test workflow:", error)
       alert("Failed to test workflow")
     } finally {
       setTesting(false)

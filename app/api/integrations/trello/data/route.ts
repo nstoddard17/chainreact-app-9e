@@ -9,6 +9,8 @@ import { trelloHandlers } from './handlers'
 import { clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 import { TrelloIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Trello API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Trello API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Trello integration not found'
       }, { status: 404 })
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Trello API] Integration not connected:', {
+      logger.error('❌ [Trello API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = trelloHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Trello API] Unknown data type:', dataType)
+      logger.error('❌ [Trello API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Trello data type: ${dataType}`,
         availableTypes: Object.keys(trelloHandlers)
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest) {
     // Check if we have a recent cached result
     const cachedResult = requestResults.get(requestKey)
     if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
-      console.log(`✨ [Trello API] Using cached result for ${dataType}`)
+      logger.debug(`✨ [Trello API] Using cached result for ${dataType}`)
       return NextResponse.json({
         data: cachedResult.data,
         success: true,
@@ -86,7 +88,7 @@ export async function POST(req: NextRequest) {
     // Check if there's already an active request for this exact same data
     const activeRequest = activeRequests.get(requestKey)
     if (activeRequest) {
-      console.log(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
+      logger.debug(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
       try {
         const data = await activeRequest
         return NextResponse.json({
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`🔍 [Trello API] Processing request:`, {
+    logger.debug(`🔍 [Trello API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log(`✅ [Trello API] Successfully processed ${dataType}:`, {
+      logger.debug(`✅ [Trello API] Successfully processed ${dataType}:`, {
         integrationId,
         resultCount: data?.length || 0
       })
@@ -142,7 +144,7 @@ export async function POST(req: NextRequest) {
         try {
           await clearIntegrationWorkflowFlags({ integrationId: integration.id, provider: 'trello', userId: integration.user_id })
         } catch (clearError) {
-          console.warn('⚠️ [Trello API] Failed to clear reconnect flag after successful data load:', clearError)
+          logger.warn('⚠️ [Trello API] Failed to clear reconnect flag after successful data load:', clearError)
         }
       }
 
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ [Trello API] Unexpected error:', {
+    logger.error('❌ [Trello API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

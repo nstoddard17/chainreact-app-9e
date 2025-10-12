@@ -1,5 +1,7 @@
 import { ExecutionContext } from "../workflowExecutionService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleIntegrationService {
   constructor() {
     // No legacy service needed - we use direct implementations
@@ -35,7 +37,7 @@ export class GoogleIntegrationService {
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`📁 Executing Google Drive action: ${nodeType}`)
+    logger.debug(`📁 Executing Google Drive action: ${nodeType}`)
 
     switch (nodeType) {
       case "google_drive_create_file":
@@ -65,7 +67,7 @@ export class GoogleIntegrationService {
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`📊 Executing Google Sheets action: ${nodeType}`)
+    logger.debug(`📊 Executing Google Sheets action: ${nodeType}`)
 
     if (context.testMode) {
       return {
@@ -115,7 +117,7 @@ export class GoogleIntegrationService {
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`📝 Executing Google Docs action: ${nodeType}`)
+    logger.debug(`📝 Executing Google Docs action: ${nodeType}`)
 
     if (context.testMode) {
       return {
@@ -165,8 +167,8 @@ export class GoogleIntegrationService {
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`📅 Executing Google Calendar action: ${nodeType}`)
-    console.log('🔍 Node config at integration service:', {
+    logger.debug(`📅 Executing Google Calendar action: ${nodeType}`)
+    logger.debug('🔍 Node config at integration service:', {
       nodeId: node.id,
       hasConfig: !!config,
       configKeys: Object.keys(config),
@@ -206,11 +208,11 @@ export class GoogleIntegrationService {
 
   // Google Drive implementations
   private async executeCreateFile(node: any, context: ExecutionContext) {
-    console.log("📄 Executing Google Drive create/upload file")
+    logger.debug("📄 Executing Google Drive create/upload file")
     
     const config = node.data.config || {}
     
-    console.log("🔍 [GoogleIntegrationService] Google Drive config:", {
+    logger.debug("🔍 [GoogleIntegrationService] Google Drive config:", {
       nodeId: node.id,
       nodeType: node.data.type,
       config: config,
@@ -242,13 +244,13 @@ export class GoogleIntegrationService {
       const { uploadGoogleDriveFile } = await import('@/lib/workflows/actions/googleDrive/uploadFile')
       return await uploadGoogleDriveFile(enrichedConfig, context.userId, context.data || {})
     } catch (error: any) {
-      console.error("❌ [GoogleIntegrationService] Error executing Google Drive upload:", error)
+      logger.error("❌ [GoogleIntegrationService] Error executing Google Drive upload:", error)
       throw new Error(`Google Drive upload failed: ${error.message}`)
     }
   }
 
   private async executeUploadFile(node: any, context: ExecutionContext) {
-    console.log("⬆️ Executing Google Drive upload file")
+    logger.debug("⬆️ Executing Google Drive upload file")
     
     const config = node.data.config || {}
 
@@ -266,7 +268,7 @@ export class GoogleIntegrationService {
   }
 
   private async executeCreateFolder(node: any, context: ExecutionContext) {
-    console.log("📁 Executing Google Drive create folder")
+    logger.debug("📁 Executing Google Drive create folder")
     
     const config = node.data.config || {}
     const folderName = this.resolveValue(config.folderName || config.name, context)
@@ -291,7 +293,7 @@ export class GoogleIntegrationService {
   }
 
   private async executeDeleteFile(node: any, context: ExecutionContext) {
-    console.log("🗑️ Executing Google Drive delete file")
+    logger.debug("🗑️ Executing Google Drive delete file")
     
     const config = node.data.config || {}
     const fileId = this.resolveValue(config.fileId || config.file_id, context)
@@ -313,7 +315,7 @@ export class GoogleIntegrationService {
   }
 
   private async executeShareFile(node: any, context: ExecutionContext) {
-    console.log("🔗 Executing Google Drive share file")
+    logger.debug("🔗 Executing Google Drive share file")
     
     const config = node.data.config || {}
     const fileId = this.resolveValue(config.fileId || config.file_id, context)
@@ -339,7 +341,7 @@ export class GoogleIntegrationService {
   }
 
   private async executeGetFile(node: any, context: ExecutionContext) {
-    console.log("📥 Executing Google Drive get file")
+    logger.debug("📥 Executing Google Drive get file")
     
     const config = node.data.config || {}
 

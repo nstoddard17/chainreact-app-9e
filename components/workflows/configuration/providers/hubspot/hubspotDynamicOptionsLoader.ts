@@ -4,6 +4,8 @@
  */
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
+
+import { logger } from '@/lib/utils/logger'
 import type { HubspotFieldDef } from '@/lib/workflows/nodes/providers/hubspot/types';
 
 export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
@@ -35,7 +37,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, searchQuery, dependentFieldValue } = params;
 
-    console.log('🔍 HubSpot Dynamic options loader called with params:', {
+    logger.debug('🔍 HubSpot Dynamic options loader called with params:', {
       fieldName,
       integrationId,
       searchQuery,
@@ -43,7 +45,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
     });
 
     if (!integrationId) {
-      console.error('❌ [HubSpot Loader] No integration ID provided');
+      logger.error('❌ [HubSpot Loader] No integration ID provided');
       return [{
         value: '',
         label: 'Please connect your HubSpot account first',
@@ -207,7 +209,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
 
       const dataType = fieldToDataType[fieldName];
       if (!dataType) {
-        console.warn(`No data type mapping for HubSpot field: ${fieldName}`);
+        logger.warn(`No data type mapping for HubSpot field: ${fieldName}`);
         return [];
       }
 
@@ -284,7 +286,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
       }));
 
     } catch (error) {
-      console.error(`Error loading HubSpot ${fieldName} options:`, error);
+      logger.error(`Error loading HubSpot ${fieldName} options:`, error);
       return [];
     }
   },

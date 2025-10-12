@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error checking user profile:', error)
+    logger.error('Error checking user profile:', error)
     return NextResponse.json(
       { error: 'Internal server error', hasUsername: false },
       { status: 500 }

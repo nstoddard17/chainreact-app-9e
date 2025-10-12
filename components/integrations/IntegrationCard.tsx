@@ -28,6 +28,8 @@ import { Integration } from "@/stores/integrationStore"
 import { useIntegrationSelection } from "@/hooks/workflows/useIntegrationSelection"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 
+import { logger } from '@/lib/utils/logger'
+
 interface IntegrationCardProps {
   provider: IntegrationConfig
   integration: Integration | null
@@ -340,7 +342,7 @@ export const IntegrationCard = memo(function IntegrationCard({
                       const data = await res.json();
                       alert(`OneNote status: ${data.exists ? data.integration.status : 'not found'}`);
                     } catch (err) {
-                      console.error('Debug error:', err);
+                      logger.error('Debug error:', err);
                       alert('Error checking OneNote status');
                     }
                   }}

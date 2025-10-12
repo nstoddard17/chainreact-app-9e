@@ -2,6 +2,8 @@ import { OAuthPopupManager } from "./popup-manager"
 import { IntegrationService } from "@/services/integration-service"
 import { ScopeValidator } from "@/lib/integrations/scope-validator"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ConnectionOptions {
   providerId: string
   onSuccess?: (data: any) => void
@@ -84,7 +86,7 @@ export class OAuthConnectionFlow {
                 scopeValidation = ScopeValidator.validateScopes(providerId, data.scopes)
                 
                 if (!scopeValidation.isValid) {
-                  console.warn(`⚠️ Missing required scopes for ${providerId}:`, scopeValidation.missingScopes)
+                  logger.warn(`⚠️ Missing required scopes for ${providerId}:`, scopeValidation.missingScopes)
                 }
               }
 

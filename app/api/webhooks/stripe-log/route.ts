@@ -2,28 +2,30 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 // This endpoint logs all incoming Stripe webhook events for debugging
 // No signature verification - just logs everything
 export async function POST(request: Request) {
-  console.log("[Stripe Log] ========================================")
-  console.log("[Stripe Log] Received webhook at:", new Date().toISOString())
+  logger.debug("[Stripe Log] ========================================")
+  logger.debug("[Stripe Log] Received webhook at:", new Date().toISOString())
   
   try {
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
     
-    console.log("[Stripe Log] Headers:", JSON.stringify(headers, null, 2))
-    console.log("[Stripe Log] Body length:", body.length)
+    logger.debug("[Stripe Log] Headers:", JSON.stringify(headers, null, 2))
+    logger.debug("[Stripe Log] Body length:", body.length)
     
     // Try to parse the body
     let parsedBody
     try {
       parsedBody = JSON.parse(body)
-      console.log("[Stripe Log] Event type:", parsedBody.type)
-      console.log("[Stripe Log] Event ID:", parsedBody.id)
+      logger.debug("[Stripe Log] Event type:", parsedBody.type)
+      logger.debug("[Stripe Log] Event ID:", parsedBody.id)
       
       if (parsedBody.type === "checkout.session.completed") {
-        console.log("[Stripe Log] Checkout session data:", {
+        logger.debug("[Stripe Log] Checkout session data:", {
           session_id: parsedBody.data?.object?.id,
           customer: parsedBody.data?.object?.customer,
           subscription: parsedBody.data?.object?.subscription,
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
         })
       }
     } catch (parseError) {
-      console.error("[Stripe Log] Failed to parse body:", parseError)
+      logger.error("[Stripe Log] Failed to parse body:", parseError)
       parsedBody = { raw: body.substring(0, 500) }
     }
     
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
         timestamp: new Date().toISOString()
       }
       
-      console.log("[Stripe Log] Attempting to store log entry...")
+      logger.debug("[Stripe Log] Attempting to store log entry...")
       
       // First try webhook_logs table
       const { error: logError } = await supabase
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
         .insert(logEntry)
       
       if (logError) {
-        console.log("[Stripe Log] webhook_logs table not available:", logError.message)
+        logger.debug("[Stripe Log] webhook_logs table not available:", logError.message)
         
         // Try to store in subscriptions table as a test
         if (parsedBody?.type === "checkout.session.completed") {
@@ -77,25 +79,25 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString()
           }
           
-          console.log("[Stripe Log] Attempting to create test subscription record:", testRecord)
+          logger.debug("[Stripe Log] Attempting to create test subscription record:", testRecord)
           const { error: subError } = await supabase
             .from('subscriptions')
             .insert(testRecord)
           
           if (subError) {
-            console.error("[Stripe Log] Failed to create test record:", subError)
+            logger.error("[Stripe Log] Failed to create test record:", subError)
           } else {
-            console.log("[Stripe Log] Successfully created test subscription record")
+            logger.debug("[Stripe Log] Successfully created test subscription record")
           }
         }
       } else {
-        console.log("[Stripe Log] Successfully logged to webhook_logs table")
+        logger.debug("[Stripe Log] Successfully logged to webhook_logs table")
       }
     } catch (dbError) {
-      console.error("[Stripe Log] Database error:", dbError)
+      logger.error("[Stripe Log] Database error:", dbError)
     }
     
-    console.log("[Stripe Log] ========================================")
+    logger.debug("[Stripe Log] ========================================")
     
     return NextResponse.json({ 
       received: true, 
@@ -104,7 +106,7 @@ export async function POST(request: Request) {
     })
     
   } catch (error: any) {
-    console.error("[Stripe Log] Error processing webhook:", error)
+    logger.error("[Stripe Log] Error processing webhook:", error)
     return NextResponse.json({ 
       error: "Failed to log webhook",
       details: error.message 

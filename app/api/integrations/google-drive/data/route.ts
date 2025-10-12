@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
           query = `'${folderId}' in parents and ${query}`
         }
 
-        console.log('[Google Drive API] Fetching files with query:', query)
+        logger.debug('[Google Drive API] Fetching files with query:', query)
 
         const filesResponse = await drive.files.list({
           q: query,
@@ -81,7 +83,7 @@ export async function GET(req: NextRequest) {
           orderBy: 'name'
         })
 
-        console.log('[Google Drive API] Found files:', filesResponse.data.files?.length || 0)
+        logger.debug('[Google Drive API] Found files:', filesResponse.data.files?.length || 0)
 
         const files = filesResponse.data.files || []
         return NextResponse.json(files.map(file => ({
@@ -98,7 +100,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid data type' }, { status: 400 })
     }
   } catch (error: any) {
-    console.error('Error fetching Google Drive data:', error)
+    logger.error('Error fetching Google Drive data:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch data' },
       { status: 500 }
@@ -112,7 +114,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    console.log('[Google Drive API] POST request received:', {
+    logger.debug('[Google Drive API] POST request received:', {
       integrationId,
       dataType,
       hasOptions: !!options,
@@ -180,7 +182,7 @@ export async function POST(req: NextRequest) {
           modifiedTime: file.modifiedTime
         }))
 
-        console.log(`[Google Drive API] Successfully fetched ${files.length} files`)
+        logger.debug(`[Google Drive API] Successfully fetched ${files.length} files`)
 
         return NextResponse.json({
           data: files,
@@ -206,7 +208,7 @@ export async function POST(req: NextRequest) {
           modifiedTime: folder.modifiedTime
         }))
 
-        console.log(`[Google Drive API] Successfully fetched ${folders.length} folders`)
+        logger.debug(`[Google Drive API] Successfully fetched ${folders.length} folders`)
 
         return NextResponse.json({
           data: folders,
@@ -301,7 +303,7 @@ export async function POST(req: NextRequest) {
           preview += '\n\n... (truncated)'
         }
       } catch (error) {
-        console.error('Error fetching file content:', error)
+        logger.error('Error fetching file content:', error)
         preview = 'Unable to load file preview'
       }
     } else if (googleDocsMimeTypes.includes(file.mimeType || '')) {
@@ -324,7 +326,7 @@ export async function POST(req: NextRequest) {
           preview += '\n\n... (truncated)'
         }
       } catch (error) {
-        console.error('Error exporting Google Docs file:', error)
+        logger.error('Error exporting Google Docs file:', error)
         preview = 'Google Docs file - view in Google Drive for full content'
       }
     } else if (file.mimeType?.startsWith('image/')) {
@@ -349,7 +351,7 @@ export async function POST(req: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error('Error fetching file preview:', error)
+    logger.error('Error fetching file preview:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch file preview' },
       { status: 500 }

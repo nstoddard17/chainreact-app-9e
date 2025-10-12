@@ -4,6 +4,8 @@ import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { prepareIntegrationData } from '@/lib/integrations/tokenUtils'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
   const code = searchParams.get('code')
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     const message = errorDescription || error
-    console.error(`Error with Twitter OAuth: ${message}`)
+    logger.error(`Error with Twitter OAuth: ${message}`)
     return createPopupResponse('error', provider, `OAuth Error: ${message}`, baseUrl)
   }
 
@@ -97,7 +99,7 @@ export async function GET(req: NextRequest) {
 
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('Twitter callback error:', e)
+    logger.error('Twitter callback error:', e)
     return createPopupResponse('error', provider, e.message || 'An unexpected error occurred.', baseUrl)
   }
 }

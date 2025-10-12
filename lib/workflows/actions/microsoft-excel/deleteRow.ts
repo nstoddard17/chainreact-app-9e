@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Deletes row(s) from a Microsoft Excel worksheet using the Microsoft Graph API
  */
@@ -12,7 +14,7 @@ export async function deleteMicrosoftExcelRow(
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, { input })
 
-    console.log('🗑️ [Excel Delete] Resolved config:', JSON.stringify(resolvedConfig, null, 2))
+    logger.debug('🗑️ [Excel Delete] Resolved config:', JSON.stringify(resolvedConfig, null, 2))
 
     const {
       workbookId,
@@ -27,7 +29,7 @@ export async function deleteMicrosoftExcelRow(
       confirmDelete = false
     } = resolvedConfig
 
-    console.log('🗑️ [Excel Delete] Extracted values:', {
+    logger.debug('🗑️ [Excel Delete] Extracted values:', {
       deleteBy,
       rowNumber,
       startRow,
@@ -143,7 +145,7 @@ export async function deleteMicrosoftExcelRow(
         deletedCount++
       } else {
         const error = await deleteResponse.text()
-        console.error(`Failed to delete row ${row}:`, error)
+        logger.error(`Failed to delete row ${row}:`, error)
       }
     }
 
@@ -170,7 +172,7 @@ export async function deleteMicrosoftExcelRow(
     }
 
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel Delete Row] Error:', error)
+    logger.error('❌ [Microsoft Excel Delete Row] Error:', error)
     return {
       success: false,
       output: {},

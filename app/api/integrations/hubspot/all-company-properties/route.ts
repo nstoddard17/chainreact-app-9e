@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error fetching HubSpot company properties:", error)
+    logger.error("Error fetching HubSpot company properties:", error)
     return NextResponse.json(
       { error: error.message || "Failed to fetch company properties" },
       { status: 500 }

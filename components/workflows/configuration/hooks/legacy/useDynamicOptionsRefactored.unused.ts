@@ -10,6 +10,8 @@ import { CacheManager } from '../utils/cacheManager';
 import { providerRegistry } from '../providers/registry';
 import { LoadOptionsParams } from '../providers/types';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseDynamicOptionsProps {
   nodeType?: string;
   providerId?: string;
@@ -78,7 +80,7 @@ export const useDynamicOptions = ({
     silent?: boolean, 
     extraOptions?: Record<string, any>
   ) => {
-    console.log(`📍 [loadOptions] Called for field:`, { 
+    logger.debug(`📍 [loadOptions] Called for field:`, { 
       fieldName, 
       nodeType, 
       providerId, 
@@ -89,7 +91,7 @@ export const useDynamicOptions = ({
     });
     
     if (!nodeType || !providerId) {
-      console.warn('⚠️ [loadOptions] Missing nodeType or providerId');
+      logger.warn('⚠️ [loadOptions] Missing nodeType or providerId');
       return;
     }
 
@@ -108,7 +110,7 @@ export const useDynamicOptions = ({
     if (!forceRefresh) {
       const cached = cacheManager.get(cacheKey);
       if (cached) {
-        console.log('✅ [loadOptions] Using cached data for:', fieldName);
+        logger.debug('✅ [loadOptions] Using cached data for:', fieldName);
         setDynamicOptions(prev => ({
           ...prev,
           [fieldName]: cached
@@ -125,7 +127,7 @@ export const useDynamicOptions = ({
     
     // Prevent duplicate requests
     if (!forceRefresh && requestManager.hasActiveRequest(cacheKey)) {
-      console.log('🔄 [loadOptions] Waiting for existing request:', fieldName);
+      logger.debug('🔄 [loadOptions] Waiting for existing request:', fieldName);
       try {
         await requestManager.getActiveRequest(cacheKey);
         // Check cache again after request completes
@@ -138,7 +140,7 @@ export const useDynamicOptions = ({
         }
         return;
       } catch (error) {
-        console.error('❌ [loadOptions] Existing request failed:', error);
+        logger.error('❌ [loadOptions] Existing request failed:', error);
       }
     }
 
@@ -158,7 +160,7 @@ export const useDynamicOptions = ({
         const providerLoader = providerRegistry.getLoader(providerId, fieldName);
         
         if (providerLoader) {
-          console.log('🔌 [loadOptions] Using provider loader for:', fieldName);
+          logger.debug('🔌 [loadOptions] Using provider loader for:', fieldName);
           
           const integration = getIntegrationByProvider(providerId);
           const params: LoadOptionsParams = {
@@ -179,13 +181,13 @@ export const useDynamicOptions = ({
           const resourceType = getResourceTypeForField(fieldName, nodeType);
           
           if (!resourceType) {
-            console.log('🔍 [loadOptions] No resource type for field:', fieldName);
+            logger.debug('🔍 [loadOptions] No resource type for field:', fieldName);
             return;
           }
 
           const integration = getIntegrationByProvider(providerId);
           if (!integration) {
-            console.warn('❌ [loadOptions] No integration found for provider:', providerId);
+            logger.warn('❌ [loadOptions] No integration found for provider:', providerId);
             return;
           }
 
@@ -193,7 +195,7 @@ export const useDynamicOptions = ({
             ? { [dependsOn]: dependsOnValue }
             : {};
 
-          console.log('🚀 [loadOptions] Calling loadIntegrationData...');
+          logger.debug('🚀 [loadOptions] Calling loadIntegrationData...');
           const result = await loadIntegrationData(
             resourceType, 
             integration.id, 
@@ -207,7 +209,7 @@ export const useDynamicOptions = ({
 
         // Check if request is still current
         if (!requestManager.isCurrentRequest(cacheKey, requestId)) {
-          console.log('🚫 [loadOptions] Request superseded, not updating state');
+          logger.debug('🚫 [loadOptions] Request superseded, not updating state');
           return;
         }
 
@@ -230,11 +232,11 @@ export const useDynamicOptions = ({
       } catch (error: any) {
         // Check if aborted
         if (requestManager.isAbortError(error)) {
-          console.log('🚫 [loadOptions] Request aborted for:', fieldName);
+          logger.debug('🚫 [loadOptions] Request aborted for:', fieldName);
           return;
         }
 
-        console.error(`❌ [loadOptions] Failed to load options for ${fieldName}:`, error);
+        logger.error(`❌ [loadOptions] Failed to load options for ${fieldName}:`, error);
         setDynamicOptions(prev => ({
           ...prev,
           [fieldName]: []
@@ -275,7 +277,7 @@ export const useDynamicOptions = ({
    * Clear all state when node type or provider changes
    */
   useEffect(() => {
-    console.log('🔄 [useDynamicOptions] Node type or provider changed, clearing state');
+    logger.debug('🔄 [useDynamicOptions] Node type or provider changed, clearing state');
     
     // Cancel all active requests
     requestManager.cancelAllRequests();
@@ -308,7 +310,7 @@ export const useDynamicOptions = ({
     
     // Cleanup on unmount
     return () => {
-      console.log('🧹 [useDynamicOptions] Unmounting, cleaning up...');
+      logger.debug('🧹 [useDynamicOptions] Unmounting, cleaning up...');
       requestManager.cancelAllRequests();
       loadingFields.current.clear();
       setLoading(false);

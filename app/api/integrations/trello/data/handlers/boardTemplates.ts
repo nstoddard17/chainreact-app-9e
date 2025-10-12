@@ -6,6 +6,8 @@
 import { TrelloIntegration } from '../types'
 import { createTrelloApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 // Predefined Trello board templates
 // These are common templates that Trello provides
 const TRELLO_BOARD_TEMPLATES = [
@@ -46,7 +48,7 @@ export async function getTrelloBoardTemplates(
   options: any = {}
 ): Promise<any[]> {
   try {
-    console.log('[Trello] Fetching board templates')
+    logger.debug('[Trello] Fetching board templates')
 
     // For board templates, we return the predefined list
     // Trello doesn't have a public API endpoint for templates
@@ -54,7 +56,7 @@ export async function getTrelloBoardTemplates(
     
     return TRELLO_BOARD_TEMPLATES
   } catch (error: any) {
-    console.error('[Trello] Error fetching board templates:', error)
+    logger.error('[Trello] Error fetching board templates:', error)
     throw new Error(`Failed to fetch Trello board templates: ${error.message}`)
   }
 }

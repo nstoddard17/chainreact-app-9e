@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -137,7 +139,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching AI usage stats:", error)
+    logger.error("Error fetching AI usage stats:", error)
     return NextResponse.json(
       { error: "Failed to fetch AI usage statistics" },
       { status: 500 }

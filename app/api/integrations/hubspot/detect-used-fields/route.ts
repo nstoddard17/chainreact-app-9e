@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Smart field detection - analyzes existing contacts to determine which fields are actually used
  */
@@ -127,7 +129,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error detecting used fields:", error)
+    logger.error("Error detecting used fields:", error)
     return NextResponse.json(
       { error: "Failed to analyze field usage" },
       { status: 500 }

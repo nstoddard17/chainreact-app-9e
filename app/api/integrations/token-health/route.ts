@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { getTokenHealthReport, getIntegrationsNeedingAttention } from "@/lib/integrations/tokenMonitor"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     // Get user from session
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
       })
     
   } catch (error: any) {
-    console.error("Error getting token health:", error)
+    logger.error("Error getting token health:", error)
     return NextResponse.json({ error: "Failed to get token health", details: error.message }, { status: 500 })
   }
 }

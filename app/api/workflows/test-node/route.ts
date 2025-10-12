@@ -4,6 +4,8 @@ import { NextResponse } from "next/server"
 import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   try {
     const { nodeType, config, testData } = await request.json()
@@ -189,7 +191,7 @@ export async function POST(request: Request) {
       })
 
     } catch (error: any) {
-      console.error("Test execution error:", error)
+      logger.error("Test execution error:", error)
       
       // Return a mock success result even if the test fails
       return NextResponse.json({
@@ -215,7 +217,7 @@ export async function POST(request: Request) {
     }
 
   } catch (error: any) {
-    console.error("Node test error:", error)
+    logger.error("Node test error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to test node" },
       { status: 500 }

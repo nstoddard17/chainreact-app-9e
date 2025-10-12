@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function AuthInitializer() {
   const { initialize, initialized, hydrated, setHydrated } = useAuthStore()
   const initStarted = useRef(false)
@@ -12,7 +14,7 @@ export default function AuthInitializer() {
   useEffect(() => {
     if (!hydrateStarted.current) {
       hydrateStarted.current = true
-      console.log("🔄 Setting hydrated state...")
+      logger.debug("🔄 Setting hydrated state...")
       setHydrated()
     }
   }, [setHydrated])
@@ -21,7 +23,7 @@ export default function AuthInitializer() {
   useEffect(() => {
     if (hydrated && !initialized && !initStarted.current) {
       initStarted.current = true
-      console.log("🔄 Initializing auth...")
+      logger.debug("🔄 Initializing auth...")
       initialize()
     }
   }, [hydrated, initialized, initialize])

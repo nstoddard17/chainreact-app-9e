@@ -3,6 +3,8 @@ import { join } from 'path'
 import { providerRegistry } from '../domains/integrations/use-cases/provider-registry'
 import { actionRegistry } from '../domains/workflows/use-cases/action-registry'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Documentation format options
  */
@@ -86,7 +88,7 @@ export class DocGenerator {
    * Generate documentation for all providers
    */
   async generateAll(formats: DocFormat[] = ['markdown']): Promise<void> {
-    console.log('📚 Generating provider documentation...')
+    logger.debug('📚 Generating provider documentation...')
     
     // Ensure output directory exists
     if (!existsSync(this.config.outputDir!)) {
@@ -97,7 +99,7 @@ export class DocGenerator {
     const actions = actionRegistry.listActions()
     
     if (providers.length === 0) {
-      console.log('⚠️ No providers found to document')
+      logger.debug('⚠️ No providers found to document')
       return
     }
 
@@ -109,8 +111,8 @@ export class DocGenerator {
     // Generate index/overview
     await this.generateOverview(providers, actions)
     
-    console.log(`✅ Documentation generated in ${this.config.outputDir}`)
-    console.log(`📄 Documented ${providers.length} providers with ${actions.length} actions`)
+    logger.debug(`✅ Documentation generated in ${this.config.outputDir}`)
+    logger.debug(`📄 Documented ${providers.length} providers with ${actions.length} actions`)
   }
 
   /**
@@ -218,7 +220,7 @@ export class DocGenerator {
     // Write to file
     const filePath = join(this.config.outputDir!, 'README.md')
     writeFileSync(filePath, markdown)
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   /**
@@ -284,7 +286,7 @@ export class DocGenerator {
 
     const filePath = join(this.config.outputDir!, 'index.html')
     writeFileSync(filePath, html)
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   /**
@@ -326,7 +328,7 @@ export class DocGenerator {
 
     const filePath = join(this.config.outputDir!, 'providers.json')
     writeFileSync(filePath, JSON.stringify(docs, null, 2))
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   /**
@@ -437,7 +439,7 @@ export class DocGenerator {
 
     const filePath = join(this.config.outputDir!, 'openapi.yaml')
     writeFileSync(filePath, JSON.stringify(openapi, null, 2))
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   /**
@@ -477,7 +479,7 @@ ${providers
 
     const filePath = join(this.config.outputDir!, 'overview.md')
     writeFileSync(filePath, overview)
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   // Helper methods
@@ -857,7 +859,7 @@ try {
   const result = await provider.someAction(params, userId)
 } catch (error) {
   const classification = provider.classifyError(error)
-  console.log('Error type:', classification)
+  logger.debug('Error type:', classification)
 }`
   }
 
@@ -879,7 +881,7 @@ try {
     }
     
     writeFileSync(filePath, content)
-    console.log(`  ✅ Generated: ${filePath}`)
+    logger.debug(`  ✅ Generated: ${filePath}`)
   }
 
   private generateSingleProviderMarkdown(docs: ProviderDocs): string {

@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { notionHandlers } from './handlers'
 import { NotionIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Notion API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Notion API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Notion integration not found'
       }, { status: 404 })
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status - allow both 'connected' and 'active' status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [Notion API] Integration not connected:', {
+      logger.error('❌ [Notion API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -54,14 +56,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = notionHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Notion API] Unknown data type:', dataType)
+      logger.error('❌ [Notion API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Notion data type: ${dataType}`,
         availableTypes: Object.keys(notionHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Notion API] Processing request:`, {
+    logger.debug(`🔍 [Notion API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as NotionIntegration, options)
 
-    console.log(`✅ [Notion API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Notion API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Notion API] Unexpected error:', {
+    logger.error('❌ [Notion API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

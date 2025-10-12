@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 
+import { logger } from '@/lib/utils/logger'
+
 export function useAuth() {
   const { user, loading, initialized, hydrated, error, initialize, setHydrated } = useAuthStore()
   const [isReady, setIsReady] = useState(false)
@@ -35,7 +37,7 @@ export function useAuth() {
 
     const fallbackTimeout = setTimeout(() => {
       if (!isReady && !loading) {
-        console.warn("Auth hook fallback: forcing ready state after timeout")
+        logger.warn("Auth hook fallback: forcing ready state after timeout")
         setIsReady(true)
       }
     }, timeoutDuration)

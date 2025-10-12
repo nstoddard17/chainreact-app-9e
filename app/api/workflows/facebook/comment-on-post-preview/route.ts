@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { commentOnFacebookPost } from "@/lib/workflows/actions/facebook";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { config, userId } = await request.json();
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Facebook comment on post preview error:", error)
+    logger.error("Facebook comment on post preview error:", error)
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

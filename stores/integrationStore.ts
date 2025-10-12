@@ -8,6 +8,8 @@ import { ScopeValidator } from "@/lib/integrations/scope-validator"
 import { OAuthConnectionFlow } from "@/lib/oauth/connection-flow"
 import { useWorkflowStore } from "./workflowStore"
 
+import { logger } from '@/lib/utils/logger'
+
 // Track ongoing requests for cleanup
 let currentAbortController: AbortController | null = null
 let ongoingFetchPromise: Promise<void> | null = null
@@ -185,7 +187,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const loadingTimeout = setTimeout(() => {
           const currentState = get()
           if (currentState.loadingStates['providers']) {
-            console.warn(`Provider initialization timeout after ${timeoutDuration}ms - resetting loading state`)
+            logger.warn(`Provider initialization timeout after ${timeoutDuration}ms - resetting loading state`)
             setLoading('providers', false)
             // Set default providers if timeout occurs
             set({
@@ -208,7 +210,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           })
 
         } catch (error: any) {
-          console.error("Failed to initialize providers:", error)
+          logger.error("Failed to initialize providers:", error)
           clearTimeout(loadingTimeout)
           setLoading('providers', false)
           set({
@@ -221,11 +223,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
     fetchIntegrations: async (force = false) => {
       // If there's already an ongoing fetch, return that promise to prevent duplicate requests
       if (ongoingFetchPromise) {
-        console.log('⏭️ [IntegrationStore] Fetch already in progress, returning existing promise')
+        logger.debug('⏭️ [IntegrationStore] Fetch already in progress, returning existing promise')
         return ongoingFetchPromise
       }
 
-      console.log('🔍 [IntegrationStore] fetchIntegrations called', {
+      logger.debug('🔍 [IntegrationStore] fetchIntegrations called', {
         force,
         timestamp: new Date().toISOString()
       })
@@ -234,7 +236,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Check cache - use 60 second cache for integrations
         const CACHE_DURATION = 60000 // 60 seconds
         if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION && integrations.length > 0) {
-          console.log('[IntegrationStore] Using cached integrations')
+          logger.debug('[IntegrationStore] Using cached integrations')
           return integrations
         }
 
@@ -248,7 +250,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         ongoingFetchPromise = (async () => {
           // Set timeout for fetch operation - match the service timeout
           const fetchTimeout = setTimeout(() => {
-            console.warn('Integration fetch timeout - aborting request')
+            logger.warn('Integration fetch timeout - aborting request')
             if (currentAbortController) {
               currentAbortController.abort()
             }
@@ -272,7 +274,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             const sessionData = await SessionManager.getSecureUserAndSession();
             user = sessionData.user;
           } catch (authError: any) {
-            console.log("User not authenticated, skipping integration fetch")
+            logger.debug("User not authenticated, skipping integration fetch")
             // Clear loading state and return empty integrations for unauthenticated users
             setLoading('integrations', false)
             set({
@@ -287,7 +289,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           if (!currentUserId) {
             set({ currentUserId: user.id })
           } else if (user?.id !== currentUserId) {
-            console.warn("User session mismatch detected")
+            logger.warn("User session mismatch detected")
             setLoading('integrations', false)
             set({
               integrations: [],
@@ -303,7 +305,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           clearTimeout(fetchTimeout)
 
           // Debug log to see what we got from the API
-          console.log('📦 [IntegrationStore] Fetched integrations:', {
+          logger.debug('📦 [IntegrationStore] Fetched integrations:', {
             count: integrations?.length,
             firstFew: integrations?.slice(0, 3).map(i => ({
               provider: i.provider,
@@ -324,12 +326,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
             // Check if it was aborted
             if (error.name === 'AbortError') {
-              console.log('Integration fetch was aborted (timeout or new request)')
+              logger.debug('Integration fetch was aborted (timeout or new request)')
               setLoading('integrations', false)
               return
             }
 
-            console.error("Failed to fetch integrations:", error)
+            logger.error("Failed to fetch integrations:", error)
             // Do NOT clear existing integrations on transient failure
             setLoading('integrations', false)
             set({
@@ -356,15 +358,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Ensure providers are loaded - force reload if empty
       let { providers } = get()
       if (!providers || providers.length === 0) {
-        console.log('🔄 Providers not loaded, initializing...')
+        logger.debug('🔄 Providers not loaded, initializing...')
         try {
           // Directly fetch providers instead of using initializeProviders which might be blocked
           const freshProviders = await IntegrationService.fetchProviders()
           set({ providers: freshProviders })
           providers = freshProviders
-          console.log('✅ Providers loaded:', providers.map(p => p.id))
+          logger.debug('✅ Providers loaded:', providers.map(p => p.id))
         } catch (error) {
-          console.error('Failed to load providers:', error)
+          logger.error('Failed to load providers:', error)
           // Continue anyway for known providers
         }
       }
@@ -372,26 +374,26 @@ export const useIntegrationStore = create<IntegrationStore>()(
       const provider = providers?.find((p) => p.id === providerId)
 
       if (!provider) {
-        console.warn(`Provider ${providerId} not found in providers list:`, providers?.map(p => p.id) || [])
+        logger.warn(`Provider ${providerId} not found in providers list:`, providers?.map(p => p.id) || [])
         // For Discord and other known providers, proceed anyway
         const knownProviders = ['discord', 'gmail', 'notion', 'slack', 'trello', 'airtable', 'google-drive', 'google-sheets', 'google-calendar', 'google-docs', 'microsoft-outlook', 'microsoft-teams']
         if (knownProviders.includes(providerId)) {
-          console.log(`📌 Proceeding with known provider: ${providerId}`)
+          logger.debug(`📌 Proceeding with known provider: ${providerId}`)
         } else {
           // Don't throw error - just log and proceed
-          console.error(`Unknown provider ${providerId}, but proceeding anyway`)
+          logger.error(`Unknown provider ${providerId}, but proceeding anyway`)
         }
       }
 
       // Check if already loading to prevent duplicate requests
       if (loadingStates[`connect-${providerId}`]) {
-        console.warn(`⚠️ Already connecting to ${providerId}, ignoring duplicate request`)
+        logger.warn(`⚠️ Already connecting to ${providerId}, ignoring duplicate request`)
         return
       }
 
       // Skip availability check for known providers or if provider not found
       if (provider && !provider.isAvailable) {
-        console.warn(`⚠️ ${provider.name} may not be fully configured, but proceeding with connection attempt`)
+        logger.warn(`⚠️ ${provider.name} may not be fully configured, but proceeding with connection attempt`)
       }
 
       setLoading(`connect-${providerId}`, true)
@@ -401,7 +403,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       const connectionTimeout = setTimeout(() => {
         const currentLoadingState = get().loadingStates[`connect-${providerId}`]
         if (currentLoadingState) {
-          console.warn(`⚠️ Connection timeout for ${providerId}, resetting state`)
+          logger.warn(`⚠️ Connection timeout for ${providerId}, resetting state`)
           setLoading(`connect-${providerId}`, false)
           setError("Connection timeout. Please try again.")
         }
@@ -412,7 +414,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         if (isReconnection && existingIntegration) {
           // Use reconnection flow for existing integrations that need reauth
-          console.log(`🔄 Starting reconnection flow for ${providerId}`)
+          logger.debug(`🔄 Starting reconnection flow for ${providerId}`)
           result = await OAuthConnectionFlow.startReconnection({
             integrationId: existingIntegration.id,
             integration: existingIntegration,
@@ -516,7 +518,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
                     return // Don't treat as cancellation
                   }
                 } catch (error) {
-                  console.warn('Failed to check HubSpot connection status:', error)
+                  logger.warn('Failed to check HubSpot connection status:', error)
                 }
               }
               // Only set loading to false if not HubSpot or if HubSpot check failed
@@ -560,7 +562,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
         }, 1000)
       } catch (error: any) {
-        console.error("Error connecting API key integration:", error)
+        logger.error("Error connecting API key integration:", error)
         setError(error.message || "Failed to connect integration")
         setLoading(`connect-${providerId}`, false)
       }
@@ -598,7 +600,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           fetchIntegrations(true)
         }, 500)
       } catch (error: any) {
-        console.error("Error disconnecting integration:", error)
+        logger.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
         setLoading(loadingKey, false)
         // Refresh integrations on error to ensure UI stays in sync
@@ -623,7 +625,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         
         return stats
       } catch (error: any) {
-        console.error("Error refreshing tokens:", error)
+        logger.error("Error refreshing tokens:", error)
         setError(error.message || "Failed to refresh tokens")
         setLoading("refresh-all", false)
         return { refreshed: 0, failed: 0 }
@@ -633,7 +635,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     loadIntegrationData: async (dataType, integrationId, params, forceRefresh = false) => {
       try {
         // Create new request
-        console.log(`🚀 [IntegrationStore] Starting new request:`, {
+        logger.debug(`🚀 [IntegrationStore] Starting new request:`, {
           dataType,
           integrationId,
           params,
@@ -643,7 +645,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const result = await IntegrationService.loadIntegrationData(dataType, integrationId, params, forceRefresh)
         return result
       } catch (error: any) {
-        console.error("Error loading integration data:", error)
+        logger.error("Error loading integration data:", error)
         throw error
       }
     },
@@ -653,7 +655,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       const integration = integrations.find((i) => i.id === integrationId)
       
       if (!integration) {
-        console.error("❌ Integration not found for ID:", integrationId)
+        logger.error("❌ Integration not found for ID:", integrationId)
         return
       }
       
@@ -699,7 +701,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           throw new Error(result.message || "Reconnection failed")
         }
       } catch (error: any) {
-        console.error(`❌ Failed to reconnect ${integration.provider}:`, error)
+        logger.error(`❌ Failed to reconnect ${integration.provider}:`, error)
         setError(error.message)
         setLoading(`reconnect-${integrationId}`, false)
       }
@@ -766,7 +768,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
 
       // Debug log (commented out to reduce console noise)
-      // console.log('🔍 [getConnectedProviders] Checking integrations:', {
+      // logger.debug('🔍 [getConnectedProviders] Checking integrations:', {
       //   totalIntegrations: integrations.length,
       //   integrations: integrations.map(i => ({
       //     provider: i.provider,
@@ -800,7 +802,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive) each need
       // their own OAuth connection and should not be considered connected just because one is connected
 
-      // console.log('🔍 [getConnectedProviders] Final result:', connectedProviders)
+      // logger.debug('🔍 [getConnectedProviders] Final result:', connectedProviders)
       return connectedProviders
     },
 
@@ -815,7 +817,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           fetchIntegrations()
         ])
       } catch (error) {
-        console.error("Error during global preload:", error)
+        logger.error("Error during global preload:", error)
         get().setError("Failed to load initial data.")
       } finally {
         set({ globalPreloadingData: false })
@@ -829,7 +831,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           currentAbortController.abort('Store cleared')
           currentAbortController = null
         } catch (error) {
-          console.warn('Failed to abort request during clear:', error)
+          logger.warn('Failed to abort request during clear:', error)
         }
       }
 
@@ -906,7 +908,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const missingScopes = requiredScopes.filter(scope => !grantedScopes.includes(scope))
         
         if (missingScopes.length > 0) {
-          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `Missing required scopes: ${missingScopes.join(", ")}`,
@@ -943,7 +945,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
         
         if (missingScopes.length > 0) {
-          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `Teams integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
@@ -977,7 +979,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
         
         if (missingScopes.length > 0) {
-          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `Outlook integration requires additional permissions for full functionality. Please reconnect your account to grant access to emails, calendars, and contacts.`,
@@ -1005,7 +1007,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
         
         if (missingScopes.length > 0) {
-          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `OneDrive integration requires additional permissions. Please reconnect your account to grant the necessary access.`,
@@ -1035,7 +1037,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         })
         
         if (missingScopes.length > 0) {
-          console.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
+          logger.warn(`❌ Missing scopes for ${providerId}:`, missingScopes)
           return {
             needsReconnection: true,
             reason: `OneNote integration requires additional permissions. Please reconnect your account to grant the necessary access.`,

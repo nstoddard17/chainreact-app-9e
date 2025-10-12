@@ -2,6 +2,8 @@ import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 async function requireTemplateAccess(templateId: string) {
   cookies()
   const supabase = await createSupabaseServerClient()
@@ -27,7 +29,7 @@ async function requireTemplateAccess(templateId: string) {
     .maybeSingle()
 
   if (profileError) {
-    console.error("Error fetching user profile for template access:", profileError)
+    logger.error("Error fetching user profile for template access:", profileError)
   }
 
   const serviceClient = await createSupabaseServiceClient()
@@ -39,7 +41,7 @@ async function requireTemplateAccess(templateId: string) {
     .maybeSingle()
 
   if (templateError) {
-    console.error("Error fetching template for access check:", templateError)
+    logger.error("Error fetching template for access check:", templateError)
   }
 
   if (!template) {
@@ -76,7 +78,7 @@ function parseJsonField(field: unknown) {
     try {
       return JSON.parse(field)
     } catch (error) {
-      console.error("Failed to parse template field", error)
+      logger.error("Failed to parse template field", error)
       return null
     }
   }
@@ -106,7 +108,7 @@ export async function GET(
       connections,
     })
   } catch (error) {
-    console.error("Error in GET /api/templates/[id]:", error)
+    logger.error("Error in GET /api/templates/[id]:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -210,7 +212,7 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error("Error updating template:", error)
+      logger.error("Error updating template:", error)
       return NextResponse.json(
         { error: "Failed to update template" },
         { status: 500 }
@@ -229,7 +231,7 @@ export async function PUT(
       message: "Template updated successfully"
     })
   } catch (error) {
-    console.error("Error in PUT /api/templates/[id]:", error)
+    logger.error("Error in PUT /api/templates/[id]:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

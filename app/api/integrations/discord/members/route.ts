@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { getDiscordMembers } from '../data/handlers/members'
 import { DiscordIntegration } from '../data/types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Discord Members] Integration not found:', { userId, error: integrationError })
+      logger.error('❌ [Discord Members] Integration not found:', { userId, error: integrationError })
       return NextResponse.json({
         error: 'Discord integration not found'
       }, { status: 404 })
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [Discord Members] Integration not connected:', {
+      logger.error('❌ [Discord Members] Integration not connected:', {
         userId,
         status: integration.status
       })
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Discord Members] Processing request:`, {
+    logger.debug(`🔍 [Discord Members] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
     // Get members using the handler
     const members = await getDiscordMembers(integration as DiscordIntegration, { guildId })
 
-    console.log(`✅ [Discord Members] Successfully fetched members:`, {
+    logger.debug(`✅ [Discord Members] Successfully fetched members:`, {
       userId,
       guildId,
       memberCount: members?.length || 0
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Discord Members] Unexpected error:', {
+    logger.error('❌ [Discord Members] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

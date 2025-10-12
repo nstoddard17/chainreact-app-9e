@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { secureTokenManager, TokenType } from './token-manager'
 import { auditLogger, AuditEventType, ComplianceFramework } from './audit-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * OAuth token refresh status
  */
@@ -92,7 +94,7 @@ export class OAuthTokenManager extends EventEmitter {
     super()
     this.startRefreshScheduler()
     this.startRotationScheduler()
-    console.log('🔄 OAuth token manager initialized')
+    logger.debug('🔄 OAuth token manager initialized')
   }
 
   /**
@@ -100,7 +102,7 @@ export class OAuthTokenManager extends EventEmitter {
    */
   registerProvider(config: OAuthProviderConfig): void {
     this.providers.set(config.providerId, config)
-    console.log(`🔧 OAuth provider registered: ${config.providerId}`)
+    logger.debug(`🔧 OAuth provider registered: ${config.providerId}`)
   }
 
   /**
@@ -189,7 +191,7 @@ export class OAuthTokenManager extends EventEmitter {
       complianceFrameworks: [ComplianceFramework.SOC2]
     })
 
-    console.log(`🔐 OAuth tokens stored for ${tokenData.providerId}:${tokenData.userId}`)
+    logger.debug(`🔐 OAuth tokens stored for ${tokenData.providerId}:${tokenData.userId}`)
     
     return { accessTokenId, refreshTokenId, idTokenId }
   }
@@ -202,7 +204,7 @@ export class OAuthTokenManager extends EventEmitter {
     const tokenData = this.activeTokens.get(tokenKey)
     
     if (!tokenData) {
-      console.warn(`⚠️ No OAuth tokens found for ${providerId}:${userId}`)
+      logger.warn(`⚠️ No OAuth tokens found for ${providerId}:${userId}`)
       return null
     }
 
@@ -212,7 +214,7 @@ export class OAuthTokenManager extends EventEmitter {
     const refreshThreshold = provider?.refreshThreshold || 300000 // 5 minutes default
 
     if (tokenData.expiresAt - now <= refreshThreshold) {
-      console.log(`🔄 Token refresh needed for ${providerId}:${userId}`)
+      logger.debug(`🔄 Token refresh needed for ${providerId}:${userId}`)
       
       // Check if refresh is already in progress
       if (this.refreshQueue.has(tokenKey)) {
@@ -340,7 +342,7 @@ export class OAuthTokenManager extends EventEmitter {
           tokenData: refreshResult.newTokenData
         })
 
-        console.log(`✅ OAuth tokens refreshed for ${providerId}:${userId}`)
+        logger.debug(`✅ OAuth tokens refreshed for ${providerId}:${userId}`)
       } else {
         // Log failed refresh
         await auditLogger.logEvent({
@@ -362,7 +364,7 @@ export class OAuthTokenManager extends EventEmitter {
       return refreshResult
 
     } catch (error: any) {
-      console.error(`❌ Token refresh error for ${providerId}:${userId}:`, error)
+      logger.error(`❌ Token refresh error for ${providerId}:${userId}:`, error)
       
       return {
         status: TokenRefreshStatus.PROVIDER_ERROR,
@@ -404,13 +406,13 @@ export class OAuthTokenManager extends EventEmitter {
 
         this.emit('tokenRotated', rotationEvent)
         
-        console.log(`🔄 Tokens rotated for ${providerId}:${userId} (${reason})`)
+        logger.debug(`🔄 Tokens rotated for ${providerId}:${userId} (${reason})`)
         return true
       }
 
       return false
     } catch (error: any) {
-      console.error(`❌ Token rotation failed for ${providerId}:${userId}:`, error)
+      logger.error(`❌ Token rotation failed for ${providerId}:${userId}:`, error)
       return false
     }
   }
@@ -455,11 +457,11 @@ export class OAuthTokenManager extends EventEmitter {
         complianceFrameworks: [ComplianceFramework.SOC2]
       })
 
-      console.log(`❌ OAuth tokens revoked for ${providerId}:${userId} (${reason})`)
+      logger.debug(`❌ OAuth tokens revoked for ${providerId}:${userId} (${reason})`)
       return true
 
     } catch (error: any) {
-      console.error(`❌ Token revocation failed for ${providerId}:${userId}:`, error)
+      logger.error(`❌ Token revocation failed for ${providerId}:${userId}:`, error)
       return false
     }
   }
@@ -645,13 +647,13 @@ export class OAuthTokenManager extends EventEmitter {
             refreshedCount++
           }
         } catch (error) {
-          console.error(`❌ Scheduled refresh failed for ${tokenKey}:`, error)
+          logger.error(`❌ Scheduled refresh failed for ${tokenKey}:`, error)
         }
       }
     }
 
     if (refreshedCount > 0) {
-      console.log(`🔄 Scheduled refresh completed: ${refreshedCount} tokens refreshed`)
+      logger.debug(`🔄 Scheduled refresh completed: ${refreshedCount} tokens refreshed`)
     }
   }
 
@@ -677,13 +679,13 @@ export class OAuthTokenManager extends EventEmitter {
             rotatedCount++
           }
         } catch (error) {
-          console.error(`❌ Scheduled rotation failed for ${tokenKey}:`, error)
+          logger.error(`❌ Scheduled rotation failed for ${tokenKey}:`, error)
         }
       }
     }
 
     if (rotatedCount > 0) {
-      console.log(`🔄 Scheduled rotation completed: ${rotatedCount} tokens rotated`)
+      logger.debug(`🔄 Scheduled rotation completed: ${rotatedCount} tokens rotated`)
     }
   }
 
@@ -707,7 +709,7 @@ export class OAuthTokenManager extends EventEmitter {
     this.refreshAttempts.clear()
     this.removeAllListeners()
 
-    console.log('🛑 OAuth token manager shutdown')
+    logger.debug('🛑 OAuth token manager shutdown')
   }
 }
 
@@ -742,7 +744,7 @@ export function OAuthManaged(providerId: string) {
 
         return await method.apply(this, args)
       } catch (error: any) {
-        console.error(`❌ OAuth token error for ${providerId}:`, error.message)
+        logger.error(`❌ OAuth token error for ${providerId}:`, error.message)
         throw error
       }
     }

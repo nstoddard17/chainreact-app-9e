@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 
+import { logger } from '@/lib/utils/logger'
+
 // Note: Trello auth flow in this app uses return_url to a client page
 // (/integrations/trello-auth) where token is in the URL fragment.
 // This API callback is a fallback if we ever redirect here with key/token.
@@ -54,12 +56,12 @@ export async function GET(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
-      }).catch(e => console.warn('Failed to register Trello webhooks', e))
+      }).catch(e => logger.warn('Failed to register Trello webhooks', e))
     })
 
     return successResponse
   } catch (e: any) {
-    console.error("Trello callback error:", e)
+    logger.error("Trello callback error:", e)
     const baseUrl = getBaseUrl()
     return createPopupResponse("error", "Trello", e.message || "An unexpected error occurred.", baseUrl)
   }

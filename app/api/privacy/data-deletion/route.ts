@@ -4,6 +4,8 @@ import { GDPRService } from "@/lib/compliance/gdprService"
 import { ComplianceLogger } from "@/lib/security/complianceLogger"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 const gdprService = new GDPRService()
 const complianceLogger = new ComplianceLogger()
 
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error("Failed to create deletion request:", insertError)
+      logger.error("Failed to create deletion request:", insertError)
       return NextResponse.json({ error: "Failed to create deletion request" }, { status: 500 })
     }
 
@@ -104,7 +106,7 @@ export async function POST(request: NextRequest) {
     
 
   } catch (error: any) {
-    console.error("Data deletion error:", error)
+    logger.error("Data deletion error:", error)
     return NextResponse.json({ 
       error: "Failed to process deletion request",
       details: error.message 
@@ -152,7 +154,7 @@ export async function GET(request: NextRequest) {
         .order("requested_at", { ascending: false })
 
       if (error) {
-        console.error("Failed to fetch deletion requests:", error)
+        logger.error("Failed to fetch deletion requests:", error)
         return NextResponse.json({ error: "Failed to fetch deletion requests" }, { status: 500 })
       }
 
@@ -160,7 +162,7 @@ export async function GET(request: NextRequest) {
     
 
   } catch (error: any) {
-    console.error("Error fetching deletion requests:", error)
+    logger.error("Error fetching deletion requests:", error)
     return NextResponse.json({ 
       error: "Failed to fetch deletion requests",
       details: error.message 
@@ -201,7 +203,7 @@ async function processDeletion(userId: string, deletionType: string, integration
     })
 
   } catch (error) {
-    console.error("Error processing deletion:", error)
+    logger.error("Error processing deletion:", error)
     
     // Log failed deletion
     await complianceLogger.logDataDeletion(userId, "data_deletion", userId, {
@@ -237,7 +239,7 @@ async function performFullDeletion(userId: string) {
       .eq("user_id", userId)
 
     if (error) {
-      console.error(`Error deleting from ${table}:`, error)
+      logger.error(`Error deleting from ${table}:`, error)
       // Continue with other tables even if one fails
     }
   }
@@ -258,7 +260,7 @@ async function performFullDeletion(userId: string) {
   const { error: userDeleteError } = await supabase.auth.admin.deleteUser(userId)
   
   if (userDeleteError) {
-    console.error("Error deleting user account:", userDeleteError)
+    logger.error("Error deleting user account:", userDeleteError)
     throw new Error("Failed to delete user account")
   }
 }
@@ -284,7 +286,7 @@ async function performPartialDeletion(userId: string) {
       .eq("user_id", userId)
 
     if (error) {
-      console.error(`Error deleting from ${table}:`, error)
+      logger.error(`Error deleting from ${table}:`, error)
     }
   }
 
@@ -311,7 +313,7 @@ async function performIntegrationSpecificDeletion(userId: string, provider: stri
     .eq("provider", provider)
 
   if (error) {
-    console.error(`Error deleting ${provider} integration:`, error)
+    logger.error(`Error deleting ${provider} integration:`, error)
     throw new Error(`Failed to delete ${provider} integration`)
   }
 

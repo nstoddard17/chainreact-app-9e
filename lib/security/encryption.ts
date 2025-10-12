@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+import { logger } from '@/lib/utils/logger'
+
 // Load encryption key from environment variable
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef";
 const ENCRYPTION_IV_LENGTH = 16;
@@ -30,7 +32,7 @@ export function encrypt(text: string, key: string = ENCRYPTION_KEY): string {
     // Return IV + encrypted text
     return `${iv.toString("hex") }:${ encrypted}`;
   } catch (error) {
-    console.error("Encryption error:", error);
+    logger.error("Encryption error:", error);
     throw new Error("Failed to encrypt data");
   }
 }
@@ -77,7 +79,7 @@ export function decrypt(encryptedText: string, key: string = ENCRYPTION_KEY): st
     
     return decrypted;
   } catch (error) {
-    console.error("Decryption error:", error);
+    logger.error("Decryption error:", error);
     // Include original error message for better debugging
     throw new Error(`Failed to decrypt data: ${error.message}`);
   }
@@ -100,7 +102,7 @@ export function safeDecrypt(possiblyEncryptedText: string, key: string = ENCRYPT
   try {
     return decrypt(possiblyEncryptedText, key);
   } catch (error) {
-    console.warn("Decryption failed, returning original text:", error.message);
+    logger.warn("Decryption failed, returning original text:", error.message);
     return possiblyEncryptedText;
   }
 }

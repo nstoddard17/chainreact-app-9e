@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies()
@@ -116,7 +118,7 @@ export async function GET(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error("Error fetching AI usage:", error)
+    logger.error("Error fetching AI usage:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailLabel {
   id: string
   name: string
@@ -118,7 +120,7 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
       onLabelsChange?.()
       
     } catch (error) {
-      console.error('Error creating label:', error)
+      logger.error('Error creating label:', error)
       toast({
         title: "Error creating label",
         description: error instanceof Error ? error.message : "Failed to create label",
@@ -160,7 +162,7 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
             }
             
             const errorData = await response.json()
-            console.error(`Failed to delete label ${labelId}:`, errorData)
+            logger.error(`Failed to delete label ${labelId}:`, errorData)
             throw new Error(errorData.error || `Failed to delete label ${labelId}`)
           }
 
@@ -177,7 +179,7 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
           successful.push(labelsToDelete[index])
         } else {
           failed.push(labelsToDelete[index])
-          console.error(`Deletion failed for ${labelsToDelete[index]}:`, result.reason)
+          logger.error(`Deletion failed for ${labelsToDelete[index]}:`, result.reason)
         }
       })
 
@@ -211,7 +213,7 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
       }
 
     } catch (error) {
-      console.error('Error deleting labels:', error)
+      logger.error('Error deleting labels:', error)
       toast({
         title: "Error deleting labels",
         description: error instanceof Error ? error.message : "Failed to delete labels",

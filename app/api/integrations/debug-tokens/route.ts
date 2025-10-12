@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 import type { Database } from "@/types/supabase"
 
 export async function GET() {
@@ -27,7 +29,7 @@ export async function GET() {
       .eq("status", "connected")
 
     if (error) {
-      console.error("Database error:", error)
+      logger.error("Database error:", error)
       return NextResponse.json({ error: "Database error" }, { status: 500 })
     }
 
@@ -62,7 +64,7 @@ export async function GET() {
       integrations: results,
     })
   } catch (error: any) {
-    console.error("Error checking integrations:", error)
+    logger.error("Error checking integrations:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

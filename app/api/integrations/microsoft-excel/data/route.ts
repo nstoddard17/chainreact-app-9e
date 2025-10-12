@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { microsoftExcelHandlers } from './handlers'
 import { MicrosoftExcelIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
 
       if (!requestingError && requestingIntegration) {
         userId = requestingIntegration.user_id
-        console.log('📊 [Microsoft Excel API] Found user from integrationId:', { integrationId, userId })
+        logger.debug('📊 [Microsoft Excel API] Found user from integrationId:', { integrationId, userId })
       }
     }
 
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     const { data: integrations, error: integrationError } = await query
 
     if (integrationError || !integrations || integrations.length === 0) {
-      console.error('❌ [Microsoft Excel API] OneDrive integration not found:', { error: integrationError, userId })
+      logger.error('❌ [Microsoft Excel API] OneDrive integration not found:', { error: integrationError, userId })
       return NextResponse.json({
         error: 'Microsoft Excel requires OneDrive connection. Please connect your OneDrive account first.'
       }, { status: 404 })
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
     const integration = integrations.find(i => i.status === 'connected')
 
     if (!integration) {
-      console.error('❌ [Microsoft Excel API] OneDrive integration not connected')
+      logger.error('❌ [Microsoft Excel API] OneDrive integration not connected')
       return NextResponse.json({
         error: 'Microsoft Excel requires an active OneDrive connection. Please connect your OneDrive account.',
         needsReconnection: true
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Microsoft Excel API] OneDrive integration not connected:', {
+      logger.error('❌ [Microsoft Excel API] OneDrive integration not connected:', {
         status: integration.status
       })
       return NextResponse.json({
@@ -85,14 +87,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = microsoftExcelHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Microsoft Excel API] Unknown data type:', dataType)
+      logger.error('❌ [Microsoft Excel API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Microsoft Excel data type: ${dataType}`,
         availableTypes: Object.keys(microsoftExcelHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Microsoft Excel API] Processing request:`, {
+    logger.debug(`🔍 [Microsoft Excel API] Processing request:`, {
       dataType,
       userId,
       integrationId,
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as MicrosoftExcelIntegration, options)
 
-    console.log(`✅ [Microsoft Excel API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Microsoft Excel API] Successfully processed ${dataType}:`, {
       resultCount: Array.isArray(data) ? data.length : 1
     })
 
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel API] Unexpected error:', {
+    logger.error('❌ [Microsoft Excel API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

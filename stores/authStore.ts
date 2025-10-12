@@ -7,6 +7,8 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 import { useEffect } from "react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface User {
   id: string
   email: string
@@ -75,19 +77,19 @@ export const useAuthStore = create<AuthState>()(
 
       initialize: async () => {
         const state = get()
-        console.log('🔄 Auth initialize called:', {
+        logger.debug('🔄 Auth initialize called:', {
           initialized: state.initialized,
           loading: state.loading,
           hasUser: !!state.user
         })
         if (state.initialized || state.loading) {
-          console.log('Auth already initialized or loading, skipping...')
+          logger.debug('Auth already initialized or loading, skipping...')
           return
         }
 
         // Temporary bypass for debugging
         if (typeof window !== 'undefined' && window.location.search.includes('bypass_auth=true')) {
-          console.warn('Auth bypass enabled - skipping auth initialization')
+          logger.warn('Auth bypass enabled - skipping auth initialization')
           set({ loading: false, initialized: true, error: null, user: null })
           return
         }
@@ -98,7 +100,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
-          console.warn('Auth initialization timed out, forcing completion...')
+          logger.warn('Auth initialization timed out, forcing completion...')
           set({ loading: false, initialized: true, error: null, user: null })
         }, timeoutDuration)
 
@@ -121,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
                 });
                 
                 if (error) {
-                  console.warn('Failed to apply Supabase magic link session:', error)
+                  logger.warn('Failed to apply Supabase magic link session:', error)
                 } else if (data.session) {
                   // Clear the hash
                   window.location.hash = ''
@@ -135,8 +137,8 @@ export const useAuthStore = create<AuthState>()(
           }
 
           // Get current user from Supabase with timeout
-          console.log('Fetching user from Supabase...')
-          console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+          logger.debug('Fetching user from Supabase...')
+          logger.debug('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
           const userPromise = supabase.auth.getUser()
           const userTimeout = new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
@@ -145,9 +147,9 @@ export const useAuthStore = create<AuthState>()(
           let userResult
           try {
             userResult = await Promise.race([userPromise, userTimeout])
-            console.log('User fetch completed successfully')
+            logger.debug('User fetch completed successfully')
           } catch (timeoutError) {
-            console.warn('User fetch timed out, treating as unauthenticated', timeoutError)
+            logger.warn('User fetch timed out, treating as unauthenticated', timeoutError)
             set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
@@ -196,7 +198,7 @@ export const useAuthStore = create<AuthState>()(
                 })
 
                 if (!response.ok) {
-                  console.warn('Service profile endpoint responded with status:', response.status)
+                  logger.warn('Service profile endpoint responded with status:', response.status)
                   return null
                 }
 
@@ -206,7 +208,7 @@ export const useAuthStore = create<AuthState>()(
                 }
                 return null
               } catch (error) {
-                console.error('Failed to fetch profile via service endpoint:', error)
+                logger.error('Failed to fetch profile via service endpoint:', error)
                 return null
               }
             }
@@ -223,14 +225,14 @@ export const useAuthStore = create<AuthState>()(
               profile = await fetchProfileViaService()
 
               if (!profile) {
-                console.log('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
+                logger.debug('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
                 const fetchResult = await supabase
                   .from('user_profiles')
                   .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
                   .eq('id', user.id)
                   .single()
 
-                console.log('📊 Direct profile fetch result:', {
+                logger.debug('📊 Direct profile fetch result:', {
                   hasError: !!fetchResult.error,
                   hasData: !!fetchResult.data,
                   error: fetchResult.error,
@@ -349,7 +351,7 @@ export const useAuthStore = create<AuthState>()(
                   const { useIntegrationStore } = await import("./integrationStore")
                   useIntegrationStore.getState().setCurrentUserId(user.id)
                 } catch (error) {
-                  console.error("Error updating integration store user ID on init:", error)
+                  logger.error("Error updating integration store user ID on init:", error)
                 }
               }, 50) // Reduced from 100ms to 50ms
 
@@ -365,7 +367,7 @@ export const useAuthStore = create<AuthState>()(
                     await integrationStore.fetchIntegrations(false)
                   }
                 } catch (error) {
-                  console.log("Background integration preload skipped:", error.message)
+                  logger.debug("Background integration preload skipped:", error.message)
                   // Don't fail auth initialization for background preload errors
                 }
               }, 3000) // Increased delay to prioritize UI responsiveness and avoid conflicts
@@ -383,7 +385,7 @@ export const useAuthStore = create<AuthState>()(
                 integrationStore.setCurrentUserId(null)
                 integrationStore.clearAllData()
               } catch (error) {
-                console.error("Error clearing integration store on init:", error)
+                logger.error("Error clearing integration store on init:", error)
               }
             }, 50) // Reduced from 100ms to 50ms
           }
@@ -484,7 +486,7 @@ export const useAuthStore = create<AuthState>()(
                     const { useIntegrationStore } = await import("./integrationStore")
                     useIntegrationStore.getState().setCurrentUserId(session.user.id)
                   } catch (error) {
-                    console.error("Error updating integration store user ID:", error)
+                    logger.error("Error updating integration store user ID:", error)
                   }
                 }, 100)
               } else if (event === "SIGNED_OUT") {
@@ -498,7 +500,7 @@ export const useAuthStore = create<AuthState>()(
                     integrationStore.setCurrentUserId(null)
                     integrationStore.clearAllData()
                   } catch (error) {
-                    console.error("Error clearing integration store on sign out:", error)
+                    logger.error("Error clearing integration store on sign out:", error)
                   }
                 }, 100)
               }
@@ -533,7 +535,7 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         try {
-          console.log("🔐 Starting sign out process...")
+          logger.debug("🔐 Starting sign out process...")
           
           // Clear local state immediately and mark as signed out
           set({ 
@@ -545,7 +547,7 @@ export const useAuthStore = create<AuthState>()(
             hydrated: true 
           })
           
-          console.log("✅ Local state cleared")
+          logger.debug("✅ Local state cleared")
 
           // Clear localStorage immediately to prevent rehydration
           if (typeof window !== 'undefined') {
@@ -600,7 +602,7 @@ export const useAuthStore = create<AuthState>()(
               // Admin store might not exist, ignore
             }
           } catch (error) {
-            console.error("Error clearing stores:", error)
+            logger.error("Error clearing stores:", error)
           }
           
           // Stop any ongoing activities by dispatching a custom event
@@ -610,18 +612,18 @@ export const useAuthStore = create<AuthState>()(
 
           // Note: Navigation is handled by the component calling signOut
           // This ensures proper Next.js router usage
-          console.log("🚀 Sign out complete, navigation handled by caller")
+          logger.debug("🚀 Sign out complete, navigation handled by caller")
 
           // Sign out from Supabase in the background (don't wait)
-          console.log("🔄 Signing out from Supabase...")
+          logger.debug("🔄 Signing out from Supabase...")
           supabase.auth.signOut().then(() => {
-            console.log("✅ Supabase sign out successful")
+            logger.debug("✅ Supabase sign out successful")
           }).catch((error) => {
-            console.error("❌ Supabase sign out error:", error)
+            logger.error("❌ Supabase sign out error:", error)
           })
           
         } catch (error: any) {
-          console.error("Sign out error:", error)
+          logger.error("Sign out error:", error)
           
           // Clear everything even if sign out failed
           set({ 
@@ -705,25 +707,25 @@ export const useAuthStore = create<AuthState>()(
             }
           })
         } catch (error: any) {
-          console.error("Profile update error:", error)
+          logger.error("Profile update error:", error)
           set({ error: error.message })
           throw error
         }
       },
 
       signIn: async (email: string, password: string) => {
-        console.log('🔐 Starting sign in process for:', email)
+        logger.debug('🔐 Starting sign in process for:', email)
 
         // Add timeout protection for the entire sign-in process
         const signInTimeout = setTimeout(() => {
-          console.error('Sign-in timed out after 10 seconds')
+          logger.error('Sign-in timed out after 10 seconds')
           set({ error: 'Sign-in timed out. Please try again.', loading: false })
         }, 10000) // 10 second timeout
 
         try {
           set({ loading: true, error: null })
 
-          console.log('📡 Calling Supabase signInWithPassword...')
+          logger.debug('📡 Calling Supabase signInWithPassword...')
           // Sign in with timeout protection
           const signInPromise = supabase.auth.signInWithPassword({
             email,
@@ -739,13 +741,13 @@ export const useAuthStore = create<AuthState>()(
             result = await Promise.race([signInPromise, timeoutPromise])
           } catch (timeoutError) {
             clearTimeout(signInTimeout)
-            console.error('Sign-in request timed out:', timeoutError)
+            logger.error('Sign-in request timed out:', timeoutError)
             set({ error: 'Sign-in timed out. Please try again.', loading: false })
             throw new Error('Sign-in timed out. Please try again.')
           }
 
           const { data, error } = result
-          console.log('📥 Sign in response:', {
+          logger.debug('📥 Sign in response:', {
             hasData: !!data,
             hasUser: !!data?.user,
             hasSession: !!data?.session,
@@ -753,7 +755,7 @@ export const useAuthStore = create<AuthState>()(
           })
 
           if (error) {
-            console.error('❌ Sign in error:', error)
+            logger.error('❌ Sign in error:', error)
             clearTimeout(signInTimeout)
             // Make sure to reset loading state before throwing
             set({ error: error.message, loading: false })
@@ -761,7 +763,7 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (data.user) {
-            console.log('✅ User signed in successfully:', data.user.id)
+            logger.debug('✅ User signed in successfully:', data.user.id)
             const user: User = {
               id: data.user.id,
               email: data.user.email || "",
@@ -787,13 +789,13 @@ export const useAuthStore = create<AuthState>()(
                   updatedUser.full_name = profileData.full_name || user.name
 
                   set({ user: updatedUser, profile: profileData })
-                  console.log('Profile loaded successfully in background')
+                  logger.debug('Profile loaded successfully in background')
                 } else if (error) {
-                  console.warn('Profile fetch error in background:', error)
+                  logger.warn('Profile fetch error in background:', error)
                 }
               })
               .catch(profileError => {
-                console.warn('Profile fetch failed in background:', profileError)
+                logger.warn('Profile fetch failed in background:', profileError)
               })
 
             // Update integration store with new user ID after successful login
@@ -802,7 +804,7 @@ export const useAuthStore = create<AuthState>()(
                 const { useIntegrationStore } = await import("./integrationStore")
                 useIntegrationStore.getState().setCurrentUserId(data.user.id)
               } catch (error) {
-                console.error("Error updating integration store user ID after login:", error)
+                logger.error("Error updating integration store user ID after login:", error)
               }
             }, 100)
 
@@ -814,7 +816,7 @@ export const useAuthStore = create<AuthState>()(
           throw new Error("Login failed - no user data returned")
         } catch (error: any) {
           clearTimeout(signInTimeout) // Clear timeout on any error
-          console.error("Sign in error:", error)
+          logger.error("Sign in error:", error)
           // Ensure loading is always reset on any error
           set({ error: error.message, loading: false })
           throw error
@@ -838,7 +840,7 @@ export const useAuthStore = create<AuthState>()(
             baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://chainreact.app'
           }
           
-          console.log('Signing up with email redirect to:', `${baseUrl}/api/auth/callback?type=email-confirmation`)
+          logger.debug('Signing up with email redirect to:', `${baseUrl}/api/auth/callback?type=email-confirmation`)
           
           const { data, error } = await supabase.auth.signUp({
             email,
@@ -873,7 +875,7 @@ export const useAuthStore = create<AuthState>()(
               .insert(profileData)
 
             if (profileError) {
-              console.error('Error creating profile during signup:', profileError)
+              logger.error('Error creating profile during signup:', profileError)
               // Don't throw - profile can be created later if needed
             }
 
@@ -887,7 +889,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({ loading: false })
         } catch (error: any) {
-          console.error("Sign up error:", error)
+          logger.error("Sign up error:", error)
           set({ error: error.message, loading: false })
           throw error
         }
@@ -912,7 +914,7 @@ export const useAuthStore = create<AuthState>()(
           // Supabase handles the redirect automatically
           // No need for manual redirect
         } catch (error: any) {
-          console.error("Google sign in error:", error)
+          logger.error("Google sign in error:", error)
           set({ error: error.message, loading: false })
           throw error
         }
@@ -939,7 +941,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { data: { session }, error } = await supabase.auth.refreshSession()
           if (error) {
-            console.error("Session refresh error:", error)
+            logger.error("Session refresh error:", error)
             return false
           }
           
@@ -961,7 +963,7 @@ export const useAuthStore = create<AuthState>()(
           }
           return false
         } catch (error) {
-          console.error("Session refresh failed:", error)
+          logger.error("Session refresh failed:", error)
           return false
         }
       },
@@ -986,7 +988,7 @@ export const useAuthStore = create<AuthState>()(
             
             // Validate the stored data before parsing
             if (str.startsWith('base64-') || str.includes('eyJ')) {
-              console.warn('Detected corrupted auth data, clearing...')
+              logger.warn('Detected corrupted auth data, clearing...')
               localStorage.removeItem(name)
               return null
             }
@@ -1000,11 +1002,11 @@ export const useAuthStore = create<AuthState>()(
             }
             
             // If invalid structure, clear it
-            console.warn('Invalid auth data structure, clearing...')
+            logger.warn('Invalid auth data structure, clearing...')
             localStorage.removeItem(name)
             return null
           } catch (error) {
-            console.error('Error reading auth storage:', error)
+            logger.error('Error reading auth storage:', error)
             // Clear corrupted data only if we're on the client
             if (typeof window !== 'undefined') {
               localStorage.removeItem(name)
@@ -1029,7 +1031,7 @@ export const useAuthStore = create<AuthState>()(
             JSON.parse(stringValue)
             localStorage.setItem(name, stringValue)
           } catch (error) {
-            console.error('Error setting auth storage:', error)
+            logger.error('Error setting auth storage:', error)
           }
         },
         removeItem: (name) => {
@@ -1063,13 +1065,13 @@ export const useAuthStore = create<AuthState>()(
             scheduleInit()
           }
         } catch (error) {
-          console.error('Error during rehydration:', error)
+          logger.error('Error during rehydration:', error)
           // Clear any corrupted state only if we're on the client
           if (typeof window !== 'undefined') {
             try {
               localStorage.removeItem('chainreact-auth')
             } catch (e) {
-              console.error('Failed to clear localStorage:', e)
+              logger.error('Failed to clear localStorage:', e)
             }
           }
           // Still mark as hydrated to prevent blocking

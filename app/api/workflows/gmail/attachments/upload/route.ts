@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('📎 [Gmail Attachment Upload] Storage upload error:', uploadError);
+      logger.error('📎 [Gmail Attachment Upload] Storage upload error:', uploadError);
       return NextResponse.json({ 
         error: `Failed to upload file: ${uploadError.message}` 
       }, { status: 500 });
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('📎 [Gmail Attachment Upload] Error:', error);
+    logger.error('📎 [Gmail Attachment Upload] Error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to upload file' 
     }, { status: 500 });
@@ -173,7 +175,7 @@ export async function DELETE(request: NextRequest) {
       const { error } = await supabase.storage.from('workflow-files').remove(paths);
       
       if (error) {
-        console.error('📎 [Gmail Attachment Delete] Error deleting files:', error);
+        logger.error('📎 [Gmail Attachment Delete] Error deleting files:', error);
       } else {
       }
     }
@@ -181,7 +183,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('📎 [Gmail Attachment Delete] Error:', error);
+    logger.error('📎 [Gmail Attachment Delete] Error:', error);
     return NextResponse.json({ 
       error: error.message || 'Failed to delete files' 
     }, { status: 500 });

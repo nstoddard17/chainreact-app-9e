@@ -11,6 +11,8 @@ import WorkflowChart from "@/components/dashboard/WorkflowChart"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
 
 export default function AnalyticsContent() {
@@ -27,15 +29,15 @@ export default function AnalyticsContent() {
       // Load all analytics data in parallel for maximum speed
       const promises = [
         fetchMetrics().catch(error => {
-          console.warn('Failed to fetch metrics:', error)
+          logger.warn('Failed to fetch metrics:', error)
           return null
         }),
         fetchChartData().catch(error => {
-          console.warn('Failed to fetch chart data:', error)
+          logger.warn('Failed to fetch chart data:', error)
           return null
         }),
         fetchExecutions().catch(error => {
-          console.warn('Failed to fetch executions:', error)
+          logger.warn('Failed to fetch executions:', error)
           return null
         })
       ]
@@ -49,7 +51,7 @@ export default function AnalyticsContent() {
     dependencies: [user],
     onError: (error) => {
       // Don't block render on errors
-      console.warn('Analytics loading error (non-blocking):', error)
+      logger.warn('Analytics loading error (non-blocking):', error)
     }
   })
 

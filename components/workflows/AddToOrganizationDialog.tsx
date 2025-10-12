@@ -8,6 +8,8 @@ import { Building2, Users, Check } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Organization {
   id: string
   name: string
@@ -51,11 +53,11 @@ export default function AddToOrganizationDialog({
         const data = await response.json()
         setOrganizations(data)
       } else {
-        console.error('Failed to fetch organizations')
+        logger.error('Failed to fetch organizations')
         toast.error('Failed to load organizations')
       }
     } catch (error) {
-      console.error('Error fetching organizations:', error)
+      logger.error('Error fetching organizations:', error)
       toast.error('Failed to load organizations')
     } finally {
       setFetchingOrgs(false)
@@ -87,7 +89,7 @@ export default function AddToOrganizationDialog({
         throw new Error(error.error || 'Failed to move workflow')
       }
     } catch (error) {
-      console.error('Error moving workflow:', error)
+      logger.error('Error moving workflow:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to move workflow')
     } finally {
       setLoading(false)

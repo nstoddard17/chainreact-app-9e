@@ -9,6 +9,8 @@ import { dropboxHandlers } from './handlers'
 import { DropboxIntegration } from './types'
 import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integrationRecord) {
-      console.error('❌ [Dropbox API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Dropbox API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Dropbox integration not found'
       }, { status: 404 })
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Dropbox API] Integration not connected:', {
+      logger.error('❌ [Dropbox API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -59,14 +61,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = dropboxHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Dropbox API] Unknown data type:', dataType)
+      logger.error('❌ [Dropbox API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Dropbox data type: ${dataType}`,
         availableTypes: Object.keys(dropboxHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Dropbox API] Processing request:`, {
+    logger.debug(`🔍 [Dropbox API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as DropboxIntegration, options)
 
-    console.log(`✅ [Dropbox API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Dropbox API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Dropbox API] Unexpected error:', {
+    logger.error('❌ [Dropbox API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

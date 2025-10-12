@@ -5,11 +5,13 @@
 import { TrelloIntegration, TrelloCard, TrelloDataHandler, TrelloHandlerOptions } from '../types'
 import { validateTrelloIntegration, validateTrelloToken, makeTrelloApiRequest, parseTrelloApiResponse, buildTrelloApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getTrelloCards: TrelloDataHandler<TrelloCard> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloCard[]> => {
-  console.log("🔍 Trello cards fetcher - RAW OPTIONS:", options)
+  logger.debug("🔍 Trello cards fetcher - RAW OPTIONS:", options)
   const { boardId } = options
 
-  console.log("🔍 Trello cards fetcher called with:", {
+  logger.debug("🔍 Trello cards fetcher called with:", {
     integrationId: integration.id,
     boardId,
     hasToken: !!integration.access_token,
@@ -20,11 +22,11 @@ export const getTrelloCards: TrelloDataHandler<TrelloCard> = async (integration:
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    console.log(`🔍 Validating Trello token...`)
+    logger.debug(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -32,18 +34,18 @@ export const getTrelloCards: TrelloDataHandler<TrelloCard> = async (integration:
       throw new Error('Board ID is required for fetching cards')
     }
     
-    console.log('🔍 Fetching Trello cards from API...')
+    logger.debug('🔍 Fetching Trello cards from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,closed`)
     
     const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
     
     const cards = await parseTrelloApiResponse<TrelloCard>(response)
     
-    console.log(`✅ Trello cards fetched successfully: ${cards.length} cards`)
+    logger.debug(`✅ Trello cards fetched successfully: ${cards.length} cards`)
     return cards
     
   } catch (error: any) {
-    console.error("Error fetching Trello cards:", error)
+    logger.error("Error fetching Trello cards:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Trello authentication expired. Please reconnect your account.')

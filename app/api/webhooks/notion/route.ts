@@ -4,6 +4,8 @@ import { processNotionEvent } from '@/lib/webhooks/processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 import { getWebhookUrl } from '@/lib/webhooks/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 // Comprehensive logging colors for terminal
 const colors = {
   reset: '\x1b[0m',
@@ -19,14 +21,14 @@ const colors = {
 }
 
 function logSection(title: string, data: any, color: string = colors.cyan) {
-  console.log(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
-  console.log(`${color}${colors.bright}📌 ${title}${colors.reset}`)
-  console.log(`${color}${'='.repeat(60)}${colors.reset}`)
+  logger.debug(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
+  logger.debug(`${color}${colors.bright}📌 ${title}${colors.reset}`)
+  logger.debug(`${color}${'='.repeat(60)}${colors.reset}`)
 
   if (typeof data === 'object' && data !== null) {
-    console.log(JSON.stringify(data, null, 2))
+    logger.debug(JSON.stringify(data, null, 2))
   } else {
-    console.log(data)
+    logger.debug(data)
   }
 }
 
@@ -60,8 +62,8 @@ export async function POST(req: NextRequest) {
       body = JSON.parse(rawBody)
       logSection('PARSED BODY', body, colors.green)
     } catch (parseError) {
-      console.error(`${colors.red}❌ Failed to parse body as JSON${colors.reset}`)
-      console.error(parseError)
+      logger.error(`${colors.red}❌ Failed to parse body as JSON${colors.reset}`)
+      logger.error(parseError)
       body = { raw: rawBody }
     }
 
@@ -151,7 +153,7 @@ export async function POST(req: NextRequest) {
       }
     }, colors.green)
 
-    console.log(`\n${colors.green}${colors.bright}✅ Notion webhook processed successfully!${colors.reset}\n`)
+    logger.debug(`\n${colors.green}${colors.bright}✅ Notion webhook processed successfully!${colors.reset}\n`)
 
     return response
 

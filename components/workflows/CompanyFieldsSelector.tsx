@@ -17,6 +17,8 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import VariablePicker from './VariablePicker'
 
+import { logger } from '@/lib/utils/logger'
+
 interface CompanyFieldProperty {
   name: string
   label: string
@@ -84,11 +86,11 @@ export default function CompanyFieldsSelector({
       setLoading(true)
       const result = await loadIntegrationData('hubspot_all_company_properties', integrationId)
       
-      console.log('🔍 CompanyFieldsSelector received result:', result)
+      logger.debug('🔍 CompanyFieldsSelector received result:', result)
       
       if (result && result.properties) {
-        console.log('✅ Found company properties:', result.properties.length)
-        console.log('✅ Found grouped company properties:', Object.keys(result.groupedProperties))
+        logger.debug('✅ Found company properties:', result.properties.length)
+        logger.debug('✅ Found grouped company properties:', Object.keys(result.groupedProperties))
         
         setProperties(result.properties)
         setGroupedProperties(result.groupedProperties)
@@ -97,7 +99,7 @@ export default function CompanyFieldsSelector({
         setError('No company properties found')
       }
     } catch (err: any) {
-      console.error('Error loading company properties:', err)
+      logger.error('Error loading company properties:', err)
       setError(err.message || 'Failed to load company properties')
     } finally {
       setLoading(false)

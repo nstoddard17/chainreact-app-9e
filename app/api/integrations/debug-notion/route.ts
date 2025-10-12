@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await request.json()
@@ -19,15 +21,15 @@ export async function POST(request: NextRequest) {
       .eq('provider', 'notion')
     
     if (error) {
-      console.error('Database error:', error)
+      logger.error('Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    console.log(`🔍 Found ${integrations?.length || 0} Notion integrations for user ${userId}`)
+    logger.debug(`🔍 Found ${integrations?.length || 0} Notion integrations for user ${userId}`)
     
     if (integrations && integrations.length > 0) {
       integrations.forEach((integration, index) => {
-        console.log(`🔍 Integration ${index + 1}:`, {
+        logger.debug(`🔍 Integration ${index + 1}:`, {
           id: integration.id,
           status: integration.status,
           workspace_name: integration.metadata?.workspace_name,
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error: any) {
-    console.error('Debug Notion error:', error)
+    logger.error('Debug Notion error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 } 

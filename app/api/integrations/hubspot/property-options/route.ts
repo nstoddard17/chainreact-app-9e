@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const propertyName = searchParams.get('property')
     const integrationId = searchParams.get('integrationId')
 
-    console.log('Property options request:', { propertyName, integrationId })
+    logger.debug('Property options request:', { propertyName, integrationId })
 
     if (!propertyName || !integrationId) {
       return NextResponse.json({ error: 'Property name and integration ID are required' }, { status: 400 })
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    console.log('Auth check:', { hasUser: !!user, authError: authError?.message })
+    logger.debug('Auth check:', { hasUser: !!user, authError: authError?.message })
     
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching HubSpot property options:', error)
+    logger.error('Error fetching HubSpot property options:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

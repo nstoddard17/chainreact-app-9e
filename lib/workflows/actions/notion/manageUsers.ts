@@ -1,6 +1,8 @@
 import { ExecutionContext } from '@/types/workflow';
 import { ActionResult } from '@/lib/workflows/actions';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Internal function to execute Notion Manage Users action
  */
@@ -167,7 +169,7 @@ async function executeNotionManageUsersInternal(
           }));
         }
       } catch (activityError) {
-        console.log('Could not fetch user activity:', activityError);
+        logger.debug('Could not fetch user activity:', activityError);
         // Activity is optional, so we don't throw here
       }
 
@@ -226,7 +228,7 @@ export async function executeNotionManageUsers(
       message: `Successfully executed ${config.operation} operation`
     };
   } catch (error: any) {
-    console.error('Notion Manage Users error:', error);
+    logger.error('Notion Manage Users error:', error);
     return {
       success: false,
       output: {},

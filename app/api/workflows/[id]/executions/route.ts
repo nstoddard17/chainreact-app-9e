@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * GET /api/workflows/[id]/executions
  * Get all executions for a specific workflow
@@ -29,7 +31,7 @@ export async function GET(
       .limit(20) // Limit to last 20 executions
 
     if (error) {
-      console.error('Error fetching workflow executions:', error)
+      logger.error('Error fetching workflow executions:', error)
       return NextResponse.json(
         { error: 'Failed to fetch executions' },
         { status: 500 }
@@ -38,7 +40,7 @@ export async function GET(
 
     return NextResponse.json(executions || [])
   } catch (error) {
-    console.error('Error in workflow executions API:', error)
+    logger.error('Error in workflow executions API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

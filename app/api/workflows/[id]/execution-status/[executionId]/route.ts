@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { backendLogger } from '@/lib/logging/backendLogger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get real-time execution status for live mode visualization
  * This endpoint is polled by the frontend to show live execution progress
@@ -40,11 +42,11 @@ export async function GET(
       .maybeSingle()
 
     if (progressError) {
-      console.error('Error fetching execution progress:', progressError)
+      logger.error('Error fetching execution progress:', progressError)
 
       // If table doesn't exist, return a default progress response with error info
       if (progressError.message?.includes('relation') && progressError.message?.includes('does not exist')) {
-        console.log('execution_progress table does not exist yet, returning default progress')
+        logger.debug('execution_progress table does not exist yet, returning default progress')
 
         // Return a simulated progress response
         return NextResponse.json({
@@ -82,7 +84,7 @@ export async function GET(
 
     if (!progress) {
       // No progress record yet, return default
-      console.log('No progress record found yet for execution:', executionId)
+      logger.debug('No progress record found yet for execution:', executionId)
 
       return NextResponse.json({
         execution: {
@@ -163,7 +165,7 @@ export async function GET(
       backendLogs, // Include backend logs for debug modal
     })
   } catch (error: any) {
-    console.error('Error getting execution status:', error)
+    logger.error('Error getting execution status:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to get execution status' },
       { status: 500 }

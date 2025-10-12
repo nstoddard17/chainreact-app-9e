@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Circuit breaker states
  */
@@ -116,7 +118,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
 
     this.startResetTimer()
     
-    console.log(`🔌 Circuit breaker initialized: ${name}`)
+    logger.debug(`🔌 Circuit breaker initialized: ${name}`)
   }
 
   /**
@@ -145,7 +147,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
         )
         
         if (this.fallbackFn) {
-          console.log(`🔄 Circuit breaker OPEN, using fallback: ${this.name}`)
+          logger.debug(`🔄 Circuit breaker OPEN, using fallback: ${this.name}`)
           return this.fallbackFn(error) as R
         }
         
@@ -188,7 +190,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
       this.emit('failure', this.name, error, executionTime)
       
       if (this.fallbackFn) {
-        console.log(`🔄 Circuit breaker fallback triggered: ${this.name}`)
+        logger.debug(`🔄 Circuit breaker fallback triggered: ${this.name}`)
         return this.fallbackFn(error) as R
       }
       
@@ -232,7 +234,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
    */
   forceState(state: CircuitState): void {
     this.transitionTo(state)
-    console.log(`🔧 Circuit breaker force state: ${this.name} -> ${state}`)
+    logger.debug(`🔧 Circuit breaker force state: ${this.name} -> ${state}`)
   }
 
   /**
@@ -247,7 +249,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
     this.requestLog = []
     this.transitionTo(CircuitState.CLOSED)
     
-    console.log(`🔄 Circuit breaker reset: ${this.name}`)
+    logger.debug(`🔄 Circuit breaker reset: ${this.name}`)
     this.emit('reset', this.name)
   }
 
@@ -381,7 +383,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
       this.stats.consecutiveSuccesses = 0
     }
     
-    console.log(`🔄 Circuit breaker state change: ${this.name} ${oldState} -> ${newState}`)
+    logger.debug(`🔄 Circuit breaker state change: ${this.name} ${oldState} -> ${newState}`)
     this.emit('stateChange', this.name, oldState, newState)
   }
 
@@ -498,7 +500,7 @@ export class CircuitBreaker<T = any> extends EventEmitter {
     }
     
     this.removeAllListeners()
-    console.log(`🛑 Circuit breaker shutdown: ${this.name}`)
+    logger.debug(`🛑 Circuit breaker shutdown: ${this.name}`)
   }
 }
 
@@ -551,7 +553,7 @@ export class CircuitBreakerRegistry extends EventEmitter {
     })
 
     this.breakers.set(name, breaker as CircuitBreaker<any>)
-    console.log(`🔌 Circuit breaker registered: ${name}`)
+    logger.debug(`🔌 Circuit breaker registered: ${name}`)
     
     return breaker
   }
@@ -578,7 +580,7 @@ export class CircuitBreakerRegistry extends EventEmitter {
     if (breaker) {
       breaker.shutdown()
       this.breakers.delete(name)
-      console.log(`🗑️ Circuit breaker removed: ${name}`)
+      logger.debug(`🗑️ Circuit breaker removed: ${name}`)
       return true
     }
     return false
@@ -619,7 +621,7 @@ export class CircuitBreakerRegistry extends EventEmitter {
     for (const breaker of this.breakers.values()) {
       breaker.reset()
     }
-    console.log(`🔄 All circuit breakers reset (${this.breakers.size} total)`)
+    logger.debug(`🔄 All circuit breakers reset (${this.breakers.size} total)`)
   }
 
   /**
@@ -669,7 +671,7 @@ export class CircuitBreakerRegistry extends EventEmitter {
     
     this.breakers.clear()
     this.removeAllListeners()
-    console.log('🛑 Circuit breaker registry shutdown')
+    logger.debug('🛑 Circuit breaker registry shutdown')
   }
 }
 

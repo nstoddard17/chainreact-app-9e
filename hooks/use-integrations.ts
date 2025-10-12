@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "./use-auth"
 import { toast } from "./use-toast"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface Integration {
   id: string
   name: string
@@ -74,7 +76,7 @@ export function useIntegrations(): UseIntegrationsReturn {
 
       setIntegrations(mergedIntegrations)
     } catch (err) {
-      console.error("Error fetching integrations:", err)
+      logger.error("Error fetching integrations:", err)
       setError(err instanceof Error ? err.message : "Failed to fetch integrations")
       toast({
         title: "Error",
@@ -123,7 +125,7 @@ export function useIntegrations(): UseIntegrationsReturn {
       // Redirect directly to OAuth provider
       window.location.href = authUrl
     } catch (err) {
-      console.error("Error connecting integration:", err)
+      logger.error("Error connecting integration:", err)
       setError(err instanceof Error ? err.message : "Failed to connect integration")
 
       // Clean up localStorage on error
@@ -179,7 +181,7 @@ export function useIntegrations(): UseIntegrationsReturn {
         description: `Successfully disconnected ${providerId} integration.`,
       })
     } catch (err) {
-      console.error("Error disconnecting integration:", err)
+      logger.error("Error disconnecting integration:", err)
       setError(err instanceof Error ? err.message : "Failed to disconnect integration")
       toast({
         title: "Disconnection Failed",

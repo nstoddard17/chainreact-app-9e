@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 
+import { logger } from '@/lib/utils/logger'
+
 interface ReAuthNotificationProps {
   className?: string
 }
@@ -54,7 +56,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
     const reAuthIntegrations = integrations.filter(integration => {
       // Check database status first
       if (integration.status === 'needs_reauthorization' || integration.status === 'expired') {
-        console.log(`🔴 Integration ${integration.provider} needs re-auth (status: ${integration.status})`)
+        logger.debug(`🔴 Integration ${integration.provider} needs re-auth (status: ${integration.status})`)
         return true
       }
       
@@ -67,7 +69,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
         
         // If expired (past the expiry time)
         if (expiryTimestamp <= nowTimestamp) {
-          console.log(`🔴 Integration ${integration.provider} needs re-auth (expired at ${expiresAt.toISOString()}, now: ${now.toISOString()})`)
+          logger.debug(`🔴 Integration ${integration.provider} needs re-auth (expired at ${expiresAt.toISOString()}, now: ${now.toISOString()})`)
           return true
         }
       }
@@ -76,7 +78,7 @@ export function ReAuthNotification({ className }: ReAuthNotificationProps) {
     })
 
     const reAuthCount = reAuthIntegrations.length
-    console.log(`📊 Re-auth notification: ${reAuthCount} integrations need re-authorization`)
+    logger.debug(`📊 Re-auth notification: ${reAuthCount} integrations need re-authorization`)
 
     // Format integration names for display
     const formatProviderName = (provider: string) => {

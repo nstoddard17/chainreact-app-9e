@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -148,7 +150,7 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
           // Upload file to Notion and get URL
           // For now, we'll need to implement file upload to Notion
           // This would require uploading to a file service first
-          console.warn("File upload for Notion icons not yet implemented")
+          logger.warn("File upload for Notion icons not yet implemented")
         }
       }
     }
@@ -172,7 +174,7 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
           // Upload file to Notion and get URL
           // For now, we'll need to implement file upload to Notion
           // This would require uploading to a file service first
-          console.warn("File upload for Notion covers not yet implemented")
+          logger.warn("File upload for Notion covers not yet implemented")
         }
       }
     }
@@ -322,7 +324,7 @@ export async function createNotionPage(params: ActionParams): Promise<ActionResu
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("Notion create page failed:", error)
+    logger.error("Notion create page failed:", error)
     return {
       success: false,
       error: error.message || "Failed to create Notion page"

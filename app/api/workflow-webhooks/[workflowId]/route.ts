@@ -3,6 +3,8 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 import { createClient } from '@supabase/supabase-js';
 import { webhookManager } from '@/lib/webhooks/webhookManager';
 
+import { logger } from '@/lib/utils/logger'
+
 interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -114,7 +116,7 @@ export async function POST(
     // Validate payload against the trigger node's payload schema
     const validationResult = validateWebhookPayload(payload, triggerNode.data.payloadSchema);
     if (!validationResult.isValid) {
-      console.error(`Webhook payload validation failed for workflow ${workflowId}:`, validationResult.errors);
+      logger.error(`Webhook payload validation failed for workflow ${workflowId}:`, validationResult.errors);
       return NextResponse.json({ 
         error: 'Invalid payload', 
         details: validationResult.errors 
@@ -154,7 +156,7 @@ export async function POST(
         });
       }
     } catch (logError) {
-      console.error('Failed to log webhook execution:', logError);
+      logger.error('Failed to log webhook execution:', logError);
       // Don't fail the webhook if logging fails
     }
 
@@ -171,7 +173,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, sessionId: executionSession.id });
   } catch (error: any) {
-    console.error(`Webhook error for workflow ${workflowId}:`, error);
+    logger.error(`Webhook error for workflow ${workflowId}:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -221,7 +223,7 @@ export async function GET(
       documentation: "Send a POST request with your payload to trigger this workflow"
     });
   } catch (error: any) {
-    console.error(`Error fetching webhook info for workflow ${workflowId}:`, error);
+    logger.error(`Error fetching webhook info for workflow ${workflowId}:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

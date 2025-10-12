@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseTimeoutLoadingOptions {
   /**
    * Function to load data
@@ -60,13 +62,13 @@ export function useTimeoutLoading({
   const loadData = useCallback(async (forceRefresh = forceRefreshOnMount) => {
     // Prevent duplicate concurrent loads
     if (loadingRef.current) {
-      console.log('⏳ Load already in progress, skipping...')
+      logger.debug('⏳ Load already in progress, skipping...')
       return
     }
 
     // Prevent infinite reload loops - max 2 attempts
     if (hasTimedOutRef.current && attemptCountRef.current >= 2) {
-      console.warn('⛔ Maximum reload attempts reached, stopping to prevent infinite loop')
+      logger.warn('⛔ Maximum reload attempts reached, stopping to prevent infinite loop')
       loadingRef.current = false
       return
     }
@@ -82,15 +84,15 @@ export function useTimeoutLoading({
       // Set a timeout to handle stuck loading states
       timeoutIdRef.current = setTimeout(() => {
         if ((isLoading || loadingRef.current) && isMountedRef.current) {
-          console.warn(`⚠️ Loading timeout after ${effectiveTimeout}ms`)
+          logger.warn(`⚠️ Loading timeout after ${effectiveTimeout}ms`)
           hasTimedOutRef.current = true
           loadingRef.current = false
 
           // Only force reload once to prevent loops
           if (attemptCountRef.current === 1) {
-            console.log('🔄 Attempting force reload...')
+            logger.debug('🔄 Attempting force reload...')
             loadFunction(true).catch(error => {
-              console.error('Force reload failed:', error)
+              logger.error('Force reload failed:', error)
               if (onError && isMountedRef.current) {
                 onError(error)
               }
@@ -98,7 +100,7 @@ export function useTimeoutLoading({
               loadingRef.current = false
             })
           } else {
-            console.log('⏹️ Stopping reload attempts to prevent loop')
+            logger.debug('⏹️ Stopping reload attempts to prevent loop')
             // Just clear loading state and continue
             if (onError && isMountedRef.current) {
               onError(new Error('Loading timeout - data may be incomplete'))
@@ -119,7 +121,7 @@ export function useTimeoutLoading({
 
       return result
     } catch (error) {
-      console.error('Failed to load data:', error)
+      logger.error('Failed to load data:', error)
 
       if (onError && isMountedRef.current) {
         onError(error)

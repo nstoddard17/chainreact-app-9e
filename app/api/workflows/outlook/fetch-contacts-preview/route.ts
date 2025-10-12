@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -61,8 +63,8 @@ export async function POST(request: NextRequest) {
     
     const apiUrl = `https://graph.microsoft.com/v1.0/me/contacts?$top=${maxResults}&$select=id,displayName,givenName,surname,emailAddresses,businessPhones,jobTitle,companyName`
 
-    console.log('Fetching contacts from:', apiUrl)
-    console.log('Access token length:', accessToken?.length || 0)
+    logger.debug('Fetching contacts from:', apiUrl)
+    logger.debug('Access token length:', accessToken?.length || 0)
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -73,11 +75,11 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Microsoft Graph API error:', response.status, errorText)
+      logger.error('Microsoft Graph API error:', response.status, errorText)
       
       // If it's a 401/403 error, try to refresh the token
       if (response.status === 401 || response.status === 403) {
-        console.log('Attempting token refresh due to 401/403 error...')
+        logger.debug('Attempting token refresh due to 401/403 error...')
         
         try {
           const { LegacyTokenRefreshService: TokenRefreshService } = await import("@/src/infrastructure/workflows/legacy-compatibility")
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
             )
             
             if (refreshResult.success && refreshResult.accessToken) {
-              console.log('Token refresh successful, retrying API call...')
+              logger.debug('Token refresh successful, retrying API call...')
               
               // Retry the API call with the new token
               const retryResponse = await fetch(apiUrl, {
@@ -134,14 +136,14 @@ export async function POST(request: NextRequest) {
                 })
               } 
                 const retryErrorText = await retryResponse.text()
-                console.error('Retry failed:', retryResponse.status, retryErrorText)
+                logger.error('Retry failed:', retryResponse.status, retryErrorText)
               
             } else {
-              console.error('Token refresh failed:', refreshResult.error)
+              logger.error('Token refresh failed:', refreshResult.error)
             }
           }
         } catch (refreshError) {
-          console.error('Error during token refresh:', refreshError)
+          logger.error('Error during token refresh:', refreshError)
         }
       }
       
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching contacts preview:', error)
+    logger.error('Error fetching contacts preview:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { getDiscordChannels } from '../data/handlers/channels'
 import { DiscordIntegration } from '../data/types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Discord Channels] Integration not found:', { userId, error: integrationError })
+      logger.error('❌ [Discord Channels] Integration not found:', { userId, error: integrationError })
       return NextResponse.json({
         error: 'Discord integration not found'
       }, { status: 404 })
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [Discord Channels] Integration not connected:', {
+      logger.error('❌ [Discord Channels] Integration not connected:', {
         userId,
         status: integration.status
       })
@@ -59,7 +61,7 @@ export async function GET(req: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Discord Channels] Processing request:`, {
+    logger.debug(`🔍 [Discord Channels] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
     // Get channels using the handler
     const channels = await getDiscordChannels(integration as DiscordIntegration, options)
 
-    console.log(`✅ [Discord Channels] Successfully fetched channels:`, {
+    logger.debug(`✅ [Discord Channels] Successfully fetched channels:`, {
       userId,
       guildId,
       channelCount: channels?.length || 0
@@ -94,7 +96,7 @@ export async function GET(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Discord Channels] Unexpected error:', {
+    logger.error('❌ [Discord Channels] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

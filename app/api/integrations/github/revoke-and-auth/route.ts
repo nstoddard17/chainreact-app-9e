@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "../../../../../utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -52,7 +54,7 @@ export async function GET(request: NextRequest) {
           await supabase.from("integrations").delete().eq("user_id", user.id).eq("provider", "github")
         }
       } catch (error) {
-        console.error("Failed to revoke existing GitHub token:", error)
+        logger.error("Failed to revoke existing GitHub token:", error)
         // Continue anyway - the OAuth flow will still work
       }
     }
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
     // Now redirect to the OAuth URL which should show the permissions screen
     return NextResponse.redirect(oauthUrl)
   } catch (error) {
-    console.error("GitHub revoke-and-auth error:", error)
+    logger.error("GitHub revoke-and-auth error:", error)
     return NextResponse.redirect(new URL("/integrations?error=revoke_failed", request.url))
   }
 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ executionId: string }> }
@@ -40,7 +42,7 @@ export async function GET(
       steps
     })
   } catch (error) {
-    console.error('Error fetching execution steps:', error)
+    logger.error('Error fetching execution steps:', error)
     return NextResponse.json(
       { error: 'Failed to fetch execution steps' },
       { status: 500 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { healthMonitor } from "../../../src/infrastructure/health/provider-health-monitor"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   
@@ -88,7 +90,7 @@ export async function GET(request: NextRequest) {
         
       } catch (providerError) {
         // If provider health check fails, still return basic health
-        console.error('Provider health check failed:', providerError)
+        logger.error('Provider health check failed:', providerError)
         
         return NextResponse.json({
           ...baseResponse,
@@ -175,7 +177,7 @@ export async function POST(request: NextRequest) {
     }
     
   } catch (error: any) {
-    console.error('Health check API POST error:', error)
+    logger.error('Health check API POST error:', error)
     
     return NextResponse.json(
       { 

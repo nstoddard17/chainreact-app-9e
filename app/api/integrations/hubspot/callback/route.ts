@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`HubSpot OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`HubSpot OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/hubspot/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('HubSpot OAuth credentials not configured')
+      logger.error('HubSpot OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -85,13 +87,13 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('HubSpot token exchange failed:', tokenResponse.status, errorText)
+      logger.error('HubSpot token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
     const tokenData = await tokenResponse.json()
     
-    console.log('📡 [HubSpot Callback] Token exchange response:', {
+    logger.debug('📡 [HubSpot Callback] Token exchange response:', {
       hasAccessToken: !!tokenData.access_token,
       accessTokenPreview: tokenData.access_token ? `${tokenData.access_token.substring(0, 30) }...` : 'none',
       hasRefreshToken: !!tokenData.refresh_token,
@@ -123,10 +125,10 @@ export async function GET(request: NextRequest) {
         if (accountResponse.ok) {
           accountInfo = await accountResponse.json()
         } else {
-          console.warn('Could not fetch HubSpot account information:', await accountResponse.text())
+          logger.warn('Could not fetch HubSpot account information:', await accountResponse.text())
         }
       } catch (accountError) {
-        console.warn('Error fetching HubSpot account information:', accountError)
+        logger.warn('Error fetching HubSpot account information:', accountError)
       }
     }
 
@@ -160,13 +162,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save HubSpot integration:', upsertError)
+      logger.error('Failed to save HubSpot integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'HubSpot connected successfully!', baseUrl)
   } catch (error) {
-    console.error('HubSpot callback error:', error)
+    logger.error('HubSpot callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

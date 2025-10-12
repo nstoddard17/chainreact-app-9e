@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { videoId, integrationId } = await request.json();
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(videoDetails);
   } catch (error: any) {
-    console.error("Error fetching YouTube video details:", error);
+    logger.error("Error fetching YouTube video details:", error);
     return NextResponse.json(
       { error: "Failed to fetch video details" },
       { status: 500 }

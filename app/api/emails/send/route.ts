@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { sendCustomEmail, validateEmail } from '@/lib/services/resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (logError) {
-      console.error('Error logging email activity:', logError)
+      logger.error('Error logging email activity:', logError)
       // Don't fail the request, just log the error
     }
 
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in email send API:', error)
+    logger.error('Error in email send API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

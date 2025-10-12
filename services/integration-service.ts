@@ -2,6 +2,8 @@ import { SessionManager } from "@/lib/auth/session"
 import { providerRegistry } from "@/src/domains/integrations/use-cases/provider-registry"
 import { IntegrationError, ErrorType } from "@/src/domains/integrations/entities/integration-error"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface Integration {
   id: string
   user_id: string
@@ -78,7 +80,7 @@ export class IntegrationService {
       const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
 
       try {
-        console.log('🌐 [IntegrationService] Making API call', {
+        logger.debug('🌐 [IntegrationService] Making API call', {
           attempt: attempt + 1,
           force,
           timestamp: new Date().toISOString()
@@ -108,7 +110,7 @@ export class IntegrationService {
         
         // If it's a timeout and we have retries left, try again
         if (error.name === 'AbortError' && attempt < maxRetries) {
-          console.log(`Integration fetch timeout, retrying... (attempt ${attempt + 1}/${maxRetries})`)
+          logger.debug(`Integration fetch timeout, retrying... (attempt ${attempt + 1}/${maxRetries})`)
           // Wait a bit before retrying
           await new Promise(resolve => setTimeout(resolve, 1000))
           continue
@@ -262,7 +264,7 @@ export class IntegrationService {
       forceRefresh,
     }
 
-    console.log(`🔍 [Integration Service] Loading data:`, {
+    logger.debug(`🔍 [Integration Service] Loading data:`, {
       dataType,
       integrationId,
       params,
@@ -286,7 +288,7 @@ export class IntegrationService {
       const status = response.status
       const statusText = response.statusText
 
-      console.error(`❌ [Integration Service] HTTP error: ${status} ${statusText}`, {
+      logger.error(`❌ [Integration Service] HTTP error: ${status} ${statusText}`, {
         status,
         statusText,
         dataType,
@@ -330,7 +332,7 @@ export class IntegrationService {
       } else {
         try {
           const errorText = await response.text()
-          console.error(`❌ [Integration Service] Error response:`, errorText)
+          logger.error(`❌ [Integration Service] Error response:`, errorText)
 
           if (errorText) {
             try {
@@ -341,7 +343,7 @@ export class IntegrationService {
             }
           }
         } catch (readError) {
-          console.error(`❌ [Integration Service] Could not read error response:`, readError)
+          logger.error(`❌ [Integration Service] Could not read error response:`, readError)
         }
       }
 
@@ -364,7 +366,7 @@ export class IntegrationService {
         body: JSON.stringify({ integrationId, reason }),
       })
     } catch (error) {
-      console.warn('[Integration Service] Failed to flag integration reconnect', { integrationId, error })
+      logger.warn('[Integration Service] Failed to flag integration reconnect', { integrationId, error })
     }
   }
 
@@ -380,7 +382,7 @@ export class IntegrationService {
         body: JSON.stringify({ integrationId }),
       })
     } catch (error) {
-      console.warn('[Integration Service] Failed to clear integration reconnect flags', { integrationId, error })
+      logger.warn('[Integration Service] Failed to clear integration reconnect flags', { integrationId, error })
     }
   }
 
@@ -468,7 +470,7 @@ export class IntegrationService {
   ): Promise<any> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    console.log('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
+    logger.debug('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
 
     // The API routes expect a POST request with the data in the body
     const body = {
@@ -525,7 +527,7 @@ export class IntegrationService {
       provider = dataType.split(/[-_]/)[0]
     }
 
-    console.log('🌐 [IntegrationService] Fetching from:', `/api/integrations/${provider}/data`, { body })
+    logger.debug('🌐 [IntegrationService] Fetching from:', `/api/integrations/${provider}/data`, { body })
 
     const response = await fetch(`/api/integrations/${provider}/data`, {
       method: 'POST',
@@ -542,7 +544,7 @@ export class IntegrationService {
     }
 
     const data = await response.json()
-    console.log('✅ [IntegrationService] Response for', dataType, ':', {
+    logger.debug('✅ [IntegrationService] Response for', dataType, ':', {
       dataType,
       hasData: !!data.data,
       dataLength: data.data?.length || data?.length || 0,

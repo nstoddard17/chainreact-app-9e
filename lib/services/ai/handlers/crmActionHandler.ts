@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class CRMActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -40,7 +42,7 @@ export class CRMActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`CRM query "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ CRM query error:", error)
+      logger.error("❌ CRM query error:", error)
       return this.getErrorResponse("Failed to fetch CRM data.")
     }
   }
@@ -77,7 +79,7 @@ export class CRMActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`CRM action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ CRM action error:", error)
+      logger.error("❌ CRM action error:", error)
       return this.getErrorResponse("Failed to complete the CRM action.")
     }
   }

@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Bot, AlertCircle, CheckCircle, ExternalLink } from 'lucide-react'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordBotStatusProps {
   guildId?: string
   className?: string
@@ -39,7 +41,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
         const config = await response.json()
         setDiscordConfig(config)
       } catch (error) {
-        console.error('Error loading Discord config:', error)
+        logger.error('Error loading Discord config:', error)
         setDiscordConfig({ configured: false, error: 'Failed to load Discord configuration' })
       }
     }
@@ -68,7 +70,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
           setStatus({ isInGuild: false, hasPermissions: false, error: data.error || 'Failed to check bot status' })
         }
       } catch (error) {
-        console.error('Error checking Discord bot status:', error)
+        logger.error('Error checking Discord bot status:', error)
         setStatus({ isInGuild: false, hasPermissions: false, error: 'Failed to check bot status' })
       } finally {
         setIsLoading(false)
@@ -80,7 +82,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
 
   const handleAddBot = () => {
     if (!discordConfig?.configured || !discordConfig?.clientId || !guildId) {
-      console.error('Discord not configured or missing guild ID')
+      logger.error('Discord not configured or missing guild ID')
       return
     }
 
@@ -100,7 +102,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
     )
 
     if (!popup) {
-      console.error('Failed to open popup')
+      logger.error('Failed to open popup')
       setIsBotConnectionInProgress(false)
       return
     }
@@ -119,7 +121,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
               const botStatus = await response.json()
               setStatus(botStatus)
             } catch (error) {
-              console.error('Error checking bot status after popup:', error)
+              logger.error('Error checking bot status after popup:', error)
             }
           }, 2000)
           
@@ -129,7 +131,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
         // Try to detect successful authorization by checking URL
         try {
           if (popup.location && popup.location.href.includes('discord.com/oauth2/authorized')) {
-            console.log('🎉 Bot authorization detected!')
+            logger.debug('🎉 Bot authorization detected!')
             popup.close()
             clearInterval(checkClosed)
             setIsBotConnectionInProgress(false)
@@ -141,7 +143,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
                 const botStatus = await response.json()
                 setStatus(botStatus)
               } catch (error) {
-                console.error('Error checking bot status after auth:', error)
+                logger.error('Error checking bot status after auth:', error)
               }
             }, 2000)
           }
@@ -149,7 +151,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
           // Cross-origin error is expected, continue monitoring
         }
       } catch (error) {
-        console.error('Error monitoring popup:', error)
+        logger.error('Error monitoring popup:', error)
       }
     }, 1000)
 

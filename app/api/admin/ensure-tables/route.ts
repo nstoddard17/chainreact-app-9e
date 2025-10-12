@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     const supabase = await createSupabaseServiceClient()
@@ -36,7 +38,7 @@ export async function GET() {
         ALTER TABLE execution_progress ENABLE ROW LEVEL SECURITY;
       `
     }).catch(err => {
-      console.log('Table creation error (may already exist):', err)
+      logger.debug('Table creation error (may already exist):', err)
       return { error: err }
     })
 
@@ -47,7 +49,7 @@ export async function GET() {
       .limit(1)
 
     if (checkError) {
-      console.error('Table check error:', checkError)
+      logger.error('Table check error:', checkError)
       return NextResponse.json({
         error: 'Table might not exist or permission issue',
         details: checkError.message
@@ -60,7 +62,7 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error('Error ensuring tables:', error)
+    logger.error('Error ensuring tables:', error)
     return NextResponse.json({
       error: error.message || 'Failed to ensure tables'
     }, { status: 500 })

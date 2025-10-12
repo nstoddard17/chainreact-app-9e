@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from "../utils/getBaseUrl"
 import { sendCustomEmail } from './resend'
 
+import { logger } from '@/lib/utils/logger'
+
 interface EmailOptions {
   to: string
   subject: string
@@ -100,14 +102,14 @@ export class EmailService {
       })
 
       if (!result.success) {
-        console.error('Failed to send email via Resend:', result.error)
+        logger.error('Failed to send email via Resend:', result.error)
         return false
       }
 
-      console.log('Email sent successfully via Resend:', result.id)
+      logger.debug('Email sent successfully via Resend:', result.id)
       return true
     } catch (error) {
-      console.error('Failed to send email:', error)
+      logger.error('Failed to send email:', error)
       return false
     }
   }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Start a live test session for a workflow
  * Ensures webhook is registered and ready to receive events
@@ -76,7 +78,7 @@ export async function POST(
     // This happens regardless of workflow status for live test mode
     const { triggerLifecycleManager } = await import('@/lib/triggers')
 
-    console.log('🔄 Registering trigger for live test mode...')
+    logger.debug('🔄 Registering trigger for live test mode...')
     const result = await triggerLifecycleManager.activateWorkflowTriggers(
       workflowId,
       user.id,
@@ -84,7 +86,7 @@ export async function POST(
     )
 
     if (!result.success && result.errors.length > 0) {
-      console.error('❌ Trigger activation failed:', result.errors)
+      logger.error('❌ Trigger activation failed:', result.errors)
       return NextResponse.json(
         {
           error: 'Failed to register webhook with external service',
@@ -94,7 +96,7 @@ export async function POST(
       )
     }
 
-    console.log('✅ Trigger registered successfully for live test mode')
+    logger.debug('✅ Trigger registered successfully for live test mode')
 
     // Create test session record
     const sessionId = `test-${workflowId}-${Date.now()}`
@@ -111,7 +113,7 @@ export async function POST(
       })
 
     if (sessionError) {
-      console.error('Failed to create test session:', sessionError)
+      logger.error('Failed to create test session:', sessionError)
       // Continue anyway - this is not critical
     }
 
@@ -124,7 +126,7 @@ export async function POST(
       expiresIn: 30 * 60 * 1000, // 30 minutes in ms
     })
   } catch (error: any) {
-    console.error('Error starting test session:', error)
+    logger.error('Error starting test session:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to start test session' },
       { status: 500 }
@@ -165,9 +167,9 @@ export async function DELETE(
     if (workflow?.nodes) {
       const { triggerLifecycleManager } = await import('@/lib/triggers')
 
-      console.log('🔄 Deactivating trigger for live test mode...')
+      logger.debug('🔄 Deactivating trigger for live test mode...')
       await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, user.id)
-      console.log('✅ Trigger deactivated successfully')
+      logger.debug('✅ Trigger deactivated successfully')
     }
 
     // Update test session to stopped
@@ -186,7 +188,7 @@ export async function DELETE(
       message: 'Test session stopped and webhook unregistered',
     })
   } catch (error: any) {
-    console.error('Error stopping test session:', error)
+    logger.error('Error stopping test session:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to stop test session' },
       { status: 500 }
@@ -227,7 +229,7 @@ export async function GET(
       .maybeSingle()
 
     if (sessionError) {
-      console.error('Error fetching test session:', sessionError)
+      logger.error('Error fetching test session:', sessionError)
     }
 
     if (!session) {
@@ -271,7 +273,7 @@ export async function GET(
       execution: executionDetails,
     })
   } catch (error: any) {
-    console.error('Error getting test session:', error)
+    logger.error('Error getting test session:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to get test session' },
       { status: 500 }

@@ -5,6 +5,8 @@ import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt, encrypt } from '@/lib/security/encryption'
 import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflowManager'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -21,14 +23,14 @@ let workerCallCount = 0
 export async function POST(_req: NextRequest) {
   workerCallCount++
   const startTime = Date.now()
-  console.log(`\n🏃 Worker called (call #${workerCallCount}) at ${new Date().toISOString()}`)
+  logger.debug(`\n🏃 Worker called (call #${workerCallCount}) at ${new Date().toISOString()}`)
 
   // Check total queue count first
   const { count: totalCount } = await supabase
     .from('microsoft_webhook_queue')
     .select('id', { count: 'exact', head: true })
 
-  console.log(`📊 Total items in queue: ${totalCount || 0}`)
+  logger.debug(`📊 Total items in queue: ${totalCount || 0}`)
 
   // Get status breakdown
   const { data: statusBreakdown } = await supabase
@@ -41,7 +43,7 @@ export async function POST(_req: NextRequest) {
     return acc
   }, {} as Record<string, number>)
 
-  console.log('📈 Queue status breakdown:', statusCounts)
+  logger.debug('📈 Queue status breakdown:', statusCounts)
 
   // Simple pull worker: process oldest pending items
   const { data: rows, error: queryError } = await supabase
@@ -52,10 +54,10 @@ export async function POST(_req: NextRequest) {
     .limit(25)
 
   if (queryError) {
-    console.error('❌ Error querying queue:', queryError)
+    logger.error('❌ Error querying queue:', queryError)
   }
 
-  console.log('🔍 Worker queue check:', {
+  logger.debug('🔍 Worker queue check:', {
     pendingItems: rows?.length || 0,
     totalInQueue: totalCount || 0,
     recentItems: rows?.slice(0, 3).map(r => ({
@@ -69,8 +71,8 @@ export async function POST(_req: NextRequest) {
   })
 
   if (!rows || rows.length === 0) {
-    console.log('⚠️ No pending events to process')
-    console.log(`⏱️ Worker completed in ${Date.now() - startTime}ms`)
+    logger.debug('⚠️ No pending events to process')
+    logger.debug(`⏱️ Worker completed in ${Date.now() - startTime}ms`)
     return NextResponse.json({
       processed: 0,
       total_in_queue: totalCount || 0,
@@ -96,7 +98,7 @@ export async function POST(_req: NextRequest) {
         .single()
 
       if (!resource?.user_id) {
-        console.error('❌ Could not determine user_id for subscription:', row.subscription_id)
+        logger.error('❌ Could not determine user_id for subscription:', row.subscription_id)
         continue
       }
 
@@ -105,8 +107,8 @@ export async function POST(_req: NextRequest) {
       // Process based on resource type
       const payload = row.payload
       const resourceType = getResourceType(payload.resource)
-      console.log('🔍 Processing webhook for resource type:', resourceType, 'from resource:', payload.resource)
-      console.log('📋 Webhook payload details:', {
+      logger.debug('🔍 Processing webhook for resource type:', resourceType, 'from resource:', payload.resource)
+      logger.debug('📋 Webhook payload details:', {
         resource: payload.resource,
         changeType: payload.changeType,
         subscriptionId: payload.subscriptionId,
@@ -121,7 +123,7 @@ export async function POST(_req: NextRequest) {
       const isIndividualEvent = isIndividualEventResource(payload.resource)
       const isIndividualResource = isIndividualMessage || isIndividualDrive || isIndividualEvent
 
-      console.log('🔍 Individual resource detection:', {
+      logger.debug('🔍 Individual resource detection:', {
         resource: payload.resource,
         isIndividualMessage,
         isIndividualDrive,
@@ -137,7 +139,7 @@ export async function POST(_req: NextRequest) {
         (payload.resource.includes('/messages/') || payload.resource.includes('/Messages/'))
       
       if (isIndividualResource || isMailWithMessageId) {
-        console.log('🎯 Individual resource detected, fetching directly', { 
+        logger.debug('🎯 Individual resource detected, fetching directly', { 
           isIndividualResource, 
           isMailWithMessageId,
           resourceType 
@@ -152,12 +154,12 @@ export async function POST(_req: NextRequest) {
         events = await fetchOutlookChanges(payload, actualUserId, resourceType)
       } else {
         // Fallback to generic handler for other resource types
-        console.log('🔄 Using generic handler for resource type:', resourceType)
+        logger.debug('🔄 Using generic handler for resource type:', resourceType)
         const { accessToken } = await resolveProviderTokens(actualUserId, resourceType)
         events = await fetchResourceChanges(resourceType, payload, accessToken)
       }
 
-      console.log('📊 Fetched events:', {
+      logger.debug('📊 Fetched events:', {
         count: events?.length || 0,
         eventTypes: events?.map(e => ({ type: e.type, action: e.action, name: e.name })),
         resourceType,
@@ -183,12 +185,12 @@ export async function POST(_req: NextRequest) {
 
           // Skip if recently processed
           if (recentlyProcessedEvents.has(eventKey)) {
-            console.log(`⏭️ Skipping duplicate event: ${event.id} (${event.type}/${event.action})`)
+            logger.debug(`⏭️ Skipping duplicate event: ${event.id} (${event.type}/${event.action})`)
             continue
           }
           recentlyProcessedEvents.set(eventKey, now)
 
-          console.log('🎯 Emitting workflow trigger for event:', {
+          logger.debug('🎯 Emitting workflow trigger for event:', {
             type: event.type,
             action: event.action,
             name: event.name,
@@ -197,7 +199,7 @@ export async function POST(_req: NextRequest) {
           await emitWorkflowTrigger(event, actualUserId)
         }
       } else {
-        console.log('⚠️ No events to process from webhook')
+        logger.debug('⚠️ No events to process from webhook')
       }
 
       // Mark as done
@@ -212,7 +214,7 @@ export async function POST(_req: NextRequest) {
 
       processed++
     } catch (e: any) {
-      console.error('Error processing webhook queue item:', e)
+      logger.error('Error processing webhook queue item:', e)
       try {
         const msg = typeof e?.message === 'string' ? e.message : ''
         if (msg.includes('InvalidAuthenticationToken') || msg.includes('No valid Microsoft Graph')) {
@@ -240,31 +242,31 @@ export async function POST(_req: NextRequest) {
 
 // Helper functions
 function getResourceType(resource: string): string {
-  console.log('🔍 Determining resource type for:', resource)
+  logger.debug('🔍 Determining resource type for:', resource)
 
   const resourceLower = resource.toLowerCase()
 
   if (resourceLower.includes('/drive/') || resourceLower.includes('/drives/')) {
-    console.log('📁 Detected OneDrive resource')
+    logger.debug('📁 Detected OneDrive resource')
     return 'onedrive'
   } else if (resourceLower.includes('/messages')) {
-    console.log('📧 Detected mail resource')
+    logger.debug('📧 Detected mail resource')
     return 'mail'
   } else if (resourceLower.includes('/events')) {
-    console.log('📅 Detected calendar resource')
+    logger.debug('📅 Detected calendar resource')
     return 'calendar'
   } else if (resourceLower.includes('/teams/') || resourceLower.includes('/channels/')) {
-    console.log('💬 Detected Teams resource')
+    logger.debug('💬 Detected Teams resource')
     return 'teams'
   } else if (resourceLower.includes('/chats/')) {
-    console.log('💬 Detected chat resource')
+    logger.debug('💬 Detected chat resource')
     return 'chat'
   } else if (resourceLower.includes('/onenote/')) {
-    console.log('📝 Detected OneNote resource')
+    logger.debug('📝 Detected OneNote resource')
     return 'onenote'
   }
 
-  console.log('❓ Unknown resource type')
+  logger.debug('❓ Unknown resource type')
   return 'unknown'
 }
 
@@ -277,7 +279,7 @@ function isIndividualMessageResource(resource: string): boolean {
   
   const isIndividual = !!(messageIdMatch || folderMessageMatch || userMessageMatch || userFolderMessageMatch)
   
-  console.log('📧 Message resource check:', {
+  logger.debug('📧 Message resource check:', {
     resource,
     messageIdMatch: !!messageIdMatch,
     folderMessageMatch: !!folderMessageMatch,
@@ -314,14 +316,14 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
     .replace(/\/MailFolders\//g, '/mailFolders/')
   const resourceLower = requestPath.toLowerCase()
   
-  console.log('🎯 Fetching individual resource:', resource, 'changeType:', changeType)
+  logger.debug('🎯 Fetching individual resource:', resource, 'changeType:', changeType)
   
   try {
     // For individual resources, fetch the specific item directly
     const item: any = await client.request(requestPath)
     
     if (!item) {
-      console.log('⚠️ No item found for resource:', resource)
+      logger.debug('⚠️ No item found for resource:', resource)
       return []
     }
     
@@ -376,7 +378,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
     }
     
     if (normalizedEvent) {
-      console.log('✅ Individual resource normalized:', {
+      logger.debug('✅ Individual resource normalized:', {
         type: normalizedEvent.type,
         action: normalizedEvent.action,
         id: normalizedEvent.id
@@ -386,7 +388,7 @@ async function fetchIndividualResource(payload: any, accessToken: string): Promi
     
     return []
   } catch (error) {
-    console.error('❌ Error fetching individual resource:', error)
+    logger.error('❌ Error fetching individual resource:', error)
     return []
   }
 }
@@ -456,7 +458,7 @@ async function fetchResourceChanges(
   let newDeltaToken: string | undefined
 
   try {
-    console.log('🔄 Processing resource type:', resourceType, 'with delta token:', deltaToken?.token ? 'present' : 'none')
+    logger.debug('🔄 Processing resource type:', resourceType, 'with delta token:', deltaToken?.token ? 'present' : 'none')
     
     switch (resourceType) {
       case 'onedrive': {
@@ -464,25 +466,25 @@ async function fetchResourceChanges(
         const driveIdMatch = payload.resource.match(/drives\/([^/]+)/)
         const driveId = driveIdMatch ? driveIdMatch[1] : undefined
         
-        console.log('📁 OneDrive delta query for drive:', driveId)
+        logger.debug('📁 OneDrive delta query for drive:', driveId)
         const response = await client.getOneDriveDelta(driveId, deltaToken?.token)
         events = response.value.filter(item => item._normalized).map(item => item._normalized!)
         newDeltaToken = response['@odata.deltaLink']?.split('token=')[1]
-        console.log('📁 OneDrive events found:', events.length)
+        logger.debug('📁 OneDrive events found:', events.length)
         break
       }
       
       case 'mail': {
 
-        console.log('dY" Mail delta query starting...')
+        logger.debug('dY" Mail delta query starting...')
 
         const mailBasePath = resolveMailMessagesBasePath(payload.resource)
 
-        console.log('dY" Mail delta path:', mailBasePath)
+        logger.debug('dY" Mail delta path:', mailBasePath)
 
         const response = await client.getMailDelta(deltaToken?.token, { basePath: mailBasePath })
 
-        console.log('dY" Mail delta response:', {
+        logger.debug('dY" Mail delta response:', {
 
           totalMessages: response.value.length,
 
@@ -502,7 +504,7 @@ async function fetchResourceChanges(
 
         if (events.length === 0 && !deltaToken?.token) {
 
-          console.log('dY" No events from delta query, trying recent messages fallback...')
+          logger.debug('dY" No events from delta query, trying recent messages fallback...')
 
           try {
 
@@ -510,7 +512,7 @@ async function fetchResourceChanges(
 
             if (recentResponse.value && recentResponse.value.length > 0) {
 
-              console.log('dY" Found recent messages:', recentResponse.value.length)
+              logger.debug('dY" Found recent messages:', recentResponse.value.length)
 
               // Normalize recent messages
 
@@ -550,7 +552,7 @@ async function fetchResourceChanges(
 
           } catch (fallbackError) {
 
-            console.log('dY" Recent messages fallback failed:', fallbackError)
+            logger.debug('dY" Recent messages fallback failed:', fallbackError)
 
           }
 
@@ -570,13 +572,13 @@ async function fetchResourceChanges(
 
         }
 
-        console.log('dY" Mail events found:', events.length)
+        logger.debug('dY" Mail events found:', events.length)
 
-        console.log('dY" New delta token:', newDeltaToken ? 'present' : 'none')
+        logger.debug('dY" New delta token:', newDeltaToken ? 'present' : 'none')
 
         if (events.length > 0) {
 
-          console.log('dY" Sample mail event:', {
+          logger.debug('dY" Sample mail event:', {
 
             type: events[0].type,
 
@@ -686,7 +688,7 @@ async function fetchResourceChanges(
 
     return events
   } catch (error) {
-    console.error(`Error fetching ${resourceType} changes:`, error)
+    logger.error(`Error fetching ${resourceType} changes:`, error)
     throw error
   }
 }
@@ -716,7 +718,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   const triggerKey = `${userId}-${event.id}-${event.type}-${event.action}`
   const now = Date.now()
 
-  console.log('🔑 Workflow trigger key:', {
+  logger.debug('🔑 Workflow trigger key:', {
     key: triggerKey,
     eventId: event.id,
     type: event.type,
@@ -729,14 +731,14 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   if (recentWorkflowExecutions.has(triggerKey)) {
     const lastRun = recentWorkflowExecutions.get(triggerKey)!
     const timeSince = now - lastRun
-    console.log(`⚠️ Duplicate trigger detected:`, {
+    logger.debug(`⚠️ Duplicate trigger detected:`, {
       triggerKey,
       lastRun,
       timeSince,
       willSkip: timeSince < 30000
     })
     if (timeSince < 30000) { // 30 second window
-      console.log(`⏭️ SKIPPING duplicate workflow trigger (${timeSince}ms since last run)`)
+      logger.debug(`⏭️ SKIPPING duplicate workflow trigger (${timeSince}ms since last run)`)
       return
     }
   }
@@ -749,7 +751,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     }
   }
 
-  console.log('✅ Proceeding with workflow trigger (not a duplicate)')
+  logger.debug('✅ Proceeding with workflow trigger (not a duplicate)')
 
   // First, check if user has any workflows at all
   const { data: allWorkflows, error: allError } = await supabase
@@ -758,7 +760,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     .eq('user_id', userId)
 
   if (allError) {
-    console.error('❌ Error querying workflows:', allError)
+    logger.error('❌ Error querying workflows:', allError)
   }
 
   // Also check without the OR condition to see if it's a query issue
@@ -788,7 +790,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     }
   }) || []
 
-  console.log('📊 User workflows overview:', {
+  logger.debug('📊 User workflows overview:', {
     userId,
     totalWorkflows: allWorkflows?.length || 0,
     directWorkflows: directWorkflows?.length || 0,
@@ -811,7 +813,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     .eq('user_id', userId)
 
   if (workflowError) {
-    console.error('❌ Error fetching workflows:', workflowError)
+    logger.error('❌ Error fetching workflows:', workflowError)
   }
 
   // Also try a direct query without the team condition
@@ -821,7 +823,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     .eq('status', 'active')
     .eq('user_id', userId)
 
-  console.log('🔎 Checking workflows for trigger match:', {
+  logger.debug('🔎 Checking workflows for trigger match:', {
     workflowCount: workflows?.length || 0,
     directWorkflowCount: directUserWorkflows?.length || 0,
     eventType: event.type,
@@ -833,7 +835,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   })
 
   if (!workflows || workflows.length === 0) {
-    console.log('❌ No active workflows found for user. Please ensure your workflows are activated (status = "active")')
+    logger.debug('❌ No active workflows found for user. Please ensure your workflows are activated (status = "active")')
 
     // Additional debug: Check what workflows exist in DB for this user
     const { data: allUserWorkflows } = await supabase
@@ -841,7 +843,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
       .select('id, name, status, user_id')
       .eq('user_id', userId)
 
-    console.log('📊 All workflows for this user (regardless of status):', {
+    logger.debug('📊 All workflows for this user (regardless of status):', {
       userId,
       totalCount: allUserWorkflows?.length || 0,
       workflows: allUserWorkflows?.map(w => ({
@@ -867,7 +869,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
       // Debug node structure
       if (nodes.length > 0) {
-        console.log('🔍 First node structure sample:', {
+        logger.debug('🔍 First node structure sample:', {
           type: nodes[0]?.type,
           dataType: nodes[0]?.data?.type,
           isTrigger: nodes[0]?.data?.isTrigger,
@@ -876,7 +878,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         })
       }
 
-      console.log(`📋 Checking workflow ${workflow.id}:`, {
+      logger.debug(`📋 Checking workflow ${workflow.id}:`, {
         nodeCount: nodes.length,
         triggerNodes: nodes.filter((n: any) => {
           // Check both possible locations for trigger type
@@ -898,7 +900,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         // Log each node being checked
         if (nodeType?.includes('onedrive') || nodeType?.includes('trigger')) {
-          console.log('🔎 Checking node:', {
+          logger.debug('🔎 Checking node:', {
             nodeType,
             eventType: event.type,
             dataType: node?.data?.type,
@@ -927,13 +929,13 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         // ChainReact OneDrive trigger support - check both locations
         if (nodeType === 'onedrive_trigger_new_file' ||
             nodeType === 'onedrive_trigger_file_modified') {
-          console.log('✅ Found matching OneDrive trigger node:', nodeType)
+          logger.debug('✅ Found matching OneDrive trigger node:', nodeType)
           // Only trigger for actual file changes, not folder updates
           const isFileEvent = event.action === 'file_created' ||
                              event.action === 'file_updated' ||
                              event.action === 'deleted'
           if (event.type === 'onedrive_item' && !isFileEvent) {
-            console.log('⏭️ Skipping folder update event for file trigger')
+            logger.debug('⏭️ Skipping folder update event for file trigger')
             return false
           }
           return event.type === 'onedrive_item'
@@ -941,19 +943,19 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         // ChainReact Outlook email trigger support
         if (nodeType === 'microsoft-outlook_trigger_new_email') {
-          console.log('✅ Found matching Outlook email trigger node:', nodeType)
+          logger.debug('✅ Found matching Outlook email trigger node:', nodeType)
           return event.type === 'outlook_mail' && (event.action === 'created' || event.action === 'draft')
         }
 
         if (nodeType === 'microsoft-outlook_trigger_email_sent') {
-          console.log('✅ Found matching Outlook email sent trigger node:', nodeType)
+          logger.debug('✅ Found matching Outlook email sent trigger node:', nodeType)
           return event.type === 'outlook_mail' && (event.action === 'sent' || event.action === 'created')
         }
 
         return false
       })
       
-      console.log(`✅ Found ${triggerNodes.length} matching trigger nodes`)
+      logger.debug(`✅ Found ${triggerNodes.length} matching trigger nodes`)
 
       // If we found matching triggers, execute the workflow
       if (triggerNodes.length > 0) {
@@ -992,7 +994,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
 
 
-        console.log('dY"? Trigger type distribution:', {
+        logger.debug('dY"? Trigger type distribution:', {
 
           onedriveNodeCount: onedriveNodes.length,
 
@@ -1026,7 +1028,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
 
 
-          console.log('dY"? Checking OneDrive item:', {
+          logger.debug('dY"? Checking OneDrive item:', {
 
             itemPath,
 
@@ -1174,7 +1176,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         const matchesOutlookConfig = shouldTriggerFromOutlook(outlookNodes, event)
 
-        console.log('dY"? Outlook trigger evaluation:', {
+        logger.debug('dY"? Outlook trigger evaluation:', {
 
           matchesOutlookConfig,
 
@@ -1188,7 +1190,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
 
         if (!shouldTrigger) {
 
-          console.log('?s??,? Skipping workflow execution after applying provider-specific filters')
+          logger.debug('?s??,? Skipping workflow execution after applying provider-specific filters')
 
           continue
 
@@ -1215,13 +1217,13 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         })
 
         if (isDuplicate) {
-          console.log(`⏭️ Skipping duplicate workflow execution for event ${event.id} on workflow ${workflow.id}`)
+          logger.debug(`⏭️ Skipping duplicate workflow execution for event ${event.id} on workflow ${workflow.id}`)
           continue
         }
 
         const executionEngine = new (await import('@/lib/execution/advancedExecutionEngine')).AdvancedExecutionEngine()
 
-        console.log('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
+        logger.debug('🚀 Creating execution session for workflow:', workflow.id, 'userId:', userId)
 
         // Create execution session properly
         const executionSession = await executionEngine.createExecutionSession(
@@ -1238,7 +1240,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
           }
         )
 
-        console.log('📤 Executing workflow with session:', executionSession.id)
+        logger.debug('📤 Executing workflow with session:', executionSession.id)
 
         // Execute the workflow with the session
         await executionEngine.executeWorkflowAdvanced(executionSession.id, {
@@ -1248,7 +1250,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         })
       }
     } catch (error) {
-      console.error(`Error processing workflow ${workflow.id} for event:`, error)
+      logger.error(`Error processing workflow ${workflow.id} for event:`, error)
     }
   }
 }
@@ -1313,7 +1315,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
       if (!eventFrom || !fromFilters.includes(eventFrom)) {
 
-        console.log('dY"? Outlook trigger skipped (sender filter mismatch)', {
+        logger.debug('dY"? Outlook trigger skipped (sender filter mismatch)', {
 
           nodeType,
 
@@ -1337,7 +1339,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
       if (!eventSubject || !eventSubject.includes(subjectFilter)) {
 
-        console.log('dY"? Outlook trigger skipped (subject filter mismatch)', {
+        logger.debug('dY"? Outlook trigger skipped (subject filter mismatch)', {
 
           nodeType,
 
@@ -1361,7 +1363,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
     if (attachmentFilter === 'yes' && !eventHasAttachments) {
 
-      console.log('dY"? Outlook trigger skipped (attachment filter requires attachments)', {
+      logger.debug('dY"? Outlook trigger skipped (attachment filter requires attachments)', {
 
         nodeType
 
@@ -1373,7 +1375,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
     if (attachmentFilter === 'no' && eventHasAttachments) {
 
-      console.log('dY"? Outlook trigger skipped (attachment filter excludes attachments)', {
+      logger.debug('dY"? Outlook trigger skipped (attachment filter excludes attachments)', {
 
         nodeType
 
@@ -1391,7 +1393,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
       if (!eventImportance || eventImportance !== importanceFilter) {
 
-        console.log('dY"? Outlook trigger skipped (importance filter mismatch)', {
+        logger.debug('dY"? Outlook trigger skipped (importance filter mismatch)', {
 
           nodeType,
 
@@ -1415,7 +1417,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
       if (!eventFolderId || eventFolderId !== folderConfig) {
 
-        console.log('dY"? Outlook trigger skipped (folder filter mismatch)', {
+        logger.debug('dY"? Outlook trigger skipped (folder filter mismatch)', {
 
           nodeType,
 
@@ -1433,7 +1435,7 @@ function shouldTriggerFromOutlook(nodes: any[], event: any): boolean {
 
 
 
-    console.log('dY"? Outlook trigger matched node configuration', {
+    logger.debug('dY"? Outlook trigger matched node configuration', {
 
       nodeType,
 
@@ -1692,7 +1694,7 @@ async function updateOneDriveTokens(
     .eq('id', integrationId)
 
   if (error) {
-    console.error('Failed to update OneDrive integration tokens:', error)
+    logger.error('Failed to update OneDrive integration tokens:', error)
   }
 }
 
@@ -1733,7 +1735,7 @@ async function resolveProviderTokens(userId: string, resourceType: string): Prom
 
   const provider = providerMap[resourceType] || 'microsoft'
 
-  console.log('🔑 Resolving tokens for resource type:', resourceType, '→ provider:', provider)
+  logger.debug('🔑 Resolving tokens for resource type:', resourceType, '→ provider:', provider)
 
   const { data: integration } = await supabase
     .from('integrations')
@@ -1751,7 +1753,7 @@ async function resolveProviderTokens(userId: string, resourceType: string): Prom
   const decryptedRefresh = integration.refresh_token ? safeDecrypt(integration.refresh_token) : undefined
 
   if (decryptedAccess && decryptedAccess.includes('.')) {
-    console.log('✅ Found valid access token for provider:', provider)
+    logger.debug('✅ Found valid access token for provider:', provider)
     return {
       accessToken: decryptedAccess,
       refreshToken: decryptedRefresh,
@@ -1760,7 +1762,7 @@ async function resolveProviderTokens(userId: string, resourceType: string): Prom
   }
 
   if (decryptedRefresh) {
-    console.log('🔄 Access token invalid, refreshing for provider:', provider)
+    logger.debug('🔄 Access token invalid, refreshing for provider:', provider)
     const refreshed = await refreshMicrosoftAccessToken(decryptedRefresh)
     if (refreshed?.accessToken) {
       await updateMicrosoftTokens(integration.id, refreshed)
@@ -1845,6 +1847,6 @@ async function updateMicrosoftTokens(
     .eq('id', integrationId)
 
   if (error) {
-    console.error('Failed to update Microsoft integration tokens:', error)
+    logger.error('Failed to update Microsoft integration tokens:', error)
   }
 }

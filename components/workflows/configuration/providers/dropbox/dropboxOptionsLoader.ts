@@ -1,6 +1,8 @@
 import { ProviderOptionsLoader } from '../types'
 import { supabase } from '@/utils/supabaseClient'
 
+import { logger } from '@/lib/utils/logger'
+
 export class DropboxOptionsLoader implements ProviderOptionsLoader {
   private async getAuthHeaders(): Promise<HeadersInit> {
     try {
@@ -12,7 +14,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
         }
       }
     } catch (error) {
-      console.error('[DropboxOptionsLoader] Error getting auth session:', error)
+      logger.error('[DropboxOptionsLoader] Error getting auth session:', error)
     }
     return { 'Content-Type': 'application/json' }
   }
@@ -29,7 +31,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
   }): Promise<{ value: string; label: string }[]> {
     const { fieldName, providerId, integrationId, forceRefresh } = params;
 
-    console.log('[DropboxOptionsLoader] Loading options for:', {
+    logger.debug('[DropboxOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
       integrationId,
@@ -51,7 +53,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
           })
 
           if (!integrationsResponse.ok) {
-            console.error('[DropboxOptionsLoader] Failed to fetch integrations')
+            logger.error('[DropboxOptionsLoader] Failed to fetch integrations')
             return [{
               value: '',
               label: 'Dropbox (Root)'
@@ -62,7 +64,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
           const dropboxIntegration = integrations.find((i: any) => i.provider === 'dropbox' && i.status === 'connected')
 
           if (!dropboxIntegration) {
-            console.warn('[DropboxOptionsLoader] No connected Dropbox integration found')
+            logger.warn('[DropboxOptionsLoader] No connected Dropbox integration found')
             return [{
               value: '',
               label: 'Connect Dropbox to see folders'
@@ -97,10 +99,10 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
               }
             }
           } catch (e) {
-            console.warn('[DropboxOptionsLoader] Could not parse error response')
+            logger.warn('[DropboxOptionsLoader] Could not parse error response')
           }
 
-          console.warn('[DropboxOptionsLoader] Failed to fetch folders:', {
+          logger.warn('[DropboxOptionsLoader] Failed to fetch folders:', {
             status: response.status,
             statusText: response.statusText,
             errorMessage,
@@ -125,7 +127,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
 
         const result = await response.json()
 
-        console.log('[DropboxOptionsLoader] API Response:', {
+        logger.debug('[DropboxOptionsLoader] API Response:', {
           success: result.success,
           hasData: !!result.data,
           dataLength: result.data?.length
@@ -135,7 +137,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
         const folders = result.data || result.folders || []
 
         if (!Array.isArray(folders)) {
-          console.warn('[DropboxOptionsLoader] Expected array of folders but got:', typeof folders)
+          logger.warn('[DropboxOptionsLoader] Expected array of folders but got:', typeof folders)
           return [{
             value: '',
             label: 'Dropbox (Root)'
@@ -156,10 +158,10 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
           label: folder.name || folder.path_display || 'Dropbox (Root)'
         }))
 
-        console.log(`[DropboxOptionsLoader] Successfully loaded ${options.length} folders`)
+        logger.debug(`[DropboxOptionsLoader] Successfully loaded ${options.length} folders`)
         return options
       } catch (error) {
-        console.error('[DropboxOptionsLoader] Error fetching folders:', error)
+        logger.error('[DropboxOptionsLoader] Error fetching folders:', error)
         // Return root folder as fallback
         return [{
           value: '',
@@ -168,7 +170,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
       }
     }
 
-    console.warn(`[DropboxOptionsLoader] No handler for field: ${fieldName}`)
+    logger.warn(`[DropboxOptionsLoader] No handler for field: ${fieldName}`)
     return []
   }
 

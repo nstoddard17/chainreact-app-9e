@@ -4,6 +4,8 @@ import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`Gumroad OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Gumroad OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/gumroad/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Gumroad OAuth credentials not configured')
+      logger.error('Gumroad OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('Gumroad token exchange failed:', tokenResponse.status, errorText)
+      logger.error('Gumroad token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -119,10 +121,10 @@ export async function GET(request: NextRequest) {
             }
           }
         } else {
-          console.warn('Failed to fetch Gumroad user profile:', await meResponse.text())
+          logger.warn('Failed to fetch Gumroad user profile:', await meResponse.text())
         }
       } catch (profileError) {
-        console.warn('Error fetching Gumroad profile:', profileError)
+        logger.warn('Error fetching Gumroad profile:', profileError)
       }
     }
 
@@ -152,13 +154,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save Gumroad integration:', upsertError)
+      logger.error('Failed to save Gumroad integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'Gumroad connected successfully!', baseUrl)
   } catch (error) {
-    console.error('Gumroad callback error:', error)
+    logger.error('Gumroad callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

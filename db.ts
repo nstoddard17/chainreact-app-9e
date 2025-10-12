@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
+
+import { logger } from '@/lib/utils/logger'
 import type { Database } from "./types/database.types"
 
 // Use existing environment variables
@@ -33,7 +35,7 @@ export async function getIntegration(userId: string, provider: string) {
 
     return data
   } catch (error) {
-    console.error("Error getting integration:", error)
+    logger.error("Error getting integration:", error)
     return null
   }
 }
@@ -54,7 +56,7 @@ export async function upsertIntegration(integration: any) {
 
     return data
   } catch (error) {
-    console.error("Error upserting integration:", error)
+    logger.error("Error upserting integration:", error)
     throw error
   }
 }
@@ -69,7 +71,7 @@ export async function getUserIntegrations(userId: string) {
 
     return data || []
   } catch (error) {
-    console.error("Error getting user integrations:", error)
+    logger.error("Error getting user integrations:", error)
     return []
   }
 }

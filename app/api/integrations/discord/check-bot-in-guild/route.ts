@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   // Debug endpoint to check bot configuration
   try {
@@ -81,7 +83,7 @@ export async function POST(request: NextRequest) {
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botUserId || !botToken) {
-      console.error("Missing Discord bot credentials in environment variables")
+      logger.error("Missing Discord bot credentials in environment variables")
       return NextResponse.json({ 
         error: "Bot configuration missing",
         missingVars: [
@@ -245,7 +247,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error("❌ Error checking bot in guild:", error)
+    logger.error("❌ Error checking bot in guild:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

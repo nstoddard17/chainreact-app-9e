@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 // Simple in-memory cache for online count (resets on server restart)
 const onlineCountCache = {
   count: 0,
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     try {
       body = await request.json()
     } catch (e) {
-      console.error('Failed to parse request body:', e)
+      logger.error('Failed to parse request body:', e)
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     }
     
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
       count: onlineCountCache.count 
     })
   } catch (error) {
-    console.error('Error updating presence count:', error)
+    logger.error('Error updating presence count:', error)
     return NextResponse.json(
       { error: 'Failed to update presence count' },
       { status: 500 }

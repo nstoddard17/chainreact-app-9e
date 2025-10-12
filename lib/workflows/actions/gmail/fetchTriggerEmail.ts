@@ -1,6 +1,8 @@
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ActionResult } from '../core/executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetches the latest email for Gmail trigger execution
  * Used in admin live mode to provide real email data instead of mock data
@@ -57,7 +59,7 @@ export async function fetchGmailTriggerEmail(
     }
 
     query = queryParts.join(' ')
-    console.log(`Fetching latest Gmail email with query: "${query}"`)
+    logger.debug(`Fetching latest Gmail email with query: "${query}"`)
 
     // Search for the latest email matching criteria
     const searchParams = new URLSearchParams({
@@ -195,7 +197,7 @@ export async function fetchGmailTriggerEmail(
     }
 
   } catch (error: any) {
-    console.error('Error fetching Gmail trigger email:', error)
+    logger.error('Error fetching Gmail trigger email:', error)
 
     // Return realistic sample data even on error for testing
     return {

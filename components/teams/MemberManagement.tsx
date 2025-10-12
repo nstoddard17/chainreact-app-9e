@@ -20,6 +20,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { UserPlus, MoreVertical, Crown, Shield, Eye, Mail, Trash2, Loader2, Users, Clock } from "lucide-react"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Member {
   id: string
   organization_id: string
@@ -76,7 +78,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       const data = await response.json()
       setMembers(data)
     } catch (error) {
-      console.error('Error fetching members:', error)
+      logger.error('Error fetching members:', error)
       toast.error('Failed to load members')
     } finally {
       setLoading(false)
@@ -85,28 +87,28 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
 
   const fetchInvitations = async () => {
     try {
-      console.log('MemberManagement: Fetching invitations for organization:', organizationId)
-      console.log('MemberManagement: User role:', userRole)
+      logger.debug('MemberManagement: Fetching invitations for organization:', organizationId)
+      logger.debug('MemberManagement: User role:', userRole)
       
       const response = await fetch(`/api/organizations/${organizationId}/invitations`)
-      console.log('MemberManagement: Response status:', response.status)
+      logger.debug('MemberManagement: Response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json()
-        console.log('MemberManagement: Error response:', errorData)
+        logger.debug('MemberManagement: Error response:', errorData)
         
         // Don't show error for non-admin users, just don't fetch invitations
         if (response.status === 403 && errorData.error === "Insufficient permissions") {
-          console.log('User is not admin, skipping invitations fetch')
+          logger.debug('User is not admin, skipping invitations fetch')
           return
         }
         throw new Error(errorData.error || 'Failed to fetch invitations')
       }
       const data = await response.json()
-      console.log('MemberManagement: Invitations data:', data)
+      logger.debug('MemberManagement: Invitations data:', data)
       setInvitations(data)
     } catch (error) {
-      console.error('Error fetching invitations:', error)
+      logger.error('Error fetching invitations:', error)
       // Only show error toast for actual errors, not permission issues
       if (error instanceof Error && !error.message.includes('Insufficient permissions')) {
         toast.error('Failed to load invitations')
@@ -142,7 +144,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       // Refresh invitations list
       await fetchInvitations()
     } catch (error) {
-      console.error("Failed to send invitation:", error)
+      logger.error("Failed to send invitation:", error)
       toast.error(error instanceof Error ? error.message : 'Failed to send invitation')
     } finally {
       setInviteLoading(false)
@@ -163,7 +165,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       toast.success('Invitation cancelled successfully')
       await fetchInvitations()
     } catch (error) {
-      console.error("Failed to cancel invitation:", error)
+      logger.error("Failed to cancel invitation:", error)
       toast.error(error instanceof Error ? error.message : 'Failed to cancel invitation')
     }
   }
@@ -184,7 +186,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       await fetchMembers()
       toast.success('Member role updated successfully')
     } catch (error) {
-      console.error("Failed to update member role:", error)
+      logger.error("Failed to update member role:", error)
       toast.error(error instanceof Error ? error.message : 'Failed to update member role')
     }
   }
@@ -203,7 +205,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       await fetchMembers()
       toast.success('Member removed successfully')
     } catch (error) {
-      console.error("Failed to remove member:", error)
+      logger.error("Failed to remove member:", error)
       toast.error(error instanceof Error ? error.message : 'Failed to remove member')
     }
   }

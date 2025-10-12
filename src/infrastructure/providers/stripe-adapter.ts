@@ -20,6 +20,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class StripeAdapter implements PaymentProvider {
   readonly providerId = 'stripe'
   readonly capabilities: CapabilityDescriptor = {
@@ -125,7 +127,7 @@ export class StripeAdapter implements PaymentProvider {
         message: 'Payment created successfully with Stripe'
       }
     } catch (error: any) {
-      console.error('Stripe create payment error:', error)
+      logger.error('Stripe create payment error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create payment with Stripe',
@@ -268,7 +270,7 @@ export class StripeAdapter implements PaymentProvider {
         metadata: payment.metadata
       }))
     } catch (error: any) {
-      console.error('Stripe get payments error:', error)
+      logger.error('Stripe get payments error:', error)
       return []
     }
   }
@@ -593,7 +595,7 @@ export class StripeAdapter implements PaymentProvider {
         metadata: subscription.metadata
       }))
     } catch (error: any) {
-      console.error('Stripe get subscriptions error:', error)
+      logger.error('Stripe get subscriptions error:', error)
       return []
     }
   }
@@ -712,7 +714,7 @@ export class StripeAdapter implements PaymentProvider {
         hostedInvoiceUrl: invoice.hosted_invoice_url
       }))
     } catch (error: any) {
-      console.error('Stripe get invoices error:', error)
+      logger.error('Stripe get invoices error:', error)
       return []
     }
   }

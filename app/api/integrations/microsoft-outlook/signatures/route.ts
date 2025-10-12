@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url)
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('[Outlook Signatures API] Error:', error)
+    logger.error('[Outlook Signatures API] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to fetch Outlook signatures' },
       { status: 500 }

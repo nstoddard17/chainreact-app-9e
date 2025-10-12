@@ -17,6 +17,8 @@ import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { useVariableDragContext } from './VariableDragContext'
 import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 // Define relevant outputs for each node type
 const RELEVANT_OUTPUTS: Record<string, string[]> = {
   // Discord Trigger - NOW PROVIDES FULL DATA
@@ -175,7 +177,7 @@ export function VariablePickerSidePanel({
       const relevantAIOutputs = getRelevantAIAgentOutputs(currentNodeType);
       const filteredOutputs = allOutputs.filter(output => relevantAIOutputs.includes(output.name));
       
-      console.log(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
+      logger.debug(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
         nodeType,
         currentNodeType,
         relevantAIOutputs,
@@ -191,7 +193,7 @@ export function VariablePickerSidePanel({
     
     if (relevantOutputNames.length === 0) {
       // For unknown node types, show first 3 outputs
-      console.log(`📊 [VARIABLES] No specific outputs defined for ${nodeType}, showing first 3 of ${allOutputs.length}`)
+      logger.debug(`📊 [VARIABLES] No specific outputs defined for ${nodeType}, showing first 3 of ${allOutputs.length}`)
       return allOutputs.slice(0, 3)
     }
     
@@ -200,7 +202,7 @@ export function VariablePickerSidePanel({
       .map(outputName => allOutputs.find(output => output.name === outputName))
       .filter(Boolean)
     
-    console.log(`📊 [VARIABLES] Filtered ${nodeType}: ${allOutputs.length} → ${relevantOutputs.length} outputs`, {
+    logger.debug(`📊 [VARIABLES] Filtered ${nodeType}: ${allOutputs.length} → ${relevantOutputs.length} outputs`, {
       nodeType,
       relevantNames: relevantOutputNames,
       filteredOutputs: relevantOutputs.map(o => o.name)
@@ -310,7 +312,7 @@ export function VariablePickerSidePanel({
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
       
       // Debug logging
-      console.log('📊 [VARIABLES] Debug info:', {
+      logger.debug('📊 [VARIABLES] Debug info:', {
         currentNodeId,
         previousNodeIds: Array.from(previousNodeIds),
         allNodesCount: allNodes.length,
@@ -333,7 +335,7 @@ export function VariablePickerSidePanel({
       );
       
       // Debug: Log which nodes are being included
-      console.log('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
+      logger.debug('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
         id: n.id,
         title: n.title,
         type: n.type,
@@ -482,7 +484,7 @@ export function VariablePickerSidePanel({
   const handleDragStart = (e: React.DragEvent, variable: string) => {
     isDraggingVariable.current = true
     allowClickSelect.current = false
-    console.log('🚀 [VariablePickerSidePanel] Drag started:', {
+    logger.debug('🚀 [VariablePickerSidePanel] Drag started:', {
       variable,
       dataTransferTypes: e.dataTransfer.types,
       effectAllowed: 'copy'
@@ -496,7 +498,7 @@ export function VariablePickerSidePanel({
       isDraggingVariable.current = false
       allowClickSelect.current = true
     })
-    console.log('🏁 [VariablePickerSidePanel] Drag ended', {
+    logger.debug('🏁 [VariablePickerSidePanel] Drag ended', {
       dropEffect: e?.dataTransfer?.dropEffect
     })
     if (e) {
@@ -573,7 +575,7 @@ export function VariablePickerSidePanel({
         });
       }
     } catch (error) {
-      console.error("Error running workflow test:", error);
+      logger.error("Error running workflow test:", error);
       toast({
         title: "Test error",
         description: "An error occurred while testing the workflow.",
@@ -785,7 +787,7 @@ export function VariablePickerSidePanel({
                               allowClickSelect.current = true
                             }}
                             onDragStart={(e) => {
-                              console.log('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
+                              logger.debug('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                 variableRef,
                                 nodeTitle: node.title,
                                 outputName: output.name,

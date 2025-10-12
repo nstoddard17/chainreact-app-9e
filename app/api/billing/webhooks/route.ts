@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import Stripe from "stripe"
 import { headers } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2024-12-18.acacia",
 })
@@ -18,7 +20,7 @@ export async function POST(request: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret)
   } catch (err: any) {
-    console.error(`Webhook Error: ${err.message}`)
+    logger.error(`Webhook Error: ${err.message}`)
     return NextResponse.json(
       { error: `Webhook Error: ${err.message}` },
       { status: 400 }
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
       const billingCycle = session.metadata?.billing_cycle
       
       if (!userId || !planId) {
-        console.error("Missing metadata in checkout session")
+        logger.error("Missing metadata in checkout session")
         return NextResponse.json(
           { error: "Missing metadata" },
           { status: 400 }
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
           .eq("user_id", userId)
 
         if (error) {
-          console.error("Error updating subscription:", error)
+          logger.error("Error updating subscription:", error)
           return NextResponse.json(
             { error: "Failed to update subscription" },
             { status: 500 }
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
           })
 
         if (error) {
-          console.error("Error creating subscription:", error)
+          logger.error("Error creating subscription:", error)
           return NextResponse.json(
             { error: "Failed to create subscription" },
             { status: 500 }
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
       const userId = subscription.metadata.user_id
 
       if (!userId) {
-        console.error("Missing user_id in subscription metadata")
+        logger.error("Missing user_id in subscription metadata")
         return NextResponse.json(
           { error: "Missing user_id" },
           { status: 400 }
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
         .eq("stripe_subscription_id", subscription.id)
 
       if (error) {
-        console.error("Error updating subscription:", error)
+        logger.error("Error updating subscription:", error)
         return NextResponse.json(
           { error: "Failed to update subscription" },
           { status: 500 }
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
         .eq("stripe_subscription_id", subscription.id)
 
       if (error) {
-        console.error("Error canceling subscription:", error)
+        logger.error("Error canceling subscription:", error)
         return NextResponse.json(
           { error: "Failed to cancel subscription" },
           { status: 500 }
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
         .eq("stripe_subscription_id", subscriptionId)
 
       if (error) {
-        console.error("Error updating subscription period:", error)
+        logger.error("Error updating subscription period:", error)
       }
 
       break
@@ -208,14 +210,14 @@ export async function POST(request: NextRequest) {
         .eq("stripe_subscription_id", subscriptionId)
 
       if (error) {
-        console.error("Error updating subscription status:", error)
+        logger.error("Error updating subscription status:", error)
       }
 
       break
     }
 
     default:
-      console.log(`Unhandled event type ${event.type}`)
+      logger.debug(`Unhandled event type ${event.type}`)
   }
 
   return NextResponse.json({ received: true })

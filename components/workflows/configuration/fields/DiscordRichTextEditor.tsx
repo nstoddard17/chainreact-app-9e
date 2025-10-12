@@ -39,6 +39,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoTextInput, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordRichTextEditorProps {
   value: string
   onChange: (value: string) => void
@@ -129,7 +131,7 @@ export function DiscordRichTextEditor({
   const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
 
   // Debug logging to identify freeze cause
-  console.log('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
+  logger.debug('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
 
   // Convert display format back to Discord format - defined BEFORE handleVariableInsert
   const convertToDiscordFormat = useCallback((text: string) => {
@@ -219,12 +221,12 @@ export function DiscordRichTextEditor({
 
   const loadDiscordGuildData = useCallback(async () => {
     if (!guildId || !userId) {
-      console.log('[DiscordRichTextEditor] Skipping guild data load - missing guildId or userId')
+      logger.debug('[DiscordRichTextEditor] Skipping guild data load - missing guildId or userId')
       return;
     }
     
     try {
-      console.log('[DiscordRichTextEditor] Loading Discord guild data for:', { guildId, userId })
+      logger.debug('[DiscordRichTextEditor] Loading Discord guild data for:', { guildId, userId })
       setIsLoadingDiscordData(true)
       
       // Load members, roles, and channels for the guild with timeout
@@ -255,9 +257,9 @@ export function DiscordRichTextEditor({
         ])
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          console.log('[DiscordRichTextEditor] Request was aborted (timeout or cancelled)')
+          logger.debug('[DiscordRichTextEditor] Request was aborted (timeout or cancelled)')
         } else {
-          console.error('[DiscordRichTextEditor] API request failed:', err)
+          logger.error('[DiscordRichTextEditor] API request failed:', err)
         }
       } finally {
         clearTimeout(timeoutId)
@@ -278,9 +280,9 @@ export function DiscordRichTextEditor({
         setAvailableChannels(channelsData.data || channelsData.channels || [])
       }
       
-      console.log('[DiscordRichTextEditor] Successfully loaded Discord guild data')
+      logger.debug('[DiscordRichTextEditor] Successfully loaded Discord guild data')
     } catch (error) {
-      console.error('[DiscordRichTextEditor] Failed to load Discord guild data:', error)
+      logger.error('[DiscordRichTextEditor] Failed to load Discord guild data:', error)
       toast({
         title: "Failed to load Discord data",
         description: "Could not load server members, roles, and channels",
@@ -295,7 +297,7 @@ export function DiscordRichTextEditor({
   useEffect(() => {
     // Temporarily disabled auto-loading to prevent freeze
     // Users can still access mentions but data won't preload
-    console.log('[DiscordRichTextEditor] Auto-load disabled - guildId present:', !!guildId)
+    logger.debug('[DiscordRichTextEditor] Auto-load disabled - guildId present:', !!guildId)
     /*
     if (guildId && userId) {
       loadDiscordGuildData()

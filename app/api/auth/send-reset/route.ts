@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { sendPasswordResetEmail } from '@/lib/services/resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Error generating reset link:', error)
+      logger.error('Error generating reset link:', error)
       return NextResponse.json(
         { error: 'Failed to generate reset link' },
         { status: 500 }
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error sending password reset email:', error)
+    logger.error('Error sending password reset email:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

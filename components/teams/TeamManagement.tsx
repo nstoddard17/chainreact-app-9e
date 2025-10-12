@@ -43,6 +43,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Team {
   id: string
   name: string
@@ -105,7 +107,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       const data = await response.json()
       setTeams(data)
     } catch (error) {
-      console.error('Error fetching teams:', error)
+      logger.error('Error fetching teams:', error)
       toast.error('Failed to load teams')
     } finally {
       setLoading(false)
@@ -119,7 +121,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       const data = await response.json()
       setOrganizationMembers(data)
     } catch (error) {
-      console.error('Error fetching organization members:', error)
+      logger.error('Error fetching organization members:', error)
     }
   }
 
@@ -130,7 +132,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       const data = await response.json()
       setTeamMembers(data)
     } catch (error) {
-      console.error('Error fetching team members:', error)
+      logger.error('Error fetching team members:', error)
       toast.error('Failed to load team members')
     }
   }
@@ -154,7 +156,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       setNewTeam({ name: "", description: "", slug: "", color: "#3B82F6" })
       toast.success(`Team "${team.name}" created successfully`)
     } catch (error) {
-      console.error('Error creating team:', error)
+      logger.error('Error creating team:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to create team')
     }
   }
@@ -180,7 +182,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       setNewMember({ user_id: "", role: "member" })
       toast.success('Member added successfully')
     } catch (error) {
-      console.error('Error adding member:', error)
+      logger.error('Error adding member:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to add member')
     }
   }
@@ -199,7 +201,7 @@ export default function TeamManagement({ organizationId, userRole }: Props) {
       setTeams(teams.filter(t => t.id !== team.id))
       toast.success(`Team "${team.name}" deleted successfully`)
     } catch (error) {
-      console.error('Error deleting team:', error)
+      logger.error('Error deleting team:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to delete team')
     }
   }

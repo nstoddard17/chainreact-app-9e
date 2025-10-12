@@ -14,6 +14,8 @@ import { CapabilityDescriptor, ErrorClassification } from '../../domains/integra
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 import { google, docs_v1, drive_v3 } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleDocsAdapter implements DocumentProvider {
   readonly providerId = 'google-docs'
   readonly capabilities: CapabilityDescriptor = {
@@ -130,7 +132,7 @@ export class GoogleDocsAdapter implements DocumentProvider {
         message: 'Google Doc created successfully'
       }
     } catch (error: any) {
-      console.error('Google Docs create document error:', error)
+      logger.error('Google Docs create document error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create Google Doc',
@@ -334,7 +336,7 @@ export class GoogleDocsAdapter implements DocumentProvider {
         editUrl: file.webViewLink || ''
       })) || []
     } catch (error: any) {
-      console.error('Google Docs get documents error:', error)
+      logger.error('Google Docs get documents error:', error)
       return []
     }
   }

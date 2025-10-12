@@ -12,6 +12,8 @@ import { workflowEngine, TriggerType, ExecutionPriority } from './workflow-engin
 import { oauthTokenManager } from '../security/oauth-token-manager'
 import { auditLogger, AuditEventType } from '../security/audit-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Legacy action result interface
  */
@@ -47,11 +49,11 @@ export interface LegacyExecuteActionParams {
  * @deprecated Use workflowEngine.executeWorkflow() instead
  */
 export async function executeAction(params: LegacyExecuteActionParams): Promise<LegacyActionResult> {
-  console.warn('⚠️  Using deprecated executeAction compatibility layer. Migrate to workflowEngine.executeWorkflow()')
+  logger.warn('⚠️  Using deprecated executeAction compatibility layer. Migrate to workflowEngine.executeWorkflow()')
   
   const { node, input, userId, workflowId } = params
   
-  console.log(`📌 legacy-compatibility received params:`, {
+  logger.debug(`📌 legacy-compatibility received params:`, {
     hasNode: !!params.node,
     hasInput: !!params.input,
     userId: params.userId,
@@ -81,7 +83,7 @@ export async function executeAction(params: LegacyExecuteActionParams): Promise<
     return await legacyExecuteAction(params)
     
   } catch (error: any) {
-    console.error('❌ Legacy executeAction compatibility layer error:', error)
+    logger.error('❌ Legacy executeAction compatibility layer error:', error)
     
     await auditLogger.logEvent({
       type: AuditEventType.SYSTEM_ERROR,
@@ -114,7 +116,7 @@ export async function executeAction(params: LegacyExecuteActionParams): Promise<
  */
 export class LegacyTokenRefreshService {
   static async shouldRefreshToken(integration: any, options: any = {}): Promise<boolean> {
-    console.warn('⚠️  Using deprecated TokenRefreshService. Migrate to oauthTokenManager')
+    logger.warn('⚠️  Using deprecated TokenRefreshService. Migrate to oauthTokenManager')
     
     try {
       // Delegate to new token manager
@@ -125,13 +127,13 @@ export class LegacyTokenRefreshService {
         ...options
       })
     } catch (error) {
-      console.error('❌ Legacy token refresh compatibility error:', error)
+      logger.error('❌ Legacy token refresh compatibility error:', error)
       return false
     }
   }
   
   static async refreshTokens(integration: any, options: any = {}): Promise<any> {
-    console.warn('⚠️  Using deprecated TokenRefreshService. Migrate to oauthTokenManager')
+    logger.warn('⚠️  Using deprecated TokenRefreshService. Migrate to oauthTokenManager')
     
     try {
       // Delegate to new token manager
@@ -150,7 +152,7 @@ export class LegacyTokenRefreshService {
         updated_scopes: result.scopes
       }
     } catch (error: any) {
-      console.error('❌ Legacy token refresh compatibility error:', error)
+      logger.error('❌ Legacy token refresh compatibility error:', error)
       return {
         success: false,
         error: error.message
@@ -159,14 +161,14 @@ export class LegacyTokenRefreshService {
   }
   
   static async refreshTokenForProvider(provider: string, refreshToken: string, integration: any): Promise<any> {
-    console.warn('⚠️  Using deprecated TokenRefreshService.refreshTokenForProvider. Migrate to oauthTokenManager')
+    logger.warn('⚠️  Using deprecated TokenRefreshService.refreshTokenForProvider. Migrate to oauthTokenManager')
     
     try {
       // For now, delegate to the legacy implementation to maintain compatibility
       const { TokenRefreshService } = await import('@/lib/integrations/tokenRefreshService')
       return await TokenRefreshService.refreshTokenForProvider(provider, refreshToken, integration)
     } catch (error: any) {
-      console.error('❌ Legacy token refresh for provider compatibility error:', error)
+      logger.error('❌ Legacy token refresh for provider compatibility error:', error)
       return {
         success: false,
         error: error.message
@@ -175,14 +177,14 @@ export class LegacyTokenRefreshService {
   }
   
   static async getTokensNeedingRefresh(): Promise<any> {
-    console.warn('⚠️  Using deprecated TokenRefreshService.getTokensNeedingRefresh. Migrate to oauthTokenManager')
+    logger.warn('⚠️  Using deprecated TokenRefreshService.getTokensNeedingRefresh. Migrate to oauthTokenManager')
     
     try {
       // For now, delegate to the legacy implementation to maintain compatibility
       const { getTokensNeedingRefresh } = await import('@/lib/integrations/tokenRefreshService')
       return await getTokensNeedingRefresh()
     } catch (error: any) {
-      console.error('❌ Legacy get tokens needing refresh compatibility error:', error)
+      logger.error('❌ Legacy get tokens needing refresh compatibility error:', error)
       return []
     }
   }
@@ -201,7 +203,7 @@ export class LegacyMigrationTracker {
     
     // Log every 10th usage to avoid spam
     if (currentCount % 10 === 0) {
-      console.warn(`🔄 Legacy API '${apiName}' used ${currentCount + 1} times from ${location}. Migration required.`)
+      logger.warn(`🔄 Legacy API '${apiName}' used ${currentCount + 1} times from ${location}. Migration required.`)
     }
   }
   

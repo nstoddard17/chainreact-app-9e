@@ -6,6 +6,8 @@
 import { AirtableIntegration, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DraftNameOption {
   value: string
   label: string
@@ -17,7 +19,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
 ): Promise<DraftNameOption[]> => {
   const { baseId, tableName } = options
 
-  console.log("🔍 Airtable draft names fetcher called with:", {
+  logger.debug("🔍 Airtable draft names fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -31,16 +33,16 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      console.log('⚠️ Base ID or Table name missing, returning empty list')
+      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    console.log('🔍 Fetching Airtable draft names from API...')
+    logger.debug('🔍 Fetching Airtable draft names from API...')
 
     // Fetch records to extract unique draft names
     const queryParams = new URLSearchParams()
@@ -57,7 +59,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        console.log('📊 [Airtable] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.debug('📊 [Airtable] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -68,7 +70,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
           )
 
           if (fieldName) {
-            console.log(`📊 [Airtable] Found matching field '${fieldName}' for draft names`)
+            logger.debug(`📊 [Airtable] Found matching field '${fieldName}' for draft names`)
             const draftName = record.fields[fieldName]
             if (draftName && typeof draftName === 'string') {
               draftNames.add(draftName)
@@ -79,7 +81,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
               key.toLowerCase().includes('draft')
             )
             if (draftField) {
-              console.log(`📊 [Airtable] Found field '${draftField}' containing 'draft'`)
+              logger.debug(`📊 [Airtable] Found field '${draftField}' containing 'draft'`)
               const draftValue = record.fields[draftField]
               if (draftValue && typeof draftValue === 'string') {
                 draftNames.add(draftValue)
@@ -96,11 +98,11 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
       label: name
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    console.log(`✅ Airtable draft names fetched successfully: ${options.length} unique names`)
+    logger.debug(`✅ Airtable draft names fetched successfully: ${options.length} unique names`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      console.log('⚠️ No draft names found in records, returning test data');
+      logger.debug('⚠️ No draft names found in records, returning test data');
       return [
         { value: 'draft-1', label: 'Draft Design v1' },
         { value: 'draft-2', label: 'Draft Design v2' },
@@ -111,7 +113,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
     return options
 
   } catch (error: any) {
-    console.error("Error fetching Airtable draft names:", error)
+    logger.error("Error fetching Airtable draft names:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

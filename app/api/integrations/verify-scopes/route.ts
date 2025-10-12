@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getSupabaseClient } from "@/lib/supabase"
 import { validateAllIntegrations } from "@/lib/integrations/scopeValidation"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseClient()
@@ -29,7 +31,7 @@ export async function GET(request: NextRequest) {
       validationResults,
     })
   } catch (error: any) {
-    console.error("Error verifying integration scopes:", error)
+    logger.error("Error verifying integration scopes:", error)
     return NextResponse.json({ error: error.message || "Failed to verify integration scopes" }, { status: 500 })
   }
 }

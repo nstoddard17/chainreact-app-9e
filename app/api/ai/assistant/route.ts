@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { AIAssistantService } from "@/lib/services/ai/aiAssistantService"
 
+import { logger } from '@/lib/utils/logger'
+
 // Simple test endpoint
 export async function GET() {
   const aiAssistantService = new AIAssistantService()
@@ -15,13 +17,13 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true
-    console.log("Client connection aborted")
+    logger.debug("Client connection aborted")
   })
 
   try {
     // Early exit if connection closed
     if (connectionClosed) {
-      console.log("Connection closed early, aborting processing")
+      logger.debug("Connection closed early, aborting processing")
       return new Response(null, { status: 499 }) // Client Closed Request
     }
 
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("❌ AI Assistant route error:", error)
+    logger.error("❌ AI Assistant route error:", error)
     
     return NextResponse.json({
       error: "Internal server error",

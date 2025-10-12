@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { oneNoteHandlers } from './handlers'
 import { OneNoteIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log(`🔍 [OneNote API] Looking for integration:`, {
+    logger.debug(`🔍 [OneNote API] Looking for integration:`, {
       integrationId,
       dataType,
       options
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [OneNote API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [OneNote API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'OneNote integration not found'
       }, { status: 404 })
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Validate it's a OneNote/Microsoft integration
     const validProviders = ['onenote', 'microsoft-onenote', 'microsoft-outlook', 'outlook'];
     if (!validProviders.includes(integration.provider?.toLowerCase())) {
-      console.error('❌ [OneNote API] Invalid provider:', {
+      logger.error('❌ [OneNote API] Invalid provider:', {
         integrationId,
         actualProvider: integration.provider,
         expectedProviders: validProviders
@@ -57,11 +59,11 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
+    logger.debug(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
 
     // Validate integration status - accept both 'connected' and 'active'
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [OneNote API] Integration not connected:', {
+      logger.error('❌ [OneNote API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
     
     // Check for personal account limitation
     if (integration.metadata?.accountType === 'personal') {
-      console.warn('⚠️ [OneNote API] Personal account detected with known limitations:', {
+      logger.warn('⚠️ [OneNote API] Personal account detected with known limitations:', {
         integrationId,
         email: integration.metadata.email
       })
@@ -97,14 +99,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = oneNoteHandlers[dataType]
     if (!handler) {
-      console.error('❌ [OneNote API] Unknown data type:', dataType)
+      logger.error('❌ [OneNote API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown OneNote data type: ${dataType}`,
         availableTypes: Object.keys(oneNoteHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [OneNote API] Processing request:`, {
+    logger.debug(`🔍 [OneNote API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const result = await handler(integration as OneNoteIntegration, options)
 
-    console.log(`✅ [OneNote API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [OneNote API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: result.data?.length || 0,
       hasError: !!result.error
@@ -129,7 +131,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [OneNote API] Unexpected error:', {
+    logger.error('❌ [OneNote API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

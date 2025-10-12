@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
     })
     
   } catch (error: any) {
-    console.error("Node outputs API error:", error)
+    logger.error("Node outputs API error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to get node outputs" },
       { status: 500 }
@@ -115,7 +117,7 @@ export async function POST(request: Request) {
     })
     
   } catch (error: any) {
-    console.error("Node outputs context API error:", error)
+    logger.error("Node outputs context API error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to get node outputs context" },
       { status: 500 }

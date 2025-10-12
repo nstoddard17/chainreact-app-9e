@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { safeDecrypt } from "@/lib/security/encryption"
 import { listAirtableBases } from "@/lib/integrations/airtable/api"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, count: bases.length, bases })
   } catch (e: any) {
-    console.error("sync airtable bases error:", e)
+    logger.error("sync airtable bases error:", e)
     return NextResponse.json({ error: e.message || "Internal error" }, { status: 500 })
   }
 }

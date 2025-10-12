@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -134,7 +136,7 @@ export async function createGitHubIssue(params: ActionParams): Promise<ActionRes
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("GitHub create issue failed:", error)
+    logger.error("GitHub create issue failed:", error)
     return {
       success: false,
       error: error.message || "Failed to create GitHub issue"

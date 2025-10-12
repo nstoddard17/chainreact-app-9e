@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
+import { logger } from '@/lib/utils/logger'
+
 export type LiveTestStatus = 'idle' | 'starting' | 'listening' | 'executing' | 'completed' | 'failed' | 'stopped'
 
 export interface LiveTestSession {
@@ -69,9 +71,9 @@ export function useLiveTestMode(workflowId: string) {
       // Start polling for session status
       startSessionPolling()
 
-      console.log('✅ Live test mode started', data)
+      logger.debug('✅ Live test mode started', data)
     } catch (error: any) {
-      console.error('Failed to start live test:', error)
+      logger.error('Failed to start live test:', error)
       setState(prev => ({
         ...prev,
         status: 'failed',
@@ -100,9 +102,9 @@ export function useLiveTestMode(workflowId: string) {
         error: null,
       })
 
-      console.log('✅ Live test mode stopped')
+      logger.debug('✅ Live test mode stopped')
     } catch (error: any) {
-      console.error('Failed to stop live test:', error)
+      logger.error('Failed to stop live test:', error)
     }
   }, [workflowId])
 
@@ -142,7 +144,7 @@ export function useLiveTestMode(workflowId: string) {
           startExecutionPolling(data.session.execution_id)
         }
       } catch (error) {
-        console.error('Error polling session status:', error)
+        logger.error('Error polling session status:', error)
       }
     }
 
@@ -191,7 +193,7 @@ export function useLiveTestMode(workflowId: string) {
           }))
         }
       } catch (error) {
-        console.error('Error polling execution status:', error)
+        logger.error('Error polling execution status:', error)
       }
     }
 

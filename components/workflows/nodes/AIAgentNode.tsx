@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils'
 import { AIAgentModal } from '../AIAgentModal'
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIAgentNodeData {
   title?: string
   prompt?: string
@@ -57,7 +59,7 @@ export const AIAgentNode = memo(({ data, selected, id }: AIAgentNodeProps) => {
       ...config
     }))
     // In a real implementation, this would update the workflow state
-    console.log('AI Agent config saved:', config)
+    logger.debug('AI Agent config saved:', config)
   }, [])
 
   const getStatusIcon = () => {

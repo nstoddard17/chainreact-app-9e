@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
       ...results
     })
   } catch (error: any) {
-    console.error('Microsoft Graph health check error:', error)
+    logger.error('Microsoft Graph health check error:', error)
     return NextResponse.json({ error: error.message || 'Health check failed' }, { status: 500 })
   }
 }
@@ -183,7 +185,7 @@ export async function GET(req: NextRequest) {
       ...results
     })
   } catch (error: any) {
-    console.error('Microsoft Graph health check error:', error)
+    logger.error('Microsoft Graph health check error:', error)
     return NextResponse.json({ error: error.message || 'Health check failed' }, { status: 500 })
   }
 }
@@ -200,6 +202,6 @@ async function notifySubscriptionIssue(userId: string, message: string): Promise
       created_at: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Failed to create notification:', error)
+    logger.error('Failed to create notification:', error)
   }
 }

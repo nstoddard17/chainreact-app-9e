@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
@@ -10,7 +12,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
     }
 
-    console.log("🔍 Debugging expired integrations...")
+    logger.debug("🔍 Debugging expired integrations...")
 
     // Get ALL integrations to see their current status
     const { data: allIntegrations, error: allError } = await supabase
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error debugging expired integrations:", error)
+    logger.error("Error debugging expired integrations:", error)
     return NextResponse.json(
       {
         success: false,

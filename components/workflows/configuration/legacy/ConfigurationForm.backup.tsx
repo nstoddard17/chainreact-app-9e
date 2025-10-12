@@ -33,6 +33,8 @@ import { useFileFieldHandler } from './hooks/useFileFieldHandler';
 import { useAirtableBubbleHandler } from './hooks/useAirtableBubbleHandler';
 import { useProviderFieldHandlers } from './hooks/useProviderFieldHandlers';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Helper function to map Airtable field types to form field types - MOVED TO utils/airtableHelpers.ts
  */
@@ -223,7 +225,7 @@ export default function ConfigurationForm({
   // Handle field loading state changes from the hook
   const handleLoadingChange = useCallback((fieldName: string, isLoading: boolean) => {
     if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
-      console.log(`🔍 [ConfigurationForm] Loading state change for ${fieldName}:`, { fieldName, isLoading });
+      logger.debug(`🔍 [ConfigurationForm] Loading state change for ${fieldName}:`, { fieldName, isLoading });
     }
     
     setLoadingFields(prev => {
@@ -235,7 +237,7 @@ export default function ConfigurationForm({
       }
       
       if (fieldName === 'filterAuthor' || fieldName === 'channelId') {
-        console.log(`🔍 [ConfigurationForm] Updated loadingFields for ${fieldName}:`, Array.from(newSet));
+        logger.debug(`🔍 [ConfigurationForm] Updated loadingFields for ${fieldName}:`, Array.from(newSet));
       }
       
       return newSet;
@@ -341,19 +343,19 @@ export default function ConfigurationForm({
       
       // If bot is now connected with permissions, automatically load channels
       if (newBotStatus.isInGuild && newBotStatus.hasPermissions) {
-        console.log('🔍 Bot connected with permissions, loading channels for guild:', guildId);
+        logger.debug('🔍 Bot connected with permissions, loading channels for guild:', guildId);
         // Let the useDynamicOptions hook handle all loading state management
         loadOptions('channelId', 'guildId', guildId)
           .then(() => {
-            console.log('✅ Channels loaded successfully after bot connection');
+            logger.debug('✅ Channels loaded successfully after bot connection');
           })
           .catch((channelError) => {
-            console.error('Failed to load channels after bot connection:', channelError);
+            logger.error('Failed to load channels after bot connection:', channelError);
             discordState.setChannelLoadingError('Failed to load channels after bot connection');
           });
       }
     } catch (error) {
-      console.error("Error checking Discord bot status:", error);
+      logger.error("Error checking Discord bot status:", error);
       setBotStatus({
         isInGuild: false,
         hasPermissions: false
@@ -368,7 +370,7 @@ export default function ConfigurationForm({
 
   // Unified dynamic load handler that handles special cases
   const handleDynamicLoad = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any) => {
-    console.log('🔍 handleDynamicLoad called:', { fieldName, dependsOn, dependsOnValue });
+    logger.debug('🔍 handleDynamicLoad called:', { fieldName, dependsOn, dependsOnValue });
     
     // No special emoji field handling needed since it was removed
     
@@ -396,7 +398,7 @@ export default function ConfigurationForm({
   const fetchAirtableTableSchema = useCallback(async (baseId: string, tableName: string) => {
     const airtableIntegration = getIntegrationByProvider('airtable');
     if (!baseId || !tableName || !airtableIntegration) {
-      console.log('🔍 Missing required params for fetching table schema:', { baseId, tableName, hasIntegration: !!airtableIntegration });
+      logger.debug('🔍 Missing required params for fetching table schema:', { baseId, tableName, hasIntegration: !!airtableIntegration });
       setIsLoadingTableSchema(false);
       return;
     }
@@ -405,7 +407,7 @@ export default function ConfigurationForm({
     setIsLoadingTableSchema(true);
     
     try {
-      console.log('🔍 Fetching Airtable table schema for:', { baseId, tableName });
+      logger.debug('🔍 Fetching Airtable table schema for:', { baseId, tableName });
       
       // Use a sample records request to infer field types from actual data
       const response = await fetch('/api/integrations/airtable/data', {
@@ -424,7 +426,7 @@ export default function ConfigurationForm({
       
       if (!response.ok) {
         const error = await response.json();
-        console.error('Failed to fetch table data:', error);
+        logger.error('Failed to fetch table data:', error);
         setAirtableTableSchema(null);
         setIsLoadingTableSchema(false);
         return;
@@ -434,7 +436,7 @@ export default function ConfigurationForm({
       const records = result.data || [];
       
       if (records.length === 0) {
-        console.log('🔍 No records found to infer schema');
+        logger.debug('🔍 No records found to infer schema');
         setAirtableTableSchema(null);
         setIsLoadingTableSchema(false);
         return;
@@ -540,7 +542,7 @@ export default function ConfigurationForm({
             const linkedResult = await linkedResponse.json();
             const linkedRecords = linkedResult.data || [];
             
-            console.log(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table for field ${linkedFieldName}`);
+            logger.debug(`📊 Fetched ${linkedRecords.length} records from ${linkedTableName} table for field ${linkedFieldName}`);
             
             // Create a map of record ID to name
             const recordMap = new Map<string, string>();
@@ -549,7 +551,7 @@ export default function ConfigurationForm({
             let displayField: string | null = null;
             if (linkedRecords.length > 0) {
               const sampleFields = Object.keys(linkedRecords[0].fields || {});
-              console.log(`🔍 Available fields in ${linkedTableName}:`, sampleFields);
+              logger.debug(`🔍 Available fields in ${linkedTableName}:`, sampleFields);
               
               // Priority order for finding display field:
               // 1. Fields containing 'name' or 'title'
@@ -568,7 +570,7 @@ export default function ConfigurationForm({
                        !Array.isArray(value);
               });
               
-              console.log(`📊 Using field "${displayField}" as display field for ${linkedTableName}`);
+              logger.debug(`📊 Using field "${displayField}" as display field for ${linkedTableName}`);
             }
             
             linkedRecords.forEach((rec: any) => {
@@ -622,10 +624,10 @@ export default function ConfigurationForm({
               }
             });
             
-            console.log(`🔍 Mapped ${linkedRecordOptions[linkedFieldName].length} linked records for field ${linkedFieldName}`);
+            logger.debug(`🔍 Mapped ${linkedRecordOptions[linkedFieldName].length} linked records for field ${linkedFieldName}`);
           }
         } catch (error) {
-          console.log(`Could not fetch linked records for ${linkedFieldName}:`, error);
+          logger.debug(`Could not fetch linked records for ${linkedFieldName}:`, error);
           // Fall back to using the IDs if we can't fetch the names
           linkedRecordOptions[linkedFieldName] = recordIds.map(id => ({
             value: id,
@@ -685,7 +687,7 @@ export default function ConfigurationForm({
         if (field.isLinkedRecord || field.type === 'multipleRecordLinks' || field.type === 'singleRecordLink') {
           // Choices should already be set from the linked record fetching above
           if (field.choices && field.choices.length > 0) {
-            console.log(`🔍 Linked field ${field.name} has ${field.choices.length} choices`);
+            logger.debug(`🔍 Linked field ${field.name} has ${field.choices.length} choices`);
           }
         }
       });
@@ -699,14 +701,14 @@ export default function ConfigurationForm({
         sampleValues: {}
       };
       
-      console.log('🔍 Inferred table schema:', schemaData);
+      logger.debug('🔍 Inferred table schema:', schemaData);
       setAirtableTableSchema(schemaData);
       
       // Only clear dynamic field values if this is the initial load or table changed
       // Don't clear if we're just updating the schema for the same table
       const currentTableName = values.tableName;
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
-        console.log('🔍 Clearing dynamic fields due to table change');
+        logger.debug('🔍 Clearing dynamic fields due to table change');
         Object.keys(values).forEach(key => {
           if (key.startsWith('airtable_field_')) {
             setValue(key, '');
@@ -715,7 +717,7 @@ export default function ConfigurationForm({
       }
       
     } catch (error) {
-      console.error('Error fetching Airtable table schema:', error);
+      logger.error('Error fetching Airtable table schema:', error);
       setAirtableTableSchema(null);
     } finally {
       setIsLoadingTableSchema(false);
@@ -897,14 +899,14 @@ export default function ConfigurationForm({
 
   // Discord bot invitation moved to useDiscordState hook
   /* const handleInviteBot = useCallback((guildId?: string) => {
-    console.log('🔍 Discord invite bot called:', { 
+    logger.debug('🔍 Discord invite bot called:', { 
       discordClientId: discordState.discordClientId ? 'Present' : 'Missing',
       isDiscordBotConfigured: discordState.isDiscordBotConfigured,
       guildId 
     });
     
     if (!discordState.discordClientId) {
-      console.error('Discord client ID not available - cannot open OAuth flow');
+      logger.error('Discord client ID not available - cannot open OAuth flow');
       return;
     }
     
@@ -918,7 +920,7 @@ export default function ConfigurationForm({
       inviteUrl += `&guild_id=${guildId}`;
     }
     
-    console.log('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
+    logger.debug('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
     
     // Set loading state
     discordState.setIsBotConnectionInProgress(true);
@@ -948,7 +950,7 @@ export default function ConfigurationForm({
         try {
           if (popup.location && popup.location.href) {
             const url = popup.location.href;
-            console.log('🔍 Popup URL:', url);
+            logger.debug('🔍 Popup URL:', url);
             
             // Enhanced success detection patterns
             if (url.includes('discord.com')) {
@@ -959,7 +961,7 @@ export default function ConfigurationForm({
               const hasGuildId = url.includes('guild_id');
               const hasCode = url.includes('code=');
               
-              console.log('🔍 Discord URL analysis:', {
+              logger.debug('🔍 Discord URL analysis:', {
                 url,
                 isAuthorized,
                 hasSuccess,
@@ -969,7 +971,7 @@ export default function ConfigurationForm({
               });
               
               if (isAuthorized || hasSuccess || hasPermissions || hasGuildId || hasCode) {
-                console.log('✅ Discord OAuth success detected, auto-closing popup...');
+                logger.debug('✅ Discord OAuth success detected, auto-closing popup...');
                 successDetected = true;
                 popup.close();
                 return; // Let the closed handler take over
@@ -978,38 +980,38 @@ export default function ConfigurationForm({
           }
         } catch (crossOriginError) {
           // Cross-origin restriction - try alternative detection methods
-          console.log('🔍 Cross-origin blocked, trying alternative detection methods...');
+          logger.debug('🔍 Cross-origin blocked, trying alternative detection methods...');
           
           try {
             // Check if popup title changed (sometimes accessible even with CORS)
             if (popup.document && popup.document.title) {
               const title = popup.document.title.toLowerCase();
-              console.log('🔍 Popup title:', title);
+              logger.debug('🔍 Popup title:', title);
               if (title.includes('success') || title.includes('authorized') || title.includes('complete') || title.includes('discord')) {
-                console.log('✅ Discord OAuth success detected via title, auto-closing popup...');
+                logger.debug('✅ Discord OAuth success detected via title, auto-closing popup...');
                 successDetected = true;
                 popup.close();
                 return;
               }
             }
           } catch (titleError) {
-            console.log('🔍 Title check also blocked by CORS');
+            logger.debug('🔍 Title check also blocked by CORS');
           }
           
           try {
             // Try to detect if popup content contains success indicators
             if (popup.document && popup.document.body) {
               const bodyText = popup.document.body.innerText.toLowerCase();
-              console.log('🔍 Popup body text (first 200 chars):', bodyText.substring(0, 200));
+              logger.debug('🔍 Popup body text (first 200 chars):', bodyText.substring(0, 200));
               if (bodyText.includes('success') || bodyText.includes('authorized') || bodyText.includes('you may now close')) {
-                console.log('✅ Discord OAuth success detected via content, auto-closing popup...');
+                logger.debug('✅ Discord OAuth success detected via content, auto-closing popup...');
                 successDetected = true;
                 popup.close();
                 return;
               }
             }
           } catch (contentError) {
-            console.log('🔍 Content check also blocked by CORS');
+            logger.debug('🔍 Content check also blocked by CORS');
           }
         }
         
@@ -1018,10 +1020,10 @@ export default function ConfigurationForm({
           if (popup.location && popup.location.href && popup.location.href.includes('oauth2/authorized')) {
             if (!successPageDetectedAt) {
               successPageDetectedAt = Date.now();
-              console.log('🔍 Success page detected, will auto-close in 3 seconds if still open...');
+              logger.debug('🔍 Success page detected, will auto-close in 3 seconds if still open...');
             } else if (Date.now() - successPageDetectedAt > 3000) {
               // Auto-close after 3 seconds on success page
-              console.log('✅ Auto-closing popup after 3 seconds on success page');
+              logger.debug('✅ Auto-closing popup after 3 seconds on success page');
               popup.close();
               return;
             }
@@ -1032,12 +1034,12 @@ export default function ConfigurationForm({
         
         // Check if popup is closed (user finished or cancelled)
         if (popup.closed) {
-          console.log('🔍 Discord OAuth popup closed');
+          logger.debug('🔍 Discord OAuth popup closed');
           clearInterval(checkPopup);
           discordState.setIsBotConnectionInProgress(false);
           
           if (guildId) {
-            console.log('🔍 Popup closed for guild:', guildId, '- starting immediate bot status check...');
+            logger.debug('🔍 Popup closed for guild:', guildId, '- starting immediate bot status check...');
             
             // Immediately show loading state by clearing bot status
             setBotStatus(null);
@@ -1045,38 +1047,38 @@ export default function ConfigurationForm({
             // Start checking immediately with shorter initial delay
             setTimeout(async () => {
               try {
-                console.log('🔍 First bot status check after popup close...');
+                logger.debug('🔍 First bot status check after popup close...');
                 await discordState.checkBotStatus(guildId);
-                console.log('🔍 Initial bot status check completed');
+                logger.debug('🔍 Initial bot status check completed');
                 
                 // Quick retry if still not detected (Discord can be slow)
                 setTimeout(async () => {
                   // Only retry if we haven't detected the bot yet
                   if (!botStatus?.isInGuild) {
-                    console.log('🔍 Bot still not detected, trying second check...');
+                    logger.debug('🔍 Bot still not detected, trying second check...');
                     await discordState.checkBotStatus(guildId);
-                    console.log('🔍 Second bot status check completed');
+                    logger.debug('🔍 Second bot status check completed');
                     
                     // Final retry with longer delay
                     setTimeout(async () => {
                       if (!botStatus?.isInGuild) {
-                        console.log('🔍 Bot still not detected, trying final check...');
+                        logger.debug('🔍 Bot still not detected, trying final check...');
                         await discordState.checkBotStatus(guildId);
-                        console.log('🔍 Final bot status check completed');
+                        logger.debug('🔍 Final bot status check completed');
                       }
                     }, 8000); // 8 second final retry
                   }
                 }, 3000); // 3 second quick retry
               } catch (error) {
-                console.error('Error checking bot status after OAuth:', error);
+                logger.error('Error checking bot status after OAuth:', error);
               }
             }, 1000); // Only wait 1 second initially for faster feedback
           } else {
-            console.log('🔍 No guildId available for bot status check');
+            logger.debug('🔍 No guildId available for bot status check');
           }
         }
       } catch (error) {
-        console.error('Error in popup monitoring:', error);
+        logger.error('Error in popup monitoring:', error);
       }
     }, 300); // Check more frequently (every 300ms) for better responsiveness
     
@@ -1099,7 +1101,7 @@ export default function ConfigurationForm({
         const response = await fetch('/api/discord/config');
         const data = await response.json();
         
-        console.log('🔍 Discord configuration check on mount:', data);
+        logger.debug('🔍 Discord configuration check on mount:', data);
         
         if (data.configured && data.clientId) {
           discordState.setIsDiscordBotConfigured(true);
@@ -1109,7 +1111,7 @@ export default function ConfigurationForm({
           discordState.setDiscordClientId(null);
         }
       } catch (error) {
-        console.error('Error fetching Discord config:', error);
+        logger.error('Error fetching Discord config:', error);
         discordState.setIsDiscordBotConfigured(false);
         discordState.setDiscordClientId(null);
       }
@@ -1122,7 +1124,7 @@ export default function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    console.log('🔍 [ConfigForm] Debug - Loading config for node:', {
+    logger.debug('🔍 [ConfigForm] Debug - Loading config for node:', {
       currentNodeId,
       nodeType: nodeInfo?.type,
       hasInitialData: !!initialData,
@@ -1132,13 +1134,13 @@ export default function ConfigurationForm({
     
     // Async function to load configuration
     const loadConfiguration = async () => {
-      console.log('🔄 [ConfigForm] Starting loadConfiguration function');
+      logger.debug('🔄 [ConfigForm] Starting loadConfiguration function');
       setIsLoadingInitialConfig(true); // Prevent field change handlers during load
       
       let configLoaded = false;
       let configToUse = {};
       
-      console.log('🔍 [ConfigForm] Checking conditions for persistence loading:', {
+      logger.debug('🔍 [ConfigForm] Checking conditions for persistence loading:', {
         hasCurrentNodeId: !!currentNodeId,
         hasNodeInfoType: !!nodeInfo?.type,
         currentNodeId,
@@ -1148,10 +1150,10 @@ export default function ConfigurationForm({
       // First, try to load from persistence system (Supabase)
       if (currentNodeId && nodeInfo?.type) {
         const workflowId = getWorkflowId();
-        console.log('🔍 [ConfigForm] Got workflowId:', workflowId);
+        logger.debug('🔍 [ConfigForm] Got workflowId:', workflowId);
         
         if (workflowId) {
-          console.log('🔍 [ConfigForm] Calling loadNodeConfig with:', {
+          logger.debug('🔍 [ConfigForm] Calling loadNodeConfig with:', {
             workflowId,
             nodeId: currentNodeId,
             nodeType: nodeInfo.type
@@ -1160,10 +1162,10 @@ export default function ConfigurationForm({
           try {
             // Try persistence system (async)
             const savedNodeData = await loadNodeConfig(workflowId, currentNodeId, nodeInfo.type);
-            console.log('🔍 [ConfigForm] loadNodeConfig returned:', savedNodeData);
+            logger.debug('🔍 [ConfigForm] loadNodeConfig returned:', savedNodeData);
             
             if (savedNodeData) {
-              console.log('📋 [ConfigForm] Loading configuration from persistence system:', savedNodeData);
+              logger.debug('📋 [ConfigForm] Loading configuration from persistence system:', savedNodeData);
               configLoaded = true;
               configToUse = savedNodeData.config || {};
               
@@ -1174,28 +1176,28 @@ export default function ConfigurationForm({
                 }
               });
               
-              console.log('✅ [ConfigForm] Configuration loaded from persistence system');
+              logger.debug('✅ [ConfigForm] Configuration loaded from persistence system');
               
               // If we have saved dynamic options, restore them
               if (savedNodeData.dynamicOptions) {
-                console.log('📋 [ConfigForm] Found saved dynamic options for node');
+                logger.debug('📋 [ConfigForm] Found saved dynamic options for node');
               }
             } else {
-              console.log('🔍 [ConfigForm] No saved configuration found in persistence system');
+              logger.debug('🔍 [ConfigForm] No saved configuration found in persistence system');
             }
           } catch (error) {
-            console.error('❌ [ConfigForm] Error loading from persistence system:', error);
+            logger.error('❌ [ConfigForm] Error loading from persistence system:', error);
           }
         } else {
-          console.log('⚠️ [ConfigForm] No workflowId available');
+          logger.debug('⚠️ [ConfigForm] No workflowId available');
         }
       } else {
-        console.log('⚠️ [ConfigForm] Missing required data for persistence loading');
+        logger.debug('⚠️ [ConfigForm] Missing required data for persistence loading');
       }
       
       // Fallback to initialData if no saved configuration was found
       if (!configLoaded && initialData && Object.keys(initialData).length > 0) {
-        console.log('📋 Loading configuration from initialData (fallback):', initialData);
+        logger.debug('📋 Loading configuration from initialData (fallback):', initialData);
         configLoaded = true;
         configToUse = initialData;
         
@@ -1206,12 +1208,12 @@ export default function ConfigurationForm({
           }
         });
         
-        console.log('✅ Configuration loaded from initialData (fallback)');
+        logger.debug('✅ Configuration loaded from initialData (fallback)');
       }
       
       // If no configuration was loaded at all, log it
       if (!configLoaded) {
-        console.log('⚠️ No configuration loaded - neither from persistence nor initialData');
+        logger.debug('⚠️ No configuration loaded - neither from persistence nor initialData');
       }
       
       // Load dependent options for Discord actions if we loaded any config (silently in background)
@@ -1223,17 +1225,17 @@ export default function ConfigurationForm({
             
             // Load channels silently if we have a guildId
             if (config.guildId) {
-              console.log('🔄 Loading channels silently for saved guildId:', config.guildId);
+              logger.debug('🔄 Loading channels silently for saved guildId:', config.guildId);
               await loadOptions('channelId', 'guildId', config.guildId, false, true); // silent=true
             }
             
             // Load messages silently if we have both guildId and channelId
             if (config.guildId && config.channelId) {
-              console.log('🔄 Loading messages silently for saved channelId:', config.channelId);
+              logger.debug('🔄 Loading messages silently for saved channelId:', config.channelId);
               await loadOptions('messageId', 'channelId', config.channelId, false, true); // silent=true
             }
           } catch (error) {
-            console.error('Failed to load dependent options for saved config:', error);
+            logger.error('Failed to load dependent options for saved config:', error);
           }
         }, 100);
       }
@@ -1241,13 +1243,13 @@ export default function ConfigurationForm({
       // Clear the loading flag after everything is done
       setTimeout(() => {
         setIsLoadingInitialConfig(false);
-        console.log('🔕 [ConfigForm] Initial configuration loading completed');
+        logger.debug('🔕 [ConfigForm] Initial configuration loading completed');
       }, 200); // Small delay to ensure all setValue calls are processed
     };
     
     // Execute the async loading function with error handling
     loadConfiguration().catch(error => {
-      console.error('❌ [ConfigForm] Error in loadConfiguration:', error);
+      logger.error('❌ [ConfigForm] Error in loadConfiguration:', error);
     });
 
     // Initialize form values from config schema for any missing values
@@ -1278,7 +1280,7 @@ export default function ConfigurationForm({
     try {
       await connectIntegration('discord');
     } catch (error) {
-      console.error('Failed to connect Discord:', error);
+      logger.error('Failed to connect Discord:', error);
     }
   }, [connectIntegration]);
 
@@ -1793,17 +1795,17 @@ export default function ConfigurationForm({
       
       // Ensure table schema is loaded first (for linked field name mappings)
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
-        console.log('🔍 Loading table schema before records');
+        logger.debug('🔍 Loading table schema before records');
         await fetchAirtableTableSchema(baseId, tableName);
       }
       
       const integration = getIntegrationByProvider('airtable');
       if (!integration) {
-        console.warn('No Airtable integration found');
+        logger.warn('No Airtable integration found');
         return;
       }
 
-      console.log('🔍 Loading Airtable records:', { baseId, tableName });
+      logger.debug('🔍 Loading Airtable records:', { baseId, tableName });
       
       // Call the Airtable-specific data API endpoint
       const response = await fetch('/api/integrations/airtable/data', {
@@ -1830,12 +1832,12 @@ export default function ConfigurationForm({
       const result = await response.json();
       const records = result.data || [];
       
-      console.log('🔍 Loaded records:', records);
-      console.log('🔍 Record count:', records?.length || 0);
+      logger.debug('🔍 Loaded records:', records);
+      logger.debug('🔍 Record count:', records?.length || 0);
       setAirtableRecords(records || []);
       
     } catch (error) {
-      console.error('Error loading Airtable records:', error);
+      logger.error('Error loading Airtable records:', error);
       setAirtableRecords([]);
     } finally {
       setLoadingRecords(false);
@@ -1850,19 +1852,19 @@ export default function ConfigurationForm({
       setLoadingPreview(true);
       const integration = getIntegrationByProvider('airtable');
       if (!integration) {
-        console.warn('No Airtable integration found');
+        logger.warn('No Airtable integration found');
         return;
       }
       
       // Always fetch the table schema to ensure we have the latest linked field mappings
-      console.log('🔍 Fetching table schema for preview data to ensure linked field mappings');
+      logger.debug('🔍 Fetching table schema for preview data to ensure linked field mappings');
       await fetchAirtableTableSchema(baseId, tableName);
       
       // Small delay to ensure state updates have propagated
       await new Promise(resolve => setTimeout(resolve, 200));
       
       // After the delay, we should have the updated schema in state
-      console.log('🔍 Checking table schema after fetch');
+      logger.debug('🔍 Checking table schema after fetch');
       // Note: We can't access the updated state directly here due to closure,
       // but the render will use the updated state when displaying the preview
 
@@ -1876,7 +1878,7 @@ export default function ConfigurationForm({
         maxRecords
       } = values;
 
-      console.log('🔍 Loading filtered records for preview:', { 
+      logger.debug('🔍 Loading filtered records for preview:', { 
         baseId, 
         tableName, 
         filterField, 
@@ -1909,7 +1911,7 @@ export default function ConfigurationForm({
           // For linked record fields in Airtable, filter by the display value (name)
           // Airtable automatically matches this against the primary field of the linked table
           options.filterByFormula = `{${filterField}} = "${recordName}"`;
-          console.log('🔍 Applying linked record filter by name:', {
+          logger.debug('🔍 Applying linked record filter by name:', {
             field: filterField,
             recordId,
             recordName,
@@ -1918,7 +1920,7 @@ export default function ConfigurationForm({
         } else {
           // For regular fields, use standard equality
           options.filterByFormula = `{${filterField}} = "${filterValue}"`;
-          console.log('🔍 Applying field filter:', options.filterByFormula);
+          logger.debug('🔍 Applying field filter:', options.filterByFormula);
         }
       }
 
@@ -1938,7 +1940,7 @@ export default function ConfigurationForm({
             } else {
               options.filterByFormula = dateFormula;
             }
-            console.log('🔍 Applying custom date filter:', dateFormula);
+            logger.debug('🔍 Applying custom date filter:', dateFormula);
           }
         } else {
           // Apply predefined date filters
@@ -1972,7 +1974,7 @@ export default function ConfigurationForm({
             } else {
               options.filterByFormula = dateFormula;
             }
-            console.log('🔍 Applying date filter:', dateFormula);
+            logger.debug('🔍 Applying date filter:', dateFormula);
           }
         }
       }
@@ -1998,12 +2000,12 @@ export default function ConfigurationForm({
       const result = await response.json();
       const records = result.data || [];
 
-      console.log('🔍 Filtered records loaded for preview:', records);
-      console.log('🔍 Total filtered record count:', records?.length || 0);
+      logger.debug('🔍 Filtered records loaded for preview:', records);
+      logger.debug('🔍 Total filtered record count:', records?.length || 0);
       setPreviewData(records || []);
       setShowPreviewData(true);
     } catch (error) {
-      console.error('Error loading preview data:', error);
+      logger.error('Error loading preview data:', error);
       setPreviewData([]);
       setShowPreviewData(true); // Still show preview area to display error message
     } finally {
@@ -2016,8 +2018,8 @@ export default function ConfigurationForm({
    */
   const loadGoogleSheetsPreviewData = useCallback(async (spreadsheetId: string, sheetName: string, hasHeaders: boolean = true) => {
     try {
-      console.log('🔍 Starting Google Sheets preview data load');
-      console.log('📋 Available integrations:', integrations.map(i => ({ id: i.id, provider: i.provider, status: i.status })));
+      logger.debug('🔍 Starting Google Sheets preview data load');
+      logger.debug('📋 Available integrations:', integrations.map(i => ({ id: i.id, provider: i.provider, status: i.status })));
       setLoadingPreview(true);
       
       // Find any Google-related integration
@@ -2027,7 +2029,7 @@ export default function ConfigurationForm({
       );
       
       if (googleIntegration) {
-        console.log('✅ Found Google integration:', googleIntegration);
+        logger.debug('✅ Found Google integration:', googleIntegration);
       }
       
       // Try multiple provider names that Google services might use
@@ -2037,14 +2039,14 @@ export default function ConfigurationForm({
                          googleIntegration;
                          
       if (!integration) {
-        console.error('❌ No Google Sheets integration found');
-        console.error('Tried providers: google-sheets, google, gmail');
-        console.error('Available providers:', integrations.map(i => i.provider));
+        logger.error('❌ No Google Sheets integration found');
+        logger.error('Tried providers: google-sheets, google, gmail');
+        logger.error('Available providers:', integrations.map(i => i.provider));
         alert('No Google Sheets integration found. Please connect your Google account first.');
         return;
       }
       
-      console.log('🔍 Loading Google Sheets records for preview:', { 
+      logger.debug('🔍 Loading Google Sheets records for preview:', { 
         integrationId: integration.id,
         spreadsheetId, 
         sheetName,
@@ -2070,24 +2072,24 @@ export default function ConfigurationForm({
         })
       });
 
-      console.log('📡 Response status:', response.status);
+      logger.debug('📡 Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ API Error:', errorData);
+        logger.error('❌ API Error:', errorData);
         throw new Error(errorData.error || `Failed to load preview data: ${response.status}`);
       }
 
       const result = await response.json();
       const records = result.data || [];
 
-      console.log('✅ Google Sheets records loaded for preview:', records);
-      console.log('📊 Total record count:', records?.length || 0);
+      logger.debug('✅ Google Sheets records loaded for preview:', records);
+      logger.debug('📊 Total record count:', records?.length || 0);
       setPreviewData(records || []);
       setShowPreviewData(true);
     } catch (error: any) {
-      console.error('❌ Error loading Google Sheets preview data:', error);
-      console.error('Stack trace:', error.stack);
+      logger.error('❌ Error loading Google Sheets preview data:', error);
+      logger.error('Stack trace:', error.stack);
       alert(`Failed to load sheet data: ${error.message}`);
       setPreviewData([]);
       setShowPreviewData(true); // Still show preview area to display error message
@@ -2122,7 +2124,7 @@ export default function ConfigurationForm({
       const result = await response.json();
       
     } catch (error) {
-      console.error("Test error:", error);
+      logger.error("Test error:", error);
     } finally {
       setIsTestLoading(false);
     }
@@ -2147,8 +2149,8 @@ export default function ConfigurationForm({
    * Handle field value changes
    */
   const handleFieldChange = useCallback(async (fieldName: string, value: any, skipBubbleCreation: boolean = false) => {
-    console.log('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig, skipBubbleCreation });
-    console.log('🔍 Node info:', { type: nodeInfo?.type, providerId: nodeInfo?.providerId });
+    logger.debug('🔍 handleFieldChange called:', { fieldName, value, currentValues: values, isLoadingInitialConfig, skipBubbleCreation });
+    logger.debug('🔍 Node info:', { type: nodeInfo?.type, providerId: nodeInfo?.providerId });
     
     // Check if this is a file/attachment field first
     let field = nodeInfo?.configSchema?.find(f => f.name === fieldName);
@@ -2174,13 +2176,13 @@ export default function ConfigurationForm({
     
     // Try to handle as file field first
     if (fileFieldHandler.handleFileFieldChange(fieldName, value, field, airtableFieldType)) {
-      console.log('📸 File field handled by hook');
+      logger.debug('📸 File field handled by hook');
       return; // File field was handled
     }
     
     // Handle bubble creation for Airtable fields
     if (airtableBubbleHandler.handleAirtableBubble(fieldName, value, skipBubbleCreation)) {
-      console.log('🎈 Bubble handled by Airtable handler');
+      logger.debug('🎈 Bubble handled by Airtable handler');
       return; // Bubble was handled
     }
     
@@ -2203,7 +2205,7 @@ export default function ConfigurationForm({
         // Only handle bubble creation for linked and select fields
         if (!isLinkedField && !isSelectField) {
           // For other field types, let the normal flow continue
-          console.log(`[Update] Skipping bubble creation for non-select/linked field: ${tableField.name} (${tableField.type})`);
+          logger.debug(`[Update] Skipping bubble creation for non-select/linked field: ${tableField.name} (${tableField.type})`);
           // Don't return here - let the value be set normally
         } else {
           // Check if this is a multi-value field
@@ -2227,7 +2229,7 @@ export default function ConfigurationForm({
           const selectedOption = currentOptions.find((opt: any) => opt.value === value);
           
           if (!selectedOption) {
-            console.warn(`Could not find label for value ${value} in field ${tableField.name}`);
+            logger.warn(`Could not find label for value ${value} in field ${tableField.name}`);
             setValue(fieldName, '');
             return;
           }
@@ -2253,7 +2255,7 @@ export default function ConfigurationForm({
         
         if (existingIndex !== -1) {
           // Value already exists as a bubble, don't add duplicate
-          console.log(`[Update] Value ${label} already exists as a bubble`);
+          logger.debug(`[Update] Value ${label} already exists as a bubble`);
           // Clear the dropdown after a short delay
           setTimeout(() => setValue(fieldName, ''), 50);
           return;
@@ -2278,7 +2280,7 @@ export default function ConfigurationForm({
             [fieldName]: 0
           }));
           
-          console.log(`[Update] Replaced bubble for single-value field ${tableField.name}`);
+          logger.debug(`[Update] Replaced bubble for single-value field ${tableField.name}`);
         } else if (hasActiveBubble) {
           // For multi-value fields with an active bubble, replace the active bubble
           setFieldSuggestions(prev => {
@@ -2301,7 +2303,7 @@ export default function ConfigurationForm({
             };
           });
           
-          console.log(`[Update] Replaced active bubble with ${label}`);
+          logger.debug(`[Update] Replaced active bubble with ${label}`);
         } else {
           // Multi-value field with no active bubble - add new bubble
           setFieldSuggestions(prev => ({
@@ -2309,7 +2311,7 @@ export default function ConfigurationForm({
             [fieldName]: [...(prev[fieldName] || []), newSuggestion]
           }));
           
-          console.log(`[Update] Added new bubble for ${label}`);
+          logger.debug(`[Update] Added new bubble for ${label}`);
         }
         
           // Clear the dropdown selection to allow selecting more options
@@ -2362,9 +2364,9 @@ export default function ConfigurationForm({
         
         if (schemaField && schemaField.choices) {
           fieldChoices = schemaField.choices;
-          console.log(`🔍 Found choices for ${tableField?.name} in schema:`, fieldChoices?.length || 0, 'options, sample:', fieldChoices?.[0]);
+          logger.debug(`🔍 Found choices for ${tableField?.name} in schema:`, fieldChoices?.length || 0, 'options, sample:', fieldChoices?.[0]);
         } else {
-          console.log(`🔍 No choices found for ${tableField?.name} in schema. SchemaField:`, schemaField);
+          logger.debug(`🔍 No choices found for ${tableField?.name} in schema. SchemaField:`, schemaField);
         }
       }
       
@@ -2382,7 +2384,7 @@ export default function ConfigurationForm({
         // Handle array values (multi-select sends arrays, we need the first value)
         const actualValue = Array.isArray(value) ? value[0] : value;
         
-        console.log(`🔍 [Create] Looking for label for linked field ${tableField?.name}:`, {
+        logger.debug(`🔍 [Create] Looking for label for linked field ${tableField?.name}:`, {
           originalValue: value,
           actualValue,
           isArray: Array.isArray(value),
@@ -2402,11 +2404,11 @@ export default function ConfigurationForm({
           fieldName: tableField?.name
         };
         
-        console.log(`🔍 [Create] Created suggestion for linked field ${tableField?.name}: value="${actualValue}", label="${suggestionLabel}", found option:`, option);
+        logger.debug(`🔍 [Create] Created suggestion for linked field ${tableField?.name}: value="${actualValue}", label="${suggestionLabel}", found option:`, option);
         
         // Make sure dynamic options are loaded for the dropdown
         if (!dynamicOptions?.[fieldName] && fieldChoices) {
-          console.log(`🔍 [Create] Setting dynamic options for ${fieldName} from fieldChoices`);
+          logger.debug(`🔍 [Create] Setting dynamic options for ${fieldName} from fieldChoices`);
           setDynamicOptions((prev: any) => ({
             ...prev,
             [fieldName]: fieldChoices
@@ -2433,7 +2435,7 @@ export default function ConfigurationForm({
       
       if (existingIndex !== -1) {
         // Value already exists as a bubble, don't add duplicate
-        console.log(`[Create] Value already exists as a bubble`);
+        logger.debug(`[Create] Value already exists as a bubble`);
         // Clear the dropdown to allow more selections
         setTimeout(() => setValue(fieldName, ''), 50);
         return;
@@ -2460,7 +2462,7 @@ export default function ConfigurationForm({
           }));
         }
         
-        console.log(`[Create] Replaced bubble for single-value field ${fieldName}`);
+        logger.debug(`[Create] Replaced bubble for single-value field ${fieldName}`);
       } else if (hasActiveBubble) {
         // For multi-value fields with an active bubble, replace the active bubble
         setFieldSuggestions(prev => {
@@ -2471,12 +2473,12 @@ export default function ConfigurationForm({
             const firstActiveIndex = activeBubbleIndices[0];
             if (firstActiveIndex !== undefined && existing[firstActiveIndex]) {
               existing[firstActiveIndex] = newSuggestion;
-              console.log(`[Create] Replaced active bubble at index ${firstActiveIndex} with new value`);
+              logger.debug(`[Create] Replaced active bubble at index ${firstActiveIndex} with new value`);
             }
           } else if (typeof activeBubbleIndices === 'number' && existing[activeBubbleIndices]) {
             // Single active bubble
             existing[activeBubbleIndices] = newSuggestion;
-            console.log(`[Create] Replaced active bubble at index ${activeBubbleIndices} with new value`);
+            logger.debug(`[Create] Replaced active bubble at index ${activeBubbleIndices} with new value`);
           }
           
           return {
@@ -2491,7 +2493,7 @@ export default function ConfigurationForm({
           [fieldName]: [...(prev[fieldName] || []), newSuggestion]
         }));
         
-        console.log(`[Create] Added new bubble for multi-value field ${fieldName}`);
+        logger.debug(`[Create] Added new bubble for multi-value field ${fieldName}`);
       }
       
       // Clear the dropdown selection to allow selecting more options
@@ -2502,7 +2504,7 @@ export default function ConfigurationForm({
     
     // Handle recordId changes for Airtable update record
     if (fieldName === 'recordId' && nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_update_record') {
-      console.log('🔍 Airtable recordId selected for update:', value);
+      logger.debug('🔍 Airtable recordId selected for update:', value);
       
       // Clear existing field suggestions when a new record is selected
       setFieldSuggestions({});
@@ -2513,7 +2515,7 @@ export default function ConfigurationForm({
         const airtableIntegration = getIntegrationByProvider('airtable');
         if (airtableIntegration) {
           try {
-            console.log('🔍 Fetching record data for field suggestions:', { baseId: values.baseId, tableName: values.tableName, recordId: value });
+            logger.debug('🔍 Fetching record data for field suggestions:', { baseId: values.baseId, tableName: values.tableName, recordId: value });
             
             // Fetch the specific record
             const response = await fetch('/api/integrations/airtable/data', {
@@ -2535,7 +2537,7 @@ export default function ConfigurationForm({
               const record = result.data;
               
               if (record && record.fields) {
-                console.log('🔍 Record data fetched for suggestions:', record.fields);
+                logger.debug('🔍 Record data fetched for suggestions:', record.fields);
                 
                 // Create field suggestions from the record data
                 const newSuggestions: Record<string, any[]> = {};
@@ -2548,7 +2550,7 @@ export default function ConfigurationForm({
                   // Find the field in the table schema
                   const tableField = airtableTableSchema?.fields?.find((f: any) => f.name === fieldName);
                   if (!tableField) {
-                    console.log(`🔍 Field ${fieldName} not found in table schema, skipping`);
+                    logger.debug(`🔍 Field ${fieldName} not found in table schema, skipping`);
                     return;
                   }
                   
@@ -2574,7 +2576,7 @@ export default function ConfigurationForm({
                       newSuggestions[fieldKey] = fieldValue.map((recordId: string) => {
                         const option = fieldOptions.find((opt: any) => opt.value === recordId);
                         if (!option) {
-                          console.warn(`Could not find name for record ${recordId} in field ${fieldName}`);
+                          logger.warn(`Could not find name for record ${recordId} in field ${fieldName}`);
                         }
                         return {
                           value: recordId, // Keep ID for API calls
@@ -2587,7 +2589,7 @@ export default function ConfigurationForm({
                       // Single linked record
                       const option = fieldOptions.find((opt: any) => opt.value === fieldValue);
                       if (!option) {
-                        console.warn(`Could not find name for record ${fieldValue} in field ${fieldName}`);
+                        logger.warn(`Could not find name for record ${fieldValue} in field ${fieldName}`);
                       }
                       newSuggestions[fieldKey] = [{
                         value: fieldValue, // Keep ID for API calls
@@ -2597,7 +2599,7 @@ export default function ConfigurationForm({
                       }];
                     }
                     
-                    console.log(`🔍 Created ${newSuggestions[fieldKey].length} suggestions for linked field ${fieldName}`);
+                    logger.debug(`🔍 Created ${newSuggestions[fieldKey].length} suggestions for linked field ${fieldName}`);
                   } else if (isMultiple) {
                     // Multiple value field (non-linked)
                     if (Array.isArray(fieldValue)) {
@@ -2617,7 +2619,7 @@ export default function ConfigurationForm({
                   }
                 });
                 
-                console.log('🔍 Setting field suggestions from record:', newSuggestions);
+                logger.debug('🔍 Setting field suggestions from record:', newSuggestions);
                 setFieldSuggestions(newSuggestions);
                 
                 // Automatically activate all bubbles for single-value fields
@@ -2644,7 +2646,7 @@ export default function ConfigurationForm({
                   }
                 });
                 
-                console.log('🔍 Setting active bubbles:', newActiveBubbles);
+                logger.debug('🔍 Setting active bubbles:', newActiveBubbles);
                 setActiveBubbles(newActiveBubbles);
                 
                 // For linked fields that couldn't be mapped, try to load their options
@@ -2655,12 +2657,12 @@ export default function ConfigurationForm({
                     const tableField = airtableTableSchema?.fields?.find((f: any) => f.id === fieldId);
                     
                     if (tableField && (tableField.type === 'multipleRecordLinks' || tableField.type === 'singleRecordLink')) {
-                      console.log(`🔍 Loading options for linked field ${tableField.name}`);
+                      logger.debug(`🔍 Loading options for linked field ${tableField.name}`);
                       // Try to load options for this field
                       loadOptions(fieldKey, undefined, undefined, true).then(() => {
-                        console.log(`✅ Options loaded for ${tableField.name}`);
+                        logger.debug(`✅ Options loaded for ${tableField.name}`);
                       }).catch(err => {
-                        console.error(`Failed to load options for ${tableField.name}:`, err);
+                        logger.error(`Failed to load options for ${tableField.name}:`, err);
                       });
                     }
                   }
@@ -2668,7 +2670,7 @@ export default function ConfigurationForm({
               }
             }
           } catch (error) {
-            console.error('Error fetching record data for suggestions:', error);
+            logger.error('Error fetching record data for suggestions:', error);
           }
         }
       }
@@ -2696,7 +2698,7 @@ export default function ConfigurationForm({
         );
         
         if (isDuplicate) {
-          console.log(`⚠️ Cannot update bubble: value "${value}" already exists in another bubble`);
+          logger.debug(`⚠️ Cannot update bubble: value "${value}" already exists in another bubble`);
           
           // Show warning message
           const label = (() => {
@@ -2815,7 +2817,7 @@ export default function ConfigurationForm({
         const docId = fieldName === 'documentId' ? value : values.documentId;
         
         if (docId) {
-          console.log('📄 Fetching Google Docs preview for document:', docId);
+          logger.debug('📄 Fetching Google Docs preview for document:', docId);
           setValue('documentPreview', 'Loading document preview...');
           
           try {
@@ -2857,7 +2859,7 @@ export default function ConfigurationForm({
               setValue('documentPreview', '(Unable to load document preview)');
             }
           } catch (error) {
-            console.error('Error fetching document preview:', error);
+            logger.error('Error fetching document preview:', error);
             setValue('documentPreview', '(Error loading preview)');
           }
         } else {
@@ -2873,13 +2875,13 @@ export default function ConfigurationForm({
     
     // Skip provider logic if we're currently loading initial configuration
     if (isLoadingInitialConfig) {
-      console.log('🔕 Skipping provider logic - loading initial configuration');
+      logger.debug('🔕 Skipping provider logic - loading initial configuration');
       return;
     }
     
     // Handle provider-specific field changes
     if (providerHandlers.handleProviderFieldChange(fieldName, value)) {
-      console.log('🌐 Field handled by provider handler');
+      logger.debug('🌐 Field handled by provider handler');
       setValue(fieldName, value);
       
     }
@@ -2888,7 +2890,7 @@ export default function ConfigurationForm({
     /* Special handling for Discord trigger fields
     if (nodeInfo?.providerId === 'discord') {
       if (fieldName === 'guildId') {
-        console.log('🔍 Handling Discord guildId change:', { fieldName, value });
+        logger.debug('🔍 Handling Discord guildId change:', { fieldName, value });
         
         // For Discord triggers, only load the channels without other side effects
         if (nodeInfo.type === 'discord_trigger_new_message') {
@@ -2911,7 +2913,7 @@ export default function ConfigurationForm({
           
           // Load all related data when guild is selected
           if (value) {
-            console.log('🔍 Loading all Discord data for trigger with guildId:', value);
+            logger.debug('🔍 Loading all Discord data for trigger with guildId:', value);
             
             // Use setTimeout to ensure loading state is visible
             setTimeout(() => {
@@ -2932,7 +2934,7 @@ export default function ConfigurationForm({
               });
             }, 10);
           } else {
-            console.log('🔍 Clearing dependent fields as guildId is empty');
+            logger.debug('🔍 Clearing dependent fields as guildId is empty');
             // Clear loading state if no value
             setLoadingFields(prev => {
               const newSet = new Set(prev);
@@ -2966,12 +2968,12 @@ export default function ConfigurationForm({
           resetOptions('messageId');
           
           if (value && value.trim() !== '' && discordState?.discordIntegration) {
-            console.log('🔍 Server selected, checking bot status for Discord action with guildId:', value);
+            logger.debug('🔍 Server selected, checking bot status for Discord action with guildId:', value);
             
             // Use setTimeout to ensure loading state is visible
             setTimeout(() => {
               // Load dependent options for Discord actions with force refresh
-              console.log('🔍 Loading dependent fields for Discord action with guildId:', value);
+              logger.debug('🔍 Loading dependent fields for Discord action with guildId:', value);
               loadOptions('channelId', 'guildId', value, true).finally(() => {
                 setLoadingFields(prev => {
                   const newSet = new Set(prev);
@@ -2994,7 +2996,7 @@ export default function ConfigurationForm({
               discordState.checkBotStatus(value);
             }, 10);
           } else {
-            console.log('🔍 Server cleared or Discord not connected, keeping bot status null');
+            logger.debug('🔍 Server cleared or Discord not connected, keeping bot status null');
             // Clear loading state if no value
             setLoadingFields(prev => {
               const newSet = new Set(prev);
@@ -3008,7 +3010,7 @@ export default function ConfigurationForm({
       
       // Check channel bot status for Discord actions when channelId changes
       if (fieldName === 'channelId' && nodeInfo?.type?.startsWith('discord_action_')) {
-        console.log('🔍 Handling Discord channelId change:', { fieldName, value });
+        logger.debug('🔍 Handling Discord channelId change:', { fieldName, value });
         
         // Clear previous channel bot status
         discordState.setChannelBotStatus(null);
@@ -3033,11 +3035,11 @@ export default function ConfigurationForm({
         }
         
         if (value && values.guildId) {
-          console.log('🔍 Checking bot status for channel:', value, 'in guild:', values.guildId);
+          logger.debug('🔍 Checking bot status for channel:', value, 'in guild:', values.guildId);
           
           // Load messages for this channel if the action needs them
           if (hasMessageField) {
-            console.log('🔍 Loading messages for Discord action with channelId:', value);
+            logger.debug('🔍 Loading messages for Discord action with channelId:', value);
             
             // Use setTimeout to ensure loading state is visible
             setTimeout(() => {
@@ -3064,16 +3066,16 @@ export default function ConfigurationForm({
       
       // Handle messageId changes for Discord actions - clear emoji field and trigger reaction loading
       if (fieldName === 'messageId' && nodeInfo?.type?.startsWith('discord_action_')) {
-        console.log('🔍 Handling Discord messageId change:', { fieldName, value });
+        logger.debug('🔍 Handling Discord messageId change:', { fieldName, value });
         
         // Clear the emoji field when message changes for remove reaction actions
         if (nodeInfo?.type === 'discord_action_remove_reaction') {
           setValue('emoji', '');
-          console.log('🔍 Cleared emoji field for new message selection');
+          logger.debug('🔍 Cleared emoji field for new message selection');
         }
         
         if (value && values.channelId && nodeInfo?.type === 'discord_action_remove_reaction') {
-          console.log('🔍 Message selected for remove reaction action:', value, 'in channel:', values.channelId);
+          logger.debug('🔍 Message selected for remove reaction action:', value, 'in channel:', values.channelId);
           // Reaction loading will be handled by the DiscordReactionSelector component
         }
       }
@@ -3081,7 +3083,7 @@ export default function ConfigurationForm({
     
     /* Handle spreadsheetId changes for Google Sheets - now handled by provider handlers
     if (fieldName === 'spreadsheetId' && nodeInfo?.providerId === 'google-sheets') {
-      console.log('🔍 Google Sheets spreadsheetId changed to:', value);
+      logger.debug('🔍 Google Sheets spreadsheetId changed to:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -3101,10 +3103,10 @@ export default function ConfigurationForm({
       if (nodeInfo.configSchema) {
         nodeInfo.configSchema.forEach(field => {
           if (field.dependsOn === 'spreadsheetId') {
-            console.log('🔍 Clearing dependent field:', field.name);
+            logger.debug('🔍 Clearing dependent field:', field.name);
             setValue(field.name, '');
             if (value) {
-              console.log('🔍 Loading options for:', field.name, 'with spreadsheetId:', value);
+              logger.debug('🔍 Loading options for:', field.name, 'with spreadsheetId:', value);
               // Set loading state for this field
               setLoadingFields(prev => new Set(prev).add(field.name));
               loadOptions(field.name, 'spreadsheetId', value, true).finally(() => {
@@ -3168,14 +3170,14 @@ export default function ConfigurationForm({
     
     // Handle baseId changes for Airtable
     if (fieldName === 'baseId' && nodeInfo?.providerId === 'airtable') {
-      console.log('🔍 Airtable baseId changed to:', value);
+      logger.debug('🔍 Airtable baseId changed to:', value);
       
       // Always set loading state first, even before clearing the value (exact filterField pattern)
-      console.log('🔄 Setting loading state for tableName');
+      logger.debug('🔄 Setting loading state for tableName');
       setLoadingFields(prev => {
         const newSet = new Set(prev);
         newSet.add('tableName');
-        console.log('🔄 Loading fields updated:', Array.from(newSet));
+        logger.debug('🔄 Loading fields updated:', Array.from(newSet));
         return newSet;
       });
       
@@ -3195,7 +3197,7 @@ export default function ConfigurationForm({
       setTimeout(() => {
         // Load tableName options if a base is selected
         if (value) {
-          console.log('🔍 Loading tableName options for baseId:', value);
+          logger.debug('🔍 Loading tableName options for baseId:', value);
           // Don't manually manage loading state - let the hook handle it
           loadOptions('tableName', 'baseId', value, true);
         } else {
@@ -3239,7 +3241,7 @@ export default function ConfigurationForm({
     
     // Handle tableName changes for Airtable
     if (fieldName === 'tableName' && nodeInfo?.providerId === 'airtable') {
-      console.log('🔍 Airtable tableName changed to:', value);
+      logger.debug('🔍 Airtable tableName changed to:', value);
       
       // Clear field suggestions when table changes
       setFieldSuggestions({});
@@ -3251,7 +3253,7 @@ export default function ConfigurationForm({
         
         // Fetch table schema for list records to get linked field mappings
         if (value && values.baseId) {
-          console.log('🔍 Fetching table schema for list records to get linked field info');
+          logger.debug('🔍 Fetching table schema for list records to get linked field info');
           setIsLoadingTableSchema(true);
           if (typeof fetchAirtableTableSchema === 'function') {
             fetchAirtableTableSchema(values.baseId, value);
@@ -3262,12 +3264,12 @@ export default function ConfigurationForm({
         if (nodeInfo.configSchema && value) {
           nodeInfo.configSchema.forEach(field => {
             if (field.dependsOn === 'tableName') {
-              console.log('🔍 Loading dependent field for list records:', field.name);
+              logger.debug('🔍 Loading dependent field for list records:', field.name);
               setValue(field.name, ''); // Clear dependent field
               setLoadingFields(prev => new Set(prev).add(field.name));
               // For filterField, we need to pass baseId explicitly since form values are stale
               if (field.name === 'filterField') {
-                console.log('🔍 Loading filterField with explicit baseId:', values.baseId);
+                logger.debug('🔍 Loading filterField with explicit baseId:', values.baseId);
                 // Don't manually manage loading state - let the hook handle it
                 loadOptions(field.name, 'tableName', value, true, false, { baseId: values.baseId });
               } else {
@@ -3283,7 +3285,7 @@ export default function ConfigurationForm({
       if (nodeInfo.type === 'airtable_action_update_record' || 
           nodeInfo.type === 'airtable_action_create_record' || 
           nodeInfo.type === 'airtable_action_move_record') {
-        console.log('🔍 Table changed - clearing records and schema for', nodeInfo.type);
+        logger.debug('🔍 Table changed - clearing records and schema for', nodeInfo.type);
         setSelectedRecord(null);
         setAirtableRecords([]); // Clear old records immediately
         setLoadingRecords(false);
@@ -3323,14 +3325,14 @@ export default function ConfigurationForm({
     
     // Handle filterField changes for Airtable - load filterValue options
     if (fieldName === 'filterField' && nodeInfo?.providerId === 'airtable' && nodeInfo?.type === 'airtable_action_list_records') {
-      console.log('🔍 Airtable filterField changed to:', value);
+      logger.debug('🔍 Airtable filterField changed to:', value);
       
       // Always set loading state first, even before clearing the value
-      console.log('🔄 Setting loading state for filterValue');
+      logger.debug('🔄 Setting loading state for filterValue');
       setLoadingFields(prev => {
         const newSet = new Set(prev);
         newSet.add('filterValue');
-        console.log('🔄 Loading fields updated:', Array.from(newSet));
+        logger.debug('🔄 Loading fields updated:', Array.from(newSet));
         return newSet;
       });
       
@@ -3342,8 +3344,8 @@ export default function ConfigurationForm({
       
         // Load filterValue options if a field is selected
         if (value && values.baseId && values.tableName) {
-          console.log('🔍 Loading filterValue options for field:', value);
-          console.log('🔍 Using explicit baseId and tableName:', { baseId: values.baseId, tableName: values.tableName });
+          logger.debug('🔍 Loading filterValue options for field:', value);
+          logger.debug('🔍 Using explicit baseId and tableName:', { baseId: values.baseId, tableName: values.tableName });
           // Don't manually manage loading state - let the hook handle it
           loadOptions('filterValue', 'filterField', value, true, false, { 
             baseId: values.baseId, 
@@ -3422,7 +3424,7 @@ export default function ConfigurationForm({
         );
         
         if (toAdd.length === 0) {
-          console.log('All values already exist as bubbles');
+          logger.debug('All values already exist as bubbles');
           return prev;
         }
         
@@ -3450,7 +3452,7 @@ export default function ConfigurationForm({
         const exists = existing.some((s: any) => s.value === currentValue);
         
         if (exists) {
-          console.log('Value already exists as a bubble');
+          logger.debug('Value already exists as a bubble');
           return prev;
         }
         
@@ -3511,7 +3513,7 @@ export default function ConfigurationForm({
   }, [addFieldValueAsSuggestion]);
 
   const handleRecordSelect = useCallback((record: any) => {
-    console.log('🔍 Record selected:', record);
+    logger.debug('🔍 Record selected:', record);
     setSelectedRecord(record);
     
     // Set the recordId value for the form (this is the hidden field)
@@ -3529,8 +3531,8 @@ export default function ConfigurationForm({
     }
     
     if (tableFields && record.fields) {
-      console.log('🔍 Adding field suggestions from record:', record.fields);
-      console.log('🔍 Available table fields:', tableFields);
+      logger.debug('🔍 Adding field suggestions from record:', record.fields);
+      logger.debug('🔍 Available table fields:', tableFields);
       
       // Add field values as suggestions instead of directly setting them
       const newSuggestions: Record<string, any[]> = {};
@@ -3549,7 +3551,7 @@ export default function ConfigurationForm({
           );
           if (schemaField) {
             fieldChoices = schemaField.choices;
-            console.log(`🔍 Found choices for ${tableField.name} in schema:`, fieldChoices?.length || 0, 'options');
+            logger.debug(`🔍 Found choices for ${tableField.name} in schema:`, fieldChoices?.length || 0, 'options');
           }
         }
         
@@ -3569,7 +3571,7 @@ export default function ConfigurationForm({
         
         // Handle attachment/image fields specially
         if (fieldType === 'file' || tableField.type === 'multipleAttachments' || tableField.type === 'attachment') {
-          console.log(`🖼️ Processing attachment field ${tableField.name}, type: ${tableField.type}, fieldType: ${fieldType}, value:`, existingValue);
+          logger.debug(`🖼️ Processing attachment field ${tableField.name}, type: ${tableField.type}, fieldType: ${fieldType}, value:`, existingValue);
           
           // Check if it's an attachment with image data
           if (Array.isArray(existingValue) && existingValue.length > 0 && existingValue[0]?.url) {
@@ -3587,7 +3589,7 @@ export default function ConfigurationForm({
               type: attachment.type
             }));
             
-            console.log(`🖼️ Created image suggestions for ${fieldName}:`, imageSuggestions);
+            logger.debug(`🖼️ Created image suggestions for ${fieldName}:`, imageSuggestions);
             
             // For single-value image fields, only keep one bubble
             if (!tableField.type?.includes('multiple')) {
@@ -3595,9 +3597,9 @@ export default function ConfigurationForm({
             } else {
               newSuggestions[fieldName] = imageSuggestions;
             }
-            console.log(`🖼️ Created ${imageSuggestions.length} image suggestions for field ${tableField.name} (${fieldName})`);
+            logger.debug(`🖼️ Created ${imageSuggestions.length} image suggestions for field ${tableField.name} (${fieldName})`);
           } else {
-            console.log(`🖼️ No valid attachments found for field ${tableField.name}`);
+            logger.debug(`🖼️ No valid attachments found for field ${tableField.name}`);
           }
           return;
         }
@@ -3627,7 +3629,7 @@ export default function ConfigurationForm({
               };
             });
             newSuggestions[fieldName] = suggestions;
-            console.log(`🔍 Created ${suggestions.length} suggestions for linked field ${tableField.name}`);
+            logger.debug(`🔍 Created ${suggestions.length} suggestions for linked field ${tableField.name}`);
           } else {
             // Single linked record
             const option = currentOptions.find((opt: any) => opt.value === existingValue);
@@ -3638,7 +3640,7 @@ export default function ConfigurationForm({
               recordId: record.id,
               fieldName: tableField.name
             }];
-            console.log(`🔍 Created suggestion for linked field ${tableField.name}: ${suggestionLabel}`);
+            logger.debug(`🔍 Created suggestion for linked field ${tableField.name}: ${suggestionLabel}`);
           }
           
           // Make sure dynamic options are loaded for the dropdown
@@ -3737,12 +3739,12 @@ export default function ConfigurationForm({
           ...originalValues
         }));
         
-        console.log('🔍 Updated field suggestions:', merged);
-        console.log('🔍 Stored original bubble values:', originalValues);
+        logger.debug('🔍 Updated field suggestions:', merged);
+        logger.debug('🔍 Stored original bubble values:', originalValues);
         return merged;
       });
     } else {
-      console.warn('🔍 No table fields or record fields available for population');
+      logger.warn('🔍 No table fields or record fields available for population');
     }
   }, [dynamicOptions, values.tableName, setValue, airtableTableSchema, isUpdateRecord, setDynamicOptions]);
   
@@ -3773,7 +3775,7 @@ export default function ConfigurationForm({
             // Only load if not already loaded for this table
             const loadKey = `${values.tableName}-${fieldName}`;
             if (!linkedFieldsLoaded.has(loadKey)) {
-              console.log('🔍 Triggering load for linked field:', fieldName, field.name);
+              logger.debug('🔍 Triggering load for linked field:', fieldName, field.name);
               
               // Mark as loaded
               setLinkedFieldsLoaded(prev => new Set(prev).add(loadKey));
@@ -3819,7 +3821,7 @@ export default function ConfigurationForm({
                                    suggestion.label?.startsWith('Record:');
                 
                 if (option && isShowingId) {
-                  console.log(`🔗 Updating bubble label for ${tableField?.name}: "${suggestion.label}" -> "${option.label}"`);
+                  logger.debug(`🔗 Updating bubble label for ${tableField?.name}: "${suggestion.label}" -> "${option.label}"`);
                   return {
                     ...suggestion,
                     label: option.label,
@@ -3827,7 +3829,7 @@ export default function ConfigurationForm({
                   };
                 } else if (!suggestion.label && option) {
                   // If label is empty/undefined but we have an option, fix it
-                  console.log(`🔗 Fixing empty label for ${tableField?.name}: setting to "${option.label}"`);
+                  logger.debug(`🔗 Fixing empty label for ${tableField?.name}: setting to "${option.label}"`);
                   return {
                     ...suggestion,
                     label: option.label,
@@ -3982,14 +3984,14 @@ export default function ConfigurationForm({
         values.tableName && 
         airtableTableSchema?.fields) {
       
-      console.log('🔍 Generating dynamic fields from table schema for:', values.tableName);
-      console.log('🔍 Table schema fields:', airtableTableSchema.fields);
+      logger.debug('🔍 Generating dynamic fields from table schema for:', values.tableName);
+      logger.debug('🔍 Table schema fields:', airtableTableSchema.fields);
       
       // Create dynamic fields for each Airtable table field
       const airtableFields = airtableTableSchema.fields.map((tableField: any, fieldIndex: number) => {
         // Debug log for linked record fields
         if (tableField.choices && (tableField.name.includes('Project') || tableField.name.includes('Feedback') || tableField.name.includes('Task'))) {
-          console.log(`🔍 Choices for ${tableField.name}:`, tableField.choices);
+          logger.debug(`🔍 Choices for ${tableField.name}:`, tableField.choices);
         }
         
         const fieldName = `airtable_field_${tableField.id}`;
@@ -4044,7 +4046,7 @@ export default function ConfigurationForm({
         };
       });
       
-      console.log('🔍 Generated airtableFields:', airtableFields);
+      logger.debug('🔍 Generated airtableFields:', airtableFields);
       
       // Add the dynamic fields after the existing schema fields
       visibleFields = [...visibleFields, ...airtableFields as any];
@@ -4055,17 +4057,17 @@ export default function ConfigurationForm({
         nodeInfo.type === 'airtable_action_update_record' && 
         values.tableName) {
       
-      console.log('🔍 Attempting to generate dynamic fields for update record:', values.tableName);
+      logger.debug('🔍 Attempting to generate dynamic fields for update record:', values.tableName);
       
       // First try to use the fetched table schema (same as create record)
       if (airtableTableSchema?.fields) {
-        console.log('🔍 Using fetched table schema for update record:', airtableTableSchema.fields);
+        logger.debug('🔍 Using fetched table schema for update record:', airtableTableSchema.fields);
         
         // Create dynamic fields from table schema
         const airtableFields = airtableTableSchema.fields.map((tableField: any, fieldIndex: number) => {
           // Debug log for linked record fields
           if (tableField.choices && (tableField.name.includes('Project') || tableField.name.includes('Feedback') || tableField.name.includes('Task'))) {
-            console.log(`🔍 Choices for ${tableField.name}:`, tableField.choices);
+            logger.debug(`🔍 Choices for ${tableField.name}:`, tableField.choices);
           }
           
           const fieldName = `airtable_field_${tableField.id}`;
@@ -4114,25 +4116,25 @@ export default function ConfigurationForm({
           };
         });
         
-        console.log('🔍 Generated airtableFields from schema:', airtableFields);
+        logger.debug('🔍 Generated airtableFields from schema:', airtableFields);
         
         // Add the dynamic fields after the existing schema fields
         visibleFields = [...visibleFields, ...airtableFields as any];
       }
       // Fall back to using dynamicOptions if no table schema
       else {
-        console.log('🔍 No table schema available, trying dynamicOptions');
-        console.log('🔍 Available dynamicOptions.tableName:', dynamicOptions?.tableName);
+        logger.debug('🔍 No table schema available, trying dynamicOptions');
+        logger.debug('🔍 Available dynamicOptions.tableName:', dynamicOptions?.tableName);
         
         // Find the selected table data which contains the fields schema
         const selectedTable = dynamicOptions?.tableName?.find((table: any) => 
           table.value === values.tableName
         );
         
-        console.log('🔍 Found selectedTable:', selectedTable);
+        logger.debug('🔍 Found selectedTable:', selectedTable);
         
         if (selectedTable?.fields) {
-          console.log('🔍 Creating dynamic fields from table fields:', selectedTable.fields);
+          logger.debug('🔍 Creating dynamic fields from table fields:', selectedTable.fields);
           
           // Create dynamic fields for each Airtable table field
           const airtableFields = selectedTable.fields.map((tableField: any, fieldIndex: number) => {
@@ -4160,12 +4162,12 @@ export default function ConfigurationForm({
             };
           });
           
-          console.log('🔍 Generated airtableFields from dynamicOptions:', airtableFields);
+          logger.debug('🔍 Generated airtableFields from dynamicOptions:', airtableFields);
           
           // Add the dynamic fields after the existing schema fields
           visibleFields = [...visibleFields, ...airtableFields as any];
         } else {
-          console.log('🔍 No fields found in selectedTable');
+          logger.debug('🔍 No fields found in selectedTable');
         }
       }
     }
@@ -5941,7 +5943,7 @@ export default function ConfigurationForm({
                                 const maxScroll = scrollWidth - clientWidth;
                                 const progress = maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0;
                                 setScrollProgress(progress);
-                                console.log('📏 SCROLL DEBUG:', {
+                                logger.debug('📏 SCROLL DEBUG:', {
                                   scrollLeft,
                                   scrollWidth, 
                                   clientWidth,
@@ -6268,9 +6270,9 @@ export default function ConfigurationForm({
                                                 
                                                 // Debug logging to verify choices are available
                                                 if (linkedFieldOptions && linkedFieldOptions.length > 0) {
-                                                  console.log(`🔍 Found ${linkedFieldOptions.length} choices for linked field ${fieldName}`);
+                                                  logger.debug(`🔍 Found ${linkedFieldOptions.length} choices for linked field ${fieldName}`);
                                                 } else {
-                                                  console.log(`⚠️ No choices found for linked field ${fieldName}, falling back to dynamicOptions`);
+                                                  logger.debug(`⚠️ No choices found for linked field ${fieldName}, falling back to dynamicOptions`);
                                                 }
                                                 
                                                 // Fallback to dynamicOptions if no choices
@@ -6279,7 +6281,7 @@ export default function ConfigurationForm({
                                                   linkedFieldOptions = dynamicOptions?.[fieldId] || [];
                                                   
                                                   if (linkedFieldOptions && linkedFieldOptions.length > 0) {
-                                                    console.log(`✅ Found ${linkedFieldOptions.length} options from dynamicOptions for ${fieldName}`);
+                                                    logger.debug(`✅ Found ${linkedFieldOptions.length} options from dynamicOptions for ${fieldName}`);
                                                   }
                                                 }
                                               }
@@ -6310,7 +6312,7 @@ export default function ConfigurationForm({
                                                 }
                                               } else if (isKnownLinkedField && fieldValue) {
                                                 // For known linked fields without loaded options, show loading indicator
-                                                console.log(`⚠️ No options loaded yet for linked field ${fieldName}, showing IDs temporarily`);
+                                                logger.debug(`⚠️ No options loaded yet for linked field ${fieldName}, showing IDs temporarily`);
                                                 if (Array.isArray(fieldValue)) {
                                                   displayValue = fieldValue.join(', ');
                                                 } else {
@@ -6727,7 +6729,7 @@ export default function ConfigurationForm({
                             >
                               {Object.keys(displayData[0]?.fields || {}).map((fieldName) => {
                                 const value = record.fields?.[fieldName];
-                                console.log(`🎯 Rendering table cell for field: ${fieldName}, value:`, value, 'Table schema:', airtableTableSchema?.table?.name);
+                                logger.debug(`🎯 Rendering table cell for field: ${fieldName}, value:`, value, 'Table schema:', airtableTableSchema?.table?.name);
                                 
                                 // Check if it's an attachment field
                                 const isAttachment = Array.isArray(value) && 
@@ -6744,13 +6746,13 @@ export default function ConfigurationForm({
                                 const schemaMatchesTable = airtableTableSchema?.table?.name === values.tableName;
                                 
                                 if (airtableTableSchema?.fields && schemaMatchesTable) {
-                                  console.log(`🔍 Looking for field "${fieldName}" in schema with ${airtableTableSchema.fields.length} fields (Table: ${airtableTableSchema.table?.name})`);
-                                  console.log(`🔍 Schema fields:`, airtableTableSchema.fields.map((f: any) => ({ name: f.name, type: f.type, hasChoices: !!f.choices })));
+                                  logger.debug(`🔍 Looking for field "${fieldName}" in schema with ${airtableTableSchema.fields.length} fields (Table: ${airtableTableSchema.table?.name})`);
+                                  logger.debug(`🔍 Schema fields:`, airtableTableSchema.fields.map((f: any) => ({ name: f.name, type: f.type, hasChoices: !!f.choices })));
                                   const tableField = airtableTableSchema.fields.find((f: any) => f.name === fieldName);
-                                  console.log(`🔍 Found field "${fieldName}"?`, !!tableField, 'Field data:', tableField);
+                                  logger.debug(`🔍 Found field "${fieldName}"?`, !!tableField, 'Field data:', tableField);
                                   
                                   if (tableField) {
-                                    console.log(`📋 Field details for "${fieldName}":`, {
+                                    logger.debug(`📋 Field details for "${fieldName}":`, {
                                       type: tableField.type,
                                       isLinkedRecord: tableField.isLinkedRecord,
                                       hasChoices: !!tableField.choices,
@@ -6766,7 +6768,7 @@ export default function ConfigurationForm({
                                     // Prioritize choices from table schema (has user-friendly names) over dynamicOptions
                                     linkedFieldOptions = tableField.choices || [];
                                     
-                                    console.log(`🔗 Table display - Linked field ${fieldName}:`, {
+                                    logger.debug(`🔗 Table display - Linked field ${fieldName}:`, {
                                       hasChoices: !!tableField.choices,
                                       choicesCount: tableField.choices?.length,
                                       firstChoice: tableField.choices?.[0],
@@ -6779,7 +6781,7 @@ export default function ConfigurationForm({
                                     if (!linkedFieldOptions || linkedFieldOptions.length === 0) {
                                       const fieldId = `airtable_field_${tableField.id}`;
                                       linkedFieldOptions = dynamicOptions?.[fieldId] || [];
-                                      console.log(`🔗 Using fallback dynamicOptions for ${fieldName}:`, linkedFieldOptions.length);
+                                      logger.debug(`🔗 Using fallback dynamicOptions for ${fieldName}:`, linkedFieldOptions.length);
                                     }
                                   }
                                 }
@@ -6814,7 +6816,7 @@ export default function ConfigurationForm({
                                   );
                                 } else if (isLinkedField) {
                                   // Handle linked record fields - map IDs to names
-                                  console.log(`🔗 Displaying linked field "${fieldName}" with ${linkedFieldOptions.length} options`);
+                                  logger.debug(`🔗 Displaying linked field "${fieldName}" with ${linkedFieldOptions.length} options`);
                                   let displayValue = '';
                                   let mappedNames: string[] = [];
                                   
@@ -6822,7 +6824,7 @@ export default function ConfigurationForm({
                                     // Multiple linked records
                                     mappedNames = value.map((id: string) => {
                                       const option = linkedFieldOptions.find((opt: any) => opt.value === id);
-                                      console.log(`  Mapping ID ${id} to:`, option?.label || 'NOT FOUND');
+                                      logger.debug(`  Mapping ID ${id} to:`, option?.label || 'NOT FOUND');
                                       return option ? option.label : id;
                                     });
                                     displayValue = mappedNames.join(', ');
@@ -6830,12 +6832,12 @@ export default function ConfigurationForm({
                                     // Single linked record
                                     const option = linkedFieldOptions.find((opt: any) => opt.value === value);
                                     const name = option ? option.label : String(value);
-                                    console.log(`  Mapping single ID ${value} to:`, name);
+                                    logger.debug(`  Mapping single ID ${value} to:`, name);
                                     mappedNames = [name];
                                     displayValue = name;
                                   }
                                   
-                                  console.log(`🔗 Final display value for ${fieldName}:`, displayValue);
+                                  logger.debug(`🔗 Final display value for ${fieldName}:`, displayValue);
                                   
                                   // Display linked records with regular styling (no special blue text or icon)
                                   displayContent = (
@@ -7009,7 +7011,7 @@ export default function ConfigurationForm({
   }
 
   // Handle Discord integrations specially - Progressive field disclosure
-  console.log('🔍 [ConfigForm] Provider check:', {
+  logger.debug('🔍 [ConfigForm] Provider check:', {
     providerId: nodeInfo?.providerId,
     type: nodeInfo?.type,
     isDiscord: nodeInfo?.providerId === 'discord',
@@ -7018,7 +7020,7 @@ export default function ConfigurationForm({
   });
   
   if (nodeInfo?.providerId === 'discord' && nodeInfo?.type?.startsWith('discord_action_')) {
-    console.log('⚠️ [ConfigForm] Entering Discord-specific UI block');
+    logger.debug('⚠️ [ConfigForm] Entering Discord-specific UI block');
     return (
       <form onSubmit={async (e) => {
         e.preventDefault();
@@ -7038,14 +7040,14 @@ export default function ConfigurationForm({
         
         // Handle saving configuration for both existing and new/pending nodes
         try {
-          console.log('🔄 [ConfigForm] Saving configuration:', { currentNodeId, values });
+          logger.debug('🔄 [ConfigForm] Saving configuration:', { currentNodeId, values });
           
           // Check if this is a new/pending node (hasn't been added to workflow yet)
           const isPendingNode = currentNodeId === 'pending-action' || currentNodeId === 'pending-trigger';
           
           if (isPendingNode) {
             // For new/pending nodes, use the original flow to add them to the workflow
-            console.log('🔄 [ConfigForm] Pending node detected, using original save flow');
+            logger.debug('🔄 [ConfigForm] Pending node detected, using original save flow');
             const dataWithConfig = {
               config: values
             };
@@ -7055,7 +7057,7 @@ export default function ConfigurationForm({
             }
           } else if (currentNodeId && currentWorkflow) {
             // For existing nodes, update node config and save workflow before calling onSubmit
-            console.log('🔄 [ConfigForm] Existing node detected, updating node config and saving workflow');
+            logger.debug('🔄 [ConfigForm] Existing node detected, updating node config and saving workflow');
             
             // Update the node's config in the workflow store
             updateNode(currentNodeId, { config: values });
@@ -7072,7 +7074,7 @@ export default function ConfigurationForm({
             }
           }
         } catch (error) {
-          console.error('❌ [ConfigForm] Failed to save configuration:', error);
+          logger.error('❌ [ConfigForm] Failed to save configuration:', error);
           // Don't close modal on error - let user retry
           
         }
@@ -7207,7 +7209,7 @@ export default function ConfigurationForm({
         }
         
         submissionValues = cleanedValues;
-        console.log(`🔍 Airtable ${nodeInfo.type} submission structured:`, {
+        logger.debug(`🔍 Airtable ${nodeInfo.type} submission structured:`, {
           original: values,
           structured: submissionValues,
           airtableFields
@@ -7218,7 +7220,7 @@ export default function ConfigurationForm({
       if (currentNodeId && nodeInfo?.type) {
         const workflowId = getWorkflowId();
         if (workflowId) {
-          console.log('📋 Saving configuration for node:', currentNodeId);
+          logger.debug('📋 Saving configuration for node:', currentNodeId);
           // Save both config and dynamicOptions
           saveNodeConfig(workflowId, currentNodeId, nodeInfo.type, submissionValues, dynamicOptions);
         }

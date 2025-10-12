@@ -3,8 +3,10 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
+import { logger } from '@/lib/utils/logger'
+
 if (!process.env.STRIPE_SECRET_KEY) {
-  console.warn("STRIPE_SECRET_KEY environment variable is not set.")
+  logger.warn("STRIPE_SECRET_KEY environment variable is not set.")
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -53,7 +55,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error("Reactivate subscription error:", error)
+    logger.error("Reactivate subscription error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

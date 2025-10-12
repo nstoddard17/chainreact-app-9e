@@ -1,6 +1,8 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   try {
     const { username } = await request.json()
@@ -24,14 +26,14 @@ export async function POST(request: Request) {
         return NextResponse.json({ exists: false })
       }
       
-      console.error("Error checking username:", error)
+      logger.error("Error checking username:", error)
       return NextResponse.json({ error: "Failed to check username" }, { status: 500 })
     }
 
     // If data exists, username is taken
     return NextResponse.json({ exists: true })
   } catch (error) {
-    console.error("Error in check-username route:", error)
+    logger.error("Error in check-username route:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

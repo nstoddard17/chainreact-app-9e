@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ExecutionHistoryEntry {
   id?: string
   workflow_id: string
@@ -78,17 +80,17 @@ export class ExecutionHistoryService {
         .single()
 
       if (error) {
-        console.error('Error creating execution history:', error)
+        logger.error('Error creating execution history:', error)
         throw error
       }
 
       this.currentExecutionId = data.id
       this.stepCounter = 0
 
-      console.log(`📝 Started execution history tracking: ${data.id}`)
+      logger.debug(`📝 Started execution history tracking: ${data.id}`)
       return data.id
     } catch (error) {
-      console.error('Failed to start execution history:', error)
+      logger.error('Failed to start execution history:', error)
       throw error
     }
   }
@@ -126,14 +128,14 @@ export class ExecutionHistoryService {
         .single()
 
       if (error) {
-        console.error('Error recording execution step:', error)
+        logger.error('Error recording execution step:', error)
         throw error
       }
 
-      console.log(`📝 Recorded step ${this.stepCounter}: ${nodeType} (${nodeId})`)
+      logger.debug(`📝 Recorded step ${this.stepCounter}: ${nodeType} (${nodeId})`)
       return data.id
     } catch (error) {
-      console.error('Failed to record execution step:', error)
+      logger.error('Failed to record execution step:', error)
       throw error
     }
   }
@@ -182,14 +184,14 @@ export class ExecutionHistoryService {
         .eq('node_id', nodeId)
 
       if (error) {
-        console.error('Error updating execution step:', error)
+        logger.error('Error updating execution step:', error)
         throw error
       }
 
       const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⏭️'
-      console.log(`${statusIcon} Step ${nodeId} ${status}${duration_ms ? ` (${duration_ms}ms)` : ''}`)
+      logger.debug(`${statusIcon} Step ${nodeId} ${status}${duration_ms ? ` (${duration_ms}ms)` : ''}`)
     } catch (error) {
-      console.error('Failed to complete execution step:', error)
+      logger.error('Failed to complete execution step:', error)
     }
   }
 
@@ -217,14 +219,14 @@ export class ExecutionHistoryService {
         .eq('id', executionHistoryId)
 
       if (error) {
-        console.error('Error completing execution history:', error)
+        logger.error('Error completing execution history:', error)
         throw error
       }
 
       const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⚠️'
-      console.log(`${statusIcon} Execution ${executionHistoryId} ${status}`)
+      logger.debug(`${statusIcon} Execution ${executionHistoryId} ${status}`)
     } catch (error) {
-      console.error('Failed to complete execution history:', error)
+      logger.error('Failed to complete execution history:', error)
     }
   }
 
@@ -246,13 +248,13 @@ export class ExecutionHistoryService {
         .limit(limit)
 
       if (error) {
-        console.error('Error fetching execution history:', error)
+        logger.error('Error fetching execution history:', error)
         throw error
       }
 
       return data || []
     } catch (error) {
-      console.error('Failed to fetch execution history:', error)
+      logger.error('Failed to fetch execution history:', error)
       return []
     }
   }
@@ -273,13 +275,13 @@ export class ExecutionHistoryService {
         .order('step_number', { ascending: true })
 
       if (error) {
-        console.error('Error fetching execution steps:', error)
+        logger.error('Error fetching execution steps:', error)
         throw error
       }
 
       return data || []
     } catch (error) {
-      console.error('Failed to fetch execution steps:', error)
+      logger.error('Failed to fetch execution steps:', error)
       return []
     }
   }
@@ -298,13 +300,13 @@ export class ExecutionHistoryService {
         .eq('workflow_id', workflowId)
 
       if (error) {
-        console.error('Error deleting execution history:', error)
+        logger.error('Error deleting execution history:', error)
         throw error
       }
 
-      console.log(`🗑️ Deleted execution history for workflow ${workflowId}`)
+      logger.debug(`🗑️ Deleted execution history for workflow ${workflowId}`)
     } catch (error) {
-      console.error('Failed to delete execution history:', error)
+      logger.error('Failed to delete execution history:', error)
     }
   }
 
@@ -319,13 +321,13 @@ export class ExecutionHistoryService {
         .rpc('cleanup_old_execution_history')
 
       if (error) {
-        console.error('Error cleaning up old history:', error)
+        logger.error('Error cleaning up old history:', error)
         throw error
       }
 
-      console.log('🧹 Cleaned up old execution history')
+      logger.debug('🧹 Cleaned up old execution history')
     } catch (error) {
-      console.error('Failed to cleanup old history:', error)
+      logger.error('Failed to cleanup old history:', error)
     }
   }
 }

@@ -2,6 +2,8 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: Request) {
   try {
     cookies()
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
       integrations: integrations || [],
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
+    logger.error("Debug endpoint error:", error)
     return NextResponse.json(
       { 
         error: "Debug check failed", 
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
       nodes: workflow.nodes || [],
     })
   } catch (error: any) {
-    console.error("Debug workflow check error:", error)
+    logger.error("Debug workflow check error:", error)
     return NextResponse.json(
       { 
         error: "Debug workflow check failed", 

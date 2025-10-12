@@ -1,5 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 const WORKFLOW_FILES_BUCKET = 'workflow-files'
 
 export async function deleteWorkflowTempFiles(paths: Iterable<string>): Promise<void> {
@@ -11,9 +13,9 @@ export async function deleteWorkflowTempFiles(paths: Iterable<string>): Promise<
     const { error } = await supabase.storage.from(WORKFLOW_FILES_BUCKET).remove(uniquePaths)
 
     if (error) {
-      console.error('❌ [WorkflowFileCleanup] Failed to delete temp files:', error)
+      logger.error('❌ [WorkflowFileCleanup] Failed to delete temp files:', error)
     }
   } catch (error) {
-    console.error('❌ [WorkflowFileCleanup] Error removing temp files:', error)
+    logger.error('❌ [WorkflowFileCleanup] Error removing temp files:', error)
   }
 }

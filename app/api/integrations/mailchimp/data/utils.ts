@@ -5,6 +5,8 @@
 import { MailchimpIntegration } from './types'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Decrypt Mailchimp access token
  */
@@ -21,7 +23,7 @@ function getDecryptedToken(integration: MailchimpIntegration): string {
   try {
     return decrypt(integration.access_token, encryptionKey)
   } catch (error) {
-    console.error('Failed to decrypt Mailchimp token:', error)
+    logger.error('Failed to decrypt Mailchimp token:', error)
     throw new Error('Failed to decrypt Mailchimp access token. Please reconnect your account.')
   }
 }
@@ -48,7 +50,7 @@ export function validateMailchimpIntegration(integration: MailchimpIntegration):
  */
 async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: string; api_endpoint?: string } | null> {
   try {
-    console.log('🔍 [Mailchimp] Attempting to fetch metadata on-demand...')
+    logger.debug('🔍 [Mailchimp] Attempting to fetch metadata on-demand...')
     const metadataResponse = await fetch('https://login.mailchimp.com/oauth2/metadata', {
       headers: {
         Authorization: `OAuth ${accessToken}`,
@@ -56,18 +58,18 @@ async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: strin
     })
 
     if (!metadataResponse.ok) {
-      console.warn('⚠️ [Mailchimp] Failed to fetch metadata:', metadataResponse.statusText)
+      logger.warn('⚠️ [Mailchimp] Failed to fetch metadata:', metadataResponse.statusText)
       return null
     }
 
     const metadataData = await metadataResponse.json()
-    console.log('✅ [Mailchimp] Successfully fetched metadata on-demand:', { dc: metadataData.dc })
+    logger.debug('✅ [Mailchimp] Successfully fetched metadata on-demand:', { dc: metadataData.dc })
     return {
       dc: metadataData.dc,
       api_endpoint: metadataData.api_endpoint,
     }
   } catch (error) {
-    console.warn('⚠️ [Mailchimp] Error fetching metadata:', error)
+    logger.warn('⚠️ [Mailchimp] Error fetching metadata:', error)
     return null
   }
 }
@@ -78,7 +80,7 @@ async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: strin
 export async function getMailchimpServerPrefix(integration: MailchimpIntegration): Promise<string> {
   // Try to get from metadata first (OAuth flow)
   if (integration.metadata?.dc) {
-    console.log(`📍 [Mailchimp] Using server prefix from metadata: ${integration.metadata.dc}`)
+    logger.debug(`📍 [Mailchimp] Using server prefix from metadata: ${integration.metadata.dc}`)
     return integration.metadata.dc
   }
 
@@ -86,7 +88,7 @@ export async function getMailchimpServerPrefix(integration: MailchimpIntegration
   if (integration.metadata?.api_endpoint) {
     const match = integration.metadata.api_endpoint.match(/https:\/\/([^.]+)\.api\.mailchimp\.com/)
     if (match && match[1]) {
-      console.log(`📍 [Mailchimp] Extracted server prefix from api_endpoint: ${match[1]}`)
+      logger.debug(`📍 [Mailchimp] Extracted server prefix from api_endpoint: ${match[1]}`)
       return match[1]
     }
   }
@@ -101,13 +103,13 @@ export async function getMailchimpServerPrefix(integration: MailchimpIntegration
       const potentialPrefix = tokenParts[tokenParts.length - 1]
       // Validate it looks like a server prefix (us1, us2, etc.)
       if (potentialPrefix.match(/^[a-z]{2}\d+$/)) {
-        console.log(`📍 [Mailchimp] Extracted server prefix from token: ${potentialPrefix}`)
+        logger.debug(`📍 [Mailchimp] Extracted server prefix from token: ${potentialPrefix}`)
         return potentialPrefix
       }
     }
 
     // If we couldn't extract from token format, try fetching metadata on-demand
-    console.log('🔍 [Mailchimp] Server prefix not in metadata, attempting to fetch...')
+    logger.debug('🔍 [Mailchimp] Server prefix not in metadata, attempting to fetch...')
     const metadata = await fetchMailchimpMetadata(decryptedToken)
     if (metadata?.dc) {
       return metadata.dc
@@ -119,7 +121,7 @@ export async function getMailchimpServerPrefix(integration: MailchimpIntegration
       }
     }
   } catch (error) {
-    console.warn('Failed to decrypt token for server prefix extraction:', error)
+    logger.warn('Failed to decrypt token for server prefix extraction:', error)
   }
 
   // Cannot determine server - this is a critical error
@@ -154,7 +156,7 @@ export async function makeMailchimpApiRequest(url: string, accessToken: string, 
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
-    console.error('Mailchimp API error:', {
+    logger.error('Mailchimp API error:', {
       status: response.status,
       statusText: response.statusText,
       url,

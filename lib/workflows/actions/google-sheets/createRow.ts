@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Creates a new row in a Google Sheets spreadsheet
  */
@@ -17,7 +19,7 @@ export async function createGoogleSheetsRow(
     const specificRow = resolveValue(config.specificRow, input)
     const fieldMapping = config.fieldMapping || {}
 
-    console.log("Resolved create row values:", {
+    logger.debug("Resolved create row values:", {
       spreadsheetId,
       sheetName,
       insertPosition,
@@ -31,7 +33,7 @@ export async function createGoogleSheetsRow(
       if (!sheetName) missingFields.push("Sheet Name")
 
       const message = `Missing required fields for creating row: ${missingFields.join(", ")}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -52,16 +54,16 @@ export async function createGoogleSheetsRow(
     const headerData = await headerResponse.json()
     const headers = headerData.values?.[0] || []
     
-    console.log("📊 Raw headers from Google Sheets:", headers)
-    console.log("📊 Headers with indices:")
+    logger.debug("📊 Raw headers from Google Sheets:", headers)
+    logger.debug("📊 Headers with indices:")
     headers.forEach((h: string, i: number) => {
-      console.log(`  [${i}] "${h}" (length: ${h.length})`);
+      logger.debug(`  [${i}] "${h}" (length: ${h.length})`);
     })
 
     // Map field values to column positions - ensure array length matches headers exactly
     const rowValues: any[] = new Array(headers.length).fill(undefined)
     
-    console.log("🔍 Processing fieldMapping entries:")
+    logger.debug("🔍 Processing fieldMapping entries:")
     for (const [columnIdentifier, value] of Object.entries(fieldMapping)) {
       const resolvedValue = value !== undefined && value !== null && value !== '' ? resolveValue(value, input) : ''
       
@@ -69,22 +71,22 @@ export async function createGoogleSheetsRow(
       // and NOT a word like "Address" or "RSVP"
       if (/^[A-Z]$/i.test(columnIdentifier)) {
         const index = columnIdentifier.toUpperCase().charCodeAt(0) - 65
-        console.log(`  Letter column "${columnIdentifier}" -> index ${index} -> value: "${resolvedValue}"`)
+        logger.debug(`  Letter column "${columnIdentifier}" -> index ${index} -> value: "${resolvedValue}"`)
         if (index < headers.length) {
           rowValues[index] = resolvedValue
         }
       } else {
         // Find by header name - exact match
         const headerIndex = headers.findIndex((h: string) => h === columnIdentifier)
-        console.log(`  Named column "${columnIdentifier}" -> index ${headerIndex} -> value: "${resolvedValue}"`)
+        logger.debug(`  Named column "${columnIdentifier}" -> index ${headerIndex} -> value: "${resolvedValue}"`)
         if (headerIndex >= 0) {
           rowValues[headerIndex] = resolvedValue
         } else {
-          console.log(`    ⚠️ Column "${columnIdentifier}" not found in headers!`)
+          logger.debug(`    ⚠️ Column "${columnIdentifier}" not found in headers!`)
           // Try trimmed match
           const trimmedIndex = headers.findIndex((h: string) => h.trim() === columnIdentifier.trim())
           if (trimmedIndex >= 0) {
-            console.log(`    ✓ Found with trimmed match at index ${trimmedIndex}`)
+            logger.debug(`    ✓ Found with trimmed match at index ${trimmedIndex}`)
             rowValues[trimmedIndex] = resolvedValue
           }
         }
@@ -94,13 +96,13 @@ export async function createGoogleSheetsRow(
     // Replace undefined values with empty strings - maintain exact array length
     const finalRowValues = rowValues.map(v => v === undefined ? '' : v)
     
-    console.log("📊 Final row values by position:")
+    logger.debug("📊 Final row values by position:")
     finalRowValues.forEach((value, index) => {
       const header = headers[index] || `Column ${index}`
-      console.log(`  [${index}] ${header}: "${value}"`);
+      logger.debug(`  [${index}] ${header}: "${value}"`);
     })
     
-    console.log("🔍 Google Sheets Create Row - Column Mapping Summary:", {
+    logger.debug("🔍 Google Sheets Create Row - Column Mapping Summary:", {
       headersLength: headers.length,
       fieldMappingKeys: Object.keys(fieldMapping),
       finalRowValuesLength: finalRowValues.length,
@@ -110,19 +112,19 @@ export async function createGoogleSheetsRow(
     // Log each mapping explicitly
     Object.entries(fieldMapping).forEach(([column, value]) => {
       const headerIndex = headers.findIndex((h: string) => h === column)
-      console.log(`  Column "${column}" -> Index ${headerIndex} -> Value: "${value}"`)
+      logger.debug(`  Column "${column}" -> Index ${headerIndex} -> Value: "${value}"`)
       if (headerIndex === -1) {
-        console.log(`    ⚠️ WARNING: Column "${column}" not found in headers!`)
+        logger.debug(`    ⚠️ WARNING: Column "${column}" not found in headers!`)
         // Try case-insensitive match
         const caseInsensitiveIndex = headers.findIndex((h: string) => h.toLowerCase() === column.toLowerCase())
         if (caseInsensitiveIndex >= 0) {
-          console.log(`    ℹ️ Found case-insensitive match at index ${caseInsensitiveIndex}`)
+          logger.debug(`    ℹ️ Found case-insensitive match at index ${caseInsensitiveIndex}`)
         }
       }
     })
     
-    console.log("📊 Headers from sheet:", headers)
-    console.log("📊 Field names from UI:", Object.keys(fieldMapping))
+    logger.debug("📊 Headers from sheet:", headers)
+    logger.debug("📊 Field names from UI:", Object.keys(fieldMapping))
 
     // Get sheet metadata if we need to insert at beginning or specific row
     let sheetId: number | undefined
@@ -276,7 +278,7 @@ export async function createGoogleSheetsRow(
     }
 
   } catch (error: any) {
-    console.error("Google Sheets create row error:", error)
+    logger.error("Google Sheets create row error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while creating the row"

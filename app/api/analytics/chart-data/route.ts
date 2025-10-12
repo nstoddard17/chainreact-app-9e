@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { subDays, format, eachDayOfInterval, startOfDay } from 'date-fns';
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
     const supabase = await createSupabaseServerClient();
 
@@ -21,7 +23,7 @@ export async function GET() {
         .gte('completed_at', sevenDaysAgo.toISOString());
 
     if (error) {
-        console.error("Error fetching workflow executions:", error);
+        logger.error("Error fetching workflow executions:", error);
         return NextResponse.json({ error: "Failed to fetch chart data" }, { status: 500 });
     }
 

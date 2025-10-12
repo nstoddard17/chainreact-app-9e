@@ -15,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface NotionBlockFieldsProps {
   value: any
   onChange: (value: any) => void
@@ -48,7 +50,7 @@ export function NotionBlockFields({
   loadOptions,
   setFieldValue
 }: NotionBlockFieldsProps) {
-  console.log('🏗️ [NotionBlockFields] Component rendering with:', {
+  logger.debug('🏗️ [NotionBlockFields] Component rendering with:', {
     hasValue: !!value,
     valueKeys: Object.keys(value || {}),
     page: values?.page,
@@ -84,7 +86,7 @@ export function NotionBlockFields({
 
   // Fetch blocks when page changes
   useEffect(() => {
-    console.log('🎯 [NotionBlockFields] useEffect triggered with:', {
+    logger.debug('🎯 [NotionBlockFields] useEffect triggered with:', {
       page: values.page,
       workspace: values.workspace,
       lastFetchedPage: lastFetchedPageRef.current,
@@ -94,22 +96,22 @@ export function NotionBlockFields({
 
     const fetchBlocks = async () => {
       if (!values.page || !values.workspace) {
-        console.log('⏭️ [NotionBlockFields] No page or workspace, skipping')
+        logger.debug('⏭️ [NotionBlockFields] No page or workspace, skipping')
         return
       }
 
       // Only fetch if the page actually changed
       if (lastFetchedPageRef.current === values.page) {
-        console.log('📌 [NotionBlockFields] Page has not changed, skipping fetch')
+        logger.debug('📌 [NotionBlockFields] Page has not changed, skipping fetch')
         return
       }
 
-      console.log('🔄 [NotionBlockFields] Fetching blocks for new page:', values.page)
+      logger.debug('🔄 [NotionBlockFields] Fetching blocks for new page:', values.page)
       setLoading(true)
       try {
         const integration = getIntegrationByProvider('notion')
         if (!integration) {
-          console.error('No Notion integration found')
+          logger.error('No Notion integration found')
           return
         }
 
@@ -133,7 +135,7 @@ export function NotionBlockFields({
         const result = await response.json()
         const pageBlocks = result.data || []
         
-        console.log('📦 [NotionBlockFields] Fetched blocks:', pageBlocks)
+        logger.debug('📦 [NotionBlockFields] Fetched blocks:', pageBlocks)
         setBlocks(pageBlocks)
         lastFetchedPageRef.current = values.page // Mark this page as fetched
 
@@ -143,24 +145,24 @@ export function NotionBlockFields({
         let titleFieldId: string | null = null
         let titleValue: string = ''
 
-        console.log('💾 [NotionBlockFields] Saved values from previous configuration:', {
+        logger.debug('💾 [NotionBlockFields] Saved values from previous configuration:', {
           hasSavedValues: Object.keys(savedValues).length > 0,
           savedValueKeys: Object.keys(savedValues),
           savedValues
         })
 
         // Debug: Log all properties to see what we're getting
-        console.log('🔍 [NotionBlockFields] Examining all properties:')
+        logger.debug('🔍 [NotionBlockFields] Examining all properties:')
         
         // Look for the primary_properties block first
         const primaryPropsBlock = pageBlocks.find((block: PageBlock) => block.type === 'primary_properties')
         
         pageBlocks.forEach((block: PageBlock) => {
-          console.log(`  📦 Block type: ${block.type}, properties: ${block.properties.length}`)
+          logger.debug(`  📦 Block type: ${block.type}, properties: ${block.properties.length}`)
           
           block.properties.forEach((prop: BlockField) => {
             // Log every property for debugging
-            console.log('    Property:', {
+            logger.debug('    Property:', {
               id: prop.id,
               label: prop.label,
               type: prop.type,
@@ -173,7 +175,7 @@ export function NotionBlockFields({
             if (savedValues[prop.id] !== undefined) {
               initialValues[prop.id] = savedValues[prop.id]
               if (prop.type === 'todo_list_items') {
-                console.log('    ✅ Using saved todo list:', {
+                logger.debug('    ✅ Using saved todo list:', {
                   fieldId: prop.id,
                   savedValue: savedValues[prop.id]
                 })
@@ -181,7 +183,7 @@ export function NotionBlockFields({
             } else if (prop.type === 'todo_list_items' && prop.items) {
               // For todo list items, store the items array properly
               initialValues[prop.id] = { items: prop.items }
-              console.log('    📝 Initializing todo list from API:', {
+              logger.debug('    📝 Initializing todo list from API:', {
                 fieldId: prop.id,
                 items: prop.items
               })
@@ -221,7 +223,7 @@ export function NotionBlockFields({
               if (!titleFieldId || score >= 5 || (isPrimaryProperty && !titleValue)) {
                 titleFieldId = prop.id
                 titleValue = fieldValue || ''
-                console.log(`    ✅ Found title field! Score: ${score}`, {
+                logger.debug(`    ✅ Found title field! Score: ${score}`, {
                   id: prop.id,
                   label: prop.label,
                   value: fieldValue,
@@ -242,7 +244,7 @@ export function NotionBlockFields({
           if (firstRequiredText) {
             titleFieldId = firstRequiredText.id
             titleValue = firstRequiredText.value
-            console.log('    📌 Using first required text field as title fallback:', {
+            logger.debug('    📌 Using first required text field as title fallback:', {
               id: firstRequiredText.id,
               label: firstRequiredText.label,
               value: firstRequiredText.value
@@ -251,7 +253,7 @@ export function NotionBlockFields({
         }
         
         // Also set the title in the parent form if we found it
-        console.log('🎯 [NotionBlockFields] Title setup:', {
+        logger.debug('🎯 [NotionBlockFields] Title setup:', {
           titleFieldId,
           titleValue,
           hasSetFieldValue: !!setFieldValue,
@@ -263,7 +265,7 @@ export function NotionBlockFields({
         const operationsWithTitle = ['create', 'create_database', 'update', 'update_database']
         const shouldSetTitle = operationsWithTitle.includes(values.operation)
         
-        console.log('🎭 [NotionBlockFields] Title setting conditions:', {
+        logger.debug('🎭 [NotionBlockFields] Title setting conditions:', {
           titleValue,
           hasSetFieldValue: !!setFieldValue,
           shouldSetTitle,
@@ -273,23 +275,23 @@ export function NotionBlockFields({
         
         if (titleValue && setFieldValue && shouldSetTitle) {
           // Update the parent form's title field with a small delay to ensure DOM is ready
-          console.log('📝 [NotionBlockFields] Setting title field to:', titleValue)
-          console.log('    Title value type:', typeof titleValue)
-          console.log('    Title value length:', titleValue.length)
+          logger.debug('📝 [NotionBlockFields] Setting title field to:', titleValue)
+          logger.debug('    Title value type:', typeof titleValue)
+          logger.debug('    Title value length:', titleValue.length)
           
           // Try immediate update
-          console.log('    💫 Attempting immediate setFieldValue...')
+          logger.debug('    💫 Attempting immediate setFieldValue...')
           setFieldValue('title', titleValue)
           
           // Also try with a small delay to ensure the field is rendered
           setTimeout(() => {
-            console.log('⏱️ [NotionBlockFields] Delayed title set to:', titleValue)
+            logger.debug('⏱️ [NotionBlockFields] Delayed title set to:', titleValue)
             setFieldValue('title', titleValue)
             
             // Also try to trigger change event on the actual input element
             const titleInput = document.querySelector('input[name="title"]') as HTMLInputElement
             if (titleInput) {
-              console.log('    🎯 Found title input element, setting value directly')
+              logger.debug('    🎯 Found title input element, setting value directly')
               titleInput.value = titleValue
               titleInput.dispatchEvent(new Event('input', { bubbles: true }))
               titleInput.dispatchEvent(new Event('change', { bubbles: true }))
@@ -298,15 +300,15 @@ export function NotionBlockFields({
           
           // Try with a longer delay as well
           setTimeout(() => {
-            console.log('⏳ [NotionBlockFields] Second delayed title set to:', titleValue)
+            logger.debug('⏳ [NotionBlockFields] Second delayed title set to:', titleValue)
             setFieldValue('title', titleValue)
             
             // Check if the value was actually set
             const titleInput = document.querySelector('input[name="title"]') as HTMLInputElement
             if (titleInput) {
-              console.log('    📊 Title input current value:', titleInput.value)
+              logger.debug('    📊 Title input current value:', titleInput.value)
               if (!titleInput.value || titleInput.value !== titleValue) {
-                console.log('    🔄 Value not set, trying again...')
+                logger.debug('    🔄 Value not set, trying again...')
                 titleInput.value = titleValue
                 titleInput.dispatchEvent(new Event('input', { bubbles: true }))
                 titleInput.dispatchEvent(new Event('change', { bubbles: true }))
@@ -316,11 +318,11 @@ export function NotionBlockFields({
           
           // Try a different approach - directly update through onChange if available
           if (values.onChange) {
-            console.log('🔄 [NotionBlockFields] Also trying direct onChange')
+            logger.debug('🔄 [NotionBlockFields] Also trying direct onChange')
             values.onChange('title', titleValue)
           }
         } else {
-          console.log('⚠️ [NotionBlockFields] Not setting title:', {
+          logger.debug('⚠️ [NotionBlockFields] Not setting title:', {
             hasTitle: !!titleValue,
             titleValue: titleValue,
             hasSetFieldValue: !!setFieldValue,
@@ -330,12 +332,12 @@ export function NotionBlockFields({
           
           // Even if we don't have a title value yet, we might need to look harder
           if (!titleValue && shouldSetTitle && primaryPropsBlock) {
-            console.log('    🔍 Looking harder for any text field with content...')
+            logger.debug('    🔍 Looking harder for any text field with content...')
             const anyTextField = primaryPropsBlock.properties.find((prop: BlockField) => 
               prop.type === 'text' && prop.value && String(prop.value).trim()
             )
             if (anyTextField) {
-              console.log('    💡 Found a text field with content:', anyTextField)
+              logger.debug('    💡 Found a text field with content:', anyTextField)
               setTimeout(() => {
                 setFieldValue('title', anyTextField.value)
               }, 700)
@@ -343,15 +345,15 @@ export function NotionBlockFields({
           }
         }
         
-        console.log('🔧 [NotionBlockFields] Initial values being set:', initialValues)
+        logger.debug('🔧 [NotionBlockFields] Initial values being set:', initialValues)
         setFieldValues(initialValues)
         onChange(initialValues)
         
       } catch (error: any) {
-        console.error('Failed to fetch blocks:', error)
+        logger.error('Failed to fetch blocks:', error)
         // Don't show scary errors for permission issues - we handle this gracefully in the UI
         if (!error.message?.includes('Cannot access')) {
-          console.error('Unexpected error fetching blocks:', error)
+          logger.error('Unexpected error fetching blocks:', error)
         }
         // Clear blocks to show the help message
         setBlocks([])
@@ -365,7 +367,7 @@ export function NotionBlockFields({
 
   const handleFieldChange = (fieldId: string, newValue: any) => {
     const updated = { ...fieldValues, [fieldId]: newValue }
-    console.log('📝 [NotionBlockFields] Field changed:', {
+    logger.debug('📝 [NotionBlockFields] Field changed:', {
       fieldId,
       newValue,
       isTodoList: newValue?.items !== undefined,
@@ -416,7 +418,7 @@ export function NotionBlockFields({
       const result = await response.json()
       setGoogleDriveFiles(result.data || [])
     } catch (error) {
-      console.error('Error fetching Google Drive files:', error)
+      logger.error('Error fetching Google Drive files:', error)
       setGoogleDriveFiles([])
     } finally {
       setLoadingGoogleDrive(false)
@@ -517,7 +519,7 @@ export function NotionBlockFields({
   const handleSearch = () => {
     // Search is already reactive via getFilteredAndSortedFiles
     // This function is for the search button click
-    console.log('Searching for:', searchQuery)
+    logger.debug('Searching for:', searchQuery)
   }
 
   const fileTypeOptions = [
@@ -660,7 +662,7 @@ export function NotionBlockFields({
                       const file = e.target.files?.[0]
                       if (file) {
                         // TODO: Handle file upload
-                        console.log('Upload PDF:', file.name)
+                        logger.debug('Upload PDF:', file.name)
                       }
                     }}
                     className="hidden"
@@ -707,7 +709,7 @@ export function NotionBlockFields({
                   const file = e.target.files?.[0]
                   if (file) {
                     // TODO: Handle file upload
-                    console.log('Upload file:', file.name)
+                    logger.debug('Upload file:', file.name)
                   }
                 }}
                 className="hidden"

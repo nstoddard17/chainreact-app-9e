@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordChannelFieldProps {
   field: any;
   value: any;
@@ -34,13 +36,13 @@ function DiscordChannelFieldComponent({
   const handleChannelFieldOpen = (open: boolean) => {
     // Skip loading if we have a saved value - just show the saved value
     if (value) {
-      console.log(`📌 [DiscordChannelField] Not loading on dropdown open - using saved value:`, value);
+      logger.debug(`📌 [DiscordChannelField] Not loading on dropdown open - using saved value:`, value);
       return;
     }
     
     // Only load if we don't have a saved value or if user explicitly opens the dropdown
     if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value) {
-      console.log(`📥 [DiscordChannelField] Loading channels on dropdown open`);
+      logger.debug(`📥 [DiscordChannelField] Loading channels on dropdown open`);
       onDynamicLoad(field.name);
     }
   };
@@ -90,7 +92,7 @@ function DiscordChannelFieldComponent({
     
     if (!matchingOption && options.length > 0) {
       // Channel was saved but is no longer accessible (bot removed from channel)
-      console.warn(`⚠️ [DiscordChannelField] Saved channel ${value} is no longer accessible`);
+      logger.warn(`⚠️ [DiscordChannelField] Saved channel ${value} is no longer accessible`);
       // Clear the invalid value
       onChange('');
       processedOptions = [{
@@ -102,7 +104,7 @@ function DiscordChannelFieldComponent({
       }];
     } else if (!matchingOption && options.length === 0 && !isLoading) {
       // No options loaded yet, show loading placeholder
-      console.log(`📌 [DiscordChannelField] Waiting for channel data to load for:`, value);
+      logger.debug(`📌 [DiscordChannelField] Waiting for channel data to load for:`, value);
       processedOptions = [{
         id: value,
         value: value,
@@ -130,13 +132,13 @@ function DiscordChannelFieldComponent({
   React.useEffect(() => {
     // SKIP auto-load if we have a saved value
     if (value) {
-      console.log('📌 [DiscordChannelField] Skipping auto-load - has saved value:', value);
+      logger.debug('📌 [DiscordChannelField] Skipping auto-load - has saved value:', value);
       return;
     }
     
     if (processedOptions.length === 0 && !isLoading && !value && onDynamicLoad && field.dynamic) {
       // Trigger loading automatically
-      console.log('📥 Auto-triggering channel load - no options available');
+      logger.debug('📥 Auto-triggering channel load - no options available');
       onDynamicLoad(field.name);
     }
   }, [processedOptions.length, isLoading, value, onDynamicLoad, field.dynamic, field.name]);
@@ -151,7 +153,7 @@ function DiscordChannelFieldComponent({
       const storageKey = `discord_channel_label_${channelId}`;
       return localStorage.getItem(storageKey);
     } catch (e) {
-      console.error('Error reading saved label:', e);
+      logger.error('Error reading saved label:', e);
       return null;
     }
   };

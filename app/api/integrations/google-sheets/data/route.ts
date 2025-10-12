@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { googleSheetsHandlers } from './handlers'
 import { GoogleSheetsIntegration } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Google Sheets API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Google Sheets API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Google Sheets integration not found'
       }, { status: 404 })
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Google Sheets API] Integration not connected:', {
+      logger.error('❌ [Google Sheets API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -53,14 +55,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = googleSheetsHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Google Sheets API] Unknown data type:', dataType)
+      logger.error('❌ [Google Sheets API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Google Sheets data type: ${dataType}`,
         availableTypes: Object.keys(googleSheetsHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Google Sheets API] Processing request:`, {
+    logger.debug(`🔍 [Google Sheets API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as GoogleSheetsIntegration, options)
 
-    console.log(`✅ [Google Sheets API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Google Sheets API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: Array.isArray(data) ? data.length : 1
     })
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Google Sheets API] Unexpected error:', {
+    logger.error('❌ [Google Sheets API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

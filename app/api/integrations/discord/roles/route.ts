@@ -8,6 +8,8 @@ import { createClient } from "@supabase/supabase-js"
 import { getDiscordRoles } from '../data/handlers/roles'
 import { DiscordIntegration } from '../data/types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Discord Roles] Integration not found:', { userId, error: integrationError })
+      logger.error('❌ [Discord Roles] Integration not found:', { userId, error: integrationError })
       return NextResponse.json({
         error: 'Discord integration not found'
       }, { status: 404 })
@@ -42,7 +44,7 @@ export async function GET(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [Discord Roles] Integration not connected:', {
+      logger.error('❌ [Discord Roles] Integration not connected:', {
         userId,
         status: integration.status
       })
@@ -53,7 +55,7 @@ export async function GET(req: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Discord Roles] Processing request:`, {
+    logger.debug(`🔍 [Discord Roles] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
     // Get roles using the handler
     const roles = await getDiscordRoles(integration as DiscordIntegration, { guildId })
 
-    console.log(`✅ [Discord Roles] Successfully fetched roles:`, {
+    logger.debug(`✅ [Discord Roles] Successfully fetched roles:`, {
       userId,
       guildId,
       roleCount: roles?.length || 0
@@ -77,7 +79,7 @@ export async function GET(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Discord Roles] Unexpected error:', {
+    logger.error('❌ [Discord Roles] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

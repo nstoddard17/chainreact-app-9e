@@ -6,6 +6,8 @@
 
 import { useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseProviderFieldHandlersProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -52,7 +54,7 @@ export function useProviderFieldHandlers({
 
     nodeInfo.configSchema.forEach((field: any) => {
       if (field.dependsOn === parentFieldName) {
-        console.log('🔍 Clearing dependent field:', field.name);
+        logger.debug('🔍 Clearing dependent field:', field.name);
         setValue(field.name, '');
       }
     });
@@ -73,7 +75,7 @@ export function useProviderFieldHandlers({
     );
 
     for (const field of dependentFields) {
-      console.log('🔍 Loading options for dependent field:', field.name);
+      logger.debug('🔍 Loading options for dependent field:', field.name);
       
       // Set loading state
       setLoadingFields((prev: Set<string>) => {
@@ -103,7 +105,7 @@ export function useProviderFieldHandlers({
 
     // Handle guildId (server) changes
     if (fieldName === 'guildId') {
-      console.log('🔍 Discord guildId changed:', value);
+      logger.debug('🔍 Discord guildId changed:', value);
       
       // Clear dependent fields
       setValue('channelId', '');
@@ -172,7 +174,7 @@ export function useProviderFieldHandlers({
 
     // Handle channelId changes
     if (fieldName === 'channelId') {
-      console.log('🔍 Discord channelId changed:', value);
+      logger.debug('🔍 Discord channelId changed:', value);
       
       // Check for messageId field
       const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
@@ -220,14 +222,14 @@ export function useProviderFieldHandlers({
 
     // Handle messageId changes for remove reaction action
     if (fieldName === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
-      console.log('🔍 Discord messageId changed for remove reaction:', value);
+      logger.debug('🔍 Discord messageId changed for remove reaction:', value);
       
       // Clear emoji field
       setValue('emoji', '');
       
       if (value && values.channelId) {
         // Load reactions (handled by DiscordReactionSelector component)
-        console.log('🔍 Message selected for remove reaction action');
+        logger.debug('🔍 Message selected for remove reaction action');
       }
       
       return true;
@@ -244,7 +246,7 @@ export function useProviderFieldHandlers({
 
     // Handle spreadsheetId changes
     if (fieldName === 'spreadsheetId') {
-      console.log('🔍 Google Sheets spreadsheetId changed:', value);
+      logger.debug('🔍 Google Sheets spreadsheetId changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -273,7 +275,7 @@ export function useProviderFieldHandlers({
 
     // Handle sheetName changes
     if (fieldName === 'sheetName') {
-      console.log('🔍 Google Sheets sheetName changed:', value);
+      logger.debug('🔍 Google Sheets sheetName changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -348,7 +350,7 @@ export function useProviderFieldHandlers({
 
     // Handle baseId changes
     if (fieldName === 'baseId') {
-      console.log('🔍 Airtable baseId changed:', value);
+      logger.debug('🔍 Airtable baseId changed:', value);
       
       // Clear dependent fields
       setValue('tableName', '');
@@ -398,7 +400,7 @@ export function useProviderFieldHandlers({
 
     // Handle tableName changes
     if (fieldName === 'tableName') {
-      console.log('🔍 Airtable tableName changed:', value);
+      logger.debug('🔍 Airtable tableName changed:', value);
       
       // Clear dependent fields
       setValue('recordId', '');
@@ -445,7 +447,7 @@ export function useProviderFieldHandlers({
 
     // Handle filterField changes
     if (fieldName === 'filterField' && nodeInfo?.type === 'airtable_action_list_records') {
-      console.log('🔍 Airtable filterField changed:', value);
+      logger.debug('🔍 Airtable filterField changed:', value);
       
       // Clear filterValue
       setValue('filterValue', '');

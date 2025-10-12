@@ -5,6 +5,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordRichTextEditorProps {
   value: string
   onChange: (value: string) => void
@@ -32,7 +34,7 @@ export function DiscordRichTextEditor({
   channelId,
   userId
 }: DiscordRichTextEditorProps) {
-  console.log('[DiscordRichTextEditorSimple] Rendering - Simplified version active')
+  logger.debug('[DiscordRichTextEditorSimple] Rendering - Simplified version active')
   
   return (
     <div className={cn("space-y-2", className)}>

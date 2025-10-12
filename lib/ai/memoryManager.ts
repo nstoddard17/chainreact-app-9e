@@ -1,6 +1,8 @@
 import { supabase } from '../supabase-client';
 import { createEmbedding, cosineSimilarity } from './embeddings';
 
+import { logger } from '@/lib/utils/logger'
+
 export interface MemoryEntry {
   id: string;
   userId: string;
@@ -86,7 +88,7 @@ export class MemoryManager {
       return data.id;
 
     } catch (error) {
-      console.error('Failed to store memory:', error);
+      logger.error('Failed to store memory:', error);
       throw error;
     }
   }
@@ -164,7 +166,7 @@ export class MemoryManager {
       return memories;
 
     } catch (error) {
-      console.error('Failed to search memories:', error);
+      logger.error('Failed to search memories:', error);
       return [];
     }
   }
@@ -363,7 +365,7 @@ Success Metrics: ${JSON.stringify(pattern.successMetrics)}
       return insights;
 
     } catch (error) {
-      console.error('Failed to get memory insights:', error);
+      logger.error('Failed to get memory insights:', error);
       return [];
     }
   }
@@ -388,7 +390,7 @@ Success Metrics: ${JSON.stringify(pattern.successMetrics)}
       return count || 0;
 
     } catch (error) {
-      console.error('Failed to cleanup old memories:', error);
+      logger.error('Failed to cleanup old memories:', error);
       return 0;
     }
   }
@@ -570,7 +572,7 @@ Success Metrics: ${JSON.stringify(pattern.successMetrics)}
       };
 
     } catch (error) {
-      console.error('Failed to get memory stats:', error);
+      logger.error('Failed to get memory stats:', error);
       return {
         totalMemories: 0,
         memoriesByType: {},

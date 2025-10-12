@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Central configuration for OAuth providers
  * This file contains the configuration for all OAuth providers
@@ -555,7 +557,7 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
     return OAUTH_PROVIDERS["google"];
   }
   
-  console.error(`No OAuth config found for provider: ${provider}`);
+  logger.error(`No OAuth config found for provider: ${provider}`);
   return null;
 }
 

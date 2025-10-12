@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordUser, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integration: DiscordIntegration, options: any = {}) => {
   // Discord API limitation: Cannot fetch all server members with a user OAuth token.
   // Only the user's own account and their connections (friends/linked accounts) are available.
@@ -13,7 +15,7 @@ export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integrati
     const tokenValidation = await validateDiscordToken(integration)
     
     if (!tokenValidation.success) {
-      console.warn("Token validation failed, returning default users")
+      logger.warn("Token validation failed, returning default users")
       // Return some default users instead of failing completely
       return [
         { id: "anyone", name: "Anyone", value: "anyone", username: "anyone", discriminator: "0000" },
@@ -23,7 +25,7 @@ export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integrati
     
     const userToken = tokenValidation.token
     if (!userToken) {
-      console.warn("User Discord token not available - returning default users")
+      logger.warn("User Discord token not available - returning default users")
       return [
         { id: "anyone", name: "Anyone", value: "anyone", username: "anyone", discriminator: "0000" },
         { id: "bot", name: "Discord Bot", value: "bot", username: "bot", discriminator: "0000" }
@@ -61,7 +63,7 @@ export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integrati
         })
       }
     } catch (error) {
-      console.warn("Failed to fetch user info:", error)
+      logger.warn("Failed to fetch user info:", error)
     }
 
     // Try to fetch user's connections (friends/linked accounts)
@@ -94,12 +96,12 @@ export const getDiscordUsers: DiscordDataHandler<DiscordUser> = async (integrati
         })))
       }
     } catch (error) {
-      console.warn("Failed to fetch user connections:", error)
+      logger.warn("Failed to fetch user connections:", error)
     }
 
     return users
   } catch (error: any) {
-    console.error("Error fetching Discord users:", error)
+    logger.error("Error fetching Discord users:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

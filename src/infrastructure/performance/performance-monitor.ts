@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Performance metric types
  */
@@ -106,7 +108,7 @@ export class PerformanceMonitor extends EventEmitter {
     this.alertCheckInterval = setInterval(() => this.checkAlerts(), 10000) // 10 seconds
     this.metricsInterval = setInterval(() => this.calculateMetrics(), 5000) // 5 seconds
     
-    console.log('📊 Performance monitor initialized')
+    logger.debug('📊 Performance monitor initialized')
   }
 
   /**
@@ -119,7 +121,7 @@ export class PerformanceMonitor extends EventEmitter {
       this.metrics.set(config.name, [])
     }
     
-    console.log(`📈 Metric registered: ${config.name} (${config.type})`)
+    logger.debug(`📈 Metric registered: ${config.name} (${config.type})`)
   }
 
   /**
@@ -128,7 +130,7 @@ export class PerformanceMonitor extends EventEmitter {
   recordMetric(name: string, value: number, labels?: Record<string, string>, metadata?: Record<string, any>): void {
     const config = this.metricConfigs.get(name)
     if (!config) {
-      console.warn(`⚠️ Unknown metric: ${name}`)
+      logger.warn(`⚠️ Unknown metric: ${name}`)
       return
     }
 
@@ -170,7 +172,7 @@ export class PerformanceMonitor extends EventEmitter {
   completeRequest(requestId: string, providerId: string, operation: string, metadata?: Record<string, any>): void {
     const startTime = this.requestTimings.get(requestId)
     if (!startTime) {
-      console.warn(`⚠️ No start time found for request: ${requestId}`)
+      logger.warn(`⚠️ No start time found for request: ${requestId}`)
       return
     }
 
@@ -183,7 +185,7 @@ export class PerformanceMonitor extends EventEmitter {
 
     this.updateProviderMetrics(providerId, 'success', duration)
     
-    console.log(`✅ Request completed: ${requestId} (${duration}ms)`)
+    logger.debug(`✅ Request completed: ${requestId} (${duration}ms)`)
   }
 
   /**
@@ -206,7 +208,7 @@ export class PerformanceMonitor extends EventEmitter {
 
     this.updateProviderMetrics(providerId, 'error', duration)
     
-    console.log(`❌ Request failed: ${requestId} (${error.message})`)
+    logger.debug(`❌ Request failed: ${requestId} (${error.message})`)
   }
 
   /**
@@ -214,7 +216,7 @@ export class PerformanceMonitor extends EventEmitter {
    */
   recordRateLimit(providerId: string, operation: string): void {
     this.recordMetric('rate_limit_hit', 1, { providerId, operation })
-    console.log(`🚦 Rate limit hit: ${providerId}:${operation}`)
+    logger.debug(`🚦 Rate limit hit: ${providerId}:${operation}`)
   }
 
   /**
@@ -334,7 +336,7 @@ export class PerformanceMonitor extends EventEmitter {
    */
   configureAlert(config: AlertConfig): void {
     this.alertConfigs.set(config.name, config)
-    console.log(`🚨 Alert configured: ${config.name}`)
+    logger.debug(`🚨 Alert configured: ${config.name}`)
   }
 
   /**
@@ -352,7 +354,7 @@ export class PerformanceMonitor extends EventEmitter {
     if (alert) {
       alert.acknowledged = true
       this.emit('alertAcknowledged', alert)
-      console.log(`✅ Alert acknowledged: ${alertId}`)
+      logger.debug(`✅ Alert acknowledged: ${alertId}`)
     }
   }
 
@@ -598,7 +600,7 @@ export class PerformanceMonitor extends EventEmitter {
     this.alerts.set(config.name, alert)
     this.emit('alertTriggered', alert)
     
-    console.log(`🚨 Alert triggered: ${alert.message}`)
+    logger.debug(`🚨 Alert triggered: ${alert.message}`)
   }
 
   /**
@@ -609,7 +611,7 @@ export class PerformanceMonitor extends EventEmitter {
     if (alert) {
       alert.resolvedAt = Date.now()
       this.emit('alertResolved', alert)
-      console.log(`✅ Alert resolved: ${name}`)
+      logger.debug(`✅ Alert resolved: ${name}`)
     }
   }
 
@@ -686,7 +688,7 @@ export class PerformanceMonitor extends EventEmitter {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Performance monitor cleanup: ${cleaned} data points, ${staleTimings.length} timings, ${staleAlerts.length} alerts`)
+      logger.debug(`🧹 Performance monitor cleanup: ${cleaned} data points, ${staleTimings.length} timings, ${staleAlerts.length} alerts`)
     }
   }
 
@@ -703,7 +705,7 @@ export class PerformanceMonitor extends EventEmitter {
     this.requestTimings.clear()
     this.alerts.clear()
     
-    console.log('🛑 Performance monitor shutdown complete')
+    logger.debug('🛑 Performance monitor shutdown complete')
   }
 }
 

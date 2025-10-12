@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
     const supabase = await createSupabaseServerClient();
 
@@ -32,7 +34,7 @@ export async function GET() {
             .order('last_seen', { ascending: false });
 
         if (error) {
-            console.error("Error fetching online users:", error);
+            logger.error("Error fetching online users:", error);
             return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
         }
 
@@ -41,7 +43,7 @@ export async function GET() {
             users: onlineUsers || [] 
         });
     } catch (error) {
-        console.error("Error fetching online users:", error);
+        logger.error("Error fetching online users:", error);
         return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
     }
 } 

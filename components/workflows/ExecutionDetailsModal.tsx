@@ -16,6 +16,8 @@ import { AIFieldResolutionDisplay } from './AIFieldResolutionDisplay'
 import { Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface ExecutionDetailsModalProps {
   executionId: string | null
   workflowId: string
@@ -60,7 +62,7 @@ export function ExecutionDetailsModal({
       const data = await response.json()
       setExecution(data)
     } catch (error) {
-      console.error('Failed to fetch execution details:', error)
+      logger.error('Failed to fetch execution details:', error)
     } finally {
       setLoading(false)
     }

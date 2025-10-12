@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 export function getMicrosoftGraphClient(accessToken: string) {
   return new MicrosoftGraphClient({ accessToken })
 }
@@ -220,7 +222,7 @@ export class MicrosoftGraphClient {
   }
 
   private normalizeMailDelta(response: OutlookMailDeltaResponse): OutlookMailDeltaResponse {
-    console.log('📧 Normalizing mail delta response:', {
+    logger.debug('📧 Normalizing mail delta response:', {
       messageCount: response.value.length,
       hasDeltaLink: !!response['@odata.deltaLink'],
       hasNextLink: !!response['@odata.nextLink']
@@ -229,7 +231,7 @@ export class MicrosoftGraphClient {
     return {
       ...response,
       value: response.value.map(message => {
-        console.log('📧 Processing mail message:', {
+        logger.debug('📧 Processing mail message:', {
           id: message.id,
           subject: message.subject,
           receivedDateTime: message.receivedDateTime,
@@ -295,7 +297,7 @@ export class MicrosoftGraphClient {
           try {
             content = this.decryptMessage(message.body.content)
           } catch (e) {
-            console.error('Failed to decrypt Teams message:', e)
+            logger.error('Failed to decrypt Teams message:', e)
           }
         }
 
@@ -343,7 +345,7 @@ export class MicrosoftGraphClient {
       // For now, just return a placeholder
       return 'Decrypted content would appear here'
     } catch (e) {
-      console.error('Decryption error:', e)
+      logger.error('Decryption error:', e)
       return `[Encrypted content - decryption failed]`
     }
   }

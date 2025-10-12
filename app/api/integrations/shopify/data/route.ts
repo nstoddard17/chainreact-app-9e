@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     cookies()
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
         })
     }
   } catch (error: any) {
-    console.error("Error fetching Shopify data:", error)
+    logger.error("Error fetching Shopify data:", error)
     return NextResponse.json(
       { error: "Failed to fetch Shopify data", details: error.message },
       { status: 500 }

@@ -2,6 +2,8 @@
 import { NextRequest } from 'next/server'
 import crypto from 'crypto'
 
+import { logger } from '@/lib/utils/logger'
+
 const SLACK_SIGNATURE_VERSION = 'v0'
 const SLACK_MAX_TIMESTAMP_SKEW_SECONDS = 60 * 5 // 5 minutes
 
@@ -13,7 +15,7 @@ export async function verifyWebhookSignature(
     const secret = getWebhookSecret(provider)
 
     if (!secret) {
-      console.warn(`No secret configured for ${provider} webhook`)
+      logger.warn(`No secret configured for ${provider} webhook`)
       return true // Allow unsigned webhooks for development
     }
 
@@ -22,7 +24,7 @@ export async function verifyWebhookSignature(
       const timestamp = request.headers.get('x-slack-request-timestamp')
 
       if (!signature || !timestamp) {
-        console.warn('Missing Slack signature or timestamp header, skipping verification')
+        logger.warn('Missing Slack signature or timestamp header, skipping verification')
         return true
       }
 
@@ -41,7 +43,7 @@ export async function verifyWebhookSignature(
                      request.headers.get('x-slack-signature')
 
     if (!signature) {
-      console.warn(`No signature found for ${provider} webhook`)
+      logger.warn(`No signature found for ${provider} webhook`)
       return true // Allow unsigned webhooks for development
     }
 
@@ -58,7 +60,7 @@ export async function verifyWebhookSignature(
         return verifyGenericSignature(body, signature, secret)
     }
   } catch (error) {
-    console.error(`Error verifying ${provider} webhook signature:`, error)
+    logger.error(`Error verifying ${provider} webhook signature:`, error)
     return false
   }
 }
@@ -78,13 +80,13 @@ function getWebhookSecret(provider: string): string | null {
 function verifySlackSignature(body: string, signature: string, timestamp: string, secret: string): boolean {
   const timestampSeconds = Number(timestamp)
   if (!Number.isFinite(timestampSeconds)) {
-    console.warn('Invalid Slack timestamp header')
+    logger.warn('Invalid Slack timestamp header')
     return false
   }
 
   const currentTimestampSeconds = Math.floor(Date.now() / 1000)
   if (Math.abs(currentTimestampSeconds - timestampSeconds) > SLACK_MAX_TIMESTAMP_SKEW_SECONDS) {
-    console.warn('Slack request timestamp outside of allowed tolerance window')
+    logger.warn('Slack request timestamp outside of allowed tolerance window')
     return false
   }
 

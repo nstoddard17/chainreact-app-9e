@@ -3,6 +3,8 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create a new Google Sheets spreadsheet
  */
@@ -65,7 +67,7 @@ export async function createGoogleSpreadsheet(
           fields: 'id, parents'
         })
       } catch (error) {
-        console.warn('Failed to move spreadsheet to folder:', error)
+        logger.warn('Failed to move spreadsheet to folder:', error)
         // Don't fail the entire operation if folder move fails
       }
     }
@@ -85,7 +87,7 @@ export async function createGoogleSpreadsheet(
     }
 
   } catch (error: any) {
-    console.error('Create Google Spreadsheet error:', error)
+    logger.error('Create Google Spreadsheet error:', error)
     return {
       type: 'google_sheets_create_spreadsheet',
       status: 'error',

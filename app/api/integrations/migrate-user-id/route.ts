@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -32,7 +34,7 @@ export async function POST() {
       .neq("user_id", currentUserId)
     
     if (searchError) {
-      console.error("Error searching for orphaned integrations:", searchError)
+      logger.error("Error searching for orphaned integrations:", searchError)
       return NextResponse.json({ 
         error: "Failed to search for orphaned integrations",
         details: searchError.message 
@@ -87,7 +89,7 @@ export async function POST() {
     })
     
   } catch (error: any) {
-    console.error("Migration error:", error)
+    logger.error("Migration error:", error)
     return NextResponse.json({ 
       error: "Migration failed",
       message: error.message,

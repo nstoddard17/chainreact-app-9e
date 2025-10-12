@@ -9,6 +9,8 @@ import { addGmailLabels, ACTION_METADATA as ADD_GMAIL_LABELS_METADATA } from "@/
 import { searchGmailEmails, ACTION_METADATA as SEARCH_GMAIL_EMAILS_METADATA } from "@/integrations/gmail/searchEmails"
 import { createNotionDatabase, ACTION_METADATA as CREATE_NOTION_DATABASE_METADATA } from "@/integrations/notion/createDatabase"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Standard interface for action parameters
  */
@@ -100,21 +102,21 @@ export async function executeAction(
     
     // Add timing and logging for monitoring
     const startTime = Date.now()
-    console.log(`Executing action: ${actionName} (${actionType})`)
+    logger.debug(`Executing action: ${actionName} (${actionType})`)
     
     // Execute the handler
     const result = await handler(params)
     
     // Log completion time
     const executionTime = Date.now() - startTime
-    console.log(`Action ${actionName} completed in ${executionTime}ms with success=${result.success}`)
+    logger.debug(`Action ${actionName} completed in ${executionTime}ms with success=${result.success}`)
     
     // Return the result
     return result
     
   } catch (error: any) {
     // Handle any unexpected errors
-    console.error(`Error executing action ${actionType}:`, error)
+    logger.error(`Error executing action ${actionType}:`, error)
     
     return {
       success: false,

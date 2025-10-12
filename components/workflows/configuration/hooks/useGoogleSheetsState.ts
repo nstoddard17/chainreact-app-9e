@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseGoogleSheetsStateProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -31,11 +33,11 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
       
       const integration = getIntegrationByProvider('google');
       if (!integration) {
-        console.warn('No Google integration found');
+        logger.warn('No Google integration found');
         return;
       }
 
-      console.log('🔍 Loading Google Sheets preview data:', { spreadsheetId, sheetName, hasHeaders });
+      logger.debug('🔍 Loading Google Sheets preview data:', { spreadsheetId, sheetName, hasHeaders });
       
       const response = await fetch('/api/integrations/google-sheets/data', {
         method: 'POST',
@@ -55,12 +57,12 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
 
       if (!response.ok) {
         const error = await response.text();
-        console.error('Failed to load sheet data:', error);
+        logger.error('Failed to load sheet data:', error);
         throw new Error(`Failed to load sheet data: ${error}`);
       }
 
       const data = await response.json();
-      console.log('✅ Loaded', data.length, 'rows from sheet');
+      logger.debug('✅ Loaded', data.length, 'rows from sheet');
       
       // Transform data to match expected format with fields
       const transformedData = data.map((row: any, index: number) => ({
@@ -72,7 +74,7 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
       setPreviewData(transformedData);
       setShowPreviewData(true);
     } catch (error) {
-      console.error('Error loading sheet data:', error);
+      logger.error('Error loading sheet data:', error);
       setPreviewData([]);
     } finally {
       setLoadingPreview(false);
@@ -81,7 +83,7 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
   
   // Handle row selection for update
   const handleRowSelect = useCallback((row: any) => {
-    console.log('Selected row for update:', row);
+    logger.debug('Selected row for update:', row);
     // You can add logic here to populate form fields with row data
   }, []);
   

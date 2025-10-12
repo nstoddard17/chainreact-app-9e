@@ -3,6 +3,8 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Plan {
   id: string
   name: string
@@ -87,7 +89,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       set({ plans: data || [] })
     } catch (error: any) {
-      console.error("Error fetching plans:", error)
+      logger.error("Error fetching plans:", error)
       set({ error: error.message })
     }
   },
@@ -96,7 +98,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = getSupabaseClient()
       if (!supabase) {
-        console.log("Supabase client not available for subscription fetch")
+        logger.debug("Supabase client not available for subscription fetch")
         return
       }
 
@@ -106,7 +108,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        console.log("User not authenticated for subscription fetch")
+        logger.debug("User not authenticated for subscription fetch")
         return
       }
 
@@ -121,13 +123,13 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       // It's OK if no subscription exists
       if (error && error.code !== "PGRST116") {
-        console.error("Error fetching subscription:", error)
+        logger.error("Error fetching subscription:", error)
         return
       }
 
       set({ currentSubscription: data || null })
     } catch (error: any) {
-      console.error("Subscription fetch error:", error)
+      logger.error("Subscription fetch error:", error)
       // Don't set error state to prevent blocking UI
     }
   },
@@ -136,7 +138,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = getSupabaseClient()
       if (!supabase) {
-        console.log("Supabase client not available for usage fetch")
+        logger.debug("Supabase client not available for usage fetch")
         return
       }
 
@@ -146,7 +148,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        console.log("User not authenticated for usage fetch")
+        logger.debug("User not authenticated for usage fetch")
         return
       }
 
@@ -164,7 +166,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       // It's OK if no usage record exists
       if (error && error.code !== "PGRST116") {
-        console.error("Error fetching usage:", error)
+        logger.error("Error fetching usage:", error)
       }
 
       set({
@@ -177,7 +179,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         },
       })
     } catch (error: any) {
-      console.error("Usage fetch error:", error)
+      logger.error("Usage fetch error:", error)
       // Don't set error state to prevent blocking UI
     }
   },
@@ -189,14 +191,14 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     const CACHE_DURATION = 30000 // 30 seconds
     
     if (state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
-      console.log("Using cached billing data")
+      logger.debug("Using cached billing data")
       return
     }
 
     // Fetch all data in parallel for better performance
     const supabase = getSupabaseClient()
     if (!supabase) {
-      console.log("Supabase client not available")
+      logger.debug("Supabase client not available")
       return
     }
 
@@ -205,9 +207,9 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       // Run all fetches in parallel
       await Promise.all([
-        get().fetchPlans().catch(err => console.error("Error fetching plans:", err)),
-        get().fetchSubscription().catch(err => console.error("Error fetching subscription:", err)),
-        get().fetchUsage().catch(err => console.error("Error fetching usage:", err))
+        get().fetchPlans().catch(err => logger.error("Error fetching plans:", err)),
+        get().fetchSubscription().catch(err => logger.error("Error fetching subscription:", err)),
+        get().fetchUsage().catch(err => logger.error("Error fetching usage:", err))
       ])
       
       set({ lastFetchTime: now })
@@ -218,19 +220,19 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   createCheckoutSession: async (planId: string, billingCycle: string) => {
     try {
-      console.log("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
+      logger.debug("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
 
       // Get the current session token
       const supabase = getSupabaseClient()
-      console.log("Getting session...")
+      logger.debug("Getting session...")
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError || !session) {
-        console.error("Session error:", sessionError)
+        logger.error("Session error:", sessionError)
         throw new Error("No active session found. Please sign in again.")
       }
       
-      console.log("Session obtained, making API request...")
+      logger.debug("Session obtained, making API request...")
       
       // Add a timeout to the fetch request
       const controller = new AbortController()
@@ -253,16 +255,16 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         clearTimeout(timeoutId)
       })
 
-      console.log("Checkout response status:", response.status)
+      logger.debug("Checkout response status:", response.status)
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("Checkout response error:", errorText)
+        logger.error("Checkout response error:", errorText)
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
       const data = await response.json()
-      console.log("Checkout response data:", data)
+      logger.debug("Checkout response data:", data)
 
       if (!data.url) {
         throw new Error("No checkout URL returned from the server")
@@ -270,7 +272,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
       return data.url
     } catch (error: any) {
-      console.error("Checkout session error:", error)
+      logger.error("Checkout session error:", error)
       set({ error: error.message })
       throw error
     }

@@ -13,6 +13,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class MicrosoftOneDriveAdapter implements FileProvider {
   readonly providerId = 'microsoft-onedrive'
   readonly capabilities: CapabilityDescriptor = {
@@ -93,7 +95,7 @@ export class MicrosoftOneDriveAdapter implements FileProvider {
         message: 'File uploaded successfully to OneDrive'
       }
     } catch (error: any) {
-      console.error('OneDrive upload error:', error)
+      logger.error('OneDrive upload error:', error)
       return {
         success: false,
         error: error.message || 'Failed to upload file to OneDrive',
@@ -220,7 +222,7 @@ export class MicrosoftOneDriveAdapter implements FileProvider {
         downloadUrl: item['@microsoft.graph.downloadUrl']
       }))
     } catch (error: any) {
-      console.error('OneDrive list files error:', error)
+      logger.error('OneDrive list files error:', error)
       return []
     }
   }
@@ -384,7 +386,7 @@ export class MicrosoftOneDriveAdapter implements FileProvider {
         downloadUrl: item['@microsoft.graph.downloadUrl']
       }))
     } catch (error: any) {
-      console.error('OneDrive search error:', error)
+      logger.error('OneDrive search error:', error)
       return []
     }
   }

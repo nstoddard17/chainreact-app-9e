@@ -6,6 +6,8 @@
 import { GoogleSheetsIntegration, GoogleSheetsRecord, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
 import { createGoogleSheetsClient, convertRowsToRecords, filterRecords } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[]> = async (
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
@@ -22,7 +24,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     includeHeaders = true
   } = options
   
-  console.log("🔍 Google Sheets records fetcher called with:", {
+  logger.debug("🔍 Google Sheets records fetcher called with:", {
     integrationId: integration.id,
     spreadsheetId,
     sheetName,
@@ -42,7 +44,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     
     const sheets = await createGoogleSheetsClient(integration)
     
-    console.log('🔍 Fetching Google Sheets data...')
+    logger.debug('🔍 Fetching Google Sheets data...')
     
     // Calculate the range to fetch
     const finalEndRow = endRow || startRow + maxRows - 1
@@ -59,11 +61,11 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     const rows = response.data.values || []
     
     if (rows.length === 0) {
-      console.log('📋 No data found in the specified range')
+      logger.debug('📋 No data found in the specified range')
       return []
     }
     
-    console.log(`📊 Fetched ${rows.length} rows. First row:`, rows[0]?.slice(0, 3), '...')
+    logger.debug(`📊 Fetched ${rows.length} rows. First row:`, rows[0]?.slice(0, 3), '...')
     
     // Get headers if needed
     let headers: string[] | undefined
@@ -111,8 +113,8 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
       actualStartRow
     )
     
-    console.log(`✅ Converted to ${records.length} records. Headers:`, headers)
-    console.log(`📋 First record:`, records[0])
+    logger.debug(`✅ Converted to ${records.length} records. Headers:`, headers)
+    logger.debug(`📋 First record:`, records[0])
     
     // Apply filters if specified
     const filteredRecords = filterRecords(records, {
@@ -121,11 +123,11 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
       searchQuery
     })
     
-    console.log(`✅ Google Sheets records fetched successfully: ${filteredRecords.length} records`)
+    logger.debug(`✅ Google Sheets records fetched successfully: ${filteredRecords.length} records`)
     return filteredRecords
     
   } catch (error: any) {
-    console.error("Error fetching Google Sheets records:", error)
+    logger.error("Error fetching Google Sheets records:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Google Sheets authentication expired. Please reconnect your account.')

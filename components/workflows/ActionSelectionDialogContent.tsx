@@ -3,6 +3,8 @@ import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/di
 import { Badge } from '@/components/ui/badge';
 import { Zap } from 'lucide-react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface ActionSelectionDialogContentProps {
   children: React.ReactNode;
 }
@@ -12,14 +14,14 @@ export default function ActionSelectionDialogContent({ children }: ActionSelecti
   const [timestamp] = React.useState(Date.now());
 
   React.useEffect(() => {
-    console.log('🔍 ActionSelectionDialogContent mounted at', new Date().toISOString());
+    logger.debug('🔍 ActionSelectionDialogContent mounted at', new Date().toISOString());
 
     // Track the source of any element with the debug text
     const findDebugBanner = () => {
       const allElements = document.querySelectorAll('*');
       allElements.forEach((el) => {
         if (el.textContent?.includes('THIS IS THE ACTION DIALOG')) {
-          console.error('🚨 FOUND DEBUG BANNER!', {
+          logger.error('🚨 FOUND DEBUG BANNER!', {
             element: el,
             tagName: el.tagName,
             className: el.className,
@@ -31,10 +33,10 @@ export default function ActionSelectionDialogContent({ children }: ActionSelecti
 
           // Try to trace where it was created
           if ((el as any)._reactInternalFiber) {
-            console.error('React Fiber:', (el as any)._reactInternalFiber);
+            logger.error('React Fiber:', (el as any)._reactInternalFiber);
           }
           if ((el as any).__reactInternalInstance) {
-            console.error('React Instance:', (el as any).__reactInternalInstance);
+            logger.error('React Instance:', (el as any).__reactInternalInstance);
           }
 
           // Remove it completely
@@ -55,7 +57,7 @@ export default function ActionSelectionDialogContent({ children }: ActionSelecti
                              el.textContent?.includes('IF YOU SEE THIS');
 
         if ((hasRedBg || hasDebugText) && el.textContent?.includes('THIS IS THE ACTION DIALOG')) {
-          console.log('🔥 FORCE REMOVING DEBUG BANNER');
+          logger.debug('🔥 FORCE REMOVING DEBUG BANNER');
           el.style.display = 'none !important';
           el.style.visibility = 'hidden !important';
           el.style.opacity = '0 !important';
@@ -81,7 +83,7 @@ export default function ActionSelectionDialogContent({ children }: ActionSelecti
         if (mutation.type === 'childList') {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === 1 && (node as Element).textContent?.includes('THIS IS THE ACTION DIALOG')) {
-              console.error('🚨 DEBUG BANNER ADDED VIA MUTATION!', {
+              logger.error('🚨 DEBUG BANNER ADDED VIA MUTATION!', {
                 node,
                 parent: mutation.target,
                 previousSibling: mutation.previousSibling,

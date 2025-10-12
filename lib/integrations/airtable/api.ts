@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 export interface AirtableBaseInfo {
   id: string
   name: string
@@ -16,7 +18,7 @@ export async function listAirtableBases(accessToken: string): Promise<AirtableBa
     try {
       const err = await res.json()
       // eslint-disable-next-line no-console
-      console.error("Airtable list bases error:", err)
+      logger.error("Airtable list bases error:", err)
     } catch {}
     throw new Error(`Failed to list Airtable bases (status ${res.status})`)
   }

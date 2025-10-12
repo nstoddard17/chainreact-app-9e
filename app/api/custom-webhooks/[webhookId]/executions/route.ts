@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: Request,
   { params }: { params: { webhookId: string } }
@@ -35,14 +37,14 @@ export async function GET(
       .limit(50)
 
     if (error) {
-      console.error(`Error fetching executions for webhook ${webhookId}:`, error)
+      logger.error(`Error fetching executions for webhook ${webhookId}:`, error)
       return NextResponse.json({ error: "Failed to fetch executions" }, { status: 500 })
     }
 
     return NextResponse.json({ executions: executions || [] })
 
   } catch (error: any) {
-    console.error(`Error in GET /api/custom-webhooks/${webhookId}/executions:`, error)
+    logger.error(`Error in GET /api/custom-webhooks/${webhookId}/executions:`, error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

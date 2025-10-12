@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import crypto from "crypto"
 
+import { logger } from '@/lib/utils/logger'
+
 // Encryption key from environment (should be 32 bytes for AES-256)
 const ENCRYPTION_KEY = process.env.API_KEY_ENCRYPTION_SECRET || "default-key-please-change-in-production-32b"
 const ALGORITHM = "aes-256-cbc"
@@ -63,7 +65,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (profileError) {
-      console.error("Error fetching profile:", profileError)
+      logger.error("Error fetching profile:", profileError)
       return NextResponse.json(
         { error: "Failed to fetch API keys" },
         { status: 500 }
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
       defaultModel: profile?.default_openai_model || "gpt-4o-mini",
     })
   } catch (error) {
-    console.error("Error in GET /api/user/ai-api-keys:", error)
+    logger.error("Error in GET /api/user/ai-api-keys:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fetchError) {
-      console.error("Error fetching profile:", fetchError)
+      logger.error("Error fetching profile:", fetchError)
       return NextResponse.json(
         { error: "Failed to fetch profile" },
         { status: 500 }
@@ -164,7 +166,7 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating profile:", updateError)
+      logger.error("Error updating profile:", updateError)
       return NextResponse.json(
         { error: "Failed to save API key" },
         { status: 500 }
@@ -176,7 +178,7 @@ export async function POST(request: NextRequest) {
       keyId: newKey.id,
     })
   } catch (error) {
-    console.error("Error in POST /api/user/ai-api-keys:", error)
+    logger.error("Error in POST /api/user/ai-api-keys:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -218,7 +220,7 @@ export async function PATCH(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating default model:", updateError)
+      logger.error("Error updating default model:", updateError)
       return NextResponse.json(
         { error: "Failed to update default model" },
         { status: 500 }
@@ -227,7 +229,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in PATCH /api/user/ai-api-keys:", error)
+    logger.error("Error in PATCH /api/user/ai-api-keys:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -270,7 +272,7 @@ export async function DELETE(request: NextRequest) {
       .single()
 
     if (fetchError) {
-      console.error("Error fetching profile:", fetchError)
+      logger.error("Error fetching profile:", fetchError)
       return NextResponse.json(
         { error: "Failed to fetch profile" },
         { status: 500 }
@@ -288,7 +290,7 @@ export async function DELETE(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating profile:", updateError)
+      logger.error("Error updating profile:", updateError)
       return NextResponse.json(
         { error: "Failed to delete API key" },
         { status: 500 }
@@ -297,7 +299,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in DELETE /api/user/ai-api-keys:", error)
+    logger.error("Error in DELETE /api/user/ai-api-keys:", error)
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -335,7 +337,7 @@ export async function getUserAPIKey(userId: string, keyId?: string): Promise<str
 
     return decryptKey(key.key_encrypted)
   } catch (error) {
-    console.error("Error getting user API key:", error)
+    logger.error("Error getting user API key:", error)
     return null
   }
 }

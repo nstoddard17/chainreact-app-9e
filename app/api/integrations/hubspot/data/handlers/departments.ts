@@ -5,8 +5,10 @@
 import { HubSpotIntegration, HubSpotDepartment, HubSpotDataHandler } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotDepartment[]> => {
-  console.log("🔍 HubSpot departments fetcher called with integration:", {
+  logger.debug("🔍 HubSpot departments fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,24 +19,24 @@ export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = asyn
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    console.log(`🔍 Validating HubSpot token...`)
+    logger.debug(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Using predefined HubSpot departments list...')
+    logger.debug('🔍 Using predefined HubSpot departments list...')
     // Departments are typically custom properties that vary by organization
     // We'll provide a standard list of common departments
     const departments = getDefaultDepartments()
     
-    console.log(`✅ HubSpot departments fetched successfully: ${departments.length} departments`)
+    logger.debug(`✅ HubSpot departments fetched successfully: ${departments.length} departments`)
     return departments
     
   } catch (error: any) {
-    console.error("Error fetching HubSpot departments:", error)
+    logger.error("Error fetching HubSpot departments:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('HubSpot authentication expired. Please reconnect your account.')

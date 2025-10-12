@@ -5,12 +5,14 @@
 import { GoogleIntegration, GoogleDriveFolder, GoogleDriveFile, GoogleDataHandler } from '../types'
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Google Drive folders for the authenticated user
  */
 export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async (integration: GoogleIntegration) => {
   try {
-    console.log("📁 [Google Drive] Starting to fetch folders", {
+    logger.debug("📁 [Google Drive] Starting to fetch folders", {
       integrationId: integration.id,
       provider: integration.provider,
       status: integration.status,
@@ -18,10 +20,10 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
     })
     
     validateGoogleIntegration(integration)
-    console.log("📁 [Google Drive] Integration validated")
+    logger.debug("📁 [Google Drive] Integration validated")
 
     const accessToken = getGoogleAccessToken(integration)
-    console.log("📁 [Google Drive] Access token decrypted successfully")
+    logger.debug("📁 [Google Drive] Access token decrypted successfully")
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,webViewLink,owners,shared)&orderBy=name",
       accessToken
@@ -41,11 +43,11 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
       shared: folder.shared
     }))
 
-    console.log(`✅ [Google Drive] Retrieved ${folders.length} folders`)
+    logger.debug(`✅ [Google Drive] Retrieved ${folders.length} folders`)
     return folders
 
   } catch (error: any) {
-    console.error("❌ [Google Drive] Error fetching folders:", error)
+    logger.error("❌ [Google Drive] Error fetching folders:", error)
     throw error
   }
 }
@@ -56,7 +58,7 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
 export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
-    console.log("📄 [Google Drive] Fetching files")
+    logger.debug("📄 [Google Drive] Fetching files")
 
     // Build query based on options
     let query = "trashed=false"
@@ -96,11 +98,11 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
       shared: file.shared
     }))
 
-    console.log(`✅ [Google Drive] Retrieved ${files.length} files`)
+    logger.debug(`✅ [Google Drive] Retrieved ${files.length} files`)
     return files
 
   } catch (error: any) {
-    console.error("❌ [Google Drive] Error fetching files:", error)
+    logger.error("❌ [Google Drive] Error fetching files:", error)
     throw error
   }
 }
@@ -111,7 +113,7 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
 export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
-    console.log("📝 [Google Docs] Fetching documents")
+    logger.debug("📝 [Google Docs] Fetching documents")
 
     // Query specifically for Google Docs documents
     let query = "mimeType='application/vnd.google-apps.document' and trashed=false"
@@ -143,11 +145,11 @@ export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async 
       shared: doc.shared
     }))
 
-    console.log(`✅ [Google Docs] Retrieved ${documents.length} documents`)
+    logger.debug(`✅ [Google Docs] Retrieved ${documents.length} documents`)
     return documents
 
   } catch (error: any) {
-    console.error("❌ [Google Docs] Error fetching documents:", error)
+    logger.error("❌ [Google Docs] Error fetching documents:", error)
     throw error
   }
 }
@@ -164,7 +166,7 @@ export const getGoogleDocsContent: GoogleDataHandler<any> = async (integration: 
       throw new Error("Document ID is required")
     }
     
-    console.log("📄 [Google Docs] Fetching document content:", { documentId, previewOnly })
+    logger.debug("📄 [Google Docs] Fetching document content:", { documentId, previewOnly })
 
     const accessToken = getGoogleAccessToken(integration)
     
@@ -211,7 +213,7 @@ export const getGoogleDocsContent: GoogleDataHandler<any> = async (integration: 
     }
 
   } catch (error: any) {
-    console.error("❌ [Google Docs] Error fetching document content:", error)
+    logger.error("❌ [Google Docs] Error fetching document content:", error)
     // Return a user-friendly error message
     if (error.message?.includes('404')) {
       return {

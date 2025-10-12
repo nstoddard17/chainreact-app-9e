@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Architecture initialization provider
  * Server-side initialization to avoid client-side issues with server-only modules
@@ -8,9 +10,9 @@ export default function ArchitectureProvider({ children }: { children: React.Rea
     try {
       // Only initialize on server-side to avoid client-side issues
       // The actual initialization will happen via the API route
-      console.log("🏗️ Architecture provider loaded (server-side)")
+      logger.debug("🏗️ Architecture provider loaded (server-side)")
     } catch (error) {
-      console.error("❌ Server-side architecture setup failed:", error)
+      logger.error("❌ Server-side architecture setup failed:", error)
     }
   }
 
@@ -45,7 +47,7 @@ export function useArchitecture() {
           actions: actionRegistry.listActions().length
         })
       } catch (error) {
-        console.error("Failed to check architecture status:", error)
+        logger.error("Failed to check architecture status:", error)
       }
     }
 

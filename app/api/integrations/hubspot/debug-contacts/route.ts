@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     // Get user from session
@@ -206,7 +208,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("HubSpot debug contacts error:", error)
+    logger.error("HubSpot debug contacts error:", error)
     return NextResponse.json(
       { 
         error: "Internal server error", 

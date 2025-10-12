@@ -7,6 +7,8 @@ import { google } from 'googleapis'
 import fetch from 'node-fetch'
 import { Readable } from 'stream'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Upload file to Google Drive with full field support
  */
@@ -15,7 +17,7 @@ export async function uploadGoogleDriveFile(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
-  console.log('🚀 [uploadGoogleDriveFile] Starting with config:', {
+  logger.debug('🚀 [uploadGoogleDriveFile] Starting with config:', {
     config,
     userId,
     hasInput: !!input
@@ -54,7 +56,7 @@ export async function uploadGoogleDriveFile(
     
     const uploadedFiles = processedUploadedFiles || [];
     
-    console.log('📋 [uploadGoogleDriveFile] Resolved config:', {
+    logger.debug('📋 [uploadGoogleDriveFile] Resolved config:', {
       sourceType,
       uploadedFiles,
       fileName,
@@ -65,14 +67,14 @@ export async function uploadGoogleDriveFile(
       originalUploadedFiles: resolvedConfig.uploadedFiles
     });
 
-    console.log('🔐 [uploadGoogleDriveFile] Getting access token for userId:', userId);
+    logger.debug('🔐 [uploadGoogleDriveFile] Getting access token for userId:', userId);
     
     let accessToken;
     try {
       accessToken = await getDecryptedAccessToken(userId, "google-drive")
-      console.log('✅ [uploadGoogleDriveFile] Got access token');
+      logger.debug('✅ [uploadGoogleDriveFile] Got access token');
     } catch (error: any) {
-      console.error('❌ [uploadGoogleDriveFile] Failed to get access token:', error);
+      logger.error('❌ [uploadGoogleDriveFile] Failed to get access token:', error);
       throw new Error(`Failed to get Google Drive access token: ${error.message}`);
     }
     
@@ -151,7 +153,7 @@ export async function uploadGoogleDriveFile(
           }
         }
       } catch (error) {
-        console.error('Error processing file from node:', error)
+        logger.error('Error processing file from node:', error)
         return {
           success: false,
           output: {},
@@ -176,7 +178,7 @@ export async function uploadGoogleDriveFile(
           mimeType: contentType
         })
       } catch (error) {
-        console.error('Error downloading file from URL:', error)
+        logger.error('Error downloading file from URL:', error)
         return {
           success: false,
           output: {},
@@ -189,7 +191,7 @@ export async function uploadGoogleDriveFile(
       // 2. Array of objects with {nodeId, filePath, isTemporary} for temp files
       // 3. Single object/string (convert to array)
       
-      console.log('📁 [uploadGoogleDriveFile] Processing uploaded files:', {
+      logger.debug('📁 [uploadGoogleDriveFile] Processing uploaded files:', {
         uploadedFiles,
         uploadedFilesType: typeof uploadedFiles,
         isArray: Array.isArray(uploadedFiles)
@@ -202,7 +204,7 @@ export async function uploadGoogleDriveFile(
         filesToProcess = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
       }
       
-      console.log('📁 [uploadGoogleDriveFile] Files to process:', filesToProcess);
+      logger.debug('📁 [uploadGoogleDriveFile] Files to process:', filesToProcess);
       
       for (const fileRef of filesToProcess) {
         try {
@@ -216,7 +218,7 @@ export async function uploadGoogleDriveFile(
             nodeId = fileRef.nodeId;
             filePath = fileRef.filePath;
             isTemp = fileRef.isTemporary || false;
-            console.log('📝 [uploadGoogleDriveFile] Processing temporary file object:', {
+            logger.debug('📝 [uploadGoogleDriveFile] Processing temporary file object:', {
               nodeId,
               filePath,
               isTemp
@@ -224,9 +226,9 @@ export async function uploadGoogleDriveFile(
           } else if (typeof fileRef === 'string') {
             // Simple node ID format
             nodeId = fileRef;
-            console.log('📝 [uploadGoogleDriveFile] Processing node ID string:', nodeId);
+            logger.debug('📝 [uploadGoogleDriveFile] Processing node ID string:', nodeId);
           } else {
-            console.warn('Invalid file reference format:', fileRef);
+            logger.warn('Invalid file reference format:', fileRef);
             continue;
           }
           
@@ -236,7 +238,7 @@ export async function uploadGoogleDriveFile(
           if (isTemp && filePath) {
             // For temporary files, we need to fetch directly from storage using the path
             // Since there's no database record yet
-            console.log('📂 [uploadGoogleDriveFile] Fetching temporary file from storage:', {
+            logger.debug('📂 [uploadGoogleDriveFile] Fetching temporary file from storage:', {
               nodeId,
               filePath,
               isTemp
@@ -254,16 +256,16 @@ export async function uploadGoogleDriveFile(
               .download(filePath);
             
             if (error) {
-              console.error(`❌ Failed to download temporary file from storage: ${filePath}`, error);
+              logger.error(`❌ Failed to download temporary file from storage: ${filePath}`, error);
               continue;
             }
             
-            console.log('✅ [uploadGoogleDriveFile] Successfully downloaded file from storage');
+            logger.debug('✅ [uploadGoogleDriveFile] Successfully downloaded file from storage');
             
             const buffer = await fileData.arrayBuffer();
             const bufferData = Buffer.from(buffer);
             
-            console.log('📊 [uploadGoogleDriveFile] File buffer created:', {
+            logger.debug('📊 [uploadGoogleDriveFile] File buffer created:', {
               bufferSize: bufferData.length,
               fileName: fileName || filePath.split('/').pop()
             });
@@ -286,18 +288,18 @@ export async function uploadGoogleDriveFile(
             }
           }
         } catch (error) {
-          console.warn(`Failed to process file:`, error);
+          logger.warn(`Failed to process file:`, error);
         }
       }
     }
 
-    console.log('📊 [uploadGoogleDriveFile] Files ready for upload:', {
+    logger.debug('📊 [uploadGoogleDriveFile] Files ready for upload:', {
       count: filesToUpload.length,
       files: filesToUpload.map(f => ({ name: f.name, size: f.data?.length || 0 }))
     });
 
     if (filesToUpload.length === 0) {
-      console.warn('⚠️ [uploadGoogleDriveFile] No files to upload!');
+      logger.warn('⚠️ [uploadGoogleDriveFile] No files to upload!');
       return {
         success: false,
         output: {},
@@ -306,10 +308,10 @@ export async function uploadGoogleDriveFile(
     }
 
     // Upload each file
-    console.log('🚀 [uploadGoogleDriveFile] Starting file uploads to Google Drive...');
+    logger.debug('🚀 [uploadGoogleDriveFile] Starting file uploads to Google Drive...');
     for (const file of filesToUpload) {
       try {
-        console.log('📤 [uploadGoogleDriveFile] Uploading file:', file.name);
+        logger.debug('📤 [uploadGoogleDriveFile] Uploading file:', file.name);
         // Prepare file metadata
         const fileMetadata: any = {
           name: file.name,
@@ -344,7 +346,7 @@ export async function uploadGoogleDriveFile(
         }
 
         // Upload file
-        console.log('🚀 [uploadGoogleDriveFile] Calling Google Drive API to create file:', {
+        logger.debug('🚀 [uploadGoogleDriveFile] Calling Google Drive API to create file:', {
           fileName: fileMetadata.name,
           mimeType: uploadMimeType,
           dataSize: file.data?.length || 0,
@@ -368,7 +370,7 @@ export async function uploadGoogleDriveFile(
             useContentAsIndexableText: ocr
           })
         } catch (uploadError: any) {
-          console.error('❌ [uploadGoogleDriveFile] Google Drive API error:', {
+          logger.error('❌ [uploadGoogleDriveFile] Google Drive API error:', {
             message: uploadError.message,
             code: uploadError.code,
             errors: uploadError.errors,
@@ -378,7 +380,7 @@ export async function uploadGoogleDriveFile(
         }
 
         const uploadedFile = uploadResponse.data
-        console.log('✅ [uploadGoogleDriveFile] File uploaded successfully:', {
+        logger.debug('✅ [uploadGoogleDriveFile] File uploaded successfully:', {
           fileId: uploadedFile.id,
           fileName: uploadedFile.name,
           webViewLink: uploadedFile.webViewLink
@@ -404,7 +406,7 @@ export async function uploadGoogleDriveFile(
               }
             }
           } catch (error) {
-            console.warn('Failed to set keepForever on revision:', error)
+            logger.warn('Failed to set keepForever on revision:', error)
           }
         }
 
@@ -422,7 +424,7 @@ export async function uploadGoogleDriveFile(
                 sendNotificationEmail: true
               })
             } catch (error) {
-              console.warn(`Failed to share with ${email}:`, error)
+              logger.warn(`Failed to share with ${email}:`, error)
             }
           }
         }
@@ -438,7 +440,7 @@ export async function uploadGoogleDriveFile(
         })
 
       } catch (error: any) {
-        console.error(`Failed to upload file ${file.name}:`, error)
+        logger.error(`Failed to upload file ${file.name}:`, error)
         uploadedFileResults.push({
           success: false,
           fileName: file.name,
@@ -461,7 +463,7 @@ export async function uploadGoogleDriveFile(
     }
 
   } catch (error: any) {
-    console.error('❌ [uploadGoogleDriveFile] Upload failed with error:', {
+    logger.error('❌ [uploadGoogleDriveFile] Upload failed with error:', {
       message: error.message,
       stack: error.stack,
       code: error.code,

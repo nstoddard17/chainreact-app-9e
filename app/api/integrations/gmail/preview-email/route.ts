@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest) {
       query: gmailQuery
     })
   } catch (error: any) {
-    console.error('[Gmail Preview] Error:', error)
+    logger.error('[Gmail Preview] Error:', error)
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Invalid Credentials')) {

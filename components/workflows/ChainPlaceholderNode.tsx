@@ -4,6 +4,8 @@ import { Handle, Position, type NodeProps } from "@xyflow/react"
 import { Layers, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
+import { logger } from '@/lib/utils/logger'
+
 type ChainPlaceholderNodeData = {
   parentId: string
   parentAIAgentId: string
@@ -16,7 +18,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
   // Use width from data, default to 400px for main workflow
   const nodeWidth = nodeData.width || 400
 
-  console.log('🔵 ChainPlaceholderNode rendering with data:', nodeData)
+  logger.debug('🔵 ChainPlaceholderNode rendering with data:', nodeData)
 
   return (
     <div className="relative" style={{ width: `${nodeWidth}px` }}>
@@ -59,8 +61,8 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation()
-                console.log('Chain placeholder Add Action clicked')
-                console.log('Parent AI Agent ID:', nodeData.parentAIAgentId)
+                logger.debug('Chain placeholder Add Action clicked')
+                logger.debug('Parent AI Agent ID:', nodeData.parentAIAgentId)
                 if (nodeData.onClick) {
                   nodeData.onClick()
                 }

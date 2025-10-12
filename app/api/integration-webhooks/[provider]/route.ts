@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -26,7 +28,7 @@ export async function POST(
       payload = body
     }
 
-    console.log(`📥 Received webhook from ${provider}:`, {
+    logger.debug(`📥 Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
       timestamp: new Date().toISOString()
@@ -40,12 +42,12 @@ export async function POST(
       .eq('status', 'active')
 
     if (webhookError) {
-      console.error(`Error fetching webhooks for ${provider}:`, webhookError)
+      logger.error(`Error fetching webhooks for ${provider}:`, webhookError)
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!webhooks || webhooks.length === 0) {
-      console.log(`No active webhooks found for provider: ${provider}`)
+      logger.debug(`No active webhooks found for provider: ${provider}`)
       return NextResponse.json({ message: 'No active webhooks' }, { status: 200 })
     }
 
@@ -56,7 +58,7 @@ export async function POST(
         const result = await processWebhook(webhook, payload, headers, provider)
         results.push(result)
       } catch (error) {
-        console.error(`Error processing webhook ${webhook.id}:`, error)
+        logger.error(`Error processing webhook ${webhook.id}:`, error)
         results.push({ webhookId: webhook.id, success: false, error: error.message })
       }
     }
@@ -68,7 +70,7 @@ export async function POST(
     })
 
   } catch (error: any) {
-    console.error(`Webhook error for ${provider}:`, error)
+    logger.error(`Webhook error for ${provider}:`, error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -113,7 +115,7 @@ async function processWebhook(
       .single()
 
     if (logError) {
-      console.error('Error logging webhook execution:', logError)
+      logger.error('Error logging webhook execution:', logError)
     }
 
     // Find workflows that use this provider's triggers
@@ -168,7 +170,7 @@ async function processWebhook(
         })
 
       } catch (error) {
-        console.error(`Error executing workflow ${workflow.id}:`, error)
+        logger.error(`Error executing workflow ${workflow.id}:`, error)
         workflowResults.push({
           workflowId: workflow.id,
           success: false,
@@ -234,7 +236,7 @@ async function findWorkflowsForProvider(userId: string, provider: string): Promi
     .eq('status', 'active')
 
   if (error) {
-    console.error('Error fetching workflows:', error)
+    logger.error('Error fetching workflows:', error)
     return []
   }
 

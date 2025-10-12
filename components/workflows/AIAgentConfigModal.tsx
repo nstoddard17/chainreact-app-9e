@@ -52,6 +52,8 @@ import { ActionSelectionDialog } from './builder/ActionSelectionDialog'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 import { APIKeySelector, ModelSelector } from './APIKeySelector'
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIAgentConfigModalProps {
   isOpen: boolean
   onClose: () => void
@@ -314,7 +316,7 @@ export function AIAgentConfigModal({
                                workflowData.nodes[0].id === 'trigger')
 
       if (!onlyHasTrigger) {
-        console.log('🔄 [AIAgentConfigModal] Building chainsLayout from current workflow state:', workflowData)
+        logger.debug('🔄 [AIAgentConfigModal] Building chainsLayout from current workflow state:', workflowData)
 
         // Group nodes by chain index
         const chainGroups = new Map<number, any[]>()
@@ -341,14 +343,14 @@ export function AIAgentConfigModal({
           aiAgentPosition: { x: 400, y: 200 } // Default position for AI Agent in chain builder
         }
 
-        console.log('🔄 [AIAgentConfigModal] Using current workflow state for chainsLayout')
+        logger.debug('🔄 [AIAgentConfigModal] Using current workflow state for chainsLayout')
       } else {
-        console.log('🔄 [AIAgentConfigModal] New AI Agent with only trigger - skipping chainsLayout creation')
+        logger.debug('🔄 [AIAgentConfigModal] New AI Agent with only trigger - skipping chainsLayout creation')
       }
     } else if (initialData?.chainsLayout) {
       // Only fallback to saved chainsLayout if workflowData is not available
       baseConfig.chainsLayout = initialData.chainsLayout
-      console.log('🔄 [AIAgentConfigModal] Fallback: using saved chainsLayout from config')
+      logger.debug('🔄 [AIAgentConfigModal] Fallback: using saved chainsLayout from config')
     }
 
     return baseConfig
@@ -639,7 +641,7 @@ export function AIAgentConfigModal({
       })
       // Don't close immediately - let the parent handle closing after state update
     } catch (error) {
-      console.error('❌ [AIAgentConfigModal] Failed to save AI Agent configuration:', error)
+      logger.error('❌ [AIAgentConfigModal] Failed to save AI Agent configuration:', error)
       toast({
         title: "Save Failed",
         description: "Could not save configuration",
@@ -652,32 +654,32 @@ export function AIAgentConfigModal({
 
   // Handle action selection (node configuration)
   const handleConfigureNode = useCallback((nodeId: string) => {
-    console.log('⚙️ [AIAgentConfigModal] Configure node requested:', nodeId)
+    logger.debug('⚙️ [AIAgentConfigModal] Configure node requested:', nodeId)
 
     // Find the node data from the chains layout
     const nodeData = config.chainsLayout?.nodes?.find((n: any) => n.id === nodeId)
 
     if (nodeData) {
-      console.log('⚙️ [AIAgentConfigModal] Found node data:', nodeData)
+      logger.debug('⚙️ [AIAgentConfigModal] Found node data:', nodeData)
       setConfiguringNodeId(nodeId)
       setConfiguringNodeData(nodeData)
       // Configuration will be handled by showing the configuration form
     } else {
-      console.warn('⚙️ [AIAgentConfigModal] Node not found:', nodeId)
+      logger.warn('⚙️ [AIAgentConfigModal] Node not found:', nodeId)
     }
   }, [config.chainsLayout])
 
   const handleActionSelection = (action: any) => {
-    console.log('🎯 [AIAgentConfigModal] handleActionSelection called with action:', action)
-    console.log('🎯 [AIAgentConfigModal] Action details:', {
+    logger.debug('🎯 [AIAgentConfigModal] handleActionSelection called with action:', action)
+    logger.debug('🎯 [AIAgentConfigModal] Action details:', {
       type: action.type,
       title: action.title,
       description: action.description,
       providerId: action.providerId,
       allFields: Object.keys(action)
     })
-    console.log('🎯 [AIAgentConfigModal] pendingActionCallback status:', pendingActionCallbackRef.current ? 'EXISTS' : 'NULL')
-    console.log('🎯 [AIAgentConfigModal] isAIMode:', isAIMode)
+    logger.debug('🎯 [AIAgentConfigModal] pendingActionCallback status:', pendingActionCallbackRef.current ? 'EXISTS' : 'NULL')
+    logger.debug('🎯 [AIAgentConfigModal] isAIMode:', isAIMode)
     if (isAIMode) {
       // In AI mode, add action with all fields set to AI
       const aiConfig: Record<string, any> = {}
@@ -785,14 +787,14 @@ export function AIAgentConfigModal({
       
       // Add to chain via callback for visual builder
       if (pendingActionCallbackRef.current) {
-        console.log('📤 [AIAgentConfigModal] pendingActionCallback exists, type:', typeof pendingActionCallbackRef.current)
+        logger.debug('📤 [AIAgentConfigModal] pendingActionCallback exists, type:', typeof pendingActionCallbackRef.current)
         // pendingActionCallbackRef.current is the callback itself
         const actualCallback = pendingActionCallbackRef.current
-        console.log('📤 [AIAgentConfigModal] actualCallback:', actualCallback ? 'EXISTS' : 'NULL', typeof actualCallback)
+        logger.debug('📤 [AIAgentConfigModal] actualCallback:', actualCallback ? 'EXISTS' : 'NULL', typeof actualCallback)
         if (actualCallback) {
           // Pass the full action object along with config
           const configToPass = { ...aiConfig }
-          console.log('📤 [AIAgentConfigModal] Calling callback with action:', action, 'config:', configToPass)
+          logger.debug('📤 [AIAgentConfigModal] Calling callback with action:', action, 'config:', configToPass)
           // Pass the full action object, not just type and providerId
           actualCallback(action, configToPass)
         }
@@ -845,12 +847,12 @@ export function AIAgentConfigModal({
 
       // Add to chain via callback for visual builder (manual mode)
       if (pendingActionCallbackRef.current) {
-        console.log('📤 [AIAgentConfigModal] (manual) pendingActionCallback exists, getting actual callback')
+        logger.debug('📤 [AIAgentConfigModal] (manual) pendingActionCallback exists, getting actual callback')
         const actualCallback = pendingActionCallbackRef.current
-        console.log('📤 [AIAgentConfigModal] (manual) actualCallback:', actualCallback ? 'EXISTS' : 'NULL')
+        logger.debug('📤 [AIAgentConfigModal] (manual) actualCallback:', actualCallback ? 'EXISTS' : 'NULL')
         if (actualCallback) {
           const manualConfig = {}
-          console.log('📤 [AIAgentConfigModal] Calling callback with (manual mode) action:', action, 'config:', manualConfig)
+          logger.debug('📤 [AIAgentConfigModal] Calling callback with (manual mode) action:', action, 'config:', manualConfig)
           // Pass the full action object, not just type and providerId
           actualCallback(action, manualConfig)
         }
@@ -1161,26 +1163,26 @@ export function AIAgentConfigModal({
                       currentNodeId={currentNodeId}
                       onChainsChange={(chainsData) => {
                         // chainsData contains full layout: { chains: [...], nodes: [...], edges: [...], aiAgentPosition: {...} }
-                        console.log('🔄 [AIAgentConfigModal] onChainsChange called with:', chainsData)
-                        console.log('🔄 [AIAgentConfigModal] Full layout data:', chainsData)
+                        logger.debug('🔄 [AIAgentConfigModal] onChainsChange called with:', chainsData)
+                        logger.debug('🔄 [AIAgentConfigModal] Full layout data:', chainsData)
                         setConfig(prev => {
                           // Store the full layout data, not just chains
                           const newConfig = { ...prev, chainsLayout: chainsData, chains: chainsData.chains || [] }
-                          console.log('🔄 [AIAgentConfigModal] Updated config with full layout:', newConfig.chainsLayout)
+                          logger.debug('🔄 [AIAgentConfigModal] Updated config with full layout:', newConfig.chainsLayout)
                           return newConfig
                         })
                       }}
                       onOpenActionDialog={() => {
-                        console.log('🚀 [AIAgentConfigModal] onOpenActionDialog called')
+                        logger.debug('🚀 [AIAgentConfigModal] onOpenActionDialog called')
                         if (setShowActionDialog) {
                           setShowActionDialog(true)
                         }
                       }}
                       onActionSelect={(callback) => {
-                        console.log('🚀 [AIAgentConfigModal] onActionSelect called with callback:', typeof callback)
+                        logger.debug('🚀 [AIAgentConfigModal] onActionSelect called with callback:', typeof callback)
                         // Store the callback in a ref to avoid state timing issues
                         pendingActionCallbackRef.current = callback
-                        console.log('🚀 [AIAgentConfigModal] pendingActionCallback set in ref')
+                        logger.debug('🚀 [AIAgentConfigModal] pendingActionCallback set in ref')
                         // Don't open dialog here - onOpenActionDialog will handle it
                       }}
                       onConfigureNode={handleConfigureNode}
@@ -2020,7 +2022,7 @@ export function AIAgentConfigModal({
                 </div>
                 <Button 
                   onClick={() => {
-                    console.log('🟢 [AIAgentConfigModal] Save button clicked!')
+                    logger.debug('🟢 [AIAgentConfigModal] Save button clicked!')
                     handleSave()
                   }} 
                   disabled={isSaving}
@@ -2166,7 +2168,7 @@ export function AIAgentConfigModal({
               </Button>
               <Button onClick={() => {
                 // TODO: Save configuration changes
-                console.log('💾 [AIAgentConfigModal] Saving configuration for node:', configuringNodeId)
+                logger.debug('💾 [AIAgentConfigModal] Saving configuration for node:', configuringNodeId)
 
                 // Update the node in chainsLayout
                 if (config.chainsLayout?.nodes) {

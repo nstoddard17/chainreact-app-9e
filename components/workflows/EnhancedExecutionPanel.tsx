@@ -36,6 +36,8 @@ import { triggerListeningManager } from '@/lib/workflows/testing/triggerListenin
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 
+import { logger } from '@/lib/utils/logger'
+
 interface EnhancedExecutionPanelProps {
   workflowId: string
   nodes: any[]
@@ -74,31 +76,31 @@ export function EnhancedExecutionPanel({
   useEffect(() => {
     stepExecutionController.setCallbacks({
       onNodeStart: (nodeId, nodeName) => {
-        console.log(`🚀 Starting node: ${nodeName}`)
+        logger.debug(`🚀 Starting node: ${nodeName}`)
         onNodeHighlight?.(nodeId)
         updateExecutionStatus()
       },
       onNodeComplete: (nodeId, status, result) => {
-        console.log(`✅ Node complete: ${nodeId}`, status, result)
+        logger.debug(`✅ Node complete: ${nodeId}`, status, result)
         setCurrentNodeData(result)
         updateExecutionStatus()
       },
       onNodeError: (nodeId, error) => {
-        console.log(`❌ Node error: ${nodeId}`, error)
+        logger.debug(`❌ Node error: ${nodeId}`, error)
         updateExecutionStatus()
       },
       onExecutionComplete: (history) => {
-        console.log('🎉 Execution complete!', history)
+        logger.debug('🎉 Execution complete!', history)
         setListenerStatus('idle')
         updateExecutionStatus()
       },
       onExecutionPaused: (nodeId) => {
-        console.log('⏸️ Execution paused at:', nodeId)
+        logger.debug('⏸️ Execution paused at:', nodeId)
         updateExecutionStatus()
       },
       onWaitingForUser: async (nodeId, message) => {
         // This would typically show a modal or prompt
-        console.log(`⏳ Waiting for user action: ${message}`)
+        logger.debug(`⏳ Waiting for user action: ${message}`)
         return 'continue' // Default action
       }
     })
@@ -106,11 +108,11 @@ export function EnhancedExecutionPanel({
     // Set up trigger listener callbacks
     triggerListeningManager.setCallbacks(
       (event) => {
-        console.log('⚡ Trigger event received:', event)
+        logger.debug('⚡ Trigger event received:', event)
         setListenerStatus('triggered')
       },
       (nodeId, status) => {
-        console.log(`🎧 Listener status change: ${nodeId} - ${status}`)
+        logger.debug(`🎧 Listener status change: ${nodeId} - ${status}`)
         setListenerStatus(status as any)
       }
     )
@@ -133,7 +135,7 @@ export function EnhancedExecutionPanel({
       await stepExecutionController.startExecution()
       updateExecutionStatus()
     } catch (error) {
-      console.error('Failed to start execution:', error)
+      logger.error('Failed to start execution:', error)
     }
   }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 // Handle cleanup via sendBeacon API
 export async function POST(request: NextRequest) {
   try {
@@ -19,13 +21,13 @@ export async function POST(request: NextRequest) {
       .eq('id', body.user_id)
 
     if (error) {
-      console.error('Presence cleanup error:', error)
+      logger.error('Presence cleanup error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Presence cleanup failed:', error)
+    logger.error('Presence cleanup failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

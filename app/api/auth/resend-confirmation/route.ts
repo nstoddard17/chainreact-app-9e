@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+import { logger } from '@/lib/utils/logger'
+
 // In-memory rate limiting store (consider using Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
 
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (resendError) {
-      console.error('Error resending confirmation:', resendError)
+      logger.error('Error resending confirmation:', resendError)
       return NextResponse.json(
         { error: 'Failed to resend confirmation email. Please try again.' },
         { status: 500 }
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
 
     // Log the resend attempt for monitoring (PII masked)
     const { maskEmail } = await import('@/lib/utils/logging')
-    console.log(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
+    logger.debug(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
 
     return NextResponse.json(
       { message: 'Confirmation email has been resent. Please check your inbox.' },
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('Resend confirmation error:', error)
+    logger.error('Resend confirmation error:', error)
     return NextResponse.json(
       { error: 'An error occurred. Please try again.' },
       { status: 500 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
     const integrationId = body.integrationId // Optional: target a specific integration
     const limit = body.limit || 20 // Limit the number of integrations to process
     
-    console.log(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
+    logger.debug(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
     const { data: integrations, error: findError } = await query
     
     if (findError) {
-      console.error(`❌ Error finding problematic integrations:`, findError)
+      logger.error(`❌ Error finding problematic integrations:`, findError)
       return NextResponse.json({ error: `Failed to find integrations: ${findError.message}` }, { status: 500 })
     }
     
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    console.log(`🔄 Found ${integrations.length} problematic integrations to reset`)
+    logger.debug(`🔄 Found ${integrations.length} problematic integrations to reset`)
     
     // Process in smaller batches to avoid timeouts
     const batchSize = 5
@@ -102,14 +104,14 @@ export async function POST(request: NextRequest) {
         .in("id", batch.map(i => i.id))
         
       if (updateError) {
-        console.error(`❌ Error resetting batch of problematic integrations:`, updateError)
+        logger.error(`❌ Error resetting batch of problematic integrations:`, updateError)
         results.push({
           batch: i / batchSize + 1,
           success: false,
           error: updateError.message
         })
       } else {
-        console.log(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+        logger.debug(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
         results.push({
           batch: i / batchSize + 1,
           success: true,
@@ -128,7 +130,7 @@ export async function POST(request: NextRequest) {
       results
     })
   } catch (error: any) {
-    console.error(`💥 Error in reset-problem-integrations:`, error)
+    logger.error(`💥 Error in reset-problem-integrations:`, error)
     return NextResponse.json({
       success: false,
       error: `Failed to reset problematic integrations: ${error.message}`,

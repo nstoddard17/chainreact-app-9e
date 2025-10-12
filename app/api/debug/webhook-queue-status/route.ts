@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -8,8 +10,8 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('\n🔍 WEBHOOK QUEUE STATUS CHECK')
-    console.log('============================\n')
+    logger.debug('\n🔍 WEBHOOK QUEUE STATUS CHECK')
+    logger.debug('============================\n')
 
     // Check webhook queue
     const { data: queueItems, error: queueError } = await supabase
@@ -19,31 +21,31 @@ export async function GET(request: NextRequest) {
       .limit(20)
 
     if (queueError) {
-      console.error('❌ Error fetching queue:', queueError)
+      logger.error('❌ Error fetching queue:', queueError)
       return NextResponse.json({ error: 'Failed to fetch queue' }, { status: 500 })
     }
 
-    console.log('📥 Webhook Queue Status:')
-    console.log(`  - Total items: ${queueItems?.length || 0}`)
+    logger.debug('📥 Webhook Queue Status:')
+    logger.debug(`  - Total items: ${queueItems?.length || 0}`)
     
     const statusCounts = queueItems?.reduce((acc: any, item: any) => {
       acc[item.status] = (acc[item.status] || 0) + 1
       return acc
     }, {}) || {}
     
-    console.log('  - Status breakdown:', statusCounts)
+    logger.debug('  - Status breakdown:', statusCounts)
 
     if (queueItems && queueItems.length > 0) {
-      console.log('\n📋 Recent Queue Items:')
+      logger.debug('\n📋 Recent Queue Items:')
       queueItems.slice(0, 5).forEach((item: any, index: number) => {
-        console.log(`  ${index + 1}. ID: ${item.id}`)
-        console.log(`     Resource: ${item.resource}`)
-        console.log(`     Change Type: ${item.change_type}`)
-        console.log(`     Status: ${item.status}`)
-        console.log(`     Created: ${item.created_at}`)
-        console.log(`     User ID: ${item.user_id?.substring(0, 8)}...`)
-        console.log(`     Subscription ID: ${item.subscription_id?.substring(0, 8)}...`)
-        console.log('')
+        logger.debug(`  ${index + 1}. ID: ${item.id}`)
+        logger.debug(`     Resource: ${item.resource}`)
+        logger.debug(`     Change Type: ${item.change_type}`)
+        logger.debug(`     Status: ${item.status}`)
+        logger.debug(`     Created: ${item.created_at}`)
+        logger.debug(`     User ID: ${item.user_id?.substring(0, 8)}...`)
+        logger.debug(`     Subscription ID: ${item.subscription_id?.substring(0, 8)}...`)
+        logger.debug('')
       })
     }
 
@@ -54,17 +56,17 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    console.log('📝 Active Subscriptions:')
-    console.log(`  - Total: ${subscriptions?.length || 0}`)
+    logger.debug('📝 Active Subscriptions:')
+    logger.debug(`  - Total: ${subscriptions?.length || 0}`)
     
     if (subscriptions && subscriptions.length > 0) {
       subscriptions.forEach((sub: any, index: number) => {
-        console.log(`  ${index + 1}. ID: ${sub.id.substring(0, 8)}...`)
-        console.log(`     Resource: ${sub.resource}`)
-        console.log(`     Status: ${sub.status}`)
-        console.log(`     Expires: ${sub.expiration_date_time}`)
-        console.log(`     User: ${sub.user_id?.substring(0, 8)}...`)
-        console.log('')
+        logger.debug(`  ${index + 1}. ID: ${sub.id.substring(0, 8)}...`)
+        logger.debug(`     Resource: ${sub.resource}`)
+        logger.debug(`     Status: ${sub.status}`)
+        logger.debug(`     Expires: ${sub.expiration_date_time}`)
+        logger.debug(`     User: ${sub.user_id?.substring(0, 8)}...`)
+        logger.debug('')
       })
     }
 
@@ -76,15 +78,15 @@ export async function GET(request: NextRequest) {
       .order('timestamp', { ascending: false })
       .limit(5)
 
-    console.log('📊 Recent Webhook Logs:')
-    console.log(`  - Total logs: ${webhookLogs?.length || 0}`)
+    logger.debug('📊 Recent Webhook Logs:')
+    logger.debug(`  - Total logs: ${webhookLogs?.length || 0}`)
     
     if (webhookLogs && webhookLogs.length > 0) {
       webhookLogs.forEach((log: any, index: number) => {
-        console.log(`  ${index + 1}. Status: ${log.status}`)
-        console.log(`     Timestamp: ${log.timestamp}`)
-        console.log(`     Execution Time: ${log.execution_time}ms`)
-        console.log('')
+        logger.debug(`  ${index + 1}. Status: ${log.status}`)
+        logger.debug(`     Timestamp: ${log.timestamp}`)
+        logger.debug(`     Execution Time: ${log.execution_time}ms`)
+        logger.debug('')
       })
     }
 
@@ -100,7 +102,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Webhook queue status check error:', error)
+    logger.error('❌ Webhook queue status check error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

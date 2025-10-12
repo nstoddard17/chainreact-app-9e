@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Exports data from a Microsoft Excel worksheet with filtering and formatting options
  */
@@ -240,7 +242,7 @@ export async function exportMicrosoftExcelSheet(
     }
 
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel Export Sheet] Error:', error)
+    logger.error('❌ [Microsoft Excel Export Sheet] Error:', error)
     return {
       success: false,
       output: {},

@@ -1,6 +1,8 @@
 import { createHash, createHmac } from 'crypto'
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Audit event types
  */
@@ -202,7 +204,7 @@ export class AuditLogger extends EventEmitter {
     this.startRetentionMonitoring()
     this.startComplianceMonitoring()
     
-    console.log('📋 Audit logger initialized with compliance monitoring')
+    logger.debug('📋 Audit logger initialized with compliance monitoring')
   }
 
   /**
@@ -239,7 +241,7 @@ export class AuditLogger extends EventEmitter {
     // Emit event for real-time monitoring
     this.emit('eventLogged', fullEvent)
     
-    console.log(`📝 Audit event logged: ${eventId} (${event.type})`)
+    logger.debug(`📝 Audit event logged: ${eventId} (${event.type})`)
     return eventId
   }
 
@@ -569,7 +571,7 @@ export class AuditLogger extends EventEmitter {
    */
   configureComplianceRule(rule: ComplianceRule): void {
     this.complianceRules.set(rule.id, rule)
-    console.log(`📏 Compliance rule configured: ${rule.id} (${rule.framework})`)
+    logger.debug(`📏 Compliance rule configured: ${rule.id} (${rule.framework})`)
   }
 
   /**
@@ -901,7 +903,7 @@ export class AuditLogger extends EventEmitter {
     }
     
     if (expiredCount > 0) {
-      console.log(`📦 Retention check: ${expiredCount} events ready for archival`)
+      logger.debug(`📦 Retention check: ${expiredCount} events ready for archival`)
     }
   }
 
@@ -921,7 +923,7 @@ export class AuditLogger extends EventEmitter {
     }
     
     if (violationCount > 0) {
-      console.warn(`⚠️ Compliance check: ${violationCount} violations detected`)
+      logger.warn(`⚠️ Compliance check: ${violationCount} violations detected`)
     }
   }
 
@@ -954,7 +956,7 @@ export class AuditLogger extends EventEmitter {
     }
     
     this.removeAllListeners()
-    console.log('🛑 Audit logger shutdown')
+    logger.debug('🛑 Audit logger shutdown')
   }
 }
 

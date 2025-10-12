@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(filePath, 3600); // 1 hour expiry
 
     if (error) {
-      console.error('Error generating signed URL:', error);
+      logger.error('Error generating signed URL:', error);
       return NextResponse.json({ error: 'Failed to generate preview URL' }, { status: 500 });
     }
 
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Preview generation error:', error);
+    logger.error('Preview generation error:', error);
     return NextResponse.json({
       error: error.message || 'Failed to generate preview'
     }, { status: 500 });

@@ -7,6 +7,8 @@
 
 import { OpenAI } from 'openai'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface AIFieldContext {
   fieldName: string
   fieldType?: string
@@ -118,7 +120,7 @@ export async function processAIField(
     }
 
   } catch (error: any) {
-    console.error(`Failed to generate AI field "${fieldName}":`, error)
+    logger.error(`Failed to generate AI field "${fieldName}":`, error)
     return {
       fieldName,
       value: getDefaultValue(fieldType),

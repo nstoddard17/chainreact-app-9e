@@ -12,6 +12,8 @@ import { CapabilityDescriptor, ErrorClassification } from '../../domains/integra
 import { getTwitterMentionsForDropdown } from '../../../lib/integrations/twitter'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class TwitterAdapter implements SocialProvider {
   readonly providerId = 'twitter'
   readonly capabilities: CapabilityDescriptor = {
@@ -51,7 +53,7 @@ export class TwitterAdapter implements SocialProvider {
       // Add media if present
       if (params.mediaFiles && params.mediaFiles.length > 0) {
         // Twitter media upload would require separate media upload API calls
-        console.warn('Twitter media upload not implemented in this adapter')
+        logger.warn('Twitter media upload not implemented in this adapter')
       }
 
       const response = await fetch('https://api.twitter.com/2/tweets', {
@@ -205,7 +207,7 @@ export class TwitterAdapter implements SocialProvider {
         url: `https://twitter.com/i/web/status/${mention.value}`
       }))
     } catch (error: any) {
-      console.error('Failed to get Twitter mentions:', error)
+      logger.error('Failed to get Twitter mentions:', error)
       return []
     }
   }
@@ -214,7 +216,7 @@ export class TwitterAdapter implements SocialProvider {
     try {
       // Twitter API v2 doesn't provide insights without specific enterprise access
       // This would require Twitter API for Business or Academic Research access
-      console.warn('Twitter insights require special API access')
+      logger.warn('Twitter insights require special API access')
       
       return {
         success: true,

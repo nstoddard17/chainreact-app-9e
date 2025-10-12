@@ -9,6 +9,8 @@ import { slackHandlers } from './handlers'
 import { SlackIntegration } from './types'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -33,14 +35,14 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Slack API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [Slack API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'Slack integration not found'
       }, { status: 404 })
     }
 
     // Log integration status for debugging
-    console.log('🔍 [Slack API] Integration status check:', {
+    logger.debug('🔍 [Slack API] Integration status check:', {
       integrationId,
       status: integration.status,
       hasAccessToken: !!integration.access_token,
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration has access token (more important than status)
     if (!integration.access_token) {
-      console.error('❌ [Slack API] No access token found:', {
+      logger.error('❌ [Slack API] No access token found:', {
         integrationId,
         status: integration.status
       })
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     try {
       decryptedAccessToken = await decryptToken(integration.access_token)
       
-      console.log('🔐 [Slack API] Token decryption result:', {
+      logger.debug('🔐 [Slack API] Token decryption result:', {
         integrationId,
         originalTokenLength: integration.access_token?.length,
         decryptedTokenLength: decryptedAccessToken?.length,
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
         throw new Error('Failed to decrypt access token - result was null')
       }
     } catch (decryptError) {
-      console.error('❌ [Slack API] Failed to decrypt token:', {
+      logger.error('❌ [Slack API] Failed to decrypt token:', {
         integrationId,
         error: decryptError.message,
         stack: decryptError.stack
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
     // Validate integration status - allow multiple valid statuses
     const validStatuses = ['connected', 'active', 'authorized']
     if (!validStatuses.includes(integration.status)) {
-      console.warn('⚠️ [Slack API] Integration has unexpected status:', {
+      logger.warn('⚠️ [Slack API] Integration has unexpected status:', {
         integrationId,
         status: integration.status,
         validStatuses
@@ -106,14 +108,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = slackHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Slack API] Unknown data type:', dataType)
+      logger.error('❌ [Slack API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown Slack data type: ${dataType}`,
         availableTypes: Object.keys(slackHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [Slack API] Processing request:`, {
+    logger.debug(`🔍 [Slack API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integrationWithDecryptedTokens, options)
 
-    console.log(`✅ [Slack API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [Slack API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -146,7 +148,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Slack API] Unexpected error:', {
+    logger.error('❌ [Slack API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

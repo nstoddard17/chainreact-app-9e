@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Lock, User, AtSign, Eye, EyeOff } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 
+import { logger } from '@/lib/utils/logger'
+
 function RegisterFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -37,7 +39,7 @@ function RegisterFormContent() {
           return returnUrl
         }
       } catch (error) {
-        console.error('Invalid return URL:', error)
+        logger.error('Invalid return URL:', error)
       }
     }
     return "/auth/waiting-confirmation"
@@ -66,7 +68,7 @@ function RegisterFormContent() {
         return true;
       
     } catch (error) {
-      console.error('Error checking provider:', error);
+      logger.error('Error checking provider:', error);
       return true; // Allow registration if check fails
     }
   }
@@ -104,7 +106,7 @@ function RegisterFormContent() {
         return true;
       
     } catch (error) {
-      console.error('Error checking username:', error);
+      logger.error('Error checking username:', error);
       return true; // Allow if check fails
     } finally {
       setUsernameChecking(false);
@@ -144,7 +146,7 @@ function RegisterFormContent() {
       })
       router.push(getRedirectUrl())
     } catch (error) {
-      console.error("Registration error:", error)
+      logger.error("Registration error:", error)
       toast({
         title: "Registration Failed",
         description: "Could not create account. Please try again.",
@@ -162,7 +164,7 @@ function RegisterFormContent() {
       await signInWithGoogle()
       // Google OAuth will handle redirect via callback to setup-username or dashboard
     } catch (error) {
-      console.error("Google sign in error:", error)
+      logger.error("Google sign in error:", error)
       toast({
         title: "Google Sign In Failed",
         description: "Could not sign in with Google. Please try again.",

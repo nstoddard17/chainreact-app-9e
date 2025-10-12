@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility";
 import { db } from "@/lib/db";
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Debug endpoint for testing token refresh for specific providers
  * 
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
       results,
     });
   } catch (error: any) {
-    console.error("Error in debug-refresh endpoint:", error);
+    logger.error("Error in debug-refresh endpoint:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

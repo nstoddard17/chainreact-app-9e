@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 
+import { logger } from '@/lib/utils/logger'
+
 interface HubSpotProperty {
   name: string
   label: string
@@ -199,7 +201,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log('🔍 HubSpot API returning:', {
+    logger.debug('🔍 HubSpot API returning:', {
       success: response.success,
       propertiesCount: availableProperties.length,
       groupsCount: Object.keys(groupedProperties).length
@@ -208,7 +210,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error: any) {
-    console.error("HubSpot all contact properties error:", error)
+    logger.error("HubSpot all contact properties error:", error)
     return NextResponse.json(
       { 
         error: "Internal server error", 

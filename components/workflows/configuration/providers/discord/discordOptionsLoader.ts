@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
 const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
@@ -41,7 +43,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      console.log(`🔄 [Discord] Reusing pending request for ${fieldName}`);
+      logger.debug(`🔄 [Discord] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
     
@@ -104,7 +106,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           
           resolve(result);
         } catch (error) {
-          console.error(`❌ [Discord] Error loading ${fieldName}:`, error);
+          logger.error(`❌ [Discord] Error loading ${fieldName}:`, error);
           resolve([]);
         } finally {
           // Clean up the pending promise
@@ -124,7 +126,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private async loadCommands(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { dependsOnValue: guildId, integrationId, signal } = params
     if (!guildId) {
-      console.log('🔍 [Discord] Cannot load commands without guildId')
+      logger.debug('🔍 [Discord] Cannot load commands without guildId')
       return []
     }
     try {
@@ -149,7 +151,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         id: cmd.id
       }))
     } catch (error) {
-      console.error('❌ [Discord] Error loading commands:', error)
+      logger.error('❌ [Discord] Error loading commands:', error)
       return []
     }
   }
@@ -160,7 +162,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private async loadGuilds(forceRefresh?: boolean): Promise<FormattedOption[]> {
     // If there's already a guild loading in progress and we're not forcing refresh, return it
     if (!forceRefresh && DiscordOptionsLoader.guildLoadingPromise) {
-      console.log('🔄 [Discord] Reusing existing guild loading promise');
+      logger.debug('🔄 [Discord] Reusing existing guild loading promise');
       return DiscordOptionsLoader.guildLoadingPromise;
     }
 
@@ -183,7 +185,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         const guilds = result.data || [];
 
         if (!guilds || guilds.length === 0) {
-          console.log('🔍 [Discord] No guilds found - bot may not be in any servers');
+          logger.debug('🔍 [Discord] No guilds found - bot may not be in any servers');
           return [];
         }
 
@@ -192,11 +194,11 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           label: guild.name,
         }));
       } catch (error: any) {
-        console.error('❌ [Discord] Error loading guilds:', error);
+        logger.error('❌ [Discord] Error loading guilds:', error);
 
         // Handle authentication errors
         if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-          console.log('🔄 [Discord] Authentication error detected, may need to refresh integration');
+          logger.debug('🔄 [Discord] Authentication error detected, may need to refresh integration');
           // Could trigger integration refresh here if needed
         }
 
@@ -214,7 +216,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
   private async loadChannels(guildId: string | undefined, forceRefresh?: boolean): Promise<FormattedOption[]> {
     if (!guildId) {
-      console.log('🔍 [Discord] Cannot load channels without guildId');
+      logger.debug('🔍 [Discord] Cannot load channels without guildId');
       return [];
     }
 
@@ -239,7 +241,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       const channels = result.data || [];
       
       if (!channels || channels.length === 0) {
-        console.warn('⚠️ [Discord] No channels found for guild:', guildId);
+        logger.warn('⚠️ [Discord] No channels found for guild:', guildId);
         return [];
       }
       
@@ -261,10 +263,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
           position: channel.position,
         }));
     } catch (error: any) {
-      console.error('❌ [Discord] Error loading channels for guild', guildId, ':', error);
+      logger.error('❌ [Discord] Error loading channels for guild', guildId, ':', error);
       
       if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-        console.log('🔄 [Discord] Authentication error detected');
+        logger.debug('🔄 [Discord] Authentication error detected');
       }
       
       return [];
@@ -275,7 +277,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: channelId, integrationId, signal, nodeType, extraOptions } = params;
 
     if (!channelId || !integrationId) {
-      console.log('🔍 [Discord] Cannot load messages without channelId and integrationId');
+      logger.debug('🔍 [Discord] Cannot load messages without channelId and integrationId');
       return [];
     }
 
@@ -330,7 +332,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         };
       });
     } catch (error) {
-      console.error('❌ [Discord] Error loading messages:', error);
+      logger.error('❌ [Discord] Error loading messages:', error);
       return [];
     }
   }
@@ -339,7 +341,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      console.log('🔍 [Discord] Cannot load members without guildId and integrationId');
+      logger.debug('🔍 [Discord] Cannot load members without guildId and integrationId');
       return [];
     }
 
@@ -380,7 +382,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
       return options;
     } catch (error) {
-      console.error('❌ [Discord] Error loading members:', error);
+      logger.error('❌ [Discord] Error loading members:', error);
       return [];
     }
   }
@@ -389,7 +391,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      console.log('🔍 [Discord] Cannot load roles without guildId and integrationId');
+      logger.debug('🔍 [Discord] Cannot load roles without guildId and integrationId');
       return [];
     }
 
@@ -419,7 +421,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         position: role.position
       }));
     } catch (error) {
-      console.error('❌ [Discord] Error loading roles:', error);
+      logger.error('❌ [Discord] Error loading roles:', error);
       return [];
     }
   }
@@ -428,7 +430,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      console.log('🔍 [Discord] Cannot load categories without guildId and integrationId');
+      logger.debug('🔍 [Discord] Cannot load categories without guildId and integrationId');
       return [];
     }
 
@@ -457,7 +459,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         position: category.position
       }));
     } catch (error) {
-      console.error('❌ [Discord] Error loading categories:', error);
+      logger.error('❌ [Discord] Error loading categories:', error);
       return [];
     }
   }

@@ -1,6 +1,8 @@
 import { supabase } from "@/utils/supabaseClient"
 import { apiClient } from "@/lib/apiClient"
 
+import { logger } from '@/lib/utils/logger'
+
 interface PreloadConfig {
   provider: string
   dataTypes: string[]
@@ -85,7 +87,7 @@ class GlobalDataPreloader {
     progressCallback?: (progress: { [key: string]: boolean }) => void,
   ): Promise<PreloadResult[]> {
     if (this.isPreloading) {
-      console.log("Preloading already in progress")
+      logger.debug("Preloading already in progress")
       return this.results
     }
 
@@ -99,7 +101,7 @@ class GlobalDataPreloader {
         (a, b) => a.priority - b.priority,
       )
 
-      console.log(`Starting preload for ${this.preloadQueue.length} provider configurations`)
+      logger.debug(`Starting preload for ${this.preloadQueue.length} provider configurations`)
 
       // Initialize progress
       const initialProgress: { [key: string]: boolean } = {}
@@ -113,10 +115,10 @@ class GlobalDataPreloader {
         await this.preloadProvider(config)
       }
 
-      console.log("Global preloading completed", this.results)
+      logger.debug("Global preloading completed", this.results)
       return this.results
     } catch (error) {
-      console.error("Global preloading failed:", error)
+      logger.error("Global preloading failed:", error)
       throw error
     } finally {
       this.isPreloading = false
@@ -124,7 +126,7 @@ class GlobalDataPreloader {
   }
 
   private async preloadProvider(config: PreloadConfig): Promise<void> {
-    console.log(`Preloading ${config.provider} with data types:`, config.dataTypes)
+    logger.debug(`Preloading ${config.provider} with data types:`, config.dataTypes)
 
     try {
       // Process each data type for this provider
@@ -139,15 +141,15 @@ class GlobalDataPreloader {
       currentProgress[config.provider] = true
       this.progressCallback?.(currentProgress)
 
-      console.log(`Completed preloading for ${config.provider}`)
+      logger.debug(`Completed preloading for ${config.provider}`)
     } catch (error) {
-      console.error(`Failed to preload ${config.provider}:`, error)
+      logger.error(`Failed to preload ${config.provider}:`, error)
     }
   }
 
   private async preloadDataType(provider: string, dataType: string, batchSize = 50): Promise<void> {
     try {
-      console.log(`Fetching ${dataType} for ${provider}`)
+      logger.debug(`Fetching ${dataType} for ${provider}`)
 
       const response = await apiClient.post("/api/integrations/fetch-user-data", {
           provider,
@@ -164,12 +166,12 @@ class GlobalDataPreloader {
           count: response.data.length || 0,
         })
 
-        console.log(`Successfully preloaded ${response.data.length || 0} ${dataType} for ${provider}`)
+        logger.debug(`Successfully preloaded ${response.data.length || 0} ${dataType} for ${provider}`)
       } else {
         throw new Error(response.error || `Failed to fetch ${dataType}`)
       }
     } catch (error: any) {
-      console.error(`Failed to preload ${dataType} for ${provider}:`, error)
+      logger.error(`Failed to preload ${dataType} for ${provider}:`, error)
 
       this.results.push({
         provider,
@@ -199,7 +201,7 @@ class GlobalDataPreloader {
       throw new Error(`No preload configuration found for provider: ${provider}`)
     }
 
-    console.log(`Refreshing data for ${provider}`)
+    logger.debug(`Refreshing data for ${provider}`)
 
     const refreshResults: PreloadResult[] = []
 
@@ -245,7 +247,7 @@ class GlobalDataPreloader {
       const { data: user } = await supabase.auth.getUser()
       return !!user.user
     } catch (error) {
-      console.error("Failed to validate user access:", error)
+      logger.error("Failed to validate user access:", error)
       return false
     }
   }

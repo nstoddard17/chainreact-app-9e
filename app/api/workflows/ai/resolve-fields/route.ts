@@ -3,6 +3,8 @@ import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { processAIFields, ProcessingContext } from '@/lib/workflows/ai/fieldProcessor'
 import { discoverActions } from '@/lib/workflows/ai/fieldProcessor'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * API endpoint for AI field resolution
  * POST /api/workflows/ai/resolve-fields
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
         )
     }
   } catch (error) {
-    console.error('AI field resolution error:', error)
+    logger.error('AI field resolution error:', error)
     return NextResponse.json(
       { error: 'Failed to process AI fields' },
       { status: 500 }
@@ -119,7 +121,7 @@ async function handleFieldResolution(params: {
       tokensUsed: result.tokensUsed
     })
   } catch (error) {
-    console.error('Field resolution failed:', error)
+    logger.error('Field resolution failed:', error)
     return NextResponse.json(
       { 
         success: false,
@@ -160,7 +162,7 @@ async function handleActionDiscovery(params: {
       cost: result.cost
     })
   } catch (error) {
-    console.error('Action discovery failed:', error)
+    logger.error('Action discovery failed:', error)
     return NextResponse.json(
       { 
         success: false,
@@ -236,7 +238,7 @@ async function handlePreview(params: {
       estimatedCost: result.cost
     })
   } catch (error) {
-    console.error('Preview generation failed:', error)
+    logger.error('Preview generation failed:', error)
     return NextResponse.json(
       { 
         success: false,

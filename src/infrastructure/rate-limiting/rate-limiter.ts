@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Rate limiting configuration for providers
  */
@@ -92,7 +94,7 @@ export class RateLimiter {
       })
     }
     
-    console.log(`✅ Rate limits configured for ${providerId}: ${configs.length} rules`)
+    logger.debug(`✅ Rate limits configured for ${providerId}: ${configs.length} rules`)
   }
 
   /**
@@ -189,7 +191,7 @@ export class RateLimiter {
       // Enable adaptive throttling if error rate is high
       if (counter.errors > counter.count * 0.2) { // 20% error rate threshold
         stats.adaptiveThrottling = true
-        console.log(`🚦 Adaptive throttling enabled for ${providerId} due to high error rate`)
+        logger.debug(`🚦 Adaptive throttling enabled for ${providerId} due to high error rate`)
       }
     }
   }
@@ -216,7 +218,7 @@ export class RateLimiter {
       // Disable adaptive throttling if error rate is low
       if (counter.errors < counter.count * 0.05) { // 5% error rate threshold
         stats.adaptiveThrottling = false
-        console.log(`✅ Adaptive throttling disabled for ${providerId} - error rate normalized`)
+        logger.debug(`✅ Adaptive throttling disabled for ${providerId} - error rate normalized`)
       }
     }
   }
@@ -257,7 +259,7 @@ export class RateLimiter {
       }
     }
     
-    console.log(`🔄 Rate limits reset for ${providerId}${userId ? `:${userId}` : ''}`)
+    logger.debug(`🔄 Rate limits reset for ${providerId}${userId ? `:${userId}` : ''}`)
   }
 
   /**
@@ -302,7 +304,7 @@ export class RateLimiter {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Cleaned up ${cleaned} expired rate limit counters`)
+      logger.debug(`🧹 Cleaned up ${cleaned} expired rate limit counters`)
     }
   }
 
@@ -506,7 +508,7 @@ export class RateLimiter {
     this.queues.clear()
     this.stats.clear()
     
-    console.log('🛑 Rate limiter shutdown complete')
+    logger.debug('🛑 Rate limiter shutdown complete')
   }
 }
 
@@ -537,7 +539,7 @@ export function RateLimit(config: Omit<RateLimitConfig, 'providerId'>) {
       
       if (!result.allowed) {
         if (result.queuePosition) {
-          console.log(`🚦 Request queued for ${providerId}:${propertyName} (position: ${result.queuePosition})`)
+          logger.debug(`🚦 Request queued for ${providerId}:${propertyName} (position: ${result.queuePosition})`)
         }
         
         const error = new Error(`Rate limit exceeded for ${providerId}:${propertyName}`)
@@ -607,7 +609,7 @@ export function createRateLimitMiddleware(config: RateLimitConfig) {
 
       next()
     } catch (error) {
-      console.error('Rate limit middleware error:', error)
+      logger.error('Rate limit middleware error:', error)
       next() // Allow request to proceed on rate limiter error
     }
   }

@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface FileFieldBubble {
   value: File | string;
   label: string;
@@ -74,16 +76,16 @@ export function useFileFieldHandler({
 
     if (value instanceof FileList && value.length > 0) {
       file = value[0]; // Get the first file from FileList
-      console.log('📸 Detected FileList with file:', file.name);
+      logger.debug('📸 Detected FileList with file:', file.name);
     } else if (value instanceof File) {
       file = value;
-      console.log('📸 Detected File object:', file.name);
+      logger.debug('📸 Detected File object:', file.name);
     } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
       file = value[0]; // Handle array of File objects
-      console.log('📸 Detected File array with file:', file.name);
+      logger.debug('📸 Detected File array with file:', file.name);
     } else if (typeof value === 'string' && value.startsWith('data:')) {
       isDataUrl = true;
-      console.log('📸 Detected data URL');
+      logger.debug('📸 Detected data URL');
     }
 
     return { file, isDataUrl };
@@ -128,7 +130,7 @@ export function useFileFieldHandler({
     }
 
     if (!value) {
-      console.log('📸 File field cleared');
+      logger.debug('📸 File field cleared');
       // Clear image preview
       setImagePreview(null);
       
@@ -149,13 +151,13 @@ export function useFileFieldHandler({
       return true;
     }
 
-    console.log('📸 File field changed:', fieldName, value);
+    logger.debug('📸 File field changed:', fieldName, value);
 
     // Process the file value
     const { file, isDataUrl } = processFileValue(value);
 
     if (file || isDataUrl) {
-      console.log('📸 Processing file upload:', file ? file.name : 'data URL');
+      logger.debug('📸 Processing file upload:', file ? file.name : 'data URL');
       
       // Store the previous bubble(s) before replacing
       const previousBubbles = fieldSuggestions[fieldName] || [];
@@ -206,13 +208,13 @@ export function useFileFieldHandler({
         url: newImageBubble.fullUrl
       });
       
-      console.log('📸 Created new image bubble for uploaded file:', newImageBubble);
+      logger.debug('📸 Created new image bubble for uploaded file:', newImageBubble);
       return true;
     }
 
     // If value is empty (user cleared the file), handle it
     if (!value || (value instanceof FileList && value.length === 0)) {
-      console.log('📸 File field cleared');
+      logger.debug('📸 File field cleared');
       setImagePreview(null);
       return true;
     }

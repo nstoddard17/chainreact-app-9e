@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     cookies()
@@ -27,14 +29,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (templateError || !template) {
-      console.error("Template fetch error:", templateError)
+      logger.error("Template fetch error:", templateError)
       return NextResponse.json({ error: "Template not found" }, { status: 404 })
     }
 
     // Log raw template data to debug
-    console.log("Raw template data keys:", Object.keys(template))
-    console.log("Nodes type:", typeof template.nodes)
-    console.log("Is nodes parsed:", Array.isArray(template.nodes))
+    logger.debug("Raw template data keys:", Object.keys(template))
+    logger.debug("Nodes type:", typeof template.nodes)
+    logger.debug("Is nodes parsed:", Array.isArray(template.nodes))
 
     // Extract nodes and connections from the appropriate fields
     // Handle potential string JSONB fields that need parsing
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         try {
           return JSON.parse(field)
         } catch (e) {
-          console.error("Failed to parse field:", e)
+          logger.error("Failed to parse field:", e)
           return null
         }
       }
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       connections = templateConnections || templateWorkflowJson?.edges || templateWorkflowJson?.connections || []
     }
 
-    console.log('Template structure:', {
+    logger.debug('Template structure:', {
       rawNodesType: typeof template.nodes,
       parsedNodesType: typeof templateNodes,
       parsedNodesLength: templateNodes?.length || 0,
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       workflowJsonNodesLength: templateWorkflowJson?.nodes?.length || 0
     })
 
-    console.log('Copying template:', {
+    logger.debug('Copying template:', {
       templateName: template.name,
       nodeCount: nodes.length,
       connectionCount: connections.length,
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Validate we have nodes to copy
     if (!nodes || nodes.length === 0) {
-      console.error("No nodes found in template to copy")
+      logger.error("No nodes found in template to copy")
       return NextResponse.json({
         error: "Template has no nodes to copy",
         debug: {
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }, { status: 400 })
     }
 
-    console.log(`Creating workflow with ${nodes.length} nodes and ${connections.length} connections`)
+    logger.debug(`Creating workflow with ${nodes.length} nodes and ${connections.length} connections`)
 
     // Filter out UI-only placeholder nodes (Add Action buttons, etc.)
     const filteredNodes = nodes.filter(node => {
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         && !isPlaceholder
     })
 
-    console.log(`Filtered ${nodes.length - filteredNodes.length} placeholder nodes, ${filteredNodes.length} nodes remaining`)
+    logger.debug(`Filtered ${nodes.length - filteredNodes.length} placeholder nodes, ${filteredNodes.length} nodes remaining`)
 
     // Keep ALL remaining nodes in the main workflow (including chain nodes)
     // Chain nodes should be visible on the canvas with their metadata intact
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
     });
 
-    console.log('Template processing:', {
+    logger.debug('Template processing:', {
       totalNodes: processedNodes.length,
       totalConnections: connections.length,
       chainNodes: processedNodes.filter(n => n.data?.isAIAgentChild).length,
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (workflowError) {
-      console.error("Error creating workflow from template:", workflowError)
+      logger.error("Error creating workflow from template:", workflowError)
       return NextResponse.json({
         error: "Failed to create workflow",
         details: workflowError.message,
@@ -169,14 +171,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (!workflow) {
-      console.error("Workflow created but no data returned")
+      logger.error("Workflow created but no data returned")
       return NextResponse.json({ error: "Workflow creation succeeded but no data returned" }, { status: 500 })
     }
 
-    console.log(`Successfully created workflow ${workflow.id} from template`)
+    logger.debug(`Successfully created workflow ${workflow.id} from template`)
     return NextResponse.json({ workflow })
   } catch (error) {
-    console.error("Unexpected error copying template:", error)
+    logger.error("Unexpected error copying template:", error)
     return NextResponse.json({
       error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"

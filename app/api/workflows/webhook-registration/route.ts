@@ -2,10 +2,12 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { TriggerWebhookManager } from "@/lib/webhooks/triggerWebhookManager"
 
+import { logger } from '@/lib/utils/logger'
+
 const webhookManager = new TriggerWebhookManager()
 
 export async function POST(request: Request) {
-  console.log('🚨🚨🚨 WEBHOOK REGISTRATION API CALLED! 🚨🚨🚨')
+  logger.debug('🚨🚨🚨 WEBHOOK REGISTRATION API CALLED! 🚨🚨🚨')
   
   const supabase = await createSupabaseRouteHandlerClient()
   
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
     const webhookUrl = webhookManager.getWebhookUrl(workflowId, providerId)
 
     // Register the webhook
-    console.log('🔧 About to call webhookManager.registerWebhook with:', {
+    logger.debug('🔧 About to call webhookManager.registerWebhook with:', {
       workflowId,
       userId: user.id,
       triggerType,
@@ -57,13 +59,13 @@ export async function POST(request: Request) {
         config: config || {},
         webhookUrl
       })
-      console.log('🎉 webhookManager.registerWebhook completed, webhookId:', webhookId)
+      logger.debug('🎉 webhookManager.registerWebhook completed, webhookId:', webhookId)
     } catch (error) {
-      console.error('❌ Error in webhookManager.registerWebhook:', error)
+      logger.error('❌ Error in webhookManager.registerWebhook:', error)
       throw error
     }
 
-    console.log(`✅ Webhook registered successfully:`, {
+    logger.debug(`✅ Webhook registered successfully:`, {
       workflowId,
       triggerType,
       providerId,
@@ -89,7 +91,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("Error registering webhook:", error)
+    logger.error("Error registering webhook:", error)
     return NextResponse.json({ 
       error: "Failed to register webhook",
       details: error.message 
@@ -134,7 +136,7 @@ export async function DELETE(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("Error unregistering webhook:", error)
+    logger.error("Error unregistering webhook:", error)
     return NextResponse.json({ 
       error: "Failed to unregister webhook",
       details: error.message 
@@ -190,7 +192,7 @@ export async function GET(request: Request) {
     
 
   } catch (error: any) {
-    console.error("Error fetching webhooks:", error)
+    logger.error("Error fetching webhooks:", error)
     return NextResponse.json({ 
       error: "Failed to fetch webhooks",
       details: error.message 

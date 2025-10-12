@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase-singleton"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WorkflowNode {
   id: string
   type: string
@@ -206,7 +208,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   fetchWorkflows: async (organizationId?: string) => {
     if (!supabase) {
-      console.warn("Supabase not available")
+      logger.warn("Supabase not available")
       set({ workflows: [], loading: false })
       return
     }
@@ -215,13 +217,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     const state = get()
     const CACHE_DURATION = 30000 // 30 seconds
     if (state.lastFetchTime && Date.now() - state.lastFetchTime < CACHE_DURATION && state.workflows.length > 0) {
-      console.log('[WorkflowStore] Using cached workflows')
+      logger.debug('[WorkflowStore] Using cached workflows')
       return
     }
 
     // If already fetching, return the existing promise to avoid duplicate requests
     if (state.fetchPromise && state.loading) {
-      console.log('[WorkflowStore] Already fetching, returning existing promise')
+      logger.debug('[WorkflowStore] Already fetching, returning existing promise')
       return state.fetchPromise
     }
 
@@ -245,7 +247,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       if (error) {
         if (error.message?.includes('aborted')) {
-          console.warn("Workflows fetch timeout - continuing without blocking")
+          logger.warn("Workflows fetch timeout - continuing without blocking")
           set({ workflows: [], loading: false, error: null })
           return
         }
@@ -259,7 +261,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         fetchPromise: null
       })
     } catch (error: any) {
-      console.error("Error fetching workflows:", error)
+      logger.error("Error fetching workflows:", error)
       // Prior behavior: set empty workflows but clear loading and suppress user-facing error
       set({
         workflows: [],
@@ -279,7 +281,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   fetchPersonalWorkflows: async () => {
     if (!supabase) {
-      console.warn("Supabase not available")
+      logger.warn("Supabase not available")
       set({ workflows: [], loading: false })
       return
     }
@@ -307,7 +309,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       if (error) {
         if (error.message?.includes('aborted')) {
-          console.warn("Personal workflows fetch timeout - continuing without blocking")
+          logger.warn("Personal workflows fetch timeout - continuing without blocking")
           set({ workflows: [], loading: false, error: null })
           return
         }
@@ -316,14 +318,14 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
-      console.error("Error fetching personal workflows:", error)
+      logger.error("Error fetching personal workflows:", error)
       set({ workflows: [], loading: false, error: null })
     }
   },
 
   fetchOrganizationWorkflows: async (organizationId: string) => {
     if (!supabase) {
-      console.warn("Supabase not available")
+      logger.warn("Supabase not available")
       set({ workflows: [], loading: false })
       return
     }
@@ -345,7 +347,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       if (error) {
         if (error.message?.includes('aborted')) {
-          console.warn("Organization workflows fetch timeout - continuing without blocking")
+          logger.warn("Organization workflows fetch timeout - continuing without blocking")
           set({ workflows: [], loading: false, error: null })
           return
         }
@@ -354,7 +356,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       set({ workflows: data || [], loading: false })
     } catch (error: any) {
-      console.error("Error fetching organization workflows:", error)
+      logger.error("Error fetching organization workflows:", error)
       set({ workflows: [], loading: false, error: null })
     }
   },
@@ -417,12 +419,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           })
         }
       } catch (auditError) {
-        console.warn("Failed to log workflow creation:", auditError)
+        logger.warn("Failed to log workflow creation:", auditError)
       }
 
       return data
     } catch (error: any) {
-      console.error("Error creating workflow:", error)
+      logger.error("Error creating workflow:", error)
       throw error
     }
   },
@@ -434,7 +436,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const oldStatus = currentWorkflow?.status
       const newStatus = updates.status
 
-      console.log(`📤 [WorkflowStore] Sending update request for ${id}:`, {
+      logger.debug(`📤 [WorkflowStore] Sending update request for ${id}:`, {
         oldStatus,
         newStatus,
         updates
@@ -449,16 +451,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         body: JSON.stringify(updates),
       })
 
-      console.log(`📥 [WorkflowStore] API Response status:`, response.status)
+      logger.debug(`📥 [WorkflowStore] API Response status:`, response.status)
 
       if (!response.ok) {
         const error = await response.json()
-        console.error(`❌ [WorkflowStore] Update failed:`, error)
+        logger.error(`❌ [WorkflowStore] Update failed:`, error)
         throw new Error(error.error || 'Failed to update workflow')
       }
 
       const data = await response.json()
-      console.log(`✅ [WorkflowStore] API returned updated workflow:`, {
+      logger.debug(`✅ [WorkflowStore] API returned updated workflow:`, {
         id: data.id,
         status: data.status,
         name: data.name
@@ -500,13 +502,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
             })
           }
         } catch (auditError) {
-          console.warn("Failed to log workflow update:", auditError)
+          logger.warn("Failed to log workflow update:", auditError)
         }
       }
 
       return data
     } catch (error: any) {
-      console.error("Error updating workflow:", error)
+      logger.error("Error updating workflow:", error)
       throw error
     }
   },
@@ -562,11 +564,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
             })
           }
         } catch (auditError) {
-          console.warn("Failed to log workflow deletion:", auditError)
+          logger.warn("Failed to log workflow deletion:", auditError)
         }
       }
     } catch (error: any) {
-      console.error("Error deleting workflow:", error)
+      logger.error("Error deleting workflow:", error)
       throw error
     }
   },
@@ -610,16 +612,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           })
         }
       } catch (auditError) {
-        console.warn("Failed to log workflow move:", auditError)
+        logger.warn("Failed to log workflow move:", auditError)
       }
     } catch (error: any) {
-      console.error("Error moving workflow to organization:", error)
+      logger.error("Error moving workflow to organization:", error)
       throw error
     }
   },
 
   setCurrentWorkflow: (workflow: Workflow | null) => {
-    console.log('🏪 [WorkflowStore] Setting current workflow:', {
+    logger.debug('🏪 [WorkflowStore] Setting current workflow:', {
       id: workflow?.id,
       name: workflow?.name,
       nameType: typeof workflow?.name,
@@ -707,7 +709,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const { connections: ensuredConnections, addedConnections } = ensureWorkflowConnections(nodesForUpdate, existingConnections)
 
       if (addedConnections.length > 0) {
-        console.warn('⚠️ Auto-connected workflow nodes to prevent isolated triggers', {
+        logger.warn('⚠️ Auto-connected workflow nodes to prevent isolated triggers', {
           workflowId: currentWorkflow.id,
           addedConnections: addedConnections.map(({ source, target }) => ({ source, target }))
         })
@@ -736,8 +738,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         .eq("id", currentWorkflow.id)
 
       if (error) {
-        console.error("Error updating workflow:", error)
-        console.error("Update data was:", updateData)
+        logger.error("Error updating workflow:", error)
+        logger.error("Update data was:", updateData)
         throw error
       }
 
@@ -779,10 +781,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           })
         }
       } catch (auditError) {
-        console.warn("Failed to log workflow status change:", auditError)
+        logger.warn("Failed to log workflow status change:", auditError)
       }
     } catch (error: any) {
-      console.error("Error saving workflow:", error)
+      logger.error("Error saving workflow:", error)
       throw error
     }
   },
@@ -810,7 +812,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       return data.workflow
     } catch (error: any) {
-      console.error("Error generating workflow with AI:", error)
+      logger.error("Error generating workflow with AI:", error)
       throw error
     }
   },
@@ -840,7 +842,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       if (error) throw error
     } catch (error: any) {
-      console.error("Error creating template:", error)
+      logger.error("Error creating template:", error)
       throw error
     }
   },
@@ -951,7 +953,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   addWorkflowToStore: (workflow: Workflow) => {
-    console.log('[WorkflowStore] Adding workflow to store:', workflow.id)
+    logger.debug('[WorkflowStore] Adding workflow to store:', workflow.id)
     set((state) => ({
       workflows: [workflow, ...state.workflows],
     }))

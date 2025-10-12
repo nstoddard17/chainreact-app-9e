@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -8,7 +10,7 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('\n🧪 MANUALLY TRIGGERING ONEDRIVE WEBHOOK TEST')
+    logger.debug('\n🧪 MANUALLY TRIGGERING ONEDRIVE WEBHOOK TEST')
 
     // Get the active subscription
     const { data: subscriptions } = await supabase
@@ -23,8 +25,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 400 })
     }
 
-    console.log(`Using subscription: ${subscription.id.substring(0, 8)}...`)
-    console.log(`User ID: ${subscription.user_id.substring(0, 8)}...`)
+    logger.debug(`Using subscription: ${subscription.id.substring(0, 8)}...`)
+    logger.debug(`User ID: ${subscription.user_id.substring(0, 8)}...`)
 
     // Create a test notification that mimics Microsoft's format
     const testNotification = {
@@ -54,17 +56,17 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (queueError) {
-      console.error('Failed to insert queue item:', queueError)
+      logger.error('Failed to insert queue item:', queueError)
       return NextResponse.json({ error: queueError }, { status: 500 })
     }
 
-    console.log('✅ Test webhook queued with ID:', queueItem.id)
+    logger.debug('✅ Test webhook queued with ID:', queueItem.id)
 
     // Now trigger the worker to process it
     const workerUrl = new URL(request.url)
     workerUrl.pathname = '/api/microsoft-graph/worker'
 
-    console.log('🔄 Triggering worker to process queue...')
+    logger.debug('🔄 Triggering worker to process queue...')
     const workerResponse = await fetch(workerUrl.toString(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
     })
 
     const workerResult = await workerResponse.json()
-    console.log('Worker response:', workerResult)
+    logger.debug('Worker response:', workerResult)
 
     return NextResponse.json({
       success: true,
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Test trigger error:', error)
+    logger.error('Test trigger error:', error)
     return NextResponse.json({ error }, { status: 500 })
   }
 }

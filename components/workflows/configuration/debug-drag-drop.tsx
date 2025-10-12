@@ -2,10 +2,12 @@
 
 import { useEffect } from 'react'
 
+import { logger } from '@/lib/utils/logger'
+
 export function DebugDragDrop() {
   useEffect(() => {
     const handleGlobalDragOver = (e: DragEvent) => {
-      console.log('🌍 Global drag over:', {
+      logger.debug('🌍 Global drag over:', {
         target: e.target,
         className: (e.target as HTMLElement)?.className,
         id: (e.target as HTMLElement)?.id,
@@ -14,7 +16,7 @@ export function DebugDragDrop() {
     }
 
     const handleGlobalDrop = (e: DragEvent) => {
-      console.log('🌍💧 Global drop:', {
+      logger.debug('🌍💧 Global drop:', {
         target: e.target,
         data: e.dataTransfer?.getData('text/plain'),
         className: (e.target as HTMLElement)?.className,

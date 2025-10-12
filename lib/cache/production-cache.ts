@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Production cache for handling cold starts and initial loads
  * This helps prevent stuck loading states on fresh deployments
@@ -49,7 +51,7 @@ class ProductionCache {
 
   // Warm up cache with initial data to prevent cold start issues
   async warmup(): Promise<void> {
-    console.log('🔥 Warming up production cache...')
+    logger.debug('🔥 Warming up production cache...')
 
     // Pre-cache critical paths
     const criticalPaths = [

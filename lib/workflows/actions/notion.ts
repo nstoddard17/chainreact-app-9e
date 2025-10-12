@@ -2,6 +2,8 @@ import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create a new Notion database
  */
@@ -159,7 +161,7 @@ export async function createNotionDatabase(
     }
 
   } catch (error: any) {
-    console.error("Notion create database error:", error)
+    logger.error("Notion create database error:", error)
     return {
       success: false,
       output: {},
@@ -286,7 +288,7 @@ export async function createNotionPage(
     }
 
   } catch (error: any) {
-    console.error("Notion create page error:", error)
+    logger.error("Notion create page error:", error)
     return {
       success: false,
       output: {},
@@ -385,7 +387,7 @@ export async function updateNotionPage(
     }
 
   } catch (error: any) {
-    console.error("Notion update page error:", error)
+    logger.error("Notion update page error:", error)
     return {
       success: false,
       output: {},
@@ -481,7 +483,7 @@ export async function searchNotionPages(
       message: `Found ${pages.length} Notion ${filter === "database" ? "databases" : "pages"} matching the search criteria`
     }
   } catch (error: any) {
-    console.error("Notion search pages error:", error)
+    logger.error("Notion search pages error:", error)
     return {
       success: false,
       message: error.message || "Failed to search Notion pages",

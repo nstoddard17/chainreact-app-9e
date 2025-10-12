@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get payment intents from Stripe
  */
@@ -63,7 +65,7 @@ export async function stripeGetPayments(
       message: `Successfully retrieved ${payments.length} payments from Stripe`
     }
   } catch (error: any) {
-    console.error('Stripe Get Payments error:', error)
+    logger.error('Stripe Get Payments error:', error)
     return {
       success: false,
       output: {},

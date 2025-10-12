@@ -1,5 +1,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export class AIOptionsLoader implements ProviderOptionsLoader {
   providerId = 'ai'
 
@@ -23,14 +25,14 @@ export class AIOptionsLoader implements ProviderOptionsLoader {
       const response = await fetch(`/api/integrations/ai/data?${queryParams}`)
 
       if (!response.ok) {
-        console.error(`Failed to fetch AI options for ${resourceType}`)
+        logger.error(`Failed to fetch AI options for ${resourceType}`)
         return []
       }
 
       const data = await response.json()
       return Array.isArray(data) ? data : []
     } catch (error) {
-      console.error(`Error loading AI options for ${fieldName}:`, error)
+      logger.error(`Error loading AI options for ${fieldName}:`, error)
       return []
     }
   }

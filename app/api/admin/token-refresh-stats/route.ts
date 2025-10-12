@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 
 export async function GET() {
@@ -61,7 +63,7 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error("Error fetching token refresh stats:", error)
+    logger.error("Error fetching token refresh stats:", error)
     return NextResponse.json(
       {
         success: false,

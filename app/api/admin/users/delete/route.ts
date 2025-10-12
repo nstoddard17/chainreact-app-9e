@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -84,7 +86,7 @@ export async function POST(request: NextRequest) {
       )
 
       if (disableError) {
-        console.error('Error disabling user:', disableError)
+        logger.error('Error disabling user:', disableError)
         return NextResponse.json(
           { error: disableError.message },
           { status: 400 }
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
         .eq('id', userId)
 
       if (profileUpdateError) {
-        console.error('Error updating user profile:', profileUpdateError)
+        logger.error('Error updating user profile:', profileUpdateError)
       }
 
       return NextResponse.json({
@@ -155,7 +157,7 @@ export async function POST(request: NextRequest) {
       const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
 
       if (deleteError) {
-        console.error('Error deleting auth user:', deleteError)
+        logger.error('Error deleting auth user:', deleteError)
         return NextResponse.json(
           { error: deleteError.message },
           { status: 400 }
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
       })
 
     } catch (dataDeleteError) {
-      console.error('Error deleting user data:', dataDeleteError)
+      logger.error('Error deleting user data:', dataDeleteError)
       return NextResponse.json(
         { error: 'Failed to delete user data' },
         { status: 500 }
@@ -177,7 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error in user deletion API:', error)
+    logger.error('Error in user deletion API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

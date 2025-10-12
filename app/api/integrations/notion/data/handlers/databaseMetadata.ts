@@ -7,9 +7,11 @@ import { NotionIntegration, NotionDataHandler } from '../types'
 import { makeNotionApiRequest } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: any, context?: any): Promise<any> => {
-  console.log("🔍 Notion database metadata fetcher called")
-  console.log("🔍 Context:", context)
+  logger.debug("🔍 Notion database metadata fetcher called")
+  logger.debug("🔍 Context:", context)
 
   try {
     // Get the Notion integration
@@ -18,7 +20,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     let integrationError
 
     if (integration.id) {
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -27,7 +29,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
       notionIntegration = result.data
       integrationError = result.error
     } else if (integration.userId) {
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -42,11 +44,11 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     }
 
     if (integrationError || !notionIntegration) {
-      console.error('🔍 Integration lookup failed:', integrationError)
+      logger.error('🔍 Integration lookup failed:', integrationError)
       throw new Error("Notion integration not found")
     }
 
-    console.log(`🔍 Found integration: ${notionIntegration.id}`)
+    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
 
     // Get the database ID from context
     const databaseId = context?.databaseId || context?.database_id
@@ -58,7 +60,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
       }
     }
 
-    console.log(`🔍 Fetching metadata for database: ${databaseId}`)
+    logger.debug(`🔍 Fetching metadata for database: ${databaseId}`)
 
     // Get the database details
     const databaseResponse = await makeNotionApiRequest(
@@ -71,7 +73,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
 
     if (!databaseResponse.ok) {
       const errorData = await databaseResponse.json().catch(() => ({}))
-      console.error(`❌ Failed to get database metadata: ${databaseResponse.status}`, errorData)
+      logger.error(`❌ Failed to get database metadata: ${databaseResponse.status}`, errorData)
       throw new Error(`Failed to get database metadata: ${databaseResponse.status}`)
     }
 
@@ -81,7 +83,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     const title = database.title?.[0]?.plain_text || ''
     const description = database.description?.[0]?.plain_text || ''
 
-    console.log(`✅ Database metadata retrieved - Title: "${title}", Description: "${description}"`)
+    logger.debug(`✅ Database metadata retrieved - Title: "${title}", Description: "${description}"`)
 
     return {
       title,
@@ -89,7 +91,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     }
 
   } catch (error: any) {
-    console.error("Error fetching Notion database metadata:", error)
+    logger.error("Error fetching Notion database metadata:", error)
     // Return empty values on error
     return {
       title: '',

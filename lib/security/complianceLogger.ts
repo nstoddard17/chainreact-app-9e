@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ComplianceLogEntry {
   organization_id?: string
   user_id?: string
@@ -31,7 +33,7 @@ export class ComplianceLogger {
     })
 
     if (error) {
-      console.error("Failed to log compliance action:", error)
+      logger.error("Failed to log compliance action:", error)
     }
   }
 

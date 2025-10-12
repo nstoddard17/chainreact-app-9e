@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -119,7 +121,7 @@ export async function GET() {
       }
     })
   } catch (error: any) {
-    console.error("Dashboard API error:", error)
+    logger.error("Dashboard API error:", error)
     return NextResponse.json(
       {
         success: false,

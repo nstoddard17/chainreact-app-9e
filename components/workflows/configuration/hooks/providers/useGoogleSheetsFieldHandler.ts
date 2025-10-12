@@ -1,5 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseGoogleSheetsFieldHandlerProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -82,7 +84,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle spreadsheetId changes
    */
   const handleSpreadsheetIdChange = useCallback(async (value: any) => {
-    console.log('🔍 Google Sheets spreadsheetId change handler called:', {
+    logger.debug('🔍 Google Sheets spreadsheetId change handler called:', {
       newValue: value,
       previousValue: previousSpreadsheetIdRef.current,
       isProcessing: isProcessingRef.current,
@@ -91,20 +93,20 @@ export function useGoogleSheetsFieldHandler({
 
     // Prevent concurrent processing
     if (isProcessingRef.current) {
-      console.log('⏭️ Already processing spreadsheetId change, skipping');
+      logger.debug('⏭️ Already processing spreadsheetId change, skipping');
       return;
     }
 
     // Only process if the value actually changed from the previous value
     if (value === previousSpreadsheetIdRef.current) {
-      console.log('✅ Google Sheets spreadsheetId unchanged, skipping reset');
+      logger.debug('✅ Google Sheets spreadsheetId unchanged, skipping reset');
       return;
     }
 
     // Mark as processing
     isProcessingRef.current = true;
 
-    console.log('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
+    logger.debug('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
 
     // Update the ref to track the new value
     previousSpreadsheetIdRef.current = value;
@@ -133,7 +135,7 @@ export function useGoogleSheetsFieldHandler({
       try {
         await loadOptions('sheetName', 'spreadsheetId', value, false);
       } catch (error) {
-        console.error('Error loading sheets:', error);
+        logger.error('Error loading sheets:', error);
       } finally {
         // Clear loading state
         setLoadingFields((prev: Set<string>) => {
@@ -154,7 +156,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle sheetName changes
    */
   const handleSheetNameChange = useCallback((value: any) => {
-    console.log('🔍 Google Sheets sheetName changed:', value);
+    logger.debug('🔍 Google Sheets sheetName changed:', value);
     
     // Clear preview data for update action
     if (values.action === 'update') {
@@ -172,7 +174,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle action changes
    */
   const handleActionChange = useCallback((value: any) => {
-    console.log('🔍 Google Sheets action changed:', value);
+    logger.debug('🔍 Google Sheets action changed:', value);
     
     const previousAction = values.action;
     

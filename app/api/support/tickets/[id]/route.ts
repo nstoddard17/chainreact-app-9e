@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -36,13 +38,13 @@ export async function GET(
       if (ticketError.code === 'PGRST116') {
         return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
       }
-      console.error('Error fetching ticket:', ticketError)
+      logger.error('Error fetching ticket:', ticketError)
       return NextResponse.json({ error: 'Failed to fetch ticket' }, { status: 500 })
     }
 
     return NextResponse.json({ ticket })
   } catch (error) {
-    console.error('Error in GET /api/support/tickets/[id]:', error)
+    logger.error('Error in GET /api/support/tickets/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -84,13 +86,13 @@ export async function PUT(
       if (ticketError.code === 'PGRST116') {
         return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
       }
-      console.error('Error updating ticket:', ticketError)
+      logger.error('Error updating ticket:', ticketError)
       return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 })
     }
 
     return NextResponse.json({ ticket })
   } catch (error) {
-    console.error('Error in PUT /api/support/tickets/[id]:', error)
+    logger.error('Error in PUT /api/support/tickets/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -116,13 +118,13 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (deleteError) {
-      console.error('Error deleting ticket:', deleteError)
+      logger.error('Error deleting ticket:', deleteError)
       return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'Ticket deleted successfully' })
   } catch (error) {
-    console.error('Error in DELETE /api/support/tickets/[id]:', error)
+    logger.error('Error in DELETE /api/support/tickets/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { OpenAI } from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 // Dynamic import for Anthropic SDK (optional dependency)
 let Anthropic: any
 try {
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
           decision = content.type === 'text' ? content.text : '{}'
         } else {
           // Fallback to OpenAI if Anthropic not available
-          console.warn('Anthropic SDK not installed, using OpenAI as fallback')
+          logger.warn('Anthropic SDK not installed, using OpenAI as fallback')
           const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY
           })
@@ -145,7 +147,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ decision })
 
     } catch (aiError: any) {
-      console.error('AI provider error:', aiError)
+      logger.error('AI provider error:', aiError)
       return NextResponse.json(
         {
           error: 'AI service temporarily unavailable',
@@ -156,7 +158,7 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('API error:', error)
+    logger.error('API error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

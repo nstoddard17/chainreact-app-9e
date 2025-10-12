@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -56,7 +58,7 @@ export class FileStorageService {
         })
 
       if (uploadError) {
-        console.error('File upload error:', uploadError)
+        logger.error('File upload error:', uploadError)
         throw new Error(`Failed to upload file: ${uploadError.message}`)
       }
 
@@ -81,7 +83,7 @@ export class FileStorageService {
       if (dbError) {
         // Clean up uploaded file if database insert fails
         await supabase.storage.from('workflow-files').remove([filePath])
-        console.error('Database insert error:', dbError)
+        logger.error('Database insert error:', dbError)
         throw new Error(`Failed to store file metadata: ${dbError.message}`)
       }
 
@@ -97,7 +99,7 @@ export class FileStorageService {
         expiresAt: new Date(dbData.expires_at)
       }
     } catch (error) {
-      console.error('Error storing file:', error)
+      logger.error('Error storing file:', error)
       throw error
     }
   }
@@ -127,13 +129,13 @@ export class FileStorageService {
       const { data: metadata, error: metadataError } = await query.single();
 
       if (metadataError || !metadata) {
-        console.error('File metadata not found:', metadataError)
+        logger.error('File metadata not found:', metadataError)
         return null
       }
 
       // Check if file has expired (though we set far future dates for permanent storage)
       if (new Date() > new Date(metadata.expires_at)) {
-        console.warn('File has expired:', nodeId)
+        logger.warn('File has expired:', nodeId)
         await this.deleteFileByNode(nodeId, userId, workflowId)
         return null
       }
@@ -144,7 +146,7 @@ export class FileStorageService {
         .download(metadata.file_path)
 
       if (downloadError || !fileData) {
-        console.error('File download error:', downloadError)
+        logger.error('File download error:', downloadError)
         return null
       }
 
@@ -163,7 +165,7 @@ export class FileStorageService {
         }
       }
     } catch (error) {
-      console.error('Error retrieving file:', error)
+      logger.error('Error retrieving file:', error)
       return null
     }
   }
@@ -190,7 +192,7 @@ export class FileStorageService {
       const { data: metadata, error: metadataError } = await query;
 
       if (metadataError || !metadata || metadata.length === 0) {
-        console.error('File metadata not found for deletion:', metadataError)
+        logger.error('File metadata not found for deletion:', metadataError)
         return false
       }
 
@@ -201,7 +203,7 @@ export class FileStorageService {
         .remove(filePaths)
 
       if (storageError) {
-        console.error('Storage deletion error:', storageError)
+        logger.error('Storage deletion error:', storageError)
       }
 
       // Delete from database
@@ -218,13 +220,13 @@ export class FileStorageService {
       const { error: dbError } = await deleteQuery;
 
       if (dbError) {
-        console.error('Database deletion error:', dbError)
+        logger.error('Database deletion error:', dbError)
         return false
       }
 
       return true
     } catch (error) {
-      console.error('Error deleting file:', error)
+      logger.error('Error deleting file:', error)
       return false
     }
   }
@@ -245,7 +247,7 @@ export class FileStorageService {
         .single()
 
       if (metadataError || !metadata) {
-        console.error('File metadata not found for deletion:', metadataError)
+        logger.error('File metadata not found for deletion:', metadataError)
         return false
       }
 
@@ -255,7 +257,7 @@ export class FileStorageService {
         .remove([metadata.file_path])
 
       if (storageError) {
-        console.error('Storage deletion error:', storageError)
+        logger.error('Storage deletion error:', storageError)
       }
 
       // Delete from database
@@ -266,13 +268,13 @@ export class FileStorageService {
         .eq('user_id', userId)
 
       if (dbError) {
-        console.error('Database deletion error:', dbError)
+        logger.error('Database deletion error:', dbError)
         return false
       }
 
       return true
     } catch (error) {
-      console.error('Error deleting file:', error)
+      logger.error('Error deleting file:', error)
       return false
     }
   }
@@ -291,7 +293,7 @@ export class FileStorageService {
         .lt('expires_at', new Date().toISOString())
 
       if (queryError) {
-        console.error('Error querying expired files:', queryError)
+        logger.error('Error querying expired files:', queryError)
         return 0
       }
 
@@ -309,10 +311,10 @@ export class FileStorageService {
         }
       }
 
-      console.log(`Cleaned up ${cleanedCount} expired files`)
+      logger.debug(`Cleaned up ${cleanedCount} expired files`)
       return cleanedCount
     } catch (error) {
-      console.error('Error cleaning up expired files:', error)
+      logger.error('Error cleaning up expired files:', error)
       return 0
     }
   }
@@ -333,7 +335,7 @@ export class FileStorageService {
         const storedFile = await this.storeFile(file, userId, workflowId)
         fileIds.push(storedFile.id)
       } catch (error) {
-        console.error(`Error storing file ${file.name}:`, error)
+        logger.error(`Error storing file ${file.name}:`, error)
         throw error
       }
     }
@@ -362,7 +364,7 @@ export class FileStorageService {
           })
         }
       } catch (error) {
-        console.error(`Error retrieving file ${fileId}:`, error)
+        logger.error(`Error retrieving file ${fileId}:`, error)
       }
     }
 

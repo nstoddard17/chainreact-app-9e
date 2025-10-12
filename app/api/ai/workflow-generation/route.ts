@@ -3,9 +3,11 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { generateWorkflowFromPrompt } from "@/lib/ai/workflowGenerator"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
-    console.log("🔍 Workflow generation API called")
+    logger.debug("🔍 Workflow generation API called")
     cookies()
     const supabase = await createSupabaseServerClient()
     
@@ -16,33 +18,33 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      console.log("❌ Authentication failed:", userError)
+      logger.debug("❌ Authentication failed:", userError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("✅ User authenticated:", user.id)
+    logger.debug("✅ User authenticated:", user.id)
     const { prompt, workflowId } = await request.json()
 
     if (!prompt) {
-      console.log("❌ No prompt provided")
+      logger.debug("❌ No prompt provided")
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    console.log("📝 Generating workflow for prompt:", prompt)
+    logger.debug("📝 Generating workflow for prompt:", prompt)
 
     // Generate workflow using AI
     const result = await generateWorkflowFromPrompt(prompt)
 
-    console.log("🤖 AI generation result:", result)
+    logger.debug("🤖 AI generation result:", result)
 
     if (!result.success || !result.workflow) {
-      console.log("❌ AI generation failed:", result.error)
+      logger.debug("❌ AI generation failed:", result.error)
       return NextResponse.json({ 
         error: result.error || "Failed to generate workflow" 
       }, { status: 500 })
     }
 
-    console.log("✅ AI generation successful, saving to database")
+    logger.debug("✅ AI generation successful, saving to database")
 
     // If a workflowId is provided, update the existing workflow
     if (workflowId) {
@@ -60,11 +62,11 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error("❌ Database update error:", updateError)
+        logger.error("❌ Database update error:", updateError)
         return NextResponse.json({ error: "Failed to update workflow" }, { status: 500 })
       }
 
-      console.log("✅ Workflow updated successfully")
+      logger.debug("✅ Workflow updated successfully")
       return NextResponse.json({ 
         success: true,
         workflow,
@@ -88,11 +90,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (createError) {
-      console.error("❌ Database create error:", createError)
+      logger.error("❌ Database create error:", createError)
       return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 })
     }
 
-    console.log("✅ Workflow created successfully:", workflow.id)
+    logger.debug("✅ Workflow created successfully:", workflow.id)
     return NextResponse.json({ 
       success: true,
       workflow,
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
       message: "Workflow created successfully"
     })
   } catch (error) {
-    console.error("❌ Workflow generation error:", error)
+    logger.error("❌ Workflow generation error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -138,7 +140,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ templates })
   } catch (error) {
-    console.error("Template fetch error:", error)
+    logger.error("Template fetch error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,5 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function trackUsage(userId: string, resourceType: string, action: string, quantity = 1, metadata?: any) {
   const supabase = getSupabaseClient()
 
@@ -29,7 +31,7 @@ export async function trackUsage(userId: string, resourceType: string, action: s
       })
     }
   } catch (error) {
-    console.error("Usage tracking error:", error)
+    logger.error("Usage tracking error:", error)
   }
 }
 
@@ -38,7 +40,7 @@ export async function checkUsageLimit(
   resourceType: string,
 ): Promise<{ allowed: boolean; limit: number; current: number }> {
   // TEMPORARY: Disable usage limits for testing
-  console.log("🧪 Usage limits disabled for testing")
+  logger.debug("🧪 Usage limits disabled for testing")
   return { allowed: true, limit: 999999, current: 0 }
   
   const supabase = getSupabaseClient()
@@ -86,7 +88,7 @@ export async function checkUsageLimit(
 
     return { allowed, limit, current }
   } catch (error) {
-    console.error("Usage limit check error:", error)
+    logger.error("Usage limit check error:", error)
     return { allowed: false, limit: 0, current: 0 }
   }
 }

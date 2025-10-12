@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { validateAndUpdateIntegrationScopes } from "@/lib/integrations/scopeValidation"
 
+import { logger } from '@/lib/utils/logger'
+
 const getSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -20,7 +22,7 @@ const getSupabaseClient = () => {
 export const POST = async (request: NextRequest) => {
   try {
     const supabase = getSupabaseClient()
-    console.log("Processing Trello token")
+    logger.debug("Processing Trello token")
     const { token, userId } = await request.json()
 
     if (!token || !userId) {
@@ -34,7 +36,7 @@ export const POST = async (request: NextRequest) => {
 
     if (!trelloResponse.ok) {
       const errorText = await trelloResponse.text()
-      console.error("Failed to fetch Trello user info:", errorText)
+      logger.error("Failed to fetch Trello user info:", errorText)
       return NextResponse.json({ error: "Failed to validate Trello token" }, { status: 400 })
     }
 
@@ -43,7 +45,7 @@ export const POST = async (request: NextRequest) => {
   const trelloUsername = trelloUserData.username
 
     if (!trelloUserId || !trelloUsername) {
-      console.error("Invalid Trello user data received")
+      logger.error("Invalid Trello user data received")
       return NextResponse.json({ error: "Invalid Trello user data" }, { status: 400 })
     }
 
@@ -83,7 +85,7 @@ export const POST = async (request: NextRequest) => {
 
     let integrationId: string | undefined
     if (existingIntegration) {
-      console.log("Updating existing Trello integration")
+      logger.debug("Updating existing Trello integration")
       const { error: updateError } = await supabase
         .from("integrations")
         .update({
@@ -107,12 +109,12 @@ export const POST = async (request: NextRequest) => {
         .eq("user_id", userId)
 
       if (updateError) {
-        console.error("Error updating Trello integration:", updateError)
+        logger.error("Error updating Trello integration:", updateError)
         return NextResponse.json({ error: "Failed to update integration" }, { status: 500 })
       }
       integrationId = existingIntegration.id
     } else {
-      console.log("Creating new Trello integration")
+      logger.debug("Creating new Trello integration")
       const { data, error } = await supabase
         .from("integrations")
         .insert({
@@ -124,7 +126,7 @@ export const POST = async (request: NextRequest) => {
         .single()
 
       if (error) {
-        console.error("Error inserting Trello integration:", error)
+        logger.error("Error inserting Trello integration:", error)
         return NextResponse.json({ error: "Failed to create integration" }, { status: 500 })
       }
       integrationId = data.id
@@ -133,17 +135,17 @@ export const POST = async (request: NextRequest) => {
     if (integrationId) {
       try {
         await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
-        console.log("Trello integration scope validation completed")
+        logger.debug("Trello integration scope validation completed")
       } catch (err) {
-        console.error("Trello scope validation failed:", err)
+        logger.error("Trello scope validation failed:", err)
         // Don't fail the whole process for scope validation errors
       }
     }
 
-    console.log("Trello integration processed successfully")
+    logger.debug("Trello integration processed successfully")
     return NextResponse.json({ success: true, integrationId })
   } catch (e: any) {
-    console.error("Error processing Trello token:", e)
+    logger.error("Error processing Trello token:", e)
     return NextResponse.json({ error: e.message || "Internal server error" }, { status: 500 })
   }
 }

@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Utility functions for webhook management
  */
@@ -75,9 +77,9 @@ export function getProviderWebhookUrls(req?: Request): Record<string, string> {
  * Log webhook URL configuration for debugging
  */
 export function logWebhookConfig(): void {
-  console.log('🔧 Webhook Configuration:')
-  console.log(`   NODE_ENV: ${process.env.NODE_ENV}`)
-  console.log(`   NEXT_PUBLIC_WEBHOOK_HTTPS_URL: ${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || 'not set'}`)
-  console.log(`   NEXT_PUBLIC_URL: ${process.env.NEXT_PUBLIC_URL || 'not set'}`)
-  console.log(`   Computed base URL: ${getWebhookBaseUrl()}`)
+  logger.debug('🔧 Webhook Configuration:')
+  logger.debug(`   NODE_ENV: ${process.env.NODE_ENV}`)
+  logger.debug(`   NEXT_PUBLIC_WEBHOOK_HTTPS_URL: ${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || 'not set'}`)
+  logger.debug(`   NEXT_PUBLIC_URL: ${process.env.NEXT_PUBLIC_URL || 'not set'}`)
+  logger.debug(`   Computed base URL: ${getWebhookBaseUrl()}`)
 }

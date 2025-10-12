@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
 
+import { logger } from '@/lib/utils/logger'
+
 function sanitizeSearchQuery(query?: string): string | null {
   if (!query || typeof query !== "string") {
     return null
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text()
-      console.error("[Outlook Preview] API Error:", graphResponse.status, errorText, { url: lastUrl })
+      logger.error("[Outlook Preview] API Error:", graphResponse.status, errorText, { url: lastUrl })
 
       if (graphResponse.status === 401) {
         return NextResponse.json(
@@ -197,7 +199,7 @@ export async function POST(request: NextRequest) {
       fallbackReason
     })
   } catch (error: any) {
-    console.error("[Outlook Preview] Error:", error)
+    logger.error("[Outlook Preview] Error:", error)
     return NextResponse.json(
       { error: error.message || "Failed to fetch email preview" },
       { status: 500 }

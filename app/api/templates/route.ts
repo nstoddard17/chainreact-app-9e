@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     cookies()
@@ -34,13 +36,13 @@ export async function GET(request: NextRequest) {
     const { data: templates, error } = await query
 
     if (error) {
-      console.error("Error fetching templates:", error)
+      logger.error("Error fetching templates:", error)
       return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 })
     }
 
     return NextResponse.json({ templates })
   } catch (error) {
-    console.error("Error in GET /api/templates:", error)
+    logger.error("Error in GET /api/templates:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
         ...workflow_json,
         nodes: filteredNodes
       }
-      console.log(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
+      logger.debug(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
     }
 
     const { data: template, error } = await supabase
@@ -97,13 +99,13 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Error creating template:", error)
+      logger.error("Error creating template:", error)
       return NextResponse.json({ error: "Failed to create template" }, { status: 500 })
     }
 
     return NextResponse.json({ template })
   } catch (error) {
-    console.error("Error in POST /api/templates:", error)
+    logger.error("Error in POST /api/templates:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = "force-dynamic"
 
 interface Integration {
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
       rawCount: integrations?.length || 0,
     })
   } catch (error: any) {
-    console.error("💥 Error in debug integrations:", error)
+    logger.error("💥 Error in debug integrations:", error)
     return NextResponse.json(
       {
         success: false,

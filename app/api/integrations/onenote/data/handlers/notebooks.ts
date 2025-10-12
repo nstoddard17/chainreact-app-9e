@@ -5,8 +5,10 @@
 import { OneNoteIntegration, OneNoteNotebook, OneNoteDataHandler, OneNoteApiResponse } from '../types'
 import { validateOneNoteIntegration, validateOneNoteToken, tryMultipleOneNoteEndpoints } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (integration: OneNoteIntegration, options: any = {}): Promise<OneNoteApiResponse<OneNoteNotebook>> => {
-  console.log(`🔍 OneNote notebooks fetcher called with:`, {
+  logger.debug(`🔍 OneNote notebooks fetcher called with:`, {
     integrationId: integration.id,
     provider: integration.provider,
     status: integration.status,
@@ -17,9 +19,9 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     // Validate integration status
     validateOneNoteIntegration(integration)
     
-    console.log(`🔍 Validating OneNote token...`)
+    logger.debug(`🔍 Validating OneNote token...`)
     const tokenResult = await validateOneNoteToken(integration)
-    console.log(`🔍 Token validation result:`, {
+    logger.debug(`🔍 Token validation result:`, {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -28,7 +30,7 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     })
     
     if (!tokenResult.success) {
-      console.log(`❌ OneNote token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ OneNote token validation failed: ${tokenResult.error}`)
       return {
         data: [],
         error: {
@@ -60,7 +62,7 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     )
     
     if (result.data.length > 0) {
-      console.log(`🔍 OneNote notebooks from API:`, result.data.map((notebook: any) => ({
+      logger.debug(`🔍 OneNote notebooks from API:`, result.data.map((notebook: any) => ({
         id: notebook.id,
         displayName: notebook.displayName,
         name: notebook.name,
@@ -76,7 +78,7 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     
     return result
   } catch (error: any) {
-    console.error("Error fetching OneNote notebooks:", error)
+    logger.error("Error fetching OneNote notebooks:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       return {

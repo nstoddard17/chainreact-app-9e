@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Check, Loader2, AlertTriangle, Info, Lock } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface PlanSelectorProps {
   plans: any[]
   currentSubscription: any
@@ -35,24 +37,24 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   const activePlans = uniquePlans.filter(p => !p.coming_soon)
 
   const handlePlanSelection = async (selectedPlanId: string) => {
-    console.log("handlePlanSelection called with planId:", selectedPlanId)
-    console.log("Available plans:", plans)
-    console.log("Current subscription:", currentSubscription)
+    logger.debug("handlePlanSelection called with planId:", selectedPlanId)
+    logger.debug("Available plans:", plans)
+    logger.debug("Current subscription:", currentSubscription)
     
     if (processingPlanId) {
-      console.log("Already processing a plan, returning")
+      logger.debug("Already processing a plan, returning")
       return
     }
     
     // Don't process coming soon plans
     const selectedPlan = plans?.find((p: any) => p.id === selectedPlanId)
     if (!selectedPlan) {
-      console.error("Plan not found:", selectedPlanId)
+      logger.error("Plan not found:", selectedPlanId)
       return
     }
     
     if (selectedPlan.coming_soon) {
-      console.log("Plan is coming soon, returning")
+      logger.debug("Plan is coming soon, returning")
       return
     }
 
@@ -61,11 +63,11 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
       setError(null)
       
       const billingPeriod = billingCycle === "annual" ? "yearly" : "monthly"
-      console.log("Billing period:", billingPeriod)
+      logger.debug("Billing period:", billingPeriod)
       
       // If user has an active subscription, change the plan
       if (currentSubscription && currentSubscription.status === "active") {
-        console.log("Changing existing plan")
+        logger.debug("Changing existing plan")
         
         // Check if switching from monthly to annual
         const isUpgradeToAnnual = currentSubscription.billing_cycle === "monthly" && billingPeriod === "yearly"
@@ -85,7 +87,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
         window.location.reload()
       } else {
         // No active subscription, create checkout session
-        console.log("Creating new checkout session")
+        logger.debug("Creating new checkout session")
         
         const checkoutUrl = await createCheckoutSession(selectedPlanId, billingPeriod)
 
@@ -93,11 +95,11 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
           throw new Error("No checkout URL returned")
         }
 
-        console.log("Redirecting to checkout URL:", checkoutUrl)
+        logger.debug("Redirecting to checkout URL:", checkoutUrl)
         window.location.href = checkoutUrl
       }
     } catch (error: any) {
-      console.error("Failed to process plan selection:", error)
+      logger.error("Failed to process plan selection:", error)
 
       if (error.message?.includes("STRIPE_NOT_CONFIGURED")) {
         setError("Billing is not yet configured for this application. Please contact support.")

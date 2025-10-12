@@ -3,6 +3,8 @@ import { CronJob } from 'cron'
 import { workflowEngine, TriggerType, ExecutionPriority } from './workflow-engine'
 import { auditLogger, AuditEventType } from '../security/audit-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Schedule types
  */
@@ -155,7 +157,7 @@ export class WorkflowScheduler extends EventEmitter {
   constructor() {
     super()
     this.startMaintenanceTask()
-    console.log('⏰ Workflow scheduler initialized')
+    logger.debug('⏰ Workflow scheduler initialized')
   }
 
   /**
@@ -209,7 +211,7 @@ export class WorkflowScheduler extends EventEmitter {
     })
 
     this.emit('scheduleCreated', fullSchedule)
-    console.log(`📅 Schedule created: ${fullSchedule.name} (${fullSchedule.type})`)
+    logger.debug(`📅 Schedule created: ${fullSchedule.name} (${fullSchedule.type})`)
     
     return scheduleId
   }
@@ -249,7 +251,7 @@ export class WorkflowScheduler extends EventEmitter {
       }
 
       this.emit('scheduleStarted', schedule)
-      console.log(`▶️ Schedule started: ${schedule.name}`)
+      logger.debug(`▶️ Schedule started: ${schedule.name}`)
       return true
 
     } catch (error: any) {
@@ -293,7 +295,7 @@ export class WorkflowScheduler extends EventEmitter {
     // Calculate next execution time
     schedule.history.nextExecution = cronJob.nextDate().getTime()
     
-    console.log(`⏰ Cron schedule started: ${schedule.config.cronExpression}`)
+    logger.debug(`⏰ Cron schedule started: ${schedule.config.cronExpression}`)
   }
 
   /**
@@ -316,7 +318,7 @@ export class WorkflowScheduler extends EventEmitter {
     // Calculate next execution time
     schedule.history.nextExecution = Date.now() + intervalMs
     
-    console.log(`⏲️ Interval schedule started: every ${schedule.config.interval} ${schedule.config.intervalUnit}`)
+    logger.debug(`⏲️ Interval schedule started: every ${schedule.config.interval} ${schedule.config.intervalUnit}`)
   }
 
   /**
@@ -346,7 +348,7 @@ export class WorkflowScheduler extends EventEmitter {
     
     schedule.history.nextExecution = Date.now() + initialDelay
     
-    console.log(`🔄 Fixed rate schedule started: ${schedule.config.rate} ${schedule.config.rateUnit}`)
+    logger.debug(`🔄 Fixed rate schedule started: ${schedule.config.rate} ${schedule.config.rateUnit}`)
   }
 
   /**
@@ -371,7 +373,7 @@ export class WorkflowScheduler extends EventEmitter {
     this.intervalJobs.set(schedule.id, timeoutId)
     schedule.history.nextExecution = schedule.config.executeAt
     
-    console.log(`⏰ One-time schedule set for: ${new Date(schedule.config.executeAt).toISOString()}`)
+    logger.debug(`⏰ One-time schedule set for: ${new Date(schedule.config.executeAt).toISOString()}`)
   }
 
   /**
@@ -392,7 +394,7 @@ export class WorkflowScheduler extends EventEmitter {
           await this.executeScheduledWorkflow(schedule)
         }
       } catch (error) {
-        console.error(`❌ Error evaluating conditions for schedule ${schedule.id}:`, error)
+        logger.error(`❌ Error evaluating conditions for schedule ${schedule.id}:`, error)
       }
     }
 
@@ -401,7 +403,7 @@ export class WorkflowScheduler extends EventEmitter {
     
     schedule.history.nextExecution = Date.now() + pollInterval
     
-    console.log(`🔍 Conditional schedule started with ${schedule.config.conditions.length} conditions`)
+    logger.debug(`🔍 Conditional schedule started with ${schedule.config.conditions.length} conditions`)
   }
 
   /**
@@ -501,7 +503,7 @@ export class WorkflowScheduler extends EventEmitter {
       })
 
       this.emit('scheduleExecuted', schedule, result)
-      console.log(`✅ Scheduled workflow executed: ${schedule.name}`)
+      logger.debug(`✅ Scheduled workflow executed: ${schedule.name}`)
 
     } catch (error: any) {
       result.status = 'failed'
@@ -526,7 +528,7 @@ export class WorkflowScheduler extends EventEmitter {
       })
 
       this.emit('scheduleExecutionFailed', schedule, error)
-      console.error(`❌ Scheduled workflow execution failed: ${schedule.name}`, error)
+      logger.error(`❌ Scheduled workflow execution failed: ${schedule.name}`, error)
     }
 
     return result
@@ -587,7 +589,7 @@ export class WorkflowScheduler extends EventEmitter {
           return false
         }
       } catch (error) {
-        console.error(`❌ Error evaluating condition:`, error)
+        logger.error(`❌ Error evaluating condition:`, error)
         return false
       }
     }
@@ -758,7 +760,7 @@ export class WorkflowScheduler extends EventEmitter {
     }
 
     this.emit('schedulePaused', schedule)
-    console.log(`⏸️ Schedule paused: ${schedule.name}`)
+    logger.debug(`⏸️ Schedule paused: ${schedule.name}`)
     return true
   }
 
@@ -803,7 +805,7 @@ export class WorkflowScheduler extends EventEmitter {
     })
 
     this.emit('scheduleDeleted', schedule)
-    console.log(`🗑️ Schedule deleted: ${schedule.name}`)
+    logger.debug(`🗑️ Schedule deleted: ${schedule.name}`)
     return true
   }
 
@@ -930,11 +932,11 @@ export class WorkflowScheduler extends EventEmitter {
       }
 
       if (cleanedUp > 0) {
-        console.log(`🧹 Scheduler maintenance: cleaned up ${cleanedUp} completed schedules`)
+        logger.debug(`🧹 Scheduler maintenance: cleaned up ${cleanedUp} completed schedules`)
       }
 
     } catch (error) {
-      console.error('❌ Scheduler maintenance error:', error)
+      logger.error('❌ Scheduler maintenance error:', error)
     }
   }
 
@@ -1026,7 +1028,7 @@ export class WorkflowScheduler extends EventEmitter {
     this.runningExecutions.clear()
 
     this.removeAllListeners()
-    console.log('🛑 Workflow scheduler shutdown')
+    logger.debug('🛑 Workflow scheduler shutdown')
   }
 }
 

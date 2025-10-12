@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../../data/utils';
 
+import { logger } from '@/lib/utils/logger'
+
 interface ExecuteRequest {
   integrationId: string;
   spreadsheetId: string;
@@ -91,7 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, result });
 
   } catch (error: any) {
-    console.error('❌ [Google Sheets Execute] Error:', error);
+    logger.error('❌ [Google Sheets Execute] Error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to execute Google Sheets operation' },
       { status: 500 }

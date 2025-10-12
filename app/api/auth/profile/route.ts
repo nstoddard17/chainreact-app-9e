@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 export const dynamic = 'force-dynamic'
 
 function deriveRoleFromMetadata(metadata: Record<string, any> | undefined): string {
@@ -49,14 +51,14 @@ export async function GET(req: NextRequest) {
     }
 
     if (profileError && profileError.code && profileError.code !== 'PGRST116') {
-      console.error('Service profile lookup failed:', profileError)
+      logger.error('Service profile lookup failed:', profileError)
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
     const userResponse = await adminClient.auth.admin.getUserById(user.id)
 
     if (userResponse.error || !userResponse.data?.user) {
-      console.error('Unable to load auth user for profile creation:', userResponse.error)
+      logger.error('Unable to load auth user for profile creation:', userResponse.error)
       return NextResponse.json({ error: 'Failed to load user metadata' }, { status: 500 })
     }
 
@@ -101,13 +103,13 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error('Failed to create user profile via service route:', insertError)
+      logger.error('Failed to create user profile via service route:', insertError)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
     return NextResponse.json({ profile: createdProfile })
   } catch (error) {
-    console.error('Unexpected error in auth profile route:', error)
+    logger.error('Unexpected error in auth profile route:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

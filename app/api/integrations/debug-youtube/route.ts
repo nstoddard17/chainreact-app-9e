@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (allError) {
-      console.error("Error fetching all integrations:", allError)
+      logger.error("Error fetching all integrations:", allError)
       return NextResponse.json({ error: allError.message }, { status: 500 })
     }
 
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (youtubeError) {
-      console.error("Error fetching YouTube integrations:", youtubeError)
+      logger.error("Error fetching YouTube integrations:", youtubeError)
       return NextResponse.json({ error: youtubeError.message }, { status: 500 })
     }
 
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
       })),
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
+    logger.error("Debug endpoint error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

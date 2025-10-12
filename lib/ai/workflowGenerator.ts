@@ -3,6 +3,8 @@ import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 import { generateWorkflow, extractWorkflowVariables, suggestNodeConfigurationWithVariables } from "./workflowAI"
 
+import { logger } from '@/lib/utils/logger'
+
 const WorkflowNodeSchema = z.object({
   id: z.string(),
   type: z.literal("custom"),
@@ -36,7 +38,7 @@ const GeneratedWorkflowSchema = z.object({
 
 export async function generateWorkflowFromPrompt(prompt: string) {
   try {
-    console.log("🔍 generateWorkflowFromPrompt called with:", prompt)
+    logger.debug("🔍 generateWorkflowFromPrompt called with:", prompt)
     
     // Use the existing generateWorkflow function from workflowAI.ts
     const workflow = await generateWorkflow({
@@ -44,7 +46,7 @@ export async function generateWorkflowFromPrompt(prompt: string) {
       userId: "temp", // This will be set by the API route
     })
 
-    console.log("✅ generateWorkflow successful:", workflow)
+    logger.debug("✅ generateWorkflow successful:", workflow)
 
     return {
       success: true,
@@ -52,7 +54,7 @@ export async function generateWorkflowFromPrompt(prompt: string) {
       confidence: 0.8, // Default confidence
     }
   } catch (error) {
-    console.error("❌ Error in generateWorkflowFromPrompt:", error)
+    logger.error("❌ Error in generateWorkflowFromPrompt:", error)
     return {
       success: false,
       error: "Failed to generate workflow from prompt",
@@ -86,7 +88,7 @@ export async function suggestNodeConfiguration(nodeType: string, context: any) {
       config: JSON.parse(text),
     }
   } catch (error) {
-    console.error("Error suggesting node configuration:", error)
+    logger.error("Error suggesting node configuration:", error)
     return {
       success: false,
       error: "Failed to suggest configuration",
@@ -128,7 +130,7 @@ export async function generateNodeSuggestions(currentWorkflow: any, position: { 
       suggestions: object.suggestions,
     }
   } catch (error) {
-    console.error("Error generating node suggestions:", error)
+    logger.error("Error generating node suggestions:", error)
     return {
       success: false,
       error: "Failed to generate suggestions",

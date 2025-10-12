@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { decrypt } from '@/lib/security/encryption';
+
+import { logger } from '@/lib/utils/logger'
 import type { ExecuteRequest } from '@/lib/workflows/nodes/providers/hubspot/types';
 
 // Rate limiting with exponential backoff
@@ -20,7 +22,7 @@ async function withRetry<T>(
       // Check if it's a rate limit error
       if (error.status === 429 && attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000; // Exponential backoff with jitter
-        console.log(`Rate limited. Retrying in ${delay}ms...`);
+        logger.debug(`Rate limited. Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -153,7 +155,7 @@ export async function POST(request: NextRequest) {
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      console.error('Encryption key not configured');
+      logger.error('Encryption key not configured');
       return NextResponse.json(
         { error: 'Server configuration error' },
         { status: 500 }
@@ -329,7 +331,7 @@ export async function POST(request: NextRequest) {
           );
 
           if (!response.ok) {
-            console.warn(`Failed to create association: ${response.status}`);
+            logger.warn(`Failed to create association: ${response.status}`);
             // Don't throw for association errors, just log them
           }
 
@@ -346,7 +348,7 @@ export async function POST(request: NextRequest) {
       message: `Successfully ${result.operation || op}d ${objectType} record`,
     });
   } catch (error: any) {
-    console.error('Error in HubSpot execute route:', error);
+    logger.error('Error in HubSpot execute route:', error);
 
     // Handle specific error types
     if (error.status === 401 || error.status === 403) {

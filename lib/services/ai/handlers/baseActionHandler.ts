@@ -1,6 +1,8 @@
 import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 
+import { logger } from '@/lib/utils/logger'
+
 export abstract class BaseActionHandler {
   abstract handleQuery(
     intent: IntentAnalysisResult,
@@ -50,14 +52,14 @@ export abstract class BaseActionHandler {
   }
 
   protected logHandlerStart(handlerType: string, intent: IntentAnalysisResult): void {
-    console.log(`🎯 ${handlerType} handler - ${intent.intent}:${intent.action}`, {
+    logger.debug(`🎯 ${handlerType} handler - ${intent.intent}:${intent.action}`, {
       specifiedIntegration: intent.specifiedIntegration,
       parameters: intent.parameters
     })
   }
 
   protected logIntegrationsFound(handlerType: string, integrations: Integration[]): void {
-    console.log(`🔌 ${handlerType} integrations found:`, integrations.map(i => ({
+    logger.debug(`🔌 ${handlerType} integrations found:`, integrations.map(i => ({
       provider: i.provider,
       hasToken: this.hasValidToken(i)
     })))

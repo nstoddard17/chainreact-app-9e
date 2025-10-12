@@ -1,4 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr"
+
+import { logger } from '@/lib/utils/logger'
 import type { Database } from "@/types/supabase"
 
 // Check if Supabase is configured with exact environment variables
@@ -16,7 +18,7 @@ export const isSupabaseConfigured = () => {
     if (process.env.NODE_ENV === "development") {
       throw new Error(errorMessage)
     } else {
-      console.error(errorMessage)
+      logger.error(errorMessage)
     }
 
     return false

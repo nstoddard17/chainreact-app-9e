@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { Resend } from 'resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -49,7 +51,7 @@ export async function POST(
       .single()
 
     if (responseError) {
-      console.error('Error creating response:', responseError)
+      logger.error('Error creating response:', responseError)
       return NextResponse.json({ error: 'Failed to create response' }, { status: 500 })
     }
 
@@ -80,14 +82,14 @@ export async function POST(
           `,
         })
       } catch (emailError) {
-        console.error('Error sending support email:', emailError)
+        logger.error('Error sending support email:', emailError)
         // Don't fail the request if email fails
       }
     }
 
     return NextResponse.json({ response })
   } catch (error) {
-    console.error('Error in POST /api/support/tickets/[id]/responses:', error)
+    logger.error('Error in POST /api/support/tickets/[id]/responses:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -125,13 +127,13 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     if (responsesError) {
-      console.error('Error fetching responses:', responsesError)
+      logger.error('Error fetching responses:', responsesError)
       return NextResponse.json({ error: 'Failed to fetch responses' }, { status: 500 })
     }
 
     return NextResponse.json({ responses })
   } catch (error) {
-    console.error('Error in GET /api/support/tickets/[id]/responses:', error)
+    logger.error('Error in GET /api/support/tickets/[id]/responses:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

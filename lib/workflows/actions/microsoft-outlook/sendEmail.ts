@@ -4,6 +4,8 @@ import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
 import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Microsoft Outlook send email handler with attachment support
  */
@@ -168,7 +170,7 @@ export async function sendOutlookEmail(
               }
             }
           } catch (error) {
-            console.error('📎 [Outlook] Error fetching file from storage:', error)
+            logger.error('📎 [Outlook] Error fetching file from storage:', error)
           }
         } else if (attachment && typeof attachment === 'object' && attachment.content && attachment.fileName) {
           // File with inline content
@@ -196,7 +198,7 @@ export async function sendOutlookEmail(
               }
             }
           } catch (error) {
-            console.error(`Failed to download file from URL: ${error}`)
+            logger.error(`Failed to download file from URL: ${error}`)
           }
         } else if (attachment && typeof attachment === 'object' && attachment.name && attachment.filePath) {
           // File uploaded to storage but content not included inline
@@ -211,7 +213,7 @@ export async function sendOutlookEmail(
               .download(attachment.filePath)
 
             if (error) {
-              console.error('📎 [Outlook] Error downloading file from storage:', error)
+              logger.error('📎 [Outlook] Error downloading file from storage:', error)
               continue
             }
 
@@ -226,7 +228,7 @@ export async function sendOutlookEmail(
               }
             }
           } catch (error) {
-            console.error('📎 [Outlook] Error fetching file from storage:', error)
+            logger.error('📎 [Outlook] Error fetching file from storage:', error)
             continue
           }
         } else if (attachment && typeof attachment === 'object' && attachment.content) {
@@ -258,7 +260,7 @@ export async function sendOutlookEmail(
               }
             }
           } catch (error) {
-            console.error('📎 [Outlook] Error fetching file by ID:', error)
+            logger.error('📎 [Outlook] Error fetching file by ID:', error)
           }
         }
 
@@ -272,7 +274,7 @@ export async function sendOutlookEmail(
           })
         }
       } catch (error) {
-        console.error(`Failed to attach file:`, error)
+        logger.error(`Failed to attach file:`, error)
       }
     }
 
@@ -327,7 +329,7 @@ export async function sendOutlookEmail(
       }
     }
   } catch (error: any) {
-    console.error('❌ [Outlook] Error sending email:', error)
+    logger.error('❌ [Outlook] Error sending email:', error)
 
     // Clean up temporary files on error
     if (cleanupPaths.size > 0) {

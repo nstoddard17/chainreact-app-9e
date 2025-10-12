@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: Request) {
   try {
     cookies()
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
     const { data: templates, error } = await query
 
     if (error) {
-      console.error("Error fetching templates from database:", error)
+      logger.error("Error fetching templates from database:", error)
       return NextResponse.json(
         { error: "Failed to fetch templates" },
         { status: 500 }
@@ -84,7 +86,7 @@ export async function GET(request: Request) {
       count: formattedTemplates.length
     })
   } catch (error) {
-    console.error("Error fetching predefined templates:", error)
+    logger.error("Error fetching predefined templates:", error)
     return NextResponse.json(
       { error: "Failed to fetch templates" },
       { status: 500 }

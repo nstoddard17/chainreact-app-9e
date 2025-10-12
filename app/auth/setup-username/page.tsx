@@ -11,6 +11,8 @@ import { toast } from "@/components/ui/use-toast"
 import { User, Mail, Loader2 } from "lucide-react"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function SetupUsernamePage() {
   const router = useRouter()
   const { user, profile, updateProfile } = useAuthStore()
@@ -69,7 +71,7 @@ export default function SetupUsernamePage() {
         setUsernameError("Username is already taken")
       }
     } catch (error) {
-      console.error("Error checking username:", error)
+      logger.error("Error checking username:", error)
       setUsernameError("Error checking username availability")
     } finally {
       setChecking(false)
@@ -118,7 +120,7 @@ export default function SetupUsernamePage() {
       // Redirect to dashboard
       router.push('/dashboard')
     } catch (error: any) {
-      console.error("Error saving username:", error)
+      logger.error("Error saving username:", error)
       toast({
         title: "Setup Failed",
         description: error.message || "Failed to save username. Please try again.",

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * GET /api/workflows/[id]/executions/[executionId]
  * Get details for a specific execution
@@ -29,7 +31,7 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error('Error fetching execution details:', error)
+      logger.error('Error fetching execution details:', error)
       return NextResponse.json(
         { error: 'Failed to fetch execution details' },
         { status: 500 }
@@ -45,7 +47,7 @@ export async function GET(
 
     return NextResponse.json(execution)
   } catch (error) {
-    console.error('Error in execution details API:', error)
+    logger.error('Error in execution details API:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

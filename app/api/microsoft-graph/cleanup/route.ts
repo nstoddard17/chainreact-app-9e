@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
 export async function POST() {
-  console.log('🧹 Starting Microsoft Graph cleanup...')
+  logger.debug('🧹 Starting Microsoft Graph cleanup...')
 
   try {
     // Clean up old webhook queue items (older than 7 days)
@@ -20,9 +22,9 @@ export async function POST() {
       .select('id')
 
     if (queueError) {
-      console.error('❌ Error cleaning queue:', queueError)
+      logger.error('❌ Error cleaning queue:', queueError)
     } else {
-      console.log(`✅ Deleted ${deletedQueue?.length || 0} old queue items`)
+      logger.debug(`✅ Deleted ${deletedQueue?.length || 0} old queue items`)
     }
 
     // Clean up old dedup entries (older than 24 hours)
@@ -35,9 +37,9 @@ export async function POST() {
       .select('dedup_key')
 
     if (dedupError) {
-      console.error('❌ Error cleaning dedup:', dedupError)
+      logger.error('❌ Error cleaning dedup:', dedupError)
     } else {
-      console.log(`✅ Deleted ${deletedDedup?.length || 0} old dedup entries`)
+      logger.debug(`✅ Deleted ${deletedDedup?.length || 0} old dedup entries`)
     }
 
     // Clean up old events (older than 30 days)
@@ -50,9 +52,9 @@ export async function POST() {
       .select('id')
 
     if (eventsError) {
-      console.error('❌ Error cleaning events:', eventsError)
+      logger.error('❌ Error cleaning events:', eventsError)
     } else {
-      console.log(`✅ Deleted ${deletedEvents?.length || 0} old events`)
+      logger.debug(`✅ Deleted ${deletedEvents?.length || 0} old events`)
     }
 
     // Get current stats
@@ -83,7 +85,7 @@ export async function POST() {
     })
 
   } catch (error: any) {
-    console.error('❌ Cleanup error:', error)
+    logger.error('❌ Cleanup error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

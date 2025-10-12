@@ -4,6 +4,8 @@ import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccess
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { getBaseUrl } from "../utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 export const slackConfig = {
   clientId: process.env.SLACK_CLIENT_ID!,
   clientSecret: process.env.SLACK_CLIENT_SECRET!,
@@ -170,7 +172,7 @@ export class SlackService {
       })
       return result
     } catch (error: unknown) {
-      console.error("Error sending Slack message:", error)
+      logger.error("Error sending Slack message:", error)
 
       let errorMessage = "An unknown error occurred."
 
@@ -208,7 +210,7 @@ export class SlackService {
       .single()
 
     if (error || !integration) {
-      console.error(`Failed to retrieve Slack integration for user ${userId}:`, error)
+      logger.error(`Failed to retrieve Slack integration for user ${userId}:`, error)
       return null
     }
 

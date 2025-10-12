@@ -4,6 +4,8 @@ import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
+import { logger } from '@/lib/utils/logger'
+
 const provider = "microsoft-onenote"
 
 export async function GET(request: NextRequest) {
@@ -13,17 +15,17 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error")
 
   if (error) {
-    console.error(`OneNote OAuth error: ${error}`)
+    logger.error(`OneNote OAuth error: ${error}`)
     return createPopupResponse("error", provider, `OAuth error: ${error}`, getBaseUrl())
   }
 
   if (!code) {
-    console.error("OneNote OAuth callback missing code parameter")
+    logger.error("OneNote OAuth callback missing code parameter")
     return createPopupResponse("error", provider, "Missing authorization code", getBaseUrl())
   }
 
   if (!state) {
-    console.error("OneNote OAuth callback missing state parameter")
+    logger.error("OneNote OAuth callback missing state parameter")
     return createPopupResponse("error", provider, "Missing state parameter", getBaseUrl())
   }
 
@@ -67,10 +69,10 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     
     // Log what scopes were actually granted
-    console.log("🔍 OneNote OAuth callback - Token exchange successful")
-    console.log("   Scopes returned:", tokenData.scope)
-    console.log("   Token type:", tokenData.token_type)
-    console.log("   Expires in:", tokenData.expires_in, "seconds")
+    logger.debug("🔍 OneNote OAuth callback - Token exchange successful")
+    logger.debug("   Scopes returned:", tokenData.scope)
+    logger.debug("   Token type:", tokenData.token_type)
+    logger.debug("   Expires in:", tokenData.expires_in, "seconds")
     
     // Check account type to warn about personal account limitations
     try {
@@ -92,9 +94,9 @@ export async function GET(request: NextRequest) {
                                  email.includes("gmail.com")
         
         if (isPersonalAccount) {
-          console.warn("⚠️ Personal Microsoft account detected:", email)
-          console.warn("   OneNote API has known limitations with personal accounts")
-          console.warn("   User may experience 401 errors when accessing OneNote")
+          logger.warn("⚠️ Personal Microsoft account detected:", email)
+          logger.warn("   OneNote API has known limitations with personal accounts")
+          logger.warn("   User may experience 401 errors when accessing OneNote")
           
           // Store a warning flag in the integration metadata
           // This can be used to show a warning in the UI
@@ -108,7 +110,7 @@ export async function GET(request: NextRequest) {
           // We'll add this metadata to the integration data below
           tokenData._metadata = metadata
         } else {
-          console.log("✅ Work/School account detected:", email)
+          logger.debug("✅ Work/School account detected:", email)
           tokenData._metadata = {
             accountType: "work",
             email: email
@@ -116,7 +118,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (checkError) {
-      console.error("Could not check account type:", checkError)
+      logger.error("Could not check account type:", checkError)
     }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
@@ -153,12 +155,12 @@ export async function GET(request: NextRequest) {
       .single();
       
     if (checkError && checkError.code !== "PGRST116") { // PGRST116 is "no rows returned" error
-      console.error("Error checking for existing integration:", checkError);
+      logger.error("Error checking for existing integration:", checkError);
     }
     
     // Use upsert like Airtable to ensure the integration is properly saved
-    console.log("🔄 OneNote detected - using upsert for integration storage");
-    console.log(`${existingIntegration ? "Updating existing" : "Creating new"} OneNote integration for user ${userId}`);
+    logger.debug("🔄 OneNote detected - using upsert for integration storage");
+    logger.debug(`${existingIntegration ? "Updating existing" : "Creating new"} OneNote integration for user ${userId}`);
     
     const { error: upsertError } = await supabase
       .from("integrations")
@@ -167,11 +169,11 @@ export async function GET(request: NextRequest) {
       })
     
     if (upsertError) {
-      console.error("Failed to upsert OneNote integration:", upsertError)
+      logger.error("Failed to upsert OneNote integration:", upsertError)
       throw new Error(`Failed to save integration: ${upsertError.message}`)
     }
     
-    console.log("✅ OneNote integration upserted successfully")
+    logger.debug("✅ OneNote integration upserted successfully")
     
     // Verify that the integration was actually saved by querying it back
     const { data: savedIntegration, error: verifyError } = await supabase
@@ -182,9 +184,9 @@ export async function GET(request: NextRequest) {
       .single();
       
     if (verifyError) {
-      console.error("⚠️ Error verifying OneNote integration was saved:", verifyError);
+      logger.error("⚠️ Error verifying OneNote integration was saved:", verifyError);
     } else {
-      console.log("✅ Verified OneNote integration was saved:", {
+      logger.debug("✅ Verified OneNote integration was saved:", {
         id: savedIntegration.id,
         status: savedIntegration.status,
         provider: savedIntegration.provider,
@@ -193,8 +195,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Log the integration data that was saved
-    console.log(`Successfully connected OneNote for user ${userId}`)
-    console.log("🔍 Integration data saved:", {
+    logger.debug(`Successfully connected OneNote for user ${userId}`)
+    logger.debug("🔍 Integration data saved:", {
       provider,
       status: integrationData.status,
       user_id: userId,
@@ -203,7 +205,7 @@ export async function GET(request: NextRequest) {
     return createPopupResponse("success", provider, "OneNote connected successfully", getBaseUrl())
 
   } catch (error: any) {
-    console.error("OneNote callback error:", error)
+    logger.error("OneNote callback error:", error)
     return createPopupResponse("error", provider, error.message, getBaseUrl())
   }
 }

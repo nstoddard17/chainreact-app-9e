@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -38,13 +40,13 @@ export async function GET(
       .eq("team_id", teamId)
 
     if (error) {
-      console.error("Error fetching team members:", error)
+      logger.error("Error fetching team members:", error)
       return NextResponse.json({ error: "Failed to fetch team members" }, { status: 500 })
     }
 
     return NextResponse.json(members)
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -133,13 +135,13 @@ export async function POST(
       .single()
 
     if (addError) {
-      console.error("Error adding team member:", addError)
+      logger.error("Error adding team member:", addError)
       return NextResponse.json({ error: "Failed to add team member" }, { status: 500 })
     }
 
     return NextResponse.json(newMember, { status: 201 })
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

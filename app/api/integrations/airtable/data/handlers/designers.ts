@@ -6,6 +6,8 @@
 import { AirtableIntegration, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DesignerOption {
   value: string
   label: string
@@ -17,7 +19,7 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
 ): Promise<DesignerOption[]> => {
   const { baseId, tableName } = options
 
-  console.log("🔍 Airtable designers fetcher called with:", {
+  logger.debug("🔍 Airtable designers fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -31,16 +33,16 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      console.log('⚠️ Base ID or Table name missing, returning empty list')
+      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    console.log('🔍 Fetching Airtable designers from API...')
+    logger.debug('🔍 Fetching Airtable designers from API...')
 
     // Fetch records to extract unique designers
     const queryParams = new URLSearchParams()
@@ -78,11 +80,11 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
       label: name
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    console.log(`✅ Airtable designers fetched successfully: ${options.length} unique designers`)
+    logger.debug(`✅ Airtable designers fetched successfully: ${options.length} unique designers`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      console.log('⚠️ No designers found in records, returning test data');
+      logger.debug('⚠️ No designers found in records, returning test data');
       return [
         { value: 'john-doe', label: 'John Doe' },
         { value: 'jane-smith', label: 'Jane Smith' },
@@ -93,7 +95,7 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
     return options
 
   } catch (error: any) {
-    console.error("Error fetching Airtable designers:", error)
+    logger.error("Error fetching Airtable designers:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

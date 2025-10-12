@@ -4,6 +4,8 @@
 
 import { DiscordApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Discord API error with proper context
  */
@@ -92,7 +94,7 @@ async function processQueue(): Promise<void> {
     
     if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
       const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-      console.log(`⏱️ Global queue throttling: waiting ${waitTime}ms`)
+      logger.debug(`⏱️ Global queue throttling: waiting ${waitTime}ms`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
     
@@ -147,13 +149,13 @@ export async function fetchDiscordWithRateLimit<T>(
       
       if (response.ok) {
         const data = await response.json()
-        console.log(`✅ Discord API success on attempt ${attempt}`)
+        logger.debug(`✅ Discord API success on attempt ${attempt}`)
         return data
       }
       
       // Log detailed error information
       const errorText = await response.text().catch(() => 'Could not read response text')
-      console.error(`❌ Discord API Error (attempt ${attempt}/${maxRetries}):`, {
+      logger.error(`❌ Discord API Error (attempt ${attempt}/${maxRetries}):`, {
         status: response.status,
         statusText: response.statusText,
         url: response.url,
@@ -177,8 +179,8 @@ export async function fetchDiscordWithRateLimit<T>(
         // Cap the wait time at 120 seconds for severe rate limits
         waitTime = Math.min(waitTime, 120000)
         
-        console.log(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms`)
-        console.log(`📊 Rate limit details:`, {
+        logger.debug(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms`)
+        logger.debug(`📊 Rate limit details:`, {
           bucket: response.headers.get('x-ratelimit-bucket'),
           limit: response.headers.get('x-ratelimit-limit'),
           remaining: response.headers.get('x-ratelimit-remaining'),
@@ -214,8 +216,8 @@ export async function fetchDiscordWithRateLimit<T>(
       
       // Exponential backoff for general errors
       const backoffTime = Math.min(2000 * Math.pow(2, attempt - 1), 30000) // Max 30 seconds
-      console.log(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffTime}ms...`)
-      console.error(`   Error:`, error.message)
+      logger.debug(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffTime}ms...`)
+      logger.error(`   Error:`, error.message)
       await new Promise(resolve => setTimeout(resolve, backoffTime))
     }
   }
@@ -241,14 +243,14 @@ export async function makeDiscordApiRequest<T = any>(
     const cached = discordCache.get(cacheKey)
     
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log(`📦 Using cached Discord data for ${url} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
+      logger.debug(`📦 Using cached Discord data for ${url} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
       return cached.data
     }
     
     // Check if there's already a pending request for this exact same data
     const pendingRequest = pendingRequests.get(requestKey)
     if (pendingRequest) {
-      console.log(`🔄 Reusing pending Discord request for ${url}`)
+      logger.debug(`🔄 Reusing pending Discord request for ${url}`)
       return pendingRequest
     }
   }
@@ -256,7 +258,7 @@ export async function makeDiscordApiRequest<T = any>(
   // Determine if this is a bot token or user token
   const authHeader = accessToken.startsWith('Bot ') ? accessToken : `Bearer ${accessToken}`
 
-  console.log(`🔍 Making Discord API request to: ${url}`)
+  logger.debug(`🔍 Making Discord API request to: ${url}`)
   
   // Create the request promise and store it for deduplication
   const requestPromise = fetchDiscordWithRateLimit<T>(() => 
@@ -282,7 +284,7 @@ export async function makeDiscordApiRequest<T = any>(
     if (useCache && (!options.method || options.method === 'GET')) {
       const cacheKey = `${url}:${accessToken.slice(-8)}`
       discordCache.set(cacheKey, { data, timestamp: Date.now() })
-      console.log(`📦 Cached Discord response for ${url}`)
+      logger.debug(`📦 Cached Discord response for ${url}`)
     }
     
     return data
@@ -393,7 +395,7 @@ export async function validateDiscordToken(integration: any): Promise<{ success:
       token: decryptedToken
     }
   } catch (error: any) {
-    console.error('Discord token validation error:', error)
+    logger.error('Discord token validation error:', error)
     return {
       success: false,
       error: error.message || "Token validation failed"

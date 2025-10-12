@@ -13,6 +13,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class ZoomAdapter implements ChatProvider {
   readonly providerId = 'zoom'
   readonly capabilities: CapabilityDescriptor = {
@@ -99,7 +101,7 @@ export class ZoomAdapter implements ChatProvider {
         message: 'Message sent successfully in Zoom meeting'
       }
     } catch (error: any) {
-      console.error('Zoom send message error:', error)
+      logger.error('Zoom send message error:', error)
       return {
         success: false,
         error: error.message || 'Failed to send message in Zoom meeting',
@@ -326,7 +328,7 @@ export class ZoomAdapter implements ChatProvider {
           }
         }))
     } catch (error: any) {
-      console.error('Zoom get channels error:', error)
+      logger.error('Zoom get channels error:', error)
       return []
     }
   }
@@ -392,7 +394,7 @@ export class ZoomAdapter implements ChatProvider {
       
       return members
     } catch (error: any) {
-      console.error('Zoom get members error:', error)
+      logger.error('Zoom get members error:', error)
       return []
     }
   }

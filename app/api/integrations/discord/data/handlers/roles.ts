@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordRole, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordRoles: DiscordDataHandler<DiscordRole> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
     const { guildId } = options
@@ -16,7 +18,7 @@ export const getDiscordRoles: DiscordDataHandler<DiscordRole> = async (integrati
     // Use bot token for role listing (bot must be in the guild)
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not configured - returning empty roles list")
+      logger.warn("Discord bot token not configured - returning empty roles list")
       return []
     }
 
@@ -55,13 +57,13 @@ export const getDiscordRoles: DiscordDataHandler<DiscordRole> = async (integrati
       }
       if (error.message.includes("404")) {
         // Bot is not in the server - return empty array instead of throwing error
-        console.log(`Bot is not a member of server ${guildId} - returning empty roles list`)
+        logger.debug(`Bot is not a member of server ${guildId} - returning empty roles list`)
         return []
       }
       throw error
     }
   } catch (error: any) {
-    console.error("Error fetching Discord roles:", error)
+    logger.error("Error fetching Discord roles:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

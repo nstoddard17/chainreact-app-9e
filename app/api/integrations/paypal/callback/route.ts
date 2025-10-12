@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
   const provider = 'paypal'
 
   if (error) {
-    console.error(`Error with PayPal OAuth: ${error} - ${errorDescription}`)
+    logger.error(`Error with PayPal OAuth: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
     
     // For debugging
-    console.log("PayPal callback processing - using redirect URI:", redirectUri)
+    logger.debug("PayPal callback processing - using redirect URI:", redirectUri)
 
     if (!clientId || !clientSecret) {
       throw new Error('PayPal client ID or secret not configured')
@@ -77,8 +79,8 @@ export async function GET(request: NextRequest) {
     // For v1 token endpoint
     const paypalDomain = isSandbox ? 'api-m.sandbox.paypal.com' : 'api-m.paypal.com'
     
-    console.log("Using PayPal domain for token exchange:", paypalDomain)
-    console.log("Received code parameter:", !!code)
+    logger.debug("Using PayPal domain for token exchange:", paypalDomain)
+    logger.debug("Received code parameter:", !!code)
 
     const tokenResponse = await fetch(`https://${paypalDomain}/v1/oauth2/token`, {
       method: 'POST',
@@ -115,12 +117,12 @@ export async function GET(request: NextRequest) {
 
       if (userInfoResponse.ok) {
         userInfo = await userInfoResponse.json()
-        console.log('PayPal user info:', userInfo)
+        logger.debug('PayPal user info:', userInfo)
       } else {
-        console.error('Failed to fetch PayPal user info:', await userInfoResponse.text())
+        logger.error('Failed to fetch PayPal user info:', await userInfoResponse.text())
       }
     } catch (userInfoError) {
-      console.error('Error fetching PayPal user info:', userInfoError)
+      logger.error('Error fetching PayPal user info:', userInfoError)
     }
 
     // Fetch PayPal account verification status and additional attributes
@@ -136,12 +138,12 @@ export async function GET(request: NextRequest) {
 
       if (attributesResponse.ok) {
         paypalAttributes = await attributesResponse.json()
-        console.log('PayPal attributes:', paypalAttributes)
+        logger.debug('PayPal attributes:', paypalAttributes)
       } else {
-        console.error('Failed to fetch PayPal attributes:', await attributesResponse.text())
+        logger.error('Failed to fetch PayPal attributes:', await attributesResponse.text())
       }
     } catch (attributesError) {
-      console.error('Error fetching PayPal attributes:', attributesError)
+      logger.error('Error fetching PayPal attributes:', attributesError)
     }
 
     // Extract user data with fallbacks for different response formats
@@ -205,7 +207,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('PayPal callback error:', e)
+    logger.error('PayPal callback error:', e)
     return createPopupResponse(
       'error',
       provider,

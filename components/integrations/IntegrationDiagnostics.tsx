@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, CheckCircle, AlertTriangle, XCircle, RefreshCw, Eye, EyeOff } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiagnosticResult {
   integrationId: string
   provider: string
@@ -43,7 +45,7 @@ export default function IntegrationDiagnostics() {
 
       setDiagnostics(data.diagnostics)
     } catch (error) {
-      console.error("Failed to run diagnostics:", error)
+      logger.error("Failed to run diagnostics:", error)
     } finally {
       setLoading(false)
     }

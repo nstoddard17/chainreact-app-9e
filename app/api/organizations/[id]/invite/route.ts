@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { Resend } from 'resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -79,7 +81,7 @@ export async function POST(
       .single()
 
     if (inviteError) {
-      console.error("Error creating invitation:", inviteError)
+      logger.error("Error creating invitation:", inviteError)
       return NextResponse.json({ error: "Failed to create invitation" }, { status: 500 })
     }
 
@@ -126,7 +128,7 @@ export async function POST(
         invitation 
       })
     } catch (emailError) {
-      console.error("Error sending email:", emailError)
+      logger.error("Error sending email:", emailError)
       // Delete the invitation if email fails
       await serviceClient
         .from("organization_invitations")
@@ -136,7 +138,7 @@ export async function POST(
       return NextResponse.json({ error: "Failed to send invitation email" }, { status: 500 })
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
+    logger.error("Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 } 

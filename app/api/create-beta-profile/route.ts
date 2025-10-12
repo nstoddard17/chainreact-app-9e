@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { logger } from '@/lib/utils/logger'
+
 // Create a service role client to bypass RLS
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     if (profileResult.error) {
-      console.error('Profile creation/update error:', profileResult.error)
+      logger.error('Profile creation/update error:', profileResult.error)
       return NextResponse.json(
         { error: profileResult.error.message },
         { status: 500 }
@@ -85,11 +87,11 @@ export async function POST(request: Request) {
 
         // Don't throw error if update fails - it's not critical for signup
         if (error) {
-          console.log('Note: Could not update beta tester status (non-critical):', error.message)
+          logger.debug('Note: Could not update beta tester status (non-critical):', error.message)
         }
       } catch (err) {
         // Log but don't fail the signup
-        console.log('Note: Beta tester status update skipped (non-critical):', err)
+        logger.debug('Note: Beta tester status update skipped (non-critical):', err)
       }
     }
 
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error) {
-    console.error('Error in create-beta-profile:', error)
+    logger.error('Error in create-beta-profile:', error)
     return NextResponse.json(
       { error: 'Failed to create profile' },
       { status: 500 }

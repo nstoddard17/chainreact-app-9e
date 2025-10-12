@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { webhookManager } from "@/lib/webhooks/webhookManager"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -9,19 +11,19 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      console.log('Auth error:', authError)
+      logger.debug('Auth error:', authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log('User authenticated:', user.id)
+    logger.debug('User authenticated:', user.id)
 
     // Get user's webhooks
     const webhooks = await webhookManager.getUserWebhooks(user.id)
-    console.log('Webhooks fetched:', webhooks.length)
+    logger.debug('Webhooks fetched:', webhooks.length)
     
     return NextResponse.json(webhooks)
   } catch (error: any) {
-    console.error("Error fetching webhooks:", error)
+    logger.error("Error fetching webhooks:", error)
     return NextResponse.json(
       { error: "Failed to fetch webhooks", details: error.message },
       { status: 500 }
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(webhook)
   } catch (error: any) {
-    console.error("Error creating webhook:", error)
+    logger.error("Error creating webhook:", error)
     return NextResponse.json(
       { error: "Failed to create webhook" },
       { status: 500 }

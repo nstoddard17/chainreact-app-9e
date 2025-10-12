@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function DELETE(
@@ -53,7 +55,7 @@ export async function DELETE(
       .eq("user_id", user.id)
 
     if (deleteError) {
-      console.error("Error deleting integration:", deleteError)
+      logger.error("Error deleting integration:", deleteError)
       return NextResponse.json({ success: false, error: "Failed to delete integration" }, { status: 500 })
     }
 
@@ -62,7 +64,7 @@ export async function DELETE(
       message: `${integration.provider} integration disconnected successfully`,
     })
   } catch (error) {
-    console.error("Error in DELETE /api/integrations/[id]:", error)
+    logger.error("Error in DELETE /api/integrations/[id]:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
@@ -114,7 +116,7 @@ export async function GET(
       data: integration,
     })
   } catch (error) {
-    console.error("Error in GET /api/integrations/[id]:", error)
+    logger.error("Error in GET /api/integrations/[id]:", error)
     return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }

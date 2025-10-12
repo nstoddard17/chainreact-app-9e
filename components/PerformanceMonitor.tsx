@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 
+import { logger } from '@/lib/utils/logger'
+
 declare global {
   interface Window {
     gtag?: (...args: any[]) => void
@@ -24,7 +26,7 @@ export default function PerformanceMonitor() {
         const lastEntry = entries[entries.length - 1]
         
         if (lastEntry) {
-          console.log('LCP:', lastEntry.startTime)
+          logger.debug('LCP:', lastEntry.startTime)
           window.gtag?.('event', 'web_vitals', {
             event_category: 'Performance',
             event_label: 'LCP',
@@ -44,7 +46,7 @@ export default function PerformanceMonitor() {
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries()
         entries.forEach((entry: any) => {
-          console.log('FID:', entry.processingStart - entry.startTime)
+          logger.debug('FID:', entry.processingStart - entry.startTime)
           window.gtag?.('event', 'web_vitals', {
             event_category: 'Performance',
             event_label: 'FID',
@@ -70,7 +72,7 @@ export default function PerformanceMonitor() {
           }
         })
         
-        console.log('CLS:', clsValue)
+        logger.debug('CLS:', clsValue)
         window.gtag?.('event', 'web_vitals', {
           event_category: 'Performance',
           event_label: 'CLS',
@@ -92,7 +94,7 @@ export default function PerformanceMonitor() {
         const observer = new PerformanceObserver((list) => {
           const entries = list.getEntries()
           entries.forEach((entry) => {
-            console.log(`${entry.name}: ${entry.duration}ms`)
+            logger.debug(`${entry.name}: ${entry.duration}ms`)
           })
         })
         
@@ -111,7 +113,7 @@ export default function PerformanceMonitor() {
     // Track page load time
     window.addEventListener('load', () => {
       const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart
-      console.log('Page Load Time:', loadTime, 'ms')
+      logger.debug('Page Load Time:', loadTime, 'ms')
       
       window.gtag?.('event', 'page_load_time', {
         event_category: 'Performance',

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET() {
   try {
     // Use service role client for admin operations
@@ -9,7 +11,7 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    console.log('Checking execution_progress table...')
+    logger.debug('Checking execution_progress table...')
 
     // First check if the table exists
     const { data: tableExists, error: checkError } = await supabase
@@ -18,7 +20,7 @@ export async function GET() {
       .limit(1)
 
     if (!checkError) {
-      console.log('✅ execution_progress table already exists')
+      logger.debug('✅ execution_progress table already exists')
       return NextResponse.json({
         success: true,
         message: 'execution_progress table already exists',
@@ -28,7 +30,7 @@ export async function GET() {
 
     // If table doesn't exist, try to create it
     if (checkError?.message?.includes('relation') && checkError?.message?.includes('does not exist')) {
-      console.log('Table does not exist, attempting to create it...')
+      logger.debug('Table does not exist, attempting to create it...')
 
       // Create the table using raw SQL
       const createTableSQL = `
@@ -117,11 +119,11 @@ export async function GET() {
       const { error: createError } = await supabase.rpc('exec', {
         sql: createTableSQL
       }).catch((rpcError) => {
-        console.error('RPC exec failed:', rpcError)
+        logger.error('RPC exec failed:', rpcError)
 
         // If RPC doesn't work, try a different approach
         // This might require the database to have the necessary extensions
-        console.log('Trying alternative approach...')
+        logger.debug('Trying alternative approach...')
 
         // Return error to indicate manual creation is needed
         return {
@@ -133,7 +135,7 @@ export async function GET() {
       })
 
       if (createError) {
-        console.error('Failed to create table:', createError)
+        logger.error('Failed to create table:', createError)
         return NextResponse.json({
           success: false,
           message: 'Failed to create execution_progress table. Please create it manually using the SQL script.',
@@ -149,7 +151,7 @@ export async function GET() {
         .limit(1)
 
       if (verifyError) {
-        console.error('Table creation verification failed:', verifyError)
+        logger.error('Table creation verification failed:', verifyError)
         return NextResponse.json({
           success: false,
           message: 'Table creation could not be verified',
@@ -157,7 +159,7 @@ export async function GET() {
         }, { status: 500 })
       }
 
-      console.log('✅ execution_progress table created successfully')
+      logger.debug('✅ execution_progress table created successfully')
       return NextResponse.json({
         success: true,
         message: 'execution_progress table created successfully',
@@ -173,7 +175,7 @@ export async function GET() {
     }, { status: 500 })
 
   } catch (error: any) {
-    console.error('Error ensuring execution_progress table:', error)
+    logger.error('Error ensuring execution_progress table:', error)
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to ensure execution_progress table',

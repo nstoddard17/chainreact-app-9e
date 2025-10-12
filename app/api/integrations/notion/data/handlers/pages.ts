@@ -6,13 +6,15 @@ import { NotionIntegration, NotionPage, NotionDataHandler } from '../types'
 import { validateNotionIntegration, makeNotionApiRequest } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 // Simple in-memory cache for pages (expires after 5 minutes)
 const pageCache = new Map<string, { data: NotionPage[], timestamp: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export const getNotionPages: NotionDataHandler<NotionPage> = async (integration: any, context?: any): Promise<NotionPage[]> => {
-  console.log("🔍 Notion pages fetcher called")
-  console.log("🔍 Context:", context)
+  logger.debug("🔍 Notion pages fetcher called")
+  logger.debug("🔍 Context:", context)
   
   try {
     // Check cache first
@@ -20,7 +22,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     const cached = pageCache.get(cacheKey)
     
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log("✅ Returning cached pages:", cached.data.length)
+      logger.debug("✅ Returning cached pages:", cached.data.length)
       return cached.data
     }
     // Import decrypt function
@@ -34,7 +36,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     
     if (integration.id) {
       // If we have a specific integration ID, use that
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -44,7 +46,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
       integrationError = result.error
     } else if (integration.userId) {
       // If we have a user ID, find the Notion integration for that user
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -59,11 +61,11 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     }
     
     if (integrationError || !notionIntegration) {
-      console.error('🔍 Integration lookup failed:', integrationError)
+      logger.error('🔍 Integration lookup failed:', integrationError)
       throw new Error("Notion integration not found")
     }
     
-    console.log(`🔍 Found integration: ${notionIntegration.id}`)
+    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
     
     // Get workspaces from metadata
     const workspaces = notionIntegration.metadata?.workspaces || {}
@@ -73,7 +75,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
       throw new Error("No workspaces found in Notion integration")
     }
     
-    console.log(`🔍 Found ${workspaceIds.length} workspaces`)
+    logger.debug(`🔍 Found ${workspaceIds.length} workspaces`)
     
     // Check if we should filter by a specific workspace
     const targetWorkspaceId = context?.workspaceId
@@ -82,11 +84,11 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
       : workspaceIds
     
     if (targetWorkspaceId && workspacesToProcess.length === 0) {
-      console.log(`⚠️ Requested workspace ${targetWorkspaceId} not found in user's workspaces`)
+      logger.debug(`⚠️ Requested workspace ${targetWorkspaceId} not found in user's workspaces`)
       return []
     }
     
-    console.log(`🔍 Processing ${workspacesToProcess.length} workspace(s)${targetWorkspaceId ? ` (filtered to: ${targetWorkspaceId})` : ''}`)
+    logger.debug(`🔍 Processing ${workspacesToProcess.length} workspace(s)${targetWorkspaceId ? ` (filtered to: ${targetWorkspaceId})` : ''}`)
     
     // Get all pages from selected workspaces
     const allPages: NotionPage[] = []
@@ -94,14 +96,14 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     for (const workspaceId of workspacesToProcess) {
       const workspace = workspaces[workspaceId]
       const workspaceName = workspace?.workspace_name || workspace?.name || workspaceId
-      console.log(`🔍 Processing workspace: ${workspaceName}`)
+      logger.debug(`🔍 Processing workspace: ${workspaceName}`)
       
       try {
         // Get and decrypt the access token for this workspace
         const encryptedToken = workspace?.access_token || notionIntegration.access_token
         
         if (!encryptedToken) {
-          console.error(`❌ No access token found for workspace ${workspaceName}`)
+          logger.error(`❌ No access token found for workspace ${workspaceName}`)
           continue
         }
         
@@ -129,7 +131,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
         )
         
         if (!response.ok) {
-          console.error(`❌ Failed to get pages from workspace ${workspaceName}: ${response.status}`)
+          logger.error(`❌ Failed to get pages from workspace ${workspaceName}: ${response.status}`)
           continue
         }
         
@@ -139,7 +141,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
         // Filter to only include actual pages (not databases)
         const pages = allResults.filter((item: any) => item.object === 'page')
         
-        console.log(`✅ Got ${pages.length} pages (filtered from ${allResults.length} total results) from workspace ${workspaceName}`)
+        logger.debug(`✅ Got ${pages.length} pages (filtered from ${allResults.length} total results) from workspace ${workspaceName}`)
         
         // Removed verbose logging for performance
         
@@ -230,12 +232,12 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
         allPages.push(...transformedPages)
         
       } catch (error: any) {
-        console.error(`❌ Error processing workspace ${workspaceName}:`, error)
+        logger.error(`❌ Error processing workspace ${workspaceName}:`, error)
         continue
       }
     }
     
-    console.log(`✅ Total pages fetched: ${allPages.length}`)
+    logger.debug(`✅ Total pages fetched: ${allPages.length}`)
     
     // Store in cache
     pageCache.set(cacheKey, {
@@ -246,7 +248,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (integration:
     return allPages
     
   } catch (error: any) {
-    console.error("Error fetching Notion pages:", error)
+    logger.error("Error fetching Notion pages:", error)
     throw new Error(error.message || "Error fetching Notion pages")
   }
 }

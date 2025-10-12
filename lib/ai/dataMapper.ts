@@ -2,6 +2,8 @@ import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
+import { logger } from '@/lib/utils/logger'
+
 const FieldMappingSchema = z.object({
   source_field: z.string(),
   target_field: z.string(),
@@ -58,7 +60,7 @@ export async function generateDataMapping(sourceSchema: any, targetSchema: any, 
       mapping: object,
     }
   } catch (error) {
-    console.error("Error generating data mapping:", error)
+    logger.error("Error generating data mapping:", error)
     return {
       success: false,
       error: "Failed to generate data mapping",
@@ -103,7 +105,7 @@ export async function suggestDataTransformations(data: any, targetFormat: string
       transformations: object.transformations,
     }
   } catch (error) {
-    console.error("Error suggesting transformations:", error)
+    logger.error("Error suggesting transformations:", error)
     return {
       success: false,
       error: "Failed to suggest transformations",
@@ -148,7 +150,7 @@ export async function detectDataPatterns(executionData: any[]) {
       patterns: object.patterns,
     }
   } catch (error) {
-    console.error("Error detecting patterns:", error)
+    logger.error("Error detecting patterns:", error)
     return {
       success: false,
       error: "Failed to detect patterns",

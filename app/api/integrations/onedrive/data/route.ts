@@ -9,6 +9,8 @@ import { onedriveHandlers } from './handlers'
 import { OneDriveIntegration } from './types'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest) {
     const { integrationId, dataType, options = {} } = await req.json()
 
     // Log request to debug spamming issue
-    console.log(`📥 [OneDrive API] Request received:`, {
+    logger.debug(`📥 [OneDrive API] Request received:`, {
       timestamp: new Date().toISOString(),
       dataType,
       integrationId: `${integrationId?.substring(0, 8) }...`,
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [OneDrive API] Integration not found:', { integrationId, error: integrationError })
+      logger.error('❌ [OneDrive API] Integration not found:', { integrationId, error: integrationError })
       return NextResponse.json({
         error: 'OneDrive integration not found'
       }, { status: 404 })
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [OneDrive API] Integration not connected:', {
+      logger.error('❌ [OneDrive API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
@@ -64,14 +66,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = onedriveHandlers[dataType]
     if (!handler) {
-      console.error('❌ [OneDrive API] Unknown data type:', dataType)
+      logger.error('❌ [OneDrive API] Unknown data type:', dataType)
       return NextResponse.json({
         error: `Unknown OneDrive data type: ${dataType}`,
         availableTypes: Object.keys(onedriveHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [OneDrive API] Processing request:`, {
+    logger.debug(`🔍 [OneDrive API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -86,15 +88,15 @@ export async function POST(req: NextRequest) {
 
     try {
       if (integration.access_token) {
-        console.log(`🔑 [OneDrive API] Attempting to decrypt access token...`)
+        logger.debug(`🔑 [OneDrive API] Attempting to decrypt access token...`)
         decryptedAccessToken = safeDecrypt(integration.access_token)
-        console.log(`✅ [OneDrive API] Access token decrypted, length: ${decryptedAccessToken?.length}`)
+        logger.debug(`✅ [OneDrive API] Access token decrypted, length: ${decryptedAccessToken?.length}`)
       }
       if (integration.refresh_token) {
         decryptedRefreshToken = safeDecrypt(integration.refresh_token)
       }
     } catch (decryptError) {
-      console.error(`❌ [OneDrive API] Token decryption failed:`, decryptError)
+      logger.error(`❌ [OneDrive API] Token decryption failed:`, decryptError)
       throw new Error('Failed to decrypt OneDrive tokens. Please reconnect your account.')
     }
 
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
       refresh_token: decryptedRefreshToken
     }
 
-    console.log(`🔐 [OneDrive API] Token validation:`, {
+    logger.debug(`🔐 [OneDrive API] Token validation:`, {
       hasAccessToken: !!decryptedIntegration.access_token,
       accessTokenLength: decryptedIntegration.access_token?.length,
       isValidJWT: decryptedIntegration.access_token?.includes('.'),
@@ -115,7 +117,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler with decrypted integration
     const data = await handler(decryptedIntegration as OneDriveIntegration, options)
 
-    console.log(`✅ [OneDrive API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [OneDrive API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
@@ -128,7 +130,7 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [OneDrive API] Unexpected error:', {
+    logger.error('❌ [OneDrive API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })

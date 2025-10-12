@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -48,21 +50,21 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Error confirming user email:', error)
+      logger.error('Error confirming user email:', error)
       return NextResponse.json(
         { error: 'Failed to confirm email' },
         { status: 500 }
       )
     }
 
-    console.log('User email confirmed successfully:', userId)
+    logger.debug('User email confirmed successfully:', userId)
     return NextResponse.json({
       success: true,
       message: 'Email confirmed successfully'
     })
 
   } catch (error) {
-    console.error('Error in manual confirmation:', error)
+    logger.error('Error in manual confirmation:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

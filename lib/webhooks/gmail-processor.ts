@@ -5,6 +5,8 @@ import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 import { logInfo, logError, logSuccess, logWarning } from '@/lib/logging/backendLogger'
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailNotification {
   emailAddress: string
   historyId: string | number
@@ -142,7 +144,7 @@ export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> 
       requestId: event.requestId
     }
 
-    console.log('🔍 [Gmail Processor] Processing Gmail event:', eventInfo)
+    logger.debug('🔍 [Gmail Processor] Processing Gmail event:', eventInfo)
     logInfo(sessionId, 'Gmail webhook event received', eventInfo)
 
     const supabase = await createSupabaseServiceClient()
@@ -162,7 +164,7 @@ export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> 
       .single()
 
     if (storeError) {
-      console.error('Failed to store Gmail webhook event:', storeError)
+      logger.error('Failed to store Gmail webhook event:', storeError)
     }
 
     // IMMEDIATELY trigger workflows that match this Gmail event
@@ -174,7 +176,7 @@ export async function processGmailEvent(event: GmailWebhookEvent): Promise<any> 
     return result
   } catch (error: any) {
     const errorMessage = error?.message || 'Unknown error'
-    console.error('Error processing Gmail webhook event:', error)
+    logger.error('Error processing Gmail webhook event:', error)
     logError(sessionId, 'Failed to process Gmail webhook event', {
       error: errorMessage,
       stack: error?.stack
@@ -202,14 +204,14 @@ async function processGmailEventData(event: GmailWebhookEvent): Promise<any> {
     case 'attachment.added':
       return await handleGmailAttachmentAdded(eventData)
     default:
-      console.log('Unhandled Gmail event type:', eventData.type)
+      logger.debug('Unhandled Gmail event type:', eventData.type)
       return { processed: true, eventType: eventData.type }
   }
 }
 
 // Gmail event handlers
 async function handleGmailNewMessage(eventData: any): Promise<any> {
-  console.log('Processing Gmail new message event')
+  logger.debug('Processing Gmail new message event')
 
   // Queue for background processing to fetch full message details
   await queueWebhookTask({
@@ -227,7 +229,7 @@ async function handleGmailNewMessage(eventData: any): Promise<any> {
 }
 
 async function handleGmailMessageModified(eventData: any): Promise<any> {
-  console.log('Processing Gmail message modified:', eventData.message_id)
+  logger.debug('Processing Gmail message modified:', eventData.message_id)
   return { 
     processed: true, 
     type: 'gmail_message_modified', 
@@ -236,7 +238,7 @@ async function handleGmailMessageModified(eventData: any): Promise<any> {
 }
 
 async function handleGmailMessageDeleted(eventData: any): Promise<any> {
-  console.log('Processing Gmail message deleted:', eventData.message_id)
+  logger.debug('Processing Gmail message deleted:', eventData.message_id)
   return { 
     processed: true, 
     type: 'gmail_message_deleted', 
@@ -245,7 +247,7 @@ async function handleGmailMessageDeleted(eventData: any): Promise<any> {
 }
 
 async function handleGmailLabelAdded(eventData: any): Promise<any> {
-  console.log('Processing Gmail label added:', eventData.label_id)
+  logger.debug('Processing Gmail label added:', eventData.label_id)
   return { 
     processed: true, 
     type: 'gmail_label_added', 
@@ -255,7 +257,7 @@ async function handleGmailLabelAdded(eventData: any): Promise<any> {
 }
 
 async function handleGmailLabelRemoved(eventData: any): Promise<any> {
-  console.log('Processing Gmail label removed:', eventData.label_id)
+  logger.debug('Processing Gmail label removed:', eventData.label_id)
   return { 
     processed: true, 
     type: 'gmail_label_removed', 
@@ -265,7 +267,7 @@ async function handleGmailLabelRemoved(eventData: any): Promise<any> {
 }
 
 async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
-  console.log('Processing Gmail attachment added:', eventData.attachment_id)
+  logger.debug('Processing Gmail attachment added:', eventData.attachment_id)
   return { 
     processed: true, 
     type: 'gmail_attachment_added', 
@@ -293,14 +295,14 @@ async function fetchGmailMessageDetails(
       userId: integration.user_id
     })
 
-    console.log(`🔍 [fetchGmailMessageDetails] Starting to fetch email for historyId: ${historyId}`)
+    logger.debug(`🔍 [fetchGmailMessageDetails] Starting to fetch email for historyId: ${historyId}`)
 
     // Get decrypted access token
     const accessToken = await getDecryptedAccessToken(integration.user_id, "gmail")
 
     if (!accessToken) {
       const error = 'No access token available for Gmail integration'
-      console.error(`❌ [fetchGmailMessageDetails] ${error}`)
+      logger.error(`❌ [fetchGmailMessageDetails] ${error}`)
       logError(logSessionId, error, { userId: integration.user_id })
       return null
     }
@@ -315,7 +317,7 @@ async function fetchGmailMessageDetails(
     const emailAddress = profile.data.emailAddress
 
     logInfo(logSessionId, 'Gmail profile fetched', { emailAddress })
-    console.log(`📧 [fetchGmailMessageDetails] Gmail account: ${emailAddress}`)
+    logger.debug(`📧 [fetchGmailMessageDetails] Gmail account: ${emailAddress}`)
 
     // Fetch recent history
     const historyRequest: any = {
@@ -329,7 +331,7 @@ async function fetchGmailMessageDetails(
 
     if (!history.data.history || history.data.history.length === 0) {
       const message = 'No new messages found in Gmail history'
-      console.log(`ℹ️ [fetchGmailMessageDetails] ${message}`)
+      logger.debug(`ℹ️ [fetchGmailMessageDetails] ${message}`)
       logWarning(logSessionId, message, { historyId })
       return null
     }
@@ -342,13 +344,13 @@ async function fetchGmailMessageDetails(
 
     if (!messageId) {
       const message = 'No message ID found in Gmail history'
-      console.log(`ℹ️ [fetchGmailMessageDetails] ${message}`)
+      logger.debug(`ℹ️ [fetchGmailMessageDetails] ${message}`)
       logWarning(logSessionId, message, { historyLength: history.data.history.length })
       return null
     }
 
     logInfo(logSessionId, 'Found Gmail message', { messageId })
-    console.log(`📧 [fetchGmailMessageDetails] Found message ID: ${messageId}`)
+    logger.debug(`📧 [fetchGmailMessageDetails] Found message ID: ${messageId}`)
 
     // Fetch the full message details
     const message = await gmail.users.messages.get({
@@ -403,7 +405,7 @@ async function fetchGmailMessageDetails(
     })
 
     // SECURITY: Don't log email addresses or subject content (PII)
-    console.log(`✅ [fetchGmailMessageDetails] Successfully fetched email:`, {
+    logger.debug(`✅ [fetchGmailMessageDetails] Successfully fetched email:`, {
       hasFrom: !!emailDetails.from,
       subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
@@ -413,7 +415,7 @@ async function fetchGmailMessageDetails(
     return emailDetails
   } catch (error: any) {
     const errorMessage = error?.message || 'Unknown error'
-    console.error(`❌ [fetchGmailMessageDetails] Failed to fetch email details:`, error)
+    logger.error(`❌ [fetchGmailMessageDetails] Failed to fetch email details:`, error)
     logError(logSessionId, 'Failed to fetch Gmail message details', {
       error: errorMessage,
       stack: error?.stack,
@@ -438,12 +440,12 @@ async function fetchEmailDetails(
       userId
     })
 
-    console.log(`🔍 Fetching email details for historyId: ${notification.historyId}`)
+    logger.debug(`🔍 Fetching email details for historyId: ${notification.historyId}`)
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
     if (!accessToken) {
       const error = 'No access token available for Gmail'
-      console.error(`❌ ${error}`)
+      logger.error(`❌ ${error}`)
       logError(sessionId, error, { userId })
       return null
     }
@@ -456,7 +458,7 @@ async function fetchEmailDetails(
 
     if (watchConfig.emailAddress && watchConfig.emailAddress !== notification.emailAddress) {
       const message = 'Gmail notification email does not match workflow configuration, skipping'
-      console.log(`⚠️ ${message}`)
+      logger.debug(`⚠️ ${message}`)
       logWarning(sessionId, message, {
         expected: watchConfig.emailAddress,
         received: notification.emailAddress
@@ -468,7 +470,7 @@ async function fetchEmailDetails(
 
     if (!startHistoryId) {
       const message = 'No stored historyId for Gmail watch; skipping workflow until watch metadata saved'
-      console.warn(`⚠️ ${message}`)
+      logger.warn(`⚠️ ${message}`)
       logWarning(sessionId, message, { webhookConfigId })
       return null
     }
@@ -506,12 +508,12 @@ async function fetchEmailDetails(
     const historyInfo = {
       historyLength: history.data.history?.length || 0
     }
-    console.log(`📚 History response:`, historyInfo)
+    logger.debug(`📚 History response:`, historyInfo)
     logInfo(sessionId, 'Gmail history response received', historyInfo)
 
     if (!history.data.history || history.data.history.length === 0) {
       const message = 'No new messages in history'
-      console.log(message)
+      logger.debug(message)
       logWarning(sessionId, message)
       return null
     }
@@ -523,14 +525,14 @@ async function fetchEmailDetails(
 
     if (!messageId) {
       const message = 'No message ID found in history'
-      console.log(message)
+      logger.debug(message)
       logWarning(sessionId, message, {
         historyLength: history.data.history?.length
       })
       return null
     }
 
-    console.log(`📧 Found message ID: ${messageId}`)
+    logger.debug(`📧 Found message ID: ${messageId}`)
     logInfo(sessionId, 'Found Gmail message ID', { messageId })
 
     const message = await gmail.users.messages.get({
@@ -588,13 +590,13 @@ async function fetchEmailDetails(
       bodyLength: emailDetails.body?.length || 0
     }
 
-    console.log('📧 Fetched email details:', summary)
+    logger.debug('📧 Fetched email details:', summary)
     logSuccess(sessionId, 'Successfully fetched email details', summary)
 
     return emailDetails
   } catch (error: any) {
     const errorMessage = error?.message || 'Unknown error'
-    console.error('Failed to fetch email details:', error)
+    logger.error('Failed to fetch email details:', error)
     logError(sessionId, 'Failed to fetch email details', {
       error: errorMessage,
       stack: error?.stack,
@@ -606,7 +608,7 @@ async function fetchEmailDetails(
 
 function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boolean {
   // SECURITY: Don't log email content (PII)
-  console.log('🔍 Checking email against filters:', {
+  logger.debug('🔍 Checking email against filters:', {
     email: { hasFrom: !!email.from, subjectLength: email.subject?.length || 0, hasAttachments: email.hasAttachments },
     hasFilters: !!(filters.from || filters.subject)
   })
@@ -627,11 +629,11 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       })
 
       if (!matches) {
-        console.log(`❌ Sender filter mismatch: email didn't match ${normalizedFilters.length} filter(s)`)
+        logger.debug(`❌ Sender filter mismatch: email didn't match ${normalizedFilters.length} filter(s)`)
         return false
       }
 
-      console.log(`✅ Sender filter matched: email matched one of ${normalizedFilters.length} filter(s)`)
+      logger.debug(`✅ Sender filter matched: email matched one of ${normalizedFilters.length} filter(s)`)
     }
   }
 
@@ -645,28 +647,28 @@ function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters): boo
       : emailSubject.includes(subjectFilter)
 
     if (!isMatch) {
-      console.log(`❌ Subject filter mismatch: subject length ${emailSubject.length} doesn't match filter (exactMatch: ${exactMatch})`)
+      logger.debug(`❌ Subject filter mismatch: subject length ${emailSubject.length} doesn't match filter (exactMatch: ${exactMatch})`)
       return false
     }
-    console.log(`✅ Subject filter matched: subject length ${emailSubject.length} matches filter (exactMatch: ${exactMatch})`)
+    logger.debug(`✅ Subject filter matched: subject length ${emailSubject.length} matches filter (exactMatch: ${exactMatch})`)
   }
 
   if (filters.hasAttachment && filters.hasAttachment !== 'any') {
     const shouldHaveAttachment = filters.hasAttachment === 'yes'
     if (email.hasAttachments !== shouldHaveAttachment) {
-      console.log(`❌ Attachment filter mismatch: email has attachments=${email.hasAttachments}, filter expects=${shouldHaveAttachment}`)
+      logger.debug(`❌ Attachment filter mismatch: email has attachments=${email.hasAttachments}, filter expects=${shouldHaveAttachment}`)
       return false
     }
-    console.log(`✅ Attachment filter matched: ${shouldHaveAttachment ? 'has' : 'no'} attachments`)
+    logger.debug(`✅ Attachment filter matched: ${shouldHaveAttachment ? 'has' : 'no'} attachments`)
   }
 
-  console.log('✅ All filters matched!')
+  logger.debug('✅ All filters matched!')
   return true
 }
 
 async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<void> {
   try {
-    console.log('🚀 [Gmail Processor] Starting to find matching workflows for Gmail event')
+    logger.debug('🚀 [Gmail Processor] Starting to find matching workflows for Gmail event')
     const supabase = await createSupabaseServiceClient()
 
     // FIRST: Check for active test sessions waiting for Gmail triggers
@@ -677,17 +679,17 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
       .in('status', ['listening'])
 
     if (!sessionError && testSessions && testSessions.length > 0) {
-      console.log(`[Gmail] Found ${testSessions.length} active test session(s) waiting for Gmail trigger`)
+      logger.debug(`[Gmail] Found ${testSessions.length} active test session(s) waiting for Gmail trigger`)
 
       for (const session of testSessions) {
         try {
           const workflow = session.workflows
           if (!workflow) {
-            console.error('[Gmail] No workflow found in test session', { sessionId: session.id })
+            logger.error('[Gmail] No workflow found in test session', { sessionId: session.id })
             continue
           }
 
-          console.log('[Gmail] Starting workflow execution for test session', {
+          logger.debug('[Gmail] Starting workflow execution for test session', {
             sessionId: session.id,
             workflowId: workflow.id,
             workflowName: workflow.name,
@@ -699,7 +701,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           const userId = session.user_id || workflow.user_id
 
           if (!userId) {
-            console.error('[Gmail] No userId found - cannot execute workflow', {
+            logger.error('[Gmail] No userId found - cannot execute workflow', {
               sessionId: session.id,
               workflowId: workflow.id
             })
@@ -781,7 +783,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
             }
           } catch (err: any) {
             const errorMessage = err?.message || 'Unknown error'
-            console.log('[Gmail] Could not fetch email details:', err)
+            logger.debug('[Gmail] Could not fetch email details:', err)
             logError(executionSession.id, 'Failed to fetch email details for test session', {
               error: errorMessage,
               stack: err?.stack
@@ -806,19 +808,19 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
             emailDetails: emailDetails
           })
 
-          console.log('[Gmail] Workflow execution started for test session', {
+          logger.debug('[Gmail] Workflow execution started for test session', {
             sessionId: session.id,
             workflowId: workflow.id,
             executionId: executionSession.id
           })
 
         } catch (workflowError) {
-          console.error(`[Gmail] Failed to execute workflow for test session ${session.id}:`, workflowError)
+          logger.error(`[Gmail] Failed to execute workflow for test session ${session.id}:`, workflowError)
         }
       }
 
       // If test sessions were found, don't process regular workflows
-      console.log('[Gmail] Test sessions processed, skipping regular workflow processing')
+      logger.debug('[Gmail] Test sessions processed, skipping regular workflow processing')
       return
     }
 
@@ -835,7 +837,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
       .not('nodes', 'is', null)
 
     if (error) {
-      console.error('Failed to fetch workflows:', error)
+      logger.error('Failed to fetch workflows:', error)
       return
     }
 
@@ -858,7 +860,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       if (gmailTriggerNodes.length === 0) continue
 
-      console.log(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`)
+      logger.debug(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`)
 
       const { data: configRows, error: configError } = await supabase
         .from('webhook_configs')
@@ -870,21 +872,21 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         .limit(1)
 
       if (configError) {
-        console.error('Failed to fetch Gmail webhook config:', configError)
+        logger.error('Failed to fetch Gmail webhook config:', configError)
         continue
       }
 
       const webhookConfig = configRows?.[0]
 
       if (!webhookConfig) {
-        console.log('⚠️ No Gmail webhook configuration found for workflow, skipping')
+        logger.debug('⚠️ No Gmail webhook configuration found for workflow, skipping')
         continue
       }
 
       const watchConfig = webhookConfig.config?.watch || {}
 
       if (watchConfig.emailAddress && watchConfig.emailAddress !== event.eventData.emailAddress) {
-        console.log('⚠️ Gmail notification email does not match workflow configuration, skipping')
+        logger.debug('⚠️ Gmail notification email does not match workflow configuration, skipping')
         continue
       }
 
@@ -900,7 +902,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
       )
 
       if (!emailDetails) {
-        console.log('Could not fetch email details, skipping workflow')
+        logger.debug('Could not fetch email details, skipping workflow')
         continue
       }
 
@@ -911,7 +913,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
       for (const triggerNode of gmailTriggerNodes) {
         const filters = resolveGmailTriggerFilters(triggerNode)
 
-        console.log(`Checking trigger node ${triggerNode.id} filters:`, filters)
+        logger.debug(`Checking trigger node ${triggerNode.id} filters:`, filters)
 
         if (checkEmailMatchesFilters(emailDetails, filters)) {
           matchFound = true
@@ -920,18 +922,18 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
       }
 
       if (!matchFound) {
-        console.log(`❌ Email doesn't match filters for workflow ${workflow.id}`)
+        logger.debug(`❌ Email doesn't match filters for workflow ${workflow.id}`)
         continue
       }
 
       if (dedupeToken && wasRecentlyProcessedGmail(workflow.id, dedupeToken)) {
-        console.log(`⚠️ Duplicate Gmail event detected for workflow ${workflow.id} and token ${dedupeToken}, skipping execution`)
+        logger.debug(`⚠️ Duplicate Gmail event detected for workflow ${workflow.id} and token ${dedupeToken}, skipping execution`)
         continue
       }
 
       // Email matches filters - trigger the workflow
       try {
-        console.log(`🎯 Triggering workflow: "${workflow.name}" (${workflow.id})`)
+        logger.debug(`🎯 Triggering workflow: "${workflow.name}" (${workflow.id})`)
 
         if (dedupeToken) {
           markGmailEventProcessed(workflow.id, dedupeToken)
@@ -957,15 +959,15 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           emailDetails: emailDetails
         })
 
-        console.log(`✅ Successfully triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)
+        logger.debug(`✅ Successfully triggered workflow ${workflow.name} (${workflow.id}) with session ${executionSession.id}`)
       } catch (workflowError) {
-        console.error(`Failed to trigger workflow ${workflow.id}:`, workflowError)
+        logger.error(`Failed to trigger workflow ${workflow.id}:`, workflowError)
         if (dedupeToken) {
           processedGmailEvents.delete(buildGmailDedupeKey(workflow.id, dedupeToken))
         }
       }
     }
   } catch (error) {
-    console.error('Error triggering matching Gmail workflows:', error)
+    logger.error('Error triggering matching Gmail workflows:', error)
   }
 } 

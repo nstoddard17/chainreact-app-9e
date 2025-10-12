@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { FileText, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleDocsDocumentPreviewProps {
   documentId: string;
   showPreview: boolean;
@@ -60,7 +62,7 @@ export function GoogleDocsDocumentPreview({
       const data = await response.json();
       setPreviewContent(data);
     } catch (err: any) {
-      console.error("Error loading document preview:", err);
+      logger.error("Error loading document preview:", err);
       setError(err.message || "Failed to load document preview");
     } finally {
       setLoading(false);

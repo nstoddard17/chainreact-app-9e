@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Handles chunk loading errors that occur when Next.js chunks fail to load
  * This commonly happens after deployments when old chunks are no longer available
@@ -55,7 +57,7 @@ class ChunkErrorHandler {
   }
 
   private async handleChunkError(error: Error) {
-    console.warn('Chunk load error detected:', error)
+    logger.warn('Chunk load error detected:', error)
 
     // Extract chunk ID from error message
     const chunkMatch = error.message.match(/chunk (\d+)/)
@@ -68,7 +70,7 @@ class ChunkErrorHandler {
       // Increment retry count
       this.retryCount.set(chunkId, retries + 1)
 
-      console.log(`Retrying chunk ${chunkId} (attempt ${retries + 1}/${this.config.maxRetries})`)
+      logger.debug(`Retrying chunk ${chunkId} (attempt ${retries + 1}/${this.config.maxRetries})`)
 
       // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * (retries + 1)))
@@ -83,7 +85,7 @@ class ChunkErrorHandler {
       }
     } else {
       // Max retries reached
-      console.error(`Failed to load chunk ${chunkId} after ${this.config.maxRetries} retries`)
+      logger.error(`Failed to load chunk ${chunkId} after ${this.config.maxRetries} retries`)
       this.showReloadPrompt()
     }
   }

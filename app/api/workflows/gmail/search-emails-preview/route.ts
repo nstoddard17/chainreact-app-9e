@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchGmailEmails } from "@/lib/workflows/actions/gmail/searchEmails";
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const { config, userId } = await request.json();
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Gmail search emails preview error:", error)
+    logger.error("Gmail search emails preview error:", error)
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

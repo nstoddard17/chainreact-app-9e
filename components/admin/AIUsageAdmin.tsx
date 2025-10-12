@@ -28,6 +28,8 @@ import {
 import AIUsageTest from './AIUsageTest'
 import WorkflowCostTest from './WorkflowCostTest'
 
+import { logger } from '@/lib/utils/logger'
+
 interface UserUsage {
   user_id: string
   email: string
@@ -93,7 +95,7 @@ export default function AIUsageAdmin() {
       setUsers(data.users)
       setStats(data.stats)
     } catch (error) {
-      console.error('Error fetching admin usage data:', error)
+      logger.error('Error fetching admin usage data:', error)
     } finally {
       setLoading(false)
     }
@@ -120,7 +122,7 @@ export default function AIUsageAdmin() {
         setNewBudget('')
       }
     } catch (error) {
-      console.error('Error updating budget:', error)
+      logger.error('Error updating budget:', error)
     }
   }
 
@@ -141,14 +143,14 @@ export default function AIUsageAdmin() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Balance updated:', data)
+        logger.debug('Balance updated:', data)
         await fetchUsageData()
         setBalanceDialogOpen(false)
         setSelectedUser(null)
         setNewBalance('')
       }
     } catch (error) {
-      console.error('Error updating balance:', error)
+      logger.error('Error updating balance:', error)
     }
   }
 

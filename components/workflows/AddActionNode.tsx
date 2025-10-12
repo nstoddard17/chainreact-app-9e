@@ -5,6 +5,8 @@ import { Plus } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ADD_ACTION_NODE_WIDTH } from "@/lib/workflows/layoutConstants"
 
+import { logger } from '@/lib/utils/logger'
+
 type AddActionNodeData = {
   onClick: () => void
   isChainPlaceholder?: boolean
@@ -41,13 +43,13 @@ export function AddActionNode({ data }: NodeProps) {
                 }}
                 onClick={(e) => {
                   e.stopPropagation()
-                  console.log('AddActionNode button clicked')
-                  console.log('Is chain placeholder:', isChainPlaceholder)
-                  console.log('data.onClick available:', !!nodeData.onClick)
+                  logger.debug('AddActionNode button clicked')
+                  logger.debug('Is chain placeholder:', isChainPlaceholder)
+                  logger.debug('data.onClick available:', !!nodeData.onClick)
                   if (nodeData.onClick) {
                     nodeData.onClick()
                   } else {
-                    console.error('No onClick handler found in data:', data)
+                    logger.error('No onClick handler found in data:', data)
                   }
                 }}
                 onMouseDown={(e) => {

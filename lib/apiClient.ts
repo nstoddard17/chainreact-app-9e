@@ -1,6 +1,8 @@
 import { getApiBaseUrl } from "./utils/getBaseUrl"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ApiResponse<T = any> {
   success: boolean
   data?: T
@@ -19,20 +21,20 @@ class ApiClient {
       const hostname = window.location.hostname
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         const url = `${window.location.protocol}//${window.location.host}`
-        console.log('🔧 [ApiClient] Using window.location for baseUrl:', url)
+        logger.debug('🔧 [ApiClient] Using window.location for baseUrl:', url)
         return url
       }
     }
     
     // Otherwise use the standard function
     const url = getApiBaseUrl()
-    console.log('🔧 [ApiClient] Getting dynamic baseUrl:', url)
+    logger.debug('🔧 [ApiClient] Getting dynamic baseUrl:', url)
     return url
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
-      console.log("🔍 Getting auth headers...")
+      logger.debug("🔍 Getting auth headers...")
       
       // First validate user authentication
       const {
@@ -46,24 +48,24 @@ class ApiClient {
 
       // Then get session for access token
       const { data: { session } } = await supabase.auth.getSession()
-      console.log("🔍 Session data:", session ? { 
+      logger.debug("🔍 Session data:", session ? { 
         hasAccessToken: !!session.access_token, 
         tokenLength: session.access_token?.length || 0,
         expiresAt: session.expires_at 
       } : null)
       
       if (session?.access_token) {
-        console.log("✅ Auth token found, returning Authorization header")
+        logger.debug("✅ Auth token found, returning Authorization header")
         return {
           "Authorization": `Bearer ${session.access_token}`,
         }
       } 
-        console.warn("⚠️ No session or access token found")
+        logger.warn("⚠️ No session or access token found")
       
     } catch (error) {
-      console.error("❌ Failed to get auth token:", error)
+      logger.error("❌ Failed to get auth token:", error)
     }
-    console.log("❌ Returning empty auth headers")
+    logger.debug("❌ Returning empty auth headers")
     return {}
   }
 
@@ -80,7 +82,7 @@ class ApiClient {
 
       // Get authentication headers
       const authHeaders = await this.getAuthHeaders()
-      console.log("🔍 Auth headers retrieved:", authHeaders)
+      logger.debug("🔍 Auth headers retrieved:", authHeaders)
 
       const config: RequestInit = {
         ...options,
@@ -92,24 +94,24 @@ class ApiClient {
         credentials: "include", // Include cookies for authentication
       }
 
-      console.log(`🌐 API Request: ${config.method || "GET"} ${url}`)
+      logger.debug(`🌐 API Request: ${config.method || "GET"} ${url}`)
       if (config.headers) {
         const headersObj = config.headers as Record<string, string>
-        console.log(`🌐 API Request Headers:`, Object.fromEntries(Object.entries(headersObj).filter(([key]) => key.toLowerCase() !== 'authorization')))
-        console.log(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
+        logger.debug(`🌐 API Request Headers:`, Object.fromEntries(Object.entries(headersObj).filter(([key]) => key.toLowerCase() !== 'authorization')))
+        logger.debug(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
       }
       if (config.body) {
         const bodyLength = typeof config.body === 'string' ? config.body.length : JSON.stringify(config.body).length
-        console.log(`🌐 API Request Body length:`, bodyLength)
+        logger.debug(`🌐 API Request Body length:`, bodyLength)
       }
 
       let response: Response;
       try {
         response = await fetch(url, config)
       } catch (fetchError: any) {
-        console.error(`❌ Fetch failed for ${endpoint}:`, fetchError)
-        console.error(`❌ URL was: ${url}`)
-        console.error(`❌ Base URL: ${baseUrl}`)
+        logger.error(`❌ Fetch failed for ${endpoint}:`, fetchError)
+        logger.error(`❌ URL was: ${url}`)
+        logger.error(`❌ Base URL: ${baseUrl}`)
         throw new Error(`Network error: ${fetchError.message || 'Failed to fetch'}`)
       }
 
@@ -118,7 +120,7 @@ class ApiClient {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorDetails: any = undefined
 
-        console.error(`❌ API Error Response: ${endpoint}`, { 
+        logger.error(`❌ API Error Response: ${endpoint}`, { 
           status: response.status, 
           statusText: response.statusText,
           headers: Object.fromEntries(response.headers.entries()),
@@ -127,7 +129,7 @@ class ApiClient {
 
         try {
           const responseText = await response.text()
-          console.error(`❌ API Error Response Body length: ${endpoint}`, responseText.length)
+          logger.error(`❌ API Error Response Body length: ${endpoint}`, responseText.length)
           
           if (responseText.trim()) {
             const errorData = JSON.parse(responseText)
@@ -149,7 +151,7 @@ class ApiClient {
           }
         } catch (e) {
           // If response is not JSON, create a descriptive error message
-          console.warn("Failed to parse error response as JSON:", e)
+          logger.warn("Failed to parse error response as JSON:", e)
           if (response.status === 403) {
             errorMessage = "Access denied. Please check your permissions and try again."
           } else if (response.status === 401) {
@@ -159,7 +161,7 @@ class ApiClient {
           }
         }
 
-        console.error(`❌ API Error: ${endpoint}`, { status: response.status, message: errorMessage })
+        logger.error(`❌ API Error: ${endpoint}`, { status: response.status, message: errorMessage })
 
         return {
           success: false,
@@ -173,15 +175,15 @@ class ApiClient {
       try {
         data = await response.json()
       } catch (e) {
-        console.warn("Failed to parse response as JSON, returning empty data")
+        logger.warn("Failed to parse response as JSON, returning empty data")
         data = {}
       }
 
       // Log successful API responses without sensitive data
       if (endpoint.includes('gmail') || endpoint.includes('recipients') || endpoint.includes('contacts')) {
-        console.log(`✅ API Response: ${endpoint} - ${Array.isArray(data.data) ? data.data.length : 'Unknown'} items`)
+        logger.debug(`✅ API Response: ${endpoint} - ${Array.isArray(data.data) ? data.data.length : 'Unknown'} items`)
       } else {
-        console.log(`✅ API Response: ${endpoint}`)
+        logger.debug(`✅ API Response: ${endpoint}`)
       }
 
       return {
@@ -191,8 +193,8 @@ class ApiClient {
       }
     } catch (error: any) {
       const baseUrl = this.getBaseUrl()
-      console.error(`❌ API Network Error: ${endpoint}`, error)
-      console.error(`❌ Error details:`, {
+      logger.error(`❌ API Network Error: ${endpoint}`, error)
+      logger.error(`❌ Error details:`, {
         message: error.message,
         endpoint,
         baseUrl: baseUrl,

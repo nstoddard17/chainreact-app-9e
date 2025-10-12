@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+import { logger } from '@/lib/utils/logger'
+
 interface OneNoteItem {
   id: string;
   name: string;
@@ -138,7 +140,7 @@ export function OneNoteSelector({
           }
         }
       } catch (err: any) {
-        console.error(`Error loading ${type}:`, err);
+        logger.error(`Error loading ${type}:`, err);
         setError(err.message || 'An error occurred');
         setItems([]);
       } finally {

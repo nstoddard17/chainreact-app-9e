@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/utils/supabaseClient";
 import VariablePicker from "../../../VariablePicker";
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleDriveFileFieldProps {
   field: any;
   value: any;
@@ -81,16 +83,16 @@ export function GoogleDriveFileField({
   }, [value, sourceType]); // Removed uploadedFile from dependencies to prevent loops
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🎯 [GoogleDriveFileField] handleFileUpload triggered');
+    logger.debug('🎯 [GoogleDriveFileField] handleFileUpload triggered');
     const files = event.target.files;
-    console.log('📁 [GoogleDriveFileField] Files selected:', files);
+    logger.debug('📁 [GoogleDriveFileField] Files selected:', files);
     if (!files || files.length === 0) {
-      console.log('⚠️ [GoogleDriveFileField] No files selected');
+      logger.debug('⚠️ [GoogleDriveFileField] No files selected');
       return;
     }
 
     const file = files[0];
-    console.log('📄 [GoogleDriveFileField] File details:', {
+    logger.debug('📄 [GoogleDriveFileField] File details:', {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -110,7 +112,7 @@ export function GoogleDriveFileField({
 
     // If there's already an uploaded file, remove it first to prevent orphaned files
     if (uploadedFile) {
-      console.log('🔄 [GoogleDriveFileField] Removing previous file before uploading new one');
+      logger.debug('🔄 [GoogleDriveFileField] Removing previous file before uploading new one');
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -128,7 +130,7 @@ export function GoogleDriveFileField({
           });
         }
       } catch (error) {
-        console.warn('⚠️ [GoogleDriveFileField] Failed to remove previous file:', error);
+        logger.warn('⚠️ [GoogleDriveFileField] Failed to remove previous file:', error);
         // Continue with upload even if cleanup failed
       }
     }
@@ -147,7 +149,7 @@ export function GoogleDriveFileField({
       if (actualNodeId === 'pending-action' || actualNodeId.startsWith('pending-') || !actualNodeId) {
         // Generate a UUID for pending nodes
         actualNodeId = crypto.randomUUID();
-        console.log('📝 [GoogleDriveFileField] Generated UUID for pending node:', actualNodeId);
+        logger.debug('📝 [GoogleDriveFileField] Generated UUID for pending node:', actualNodeId);
       }
       
       // Use workflow ID from URL first, then prop, then generate if needed
@@ -155,12 +157,12 @@ export function GoogleDriveFileField({
       if (!actualWorkflowId || actualWorkflowId === 'undefined' || actualWorkflowId === 'null' || actualWorkflowId === '') {
         // For new workflows that haven't been saved yet, generate a UUID
         actualWorkflowId = crypto.randomUUID();
-        console.log('📝 [GoogleDriveFileField] Generated UUID for workflow:', actualWorkflowId);
+        logger.debug('📝 [GoogleDriveFileField] Generated UUID for workflow:', actualWorkflowId);
       } else {
-        console.log('📝 [GoogleDriveFileField] Using workflow ID:', actualWorkflowId, 'from:', workflowIdFromUrl ? 'URL' : 'prop');
+        logger.debug('📝 [GoogleDriveFileField] Using workflow ID:', actualWorkflowId, 'from:', workflowIdFromUrl ? 'URL' : 'prop');
       }
       
-      console.log('📤 [GoogleDriveFileField] Uploading with IDs:', {
+      logger.debug('📤 [GoogleDriveFileField] Uploading with IDs:', {
         actualNodeId,
         actualWorkflowId,
         originalNodeId: nodeId,
@@ -188,7 +190,7 @@ export function GoogleDriveFileField({
       }
 
       const data = await response.json();
-      console.log('✅ [GoogleDriveFileField] Upload successful:', data);
+      logger.debug('✅ [GoogleDriveFileField] Upload successful:', data);
       
       // Store the actual node ID as the value (since we use node_id as file identifier)
       // For temporary files, we store the file path as well
@@ -215,10 +217,10 @@ export function GoogleDriveFileField({
       };
       
       setUploadedFile(fileInfo);
-      console.log('📝 [GoogleDriveFileField] Updated uploadedFile state:', fileInfo);
+      logger.debug('📝 [GoogleDriveFileField] Updated uploadedFile state:', fileInfo);
 
       // Also update the fileName field if it exists
-      console.log('🔄 [GoogleDriveFileField] Attempting to update fileName field:', {
+      logger.debug('🔄 [GoogleDriveFileField] Attempting to update fileName field:', {
         hasSetFieldValue: !!setFieldValue,
         currentFileName: parentValues?.fileName,
         newFileName: file.name
@@ -226,20 +228,20 @@ export function GoogleDriveFileField({
       
       // Always update fileName field when a new file is uploaded
       if (setFieldValue) {
-        console.log('🚀 [GoogleDriveFileField] Calling setFieldValue with fileName:', file.name);
+        logger.debug('🚀 [GoogleDriveFileField] Calling setFieldValue with fileName:', file.name);
         setFieldValue('fileName', file.name);
         // Also store file metadata in parent values for persistence
         setFieldValue('fileSize', file.size);
         setFieldValue('fileType', file.type);
       } else {
-        console.log('⚠️ [GoogleDriveFileField] No setFieldValue function available');
+        logger.debug('⚠️ [GoogleDriveFileField] No setFieldValue function available');
       }
       
       // Reset the file input to allow selecting the same file again
       setFileInputKey(prev => prev + 1);
 
     } catch (error: any) {
-      console.error('File upload error:', error);
+      logger.error('File upload error:', error);
       alert(error.message || 'Failed to upload file');
     } finally {
       setUploading(false);
@@ -286,7 +288,7 @@ export function GoogleDriveFileField({
       setFileInputKey(prev => prev + 1);
 
     } catch (error) {
-      console.error('Failed to remove file:', error);
+      logger.error('Failed to remove file:', error);
     }
   };
 
@@ -372,7 +374,7 @@ export function GoogleDriveFileField({
     }
     const fileInputId = `file-input-${idForInput}`;
     
-    console.log('📌 [GoogleDriveFileField] Rendering file upload field:', {
+    logger.debug('📌 [GoogleDriveFileField] Rendering file upload field:', {
       fieldName: field.name,
       fileInputId,
       sourceType,
@@ -428,13 +430,13 @@ export function GoogleDriveFileField({
               type="button"
               variant="outline"
               onClick={() => {
-                console.log('🖱️ [GoogleDriveFileField] Button clicked, attempting to trigger file input:', fileInputId);
+                logger.debug('🖱️ [GoogleDriveFileField] Button clicked, attempting to trigger file input:', fileInputId);
                 const fileInput = document.getElementById(fileInputId);
-                console.log('🔍 [GoogleDriveFileField] File input element found:', !!fileInput);
+                logger.debug('🔍 [GoogleDriveFileField] File input element found:', !!fileInput);
                 if (fileInput) {
                   (fileInput as HTMLInputElement).click();
                 } else {
-                  console.error('❌ [GoogleDriveFileField] File input element not found!');
+                  logger.error('❌ [GoogleDriveFileField] File input element not found!');
                 }
               }}
               disabled={uploading}

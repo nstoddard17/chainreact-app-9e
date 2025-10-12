@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 // Use direct Supabase client with service role for reliable database operations
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
       metadata: integration.metadata,
     })
   } catch (error: any) {
-    console.error("HubSpot debug error:", error)
+    logger.error("HubSpot debug error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

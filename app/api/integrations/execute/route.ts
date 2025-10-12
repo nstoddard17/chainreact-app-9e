@@ -2,6 +2,8 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   cookies()
   const supabase = await createSupabaseRouteHandlerClient()
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, result })
   } catch (error) {
-    console.error("Integration execution error:", error)
+    logger.error("Integration execution error:", error)
     return NextResponse.json({ error: "Execution failed" }, { status: 500 })
   }
 }

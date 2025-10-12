@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
     cookies()
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest) {
       pages: mainPages
     })
   } catch (error: any) {
-    console.error("Notion debug endpoint error:", error)
+    logger.error("Notion debug endpoint error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

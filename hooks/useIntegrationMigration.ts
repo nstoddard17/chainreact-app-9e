@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Hook to automatically detect and fix user ID mismatches in integrations
  * This runs once per session when a user is authenticated
@@ -25,14 +27,14 @@ export function useIntegrationMigration() {
         })
 
         if (!response.ok) {
-          console.warn('Could not check for orphaned integrations')
+          logger.warn('Could not check for orphaned integrations')
           return
         }
 
         const data = await response.json()
         
         if (data.hasOrphaned) {
-          console.log('🔄 Found orphaned integrations, attempting migration...')
+          logger.debug('🔄 Found orphaned integrations, attempting migration...')
           
           // Attempt automatic migration
           const migrateResponse = await fetch('/api/integrations/migrate-user-id', {
@@ -42,7 +44,7 @@ export function useIntegrationMigration() {
 
           if (migrateResponse.ok) {
             const migrateData = await migrateResponse.json()
-            console.log(`✅ Successfully migrated ${migrateData.migrated} integrations`)
+            logger.debug(`✅ Successfully migrated ${migrateData.migrated} integrations`)
             
             // Refresh integrations if any were migrated
             if (migrateData.migrated > 0) {
@@ -52,7 +54,7 @@ export function useIntegrationMigration() {
           }
         }
       } catch (error) {
-        console.error('Error checking for integration migration:', error)
+        logger.error('Error checking for integration migration:', error)
       }
     }
 
@@ -78,7 +80,7 @@ export async function manualIntegrationMigration(oldUserId: string, newUserId: s
     const data = await response.json()
     return data
   } catch (error) {
-    console.error('Manual migration failed:', error)
+    logger.error('Manual migration failed:', error)
     throw error
   }
 }

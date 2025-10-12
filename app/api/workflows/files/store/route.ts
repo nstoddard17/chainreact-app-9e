@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { FileStorageService } from '@/lib/storage/fileStorage'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
@@ -52,7 +54,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('File storage error:', error)
+    logger.error('File storage error:', error)
     return NextResponse.json(
       { error: 'Failed to store files', details: error.message },
       { status: 500 }
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Error retrieving file metadata:', error)
+    logger.error('Error retrieving file metadata:', error)
     return NextResponse.json(
       { error: 'Failed to retrieve files', details: error.message },
       { status: 500 }
@@ -153,7 +155,7 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('File deletion error:', error)
+    logger.error('File deletion error:', error)
     return NextResponse.json(
       { error: 'Failed to delete files', details: error.message },
       { status: 500 }

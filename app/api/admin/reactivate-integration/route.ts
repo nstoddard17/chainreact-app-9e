@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: NextRequest) {
   try {
     // Admin-only endpoint - check for admin key
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
     const { error, count } = await query
     
     if (error) {
-      console.error('Error reactivating integrations:', error)
+      logger.error('Error reactivating integrations:', error)
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
     const { data: updatedIntegrations, error: selectError } = await selectQuery
     
     if (selectError) {
-      console.error('Error fetching updated integrations:', selectError)
+      logger.error('Error fetching updated integrations:', selectError)
     }
 
     return NextResponse.json({
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
       integrations: updatedIntegrations || []
     })
   } catch (error) {
-    console.error('Error in reactivate integration endpoint:', error)
+    logger.error('Error in reactivate integration endpoint:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

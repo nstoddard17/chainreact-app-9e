@@ -3,8 +3,10 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 
+import { logger } from '@/lib/utils/logger'
+
 if (!process.env.STRIPE_SECRET_KEY) {
-  console.warn("STRIPE_SECRET_KEY environment variable is not set.")
+  logger.warn("STRIPE_SECRET_KEY environment variable is not set.")
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -150,7 +152,7 @@ export async function POST(
       })
     
   } catch (error: any) {
-    console.error("Change plan error:", error)
+    logger.error("Change plan error:", error)
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

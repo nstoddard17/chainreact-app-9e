@@ -14,6 +14,8 @@ import {
   AIFieldConfig
 } from '../aiFieldAutomation'
 
+import { logger } from '@/lib/utils/logger'
+
 interface WorkflowExecutionContext {
   workflowId: string
   executionId: string
@@ -59,7 +61,7 @@ export async function resolveNodeAIFields(
     try {
       // Check if field is AI-controlled
       if (isAIControlledField(fieldValue)) {
-        console.log(`[AI Field] Resolving AI field: ${fieldName}`)
+        logger.debug(`[AI Field] Resolving AI field: ${fieldName}`)
         
         const { fieldName: targetField, instructions } = parseAIFieldMarker(fieldValue)
         
@@ -86,12 +88,12 @@ export async function resolveNodeAIFields(
           userApiKey
         )
         
-        console.log(`[AI Field] Generated value for ${fieldName}:`, generatedValue)
+        logger.debug(`[AI Field] Generated value for ${fieldName}:`, generatedValue)
         resolvedConfig[fieldName] = generatedValue
         
       } else if (typeof fieldValue === 'string' && containsAIVariables(fieldValue)) {
         // Resolve AI variables in text
-        console.log(`[AI Variables] Resolving variables in ${fieldName}`)
+        logger.debug(`[AI Variables] Resolving variables in ${fieldName}`)
         
         const resolvedText = await resolveAIVariables(
           fieldValue,
@@ -99,7 +101,7 @@ export async function resolveNodeAIFields(
           userApiKey
         )
         
-        console.log(`[AI Variables] Resolved text:`, resolvedText)
+        logger.debug(`[AI Variables] Resolved text:`, resolvedText)
         resolvedConfig[fieldName] = resolvedText
         
       } else {
@@ -108,7 +110,7 @@ export async function resolveNodeAIFields(
       }
       
     } catch (error) {
-      console.error(`[AI Field] Error resolving field ${fieldName}:`, error)
+      logger.error(`[AI Field] Error resolving field ${fieldName}:`, error)
       // On error, use original value or empty
       resolvedConfig[fieldName] = fieldValue || ''
     }
@@ -186,7 +188,7 @@ async function getFieldSchema(nodeType: string, fieldName: string): Promise<any>
     
     return schema
   } catch (error) {
-    console.error(`Error getting field schema for ${nodeType}.${fieldName}:`, error)
+    logger.error(`Error getting field schema for ${nodeType}.${fieldName}:`, error)
     return {
       type: 'text',
       label: fieldName,

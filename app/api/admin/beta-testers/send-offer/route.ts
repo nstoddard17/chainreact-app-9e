@@ -2,6 +2,8 @@ import { createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
 import { sendBetaInvitationEmail } from '@/lib/services/resend'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
     const { data: testers, error: fetchError } = await query
 
     if (fetchError) {
-      console.error("Error fetching beta testers:", fetchError)
+      logger.error("Error fetching beta testers:", fetchError)
       return NextResponse.json({ error: "Failed to fetch beta testers" }, { status: 500 })
     }
 
@@ -75,16 +77,16 @@ export async function POST(request: Request) {
         )
 
         if (!result.success) {
-          console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, result.error)
+          logger.error(`Failed to send email to beta tester (ID: ${tester.id}):`, result.error)
           // Log the signup URL as fallback
-          console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
-          console.log(`Signup URL: ${signupUrl}`)
+          logger.debug(`Beta Tester Invitation URL for ID ${tester.id}:`)
+          logger.debug(`Signup URL: ${signupUrl}`)
         }
       } catch (emailError) {
-        console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, emailError)
+        logger.error(`Failed to send email to beta tester (ID: ${tester.id}):`, emailError)
         // Log the signup URL as fallback
-        console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
-        console.log(`Signup URL: ${signupUrl}`)
+        logger.debug(`Beta Tester Invitation URL for ID ${tester.id}:`)
+        logger.debug(`Signup URL: ${signupUrl}`)
       }
     })
 
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("Error sending beta offers:", error)
+    logger.error("Error sending beta offers:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
