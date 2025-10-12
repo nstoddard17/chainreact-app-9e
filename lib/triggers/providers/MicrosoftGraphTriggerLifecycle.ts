@@ -53,7 +53,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Determine resource based on trigger type
-    const resource = this.getResourceForTrigger(triggerType)
+    const resource = this.getResourceForTrigger(triggerType, config)
     const changeType = this.getChangeTypeForTrigger(triggerType)
 
     if (!resource) {
@@ -269,9 +269,22 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Map trigger type to Microsoft Graph resource
    * Handles both formats: "microsoft-outlook_trigger_new_email" and "trigger_new_email"
    */
-  private getResourceForTrigger(triggerType: string): string | null {
+  private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
     const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft-onenote|teams|onedrive)_/, '')
+
+    // Handle OneNote triggers with config-based resource paths
+    if (simplifiedType === 'trigger_new_note' || simplifiedType === 'trigger_note_modified') {
+      if (config?.notebookId && config?.sectionId) {
+        // Monitor specific section
+        return `/me/onenote/sections/${config.sectionId}/pages`
+      } else if (config?.notebookId) {
+        // Monitor entire notebook
+        return `/me/onenote/notebooks/${config.notebookId}/pages`
+      }
+      // Fallback to all pages (though this might not be supported by Microsoft Graph)
+      return '/me/onenote/pages'
+    }
 
     const resourceMap: Record<string, string> = {
       // Email triggers
@@ -293,7 +306,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_file_modified': '/me/drive/root',
       'trigger_file_shared': '/me/drive/root',
 
-      // OneNote triggers
+      // OneNote triggers (legacy)
       'trigger_note_created': '/me/onenote/notebooks',
       'trigger_note_updated': '/me/onenote/notebooks'
     }
