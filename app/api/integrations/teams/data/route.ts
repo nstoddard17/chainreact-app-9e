@@ -123,10 +123,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { integrationId, dataType, params = {} } = await request.json();
+    const body = await request.json();
+    const { integrationId, dataType, params = {} } = body;
+
+    console.log('[Teams Data API] POST request received:', { integrationId, dataType, params, fullBody: body });
 
     if (!integrationId) {
       return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 });
+    }
+
+    if (!dataType) {
+      return NextResponse.json({ error: 'Data type is required' }, { status: 400 });
     }
 
     const supabase = createAdminClient();
@@ -269,12 +276,17 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({ error: `Unknown data type: ${dataType}` }, { status: 400 });
+        console.error('[Teams Data API] Unknown data type:', dataType);
+        return NextResponse.json({
+          error: `Unknown data type: ${dataType}`,
+          validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users']
+        }, { status: 400 });
     }
 
     return NextResponse.json({ data: responseData });
   } catch (error: any) {
-    return NextResponse.json({ 
+    console.error('[Teams Data API] Error:', error);
+    return NextResponse.json({
       error: error.message || 'Failed to load Teams data',
       details: error.toString()
     }, { status: 500 });

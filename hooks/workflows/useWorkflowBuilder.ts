@@ -80,6 +80,7 @@ export function useWorkflowBuilder() {
   // Store onClick handlers for AddActionNodes - needs to be before setNodes
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
   const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
+  const collaborationWorkflowIdRef = useRef<string | null>(null)
 
   // React Flow state
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
@@ -1351,12 +1352,15 @@ export function useWorkflowBuilder() {
           }
         }, 200)
 
-        // Join collaboration
-        joinCollaboration(workflowId)
-        
+        // Join collaboration only if not already joined for this workflow
+        if (collaborationWorkflowIdRef.current !== workflowId) {
+          collaborationWorkflowIdRef.current = workflowId
+          joinCollaboration(workflowId)
+        }
+
         // Set workflow for error tracking
         setErrorStoreWorkflow(workflow)
-        
+
         // Fit view after loading with offset to prevent nodes from going under top UI
         setTimeout(() => {
           fitView({
@@ -1372,13 +1376,31 @@ export function useWorkflowBuilder() {
         }, 100)
       }
     }
-    
+
     return () => {
-      if (workflowId) {
-        leaveCollaboration(workflowId)
+      // Only leave collaboration when workflowId actually changes or component unmounts
+      const currentWorkflowId = collaborationWorkflowIdRef.current
+      if (currentWorkflowId && currentWorkflowId !== workflowId) {
+        leaveCollaboration()
+        collaborationWorkflowIdRef.current = null
       }
     }
-  }, [workflowId, workflows, setCurrentWorkflow, setNodes, setEdges, joinCollaboration, leaveCollaboration, setErrorStoreWorkflow, fitView, setWorkflowName, setWorkflowDescription])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId])
+
+  // Cleanup collaboration on component unmount
+  useEffect(() => {
+    return () => {
+      if (collaborationWorkflowIdRef.current) {
+        // Fetch fresh leaveCollaboration from store on unmount
+        const { leaveCollaboration: leave } = useCollaborationStore.getState()
+        leave()
+        collaborationWorkflowIdRef.current = null
+      }
+    }
+  // Empty deps - only run on mount/unmount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!isTemplateEditing || !editTemplateId) {

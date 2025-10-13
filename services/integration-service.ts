@@ -521,6 +521,10 @@ export class IntegrationService {
       provider = 'gumroad'
     } else if (dataType.startsWith('blackbaud_') || dataType.startsWith('blackbaud-')) {
       provider = 'blackbaud'
+    } else if (dataType.startsWith('teams_') || dataType.startsWith('teams-')) {
+      provider = 'teams'
+    } else if (dataType.startsWith('microsoft-teams_') || dataType.startsWith('microsoft-teams-')) {
+      provider = 'teams'
     } else {
       // Fallback: try to extract provider from dataType
       // Handle both underscore and dash separators
