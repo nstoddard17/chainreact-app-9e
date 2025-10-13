@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { sendBetaInvitationEmail } from '@/lib/services/resend'
 
 import { logger } from '@/lib/utils/logger'

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 export async function GET() {
   // For now, return an empty array instead of mock data

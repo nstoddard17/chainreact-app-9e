@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getSupabaseClient } from "@/lib/supabase"
 import { validateAllIntegrations } from "@/lib/integrations/scopeValidation"
 
