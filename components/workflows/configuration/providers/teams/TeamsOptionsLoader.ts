@@ -22,22 +22,28 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
     return this.supportedFields.has(fieldName);
   }
 
-  async load(
-    fieldName: string,
-    providerId: string,
-    integrationId: string,
-    params?: {
-      nodeType?: string;
-      dependencyFieldName?: string;
-      dependencyValue?: any;
-      signal?: AbortSignal;
+  async loadOptions(params: {
+    fieldName: string;
+    nodeType: string;
+    providerId: string;
+    integrationId?: string;
+    dependsOn?: string;
+    dependsOnValue?: any;
+    forceRefresh?: boolean;
+    extraOptions?: Record<string, any>;
+    signal?: AbortSignal;
+  }): Promise<{ value: string; label: string }[]> {
+    const { fieldName, providerId, integrationId, dependsOn, dependsOnValue, signal } = params;
+
+    if (!integrationId) {
+      logger.error('[TeamsOptionsLoader] No integration ID provided');
+      return [];
     }
-  ): Promise<{ value: string; label: string }[]> {
     logger.debug(`[TeamsOptionsLoader] Loading ${fieldName} for provider ${providerId}`, {
       integrationId,
-      dependencyFieldName: params?.dependencyFieldName,
-      dependencyValue: params?.dependencyValue,
-      nodeType: params?.nodeType
+      dependsOn,
+      dependsOnValue,
+      nodeType: params.nodeType
     });
 
     // Determine the resource type based on field name
@@ -49,10 +55,10 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         break;
       case 'channelId':
         // Channels depend on teamId
-        if (!params?.dependencyValue || params.dependencyValue === '') {
+        if (!dependsOnValue || dependsOnValue === '') {
           logger.debug('[TeamsOptionsLoader] No teamId provided for channels', {
-            hasDependencyValue: !!params?.dependencyValue,
-            dependencyValue: params?.dependencyValue
+            hasDependencyValue: !!dependsOnValue,
+            dependsOnValue
           });
           return [];
         }
@@ -73,8 +79,8 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       url.searchParams.set('type', resourceType);
 
       // Add teamId for channel requests
-      if (fieldName === 'channelId' && params?.dependencyValue) {
-        url.searchParams.set('teamId', params.dependencyValue);
+      if (fieldName === 'channelId' && dependsOnValue) {
+        url.searchParams.set('teamId', dependsOnValue);
       }
 
       const response = await fetch(url.toString(), {
@@ -82,7 +88,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: params?.signal,
+        signal,
       });
 
       if (!response.ok) {
@@ -114,27 +120,4 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
     }
   }
 
-  getCacheKey(
-    fieldName: string,
-    providerId: string,
-    integrationId: string,
-    params?: {
-      nodeType?: string;
-      dependencyFieldName?: string;
-      dependencyValue?: any;
-    }
-  ): string {
-    const parts = [providerId, integrationId, fieldName];
-
-    if (params?.nodeType) {
-      parts.push(params.nodeType);
-    }
-
-    // Include dependency value in cache key for dependent fields
-    if (fieldName === 'channelId' && params?.dependencyValue) {
-      parts.push(`team-${params.dependencyValue}`);
-    }
-
-    return parts.join(':');
-  }
 }
