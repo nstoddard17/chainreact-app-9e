@@ -1387,17 +1387,6 @@ export function useWorkflowBuilder() {
         // Redirect to workflows list
         router.push('/workflows')
       }
-    } else if (workflowId && !workflowLoading && workflows && workflows.length === 0) {
-      // We have a workflow ID but no workflows loaded (and not loading)
-      // This could mean the workflow doesn't exist or there was an error
-      logger.warn('[WorkflowBuilder] No workflows loaded but workflow ID present:', workflowId)
-      setCurrentWorkflow(null)
-      toast({
-        title: "Unable to load workflow",
-        description: "Could not find any workflows. Please try again.",
-        variant: "destructive"
-      })
-      router.push('/workflows')
     }
 
     return () => {
