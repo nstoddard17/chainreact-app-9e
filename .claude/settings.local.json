@@ -105,7 +105,20 @@
       "Bash(for file in app/api/integrations/discord/gateway-status/route.ts app/api/microsoft-graph/auto-subscribe/route.ts app/api/webhooks/notion/route.ts \"app/api/workflows/[id]/test-session/route.ts\")",
       "Bash(do echo \"=== $file ===\")",
       "Bash(done)",
-      "Bash(perl:*)"
+      "Bash(perl:*)",
+      "Bash(while read file)",
+      "Bash(do grep -L \"from ''''@/lib/utils/api-response''''\" \"$file\")",
+      "Bash(do if ! grep -q \"from ''''@/lib/utils/api-response''''\" \"$file\")",
+      "Bash(then echo \"$file\")",
+      "Bash(fi)",
+      "Bash(for file in app/api/*/route.ts)",
+      "Bash(do if grep -q \"jsonResponse\\|errorResponse\" \"$file\")",
+      "Bash(then if ! grep -q \"api-response\" \"$file\")",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(if grep -q \"from [''\"\"]next/server[''\"\"]\" \"$file\")",
+      "Bash(then)",
+      "Bash(echo:*)"
     ],
     "defaultMode": "acceptEdits"
   }
