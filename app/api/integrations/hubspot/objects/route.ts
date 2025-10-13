@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { decrypt } from '@/lib/security/encryption';
 
@@ -28,10 +29,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return errorResponse('Unauthorized' , 401);
     }
 
     // Get HubSpot integration
@@ -44,20 +42,14 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'HubSpot integration not found or not connected' },
-        { status: 404 }
-      );
+      return errorResponse('HubSpot integration not found or not connected' , 404);
     }
 
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
       logger.error('Encryption key not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return errorResponse('Server configuration error' , 500);
     }
 
     const accessToken = decrypt(integration.access_token, encryptionKey);
@@ -78,7 +70,7 @@ export async function GET(request: NextRequest) {
       );
 
       if (customObjectsResponse.ok) {
-        const customObjectsData: HubspotObjectsResponse = await customObjectsResponse.json();
+        const customObjectsData: HubspotObjectsResponse = await customObjectsjsonResponse();
 
         // Add custom objects to the list
         const customObjects: HubspotObjectType[] = customObjectsData.results
@@ -109,12 +101,9 @@ export async function GET(request: NextRequest) {
       return a.label.localeCompare(b.label);
     });
 
-    return NextResponse.json(allObjects);
+    return jsonResponse(allObjects);
   } catch (error) {
     logger.error('Error in HubSpot objects route:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse('Internal server error' , 500);
   }
 }

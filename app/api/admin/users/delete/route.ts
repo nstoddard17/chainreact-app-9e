@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Verify admin authorization
     const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
     if (authError || !currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get current user's profile to check admin role
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (currentProfile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      return errorResponse('Admin access required' , 403)
     }
 
     const body = await request.json()
@@ -30,18 +31,12 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
+      return errorResponse('User ID is required' , 400)
     }
 
     // Prevent admin from deleting themselves
     if (userId === currentUser.id) {
-      return NextResponse.json(
-        { error: 'Cannot delete your own account' },
-        { status: 400 }
-      )
+      return errorResponse('Cannot delete your own account' , 400)
     }
 
     const adminSupabase = await createSupabaseServiceClient()
@@ -49,10 +44,7 @@ export async function POST(request: NextRequest) {
     // Check if user exists
     const { data: existingUser } = await adminSupabase.auth.admin.getUserById(userId)
     if (!existingUser.user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return errorResponse('User not found' , 404)
     }
 
     // Get user profile to check if they're an admin
@@ -64,10 +56,7 @@ export async function POST(request: NextRequest) {
 
     // Prevent deletion of other admin accounts (optional safety measure)
     if (userProfile?.role === 'admin') {
-      return NextResponse.json(
-        { error: 'Cannot delete admin accounts' },
-        { status: 400 }
-      )
+      return errorResponse('Cannot delete admin accounts' , 400)
     }
 
     // If deleteData is false, just disable the user instead of deleting
@@ -87,10 +76,7 @@ export async function POST(request: NextRequest) {
 
       if (disableError) {
         logger.error('Error disabling user:', disableError)
-        return NextResponse.json(
-          { error: disableError.message },
-          { status: 400 }
-        )
+        return errorResponse(disableError.message , 400)
       }
 
       // Update profile to mark as disabled
@@ -106,7 +92,7 @@ export async function POST(request: NextRequest) {
         logger.error('Error updating user profile:', profileUpdateError)
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'User account disabled successfully',
         action: 'disabled'
@@ -158,13 +144,10 @@ export async function POST(request: NextRequest) {
 
       if (deleteError) {
         logger.error('Error deleting auth user:', deleteError)
-        return NextResponse.json(
-          { error: deleteError.message },
-          { status: 400 }
-        )
+        return errorResponse(deleteError.message , 400)
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'User and all associated data deleted successfully',
         action: 'deleted'
@@ -172,17 +155,11 @@ export async function POST(request: NextRequest) {
 
     } catch (dataDeleteError) {
       logger.error('Error deleting user data:', dataDeleteError)
-      return NextResponse.json(
-        { error: 'Failed to delete user data' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to delete user data' , 500)
     }
 
   } catch (error) {
     logger.error('Error in user deletion API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

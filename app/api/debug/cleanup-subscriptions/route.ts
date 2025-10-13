@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: 'No subscriptions found' })
+      return jsonResponse({ message: 'No subscriptions found' })
     }
 
     logger.debug(`Found ${subscriptions.length} active subscriptions`)
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     logger.debug(`\n✅ Cleanup complete: Deleted ${deletedCount} duplicate subscriptions`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       totalSubscriptions: subscriptions.length,
       deletedCount,
@@ -112,12 +113,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error cleaning up subscriptions:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'POST to this endpoint to clean up duplicate OneDrive subscriptions'
   })
 }

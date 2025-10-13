@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { Resend } from 'resend'
 
@@ -14,7 +15,7 @@ export async function POST(
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -22,7 +23,7 @@ export async function POST(
 
     // Validate required fields
     if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+      return errorResponse('Message is required' , 400)
     }
 
     // Verify ticket exists and user has access
@@ -34,7 +35,7 @@ export async function POST(
       .single()
 
     if (ticketError || !ticket) {
-      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+      return errorResponse('Ticket not found' , 404)
     }
 
     // Create response
@@ -52,7 +53,7 @@ export async function POST(
 
     if (responseError) {
       logger.error('Error creating response:', responseError)
-      return NextResponse.json({ error: 'Failed to create response' }, { status: 500 })
+      return errorResponse('Failed to create response' , 500)
     }
 
     // Update ticket status if user is responding
@@ -87,10 +88,10 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({ response })
+    return jsonResponse({ response })
   } catch (error) {
     logger.error('Error in POST /api/support/tickets/[id]/responses:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -104,7 +105,7 @@ export async function GET(
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Verify ticket exists and user has access
@@ -116,7 +117,7 @@ export async function GET(
       .single()
 
     if (ticketError || !ticket) {
-      return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+      return errorResponse('Ticket not found' , 404)
     }
 
     // Get responses
@@ -128,12 +129,12 @@ export async function GET(
 
     if (responsesError) {
       logger.error('Error fetching responses:', responsesError)
-      return NextResponse.json({ error: 'Failed to fetch responses' }, { status: 500 })
+      return errorResponse('Failed to fetch responses' , 500)
     }
 
-    return NextResponse.json({ responses })
+    return jsonResponse({ responses })
   } catch (error) {
     logger.error('Error in GET /api/support/tickets/[id]/responses:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 } 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { decrypt } from '@/lib/security/encryption'
@@ -15,21 +16,21 @@ export async function POST(req: NextRequest) {
     // Get user from session
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const token = authHeader.substring(7)
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await req.json()
     const { fileId } = body
 
     if (!fileId) {
-      return NextResponse.json({ error: 'File ID is required' }, { status: 400 })
+      return errorResponse('File ID is required' , 400)
     }
 
     // Get Google Drive integration
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
+      return errorResponse('Google Drive not connected' , 400)
     }
 
     // Decrypt access token
@@ -198,7 +199,7 @@ export async function POST(req: NextRequest) {
       preview = `File: ${file.name}\nSize: ${file.size} bytes\nType: ${file.mimeType}\nModified: ${file.modifiedTime}`
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       preview,
       metadata: {
         id: file.id,
@@ -211,9 +212,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     logger.error('Error fetching file preview:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch file preview' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch file preview' , 500)
   }
 }

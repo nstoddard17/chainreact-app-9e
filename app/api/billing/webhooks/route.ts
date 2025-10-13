@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(body, sig, endpointSecret)
   } catch (err: any) {
     logger.error(`Webhook Error: ${err.message}`)
-    return NextResponse.json(
+    return jsonResponse(
       { error: `Webhook Error: ${err.message}` },
       { status: 400 }
     )
@@ -48,10 +48,7 @@ export async function POST(request: NextRequest) {
       
       if (!userId || !planId) {
         logger.error("Missing metadata in checkout session")
-        return NextResponse.json(
-          { error: "Missing metadata" },
-          { status: 400 }
-        )
+        return errorResponse("Missing metadata" , 400)
       }
 
       // Check if user already has a subscription
@@ -80,10 +77,7 @@ export async function POST(request: NextRequest) {
 
         if (error) {
           logger.error("Error updating subscription:", error)
-          return NextResponse.json(
-            { error: "Failed to update subscription" },
-            { status: 500 }
-          )
+          return errorResponse("Failed to update subscription" , 500)
         }
       } else {
         // Create new subscription
@@ -103,10 +97,7 @@ export async function POST(request: NextRequest) {
 
         if (error) {
           logger.error("Error creating subscription:", error)
-          return NextResponse.json(
-            { error: "Failed to create subscription" },
-            { status: 500 }
-          )
+          return errorResponse("Failed to create subscription" , 500)
         }
       }
 
@@ -119,10 +110,7 @@ export async function POST(request: NextRequest) {
 
       if (!userId) {
         logger.error("Missing user_id in subscription metadata")
-        return NextResponse.json(
-          { error: "Missing user_id" },
-          { status: 400 }
-        )
+        return errorResponse("Missing user_id" , 400)
       }
 
       // Update subscription status
@@ -139,10 +127,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         logger.error("Error updating subscription:", error)
-        return NextResponse.json(
-          { error: "Failed to update subscription" },
-          { status: 500 }
-        )
+        return errorResponse("Failed to update subscription" , 500)
       }
 
       break
@@ -163,10 +148,7 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         logger.error("Error canceling subscription:", error)
-        return NextResponse.json(
-          { error: "Failed to cancel subscription" },
-          { status: 500 }
-        )
+        return errorResponse("Failed to cancel subscription" , 500)
       }
 
       break
@@ -220,5 +202,5 @@ export async function POST(request: NextRequest) {
       logger.debug(`Unhandled event type ${event.type}`)
   }
 
-  return NextResponse.json({ received: true })
+  return jsonResponse({ received: true })
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
@@ -43,12 +44,12 @@ export async function POST(
 
     if (webhookError) {
       logger.error(`Error fetching webhooks for ${provider}:`, webhookError)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+      return errorResponse('Internal server error' , 500)
     }
 
     if (!webhooks || webhooks.length === 0) {
       logger.debug(`No active webhooks found for provider: ${provider}`)
-      return NextResponse.json({ message: 'No active webhooks' }, { status: 200 })
+      return jsonResponse({ message: 'No active webhooks' }, { status: 200 })
     }
 
     // Process each webhook
@@ -63,7 +64,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       processed: results.length,
       results
@@ -71,7 +72,7 @@ export async function POST(
 
   } catch (error: any) {
     logger.error(`Webhook error for ${provider}:`, error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -81,7 +82,7 @@ export async function GET(
 ) {
   const { provider } = params
   
-  return NextResponse.json({
+  return jsonResponse({
     message: "Integration webhook endpoint active",
     provider: provider,
     methods: ["POST"],

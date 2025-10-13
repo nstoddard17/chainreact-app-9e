@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { verifyGoogleWebhook } from '@/lib/webhooks/google-verification'
 import { processGoogleEvent } from '@/lib/webhooks/google-processor'
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     const isValid = await verifyGoogleWebhook(request)
     if (!isValid) {
       logger.error(`[${requestId}] Invalid Google webhook signature`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Parse the request body (may be empty for some Google services)
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       service: sourceService,
       requestId,
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -176,7 +177,7 @@ function determineGoogleService(eventData: any): string {
 
 export async function GET(request: NextRequest) {
   // Health check endpoint
-  return NextResponse.json({
+  return jsonResponse({
     status: 'healthy',
     provider: 'google',
     services: ['gmail', 'drive', 'calendar', 'docs', 'sheets'],

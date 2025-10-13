@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Get authenticated user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get current month dates
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       current_period: {
         start_date: startOfMonth.toISOString(),
         end_date: endOfMonth.toISOString(),
@@ -119,6 +119,6 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     logger.error("Error fetching AI usage:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

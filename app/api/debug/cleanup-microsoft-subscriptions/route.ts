@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
 
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const cleanup = searchParams.get('cleanup') === 'true'
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId query parameter required' }, { status: 400 })
+      return errorResponse('userId query parameter required' , 400)
     }
 
     // Get user's Microsoft integration
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
-      return NextResponse.json({ error: 'No Microsoft integration found for user' }, { status: 404 })
+      return errorResponse('No Microsoft integration found for user' , 404)
     }
 
     const accessToken = typeof integration.access_token === 'string'
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       : null
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to decrypt access token' }, { status: 500 })
+      return errorResponse('Failed to decrypt access token' , 500)
     }
 
     // Get all subscriptions from Microsoft Graph
@@ -58,13 +59,13 @@ export async function GET(request: NextRequest) {
 
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text()
-      return NextResponse.json({
+      return jsonResponse({
         error: 'Failed to fetch subscriptions from Microsoft Graph',
         details: errorText
       }, { status: graphResponse.status })
     }
 
-    const graphData = await graphResponse.json()
+    const graphData = await graphjsonResponse()
     const graphSubscriptions = graphData.value || []
 
     // Get all subscriptions from our database
@@ -125,13 +126,11 @@ export async function GET(request: NextRequest) {
       result.failedDeletions = failedDeletions
     }
 
-    return NextResponse.json(result)
+    return jsonResponse(result)
 
   } catch (error: any) {
     logger.error('Error in cleanup endpoint:', error)
-    return NextResponse.json({
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 })
+    return errorResponse('Internal server error', 500, { details: error.message
+     })
   }
 }

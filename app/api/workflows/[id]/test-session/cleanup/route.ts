@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -28,11 +29,11 @@ export async function POST(
       }
     } catch {
       // Invalid body, can't proceed
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+      return errorResponse('Invalid request' , 400)
     }
 
     if (!sessionId || !userId) {
-      return NextResponse.json({ error: 'Missing sessionId or userId' }, { status: 400 })
+      return errorResponse('Missing sessionId or userId' , 400)
     }
 
     // Use service role client to avoid auth issues during page unload
@@ -51,7 +52,7 @@ export async function POST(
 
     if (!session) {
       logger.debug('Session not found or already cleaned up')
-      return NextResponse.json({ success: true })
+      return jsonResponse({ success: true })
     }
 
     // Get workflow to deactivate triggers
@@ -85,13 +86,13 @@ export async function POST(
 
     logger.debug(`✅ Test session ${sessionId} cleaned up successfully`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Test session cleaned up',
     })
   } catch (error: any) {
     logger.error('Error during cleanup:', error)
     // Don't fail during cleanup - best effort
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   }
 }

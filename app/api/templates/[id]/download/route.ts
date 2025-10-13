@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (downloadError) {
       logger.error("Error recording download:", downloadError)
-      return NextResponse.json({ error: "Failed to record download" }, { status: 500 })
+      return errorResponse("Failed to record download" , 500)
     }
 
     // Get the template data
@@ -37,12 +37,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (error) {
       logger.error("Error fetching template:", error)
-      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+      return errorResponse("Template not found" , 404)
     }
 
-    return NextResponse.json(template)
+    return jsonResponse(template)
   } catch (error) {
     logger.error("Error in POST /api/templates/[id]/download:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

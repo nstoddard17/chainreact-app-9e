@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { integrationId, action, params } = await request.json()
@@ -29,11 +29,11 @@ export async function POST(request: Request) {
       .single()
 
     if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return errorResponse("Integration not found" , 404)
     }
 
     if (integration.status !== "connected") {
-      return NextResponse.json({ error: "Integration not connected" }, { status: 400 })
+      return errorResponse("Integration not connected" , 400)
     }
 
     let result
@@ -52,13 +52,13 @@ export async function POST(request: Request) {
         result = await executeDiscordAction(integration, action, params)
         break
       default:
-        return NextResponse.json({ error: "Unsupported provider" }, { status: 400 })
+        return errorResponse("Unsupported provider" , 400)
     }
 
-    return NextResponse.json({ success: true, result })
+    return jsonResponse({ success: true, result })
   } catch (error) {
     logger.error("Integration execution error:", error)
-    return NextResponse.json({ error: "Execution failed" }, { status: 500 })
+    return errorResponse("Execution failed" , 500)
   }
 }
 

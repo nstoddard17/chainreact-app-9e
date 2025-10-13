@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get customer ID from subscription
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error || !subscription?.stripe_customer_id) {
-      return NextResponse.json({ error: "No subscription found" }, { status: 404 })
+      return errorResponse("No subscription found" , 404)
     }
 
     // Get the base URL dynamically from the request
@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to create portal session URL")
     }
 
-    return NextResponse.json({ url: portalSession.url })
+    return jsonResponse({ url: portalSession.url })
   } catch (error: any) {
     logger.error("Portal session error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
     if (error) throw error
 
     // Return success response immediately
-    const successResponse = NextResponse.json({ success: true })
+    const successResponse = jsonResponse({ success: true })
 
     // Register webhooks for user boards in background (best-effort) - DON'T await this call
     const base = getBaseUrl()

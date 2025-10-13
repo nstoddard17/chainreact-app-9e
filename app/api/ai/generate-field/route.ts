@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { OpenAI } from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
@@ -41,10 +42,7 @@ export async function POST(req: NextRequest) {
 
     // Validate input
     if (!model || !systemPrompt || !userPrompt) {
-      return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required parameters' , 400)
     }
 
     // Check cache
@@ -52,7 +50,7 @@ export async function POST(req: NextRequest) {
     const cached = fieldCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       logger.debug('📦 Returning cached field value')
-      return NextResponse.json({ value: cached.value })
+      return jsonResponse({ value: cached.value })
     }
 
     // For anonymous field generation (during workflow building)
@@ -65,7 +63,7 @@ export async function POST(req: NextRequest) {
         temperature,
         fieldType
       )
-      return NextResponse.json({ value })
+      return jsonResponse({ value })
     }
 
     // Check user authentication
@@ -76,17 +74,14 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Check usage limits
     const { checkUsageLimit } = await import('@/lib/usageTracking')
     const usageCheck = await checkUsageLimit(userId, 'ai_field_generation')
     if (!usageCheck.allowed) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} field generations this month.`
         },
@@ -120,14 +115,11 @@ export async function POST(req: NextRequest) {
     const { trackUsage } = await import('@/lib/usageTracking')
     await trackUsage(userId, 'ai_field_generation', { model, fieldType })
 
-    return NextResponse.json({ value })
+    return jsonResponse({ value })
 
   } catch (error: any) {
     logger.error('Field generation API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate field value' },
-      { status: 500 }
-    )
+    return errorResponse('Failed to generate field value' , 500)
   }
 }
 

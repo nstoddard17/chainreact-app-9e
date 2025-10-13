@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -70,7 +71,7 @@ export async function POST() {
       .from('microsoft_graph_events')
       .select('id', { count: 'exact', head: true })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       cleanup: {
         queue_deleted: deletedQueue?.length || 0,
@@ -86,7 +87,7 @@ export async function POST() {
 
   } catch (error: any) {
     logger.error('❌ Cleanup error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }
 
@@ -110,7 +111,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  return NextResponse.json({
+  return jsonResponse({
     counts: {
       queue: queueCount || 0,
       dedup: dedupCount || 0,

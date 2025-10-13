@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt } from '@/lib/security/encryption'
 
@@ -13,10 +14,7 @@ export async function POST(request: NextRequest) {
     const { integrationId, name } = await request.json()
 
     if (!integrationId || !name) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: integrationId and name' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required parameters: integrationId and name' , 400)
     }
 
     // Get integration from database
@@ -27,20 +25,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'Gmail integration not found' },
-        { status: 404 }
-      )
+      return errorResponse('Gmail integration not found' , 404)
     }
 
     // Decrypt the access token
     const accessToken = integration.access_token ? decrypt(integration.access_token) : null
     
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Gmail integration not properly configured' },
-        { status: 401 }
-      )
+      return errorResponse('Gmail integration not properly configured' , 401)
     }
 
     // Create the label in Gmail
@@ -59,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}` },
         { status: response.status }
       )
@@ -67,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     const labelData = await response.json()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       id: labelData.id,
       name: labelData.name,
@@ -76,10 +68,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error creating Gmail label:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -88,10 +77,7 @@ export async function DELETE(request: NextRequest) {
     const { integrationId, labelId } = await request.json()
 
     if (!integrationId || !labelId) {
-      return NextResponse.json(
-        { error: 'Missing required parameters: integrationId and labelId' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required parameters: integrationId and labelId' , 400)
     }
 
     // Get integration from database
@@ -102,20 +88,14 @@ export async function DELETE(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'Gmail integration not found' },
-        { status: 404 }
-      )
+      return errorResponse('Gmail integration not found' , 404)
     }
 
     // Decrypt the access token
     const accessToken = integration.access_token ? decrypt(integration.access_token) : null
     
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Gmail integration not properly configured' },
-        { status: 401 }
-      )
+      return errorResponse('Gmail integration not properly configured' , 401)
     }
 
     // Delete the label in Gmail
@@ -132,28 +112,22 @@ export async function DELETE(request: NextRequest) {
       
       // Handle specific Gmail API errors
       if (response.status === 400 && errorData.error?.message?.includes('cannot be deleted')) {
-        return NextResponse.json(
-          { error: 'This label cannot be deleted (it may be a system label or required label)' },
-          { status: 400 }
-        )
+        return errorResponse('This label cannot be deleted (it may be a system label or required label)' , 400)
       }
       
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Gmail API error: ${response.status} - ${errorData.error?.message || response.statusText}` },
         { status: response.status }
       )
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Label deleted successfully'
     })
 
   } catch (error) {
     logger.error('Error deleting Gmail label:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

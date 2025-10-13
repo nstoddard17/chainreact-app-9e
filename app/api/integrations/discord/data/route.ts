@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { discordHandlers } from './handlers'
 import { DiscordIntegration } from './types'
@@ -20,9 +21,8 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database
@@ -35,9 +35,8 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [Discord API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'Discord integration not found'
-      }, { status: 404 })
+      return errorResponse('Discord integration not found'
+      , 404)
     }
 
     // Validate integration status - check for re-authorization needed
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
+      return jsonResponse({
         data: [],
         success: false,
         error: 'Discord integration needs to be re-authorized. Please reconnect your Discord account.',
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
+      return jsonResponse({
         data: [],
         success: false,
         error: 'Discord integration is not connected. Please reconnect your account.',
@@ -83,7 +82,7 @@ export async function POST(req: NextRequest) {
     const handler = discordHandlers[dataType]
     if (!handler) {
       logger.error('❌ [Discord API] Unknown data type:', dataType, 'Available:', Object.keys(discordHandlers))
-      return NextResponse.json({
+      return jsonResponse({
         error: `Unknown Discord data type: ${dataType}`,
         availableTypes: Object.keys(discordHandlers)
       }, { status: 400 })
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
       resultCount: data?.length || 0
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data,
       success: true,
       integrationId,
@@ -119,17 +118,15 @@ export async function POST(req: NextRequest) {
 
     // Handle authentication errors
     if (error.status === 401 || error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors gracefully for UI dropdowns
     if (error.status === 429 || error.message?.includes('rate limit')) {
       // Return empty data with success=true to avoid surfacing an error toast in UI
       // The client can re-issue later; our handlers already cache GETs for 10 minutes
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: [],
         rateLimited: true,
@@ -137,9 +134,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

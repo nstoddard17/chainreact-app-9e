@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     logger.debug('Kit token data:', JSON.stringify(tokenData))
     
     if (!tokenData.access_token) {
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
       })
       
       if (accountResponse.ok) {
-        accountInfo = await accountResponse.json()
+        accountInfo = await accountjsonResponse()
         logger.debug('Kit account info:', JSON.stringify(accountInfo))
       } else {
         logger.warn('Could not fetch Kit account information:', await accountResponse.text())

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get query parameters
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // In the future, this would fetch actual data from Shopify API
     switch (dataType) {
       case "stores":
-        return NextResponse.json({
+        return jsonResponse({
           data: [
             {
               id: "coming-soon",
@@ -40,22 +40,19 @@ export async function GET(request: NextRequest) {
       case "products":
       case "collections":
       case "customers":
-        return NextResponse.json({
+        return jsonResponse({
           data: [],
           message: "Shopify integration is coming soon"
         })
       
       default:
-        return NextResponse.json({
+        return jsonResponse({
           data: [],
           message: "Shopify integration is coming soon"
         })
     }
   } catch (error: any) {
     logger.error("Error fetching Shopify data:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch Shopify data", details: error.message },
-      { status: 500 }
-    )
+    return errorResponse("Failed to fetch Shopify data", 500, { details: error.message  })
   }
 }

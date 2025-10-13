@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       logger.error('Failed to exchange Facebook code for token:', errorData)
       return createPopupResponse(
         'error',
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     // Fetch granted scopes using /debug_token
     let grantedScopes: string[] = []
@@ -67,13 +68,13 @@ export async function GET(request: NextRequest) {
       const appTokenResponse = await fetch(
         `https://graph.facebook.com/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`
       )
-      const appTokenData = await appTokenResponse.json()
+      const appTokenData = await appTokenjsonResponse()
       const appToken = appTokenData.access_token
       if (appToken) {
         const debugTokenResponse = await fetch(
           `https://graph.facebook.com/debug_token?input_token=${tokenData.access_token}&access_token=${appToken}`
         )
-        const debugData = await debugTokenResponse.json()
+        const debugData = await debugTokenjsonResponse()
         if (debugData.data && debugData.data.scopes) {
           grantedScopes = debugData.data.scopes
         }

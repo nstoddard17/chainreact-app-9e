@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createClient } from '@supabase/supabase-js';
 import { FileStorageService } from '@/lib/storage/fileStorage';
 
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Get the Authorization header
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized' , 401);
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Verify the user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized' , 401);
     }
 
     // Get form data
@@ -33,17 +34,17 @@ export async function POST(request: NextRequest) {
     const nodeId = formData.get('nodeId') as string;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+      return errorResponse('No file provided' , 400);
     }
 
     if (!nodeId) {
-      return NextResponse.json({ error: 'No node ID provided' }, { status: 400 });
+      return errorResponse('No node ID provided' , 400);
     }
 
     // Check file size (25MB limit for uploaded files)
     const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB` 
       }, { status: 400 });
     }
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       logger.error('File upload error:', uploadError);
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `Failed to upload file: ${uploadError.message}` 
       }, { status: 500 });
     }
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
       // For temporary uploads, just return the file info without database storage
       // The file is already uploaded to Supabase storage
       logger.debug('Temporary file upload - skipping database record for:', { workflowId, nodeId, fileName: file.name });
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         fileId: nodeId, // Use the node ID as identifier
         fileName: file.name,
@@ -175,12 +176,12 @@ export async function POST(request: NextRequest) {
       // Clean up uploaded file if database insert fails
       await supabase.storage.from('workflow-files').remove([filePath]);
       logger.error('Database insert error:', dbError);
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `Failed to store file metadata: ${dbError.message}` 
       }, { status: 500 });
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       fileId: dbData.node_id, // Use node_id as the file identifier
       fileName: dbData.file_name,
@@ -190,9 +191,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('File upload error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to upload file' 
-    }, { status: 500 });
+    return errorResponse(error.message || 'Failed to upload file' 
+    , 500);
   }
 }
 
@@ -201,7 +201,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized' , 401);
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -209,7 +209,7 @@ export async function DELETE(request: NextRequest) {
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized' , 401);
     }
 
     const { searchParams } = new URL(request.url);
@@ -217,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     const workflowId = searchParams.get('workflowId');
 
     if (!nodeId || !workflowId) {
-      return NextResponse.json({ error: 'Missing nodeId or workflowId' }, { status: 400 });
+      return errorResponse('Missing nodeId or workflowId' , 400);
     }
 
     // Get file metadata
@@ -242,12 +242,11 @@ export async function DELETE(request: NextRequest) {
         .eq('node_id', nodeId);
     }
 
-    return NextResponse.json({ success: true });
+    return jsonResponse({ success: true });
 
   } catch (error: any) {
     logger.error('File deletion error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to delete file' 
-    }, { status: 500 });
+    return errorResponse(error.message || 'Failed to delete file' 
+    , 500);
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const subscription = subscriptions?.[0]
     if (!subscription) {
       logger.debug('❌ No active Microsoft Graph subscriptions found')
-      return NextResponse.json({ error: 'No active subscriptions' })
+      return jsonResponse({ error: 'No active subscriptions' })
     }
 
     logger.debug('\n📝 Active Subscription:')
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
     logger.debug(`  - Queue Items: ${queueItems?.length || 0}`)
     logger.debug('========================================\n')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       subscription: subscription?.id,
       userId,
@@ -159,6 +160,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Debug test error:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }

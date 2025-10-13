@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import { decrypt } from '@/lib/security/encryption'
@@ -15,14 +16,14 @@ export async function GET(req: NextRequest) {
     // Get user from session
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const token = authHeader.substring(7)
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get the data type and optional parameters
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
+      return errorResponse('Google Drive not connected' , 400)
     }
 
     // Decrypt access token
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
         })
 
         const folders = foldersResponse.data.files || []
-        return NextResponse.json(folders.map(folder => ({
+        return jsonResponse(folders.map(folder => ({
           id: folder.id,
           name: folder.name,
           parents: folder.parents
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
         logger.debug('[Google Drive API] Found files:', filesResponse.data.files?.length || 0)
 
         const files = filesResponse.data.files || []
-        return NextResponse.json(files.map(file => ({
+        return jsonResponse(files.map(file => ({
           id: file.id,
           name: file.name,
           mimeType: file.mimeType,
@@ -97,14 +98,11 @@ export async function GET(req: NextRequest) {
         })))
 
       default:
-        return NextResponse.json({ error: 'Invalid data type' }, { status: 400 })
+        return errorResponse('Invalid data type' , 400)
     }
   } catch (error: any) {
     logger.error('Error fetching Google Drive data:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch data' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch data' , 500)
   }
 }
 
@@ -132,7 +130,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (integrationError || !integration) {
-        return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
+        return errorResponse('Google Drive not connected' , 400)
       }
 
       // Decrypt access token
@@ -184,7 +182,7 @@ export async function POST(req: NextRequest) {
 
         logger.debug(`[Google Drive API] Successfully fetched ${files.length} files`)
 
-        return NextResponse.json({
+        return jsonResponse({
           data: files,
           success: true
         })
@@ -210,32 +208,32 @@ export async function POST(req: NextRequest) {
 
         logger.debug(`[Google Drive API] Successfully fetched ${folders.length} folders`)
 
-        return NextResponse.json({
+        return jsonResponse({
           data: folders,
           success: true
         })
       }
 
-      return NextResponse.json({ error: 'Unsupported data type' }, { status: 400 })
+      return errorResponse('Unsupported data type' , 400)
     }
 
     // Legacy pattern with fileId (kept for backward compatibility)
     const { fileId } = body
     if (!fileId) {
-      return NextResponse.json({ error: 'File ID or integration ID is required' }, { status: 400 })
+      return errorResponse('File ID or integration ID is required' , 400)
     }
 
     // Get user from session for legacy pattern
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const token = authHeader.substring(7)
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Google Drive integration
@@ -247,7 +245,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Google Drive not connected' }, { status: 400 })
+      return errorResponse('Google Drive not connected' , 400)
     }
 
     // Decrypt access token
@@ -339,7 +337,7 @@ export async function POST(req: NextRequest) {
       preview = `File: ${file.name}\nSize: ${file.size} bytes\nType: ${file.mimeType}\nModified: ${file.modifiedTime}`
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       preview,
       metadata: {
         id: file.id,
@@ -352,9 +350,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     logger.error('Error fetching file preview:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch file preview' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch file preview' , 500)
   }
 }

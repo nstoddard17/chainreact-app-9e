@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     const userId = url.searchParams.get('userId')
     
     if (!userId) {
-      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 })
+      return errorResponse('Missing userId parameter' , 400)
     }
     
     const subscriptions = await subscriptionManager.getUserSubscriptions(userId)
@@ -33,13 +34,13 @@ export async function GET(req: NextRequest) {
       createdAt: sub.createdAt
     }))
     
-    return NextResponse.json({
+    return jsonResponse({
       subscriptions: formattedSubscriptions,
       count: formattedSubscriptions.length
     })
   } catch (error: any) {
     logger.error('Error fetching subscriptions:', error)
-    return NextResponse.json({ error: error.message || 'Failed to fetch subscriptions' }, { status: 500 })
+    return errorResponse(error.message || 'Failed to fetch subscriptions' , 500)
   }
 }
 
@@ -49,9 +50,8 @@ export async function POST(req: NextRequest) {
     const { userId, resource, changeType } = await req.json()
     
     if (!userId || !resource || !changeType) {
-      return NextResponse.json({ 
-        error: 'Missing required parameters: userId, resource, changeType' 
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: userId, resource, changeType' 
+      , 400)
     }
     
     // Get user's Microsoft access token
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       .single()
       
     if (!integration) {
-      return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
+      return errorResponse('Microsoft integration not found' , 404)
     }
     
     // Create the subscription
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       accessToken: integration.access_token
     })
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       subscription: {
         id: subscription.id,
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (error: any) {
     logger.error('Error creating subscription:', error)
-    return NextResponse.json({ error: error.message || 'Failed to create subscription' }, { status: 500 })
+    return errorResponse(error.message || 'Failed to create subscription' , 500)
   }
 }
 
@@ -99,7 +99,7 @@ export async function DELETE(req: NextRequest) {
     const subscriptionId = pathParts[pathParts.length - 1]
     
     if (!subscriptionId || subscriptionId === 'subscriptions') {
-      return NextResponse.json({ error: 'Missing subscription ID' }, { status: 400 })
+      return errorResponse('Missing subscription ID' , 400)
     }
     
     // Get subscription details to find user and access token
@@ -110,7 +110,7 @@ export async function DELETE(req: NextRequest) {
       .single()
       
     if (!subscription) {
-      return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
+      return errorResponse('Subscription not found' , 404)
     }
     
     // Get user's Microsoft access token
@@ -122,18 +122,18 @@ export async function DELETE(req: NextRequest) {
       .single()
       
     if (!integration) {
-      return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
+      return errorResponse('Microsoft integration not found' , 404)
     }
     
     // Delete the subscription
     await subscriptionManager.deleteSubscription(subscriptionId, integration.access_token)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Subscription deleted successfully'
     })
   } catch (error: any) {
     logger.error('Error deleting subscription:', error)
-    return NextResponse.json({ error: error.message || 'Failed to delete subscription' }, { status: 500 })
+    return errorResponse(error.message || 'Failed to delete subscription' , 500)
   }
 }

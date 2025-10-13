@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
@@ -20,14 +21,14 @@ export async function POST(
     logger.debug('🔍 Debug - signature:', signature ? 'present' : 'missing')
     if (!signature && !isTestMode) {
       logger.error('❌ Missing Stripe signature')
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
+      return errorResponse('Missing signature' , 400)
     }
 
     // Verify webhook signature
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!webhookSecret) {
       logger.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable')
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+      return errorResponse('Webhook secret not configured' , 500)
     }
 
     // For testing purposes, allow requests without signature verification
@@ -49,7 +50,7 @@ export async function POST(
         
         if (!timestamp || !signatureValue) {
           logger.error('❌ Invalid signature format')
-          return NextResponse.json({ error: 'Invalid signature format' }, { status: 400 })
+          return errorResponse('Invalid signature format' , 400)
         }
 
         // Create the signed payload
@@ -64,14 +65,14 @@ export async function POST(
           logger.error('❌ Invalid Stripe signature')
           logger.error(`Expected: ${expectedSignature}`)
           logger.error(`Received: ${signatureValue}`)
-          return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+          return errorResponse('Invalid signature' , 400)
         }
 
         event = JSON.parse(body)
       }
     } catch (err) {
       logger.error('❌ Error verifying webhook signature:', err)
-      return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 })
+      return errorResponse('Invalid webhook payload' , 400)
     }
 
     logger.debug(`🔔 Received Stripe webhook: ${event.type}`)
@@ -100,7 +101,7 @@ export async function POST(
 
     if (workflowsError) {
       logger.error('❌ Error fetching workflows:', workflowsError)
-      return NextResponse.json({ error: 'Failed to fetch workflows' }, { status: 500 })
+      return errorResponse('Failed to fetch workflows' , 500)
     }
 
     const matchingWorkflows = workflows?.filter(workflow => {
@@ -149,7 +150,7 @@ export async function POST(
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       message: 'Stripe webhook processed successfully',
       event_type: event.type,
       workflows_processed: results.length,
@@ -158,15 +159,12 @@ export async function POST(
 
   } catch (error) {
     logger.error('❌ Error processing Stripe webhook:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: "Stripe webhook endpoint active",
     provider: "stripe",
     methods: ["POST", "GET"],

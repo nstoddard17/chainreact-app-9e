@@ -25,9 +25,9 @@ export async function GET() {
 
     const statusCode = validation.isValid ? 200 : 503
 
-    return NextResponse.json(healthStatus, { status: statusCode })
+    return jsonResponse(healthStatus, { status: statusCode })
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       timestamp: new Date().toISOString(),
       overall: 'error',
       error: error.message || 'Unknown error during configuration validation'

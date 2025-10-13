@@ -26,11 +26,11 @@ async function processScheduledExecutions() {
 // Vercel cron jobs use GET by default
 export async function GET(req: NextRequest) {
   const result = await processScheduledExecutions()
-  return NextResponse.json(result)
+  return jsonResponse(result)
 }
 
 // Keep POST for manual triggers
 export async function POST(req: NextRequest) {
   const result = await processScheduledExecutions()
-  return NextResponse.json(result)
+  return jsonResponse(result)
 } 

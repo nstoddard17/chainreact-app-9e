@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     if (metadataError || !metadataData) {
       logger.debug("🔍 No plan data found in either location, returning free plan");
-      return NextResponse.json({ plan: "free" }); // fallback
+      return jsonResponse({ plan: "free" }); // fallback
     }
 
     data = metadataData;
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     
     if (!data.access_token) {
       logger.debug("🔍 No access token found, returning free plan");
-      return NextResponse.json({ plan: "free" });
+      return jsonResponse({ plan: "free" });
     }
 
     try {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       
       if (!slackData.ok) {
         logger.debug("🔍 Slack API returned error, returning free plan");
-        return NextResponse.json({ plan: "free" });
+        return jsonResponse({ plan: "free" });
       }
 
       const plan = slackData.team?.plan || "free";
@@ -101,16 +101,16 @@ export async function POST(request: NextRequest) {
         .eq("team_id", workspaceId);
 
       logger.debug("🔍 Updated integration with plan:", plan);
-      return NextResponse.json({ plan });
+      return jsonResponse({ plan });
       
     } catch (apiError) {
       logger.error("🔍 Failed to fetch plan from Slack API:", apiError);
       logger.debug("🔍 Falling back to free plan due to API error");
-      return NextResponse.json({ plan: "free" });
+      return jsonResponse({ plan: "free" });
     }
   }
 
   const plan = data.provider_plan || "free";
   logger.debug("🔍 Returning plan:", plan);
-  return NextResponse.json({ plan });
+  return jsonResponse({ plan });
 } 

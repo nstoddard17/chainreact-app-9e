@@ -37,13 +37,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error("Error fetching templates:", error)
-      return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 })
+      return errorResponse("Failed to fetch templates" , 500)
     }
 
-    return NextResponse.json({ templates })
+    return jsonResponse({ templates })
   } catch (error) {
     logger.error("Error in GET /api/templates:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { name, description, workflow_json, category, tags, is_public } = await request.json()
@@ -100,12 +100,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Error creating template:", error)
-      return NextResponse.json({ error: "Failed to create template" }, { status: 500 })
+      return errorResponse("Failed to create template" , 500)
     }
 
-    return NextResponse.json({ template })
+    return jsonResponse({ template })
   } catch (error) {
     logger.error("Error in POST /api/templates:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

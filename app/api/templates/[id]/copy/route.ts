@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Await params before using
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (templateError || !template) {
       logger.error("Template fetch error:", templateError)
-      return NextResponse.json({ error: "Template not found" }, { status: 404 })
+      return errorResponse("Template not found" , 404)
     }
 
     // Log raw template data to debug
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Validate we have nodes to copy
     if (!nodes || nodes.length === 0) {
       logger.error("No nodes found in template to copy")
-      return NextResponse.json({
+      return jsonResponse({
         error: "Template has no nodes to copy",
         debug: {
           templateId: resolvedParams.id,
@@ -163,25 +163,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (workflowError) {
       logger.error("Error creating workflow from template:", workflowError)
-      return NextResponse.json({
-        error: "Failed to create workflow",
+      return errorResponse("Failed to create workflow", 500, {
         details: workflowError.message,
         code: workflowError.code
-      }, { status: 500 })
+      })
     }
 
     if (!workflow) {
       logger.error("Workflow created but no data returned")
-      return NextResponse.json({ error: "Workflow creation succeeded but no data returned" }, { status: 500 })
+      return errorResponse("Workflow creation succeeded but no data returned" , 500)
     }
 
     logger.debug(`Successfully created workflow ${workflow.id} from template`)
-    return NextResponse.json({ workflow })
+    return jsonResponse({ workflow })
   } catch (error) {
     logger.error("Unexpected error copying template:", error)
-    return NextResponse.json({
-      error: "Internal server error",
-      details: error instanceof Error ? error.message : "Unknown error"
-    }, { status: 500 })
+    return errorResponse("Internal server error", 500, { details: error instanceof Error ? error.message : "Unknown error"
+     })
   }
 }

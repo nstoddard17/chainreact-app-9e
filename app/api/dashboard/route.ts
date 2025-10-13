@@ -19,7 +19,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Fetch all dashboard data in parallel
@@ -99,7 +99,7 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         metrics: {
@@ -122,7 +122,7 @@ export async function GET() {
     })
   } catch (error: any) {
     logger.error("Dashboard API error:", error)
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch dashboard data",

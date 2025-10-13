@@ -52,7 +52,7 @@ export async function GET() {
   
   logger.debug("[Webhook Test] Results:", JSON.stringify(results, null, 2))
   
-  return NextResponse.json(results)
+  return jsonResponse(results)
 }
 
 // Test POST to simulate webhook
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
         .select("count")
         .single()
       
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         message: "Could not write to webhook_logs",
         error: error.message,
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
       })
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Test webhook processed",
       data: data,
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     
   } catch (error: any) {
     logger.error("[Webhook Test] Error:", error)
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString()

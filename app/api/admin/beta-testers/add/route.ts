@@ -11,19 +11,13 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (!email) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      )
+      return errorResponse("Email is required" , 400)
     }
 
     // Basic email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: "Invalid email format" },
-        { status: 400 }
-      )
+      return errorResponse("Invalid email format" , 400)
     }
 
     // Create route handler client for auth verification
@@ -34,10 +28,7 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       logger.error("Auth error:", authError)
-      return NextResponse.json(
-        { error: "Unauthorized - please log in" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized - please log in" , 401)
     }
 
     // Create service client to bypass RLS
@@ -57,25 +48,19 @@ export async function POST(request: Request) {
 
     if (profileError) {
       logger.error("Error fetching profile:", profileError)
-      return NextResponse.json(
-        { error: "Failed to verify admin status" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to verify admin status" , 500)
     }
 
     if (!profile) {
       logger.error("No profile found for user:", user.id)
-      return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 }
-      )
+      return errorResponse("User profile not found" , 404)
     }
 
     logger.debug("User role:", profile.role)
 
     if (profile.role !== 'admin') {
       logger.debug("User is not admin. Role:", profile.role)
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Only admins can add beta testers. Your role: ${profile.role || 'user'}` },
         { status: 403 }
       )
@@ -106,19 +91,13 @@ export async function POST(request: Request) {
 
       // Handle duplicate email error
       if (error.code === '23505') {
-        return NextResponse.json(
-          { error: "This email is already registered as a beta tester" },
-          { status: 409 }
-        )
+        return errorResponse("This email is already registered as a beta tester" , 409)
       }
 
-      return NextResponse.json(
-        { error: error.message || "Failed to add beta tester" },
-        { status: 500 }
-      )
+      return errorResponse(error.message || "Failed to add beta tester" , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Beta tester ${email} added successfully`,
       data
@@ -126,9 +105,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     logger.error("Error in add beta tester API:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }

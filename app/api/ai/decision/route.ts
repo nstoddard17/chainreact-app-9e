@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { OpenAI } from 'openai'
 import { createClient } from '@supabase/supabase-js'
 
@@ -30,10 +31,7 @@ export async function POST(req: NextRequest) {
 
     // Validate input
     if (!model || !systemPrompt || !userPrompt || !userId) {
-      return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required parameters' , 400)
     }
 
     // Check user authentication
@@ -44,17 +42,14 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Check usage limits
     const { checkUsageLimit } = await import('@/lib/usageTracking')
     const usageCheck = await checkUsageLimit(userId, 'ai_decision')
     if (!usageCheck.allowed) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI decisions this month.`
         },
@@ -144,24 +139,16 @@ export async function POST(req: NextRequest) {
       const { trackUsage } = await import('@/lib/usageTracking')
       await trackUsage(userId, 'ai_decision', { model })
 
-      return NextResponse.json({ decision })
+      return jsonResponse({ decision })
 
     } catch (aiError: any) {
       logger.error('AI provider error:', aiError)
-      return NextResponse.json(
-        {
-          error: 'AI service temporarily unavailable',
-          details: aiError.message
-        },
-        { status: 503 }
-      )
+      return errorResponse('AI service temporarily unavailable', 503, { details: aiError.message
+         })
     }
 
   } catch (error: any) {
     logger.error('API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

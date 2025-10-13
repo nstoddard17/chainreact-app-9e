@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 
@@ -18,7 +19,7 @@ export async function DELETE(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     logger.debug('🧹 Starting cleanup of all Microsoft Graph subscriptions for user:', user.id)
@@ -28,9 +29,8 @@ export async function DELETE(request: NextRequest) {
     try {
       accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
     } catch (error) {
-      return NextResponse.json({
-        error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      }, { status: 400 })
+      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
+      , 400)
     }
 
     // List all subscriptions
@@ -46,13 +46,13 @@ export async function DELETE(request: NextRequest) {
     if (!listResponse.ok) {
       const errorText = await listResponse.text()
       logger.error('❌ Failed to list subscriptions:', errorText)
-      return NextResponse.json({
+      return jsonResponse({
         error: 'Failed to list subscriptions',
         details: errorText
       }, { status: listResponse.status })
     }
 
-    const listData = await listResponse.json()
+    const listData = await listjsonResponse()
     const subscriptions = listData.value || []
 
     logger.debug(`📊 Found ${subscriptions.length} subscription(s)`)
@@ -120,7 +120,7 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Cleaned up ${results.length} Microsoft Graph subscription(s)`,
       results,
@@ -129,10 +129,8 @@ export async function DELETE(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Error during cleanup:', error)
-    return NextResponse.json({
-      error: 'Failed to cleanup subscriptions',
-      details: error.message
-    }, { status: 500 })
+    return errorResponse('Failed to cleanup subscriptions', 500, { details: error.message
+     })
   }
 }
 
@@ -147,7 +145,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get access token for Microsoft Graph
@@ -155,9 +153,8 @@ export async function GET(request: NextRequest) {
     try {
       accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
     } catch (error) {
-      return NextResponse.json({
-        error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      }, { status: 400 })
+      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
+      , 400)
     }
 
     // List all subscriptions
@@ -171,13 +168,13 @@ export async function GET(request: NextRequest) {
 
     if (!listResponse.ok) {
       const errorText = await listResponse.text()
-      return NextResponse.json({
+      return jsonResponse({
         error: 'Failed to list subscriptions',
         details: errorText
       }, { status: listResponse.status })
     }
 
-    const data = await listResponse.json()
+    const data = await listjsonResponse()
     const subscriptions = data.value || []
 
     // Also get trigger_resources
@@ -188,7 +185,7 @@ export async function GET(request: NextRequest) {
       .like('provider_id', 'microsoft%')
       .eq('resource_type', 'subscription')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       microsoftGraphSubscriptions: subscriptions,
       triggerResources: triggerResources || [],
@@ -203,9 +200,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Error listing subscriptions:', error)
-    return NextResponse.json({
-      error: 'Failed to list subscriptions',
-      details: error.message
-    }, { status: 500 })
+    return errorResponse('Failed to list subscriptions', 500, { details: error.message
+     })
   }
 }

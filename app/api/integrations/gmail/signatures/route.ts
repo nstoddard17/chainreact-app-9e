@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getDecryptedAccessToken } from '@/lib/integrations/getDecryptedAccessToken'
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     if (!requestedUserId) {
       logger.debug('❌ [SIGNATURES] No userId provided')
-      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 })
+      return errorResponse('Missing userId parameter' , 400)
     }
     
     // Use admin client to verify user exists
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     if (userError || !userData) {
       logger.debug('❌ [SIGNATURES] User not found:', userError)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return errorResponse('User not found' , 404)
     }
 
     const userId = requestedUserId
@@ -40,20 +41,18 @@ export async function GET(request: NextRequest) {
       logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
       logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
-      return NextResponse.json({ 
-        error: 'Gmail integration not connected',
+      return errorResponse('Gmail integration not connected', 200, {
         signatures: [],
         needsConnection: true
-      }, { status: 200 })
+      })
     }
     
     if (!accessToken) {
       logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
-      return NextResponse.json({ 
-        error: 'Gmail access token missing',
+      return errorResponse('Gmail access token missing', 200, {
         signatures: [],
         needsConnection: true
-      }, { status: 200 })
+      })
     }
 
     // Fetch Gmail sendAs settings to get signatures
@@ -67,14 +66,13 @@ export async function GET(request: NextRequest) {
     if (!settingsResponse.ok) {
       const errorText = await settingsResponse.text()
       logger.error('❌ [GMAIL SIGNATURES] Gmail sendAs API failed:', settingsResponse.status, errorText)
-      return NextResponse.json({ 
-        error: 'Failed to fetch Gmail signatures',
+      return errorResponse('Failed to fetch Gmail signatures', 200, {
         signatures: [],
         needsReconnection: settingsResponse.status === 401
-      }, { status: 200 })
+      })
     }
 
-    const settingsData = await settingsResponse.json()
+    const settingsData = await settingsjsonResponse()
     logger.debug(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
     logger.debug(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
     
@@ -122,13 +120,11 @@ export async function GET(request: NextRequest) {
       signaturesCount: signaturesWithSignatures.length
     }
 
-    return NextResponse.json(response)
+    return jsonResponse(response)
 
   } catch (error) {
     logger.error('Error fetching Gmail signatures:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      signatures: []
-    }, { status: 500 })
+    return errorResponse('Internal server error', 500, { signatures: []
+     })
   }
 }

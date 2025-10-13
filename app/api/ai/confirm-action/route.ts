@@ -27,14 +27,14 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization")
     
     if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const token = authHeader.replace("Bearer ", "")
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check again if connection closed before executing action
@@ -46,17 +46,14 @@ export async function POST(request: NextRequest) {
     // Execute the confirmed action
     const result = await executeConfirmedAction(action, data, user.id, supabaseAdmin)
 
-    return NextResponse.json(result)
+    return jsonResponse(result)
   } catch (error) {
     logger.error("Confirm action error:", error)
     // Don't send error response if connection was closed
     if (connectionClosed) {
       return new Response(null, { status: 499 });
     }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }
 

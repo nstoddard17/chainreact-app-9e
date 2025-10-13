@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { eventType, eventData, integrationId } = await request.json()
 
     if (!eventType) {
-      return NextResponse.json({ error: "Event type is required" }, { status: 400 })
+      return errorResponse("Event type is required" , 400)
     }
 
     // Log the integration event
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Error logging integration event:", error)
-      return NextResponse.json({ error: "Failed to log event" }, { status: 500 })
+      return errorResponse("Failed to log event" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error("Audit log error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

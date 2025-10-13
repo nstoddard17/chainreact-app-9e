@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
     const expectedSecret = process.env.ADMIN_SECRET || process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "ADMIN_SECRET not configured" }, { status: 500 })
+      return errorResponse("ADMIN_SECRET not configured" , 500)
     }
 
     // Allow secret authentication
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
     if (!providedSecret || providedSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get the request body
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Build the query to find problematic integrations
@@ -70,11 +70,11 @@ export async function POST(request: NextRequest) {
     
     if (findError) {
       logger.error(`❌ Error finding problematic integrations:`, findError)
-      return NextResponse.json({ error: `Failed to find integrations: ${findError.message}` }, { status: 500 })
+      return jsonResponse({ error: `Failed to find integrations: ${findError.message}` }, { status: 500 })
     }
     
     if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "No problematic integrations found to reset" 
       })
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Reset ${integrations.length} problematic integrations`,
       integrations: integrations.map(i => ({ id: i.id, provider: i.provider, user_id: i.user_id, status: i.status })),
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     logger.error(`💥 Error in reset-problem-integrations:`, error)
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: `Failed to reset problematic integrations: ${error.message}`,
     }, { status: 500 })

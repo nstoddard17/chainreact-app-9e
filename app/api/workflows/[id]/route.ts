@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const resolvedParams = await params
@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(resolvedParams.id)) {
-      return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
+      return errorResponse("Invalid workflow ID format" , 400)
     }
 
     // First try to get the workflow by ID only to see if it exists
@@ -36,7 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (existsError || !workflowExists) {
       logger.error('Workflow does not exist:', resolvedParams.id, existsError)
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     // Log for debugging
@@ -58,7 +58,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
       if (error) {
         logger.error('Error fetching owned workflow:', error)
-        return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
+        return errorResponse("Failed to fetch workflow" , 500)
       }
 
       // Sanitize payload: drop UI-only or malformed nodes that can render as "Unnamed Action"
@@ -84,7 +84,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         })
       }
 
-      return NextResponse.json(safeData)
+      return jsonResponse(safeData)
     }
 
     // Not the owner, check if user has shared access
@@ -107,7 +107,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         userId: user.id,
         error: sharedError
       })
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
     logger.debug('🔍 [Workflow API] Returning shared workflow data:', {
@@ -120,10 +120,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       nameValue: JSON.stringify(sharedData.name)
     })
 
-    return NextResponse.json(sharedData)
+    return jsonResponse(sharedData)
   } catch (error) {
     logger.error('Workflow API error:', error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -138,7 +138,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
@@ -166,10 +166,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
       if (existingWorkflow && existingWorkflow.nodes && existingWorkflow.nodes.length > 0) {
         logger.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', existingWorkflow.nodes.length, 'nodes')
-        return NextResponse.json({
-          error: "Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.",
-          code: "NODE_ERASURE_PREVENTED"
-        }, { status: 400 })
+        return errorResponse("Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.", 400, { code: "NODE_ERASURE_PREVENTED"
+         })
       }
     }
 
@@ -181,11 +179,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .single()
 
     if (checkError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     if (workflow.user_id !== user.id) {
-      return NextResponse.json({ error: "Not authorized to update this workflow" }, { status: 403 })
+      return errorResponse("Not authorized to update this workflow" , 403)
     }
 
     const previousStatus = workflow.status // Store the status before update
@@ -222,7 +220,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     if (error) {
       logger.error('❌ [Workflow API] Update error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
@@ -479,7 +477,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         activationBlocked: true,
         activationReason: 'No action nodes connected to a trigger. Connect at least one action to activate this workflow.'
       }
-      return NextResponse.json(responsePayload)
+      return jsonResponse(responsePayload)
     }
 
     const statusProvided = Object.prototype.hasOwnProperty.call(body, 'status')
@@ -548,7 +546,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             .single()
 
           // Return 200 with error details so frontend handles it gracefully
-          return NextResponse.json({
+          return jsonResponse({
             ...rolledBackWorkflow,
             triggerActivationError: {
               message: 'Failed to activate workflow triggers',
@@ -572,7 +570,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           .single()
 
         // Return 200 with error details so frontend handles it gracefully
-        return NextResponse.json({
+        return jsonResponse({
           ...rolledBackWorkflow,
           triggerActivationError: {
             message: 'Failed to activate workflow triggers',
@@ -614,10 +612,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       logger.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
     }
 
-    return NextResponse.json(data)
+    return jsonResponse(data)
   } catch (error) {
     logger.error('❌ [Workflow API] Error in PUT handler:', error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -633,7 +631,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const resolvedParams = await params
@@ -646,11 +644,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .single()
 
     if (fetchError || !workflowRecord) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     if (workflowRecord.user_id !== user.id) {
-      return NextResponse.json({ error: "Not authorized to delete this workflow" }, { status: 403 })
+      return errorResponse("Not authorized to delete this workflow" , 403)
     }
 
     try {
@@ -675,11 +673,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .eq('user_id', user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

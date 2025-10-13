@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const expectedSecret = process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+      return errorResponse("CRON_SECRET not configured" , 500)
     }
 
     // Allow either Vercel cron header OR secret authentication
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const isVercelCron = cronHeader === "1"
 
     if (!isVercelCron && (!providedSecret || providedSecret !== expectedSecret)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     logger.debug(`New token refresh job started`)
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Calculate the threshold for token expiration (30 minutes from now)
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       const endTime = Date.now()
       const durationMs = endTime - startTime
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "Token refresh job completed - no integrations to process",
         jobId,
@@ -330,7 +330,7 @@ export async function GET(request: NextRequest) {
       logger.error(`Could not run status fix procedure:`, error)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Token refresh finished in ${duration.toFixed(2)}s. ${successful} succeeded, ${failed} failed.`,
       jobId,
@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
     const endTime = Date.now()
     const durationMs = endTime - startTime
 
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: "Failed to complete token refresh job",

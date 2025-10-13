@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token')
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
+      return errorResponse("Token is required" , 400)
     }
 
     const serviceClient = await createSupabaseServiceClient()
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (inviteError || !invitation) {
-      return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 404 })
+      return errorResponse("Invalid or expired invitation" , 404)
     }
 
     // Check if invitation has expired
@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     
     if (now > expiresAt) {
-      return NextResponse.json({ error: "Invitation has expired" }, { status: 410 })
+      return errorResponse("Invitation has expired" , 410)
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       invitation: {
         id: invitation.id,
         email: invitation.email,
@@ -48,6 +48,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

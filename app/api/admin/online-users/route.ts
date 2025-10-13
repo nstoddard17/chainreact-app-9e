@@ -9,7 +9,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return errorResponse("Unauthorized" , 401);
     }
 
     // Check if user is admin
@@ -20,7 +20,7 @@ export async function GET() {
         .single();
 
     if (!userProfile || userProfile.role !== 'admin') {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        return errorResponse("Admin access required" , 403);
     }
 
     try {
@@ -35,15 +35,15 @@ export async function GET() {
 
         if (error) {
             logger.error("Error fetching online users:", error);
-            return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
+            return errorResponse("Failed to fetch online users" , 500);
         }
 
-        return NextResponse.json({ 
+        return jsonResponse({ 
             success: true, 
             users: onlineUsers || [] 
         });
     } catch (error) {
         logger.error("Error fetching online users:", error);
-        return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
+        return errorResponse("Failed to fetch online users" , 500);
     }
 } 

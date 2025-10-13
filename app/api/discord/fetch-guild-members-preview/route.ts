@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { fetchDiscordGuildMembers } from '@/lib/workflows/actions/discord'
 
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { config } = await request.json()
     
     if (!config) {
-      return NextResponse.json({ error: 'Config is required' }, { status: 400 })
+      return errorResponse('Config is required' , 400)
     }
 
     // Get user from session
@@ -17,17 +18,17 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Call the Discord action function to get preview data
     const result = await fetchDiscordGuildMembers(config, user.id, {})
     
     if (!result.success) {
-      return NextResponse.json({ error: result.message }, { status: 400 })
+      return errorResponse(result.message , 400)
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       data: result.output,
       message: result.message 
@@ -35,9 +36,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('Error in fetch guild members preview:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch guild members preview' }, 
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch guild members preview' , 500)
   }
 } 

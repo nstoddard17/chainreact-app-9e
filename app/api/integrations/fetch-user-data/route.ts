@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (!integrationId || !dataType) {
       logger.debug('❌ [SERVER] Missing required parameters');
-      return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+      return jsonResponse({ error: 'Missing required parameters' }, { status: 400 });
     }
     
     const gmailDataTypes = new Set([
@@ -63,11 +63,11 @@ export async function POST(req: NextRequest) {
       if (!teamsApiResponse.ok) {
         const errorText = await teamsApiResponse.text();
         logger.error('❌ [SERVER] Teams API error:', errorText);
-        return Response.json({ error: errorText || 'Failed to load Teams data' }, { status: teamsApiResponse.status });
+        return jsonResponse({ error: errorText || 'Failed to load Teams data' }, { status: teamsApiResponse.status });
       }
 
-      const teamsData = await teamsApiResponse.json();
-      return Response.json(teamsData);
+      const teamsData = await teamsApijsonResponse();
+      return jsonResponse(teamsData);
     }
 
     // Route Gmail-specific data requests (including enhanced recipients and labels) through Gmail API
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
         if (requestingError || !requestingIntegration) {
           logger.error('❌ [SERVER] Requesting integration not found:', requestingError);
-          return Response.json({ error: 'Requesting integration not found' }, { status: 404 });
+          return jsonResponse({ error: 'Requesting integration not found' }, { status: 404 });
         }
 
         // Determine which Gmail integration to use
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
               userId: requestingIntegration.user_id,
               requestingProvider: requestingIntegration.provider
             });
-            return Response.json({ error: 'A connected Gmail integration is required to load Gmail data.' }, { status: 404 });
+            return jsonResponse({ error: 'A connected Gmail integration is required to load Gmail data.' }, { status: 404 });
           }
 
           gmailIntegration = resolvedGmailIntegration;
@@ -135,19 +135,19 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gmailApiResponse.ok) {
-          const error = await gmailApiResponse.json();
+          const error = await gmailApijsonResponse();
           logger.error(`❌ [SERVER] Gmail API error:`, error);
-          return Response.json(error, { status: gmailApiResponse.status });
+          return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
-        const gmailResult = await gmailApiResponse.json();
+        const gmailResult = await gmailApijsonResponse();
         logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
-        return Response.json(gmailResult);
+        return jsonResponse(gmailResult);
 
       } catch (error: any) {
         logger.error(`❌ [SERVER] Gmail API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gmail request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Gmail request' }, { status: 500 });
       }
     }
 
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [SERVER] Integration not found:', integrationError);
-      return Response.json({ error: 'Integration not found' }, { status: 404 });
+      return jsonResponse({ error: 'Integration not found' }, { status: 404 });
     }
 
     // Handle Gmail recent recipients with original working method (no contacts permission needed)
@@ -196,11 +196,11 @@ export async function POST(req: NextRequest) {
           throw new Error(`Gmail API error: ${messagesResponse.status} - ${errorText}`)
         }
 
-        const messagesData = await messagesResponse.json()
+        const messagesData = await messagesjsonResponse()
         const messages = messagesData.messages || []
 
         if (messages.length === 0) {
-          return Response.json({ data: [] })
+          return jsonResponse({ data: [] })
         }
 
         // Get detailed information for each message
@@ -273,11 +273,11 @@ export async function POST(req: NextRequest) {
           }))
 
         logger.debug(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
-        return Response.json({ data: recipientArray })
+        return jsonResponse({ data: recipientArray })
 
       } catch (error: any) {
         logger.error(`❌ [SERVER] Gmail recipients error:`, error)
-        return Response.json({ 
+        return jsonResponse({ 
           error: error.message || 'Failed to get Gmail recipients' 
         }, { status: 500 })
       }
@@ -307,18 +307,18 @@ export async function POST(req: NextRequest) {
           });
 
           if (!googleApiResponse.ok) {
-            const error = await googleApiResponse.json();
+            const error = await googleApijsonResponse();
             logger.error(`❌ [SERVER] Google API error:`, error);
-            return Response.json(error, { status: googleApiResponse.status });
+            return jsonResponse(error, { status: googleApiResponse.status });
           }
 
-          const googleResult = await googleApiResponse.json();
+          const googleResult = await googleApijsonResponse();
           logger.debug(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
 
-          return Response.json(googleResult);
+          return jsonResponse(googleResult);
         } catch (error: any) {
           logger.error(`❌ [SERVER] Google API routing error:`, error);
-          return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+          return jsonResponse({ error: 'Failed to route Google request' }, { status: 500 });
         }
       }
     }
@@ -346,20 +346,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gmailApiResponse.ok) {
-          const error = await gmailApiResponse.json();
+          const error = await gmailApijsonResponse();
           logger.error(`❌ [SERVER] Gmail API error:`, error);
-          return Response.json(error, { status: gmailApiResponse.status });
+          return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
-        const gmailResult = await gmailApiResponse.json();
+        const gmailResult = await gmailApijsonResponse();
         logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         // Return the Gmail API response directly (it's already in the correct format)
-        return Response.json(gmailResult);
+        return jsonResponse(gmailResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Gmail API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gmail request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Gmail request' }, { status: 500 });
       }
     }
 
@@ -385,20 +385,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!slackApiResponse.ok) {
-          const error = await slackApiResponse.json();
+          const error = await slackApijsonResponse();
           logger.error(`❌ [SERVER] Slack API error:`, error);
-          return Response.json(error, { status: slackApiResponse.status });
+          return jsonResponse(error, { status: slackApiResponse.status });
         }
 
-        const slackResult = await slackApiResponse.json();
+        const slackResult = await slackApijsonResponse();
         logger.debug(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
 
         // Return the Slack API response directly (it's already in the correct format)
-        return Response.json(slackResult);
+        return jsonResponse(slackResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Slack API routing error:`, error);
-        return Response.json({ error: 'Failed to route Slack request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Slack request' }, { status: 500 });
       }
     }
 
@@ -449,7 +449,7 @@ export async function POST(req: NextRequest) {
         if (!googleApiResponse.ok) {
           let error;
           try {
-            error = await googleApiResponse.json();
+            error = await googleApijsonResponse();
           } catch (parseError) {
             const errorText = await googleApiResponse.text().catch(() => 'Unknown error');
             error = { error: `Failed to parse error response: ${errorText}` };
@@ -459,10 +459,10 @@ export async function POST(req: NextRequest) {
             error,
             requestPayload
           });
-          return Response.json(error, { status: googleApiResponse.status });
+          return jsonResponse(error, { status: googleApiResponse.status });
         }
 
-        const googleResult = await googleApiResponse.json();
+        const googleResult = await googleApijsonResponse();
         logger.debug(`✅ [SERVER] Google API completed for ${dataType}:`, {
           resultLength: googleResult.data?.length || 'unknown',
           success: googleResult.success,
@@ -470,7 +470,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Return the Google API response directly (it's already in the correct format)
-        return Response.json(googleResult);
+        return jsonResponse(googleResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Google API routing error:`, {
@@ -479,7 +479,7 @@ export async function POST(req: NextRequest) {
           dataType,
           integrationId
         });
-        return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Google request' }, { status: 500 });
       }
     }
 
@@ -509,20 +509,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!notionApiResponse.ok) {
-          const error = await notionApiResponse.json();
+          const error = await notionApijsonResponse();
           logger.error(`❌ [SERVER] Notion API error:`, error);
-          return Response.json(error, { status: notionApiResponse.status });
+          return jsonResponse(error, { status: notionApiResponse.status });
         }
 
-        const notionResult = await notionApiResponse.json();
+        const notionResult = await notionApijsonResponse();
         logger.debug(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
         
         // Return the Notion API response directly (it's already in the correct format)
-        return Response.json(notionResult);
+        return jsonResponse(notionResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Notion API routing error:`, error);
-        return Response.json({ error: 'Failed to route Notion request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Notion request' }, { status: 500 });
       }
     }
 
@@ -555,20 +555,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!discordApiResponse.ok) {
-          const error = await discordApiResponse.json();
+          const error = await discordApijsonResponse();
           logger.error(`❌ [SERVER] Discord API error:`, error);
-          return Response.json(error, { status: discordApiResponse.status });
+          return jsonResponse(error, { status: discordApiResponse.status });
         }
 
-        const discordResult = await discordApiResponse.json();
+        const discordResult = await discordApijsonResponse();
         logger.debug(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
         
         // Return the Discord API response directly (it's already in the correct format)
-        return Response.json(discordResult);
+        return jsonResponse(discordResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Discord API routing error:`, error);
-        return Response.json({ error: 'Failed to route Discord request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Discord request' }, { status: 500 });
       }
     }
 
@@ -593,20 +593,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!facebookApiResponse.ok) {
-          const error = await facebookApiResponse.json();
+          const error = await facebookApijsonResponse();
           logger.error(`❌ [SERVER] Facebook API error:`, error);
-          return Response.json(error, { status: facebookApiResponse.status });
+          return jsonResponse(error, { status: facebookApiResponse.status });
         }
 
-        const facebookResult = await facebookApiResponse.json();
+        const facebookResult = await facebookApijsonResponse();
         logger.debug(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
         
         // Return the Facebook API response directly (it's already in the correct format)
-        return Response.json(facebookResult);
+        return jsonResponse(facebookResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Facebook API routing error:`, error);
-        return Response.json({ error: 'Failed to route Facebook request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Facebook request' }, { status: 500 });
       }
     }
 
@@ -631,20 +631,20 @@ export async function POST(req: NextRequest) {
         });
 
         if (!twitterApiResponse.ok) {
-          const error = await twitterApiResponse.json();
+          const error = await twitterApijsonResponse();
           logger.error(`❌ [SERVER] Twitter API error:`, error);
-          return Response.json(error, { status: twitterApiResponse.status });
+          return jsonResponse(error, { status: twitterApiResponse.status });
         }
 
-        const twitterResult = await twitterApiResponse.json();
+        const twitterResult = await twitterApijsonResponse();
         logger.debug(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
         
         // Return the Twitter API response directly (it's already in the correct format)
-        return Response.json(twitterResult);
+        return jsonResponse(twitterResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Twitter API routing error:`, error);
-        return Response.json({ error: 'Failed to route Twitter request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Twitter request' }, { status: 500 });
       }
     }
 
@@ -671,23 +671,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!oneNoteApiResponse.ok) {
-          const error = await oneNoteApiResponse.json();
+          const error = await oneNoteApijsonResponse();
           logger.error(`❌ [SERVER] OneNote API error:`, error);
-          return Response.json(error, { status: oneNoteApiResponse.status });
+          return jsonResponse(error, { status: oneNoteApiResponse.status });
         }
 
-        const oneNoteResult = await oneNoteApiResponse.json();
+        const oneNoteResult = await oneNoteApijsonResponse();
         logger.debug(`✅ [SERVER] OneNote API success:`, {
           dataType,
           resultCount: oneNoteResult.data?.length || 0
         });
 
         // Return the OneNote API response directly (it's already in the correct format)
-        return Response.json(oneNoteResult);
+        return jsonResponse(oneNoteResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] OneNote API routing error:`, error);
-        return Response.json({ error: 'Failed to route OneNote request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route OneNote request' }, { status: 500 });
       }
     }
 
@@ -717,23 +717,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!outlookApiResponse.ok) {
-          const error = await outlookApiResponse.json();
+          const error = await outlookApijsonResponse();
           logger.error(`❌ [SERVER] Outlook API error:`, error);
-          return Response.json(error, { status: outlookApiResponse.status });
+          return jsonResponse(error, { status: outlookApiResponse.status });
         }
 
-        const outlookResult = await outlookApiResponse.json();
+        const outlookResult = await outlookApijsonResponse();
         logger.debug(`✅ [SERVER] Outlook API success:`, {
           dataType,
           resultCount: outlookResult.data?.length || 0
         });
 
         // Return the Outlook API response directly (it's already in the correct format)
-        return Response.json(outlookResult);
+        return jsonResponse(outlookResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Outlook API routing error:`, error);
-        return Response.json({ error: 'Failed to route Outlook request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Outlook request' }, { status: 500 });
       }
     }
 
@@ -765,23 +765,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!hubspotApiResponse.ok) {
-          const error = await hubspotApiResponse.json();
+          const error = await hubspotApijsonResponse();
           logger.error(`❌ [SERVER] HubSpot API error:`, error);
-          return Response.json(error, { status: hubspotApiResponse.status });
+          return jsonResponse(error, { status: hubspotApiResponse.status });
         }
 
-        const hubspotResult = await hubspotApiResponse.json();
+        const hubspotResult = await hubspotApijsonResponse();
         logger.debug(`✅ [SERVER] HubSpot API success:`, {
           dataType,
           resultCount: hubspotResult.data?.length || 0
         });
 
         // Return the HubSpot API response directly (it's already in the correct format)
-        return Response.json(hubspotResult);
+        return jsonResponse(hubspotResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] HubSpot API routing error:`, error);
-        return Response.json({ error: 'Failed to route HubSpot request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route HubSpot request' }, { status: 500 });
       }
     }
 
@@ -814,23 +814,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!airtableApiResponse.ok) {
-          const error = await airtableApiResponse.json();
+          const error = await airtableApijsonResponse();
           logger.error(`❌ [SERVER] Airtable API error:`, error);
-          return Response.json(error, { status: airtableApiResponse.status });
+          return jsonResponse(error, { status: airtableApiResponse.status });
         }
 
-        const airtableResult = await airtableApiResponse.json();
+        const airtableResult = await airtableApijsonResponse();
         logger.debug(`✅ [SERVER] Airtable API success:`, {
           dataType,
           resultCount: airtableResult.data?.length || 0
         });
 
         // Return the Airtable API response directly (it's already in the correct format)
-        return Response.json(airtableResult);
+        return jsonResponse(airtableResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Airtable API routing error:`, error);
-        return Response.json({ error: 'Failed to route Airtable request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Airtable request' }, { status: 500 });
       }
     }
 
@@ -861,23 +861,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!trelloApiResponse.ok) {
-          const error = await trelloApiResponse.json();
+          const error = await trelloApijsonResponse();
           logger.error(`❌ [SERVER] Trello API error:`, error);
-          return Response.json(error, { status: trelloApiResponse.status });
+          return jsonResponse(error, { status: trelloApiResponse.status });
         }
 
-        const trelloResult = await trelloApiResponse.json();
+        const trelloResult = await trelloApijsonResponse();
         logger.debug(`✅ [SERVER] Trello API success:`, {
           dataType,
           resultCount: trelloResult.data?.length || 0
         });
 
         // Return the Trello API response directly (it's already in the correct format)
-        return Response.json(trelloResult);
+        return jsonResponse(trelloResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Trello API routing error:`, error);
-        return Response.json({ error: 'Failed to route Trello request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Trello request' }, { status: 500 });
       }
     }
 
@@ -912,23 +912,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!excelApiResponse.ok) {
-          const error = await excelApiResponse.json();
+          const error = await excelApijsonResponse();
           logger.error(`❌ [SERVER] Microsoft Excel API error:`, error);
-          return Response.json(error, { status: excelApiResponse.status });
+          return jsonResponse(error, { status: excelApiResponse.status });
         }
 
-        const excelResult = await excelApiResponse.json();
+        const excelResult = await excelApijsonResponse();
         logger.debug(`✅ [SERVER] Microsoft Excel API success:`, {
           dataType,
           resultCount: excelResult.data?.length || 0
         });
 
         // Return the Excel API response directly (it's already in the correct format)
-        return Response.json(excelResult);
+        return jsonResponse(excelResult);
 
       } catch (error) {
         logger.error(`❌ [SERVER] Microsoft Excel API routing error:`, error);
-        return Response.json({ error: 'Failed to route Microsoft Excel request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Microsoft Excel request' }, { status: 500 });
       }
     }
 
@@ -953,23 +953,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!onedriveApiResponse.ok) {
-          const error = await onedriveApiResponse.json();
+          const error = await onedriveApijsonResponse();
           logger.error(`❌ [SERVER] OneDrive API error:`, error);
-          return Response.json(error, { status: onedriveApiResponse.status });
+          return jsonResponse(error, { status: onedriveApiResponse.status });
         }
 
-        const onedriveResult = await onedriveApiResponse.json();
+        const onedriveResult = await onedriveApijsonResponse();
         logger.debug(`✅ [SERVER] OneDrive API success:`, {
           dataType,
           resultCount: onedriveResult.data?.length || 0
         });
 
         // Return the OneDrive API response directly (it's already in the correct format)
-        return Response.json(onedriveResult);
+        return jsonResponse(onedriveResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] OneDrive API routing error:`, error);
-        return Response.json({ error: 'Failed to route OneDrive request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route OneDrive request' }, { status: 500 });
       }
     }
 
@@ -994,23 +994,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gumroadApiResponse.ok) {
-          const error = await gumroadApiResponse.json();
+          const error = await gumroadApijsonResponse();
           logger.error(`❌ [SERVER] Gumroad API error:`, error);
-          return Response.json(error, { status: gumroadApiResponse.status });
+          return jsonResponse(error, { status: gumroadApiResponse.status });
         }
 
-        const gumroadResult = await gumroadApiResponse.json();
+        const gumroadResult = await gumroadApijsonResponse();
         logger.debug(`✅ [SERVER] Gumroad API success:`, {
           dataType,
           resultCount: gumroadResult.data?.length || 0
         });
 
         // Return the Gumroad API response directly (it's already in the correct format)
-        return Response.json(gumroadResult);
+        return jsonResponse(gumroadResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Gumroad API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gumroad request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Gumroad request' }, { status: 500 });
       }
     }
 
@@ -1035,23 +1035,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!blackbaudApiResponse.ok) {
-          const error = await blackbaudApiResponse.json();
+          const error = await blackbaudApijsonResponse();
           logger.error(`❌ [SERVER] Blackbaud API error:`, error);
-          return Response.json(error, { status: blackbaudApiResponse.status });
+          return jsonResponse(error, { status: blackbaudApiResponse.status });
         }
 
-        const blackbaudResult = await blackbaudApiResponse.json();
+        const blackbaudResult = await blackbaudApijsonResponse();
         logger.debug(`✅ [SERVER] Blackbaud API success:`, {
           dataType,
           resultCount: blackbaudResult.data?.length || 0
         });
 
         // Return the Blackbaud API response directly (it's already in the correct format)
-        return Response.json(blackbaudResult);
+        return jsonResponse(blackbaudResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Blackbaud API routing error:`, error);
-        return Response.json({ error: 'Failed to route Blackbaud request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Blackbaud request' }, { status: 500 });
       }
     }
 
@@ -1076,23 +1076,23 @@ export async function POST(req: NextRequest) {
         });
 
         if (!dropboxApiResponse.ok) {
-          const error = await dropboxApiResponse.json();
+          const error = await dropboxApijsonResponse();
           logger.error(`❌ [SERVER] Dropbox API error:`, error);
-          return Response.json(error, { status: dropboxApiResponse.status });
+          return jsonResponse(error, { status: dropboxApiResponse.status });
         }
 
-        const dropboxResult = await dropboxApiResponse.json();
+        const dropboxResult = await dropboxApijsonResponse();
         logger.debug(`✅ [SERVER] Dropbox API success:`, {
           dataType,
           resultCount: dropboxResult.data?.length || 0
         });
 
         // Return the Dropbox API response directly (it's already in the correct format)
-        return Response.json(dropboxResult);
+        return jsonResponse(dropboxResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Dropbox API routing error:`, error);
-        return Response.json({ error: 'Failed to route Dropbox request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Dropbox request' }, { status: 500 });
       }
     }
 
@@ -1117,30 +1117,30 @@ export async function POST(req: NextRequest) {
         });
 
         if (!boxApiResponse.ok) {
-          const error = await boxApiResponse.json();
+          const error = await boxApijsonResponse();
           logger.error(`❌ [SERVER] Box API error:`, error);
-          return Response.json(error, { status: boxApiResponse.status });
+          return jsonResponse(error, { status: boxApiResponse.status });
         }
 
-        const boxResult = await boxApiResponse.json();
+        const boxResult = await boxApijsonResponse();
         logger.debug(`✅ [SERVER] Box API success:`, {
           dataType,
           resultCount: boxResult.data?.length || 0
         });
 
         // Return the Box API response directly (it's already in the correct format)
-        return Response.json(boxResult);
+        return jsonResponse(boxResult);
         
       } catch (error: any) {
         logger.error(`❌ [SERVER] Box API routing error:`, error);
-        return Response.json({ error: 'Failed to route Box request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Box request' }, { status: 500 });
       }
     }
 
     // Find the data fetcher for the requested data type (legacy path)
     const dataFetcher = dataFetchers[dataType];
     if (!dataFetcher) {
-      return Response.json({ error: `Unsupported data type: ${dataType}` }, { status: 400 });
+      return jsonResponse({ error: `Unsupported data type: ${dataType}` }, { status: 400 });
     }
 
     // Fetch the data
@@ -1148,14 +1148,14 @@ export async function POST(req: NextRequest) {
       logger.debug(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const data = await dataFetcher(integration, options);
       logger.debug(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
-      return Response.json({ data });
+      return jsonResponse({ data });
     } catch (error: any) {
       logger.error(`❌ [SERVER] Error calling dataFetcher for ${dataType}:`, error);
       
       // Check if it's an authentication error
       if (error.message?.includes('authentication') || error.message?.includes('expired') || 
           error.message?.includes('401') || error.message?.includes('unauthorized')) {
-        return Response.json({ 
+        return jsonResponse({ 
           error: 'Authentication expired. Please reconnect your account.',
           needsReconnection: true 
         }, { status: 401 });
@@ -1164,13 +1164,13 @@ export async function POST(req: NextRequest) {
       // Check if it's a rate limit error
       if (error.message?.includes('rate limit') || error.message?.includes('429') || 
           error.message?.includes('too many requests')) {
-        return Response.json({ 
+        return jsonResponse({ 
           error: 'API rate limit exceeded. Please try again later.',
           retryAfter: 60 
         }, { status: 429 });
       }
       
-      return Response.json({ error: error.message || 'Internal server error' }, { status: 500 });
+      return jsonResponse({ error: error.message || 'Internal server error' }, { status: 500 });
     }
   } catch (error: any) {
     logger.error('❌ [SERVER] Unexpected error in fetch-user-data:', {
@@ -1178,7 +1178,7 @@ export async function POST(req: NextRequest) {
       stack: error.stack,
       name: error.name
     });
-    return Response.json({ 
+    return jsonResponse({ 
       error: error.message || 'Internal server error',
       type: 'server_error'
     }, { status: 500 });

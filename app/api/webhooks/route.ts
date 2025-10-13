@@ -11,19 +11,16 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get user's webhooks
     const webhooks = await webhookManager.getUserWebhooks(user.id)
     
-    return NextResponse.json(webhooks)
+    return jsonResponse(webhooks)
   } catch (error: any) {
     logger.error("Error fetching webhooks:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch webhooks" },
-      { status: 500 }
-    )
+    return errorResponse("Failed to fetch webhooks" , 500)
   }
 }
 
@@ -34,17 +31,14 @@ export async function POST(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { workflowId, triggerType, providerId, config } = body
 
     if (!workflowId || !triggerType || !providerId) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      )
+      return errorResponse("Missing required fields" , 400)
     }
 
     // Verify workflow belongs to user
@@ -56,10 +50,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found" },
-        { status: 404 }
-      )
+      return errorResponse("Workflow not found" , 404)
     }
 
     // Register webhook
@@ -71,12 +62,9 @@ export async function POST(request: NextRequest) {
       config
     )
 
-    return NextResponse.json(webhook)
+    return jsonResponse(webhook)
   } catch (error: any) {
     logger.error("Error creating webhook:", error)
-    return NextResponse.json(
-      { error: "Failed to create webhook" },
-      { status: 500 }
-    )
+    return errorResponse("Failed to create webhook" , 500)
   }
 } 

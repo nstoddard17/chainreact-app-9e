@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     
     if (!token) {
       logger.debug("[Checkout API] No token found")
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     logger.debug("[Checkout API] Verifying user...")
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     
     if (authError || !user) {
       logger.debug("[Checkout API] Auth error:", authError)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
     logger.debug("[Checkout API] User verified:", user.id)
 
@@ -81,18 +81,12 @@ export async function POST(request: NextRequest) {
 
     // Validate input
     if (!planId || !billingCycle) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      )
+      return errorResponse("Missing required fields" , 400)
     }
 
     // Don't allow checkout for free plan
     if (planId === 'free-tier') {
-      return NextResponse.json(
-        { error: "Cannot create checkout session for free plan" },
-        { status: 400 }
-      )
+      return errorResponse("Cannot create checkout session for free plan" , 400)
     }
 
     // Get the plan from the database
@@ -105,20 +99,14 @@ export async function POST(request: NextRequest) {
     logger.debug("[Checkout API] Plan fetched:", plan?.name, "Error:", planError)
 
     if (planError || !plan) {
-      return NextResponse.json(
-        { error: "Plan not found" },
-        { status: 404 }
-      )
+      return errorResponse("Plan not found" , 404)
     }
 
     // Check if Stripe is configured
     logger.debug("[Checkout API] Checking Stripe configuration...")
     if (!process.env.STRIPE_SECRET_KEY) {
       logger.debug("[Checkout API] Stripe not configured")
-      return NextResponse.json(
-        { error: "STRIPE_NOT_CONFIGURED" },
-        { status: 503 }
-      )
+      return errorResponse("STRIPE_NOT_CONFIGURED" , 503)
     }
     logger.debug("[Checkout API] Stripe configured, initializing client...")
     
@@ -131,10 +119,7 @@ export async function POST(request: NextRequest) {
       logger.debug("[Checkout API] Stripe client initialized")
     } catch (stripeInitError) {
       logger.error("[Checkout API] Failed to initialize Stripe:", stripeInitError)
-      return NextResponse.json(
-        { error: "Failed to initialize payment processor" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to initialize payment processor" , 500)
     }
 
     // Get or create Stripe customer
@@ -168,10 +153,7 @@ export async function POST(request: NextRequest) {
         logger.debug("[Checkout API] Created Stripe customer:", stripeCustomerId)
       } catch (customerError) {
         logger.error("[Checkout API] Failed to create Stripe customer:", customerError)
-        return NextResponse.json(
-          { error: "Failed to create customer account" },
-          { status: 500 }
-        )
+        return errorResponse("Failed to create customer account" , 500)
       }
     }
 
@@ -182,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     if (!priceId || priceId.includes("price_XXXXX") || priceId.includes("price_YYYYY")) {
       // Return a helpful message for development
-      return NextResponse.json(
+      return jsonResponse(
         { 
           error: "Stripe price IDs not configured. Please update the plans table with your Stripe price IDs.",
           instructions: {
@@ -254,19 +236,13 @@ export async function POST(request: NextRequest) {
       })
     } catch (sessionError: any) {
       logger.error("[Checkout API] Failed to create checkout session:", sessionError)
-      return NextResponse.json(
-        { error: sessionError.message || "Failed to create checkout session" },
-        { status: 500 }
-      )
+      return errorResponse(sessionError.message || "Failed to create checkout session" , 500)
     }
 
     logger.debug("[Checkout API] Session created, URL:", session.url)
-    return NextResponse.json({ url: session.url })
+    return jsonResponse({ url: session.url })
   } catch (error: any) {
     logger.error("[Checkout API] Error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to create checkout session" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Failed to create checkout session" , 500)
   }
 }

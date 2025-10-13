@@ -13,10 +13,7 @@ export async function GET(request: Request) {
 
     if (authError || !user) {
       logger.error("Auth error:", authError)
-      return NextResponse.json(
-        { error: "Unauthorized - please log in" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized - please log in" , 401)
     }
 
     // Create service client to bypass RLS
@@ -31,23 +28,17 @@ export async function GET(request: Request) {
 
     if (profileError) {
       logger.error("Error fetching profile:", profileError)
-      return NextResponse.json(
-        { error: "Failed to verify admin status" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to verify admin status" , 500)
     }
 
     if (!profile) {
       logger.error("No profile found for user:", user.id)
-      return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 }
-      )
+      return errorResponse("User profile not found" , 404)
     }
 
     if (profile.role !== 'admin') {
       logger.debug("User is not admin. Role:", profile.role)
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Only admins can view beta testers. Your role: ${profile.role || 'user'}` },
         { status: 403 }
       )
@@ -61,24 +52,18 @@ export async function GET(request: Request) {
 
     if (error) {
       logger.error("Error fetching beta testers:", error)
-      return NextResponse.json(
-        { error: error.message || "Failed to fetch beta testers" },
-        { status: 500 }
-      )
+      return errorResponse(error.message || "Failed to fetch beta testers" , 500)
     }
 
     logger.debug(`Returning ${data?.length || 0} beta testers`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: data || []
     })
 
   } catch (error) {
     logger.error("Error in list beta testers API:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }

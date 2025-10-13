@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // Extract and handle token expiration
     const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
         )
 
         if (youtubeResponse.ok) {
-          const youtubeData = await youtubeResponse.json()
+          const youtubeData = await youtubejsonResponse()
           if (youtubeData.items && youtubeData.items.length > 0) {
             const channel = youtubeData.items[0]
             channelInfo = {

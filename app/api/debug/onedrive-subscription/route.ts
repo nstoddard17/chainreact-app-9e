@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (subError) {
-      return NextResponse.json({ error: subError }, { status: 500 })
+      return errorResponse(subError , 500)
     }
 
     // Get all OneDrive integrations
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'connected')
 
     if (intError) {
-      return NextResponse.json({ error: intError }, { status: 500 })
+      return errorResponse(intError , 500)
     }
 
     // Map subscriptions to their users
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active')
 
     if (wfError) {
-      return NextResponse.json({ error: wfError }, { status: 500 })
+      return errorResponse(wfError , 500)
     }
 
     const onedriveWorkflows = workflows?.filter(w => {
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
       status: w.status
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       subscriptions: subscriptionDetails,
       onedriveWorkflows,
       summary: {
@@ -99,6 +100,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error in debug endpoint:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }

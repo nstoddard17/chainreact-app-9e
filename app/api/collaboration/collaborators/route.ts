@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const workflowId = searchParams.get("workflowId")
 
   if (!workflowId) {
-    return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
+    return errorResponse("workflowId is required" , 400)
   }
 
   try {
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     }
 
     if (!sessions || sessions.length === 0) {
-      return NextResponse.json([])
+      return jsonResponse([])
     }
 
     const userIds = sessions.map((s: { user_id: string }) => s.user_id)
@@ -41,9 +41,9 @@ export async function GET(request: Request) {
       // You can add more fields here if needed, like cursor position, etc.
     }))
 
-    return NextResponse.json(collaborators)
+    return jsonResponse(collaborators)
   } catch (error) {
     logger.error("Failed to get collaborators:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return errorResponse("Internal Server Error" , 500)
   }
 }

@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       logger.error('Failed to exchange Gmail code for token:', errorData)
       return createPopupResponse(
         'error',
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     logger.debug('🔍 Gmail token response keys:', Object.keys(tokenData))
     logger.debug('🔍 Gmail token scopes:', tokenData.scope)

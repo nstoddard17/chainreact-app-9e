@@ -8,7 +8,7 @@ async function fetchGmailMessages(integrationId?: string) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return errorResponse("Unauthorized" , 401)
   }
 
   logger.debug('📨 Gmail messages: Looking for integration, integrationId:', integrationId, 'userId:', user.id)
@@ -44,7 +44,7 @@ async function fetchGmailMessages(integrationId?: string) {
 
   if (!integration) {
     logger.debug('❌ Gmail messages: No integration found!')
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: false, 
       error: "Integration not found: gmail" 
     }, { status: 404 })
@@ -56,7 +56,7 @@ async function fetchGmailMessages(integrationId?: string) {
   const accessToken = integration.access_token
   if (!accessToken) {
     logger.error('❌ Gmail messages: No access token in integration record')
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: false, 
       error: "No access token available" 
     }, { status: 500 })
@@ -76,7 +76,7 @@ async function fetchGmailMessages(integrationId?: string) {
     throw new Error(`Gmail API error: ${allMailResponse.status}`)
   }
 
-  const allMail = await allMailResponse.json()
+  const allMail = await allMailjsonResponse()
   const messages = []
 
   // Fetch details for each message
@@ -93,7 +93,7 @@ async function fetchGmailMessages(integrationId?: string) {
       )
 
       if (messageResponse.ok) {
-        const messageData = await messageResponse.json()
+        const messageData = await messagejsonResponse()
         const headers = messageData.payload?.headers || []
         
         const subject = headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject'
@@ -114,7 +114,7 @@ async function fetchGmailMessages(integrationId?: string) {
     }
   }
 
-  return NextResponse.json({
+  return jsonResponse({
     success: true,
     data: messages.map(msg => ({
       value: msg.id,
@@ -128,7 +128,7 @@ export async function GET() {
     return await fetchGmailMessages()
   } catch (error: any) {
     logger.error("Error fetching Gmail messages:", error)
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: false, 
       error: error.message || "Failed to fetch Gmail messages" 
     }, { status: 500 })
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
     return await fetchGmailMessages(integrationId)
   } catch (error: any) {
     logger.error("Error fetching Gmail messages:", error)
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: false, 
       error: error.message || "Failed to fetch Gmail messages" 
     }, { status: 500 })

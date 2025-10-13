@@ -29,7 +29,7 @@ export async function GET() {
         userError,
         hasUser: !!user 
       });
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     logger.debug('✅ [API /api/integrations] User authenticated', { userId: user.id });
@@ -103,7 +103,7 @@ export async function GET() {
         details: integrationsError.details,
         hint: integrationsError.hint
       });
-      return NextResponse.json({ error: integrationsError.message }, { status: 500 })
+      return errorResponse(integrationsError.message , 500)
     }
 
     // Check for expired integrations and update their status
@@ -142,12 +142,12 @@ export async function GET() {
       return integration
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: updatedIntegrations || [],
     })
   } catch (error: any) {
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch integrations",

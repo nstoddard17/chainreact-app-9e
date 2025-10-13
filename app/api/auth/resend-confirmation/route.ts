@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
@@ -66,10 +67,7 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json()
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      )
+      return errorResponse('Email is required' , 400)
     }
 
     // Rate limiting based on email and IP
@@ -82,7 +80,7 @@ export async function POST(request: NextRequest) {
     const ipRateLimit = checkRateLimit(`ip:${clientIp}`)
 
     if (!emailRateLimit.allowed) {
-      return NextResponse.json(
+      return jsonResponse(
         { 
           error: 'Too many requests. Please try again later.',
           retryAfter: emailRateLimit.retryAfter 
@@ -97,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!ipRateLimit.allowed) {
-      return NextResponse.json(
+      return jsonResponse(
         { 
           error: 'Too many requests from this IP. Please try again later.',
           retryAfter: ipRateLimit.retryAfter 
@@ -136,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     if (userError || !userData.user) {
       // Don't reveal if email exists or not for security
-      return NextResponse.json(
+      return jsonResponse(
         { message: 'If an account exists with this email, a confirmation link has been sent.' },
         { status: 200 }
       )
@@ -144,10 +142,7 @@ export async function POST(request: NextRequest) {
 
     // Check if email is already confirmed
     if (userData.user.email_confirmed_at) {
-      return NextResponse.json(
-        { error: 'Email is already confirmed. Please sign in.' },
-        { status: 400 }
-      )
+      return errorResponse('Email is already confirmed. Please sign in.' , 400)
     }
 
     // Check if user was created more than 24 hours ago (expired signup)
@@ -155,10 +150,7 @@ export async function POST(request: NextRequest) {
     const hoursSinceCreation = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60)
     
     if (hoursSinceCreation > 24) {
-      return NextResponse.json(
-        { error: 'Signup link has expired. Please register again.' },
-        { status: 400 }
-      )
+      return errorResponse('Signup link has expired. Please register again.' , 400)
     }
 
     // Resend confirmation email
@@ -174,27 +166,21 @@ export async function POST(request: NextRequest) {
 
     if (resendError) {
       logger.error('Error resending confirmation:', resendError)
-      return NextResponse.json(
-        { error: 'Failed to resend confirmation email. Please try again.' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to resend confirmation email. Please try again.' , 500)
     }
 
     // Log the resend attempt for monitoring (PII masked)
     const { maskEmail } = await import('@/lib/utils/logging')
     logger.debug(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
 
-    return NextResponse.json(
+    return jsonResponse(
       { message: 'Confirmation email has been resent. Please check your inbox.' },
       { status: 200 }
     )
 
   } catch (error) {
     logger.error('Resend confirmation error:', error)
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    )
+    return errorResponse('An error occurred. Please try again.' , 500)
   }
 }
 

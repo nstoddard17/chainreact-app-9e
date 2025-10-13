@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { googleSheetsHandlers } from './handlers'
 import { GoogleSheetsIntegration } from './types'
@@ -20,9 +21,8 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database - Google Sheets is stored with various provider names
@@ -34,9 +34,8 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [Google Sheets API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'Google Sheets integration not found'
-      }, { status: 404 })
+      return errorResponse('Google Sheets integration not found'
+      , 404)
     }
 
     // Validate integration status
@@ -45,18 +44,17 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'Google Sheets integration is not connected. Please reconnect your account.',
+      return errorResponse('Google Sheets integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = googleSheetsHandlers[dataType]
     if (!handler) {
       logger.error('❌ [Google Sheets API] Unknown data type:', dataType)
-      return NextResponse.json({
+      return jsonResponse({
         error: `Unknown Google Sheets data type: ${dataType}`,
         availableTypes: Object.keys(googleSheetsHandlers)
       }, { status: 400 })
@@ -77,7 +75,7 @@ export async function POST(req: NextRequest) {
       resultCount: Array.isArray(data) ? data.length : 1
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data,
       success: true,
       integrationId,
@@ -92,23 +90,17 @@ export async function POST(req: NextRequest) {
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'API rate limit exceeded. Please try again in a few moments.',
-        rateLimited: true
-      }, { status: 429 })
+      return errorResponse('API rate limit exceeded. Please try again in a few moments.', 429, { rateLimited: true
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'An unexpected error occurred',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'An unexpected error occurred', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

@@ -26,7 +26,7 @@ export const POST = async (request: NextRequest) => {
     const { token, userId } = await request.json()
 
     if (!token || !userId) {
-      return NextResponse.json({ error: "Missing token or userId" }, { status: 400 })
+      return errorResponse("Missing token or userId" , 400)
     }
 
     // Get user info from Trello
@@ -37,16 +37,16 @@ export const POST = async (request: NextRequest) => {
     if (!trelloResponse.ok) {
       const errorText = await trelloResponse.text()
       logger.error("Failed to fetch Trello user info:", errorText)
-      return NextResponse.json({ error: "Failed to validate Trello token" }, { status: 400 })
+      return errorResponse("Failed to validate Trello token" , 400)
     }
 
-    const trelloUserData = await trelloResponse.json()
+    const trelloUserData = await trellojsonResponse()
   const trelloUserId = trelloUserData.id
   const trelloUsername = trelloUserData.username
 
     if (!trelloUserId || !trelloUsername) {
       logger.error("Invalid Trello user data received")
-      return NextResponse.json({ error: "Invalid Trello user data" }, { status: 400 })
+      return errorResponse("Invalid Trello user data" , 400)
     }
 
     const now = new Date().toISOString()
@@ -110,7 +110,7 @@ export const POST = async (request: NextRequest) => {
 
       if (updateError) {
         logger.error("Error updating Trello integration:", updateError)
-        return NextResponse.json({ error: "Failed to update integration" }, { status: 500 })
+        return errorResponse("Failed to update integration" , 500)
       }
       integrationId = existingIntegration.id
     } else {
@@ -127,7 +127,7 @@ export const POST = async (request: NextRequest) => {
 
       if (error) {
         logger.error("Error inserting Trello integration:", error)
-        return NextResponse.json({ error: "Failed to create integration" }, { status: 500 })
+        return errorResponse("Failed to create integration" , 500)
       }
       integrationId = data.id
     }
@@ -143,9 +143,9 @@ export const POST = async (request: NextRequest) => {
     }
 
     logger.debug("Trello integration processed successfully")
-    return NextResponse.json({ success: true, integrationId })
+    return jsonResponse({ success: true, integrationId })
   } catch (e: any) {
     logger.error("Error processing Trello token:", e)
-    return NextResponse.json({ error: e.message || "Internal server error" }, { status: 500 })
+    return errorResponse(e.message || "Internal server error" , 500)
   }
 }

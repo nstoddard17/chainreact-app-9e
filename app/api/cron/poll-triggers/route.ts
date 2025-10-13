@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
@@ -45,10 +46,10 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Polling complete.' });
+    return jsonResponse({ success: true, message: 'Polling complete.' });
   } catch (error: any) {
     logger.error('Polling cron job error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return errorResponse('Internal server error' , 500);
   }
 }
 

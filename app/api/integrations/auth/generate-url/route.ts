@@ -34,17 +34,16 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       logger.debug('🔐 [GENERATE-URL] Authentication failed:', userError?.message || 'No user found')
-      return NextResponse.json({ 
-        error: "Unauthorized", 
+      return errorResponse("Unauthorized", 401, {
         message: "Valid authentication required to generate OAuth URLs",
         details: userError?.message || "No authenticated user session found"
-      }, { status: 401 })
+      })
     }
 
     const { provider, reconnect = false, integrationId, forceFresh = false } = await request.json()
 
     if (!provider) {
-      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
+      return errorResponse("Provider is required" , 400)
     }
 
     // Check if we're running on localhost and the provider doesn't support it
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
     
     if (isLocalhost && PROVIDERS_WITHOUT_LOCALHOST_SUPPORT.includes(provider.toLowerCase())) {
       logger.debug(`⚠️ ${provider} doesn't support localhost redirect URIs`)
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `${provider} doesn't support localhost redirect URIs`, 
         message: `The ${provider} OAuth provider requires HTTPS and doesn't allow localhost URLs. Please use ngrok or deploy to a staging environment to test ${provider} integration.`,
         details: {
@@ -81,7 +80,7 @@ export async function POST(request: NextRequest) {
         const allowedRoles = ['business', 'enterprise', 'admin']
         
         if (!allowedRoles.includes(userRole)) {
-          return NextResponse.json({ 
+          return jsonResponse({ 
             error: "Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access Teams integration.",
             details: {
               currentRole: userRole,
@@ -91,10 +90,8 @@ export async function POST(request: NextRequest) {
         }
       } catch (profileError) {
         logger.error("Error checking user profile for Teams:", profileError)
-        return NextResponse.json({ 
-          error: "Unable to verify account permissions for Teams integration. Please try again or contact support.",
-          details: "Profile lookup failed"
-        }, { status: 500 })
+        return errorResponse("Unable to verify account permissions for Teams integration. Please try again or contact support.", 500, { details: "Profile lookup failed"
+         })
       }
     }
 
@@ -267,17 +264,17 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        return NextResponse.json({ error: `Provider ${provider} not supported` }, { status: 400 })
+        return jsonResponse({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       authUrl,
       provider,
     })
   } catch (error: any) {
     logger.error("OAuth URL generation error:", error)
-    return NextResponse.json(
+    return jsonResponse(
       { error: "Failed to generate OAuth URL", details: error.message },
       { status: 500 },
     )

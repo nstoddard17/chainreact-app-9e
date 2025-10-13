@@ -15,14 +15,14 @@ export async function PUT(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { role } = body
 
     if (!role || !['admin', 'editor', 'viewer'].includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+      return errorResponse("Invalid role" , 400)
     }
 
     // Check if user is admin of the organization
@@ -34,7 +34,7 @@ export async function PUT(
       .single()
 
     if (membershipError || !membership || membership.role !== 'admin') {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     // Update member role
@@ -48,7 +48,7 @@ export async function PUT(
 
     if (updateError) {
       logger.error("Error updating member:", updateError)
-      return NextResponse.json({ error: "Failed to update member" }, { status: 500 })
+      return errorResponse("Failed to update member" , 500)
     }
 
     // Get user details for the updated member
@@ -62,7 +62,7 @@ export async function PUT(
           username: userData?.user?.user_metadata?.username || "unknown"
         }
       }
-      return NextResponse.json(memberWithUserInfo)
+      return jsonResponse(memberWithUserInfo)
     } catch (error) {
       logger.error("Error fetching user data for updated member:", error)
       const memberWithUserInfo = {
@@ -73,11 +73,11 @@ export async function PUT(
           username: "error"
         }
       }
-      return NextResponse.json(memberWithUserInfo)
+      return jsonResponse(memberWithUserInfo)
     }
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -93,7 +93,7 @@ export async function DELETE(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is admin of the organization
@@ -105,7 +105,7 @@ export async function DELETE(
       .single()
 
     if (membershipError || !membership || membership.role !== 'admin') {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     // Get the member to be deleted
@@ -117,12 +117,12 @@ export async function DELETE(
       .single()
 
     if (memberError || !memberToDelete) {
-      return NextResponse.json({ error: "Member not found" }, { status: 404 })
+      return errorResponse("Member not found" , 404)
     }
 
     // Prevent admin from deleting themselves
     if (memberToDelete.user_id === user.id) {
-      return NextResponse.json({ error: "Cannot remove yourself from the organization" }, { status: 400 })
+      return errorResponse("Cannot remove yourself from the organization" , 400)
     }
 
     // Delete the member
@@ -134,12 +134,12 @@ export async function DELETE(
 
     if (deleteError) {
       logger.error("Error deleting member:", deleteError)
-      return NextResponse.json({ error: "Failed to delete member" }, { status: 500 })
+      return errorResponse("Failed to delete member" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

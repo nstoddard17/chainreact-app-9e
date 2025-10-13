@@ -8,7 +8,7 @@ export async function GET() {
     
     const isConfigured = !!(botToken && botUserId)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       isConfigured,
       missingVars: isConfigured ? [] : [
@@ -18,7 +18,7 @@ export async function GET() {
     })
     
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       isConfigured: false,
       error: error.message || "Failed to check Discord configuration"

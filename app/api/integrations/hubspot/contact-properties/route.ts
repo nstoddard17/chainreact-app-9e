@@ -11,10 +11,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -27,10 +24,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
@@ -48,8 +42,8 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      const errorData = await propertiesResponse.json().catch(() => ({}))
-      return NextResponse.json(
+      const errorData = await propertiesjsonResponse().catch(() => ({}))
+      return jsonResponse(
         { 
           error: `HubSpot API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
           status: propertiesResponse.status,
@@ -59,7 +53,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const propertiesData = await propertiesResponse.json()
+    const propertiesData = await propertiesjsonResponse()
     
     logger.debug('All HubSpot contact properties:', propertiesData.results.map((p: any) => ({
       name: p.name,
@@ -89,20 +83,16 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a: any, b: any) => a.label.localeCompare(b.label))
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: availableProperties
     })
 
   } catch (error: any) {
     logger.error("HubSpot contact properties error:", error)
-    return NextResponse.json(
-      { 
-        error: "Internal server error", 
+    return errorResponse("Internal server error", 500, {
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    )
+      })
   }
 } 

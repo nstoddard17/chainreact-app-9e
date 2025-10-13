@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { googleHandlers } from './handlers'
 import { GoogleIntegration } from './types'
@@ -32,9 +33,8 @@ export async function POST(req: NextRequest) {
         integrationId,
         dataType
       })
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database
@@ -46,9 +46,8 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [Google API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'Google integration not found'
-      }, { status: 404 })
+      return errorResponse('Google integration not found'
+      , 404)
     }
 
     // Log the actual provider for debugging
@@ -89,7 +88,7 @@ export async function POST(req: NextRequest) {
         validProviders,
         hasGoogleScopes
       })
-      return NextResponse.json({
+      return jsonResponse({
         error: `Invalid integration provider. Expected Google-related provider but got: ${integration.provider}`,
         actualProvider: integration.provider
       }, { status: 400 })
@@ -101,18 +100,17 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'Google integration is not connected. Please reconnect your account.',
+      return errorResponse('Google integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = googleHandlers[dataType]
     if (!handler) {
       logger.error('❌ [Google API] Unknown data type:', dataType)
-      return NextResponse.json({
+      return jsonResponse({
         error: `Unknown Google data type: ${dataType}`,
         availableTypes: Object.keys(googleHandlers)
       }, { status: 400 })
@@ -134,7 +132,7 @@ export async function POST(req: NextRequest) {
       resultCount: data?.length || 0
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data,
       success: true,
       integrationId,
@@ -149,23 +147,17 @@ export async function POST(req: NextRequest) {
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit') || error.message?.includes('quota')) {
-      return NextResponse.json({
-        error: 'Google API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Google API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

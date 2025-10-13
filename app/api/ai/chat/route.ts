@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       // Admin test mode - verify the current user is an admin
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
       }
 
       // TODO: Add proper admin check here
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       // Normal mode - use authenticated user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
       }
       userId = user.id
     }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     ] : null)
     
     if (!messages || messages.length === 0) {
-      return NextResponse.json({ error: "Messages are required" }, { status: 400 })
+      return errorResponse("Messages are required" , 400)
     }
 
     const {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     if (existingRequest) {
       logger.debug('Request already processed:', requestId)
-      return NextResponse.json({
+      return jsonResponse({
         requestId,
         cached: true,
         content: existingRequest.metadata?.response_content || '',
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Return response in expected format
-      return NextResponse.json({
+      return jsonResponse({
         requestId,
         content: responseContent,
         choices: completion.choices,
@@ -207,15 +207,12 @@ export async function POST(request: NextRequest) {
           }
         })
 
-      return NextResponse.json(
-        { error: 'AI service error', message: error instanceof Error ? error.message : 'Unknown error' },
-        { status: 500 }
-      )
+      return errorResponse('AI service error', 500, { message: error instanceof Error ? error.message : 'Unknown error'  })
     }
     
   } catch (error) {
     logger.error("AI chat error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 

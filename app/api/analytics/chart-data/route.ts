@@ -10,7 +10,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return errorResponse("Unauthorized" , 401);
     }
 
     const today = startOfDay(new Date());
@@ -24,7 +24,7 @@ export async function GET() {
 
     if (error) {
         logger.error("Error fetching workflow executions:", error);
-        return NextResponse.json({ error: "Failed to fetch chart data" }, { status: 500 });
+        return errorResponse("Failed to fetch chart data" , 500);
     }
 
     const days = eachDayOfInterval({ start: sevenDaysAgo, end: today });
@@ -43,5 +43,5 @@ export async function GET() {
         };
     });
 
-    return NextResponse.json({ success: true, data: chartData });
+    return jsonResponse({ success: true, data: chartData });
 }

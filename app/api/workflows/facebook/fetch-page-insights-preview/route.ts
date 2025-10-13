@@ -8,17 +8,14 @@ export async function POST(request: NextRequest) {
     const { config, userId } = await request.json();
 
     if (!config) {
-      return NextResponse.json(
-        { error: "Config is required" },
-        { status: 400 }
-      )
+      return errorResponse("Config is required" , 400)
     }
 
     // Validate required fields
     const { pageId, metric, period, periodCount } = config
     
     if (!pageId) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: "Please select a Facebook page first.",
         data: {
@@ -29,18 +26,12 @@ export async function POST(request: NextRequest) {
     }
     
     if (!metric || !period || !periodCount) {
-      return NextResponse.json(
-        { error: "Metric, period, and period count are required" },
-        { status: 400 }
-      )
+      return errorResponse("Metric, period, and period count are required" , 400)
     }
 
     // For preview, we need to get the actual user's Facebook integration
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required for Facebook preview" },
-        { status: 400 }
-      )
+      return errorResponse("User ID is required for Facebook preview" , 400)
     }
 
     // For preview, use a smaller period count to get sample data
@@ -58,7 +49,7 @@ export async function POST(request: NextRequest) {
       if (result.message?.includes("Facebook integration not connected") || 
           result.message?.includes("not connected") ||
           result.error?.includes("Facebook integration not connected")) {
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           error: "No Facebook integration found. Please connect your Facebook account first.",
           data: {
@@ -71,7 +62,7 @@ export async function POST(request: NextRequest) {
       // Handle the case where page is not found
       if (result.message?.includes("Page with ID") || 
           result.error?.includes("Page with ID")) {
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           error: "Selected Facebook page not found or access denied. Please check your page selection.",
           data: {
@@ -81,14 +72,11 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
       
-      return NextResponse.json(
-        { error: result.message || result.error || "Failed to fetch Facebook page insights" },
-        { status: 500 }
-      )
+      return errorResponse(result.message || result.error || "Failed to fetch Facebook page insights" , 500)
     }
 
     // Return structured preview data
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         insights: result.output?.insights || [],
@@ -103,9 +91,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Facebook fetch page insights preview error:", error)
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 } 

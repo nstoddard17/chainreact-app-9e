@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     if (checkError && checkError.code === '42P01') {
       // Table doesn't exist
-      return NextResponse.json({
+      return jsonResponse({
         templates: [],
         count: 0,
         message: "Templates table not yet created. Please run the migration."
@@ -52,10 +52,7 @@ export async function GET(request: Request) {
 
     if (error) {
       logger.error("Error fetching templates from database:", error)
-      return NextResponse.json(
-        { error: "Failed to fetch templates" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch templates" , 500)
     }
 
     // Transform templates to match the expected format
@@ -81,15 +78,12 @@ export async function GET(request: Request) {
       return result
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       templates: formattedTemplates,
       count: formattedTemplates.length
     })
   } catch (error) {
     logger.error("Error fetching predefined templates:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch templates" },
-      { status: 500 }
-    )
+    return errorResponse("Failed to fetch templates" , 500)
   }
 }

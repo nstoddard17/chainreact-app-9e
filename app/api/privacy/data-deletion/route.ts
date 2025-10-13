@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Validate deletion type
     if (!["full", "partial", "integration_specific"].includes(deletionType)) {
-      return NextResponse.json({ error: "Invalid deletion type" }, { status: 400 })
+      return errorResponse("Invalid deletion type" , 400)
     }
 
     // Create deletion request record
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       logger.error("Failed to create deletion request:", insertError)
-      return NextResponse.json({ error: "Failed to create deletion request" }, { status: 500 })
+      return errorResponse("Failed to create deletion request" , 500)
     }
 
     // Log the deletion request
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", requestRecord.id)
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "Data deletion completed successfully",
         requestId: requestRecord.id
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", requestRecord.id)
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "Data deletion request received and scheduled for processing within 30 days",
         requestId: requestRecord.id,
@@ -107,10 +107,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Data deletion error:", error)
-    return NextResponse.json({ 
-      error: "Failed to process deletion request",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to process deletion request", 500, { details: error.message 
+     })
   }
 }
 
@@ -125,7 +123,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
@@ -141,10 +139,10 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (error || !deletionRequest) {
-        return NextResponse.json({ error: "Deletion request not found" }, { status: 404 })
+        return errorResponse("Deletion request not found" , 404)
       }
 
-      return NextResponse.json({ deletionRequest })
+      return jsonResponse({ deletionRequest })
     } 
       // Get all deletion requests for user
       const { data: deletionRequests, error } = await supabase
@@ -155,18 +153,16 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         logger.error("Failed to fetch deletion requests:", error)
-        return NextResponse.json({ error: "Failed to fetch deletion requests" }, { status: 500 })
+        return errorResponse("Failed to fetch deletion requests" , 500)
       }
 
-      return NextResponse.json({ deletionRequests })
+      return jsonResponse({ deletionRequests })
     
 
   } catch (error: any) {
     logger.error("Error fetching deletion requests:", error)
-    return NextResponse.json({ 
-      error: "Failed to fetch deletion requests",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to fetch deletion requests", 500, { details: error.message 
+     })
   }
 }
 

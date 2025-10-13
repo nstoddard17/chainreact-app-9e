@@ -14,15 +14,14 @@ export async function POST(request: Request) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { workflowId, triggerType, providerId, config } = await request.json()
 
     if (!workflowId || !triggerType || !providerId) {
-      return NextResponse.json({ 
-        error: "Missing required fields: workflowId, triggerType, providerId" 
-      }, { status: 400 })
+      return errorResponse("Missing required fields: workflowId, triggerType, providerId" 
+      , 400)
     }
 
     // Check if trigger supports webhooks
@@ -30,10 +29,8 @@ export async function POST(request: Request) {
     const isSupported = supportedTriggers.some(trigger => trigger.type === triggerType)
 
     if (!isSupported) {
-      return NextResponse.json({ 
-        error: "This trigger type does not support webhooks",
-        supportedTriggers: supportedTriggers.map(t => t.type)
-      }, { status: 400 })
+      return errorResponse("This trigger type does not support webhooks", 400, { supportedTriggers: supportedTriggers.map(t => t.type)
+       })
     }
 
     // Get webhook URL for this workflow
@@ -81,7 +78,7 @@ export async function POST(request: Request) {
       default: `✅ ${providerId} webhook registered successfully`
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       webhookId,
       webhookUrl,
@@ -92,10 +89,8 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error("Error registering webhook:", error)
-    return NextResponse.json({ 
-      error: "Failed to register webhook",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to register webhook", 500, { details: error.message 
+     })
   }
 }
 
@@ -105,14 +100,14 @@ export async function DELETE(request: Request) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
     const webhookId = searchParams.get('webhookId')
 
     if (!webhookId) {
-      return NextResponse.json({ error: "Missing webhookId parameter" }, { status: 400 })
+      return errorResponse("Missing webhookId parameter" , 400)
     }
 
     // Verify the webhook belongs to the user
@@ -124,23 +119,21 @@ export async function DELETE(request: Request) {
       .single()
 
     if (!webhookConfig) {
-      return NextResponse.json({ error: "Webhook not found or unauthorized" }, { status: 404 })
+      return errorResponse("Webhook not found or unauthorized" , 404)
     }
 
     // Unregister the webhook
     await webhookManager.unregisterWebhook(webhookId)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Webhook unregistered successfully"
     })
 
   } catch (error: any) {
     logger.error("Error unregistering webhook:", error)
-    return NextResponse.json({ 
-      error: "Failed to unregister webhook",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to unregister webhook", 500, { details: error.message 
+     })
   }
 }
 
@@ -150,7 +143,7 @@ export async function GET(request: Request) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
@@ -166,13 +159,13 @@ export async function GET(request: Request) {
         .single()
 
       if (!webhookConfig) {
-        return NextResponse.json({ error: "Webhook not found" }, { status: 404 })
+        return errorResponse("Webhook not found" , 404)
       }
 
       // Get recent executions
       const executions = await webhookManager.getWebhookExecutions(webhookId, 10)
 
-      return NextResponse.json({
+      return jsonResponse({
         webhook: webhookConfig,
         executions
       })
@@ -180,7 +173,7 @@ export async function GET(request: Request) {
       // Get all user's webhooks
       const webhooks = await webhookManager.getUserWebhooks(user.id)
       
-      return NextResponse.json({
+      return jsonResponse({
         webhooks,
         supportedTriggers: webhookManager.getWebhookSupportedTriggers().map(t => ({
           type: t.type,
@@ -193,9 +186,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     logger.error("Error fetching webhooks:", error)
-    return NextResponse.json({ 
-      error: "Failed to fetch webhooks",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to fetch webhooks", 500, { details: error.message 
+     })
   }
 } 

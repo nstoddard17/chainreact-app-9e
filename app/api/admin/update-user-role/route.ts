@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is admin
@@ -19,20 +19,20 @@ export async function POST(request: Request) {
         .single()
 
     if (!userProfile || userProfile.role !== 'admin') {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+        return errorResponse("Admin access required" , 403)
     }
 
     try {
         const { userId, newRole } = await request.json()
 
         if (!userId || !newRole) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+            return errorResponse("Missing required fields" , 400)
         }
 
         // Validate the role
         const validRoles: UserRole[] = ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin']
         if (!validRoles.includes(newRole)) {
-            return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+            return errorResponse("Invalid role" , 400)
         }
 
         // Update the user's role
@@ -42,14 +42,14 @@ export async function POST(request: Request) {
             .eq('id', userId)
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 })
+            return errorResponse(error.message , 500)
         }
 
-        return NextResponse.json({
+        return jsonResponse({
             success: true,
             message: "User role updated successfully"
         })
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return errorResponse(error.message , 500)
     }
 } 

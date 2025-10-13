@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const integrationId = searchParams.get("id");
   
   if (!provider && !integrationId) {
-    return NextResponse.json({ error: "Provider or integration ID is required" }, { status: 400 });
+    return errorResponse("Provider or integration ID is required" , 400);
   }
   
   try {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ error: "No matching integrations found" }, { status: 404 });
+      return errorResponse("No matching integrations found" , 404);
     }
     
     // Process each integration
@@ -76,12 +76,12 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       count: results.length,
       results,
     });
   } catch (error: any) {
     logger.error("Error in debug-refresh endpoint:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return errorResponse(error.message , 500);
   }
 }

@@ -25,10 +25,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -41,10 +38,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
@@ -62,8 +56,8 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      const errorData = await propertiesResponse.json().catch(() => ({}))
-      return NextResponse.json(
+      const errorData = await propertiesjsonResponse().catch(() => ({}))
+      return jsonResponse(
         { 
           error: `HubSpot API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
           status: propertiesResponse.status,
@@ -73,7 +67,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const propertiesData = await propertiesResponse.json()
+    const propertiesData = await propertiesjsonResponse()
 
     // Filter to only visible, non-archived form fields that are writable
     const availableProperties = propertiesData.results
@@ -119,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     const existingValues: Record<string, string[]> = {}
     if (contactsResponse.ok) {
-      const contactsData = await contactsResponse.json()
+      const contactsData = await contactsjsonResponse()
       
       // Extract unique values for each property
       contactsData.results.forEach((contact: any) => {
@@ -207,17 +201,12 @@ export async function GET(request: NextRequest) {
       groupsCount: Object.keys(groupedProperties).length
     })
     
-    return NextResponse.json(response)
+    return jsonResponse(response)
 
   } catch (error: any) {
     logger.error("HubSpot all contact properties error:", error)
-    return NextResponse.json(
-      { 
-        error: "Internal server error", 
-        details: error.message
-      },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error", 500, { details: error.message
+       })
   }
 }
 

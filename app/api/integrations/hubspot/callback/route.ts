@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     logger.debug('📡 [HubSpot Callback] Token exchange response:', {
       hasAccessToken: !!tokenData.access_token,
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
         })
 
         if (accountResponse.ok) {
-          accountInfo = await accountResponse.json()
+          accountInfo = await accountjsonResponse()
         } else {
           logger.warn('Could not fetch HubSpot account information:', await accountResponse.text())
         }

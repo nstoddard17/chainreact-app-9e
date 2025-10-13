@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -21,7 +22,7 @@ export async function GET() {
 
     if (!checkError) {
       logger.debug('✅ execution_progress table already exists')
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'execution_progress table already exists',
         exists: true
@@ -136,7 +137,7 @@ export async function GET() {
 
       if (createError) {
         logger.error('Failed to create table:', createError)
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           message: 'Failed to create execution_progress table. Please create it manually using the SQL script.',
           error: createError.message,
@@ -152,7 +153,7 @@ export async function GET() {
 
       if (verifyError) {
         logger.error('Table creation verification failed:', verifyError)
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           message: 'Table creation could not be verified',
           error: verifyError.message
@@ -160,7 +161,7 @@ export async function GET() {
       }
 
       logger.debug('✅ execution_progress table created successfully')
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'execution_progress table created successfully',
         created: true
@@ -168,7 +169,7 @@ export async function GET() {
     }
 
     // Some other error occurred
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       message: 'Error checking execution_progress table',
       error: checkError.message
@@ -176,7 +177,7 @@ export async function GET() {
 
   } catch (error: any) {
     logger.error('Error ensuring execution_progress table:', error)
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message || 'Failed to ensure execution_progress table',
       sqlScript: '/CREATE_EXECUTION_PROGRESS_TABLE.sql',
@@ -199,7 +200,7 @@ export async function POST() {
       .limit(1)
 
     if (error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
-      return NextResponse.json({
+      return jsonResponse({
         exists: false,
         message: 'execution_progress table does not exist',
         instructions: [
@@ -215,20 +216,16 @@ export async function POST() {
     }
 
     if (error) {
-      return NextResponse.json({
-        error: error.message,
-        message: 'Error checking table existence'
-      }, { status: 500 })
+      return errorResponse('Error checking table existence', 500, { message: error.message })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       exists: true,
       message: 'execution_progress table exists and is ready'
     })
 
   } catch (error: any) {
-    return NextResponse.json({
-      error: error.message || 'Failed to check table status'
-    }, { status: 500 })
+    return errorResponse(error.message || 'Failed to check table status'
+    , 500)
   }
 }

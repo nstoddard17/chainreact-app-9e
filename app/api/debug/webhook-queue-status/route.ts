@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     if (queueError) {
       logger.error('❌ Error fetching queue:', queueError)
-      return NextResponse.json({ error: 'Failed to fetch queue' }, { status: 500 })
+      return errorResponse('Failed to fetch queue' , 500)
     }
 
     logger.debug('📥 Webhook Queue Status:')
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       queueItems: queueItems?.length || 0,
       statusCounts,
@@ -103,6 +104,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Webhook queue status check error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

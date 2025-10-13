@@ -11,10 +11,7 @@ export async function GET(
     const botToken = process.env.DISCORD_BOT_TOKEN;
 
     if (!botToken) {
-      return NextResponse.json(
-        { error: "Discord bot token not configured" },
-        { status: 500 }
-      );
+      return errorResponse("Discord bot token not configured" , 500);
     }
 
     // Fetch guild emojis from Discord API
@@ -30,7 +27,7 @@ export async function GET(
 
     if (!response.ok) {
       logger.error("Discord API error:", response.status, response.statusText);
-      return NextResponse.json(
+      return jsonResponse(
         { error: "Failed to fetch guild emojis" },
         { status: response.status }
       );
@@ -47,12 +44,9 @@ export async function GET(
       custom: true,
     }));
 
-    return NextResponse.json(transformedEmojis);
+    return jsonResponse(transformedEmojis);
   } catch (error) {
     logger.error("Error fetching guild emojis:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return errorResponse("Internal server error" , 500);
   }
 } 

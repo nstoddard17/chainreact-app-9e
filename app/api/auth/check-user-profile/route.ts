@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 import { logger } from '@/lib/utils/logger'
@@ -9,10 +10,7 @@ export async function POST(request: NextRequest) {
     const { userId } = body
 
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
+      return errorResponse('User ID is required' , 400)
     }
 
     const supabase = createAdminClient()
@@ -25,7 +23,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({
+      return jsonResponse({
         hasUsername: false,
         error: error.message
       })
@@ -33,16 +31,13 @@ export async function POST(request: NextRequest) {
 
     const hasUsername = !!(profile?.username && profile.username.trim() !== '')
 
-    return NextResponse.json({
+    return jsonResponse({
       hasUsername,
       username: profile?.username || null
     })
 
   } catch (error) {
     logger.error('Error checking user profile:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', hasUsername: false },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error', 500, { hasUsername: false  })
   }
 }

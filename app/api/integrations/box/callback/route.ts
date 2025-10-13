@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -68,12 +69,12 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       logger.error('Box token exchange error response:', errorData)
       throw new Error(`Box token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     const expiresIn = tokenData.expires_in // Typically in seconds
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null

@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+      return errorResponse("Database connection failed" , 500)
     }
     
     const {
@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: integrations, error } = await supabase.from("integrations").select("*").eq("user_id", user.id)
 
     if (error) {
       logger.error("Database error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     // Count integrations by provider and status instead of returning all details
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       byStatus[integration.status || 'unknown'] = (byStatus[integration.status || 'unknown'] || 0) + 1; 
     });
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       count: integrations?.length || 0,
       byProvider,
@@ -48,6 +48,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     logger.error("Debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

@@ -24,18 +24,18 @@ export async function POST(request: Request) {
       // Send to specific testers
       query = query.in("id", testerIds)
     } else {
-      return NextResponse.json({ error: "No testers specified" }, { status: 400 })
+      return errorResponse("No testers specified" , 400)
     }
 
     const { data: testers, error: fetchError } = await query
 
     if (fetchError) {
       logger.error("Error fetching beta testers:", fetchError)
-      return NextResponse.json({ error: "Failed to fetch beta testers" }, { status: 500 })
+      return errorResponse("Failed to fetch beta testers" , 500)
     }
 
     if (!testers || testers.length === 0) {
-      return NextResponse.json({ message: "No eligible beta testers found" }, { status: 200 })
+      return jsonResponse({ message: "No eligible beta testers found" }, { status: 200 })
     }
 
     // Generate unique signup links for each tester
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
 
     await Promise.all(emailPromises)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       count: testers.length,
       message: `Successfully sent offers to ${testers.length} beta tester(s)`
@@ -100,6 +100,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error("Error sending beta offers:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

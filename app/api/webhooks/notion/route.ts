@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import crypto from 'crypto'
 import { processNotionEvent } from '@/lib/webhooks/processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       }, colors.magenta)
 
       // Respond with the challenge for verification
-      const response = NextResponse.json({ challenge: body.challenge })
+      const response = jsonResponse({ challenge: body.challenge })
 
       logSection('VERIFICATION RESPONSE', {
         status: 200,
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Return success response
-    const response = NextResponse.json({
+    const response = jsonResponse({
       success: true,
       requestId,
       processed: true,
@@ -177,13 +178,9 @@ export async function POST(req: NextRequest) {
       error: errorMessage,
     })
 
-    return NextResponse.json(
-      {
-        error: 'Internal server error',
-        requestId,
-      },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error', 500, {
+        requestId
+      })
   }
 }
 
@@ -215,7 +212,7 @@ export async function GET(req: NextRequest) {
     ],
   }, colors.cyan)
 
-  return NextResponse.json({
+  return jsonResponse({
     status: 'ready',
     endpoint: webhookUrl,
     environment: process.env.NODE_ENV,

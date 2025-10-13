@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // First, try to query the integration_webhooks table
@@ -22,7 +22,7 @@ export async function GET() {
 
     // If table exists and has data, return it
     if (!tableError && existingWebhooks && existingWebhooks.length > 0) {
-      return NextResponse.json({ webhooks: existingWebhooks })
+      return jsonResponse({ webhooks: existingWebhooks })
     }
 
     // If table doesn't exist or is empty, generate webhooks from available integrations
@@ -189,10 +189,10 @@ export async function GET() {
         }
     })
       
-    return NextResponse.json({ webhooks })
+    return jsonResponse({ webhooks })
 
   } catch (error: any) {
     logger.error("Error in GET /api/integration-webhooks:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

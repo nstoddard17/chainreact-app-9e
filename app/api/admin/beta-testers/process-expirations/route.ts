@@ -85,15 +85,12 @@ export async function POST() {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       processed
     })
   } catch (error: any) {
     logger.error("Error processing beta expirations:", error)
-    return NextResponse.json(
-      { error: "Failed to process expirations", details: error.message },
-      { status: 500 }
-    )
+    return errorResponse("Failed to process expirations", 500, { details: error.message })
   }
 }

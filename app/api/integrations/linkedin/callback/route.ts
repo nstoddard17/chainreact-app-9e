@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // LinkedIn tokens typically expire in 60 days (5184000 seconds)
     const expiresIn = tokenData.expires_in || 5184000
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
       logger.error('Failed to fetch LinkedIn profile:', await profileResponse.text())
     }
 
-    const profileData = profileResponse.ok ? await profileResponse.json() : {}
+    const profileData = profileResponse.ok ? await profilejsonResponse() : {}
     const encryptionKey = process.env.ENCRYPTION_KEY
 
     if (!encryptionKey) {

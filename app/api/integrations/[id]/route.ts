@@ -13,13 +13,13 @@ export async function DELETE(
     const { id: integrationId } = await params
 
     if (!integrationId) {
-      return NextResponse.json({ success: false, error: "Integration ID is required" }, { status: 400 })
+      return jsonResponse({ success: false, error: "Integration ID is required" }, { status: 400 })
     }
 
     // Get the current user
     const authHeader = request.headers.get("authorization")
     if (!authHeader) {
-      return NextResponse.json({ success: false, error: "Authorization header required" }, { status: 401 })
+      return jsonResponse({ success: false, error: "Authorization header required" }, { status: 401 })
     }
 
     // Extract token from Bearer header
@@ -32,7 +32,7 @@ export async function DELETE(
     } = await supabase.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ success: false, error: "Invalid authentication token" }, { status: 401 })
+      return jsonResponse({ success: false, error: "Invalid authentication token" }, { status: 401 })
     }
 
     // First, get the integration to verify ownership
@@ -44,7 +44,7 @@ export async function DELETE(
       .single()
 
     if (fetchError || !integration) {
-      return NextResponse.json({ success: false, error: "Integration not found or access denied" }, { status: 404 })
+      return jsonResponse({ success: false, error: "Integration not found or access denied" }, { status: 404 })
     }
 
     // Delete the integration
@@ -56,16 +56,16 @@ export async function DELETE(
 
     if (deleteError) {
       logger.error("Error deleting integration:", deleteError)
-      return NextResponse.json({ success: false, error: "Failed to delete integration" }, { status: 500 })
+      return jsonResponse({ success: false, error: "Failed to delete integration" }, { status: 500 })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `${integration.provider} integration disconnected successfully`,
     })
   } catch (error) {
     logger.error("Error in DELETE /api/integrations/[id]:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    return jsonResponse({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }
 
@@ -77,13 +77,13 @@ export async function GET(
     const { id: integrationId } = await params
 
     if (!integrationId) {
-      return NextResponse.json({ success: false, error: "Integration ID is required" }, { status: 400 })
+      return jsonResponse({ success: false, error: "Integration ID is required" }, { status: 400 })
     }
 
     // Get the current user
     const authHeader = request.headers.get("authorization")
     if (!authHeader) {
-      return NextResponse.json({ success: false, error: "Authorization header required" }, { status: 401 })
+      return jsonResponse({ success: false, error: "Authorization header required" }, { status: 401 })
     }
 
     // Extract token from Bearer header
@@ -96,7 +96,7 @@ export async function GET(
     } = await supabase.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ success: false, error: "Invalid authentication token" }, { status: 401 })
+      return jsonResponse({ success: false, error: "Invalid authentication token" }, { status: 401 })
     }
 
     // Get the integration
@@ -108,15 +108,15 @@ export async function GET(
       .single()
 
     if (fetchError || !integration) {
-      return NextResponse.json({ success: false, error: "Integration not found" }, { status: 404 })
+      return jsonResponse({ success: false, error: "Integration not found" }, { status: 404 })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: integration,
     })
   } catch (error) {
     logger.error("Error in GET /api/integrations/[id]:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    return jsonResponse({ success: false, error: "Internal server error" }, { status: 500 })
   }
 }

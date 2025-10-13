@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
 import { logger } from '@/lib/utils/logger'
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     const expectedToken = process.env.CRON_SECRET_TOKEN
     
     if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     logger.debug('🔄 Starting Microsoft Graph subscription renewal process')
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     logger.debug('✅ Microsoft Graph subscription renewal process completed:', results)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Subscription renewal process completed',
       results
@@ -68,15 +69,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Error in subscription renewal process:', error)
-    return NextResponse.json({ 
-      error: 'Failed to process subscription renewals',
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse('Failed to process subscription renewals', 500, { details: error.message 
+     })
   }
 }
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json({
+  return jsonResponse({
     message: "Microsoft Graph subscription renewal endpoint",
     description: "POST to this endpoint to renew subscriptions that are expiring soon",
     cron_schedule: "Every 6 hours (recommended)",

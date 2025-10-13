@@ -18,7 +18,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get all integrations for this user with timeout
@@ -35,7 +35,7 @@ export async function GET() {
       clearTimeout(timeoutId)
 
       if (integrationsError) {
-        return NextResponse.json({ error: integrationsError.message }, { status: 500 })
+        return errorResponse(integrationsError.message , 500)
       }
 
     const availableIntegrations = detectAvailableIntegrations()
@@ -173,7 +173,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: metrics,
       statusUpdates: updatedCount > 0 ? {
@@ -185,7 +185,7 @@ export async function GET() {
       clearTimeout(timeoutId)
       if (timeoutError.name === 'AbortError') {
         logger.error("Integration metrics request timeout")
-        return NextResponse.json(
+        return jsonResponse(
           {
             success: false,
             error: "Request timeout - please try again",
@@ -197,7 +197,7 @@ export async function GET() {
     }
   } catch (error: any) {
     logger.error("Failed to fetch integration metrics:", error)
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch integration metrics",

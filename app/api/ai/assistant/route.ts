@@ -7,7 +7,7 @@ import { logger } from '@/lib/utils/logger'
 export async function GET() {
   const aiAssistantService = new AIAssistantService()
   const status = await aiAssistantService.getStatus()
-  return NextResponse.json(status)
+  return jsonResponse(status)
 }
 
 export async function POST(request: NextRequest) {
@@ -41,23 +41,22 @@ export async function POST(request: NextRequest) {
         statusCode = 400
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         error: result.error,
         content: result.content
       }, { status: statusCode })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       content: result.content,
       metadata: result.metadata
     })
 
   } catch (error: any) {
     logger.error("❌ AI Assistant route error:", error)
-    
-    return NextResponse.json({
-      error: "Internal server error",
+
+    return errorResponse("Internal server error", 500, {
       content: "I encountered an unexpected error. Please try again."
-    }, { status: 500 })
+    })
   }
 }

@@ -8,7 +8,7 @@ export async function GET() {
     const integrations = detectAvailableIntegrations()
     const stats = getIntegrationStats()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         integrations,
@@ -17,7 +17,7 @@ export async function GET() {
     })
   } catch (error: any) {
     logger.error("Failed to get available integrations:", error)
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to get available integrations",

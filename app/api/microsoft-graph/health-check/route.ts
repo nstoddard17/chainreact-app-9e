@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
@@ -16,12 +17,12 @@ export async function POST(req: NextRequest) {
     // Verify cron secret for security
     const authHeader = req.headers.get('authorization')
     if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { userId } = await req.json()
     if (!userId) {
-      return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+      return errorResponse('Missing userId' , 400)
     }
 
     // Get all subscriptions for user from trigger_resources
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
       .eq('status', 'active')
 
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: 'No active Microsoft Graph subscriptions found for user' })
+      return jsonResponse({ message: 'No active Microsoft Graph subscriptions found for user' })
     }
 
     // Get user token (check multiple Microsoft providers)
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     if (!integration) {
       await notifySubscriptionIssue(userId, 'No Microsoft integration found')
-      return NextResponse.json({ error: 'Microsoft integration not found' }, { status: 404 })
+      return errorResponse('Microsoft integration not found' , 404)
     }
 
     // Check each subscription and renew if needed
@@ -88,13 +89,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       ...results
     })
   } catch (error: any) {
     logger.error('Microsoft Graph health check error:', error)
-    return NextResponse.json({ error: error.message || 'Health check failed' }, { status: 500 })
+    return errorResponse(error.message || 'Health check failed' , 500)
   }
 }
 
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
     // Verify cron secret for security
     const authHeader = req.headers.get('authorization')
     if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get all active subscriptions across users from trigger_resources
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest) {
       .eq('status', 'active')
 
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: 'No active subscriptions found' })
+      return jsonResponse({ message: 'No active subscriptions found' })
     }
 
     // Group subscriptions by user
@@ -180,13 +181,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       ...results
     })
   } catch (error: any) {
     logger.error('Microsoft Graph health check error:', error)
-    return NextResponse.json({ error: error.message || 'Health check failed' }, { status: 500 })
+    return errorResponse(error.message || 'Health check failed' , 500)
   }
 }
 

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData: BlackbaudTokenResponse = await tokenResponse.json()
+    const tokenData: BlackbaudTokenResponse = await tokenjsonResponse()
     
     // Extract and handle token expiration
     const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (meResponse.ok) {
-          accountInfo = await meResponse.json()
+          accountInfo = await mejsonResponse()
         } else {
           logger.warn('Could not fetch Blackbaud user info:', await meResponse.text())
         }

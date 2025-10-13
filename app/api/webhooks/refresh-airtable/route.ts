@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { refreshAirtableWebhook } from '@/lib/integrations/airtable/webhooks'
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
 
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get all Airtable webhooks that are expiring within 2 days
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       .lt('expiration_time', twoDaysFromNow.toISOString())
 
     if (!expiringWebhooks || expiringWebhooks.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'No webhooks need refreshing'
       })
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       refreshed: refreshResults.filter(r => r.status === 'refreshed').length,
       failed: refreshResults.filter(r => r.status === 'failed').length,
@@ -63,15 +64,12 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     logger.error('Error refreshing Airtable webhooks:', error)
-    return NextResponse.json(
-      { error: 'Failed to refresh webhooks' },
-      { status: 500 }
-    )
+    return errorResponse('Failed to refresh webhooks' , 500)
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'Airtable webhook refresh endpoint',
     description: 'POST to this endpoint to refresh expiring Airtable webhooks',
     note: 'Requires CRON_SECRET environment variable for authentication'

@@ -15,7 +15,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is a member of this team
@@ -27,7 +27,7 @@ export async function GET(
       .single()
 
     if (!teamMember) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
     // Get team members with user info
@@ -41,13 +41,13 @@ export async function GET(
 
     if (error) {
       logger.error("Error fetching team members:", error)
-      return NextResponse.json({ error: "Failed to fetch team members" }, { status: 500 })
+      return errorResponse("Failed to fetch team members" , 500)
     }
 
-    return NextResponse.json(members)
+    return jsonResponse(members)
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -63,7 +63,7 @@ export async function POST(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -71,7 +71,7 @@ export async function POST(
 
     // Validate required fields
     if (!user_id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return errorResponse("User ID is required" , 400)
     }
 
     // Check if user is team admin
@@ -83,7 +83,7 @@ export async function POST(
       .single()
 
     if (!teamMember || !['admin', 'editor'].includes(teamMember.role)) {
-      return NextResponse.json({ error: "Only team admins and editors can add members" }, { status: 403 })
+      return errorResponse("Only team admins and editors can add members" , 403)
     }
 
     // Check if user is already a member
@@ -95,7 +95,7 @@ export async function POST(
       .single()
 
     if (existingMember) {
-      return NextResponse.json({ error: "User is already a member of this team" }, { status: 409 })
+      return errorResponse("User is already a member of this team" , 409)
     }
 
     // Check if user is a member of the organization
@@ -106,7 +106,7 @@ export async function POST(
       .single()
 
     if (!team) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 })
+      return errorResponse("Team not found" , 404)
     }
 
     const { data: orgMember } = await serviceClient
@@ -117,7 +117,7 @@ export async function POST(
       .single()
 
     if (!orgMember) {
-      return NextResponse.json({ error: "User must be a member of the organization first" }, { status: 403 })
+      return errorResponse("User must be a member of the organization first" , 403)
     }
 
     // Add user to team
@@ -136,12 +136,12 @@ export async function POST(
 
     if (addError) {
       logger.error("Error adding team member:", addError)
-      return NextResponse.json({ error: "Failed to add team member" }, { status: 500 })
+      return errorResponse("Failed to add team member" , 500)
     }
 
-    return NextResponse.json(newMember, { status: 201 })
+    return jsonResponse(newMember, { status: 201 })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

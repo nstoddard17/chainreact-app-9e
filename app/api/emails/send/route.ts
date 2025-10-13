@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { sendCustomEmail, validateEmail } from '@/lib/services/resend'
 
@@ -11,7 +12,7 @@ export async function POST(request: NextRequest) {
     // Verify user authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -19,17 +20,14 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!to || !subject) {
-      return NextResponse.json(
-        { error: 'Missing required fields: to, subject' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required fields: to, subject' , 400)
     }
 
     // Validate email addresses
     const recipients = Array.isArray(to) ? to : [to]
     for (const email of recipients) {
       if (!validateEmail(email)) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: `Invalid email address: ${email}` },
           { status: 400 }
         )
@@ -46,10 +44,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 500 }
-      )
+      return errorResponse(result.error , 500)
     }
 
     // Log email activity to database
@@ -69,7 +64,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the request, just log the error
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       emailId: result.id,
       message: 'Email sent successfully'
@@ -77,9 +72,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error in email send API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

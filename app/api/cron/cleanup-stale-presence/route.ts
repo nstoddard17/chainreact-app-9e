@@ -18,19 +18,19 @@ export async function POST() {
 
     if (error) {
       logger.error('Error cleaning up stale presence:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     logger.debug(`Cleaned up ${data?.length || 0} stale presence records`)
     
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       cleaned: data?.length || 0,
       message: `Cleaned up ${data?.length || 0} stale presence records`
     })
   } catch (error: any) {
     logger.error('Cleanup error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }
 

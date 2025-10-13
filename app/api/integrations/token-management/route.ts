@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { provider, apiKey } = await request.json()
 
     if (!provider || !apiKey) {
-      return NextResponse.json({ error: "Provider and API key are required" }, { status: 400 })
+      return errorResponse("Provider and API key are required" , 400)
     }
 
     if (!ENCRYPTION_SECRET) {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Failed to save API key:", error)
-      return NextResponse.json({ error: error.message || JSON.stringify(error) || "Failed to save API key" }, { status: 500 })
+      return errorResponse(error.message || JSON.stringify(error) || "Failed to save API key" , 500)
     }
 
     // Log the successful API key connection
@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
       logger.warn("Failed to log API key connection:", auditError)
     }
 
-    return NextResponse.json({ success: true, message: `${provider} API key saved.` })
+    return jsonResponse({ success: true, message: `${provider} API key saved.` })
   } catch (error: any) {
     logger.error("API Key Management Error (POST):", error)
-    return NextResponse.json({ error: error.message || JSON.stringify(error) || "Internal Server Error" }, { status: 500 })
+    return errorResponse(error.message || JSON.stringify(error) || "Internal Server Error" , 500)
   }
 }
 
@@ -91,13 +91,13 @@ export async function DELETE(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { provider } = await request.json()
 
     if (!provider) {
-      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
+      return errorResponse("Provider is required" , 400)
     }
 
     const adminSupabase = getAdminSupabase()
@@ -108,13 +108,13 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error("Failed to delete API key:", error)
-      return NextResponse.json({ error: "Failed to delete API key" }, { status: 500 })
+      return errorResponse("Failed to delete API key" , 500)
     }
 
-    return NextResponse.json({ success: true, message: `${provider} API key removed.` })
+    return jsonResponse({ success: true, message: `${provider} API key removed.` })
   } catch (error: any) {
     logger.error("API Key Management Error (DELETE):", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    return errorResponse("Internal Server Error" , 500)
   }
 }
 
@@ -127,17 +127,17 @@ export async function PUT(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { integrationId, action } = await request.json()
 
     if (!integrationId || !action) {
-      return NextResponse.json({ error: "Integration ID and action are required" }, { status: 400 })
+      return errorResponse("Integration ID and action are required" , 400)
     }
 
     if (action !== "reconnect") {
-      return NextResponse.json({ error: "Invalid action. Only 'reconnect' is supported" }, { status: 400 })
+      return errorResponse("Invalid action. Only 'reconnect' is supported" , 400)
     }
 
     const adminSupabase = getAdminSupabase()
@@ -152,7 +152,7 @@ export async function PUT(request: NextRequest) {
 
     if (fetchError || !integration) {
       logger.error("Failed to fetch integration:", fetchError)
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return errorResponse("Integration not found" , 404)
     }
 
     // Update the integration status to trigger reconnection
@@ -168,7 +168,7 @@ export async function PUT(request: NextRequest) {
 
     if (updateError) {
       logger.error("Failed to update integration for reconnection:", updateError)
-      return NextResponse.json({ error: "Failed to reconnect integration" }, { status: 500 })
+      return errorResponse("Failed to reconnect integration" , 500)
     }
 
     // Log the reconnection request
@@ -184,12 +184,12 @@ export async function PUT(request: NextRequest) {
       logger.warn("Failed to log reconnection request:", auditError)
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       message: `${integration.provider} integration marked for reconnection.` 
     })
   } catch (error: any) {
     logger.error("Integration Reconnection Error (PUT):", error)
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 })
+    return errorResponse(error.message || "Internal Server Error" , 500)
   }
 }

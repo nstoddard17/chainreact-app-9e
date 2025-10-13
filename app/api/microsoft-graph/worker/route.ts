@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
@@ -73,7 +74,7 @@ export async function POST(_req: NextRequest) {
   if (!rows || rows.length === 0) {
     logger.debug('⚠️ No pending events to process')
     logger.debug(`⏱️ Worker completed in ${Date.now() - startTime}ms`)
-    return NextResponse.json({
+    return jsonResponse({
       processed: 0,
       total_in_queue: totalCount || 0,
       status_breakdown: statusCounts
@@ -237,7 +238,7 @@ export async function POST(_req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ processed })
+  return jsonResponse({ processed })
 }
 
 // Helper functions

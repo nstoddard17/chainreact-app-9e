@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get subscription
@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .single()
 
     if (error || !subscription) {
-      return NextResponse.json({ error: "Subscription not found" }, { status: 404 })
+      return errorResponse("Subscription not found" , 404)
     }
 
     // Cancel at period end in Stripe
@@ -48,9 +48,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     // Update in database
     await supabase.from("subscriptions").update({ cancel_at_period_end: true }).eq("id", params.id)
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error: any) {
     logger.error("Cancel subscription error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

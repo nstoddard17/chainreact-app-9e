@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { validateAirtableSignature, fetchAirtableWebhookPayloads } from '@/lib/integrations/airtable/webhooks'
 import { matchesAirtableTable } from '@/lib/integrations/airtable/payloadUtils'
@@ -415,7 +416,7 @@ export async function POST(req: NextRequest) {
 
     if (!baseId || !webhookId) {
       logger.error('❌ Missing base or webhook id in notification')
-      return NextResponse.json({ error: 'Missing base or webhook id' }, { status: 400 })
+      return errorResponse('Missing base or webhook id' , 400)
     }
 
     // Find webhook secret for validation
@@ -444,7 +445,7 @@ export async function POST(req: NextRequest) {
 
       logger.debug('📋 Active webhooks in database:', allWebhooks)
 
-      return NextResponse.json({ error: 'Webhook not registered' }, { status: 404 })
+      return errorResponse('Webhook not registered' , 404)
     }
 
     logger.debug('✅ Found webhook in database')
@@ -485,7 +486,7 @@ export async function POST(req: NextRequest) {
         logger.warn('   Headers received:', Object.keys(headers))
       }
       await setWebhookSkipBefore(wh.id, wh.metadata, new Date().toISOString())
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      return errorResponse('Invalid signature' , 401)
     }
 
     // Fetch actual payloads from Airtable
@@ -516,7 +517,7 @@ export async function POST(req: NextRequest) {
     // Process any pending records that have reached their scheduled time
     await processPendingRecords()
 
-    return NextResponse.json({ success: true, processed: payloads?.payloads?.length || 0 })
+    return jsonResponse({ success: true, processed: payloads?.payloads?.length || 0 })
   } catch (e: any) {
     logger.error('Airtable webhook error:', e)
     if (e?.message === 'Invalid signature') {
@@ -526,7 +527,7 @@ export async function POST(req: NextRequest) {
         await setWebhookSkipBefore(currentWebhook.id, currentWebhook.metadata, new Date().toISOString())
       }
     }
-    return NextResponse.json({ error: e.message || 'Invalid payload' }, { status: 400 })
+    return errorResponse(e.message || 'Invalid payload' , 400)
   }
 }
 
@@ -1182,7 +1183,7 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'Airtable webhook endpoint',
     provider: 'airtable',
     verification: 'Requires X-Airtable-Signature-256 HMAC-SHA256 of raw body using macSecretBase64'

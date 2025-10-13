@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null)
     
     if (!body?.user_id) {
-      return NextResponse.json({ error: "Missing user_id" }, { status: 400 })
+      return errorResponse("Missing user_id" , 400)
     }
 
     const supabase = await createSupabaseServerClient()
@@ -22,12 +22,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('Presence cleanup error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error: any) {
     logger.error('Presence cleanup failed:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

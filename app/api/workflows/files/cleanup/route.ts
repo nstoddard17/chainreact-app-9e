@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     const expectedToken = process.env.CLEANUP_SECRET_TOKEN; // Set this in your env
     
     if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return errorResponse('Unauthorized' , 401);
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -27,14 +28,12 @@ export async function POST(request: Request) {
 
     if (queryError) {
       logger.error('Error querying expired files:', queryError);
-      return NextResponse.json({ 
-        error: 'Failed to query expired files',
-        details: queryError.message 
-      }, { status: 500 });
+      return errorResponse('Failed to query expired files', 500, { details: queryError.message 
+       });
     }
 
     if (!expiredFiles || expiredFiles.length === 0) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         message: 'No expired files to clean up',
         count: 0 
       });
@@ -118,7 +117,7 @@ export async function POST(request: Request) {
 
     logger.debug(`Cleanup completed: ${cleanedCount} files cleaned, ${failedCount} failed`);
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       message: 'Cleanup completed',
       cleaned: cleanedCount,
       failed: failedCount,
@@ -127,9 +126,8 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error('File cleanup error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to clean up expired files' 
-    }, { status: 500 });
+    return errorResponse(error.message || 'Failed to clean up expired files' 
+    , 500);
   }
 }
 
@@ -149,7 +147,7 @@ export async function GET(request: Request) {
       .from('workflow_files')
       .select('*', { count: 'exact', head: true });
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       expiredFiles: expiredCount || 0,
       totalFiles: totalCount || 0,
       message: 'File cleanup status'
@@ -157,8 +155,7 @@ export async function GET(request: Request) {
 
   } catch (error: any) {
     logger.error('Status check error:', error);
-    return NextResponse.json({ 
-      error: error.message || 'Failed to check cleanup status' 
-    }, { status: 500 });
+    return errorResponse(error.message || 'Failed to check cleanup status' 
+    , 500);
   }
 }

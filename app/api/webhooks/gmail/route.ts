@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { verifyGmailWebhook } from '@/lib/webhooks/gmail-verification'
 import { processGmailEvent } from '@/lib/webhooks/gmail-processor'
@@ -93,11 +94,11 @@ export async function POST(request: NextRequest) {
           return new Response('OK', { status: 200 })
         }
 
-        return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+        return errorResponse('Invalid JSON payload' , 400)
       }
 
       logger.error(`[${requestId}] Unexpected error parsing Gmail webhook:`, parseError)
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+      return errorResponse('Invalid payload' , 400)
     }
 
     // Log the parsed event
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     // Return 200 OK to acknowledge the Pub/Sub message
     // Google Pub/Sub expects a 2xx status code to consider the message delivered
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       service: 'gmail',
       requestId,
@@ -158,7 +159,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Health check endpoint
-  return NextResponse.json({ 
+  return jsonResponse({ 
     status: 'healthy', 
     provider: 'gmail',
     services: ['gmail'],

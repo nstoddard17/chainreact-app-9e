@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -144,10 +144,7 @@ export async function GET(request: NextRequest) {
     const notebookId = searchParams.get('notebookId')
 
     if (!dataType) {
-      return NextResponse.json(
-        { error: 'Missing dataType parameter' },
-        { status: 400 }
-      )
+      return errorResponse('Missing dataType parameter' , 400)
     }
 
     logger.debug('OneNote data request', { dataType, integrationId, notebookId })
@@ -159,20 +156,14 @@ export async function GET(request: NextRequest) {
 
     if (error || !integration) {
       logger.error('Integration not found or not connected', { error })
-      return NextResponse.json(
-        { error: 'OneNote integration not connected' },
-        { status: 404 }
-      )
+      return errorResponse('OneNote integration not connected' , 404)
     }
 
     const result = await buildResponse(dataType, integration, { notebookId: notebookId || undefined })
 
-    return NextResponse.json(result)
+    return jsonResponse(result)
   } catch (error) {
     logger.error('Error in OneNote data endpoint:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error' , 500)
   }
 }

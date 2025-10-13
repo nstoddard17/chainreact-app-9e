@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const { accessToken } = await request.json()
     
     if (!accessToken) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: "No access token provided"
       }, { status: 400 })
@@ -22,13 +22,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (!userResponse.ok) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: "Failed to get user information"
       }, { status: 400 })
     }
 
-    const userData = await userResponse.json()
+    const userData = await userjsonResponse()
     
     // Check if this is a work/school account
     const isWorkAccount = userData.userPrincipalName && 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const teamsData = await teamsResponse.json()
+    const teamsData = await teamsjsonResponse()
     
     // Check for specific Teams API errors
     const hasTeamsAccess = teamsResponse.ok || 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
                            teamsData.error.message.includes('Insufficient privileges'))
 
     if (!isWorkAccount) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: "TEAMS_PERSONAL_ACCOUNT",
         message: "Microsoft Teams integration requires a work or school account with Microsoft 365 subscription. Personal Microsoft accounts (@outlook.com, @hotmail.com, etc.) are not supported.",
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!hasTeamsAccess) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: "TEAMS_NO_ACCESS",
         message: "Your work or school account does not have access to Microsoft Teams. Please contact your administrator to enable Teams access or ensure you have a Microsoft 365 subscription.",
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Account validated for Teams access",
       userInfo: {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Teams account validation error:", error)
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: "VALIDATION_ERROR",
       message: "Failed to validate Teams account access"

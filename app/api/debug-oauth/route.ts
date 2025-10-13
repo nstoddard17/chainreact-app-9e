@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 export async function GET(request: NextRequest) {
   const debugInfo = {
@@ -19,5 +20,5 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString()
   }
 
-  return NextResponse.json(debugInfo)
+  return jsonResponse(debugInfo)
 } 

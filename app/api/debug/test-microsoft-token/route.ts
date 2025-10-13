@@ -3,6 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId required' }, { status: 400 })
+      return errorResponse('userId required' , 400)
     }
 
     // Get Microsoft integration
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
-      return NextResponse.json({ error: 'No Microsoft integration found' }, { status: 404 })
+      return errorResponse('No Microsoft integration found' , 404)
     }
 
     const accessToken = typeof integration.access_token === 'string'
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       : null
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to decrypt token' }, { status: 500 })
+      return errorResponse('Failed to decrypt token' , 500)
     }
 
     // Test 1: Get user profile (basic test)
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const profileData = await profileResponse.json()
+    const profileData = await profilejsonResponse()
 
     // Test 2: List existing subscriptions (requires permissions to read subscriptions)
     const subscriptionsResponse = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const subscriptionsData = await subscriptionsResponse.json()
+    const subscriptionsData = await subscriptionsjsonResponse()
 
     // Test 3: Try to create a minimal subscription (this will likely fail with 403)
     const testSubscription = {
@@ -79,9 +80,9 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify(testSubscription)
     })
 
-    const createData = await createResponse.json()
+    const createData = await createjsonResponse()
 
-    return NextResponse.json({
+    return jsonResponse({
       integration: {
         provider: integration.provider,
         status: integration.status,
@@ -110,9 +111,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('Error testing token:', error)
-    return NextResponse.json({
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 })
+    return errorResponse('Internal server error', 500, { details: error.message
+     })
   }
 }

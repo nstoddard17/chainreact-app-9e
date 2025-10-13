@@ -15,7 +15,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user has access to this organization
@@ -27,7 +27,7 @@ export async function GET(
       .single()
 
     if (!orgMember) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
     // Get teams with member info
@@ -42,7 +42,7 @@ export async function GET(
 
     if (error) {
       logger.error("Error fetching teams:", error)
-      return NextResponse.json({ error: "Failed to fetch teams" }, { status: 500 })
+      return errorResponse("Failed to fetch teams" , 500)
     }
 
     // Transform the data
@@ -52,10 +52,10 @@ export async function GET(
       user_role: team.team_members?.find((member: any) => member.user_id === user.id)?.role || null
     }))
 
-    return NextResponse.json(transformedTeams)
+    return jsonResponse(transformedTeams)
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -71,7 +71,7 @@ export async function POST(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -79,7 +79,7 @@ export async function POST(
 
     // Validate required fields
     if (!name || !slug) {
-      return NextResponse.json({ error: "Name and slug are required" }, { status: 400 })
+      return errorResponse("Name and slug are required" , 400)
     }
 
     // Check if user is organization admin
@@ -91,7 +91,7 @@ export async function POST(
       .single()
 
     if (!orgMember || orgMember.role !== 'admin') {
-      return NextResponse.json({ error: "Only organization admins can create teams" }, { status: 403 })
+      return errorResponse("Only organization admins can create teams" , 403)
     }
 
     // Check if slug already exists in this organization
@@ -103,7 +103,7 @@ export async function POST(
       .single()
 
     if (existingTeam) {
-      return NextResponse.json({ error: "Team slug already exists in this organization" }, { status: 409 })
+      return errorResponse("Team slug already exists in this organization" , 409)
     }
 
     // Create team
@@ -122,7 +122,7 @@ export async function POST(
 
     if (createError) {
       logger.error("Error creating team:", createError)
-      return NextResponse.json({ error: "Failed to create team" }, { status: 500 })
+      return errorResponse("Failed to create team" , 500)
     }
 
     // Add creator as team admin
@@ -139,9 +139,9 @@ export async function POST(
       // Don't fail the request, team was created successfully
     }
 
-    return NextResponse.json(team, { status: 201 })
+    return jsonResponse(team, { status: 201 })
   } catch (error) {
     logger.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

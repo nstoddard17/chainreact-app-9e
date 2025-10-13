@@ -16,43 +16,43 @@ export async function GET(request: NextRequest) {
     const expectedSecret = process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+      return errorResponse("CRON_SECRET not configured" , 500)
     }
 
     // Check authorization from header or query parameter
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
 
     if (!providedSecret || providedSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     if (!jobId) {
-      return NextResponse.json({ error: "Missing jobId parameter" }, { status: 400 })
+      return errorResponse("Missing jobId parameter" , 400)
     }
 
     const supabase = createAdminClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Get job status using the function we created
     const { data, error } = await supabase.rpc("get_refresh_job_status", { p_job_id: jobId })
 
     if (error) {
-      return NextResponse.json({ error: `Failed to get job status: ${error.message}` }, { status: 500 })
+      return jsonResponse({ error: `Failed to get job status: ${error.message}` }, { status: 500 })
     }
 
     if (!data || data.length === 0) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 })
+      return errorResponse("Job not found" , 404)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       job: data[0],
     })
   } catch (error: any) {
     logger.error("Error checking job status:", error)
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: "Failed to check job status",

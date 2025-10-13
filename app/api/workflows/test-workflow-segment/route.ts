@@ -157,7 +157,7 @@ export async function POST(request: Request) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return errorResponse("Authentication required" , 401)
     }
 
     // Fetch the workflow data
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     // Parse the workflow data
@@ -180,13 +180,13 @@ export async function POST(request: Request) {
     const { nodes, edges } = workflowData
     
     if (!nodes || !Array.isArray(nodes)) {
-      return NextResponse.json({ error: "Invalid workflow nodes" }, { status: 400 })
+      return errorResponse("Invalid workflow nodes" , 400)
     }
 
     // Find the trigger node
     const triggerNode = nodes.find((node: any) => node.data.isTrigger)
     if (!triggerNode) {
-      return NextResponse.json({ error: "No trigger node found in workflow" }, { status: 400 })
+      return errorResponse("No trigger node found in workflow" , 400)
     }
 
     // Find the target node - if not provided, use the entire workflow
@@ -196,13 +196,13 @@ export async function POST(request: Request) {
     if (!targetNode) {
       logger.debug('Available node IDs:', nodes.map((n: any) => n.id))
       logger.debug('Looking for target node ID:', actualTargetNodeId)
-      return NextResponse.json({ error: "Target node not found" }, { status: 400 })
+      return errorResponse("Target node not found" , 400)
     }
 
     // Build execution path from trigger to target node
     const executionPath = buildExecutionPath(triggerNode.id, actualTargetNodeId, edges)
     if (executionPath.length === 0) {
-      return NextResponse.json({ error: "No execution path found from trigger to target node" }, { status: 400 })
+      return errorResponse("No execution path found from trigger to target node" , 400)
     }
 
     logger.debug("Execution path:", executionPath)
@@ -304,7 +304,7 @@ export async function POST(request: Request) {
     const targetExecution = executionResults.find(result => result.nodeId === actualTargetNodeId)
     const triggerExecution = executionResults[0] // First node is the trigger
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       testResults: executionResults,
       executionPath,
@@ -314,10 +314,7 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error("Workflow segment test error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to test workflow segment" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Failed to test workflow segment" , 500)
   }
 }
 
