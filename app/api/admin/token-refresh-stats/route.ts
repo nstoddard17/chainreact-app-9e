@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Get overall integration health stats
@@ -57,14 +57,14 @@ export async function GET() {
       (i) => i.last_refresh_success && i.last_refresh_success > yesterday,
     ).length
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       stats,
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
     logger.error("Error fetching token refresh stats:", error)
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: "Failed to fetch token refresh stats",

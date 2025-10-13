@@ -18,7 +18,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user: null as any,
       template: null as any,
-      errorResponse: NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      errorResponse: errorResponse("Not authenticated" , 401)
     }
   }
 
@@ -49,7 +49,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user,
       template: null as any,
-      errorResponse: NextResponse.json({ error: "Template not found" }, { status: 404 }),
+      errorResponse: errorResponse("Template not found" , 404),
     }
   }
 
@@ -66,7 +66,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user,
       template: null as any,
-      errorResponse: NextResponse.json({ error: "Only admins or template owners can manage templates" }, { status: 403 }),
+      errorResponse: errorResponse("Only admins or template owners can manage templates" , 403),
     }
   }
 
@@ -102,17 +102,14 @@ export async function GET(
       connections,
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       template: hydratedTemplate,
       nodes,
       connections,
     })
   } catch (error) {
     logger.error("Error in GET /api/templates/[id]:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -213,16 +210,13 @@ export async function PUT(
 
     if (error) {
       logger.error("Error updating template:", error)
-      return NextResponse.json(
-        { error: "Failed to update template" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to update template" , 500)
     }
 
     const parsedNodes = parseJsonField(updatedTemplate.nodes) || filteredNodes
     const parsedConnections = parseJsonField(updatedTemplate.connections) || connections
 
-    return NextResponse.json({
+    return jsonResponse({
       template: {
         ...updatedTemplate,
         nodes: parsedNodes,
@@ -232,9 +226,6 @@ export async function PUT(
     })
   } catch (error) {
     logger.error("Error in PUT /api/templates/[id]:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }

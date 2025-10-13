@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const userId = body.userId as string | undefined
     if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 })
+      return errorResponse("Missing userId" , 400)
     }
 
     const { data: integ, error } = await supabase
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       .eq("provider", "airtable")
       .single()
     if (error || !integ) {
-      return NextResponse.json({ error: "Airtable integration not found" }, { status: 404 })
+      return errorResponse("Airtable integration not found" , 404)
     }
 
     // Use safeDecrypt which handles both encrypted and unencrypted tokens
@@ -39,10 +39,10 @@ export async function POST(req: NextRequest) {
       { onConflict: "user_id,provider,base_id" }
     )
 
-    return NextResponse.json({ success: true, count: bases.length, bases })
+    return jsonResponse({ success: true, count: bases.length, bases })
   } catch (e: any) {
     logger.error("sync airtable bases error:", e)
-    return NextResponse.json({ error: e.message || "Internal error" }, { status: 500 })
+    return errorResponse(e.message || "Internal error" , 500)
   }
 }
 

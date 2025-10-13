@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import crypto from 'crypto'
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { pageId, userId } = body
 
     if (!pageId) {
-      return NextResponse.json({ error: 'Missing pageId' }, { status: 400 })
+      return errorResponse('Missing pageId' , 400)
     }
 
     // Get user's Facebook integration
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Facebook access token
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json({ error: 'Facebook integration not found' }, { status: 404 })
+      return errorResponse('Facebook integration not found' , 404)
     }
 
     // Check if token is expired and refresh if needed
@@ -51,10 +52,10 @@ export async function POST(request: NextRequest) {
       })
 
       if (!refreshResponse.ok) {
-        return NextResponse.json({ error: 'Failed to refresh Facebook token' }, { status: 500 })
+        return errorResponse('Failed to refresh Facebook token' , 500)
       }
 
-      const refreshData = await refreshResponse.json()
+      const refreshData = await refreshjsonResponse()
       accessToken = refreshData.access_token
 
       // Update the token in the database
@@ -72,10 +73,10 @@ export async function POST(request: NextRequest) {
     const pageTokenResponse = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=access_token&access_token=${accessToken}`)
     
     if (!pageTokenResponse.ok) {
-      return NextResponse.json({ error: 'Failed to get page access token' }, { status: 500 })
+      return errorResponse('Failed to get page access token' , 500)
     }
 
-    const pageTokenData = await pageTokenResponse.json()
+    const pageTokenData = await pageTokenjsonResponse()
     const pageAccessToken = pageTokenData.access_token
 
     // Generate appsecret_proof for secure API calls
@@ -92,10 +93,10 @@ export async function POST(request: NextRequest) {
     if (!conversationsResponse.ok) {
       const errorData = await conversationsResponse.text()
       logger.error('Facebook conversations API error:', errorData)
-      return NextResponse.json({ error: 'Failed to fetch conversations' }, { status: 500 })
+      return errorResponse('Failed to fetch conversations' , 500)
     }
 
-    const conversationsData = await conversationsResponse.json()
+    const conversationsData = await conversationsjsonResponse()
     
     // Process conversations to get sender info and last messages
     const conversations = []
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
         )
 
         if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json()
+          const messagesData = await messagesjsonResponse()
           const lastMessage = messagesData.data?.[0]
 
           if (lastMessage) {
@@ -139,10 +140,10 @@ export async function POST(request: NextRequest) {
     // Sort by most recent activity
     conversations.sort((a, b) => new Date(b.updatedTime).getTime() - new Date(a.updatedTime).getTime())
 
-    return NextResponse.json({ data: conversations })
+    return jsonResponse({ data: conversations })
 
   } catch (error) {
     logger.error('Error fetching Facebook conversations:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 } 

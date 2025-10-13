@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -18,7 +19,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Fetch AI field resolutions for this execution
@@ -31,10 +32,7 @@ export async function GET(
 
     if (error) {
       logger.error('Error fetching AI field resolutions:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch AI field resolutions' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to fetch AI field resolutions' , 500)
     }
 
     // Group resolutions by node for easier display
@@ -66,7 +64,7 @@ export async function GET(
     // Convert to array
     const result = Object.values(groupedResolutions || {})
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       executionId,
       resolutions: result,
@@ -76,10 +74,7 @@ export async function GET(
     })
   } catch (error) {
     logger.error('Error in AI resolutions API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -97,7 +92,7 @@ export async function GET_WORKFLOW(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Fetch all AI field resolutions for this workflow
@@ -111,10 +106,7 @@ export async function GET_WORKFLOW(
 
     if (error) {
       logger.error('Error fetching workflow AI resolutions:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch AI field resolutions' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to fetch AI field resolutions' , 500)
     }
 
     // Group by execution for overview
@@ -138,7 +130,7 @@ export async function GET_WORKFLOW(
       return acc
     }, {})
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflowId,
       executionGroups: Object.values(executionGroups || {}),
@@ -146,9 +138,6 @@ export async function GET_WORKFLOW(
     })
   } catch (error) {
     logger.error('Error in workflow AI resolutions API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

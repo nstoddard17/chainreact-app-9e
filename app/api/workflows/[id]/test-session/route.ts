@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -22,7 +23,7 @@ export async function POST(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get workflow details
@@ -34,7 +35,7 @@ export async function POST(
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      return errorResponse('Workflow not found' , 404)
     }
 
     // Find the trigger node
@@ -43,10 +44,7 @@ export async function POST(
     )
 
     if (!triggerNode) {
-      return NextResponse.json(
-        { error: 'No trigger node found in workflow' },
-        { status: 400 }
-      )
+      return errorResponse('No trigger node found in workflow' , 400)
     }
 
     const triggerType = triggerNode.data?.type
@@ -65,13 +63,9 @@ export async function POST(
     ]
 
     if (!webhookTriggers.includes(triggerType)) {
-      return NextResponse.json(
-        {
-          error: 'This trigger type does not support webhook-based live testing',
-          triggerType,
-        },
-        { status: 400 }
-      )
+      return errorResponse('This trigger type does not support webhook-based live testing', 400, {
+          triggerType
+        })
     }
 
     // Register webhook/trigger with external service (Gmail, Airtable, etc.)
@@ -87,13 +81,8 @@ export async function POST(
 
     if (!result.success && result.errors.length > 0) {
       logger.error('❌ Trigger activation failed:', result.errors)
-      return NextResponse.json(
-        {
-          error: 'Failed to register webhook with external service',
-          details: result.errors
-        },
-        { status: 500 }
-      )
+      return errorResponse('Failed to register webhook with external service', 500, { details: result.errors
+         })
     }
 
     logger.debug('✅ Trigger registered successfully for live test mode')
@@ -117,7 +106,7 @@ export async function POST(
       // Continue anyway - this is not critical
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       sessionId,
       status: 'listening',
@@ -127,10 +116,7 @@ export async function POST(
     })
   } catch (error: any) {
     logger.error('Error starting test session:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to start test session' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to start test session' , 500)
   }
 }
 
@@ -152,7 +138,7 @@ export async function DELETE(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get workflow to get nodes for deactivation
@@ -183,16 +169,13 @@ export async function DELETE(
       .eq('user_id', user.id)
       .eq('status', 'listening')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Test session stopped and webhook unregistered',
     })
   } catch (error: any) {
     logger.error('Error stopping test session:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to stop test session' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to stop test session' , 500)
   }
 }
 
@@ -214,7 +197,7 @@ export async function GET(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get active test session
@@ -233,7 +216,7 @@ export async function GET(
     }
 
     if (!session) {
-      return NextResponse.json({
+      return jsonResponse({
         active: false,
         session: null,
       })
@@ -249,7 +232,7 @@ export async function GET(
         })
         .eq('id', session.id)
 
-      return NextResponse.json({
+      return jsonResponse({
         active: false,
         session: { ...session, status: 'expired' },
       })
@@ -267,16 +250,13 @@ export async function GET(
       executionDetails = execution
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       active: true,
       session,
       execution: executionDetails,
     })
   } catch (error: any) {
     logger.error('Error getting test session:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to get test session' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to get test session' , 500)
   }
 }

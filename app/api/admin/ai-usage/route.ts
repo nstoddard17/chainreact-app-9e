@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     if (usersError) {
       logger.error('Error fetching users:', usersError)
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+      return errorResponse('Failed to fetch users' , 500)
     }
 
     // Fetch usage data for all users
@@ -105,13 +105,13 @@ export async function GET(request: NextRequest) {
       users_at_limit: userUsageData.filter(u => u.budget.usage_percent >= 100).length
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       users: userUsageData,
       stats
     })
     
   } catch (error) {
     logger.error("Error fetching admin AI usage:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

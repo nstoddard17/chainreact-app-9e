@@ -9,9 +9,8 @@ export async function GET(request: NextRequest) {
     const userId = url.searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json({
-        error: 'Missing userId parameter'
-      }, { status: 400 })
+      return errorResponse('Missing userId parameter'
+      , 400)
     }
 
     const supabase = await createSupabaseServerClient()
@@ -27,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     if (integrationError || !integration) {
       // Integration not connected - return empty signatures
-      return NextResponse.json({
+      return jsonResponse({
         signatures: [],
         needsConnection: true
       })
@@ -36,16 +35,13 @@ export async function GET(request: NextRequest) {
     // For now, return empty signatures array
     // TODO: Implement actual Outlook signature fetching via Microsoft Graph API
     // Outlook signatures are complex and require special Graph API permissions
-    return NextResponse.json({
+    return jsonResponse({
       signatures: [],
       needsConnection: false
     })
 
   } catch (error: any) {
     logger.error('[Outlook Signatures API] Error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch Outlook signatures' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch Outlook signatures' , 500)
   }
 }

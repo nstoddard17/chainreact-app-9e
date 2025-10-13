@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
 
     if (!userId) {
-      return NextResponse.json({ error: "userId parameter required" }, { status: 400 })
+      return errorResponse("userId parameter required" , 400)
     }
 
     // Get all integrations for this user
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     if (allError) {
       logger.error("Error fetching all integrations:", allError)
-      return NextResponse.json({ error: allError.message }, { status: 500 })
+      return errorResponse(allError.message , 500)
     }
 
     // Get specifically YouTube integrations
@@ -47,10 +47,10 @@ export async function GET(request: NextRequest) {
 
     if (youtubeError) {
       logger.error("Error fetching YouTube integrations:", youtubeError)
-      return NextResponse.json({ error: youtubeError.message }, { status: 500 })
+      return errorResponse(youtubeError.message , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       userId,
       totalIntegrations: allIntegrations?.length || 0,
       youtubeIntegrations: youtubeIntegrations?.length || 0,
@@ -76,6 +76,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     logger.error("Debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

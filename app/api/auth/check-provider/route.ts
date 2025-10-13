@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createClient } from '@supabase/supabase-js';
 
 import { logger } from '@/lib/utils/logger'
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json();
 
     if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+      return errorResponse('Email is required' , 400);
     }
 
     // First check if user exists in auth.users with timeout handling
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       logger.error('Supabase timeout or error:', timeoutError.message);
       // In case of timeout or network error, allow the user to proceed
       // This is better than blocking the entire auth flow
-      return NextResponse.json({
+      return jsonResponse({
         exists: false,
         provider: null,
         warning: 'Could not verify existing account due to network issues'
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (authError) {
       logger.error('Error fetching users:', authError);
       // Allow user to proceed even if we can't check
-      return NextResponse.json({
+      return jsonResponse({
         exists: false,
         provider: null,
         warning: 'Could not verify existing account'
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       // User doesn't exist, allow email/password signup
-      return NextResponse.json({ 
+      return jsonResponse({ 
         exists: false,
         provider: null 
       });
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
                                user.user_metadata?.provider === 'google' ||
                                user.identities?.some(identity => identity.provider === 'google');
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         exists: true,
         provider: hasGoogleProvider ? 'google' : 'email',
         user_id: user.id
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
     // Use provider from user_profiles table as the authoritative source
     const provider = profile?.provider || 'email';
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       exists: true,
       provider: provider,
       user_id: user.id
@@ -92,6 +93,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error in check-provider:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return errorResponse('Internal server error' , 500);
   }
 } 

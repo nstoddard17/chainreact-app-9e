@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // Extract token expiration time
     // Dropbox access tokens typically expire in 4 hours (14400 seconds)
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (accountResponse.ok) {
-          accountInfo = await accountResponse.json()
+          accountInfo = await accountjsonResponse()
         } else {
           logger.warn('Could not fetch Dropbox account information:', await accountResponse.text())
         }

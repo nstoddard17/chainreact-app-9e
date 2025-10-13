@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     if (userError || !user) {
       logger.debug("❌ Authentication failed:", userError)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     logger.debug("✅ User authenticated:", user.id)
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     if (!prompt) {
       logger.debug("❌ No prompt provided")
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+      return errorResponse("Prompt is required" , 400)
     }
 
     logger.debug("📝 Generating workflow for prompt:", prompt)
@@ -39,9 +39,8 @@ export async function POST(request: NextRequest) {
 
     if (!result.success || !result.workflow) {
       logger.debug("❌ AI generation failed:", result.error)
-      return NextResponse.json({ 
-        error: result.error || "Failed to generate workflow" 
-      }, { status: 500 })
+      return errorResponse(result.error || "Failed to generate workflow" 
+      , 500)
     }
 
     logger.debug("✅ AI generation successful, saving to database")
@@ -63,11 +62,11 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         logger.error("❌ Database update error:", updateError)
-        return NextResponse.json({ error: "Failed to update workflow" }, { status: 500 })
+        return errorResponse("Failed to update workflow" , 500)
       }
 
       logger.debug("✅ Workflow updated successfully")
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true,
         workflow,
         confidence: result.confidence,
@@ -91,11 +90,11 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       logger.error("❌ Database create error:", createError)
-      return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 })
+      return errorResponse("Failed to create workflow" , 500)
     }
 
     logger.debug("✅ Workflow created successfully:", workflow.id)
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true,
       workflow,
       confidence: result.confidence,
@@ -103,7 +102,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     logger.error("❌ Workflow generation error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -119,7 +118,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Return available workflow templates
@@ -138,9 +137,9 @@ export async function GET(request: NextRequest) {
       },
     ]
 
-    return NextResponse.json({ templates })
+    return jsonResponse({ templates })
   } catch (error) {
     logger.error("Template fetch error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

@@ -13,13 +13,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return errorResponse("Unauthorized" , 401)
   }
 
   const { integrationId } = await req.json()
 
   if (!integrationId) {
-    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+    return errorResponse("Integration ID is required" , 400)
   }
 
   try {
@@ -31,14 +31,14 @@ export async function POST(req: Request) {
       .single()
 
     if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return errorResponse("Integration not found" , 404)
     }
 
     const contactGroups = await getGmailContactGroups(integration.access_token)
-    return NextResponse.json(contactGroups)
+    return jsonResponse(contactGroups)
   } catch (error) {
     logger.error("Failed to load contact groups:", error)
-    return NextResponse.json({ error: "Failed to load contact groups" }, { status: 500 })
+    return errorResponse("Failed to load contact groups" , 500)
   }
 }
 
@@ -62,7 +62,7 @@ async function getGmailContactGroups(accessToken: string) {
       throw new Error(`Google People API error: ${groupsResponse.status}`)
     }
 
-    const groupsData = await groupsResponse.json()
+    const groupsData = await groupsjsonResponse()
     const contactGroups = groupsData.contactGroups || []
 
     // Filter out system groups and get member details for user-created groups
@@ -89,7 +89,7 @@ async function getGmailContactGroups(accessToken: string) {
             return null
           }
 
-          const membersData = await membersResponse.json()
+          const membersData = await membersjsonResponse()
           const memberResourceNames = membersData.memberResourceNames || []
 
           if (memberResourceNames.length === 0) {
@@ -114,7 +114,7 @@ async function getGmailContactGroups(accessToken: string) {
             return null
           }
 
-          const contactsData = await contactsResponse.json()
+          const contactsData = await contactsjsonResponse()
           const people = contactsData.responses || []
 
           const emails = people

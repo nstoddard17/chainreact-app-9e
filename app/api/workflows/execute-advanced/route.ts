@@ -16,13 +16,13 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { workflowId, inputData = {}, options = {}, startNodeId } = await request.json()
 
     if (!workflowId) {
-      return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 })
+      return errorResponse("Workflow ID is required" , 400)
     }
 
     // Verify workflow ownership
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     const executionEngine = new AdvancedExecutionEngine()
@@ -53,13 +53,13 @@ export async function POST(request: Request) {
       startNodeId,
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       sessionId: executionSession.id,
       result,
     })
   } catch (error: any) {
     logger.error("Advanced workflow execution error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 }

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     logger.debug(`[Stripe Webhook] Event type: ${event.type}, ID: ${event.id}`)
   } catch (error: any) {
     logger.error("[Stripe Webhook] Signature verification failed:", error.message)
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+    return errorResponse("Invalid signature" , 400)
   }
 
   // Use service role key to bypass RLS
@@ -89,11 +89,11 @@ export async function POST(request: Request) {
     }
 
     logger.debug(`[Stripe Webhook] Successfully processed event: ${event.type}`)
-    return NextResponse.json({ received: true })
+    return jsonResponse({ received: true })
   } catch (error: any) {
     logger.error("[Stripe Webhook] Handler error:", error)
     logger.error("[Stripe Webhook] Error details:", JSON.stringify(error, null, 2))
-    return NextResponse.json({ error: "Webhook handler failed", details: error.message }, { status: 500 })
+    return errorResponse("Webhook handler failed", 500, { details: error.message  })
   }
 }
 

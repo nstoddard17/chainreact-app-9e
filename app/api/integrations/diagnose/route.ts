@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (sessionError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const userId = user.id
@@ -304,9 +304,9 @@ export async function GET(request: NextRequest) {
       diagnostics.push(diagnostic)
     }
 
-    return NextResponse.json({ diagnostics })
+    return jsonResponse({ diagnostics })
   } catch (error: any) {
     logger.error("Error running diagnostics:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

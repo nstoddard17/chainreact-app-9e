@@ -8,5 +8,5 @@ export async function GET() {
     aiCommands: 0,
   }
 
-  return NextResponse.json({ success: true, data: metrics })
+  return jsonResponse({ success: true, data: metrics })
 }

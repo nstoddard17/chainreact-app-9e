@@ -7,28 +7,19 @@ export async function POST(request: NextRequest) {
     const { config, userId } = await request.json()
 
     if (!config) {
-      return NextResponse.json(
-        { error: "Config is required" },
-        { status: 400 }
-      )
+      return errorResponse("Config is required" , 400)
     }
 
     // Validate required fields
     const { query, filter, maxResults } = config
     
     if (!query && !filter) {
-      return NextResponse.json(
-        { error: "Either query or filter is required" },
-        { status: 400 }
-      )
+      return errorResponse("Either query or filter is required" , 400)
     }
 
     // For preview, we need to get the actual user's Notion integration
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required for Notion preview" },
-        { status: 400 }
-      )
+      return errorResponse("User ID is required for Notion preview" , 400)
     }
 
     // Import the search function dynamically to avoid import issues
@@ -43,7 +34,7 @@ export async function POST(request: NextRequest) {
         if (result.message?.includes("Notion access token not found") || 
             result.error?.includes("JSON object requested, multiple (or no) rows returned") ||
             result.error?.includes("no rows returned")) {
-          return NextResponse.json({
+          return jsonResponse({
             success: false,
             error: "No Notion integration found. Please connect your Notion account first.",
             data: {
@@ -56,14 +47,11 @@ export async function POST(request: NextRequest) {
           }, { status: 400 })
         }
         
-        return NextResponse.json(
-          { error: result.message || "Failed to fetch Notion pages" },
-          { status: 500 }
-        )
+        return errorResponse(result.message || "Failed to fetch Notion pages" , 500)
       }
 
       // Return structured preview data
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: {
           pages: result.output?.pages || [],
@@ -78,7 +66,7 @@ export async function POST(request: NextRequest) {
       // Handle the case where user doesn't have Notion integration
       if (error.message?.includes("JSON object requested, multiple (or no) rows returned") || 
           error.message?.includes("no rows returned")) {
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           error: "No Notion integration found. Please connect your Notion account first.",
           data: {
@@ -97,9 +85,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Notion search pages preview error:", error)
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 } 

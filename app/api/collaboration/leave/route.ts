@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { sessionToken } = await request.json()
 
     if (!sessionToken) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: "Session token is required" },
         { status: 400 }
       )
@@ -37,16 +37,16 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Error leaving collaboration:", error)
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: "Failed to leave collaboration" },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error("Error in leave collaboration:", error)
-    return NextResponse.json(
+    return jsonResponse(
       { success: false, error: "Internal server error" },
       { status: 500 }
     )

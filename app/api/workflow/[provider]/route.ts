@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { handleDropboxWebhookEvent } from '@/lib/webhooks/dropboxTriggerHandler'
@@ -109,7 +110,7 @@ export async function POST(
         const timeDiff = Date.now() - cachedData.timestamp
         if (timeDiff < 1000) { // Within 1 second is likely a duplicate
           logger.debug(`⚡ ${logPrefix} Duplicate Discord message ${payload.id} detected (${timeDiff}ms apart), skipping`)
-          return NextResponse.json({
+          return jsonResponse({
             success: true,
             message: 'Duplicate request ignored',
             messageId: payload.id
@@ -133,7 +134,7 @@ export async function POST(
 
     if (!workflows || workflows.length === 0) {
       logger.debug(`${logPrefix} No active workflows found`)
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'No active workflows to process'
       })
@@ -222,14 +223,14 @@ export async function POST(
 
     // Return results
     if (results.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'No matching workflows found for this webhook'
       })
     }
 
     const successCount = results.filter(r => r.success).length
-    return NextResponse.json({
+    return jsonResponse({
       success: successCount > 0,
       message: `Processed ${successCount} of ${results.length} workflows`,
       results
@@ -243,7 +244,7 @@ export async function POST(
       await logWebhookExecution(workflow.id, provider, payload, headers, 'error', Date.now() - startTime, error.message)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message || 'Internal server error'
     }, { status: 500 })

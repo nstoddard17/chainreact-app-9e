@@ -7,18 +7,17 @@ export async function POST(request: NextRequest) {
     const { guildId } = await request.json()
     
     if (!guildId) {
-      return NextResponse.json({ error: "Guild ID is required" }, { status: 400 })
+      return errorResponse("Guild ID is required" , 400)
     }
 
     const botToken = process.env.DISCORD_BOT_TOKEN
     const botUserId = process.env.DISCORD_CLIENT_ID
 
     if (!botToken || !botUserId) {
-      return NextResponse.json({ 
-        error: "Bot configuration missing",
+      return errorResponse("Bot configuration missing", 500, {
         botToken: !!botToken,
         botUserId: !!botUserId
-      }, { status: 500 })
+      })
     }
 
     logger.debug(`🔍 Debug: Fetching channels for guild ${guildId}`)
@@ -32,13 +31,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (!channelsResponse.ok) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `Failed to fetch channels: ${channelsResponse.status}`,
         status: channelsResponse.status
       }, { status: 500 })
     }
 
-    const allChannels = await channelsResponse.json()
+    const allChannels = await channelsjsonResponse()
     const textChannels = allChannels.filter((channel: any) => channel.type === 0)
     
     logger.debug(`📋 Found ${textChannels.length} text channels`)
@@ -53,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     let guildPermissions = BigInt(0)
     if (memberResponse.status === 200) {
-      const memberData = await memberResponse.json()
+      const memberData = await memberjsonResponse()
       guildPermissions = BigInt(memberData.permissions || 0)
       logger.debug(`🔑 Bot guild permissions: ${guildPermissions.toString()}`)
     }
@@ -104,7 +103,7 @@ export async function POST(request: NextRequest) {
     
     logger.debug(`✅ Found ${accessibleChannels.length} accessible channels out of ${textChannels.length} total`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       guildId,
       totalChannels: textChannels.length,
@@ -119,8 +118,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("❌ Debug Discord channels error:", error)
-    return NextResponse.json({ 
-      error: error.message || "Internal server error" 
-    }, { status: 500 })
+    return errorResponse(error.message || "Internal server error" 
+    , 500)
   }
 } 

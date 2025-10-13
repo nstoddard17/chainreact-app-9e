@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { oneNoteHandlers } from './handlers'
 import { OneNoteIntegration } from './types'
@@ -20,9 +21,8 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     logger.debug(`🔍 [OneNote API] Looking for integration:`, {
@@ -41,9 +41,8 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [OneNote API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'OneNote integration not found'
-      }, { status: 404 })
+      return errorResponse('OneNote integration not found'
+      , 404)
     }
 
     // Validate it's a OneNote/Microsoft integration
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
         actualProvider: integration.provider,
         expectedProviders: validProviders
       })
-      return NextResponse.json({
+      return jsonResponse({
         error: `Invalid integration provider. Expected OneNote/Microsoft integration but got: ${integration.provider}`
       }, { status: 400 })
     }
@@ -67,11 +66,10 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'OneNote integration is not connected. Please reconnect your Microsoft account.',
+      return errorResponse('OneNote integration is not connected. Please reconnect your Microsoft account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
     
     // Check for personal account limitation
@@ -82,7 +80,7 @@ export async function POST(req: NextRequest) {
       })
       
       // Return a special response for personal accounts
-      return NextResponse.json({
+      return jsonResponse({
         data: [],
         warning: 'OneNote API does not work with personal Microsoft accounts (outlook.com, hotmail.com, live.com). Please use a work or school account for OneNote integration.',
         accountType: 'personal',
@@ -100,7 +98,7 @@ export async function POST(req: NextRequest) {
     const handler = oneNoteHandlers[dataType]
     if (!handler) {
       logger.error('❌ [OneNote API] Unknown data type:', dataType)
-      return NextResponse.json({
+      return jsonResponse({
         error: `Unknown OneNote data type: ${dataType}`,
         availableTypes: Object.keys(oneNoteHandlers)
       }, { status: 400 })
@@ -122,7 +120,7 @@ export async function POST(req: NextRequest) {
       hasError: !!result.error
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data: result.data,
       error: result.error,
       success: !result.error,
@@ -138,23 +136,17 @@ export async function POST(req: NextRequest) {
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'Microsoft Graph API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Microsoft Graph API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

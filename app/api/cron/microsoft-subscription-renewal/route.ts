@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     // Verify cron secret for security
     const authHeader = req.headers.get('authorization')
     if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     logger.debug('🔄 Starting Microsoft Graph subscription renewal cron job')
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     
     if (subscriptions.length === 0) {
       logger.debug('✅ No Microsoft Graph subscriptions need renewal')
-      return NextResponse.json({ message: 'No subscriptions need renewal' })
+      return jsonResponse({ message: 'No subscriptions need renewal' })
     }
 
     logger.debug(`🔄 Found ${subscriptions.length} subscriptions that need renewal`)
@@ -89,13 +90,13 @@ export async function POST(req: NextRequest) {
 
     logger.debug(`🏁 Microsoft Graph subscription renewal complete: ${results.renewed} renewed, ${results.failed} failed`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       ...results
     })
   } catch (error: any) {
     logger.error('❌ Microsoft Graph subscription renewal error:', error)
-    return NextResponse.json({ error: error.message || 'Renewal failed' }, { status: 500 })
+    return errorResponse(error.message || 'Renewal failed' , 500)
   }
 }
 

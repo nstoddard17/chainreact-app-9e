@@ -64,12 +64,17 @@ export class MicrosoftGraphSubscriptionManager {
       const clientState = this.generateClientState()
 
       // Prepare subscription payload
-      const subscriptionPayload = {
+      const subscriptionPayload: any = {
         changeType: changeType,
         notificationUrl: notificationUrl,
         resource: resource,
         expirationDateTime: expirationDateTime.toISOString(),
         clientState: clientState
+      }
+
+      // Add lifecycle notification URL if expiration is > 1 hour (Microsoft requirement)
+      if (actualExpirationMinutes > 60) {
+        subscriptionPayload.lifecycleNotificationUrl = this.getLifecycleNotificationUrl()
       }
 
       logger.debug('📤 Creating Microsoft Graph subscription:', {
@@ -438,6 +443,23 @@ export class MicrosoftGraphSubscriptionManager {
     const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
     logger.debug("[Microsoft Graph] Using webhook notification URL", { notificationUrl })
     return notificationUrl
+  }
+
+  private getLifecycleNotificationUrl(): string {
+    const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
+    const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
+
+    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    baseUrl = baseUrl.replace(/\/$/, "")
+
+    if (!baseUrl.startsWith("https://")) {
+      const guidanceEnv = httpsOverride || explicit || baseUrl
+      throw new Error(`Microsoft Graph lifecycle notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
+    }
+
+    const lifecycleUrl = `${baseUrl}/api/webhooks/microsoft/lifecycle`
+    logger.debug("[Microsoft Graph] Using lifecycle notification URL", { lifecycleUrl })
+    return lifecycleUrl
   }
   private generateClientState(): string {
     return crypto.randomBytes(32).toString('hex')

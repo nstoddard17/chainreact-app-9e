@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -37,7 +38,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       logger.debug('🔍 Channels API response status:', channelsStatus);
       
       if (channelsResponse.ok) {
-        const channels = await channelsResponse.json();
+        const channels = await channelsjsonResponse();
         logger.debug('🔍 Successfully fetched channels:', channels.length, 'channels found');
         
         // Bot can access channels, so it's in the guild with proper permissions
@@ -121,10 +122,7 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guildId')
 
     if (!guildId) {
-      return NextResponse.json(
-        { error: 'Guild ID is required' },
-        { status: 400 }
-      )
+      return errorResponse('Guild ID is required' , 400)
     }
 
     // Verify user is authenticated
@@ -132,10 +130,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Check if user has Discord integration
@@ -148,10 +143,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json(
-        { error: 'Discord integration not connected' },
-        { status: 400 }
-      )
+      return errorResponse('Discord integration not connected' , 400)
     }
 
     // Check if bot is actually in the guild
@@ -159,12 +151,9 @@ export async function GET(request: NextRequest) {
     
     logger.debug("🔍 Bot status check result for guild:", guildId, botStatus);
 
-    return NextResponse.json(botStatus)
+    return jsonResponse(botStatus)
   } catch (error) {
     logger.error('Error checking Discord bot status:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 } 

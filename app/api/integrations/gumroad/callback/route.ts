@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // Gumroad access tokens don't expire by default
     // We'll set a nominal expiration for safety
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (meResponse.ok) {
-          const meData = await meResponse.json()
+          const meData = await mejsonResponse()
           if (meData.success && meData.user) {
             profileData = {
               name: meData.user.name,

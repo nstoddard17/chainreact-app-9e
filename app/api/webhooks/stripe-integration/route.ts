@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     
     if (!webhookSecret) {
       logger.error('❌ Missing STRIPE_INTEGRATION_WEBHOOK_SECRET environment variable')
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+      return errorResponse('Webhook secret not configured' , 500)
     }
 
     // For testing purposes
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     
     if (!signature && !isTestMode) {
       logger.error('❌ Missing Stripe signature')
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 })
+      return errorResponse('Missing signature' , 400)
     }
 
     let event
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         
         if (!timestamp || !signatureValue) {
           logger.error('❌ Invalid signature format')
-          return NextResponse.json({ error: 'Invalid signature format' }, { status: 400 })
+          return errorResponse('Invalid signature format' , 400)
         }
         
         // Verify the signature
@@ -60,14 +61,14 @@ export async function POST(request: NextRequest) {
         
         if (signatureValue !== expectedSignature) {
           logger.error('❌ Signature verification failed')
-          return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+          return errorResponse('Invalid signature' , 400)
         }
         
         event = JSON.parse(body)
       }
     } catch (error) {
       logger.error('❌ Failed to parse webhook body:', error)
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+      return errorResponse('Invalid request body' , 400)
     }
 
     logger.debug(`📦 [Stripe Integration] Processing event: ${event.type}`)
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error('❌ Failed to store webhook event:', error)
-      return NextResponse.json({ error: 'Failed to process webhook' }, { status: 500 })
+      return errorResponse('Failed to process webhook' , 500)
     }
 
     logger.debug('✅ Webhook event stored:', data.id)
@@ -100,10 +101,10 @@ export async function POST(request: NextRequest) {
     // This would be handled by a separate workflow execution service
     await triggerWorkflowsForEvent(event, data.id)
 
-    return NextResponse.json({ received: true, event_id: data.id })
+    return jsonResponse({ received: true, event_id: data.id })
   } catch (error: any) {
     logger.error('❌ Webhook handler error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 

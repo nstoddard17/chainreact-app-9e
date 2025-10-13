@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import crypto from 'crypto'
 import { verifyWebhookSignature } from '@/lib/webhooks/verification'
 import { processWebhookEvent } from '@/lib/webhooks/processor'
@@ -30,7 +31,7 @@ export async function POST(
     const isValid = await verifyWebhookSignature(requestForVerification, provider)
     if (!isValid) {
       logger.error(`[${requestId}] Invalid ${provider} webhook signature`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Parse the request body
@@ -41,7 +42,7 @@ export async function POST(
       eventData = JSON.parse(body)
     } catch (parseError) {
       logger.error(`[${requestId}] Failed to parse ${provider} webhook body:`, parseError)
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+      return errorResponse('Invalid payload' , 400)
     }
 
     // Log the parsed event
@@ -55,7 +56,7 @@ export async function POST(
 
     if (provider === 'slack' && eventData?.type === 'url_verification' && eventData?.challenge) {
       logger.debug(`[${requestId}] Responding to Slack URL verification challenge`);
-      return NextResponse.json({ challenge: eventData.challenge })
+      return jsonResponse({ challenge: eventData.challenge })
     }
 
     // Process Dropbox directly through trigger handler
@@ -80,7 +81,7 @@ export async function POST(
         timestamp: new Date().toISOString()
       })
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         provider,
         requestId,
@@ -99,7 +100,7 @@ export async function POST(
         eventType,
         eventId
       })
-      return NextResponse.json({ success: true, ignored: true })
+      return jsonResponse({ success: true, ignored: true })
     }
 
     logger.debug(`[${requestId}] Normalized ${provider} webhook event`, {
@@ -133,7 +134,7 @@ export async function POST(
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       provider,
       requestId,
@@ -152,7 +153,7 @@ export async function POST(
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -201,7 +202,7 @@ export async function GET(
   // Slack webhook verification
   if (provider === 'slack' && challenge) {
     logger.debug(`[Slack] Responding to challenge: ${challenge}`)
-    return NextResponse.json({ challenge })
+    return jsonResponse({ challenge })
   }
 
   // Trello webhook verification - echo the challenge string
@@ -230,7 +231,7 @@ export async function GET(
   // Other webhook verification patterns can be added here
   
   // Default health check endpoint
-  return NextResponse.json({
+  return jsonResponse({
     status: 'healthy', 
     provider,
     timestamp: new Date().toISOString()

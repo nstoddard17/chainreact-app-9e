@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { getDiscordMembers } from '../data/handlers/members'
 import { DiscordIntegration } from '../data/types'
@@ -22,9 +23,8 @@ export async function GET(req: NextRequest) {
 
     // Validate required parameters
     if (!guildId || !userId) {
-      return NextResponse.json({
-        error: 'Missing required parameters: guildId and userId'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: guildId and userId'
+      , 400)
     }
 
     // Find Discord integration for this user
@@ -37,9 +37,8 @@ export async function GET(req: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('❌ [Discord Members] Integration not found:', { userId, error: integrationError })
-      return NextResponse.json({
-        error: 'Discord integration not found'
-      }, { status: 404 })
+      return errorResponse('Discord integration not found'
+      , 404)
     }
 
     // Validate integration status
@@ -48,11 +47,10 @@ export async function GET(req: NextRequest) {
         userId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'Discord integration is not connected. Please reconnect your account.',
+      return errorResponse('Discord integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     logger.debug(`🔍 [Discord Members] Processing request:`, {
@@ -71,7 +69,7 @@ export async function GET(req: NextRequest) {
       memberCount: members?.length || 0
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data: members,
       success: true,
       guildId,
@@ -86,23 +84,17 @@ export async function GET(req: NextRequest) {
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'Discord API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Discord API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

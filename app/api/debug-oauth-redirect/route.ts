@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function POST(request: NextRequest) {
@@ -56,11 +57,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(debugInfo)
+    return jsonResponse(debugInfo)
   } catch (error) {
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    }, { status: 500 })
+    return errorResponse(error instanceof Error ? error.message : 'Unknown error', 500, { timestamp: new Date().toISOString()
+     })
   }
 }

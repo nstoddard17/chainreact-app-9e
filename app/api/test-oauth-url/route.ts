@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function GET(request: NextRequest) {
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
     
     const clientId = process.env.GOOGLE_CLIENT_ID
     if (!clientId) {
-      return NextResponse.json({ error: 'Google client ID not configured' }, { status: 500 })
+      return errorResponse('Google client ID not configured' , 500)
     }
 
     const baseUrl = getBaseUrl()
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
 
-    return NextResponse.json({
+    return jsonResponse({
       provider,
       authUrl,
       debug: {
@@ -46,9 +47,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
-    }, { status: 500 })
+    return errorResponse(error instanceof Error ? error.message : 'Unknown error', 500, { timestamp: new Date().toISOString()
+     })
   }
 } 

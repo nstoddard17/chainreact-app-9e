@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { discordGateway } from '@/lib/integrations/discordGateway'
 import { checkDiscordBotConfig } from '@/lib/utils/discordConfig'
 
@@ -54,16 +55,15 @@ export async function GET(request: NextRequest) {
         new Date(diagnostics.lastSuccessfulConnection).toISOString() : null
     }
     
-    return NextResponse.json(status)
+    return jsonResponse(status)
     
   } catch (error) {
     logger.error('Error getting Discord Gateway status:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
+    return errorResponse('Internal server error', 500, {
       botConfigured: false,
       isConnected: false,
       status: 'Error'
-    }, { status: 500 })
+    })
   }
 }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       logger.debug('Manual Discord Gateway reconnection requested')
       await discordGateway.reconnect()
       
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: 'Reconnection initiated' 
       })
@@ -88,20 +88,18 @@ export async function POST(request: NextRequest) {
       logger.debug('Manual Discord Gateway disconnection requested')
       discordGateway.disconnect()
       
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: 'Gateway disconnected' 
       })
     }
     
-    return NextResponse.json({ 
-      error: 'Invalid action' 
-    }, { status: 400 })
+    return errorResponse('Invalid action' 
+    , 400)
     
   } catch (error) {
     logger.error('Error handling Discord Gateway action:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error' 
-    }, { status: 500 })
+    return errorResponse('Internal server error' 
+    , 500)
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { jsonResponse } from '@/lib/utils/api-response'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -26,7 +27,7 @@ export async function GET() {
         
         if (lastUpdated > twoHoursAgo) {
           fallbackCount = stats.online_count || 0 // Update fallback
-          return NextResponse.json({ 
+          return jsonResponse({
             count: stats.online_count || 0,
             source: 'database'
           })
@@ -42,21 +43,21 @@ export async function GET() {
       const count = countError ? fallbackCount : (activeUsers?.length || 0)
       if (!countError) fallbackCount = count // Update fallback
       
-      return NextResponse.json({ 
+      return jsonResponse({
         count,
         source: 'realtime'
       })
     } catch (dbError) {
       // If database access fails completely, return cached count
       console.debug('Database access failed, using fallback:', dbError)
-      return NextResponse.json({ 
+      return jsonResponse({
         count: fallbackCount,
         source: 'cache'
       })
     }
   } catch (error) {
     logger.error('Error fetching presence count:', error)
-    return NextResponse.json({ 
+    return jsonResponse({
       count: 0,
       error: 'Failed to fetch count'
     })

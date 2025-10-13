@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createClient } from '@supabase/supabase-js';
 
 import { logger } from '@/lib/utils/logger'
@@ -92,7 +93,7 @@ export async function GET() {
     const totalTests = testResults.length;
     const allPassed = passedTests === totalTests;
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       summary: {
         total: totalTests,
@@ -109,7 +110,7 @@ export async function GET() {
 
   } catch (error) {
     logger.error('RLS test error:', error);
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: 'Test failed',
       message: error instanceof Error ? error.message : 'Unknown error',

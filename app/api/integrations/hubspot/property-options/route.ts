@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     logger.debug('Property options request:', { propertyName, integrationId })
 
     if (!propertyName || !integrationId) {
-      return NextResponse.json({ error: 'Property name and integration ID are required' }, { status: 400 })
+      return errorResponse('Property name and integration ID are required' , 400)
     }
 
     // Get user from session
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     logger.debug('Auth check:', { hasUser: !!user, authError: authError?.message })
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get integration details
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
+      return errorResponse('Integration not found' , 404)
     }
 
     // Get HubSpot access token
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (tokenError || !tokenData) {
-      return NextResponse.json({ error: 'No valid token found' }, { status: 401 })
+      return errorResponse('No valid token found' , 401)
     }
 
     // Fetch property details from HubSpot
@@ -61,10 +62,10 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertyResponse.ok) {
-      return NextResponse.json({ error: 'Failed to fetch property details' }, { status: propertyResponse.status })
+      return jsonResponse({ error: 'Failed to fetch property details' }, { status: propertyResponse.status })
     }
 
-    const propertyData = await propertyResponse.json()
+    const propertyData = await propertyjsonResponse()
 
     // Extract options if the property has them
     let options: { value: string; label: string }[] = []
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       }))
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       property: {
         name: propertyData.name,
         label: propertyData.label,
@@ -88,6 +89,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error fetching HubSpot property options:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 } 

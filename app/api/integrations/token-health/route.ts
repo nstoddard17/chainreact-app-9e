@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const url = new URL(request.url)
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       const report = await getTokenHealthReport()
       const attention = await getIntegrationsNeedingAttention()
 
-      return NextResponse.json({
+      return jsonResponse({
         report,
         attention,
         timestamp: new Date().toISOString(),
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       // Return summary only
       const report = await getTokenHealthReport()
 
-      return NextResponse.json({
+      return jsonResponse({
         summary: report.summary,
         hasIssues: report.summary.expired > 0 || report.summary.failed > 0,
         timestamp: new Date().toISOString(),
@@ -42,6 +42,6 @@ export async function GET(request: NextRequest) {
     
   } catch (error: any) {
     logger.error("Error getting token health:", error)
-    return NextResponse.json({ error: "Failed to get token health", details: error.message }, { status: 500 })
+    return errorResponse("Failed to get token health", 500, { details: error.message  })
   }
 }

@@ -62,11 +62,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // Log what scopes were actually granted
     logger.debug("🔍 OneNote OAuth callback - Token exchange successful")
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       })
       
       if (userResponse.ok) {
-        const userData = await userResponse.json()
+        const userData = await userjsonResponse()
         const email = userData.mail || userData.userPrincipalName || ""
         
         // Check if this is a personal account

@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { prepareIntegrationData } from '@/lib/integrations/tokenUtils'
@@ -55,11 +56,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json()
+        const errorData = await tokenjsonResponse()
       throw new Error(`Slack token exchange failed: ${errorData.error}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     if(!tokenData.ok) {
         throw new Error(`Slack token exchange failed: ${tokenData.error}`)

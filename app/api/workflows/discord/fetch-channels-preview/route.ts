@@ -8,28 +8,19 @@ export async function POST(request: NextRequest) {
     const { config, userId } = await request.json();
 
     if (!config) {
-      return NextResponse.json(
-        { error: "Config is required" },
-        { status: 400 }
-      )
+      return errorResponse("Config is required" , 400)
     }
 
     // Validate required fields
     const { guildId } = config
     
     if (!guildId) {
-      return NextResponse.json(
-        { error: "Guild ID is required" },
-        { status: 400 }
-      )
+      return errorResponse("Guild ID is required" , 400)
     }
 
     // For preview, we need to get the actual user's Discord integration
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required for Discord preview" },
-        { status: 400 }
-      )
+      return errorResponse("User ID is required for Discord preview" , 400)
     }
 
     const input = {};
@@ -43,7 +34,7 @@ export async function POST(request: NextRequest) {
       // Handle the case where user doesn't have Discord integration
       if (result.message?.includes("Discord integration not connected") || 
           result.message?.includes("not connected")) {
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           error: "No Discord integration found. Please connect your Discord account first.",
           data: {
@@ -53,14 +44,11 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
       
-      return NextResponse.json(
-        { error: result.message || "Failed to fetch Discord channels" },
-        { status: 500 }
-      )
+      return errorResponse(result.message || "Failed to fetch Discord channels" , 500)
     }
 
     // Return structured preview data
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         channels: result.output || [],
@@ -72,9 +60,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Discord fetch channels preview error:", error)
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 } 

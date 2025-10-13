@@ -26,14 +26,10 @@ export async function POST(request: Request) {
       body = JSON.parse(text)
     } catch (parseError: any) {
       logger.error("❌ [Execute Route] Failed to parse request body:", parseError)
-      return NextResponse.json(
-        {
-          error: "Invalid request body",
-          details: parseError.message,
-          received: typeof text !== 'undefined' ? text.substring(0, 100) : 'undefined'
-        },
-        { status: 400 }
-      )
+      return errorResponse("Invalid request body", 400, {
+        details: parseError.message,
+        received: typeof text !== 'undefined' ? text.substring(0, 100) : 'undefined'
+      })
     }
 
     const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
@@ -66,7 +62,7 @@ export async function POST(request: Request) {
 
     if (!workflowId) {
       logger.error("No workflowId provided")
-      return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
+      return errorResponse("workflowId is required" , 400)
     }
 
     // Determine if this is a webhook request (has x-user-id header)
@@ -84,7 +80,7 @@ export async function POST(request: Request) {
 
     if (workflowError || !workflow) {
       logger.error("Error fetching workflow:", workflowError)
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     logger.debug("Workflow found:", {
@@ -105,14 +101,14 @@ export async function POST(request: Request) {
       // Verify the user exists and owns the workflow
       if (workflow.user_id !== userId) {
         logger.error("User ID mismatch:", { headerUserId: userId, workflowUserId: workflow.user_id })
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+        return errorResponse("Unauthorized" , 403)
       }
     } else {
       // Normal authenticated execution
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
         logger.error("User authentication error:", userError)
-        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+        return errorResponse("Not authenticated" , 401)
       }
       userId = user.id
     }
@@ -190,7 +186,7 @@ export async function POST(request: Request) {
 
     if (nodes.length === 0) {
       logger.error("No nodes found in workflow")
-      return NextResponse.json({ error: "No nodes found in workflow" }, { status: 400 })
+      return errorResponse("No nodes found in workflow" , 400)
     }
 
     // Find trigger nodes (unless we're skipping them)
@@ -200,7 +196,7 @@ export async function POST(request: Request) {
 
       if (triggerNodes.length === 0) {
         logger.error("No trigger nodes found")
-        return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
+        return errorResponse("No trigger nodes found" , 400)
       }
     } else {
       // When skipping triggers, ensure we have at least one action node
@@ -209,7 +205,7 @@ export async function POST(request: Request) {
 
       if (actionNodes.length === 0) {
         logger.error("No action nodes found")
-        return NextResponse.json({ error: "No action nodes found" }, { status: 400 })
+        return errorResponse("No action nodes found" , 400)
       }
     }
 
@@ -247,7 +243,7 @@ export async function POST(request: Request) {
 
       logger.debug("Advanced workflow execution completed")
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         results: executionResult,
         executionTime: new Date().toISOString(),
@@ -293,7 +289,7 @@ export async function POST(request: Request) {
     // Check if we have intercepted actions (sandbox mode)
     if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {
       logger.debug(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         results: executionResult.results,
         interceptedActions: executionResult.interceptedActions,
@@ -301,7 +297,7 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       results: executionResult,
       executionTime: new Date().toISOString()
@@ -315,10 +311,9 @@ export async function POST(request: Request) {
     })
     
     // Return more detailed error information
-    return NextResponse.json({ 
-      error: error.message || "Workflow execution failed", 
-      details: error.stack,
-      message: error.message 
-    }, { status: 500 })
+    return errorResponse(error.message || "Workflow execution failed", 500, {
+        details: error.stack,
+        message: error.message 
+      })
   }
 }

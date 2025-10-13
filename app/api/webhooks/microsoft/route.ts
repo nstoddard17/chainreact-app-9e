@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -254,7 +255,7 @@ async function processNotifications(
             )
 
             if (messageResponse.ok) {
-              const message = await messageResponse.json()
+              const message = await messagejsonResponse()
 
               logger.debug('✅ Fetched full Teams message data')
 
@@ -308,7 +309,7 @@ async function processNotifications(
             )
 
             if (emailResponse.ok) {
-              const email = await emailResponse.json()
+              const email = await emailjsonResponse()
 
               // Get trigger-specific filter configuration
               const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
@@ -335,7 +336,7 @@ async function processNotifications(
                     )
 
                     if (foldersResponse.ok) {
-                      const folders = await foldersResponse.json()
+                      const folders = await foldersjsonResponse()
                       const inboxFolder = folders.value.find((f: any) =>
                         f.displayName?.toLowerCase() === 'inbox'
                       )
@@ -360,7 +361,7 @@ async function processNotifications(
                     )
 
                     const folderName = folderResponse.ok
-                      ? (await folderResponse.json()).displayName
+                      ? (await folderjsonResponse()).displayName
                       : email.parentFolderId
 
                     logger.debug('⏭️ Skipping email - not in configured folder:', {
@@ -562,7 +563,7 @@ export async function POST(request: NextRequest) {
     // Handle empty body (some Microsoft notifications are empty)
     if (!body || body.length === 0) {
       logger.debug('⚠️ Empty webhook payload received, skipping')
-      return NextResponse.json({ success: true, empty: true })
+      return jsonResponse({ success: true, empty: true })
     }
 
     // Parse payload
@@ -571,7 +572,7 @@ export async function POST(request: NextRequest) {
       payload = JSON.parse(body)
     } catch (error) {
       logger.error('❌ Failed to parse webhook payload:', error)
-      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
+      return errorResponse('Invalid JSON payload' , 400)
     }
 
     // Notifications arrive as an array in payload.value
@@ -586,7 +587,7 @@ export async function POST(request: NextRequest) {
 
     if (notifications.length === 0) {
       logger.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
-      return NextResponse.json({ success: true, empty: true })
+      return jsonResponse({ success: true, empty: true })
     }
 
     const requestId = headers['request-id'] || headers['client-request-id'] || undefined
@@ -602,12 +603,12 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       logger.error('❌ Notification processing error:', error)
       await logWebhookExecution('microsoft-graph', payload, headers, 'error', Date.now() - startTime)
-      return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
+      return errorResponse('Processing failed' , 500)
     }
 
   } catch (error: any) {
     logger.error('❌ Microsoft Graph webhook error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -619,7 +620,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(validationToken, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   }
 
-  return NextResponse.json({
+  return jsonResponse({
     message: "Microsoft Graph webhook endpoint active",
     provider: "microsoft-graph",
     methods: ["POST"],

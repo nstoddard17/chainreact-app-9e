@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const subscription = subscriptions?.[0]
     if (!subscription) {
-      return NextResponse.json({ error: 'No active subscription found' }, { status: 400 })
+      return errorResponse('No active subscription found' , 400)
     }
 
     logger.debug(`Using subscription: ${subscription.id.substring(0, 8)}...`)
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     if (queueError) {
       logger.error('Failed to insert queue item:', queueError)
-      return NextResponse.json({ error: queueError }, { status: 500 })
+      return errorResponse(queueError , 500)
     }
 
     logger.debug('✅ Test webhook queued with ID:', queueItem.id)
@@ -73,10 +74,10 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({})
     })
 
-    const workerResult = await workerResponse.json()
+    const workerResult = await workerjsonResponse()
     logger.debug('Worker response:', workerResult)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       queueItemId: queueItem.id,
       subscriptionId: subscription.id,
@@ -87,12 +88,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Test trigger error:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'POST to this endpoint to manually trigger a test OneDrive webhook'
   })
 }

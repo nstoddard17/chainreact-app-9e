@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       .limit(1)
 
     if (tableError) {
-      return NextResponse.json({
+      return jsonResponse({
         status: "error",
         message: "Webhook tables not created yet",
         error: tableError.message,
@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       status: "success",
       message: "Webhook tables exist",
       tableExists: !!tableExists
     })
   } catch (error: any) {
     logger.error("Test error:", error)
-    return NextResponse.json({
+    return jsonResponse({
       status: "error",
       message: "Test failed",
       error: error.message

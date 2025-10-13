@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', 'a3e3a51a-175c-4b59-ad03-227ba12a18b0')
 
     if (!workflows || workflows.length === 0) {
-      return NextResponse.json({ error: 'No active workflow found' }, { status: 400 })
+      return errorResponse('No active workflow found' , 400)
     }
 
     const workflow = workflows[0]
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflow: workflow.name,
       newSubscription: newSub ? {
@@ -103,12 +104,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error refreshing webhook:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'POST to this endpoint to refresh OneDrive webhook subscription by toggling the workflow'
   })
 }

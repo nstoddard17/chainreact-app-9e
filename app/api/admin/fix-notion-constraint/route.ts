@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const secret = searchParams.get('secret')
     
     if (secret !== process.env.ADMIN_SECRET && secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const supabase = createAdminClient()
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     
     if (dropError) {
       logger.error('❌ Failed to drop constraint:', dropError)
-      return NextResponse.json({ error: dropError.message }, { status: 500 })
+      return errorResponse(dropError.message , 500)
     }
     
     logger.debug('✅ Existing constraint dropped successfully')
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     
     if (createError) {
       logger.error('❌ Failed to create new constraint:', createError)
-      return NextResponse.json({ error: createError.message }, { status: 500 })
+      return errorResponse(createError.message , 500)
     }
     
     logger.debug('✅ New constraint created successfully')
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     
     if (notionError) {
       logger.error('❌ Failed to create Notion constraint:', notionError)
-      return NextResponse.json({ error: notionError.message }, { status: 500 })
+      return errorResponse(notionError.message , 500)
     }
     
     logger.debug('✅ Notion workspace constraint created successfully')
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     
     if (indexError) {
       logger.error('❌ Failed to add index:', indexError)
-      return NextResponse.json({ error: indexError.message }, { status: 500 })
+      return errorResponse(indexError.message , 500)
     }
     
     logger.debug('✅ Performance index added successfully')
@@ -99,14 +99,14 @@ export async function POST(request: NextRequest) {
     
     if (verifyError) {
       logger.error('❌ Failed to verify constraints:', verifyError)
-      return NextResponse.json({ error: verifyError.message }, { status: 500 })
+      return errorResponse(verifyError.message , 500)
     }
     
     logger.debug('✅ Constraints verified:', constraints)
     
     logger.debug('🎉 Migration completed successfully!')
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Migration completed successfully!',
       constraints: constraints
@@ -114,6 +114,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     logger.error('❌ Error running migration:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 } 

@@ -25,7 +25,7 @@ export async function GET() {
     // Test Gmail provider specifically
     const gmailProvider = providerRegistry.getEmailProvider('gmail')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       architecture: {
         initialized,
@@ -57,7 +57,7 @@ export async function GET() {
   } catch (error: any) {
     logger.error("❌ Architecture test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     try {
       const result = await executeWorkflowUseCase.execute(mockNode, mockContext)
       
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         execution: {
           nodeType,
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       })
     } catch (executionError: any) {
       // Expected to fail due to missing auth/integration, but we can see if the flow works
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         execution: {
           nodeType,
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     logger.error("❌ Workflow execution test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack

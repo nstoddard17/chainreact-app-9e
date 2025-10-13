@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -20,7 +21,7 @@ export async function GET() {
 
     if (error) {
       logger.error('Error fetching subscriptions:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     // Get user emails for each subscription
@@ -47,7 +48,7 @@ export async function GET() {
       return acc
     }, {} as Record<string, any[]>)
 
-    return NextResponse.json({
+    return jsonResponse({
       total: subscriptions?.length || 0,
       by_type: {
         mail: byType.mail?.length || 0,
@@ -62,6 +63,6 @@ export async function GET() {
 
   } catch (error: any) {
     logger.error('Error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

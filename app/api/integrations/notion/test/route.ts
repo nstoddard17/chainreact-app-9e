@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get Notion integration
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "No connected Notion integration found",
           details: integrationError?.message,
@@ -77,15 +77,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (testResponse.ok) {
-      const userData = await testResponse.json()
+      const userData = await testjsonResponse()
       testResult.userData = userData
     } else {
       testResult.apiError = await testResponse.text()
     }
 
-    return NextResponse.json(testResult)
+    return jsonResponse(testResult)
   } catch (error: any) {
     logger.error("Notion test endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

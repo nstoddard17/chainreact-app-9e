@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const userId = request.nextUrl.searchParams.get("userId")
 
     if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return errorResponse("User ID is required" , 400)
     }
 
     // Get the HubSpot integration for this user
@@ -35,15 +35,15 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     if (!integration) {
-      return NextResponse.json({ error: "HubSpot integration not found for this user" }, { status: 404 })
+      return errorResponse("HubSpot integration not found for this user" , 404)
     }
 
     // Return the integration details with sensitive data redacted
-    return NextResponse.json({
+    return jsonResponse({
       provider: integration.provider,
       provider_user_id: integration.provider_user_id,
       status: integration.status,
@@ -57,6 +57,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     logger.error("HubSpot debug error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

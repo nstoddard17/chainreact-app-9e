@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { FileStorageService } from '@/lib/storage/fileStorage'
 
 import { logger } from '@/lib/utils/logger'
@@ -10,10 +11,7 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     logger.debug('Starting cleanup of expired workflow files...')
@@ -22,7 +20,7 @@ export async function GET(request: NextRequest) {
     
     logger.debug(`Cleanup completed. Removed ${cleanedCount} expired files.`)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Cleaned up ${cleanedCount} expired files`,
       cleanedCount
@@ -30,10 +28,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('File cleanup error:', error)
-    return NextResponse.json(
-      { error: 'Failed to cleanup files', details: error.message },
-      { status: 500 }
-    )
+    return errorResponse('Failed to cleanup files', 500, { details: error.message  })
   }
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -13,7 +14,7 @@ export async function GET(
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get ticket with responses
@@ -36,16 +37,16 @@ export async function GET(
 
     if (ticketError) {
       if (ticketError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+        return errorResponse('Ticket not found' , 404)
       }
       logger.error('Error fetching ticket:', ticketError)
-      return NextResponse.json({ error: 'Failed to fetch ticket' }, { status: 500 })
+      return errorResponse('Failed to fetch ticket' , 500)
     }
 
-    return NextResponse.json({ ticket })
+    return jsonResponse({ ticket })
   } catch (error) {
     logger.error('Error in GET /api/support/tickets/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -59,7 +60,7 @@ export async function PUT(
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -84,16 +85,16 @@ export async function PUT(
 
     if (ticketError) {
       if (ticketError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+        return errorResponse('Ticket not found' , 404)
       }
       logger.error('Error updating ticket:', ticketError)
-      return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 })
+      return errorResponse('Failed to update ticket' , 500)
     }
 
-    return NextResponse.json({ ticket })
+    return jsonResponse({ ticket })
   } catch (error) {
     logger.error('Error in PUT /api/support/tickets/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -107,7 +108,7 @@ export async function DELETE(
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Delete ticket (this will cascade to responses)
@@ -119,12 +120,12 @@ export async function DELETE(
 
     if (deleteError) {
       logger.error('Error deleting ticket:', deleteError)
-      return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 })
+      return errorResponse('Failed to delete ticket' , 500)
     }
 
-    return NextResponse.json({ message: 'Ticket deleted successfully' })
+    return jsonResponse({ message: 'Ticket deleted successfully' })
   } catch (error) {
     logger.error('Error in DELETE /api/support/tickets/[id]:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 } 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
       throw new Error(`Twitter token exchange failed: ${errorText}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days for refresh token
 
     const integrationData = await prepareIntegrationData(

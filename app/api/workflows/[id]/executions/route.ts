@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -18,7 +19,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Fetch executions for this workflow
@@ -32,18 +33,12 @@ export async function GET(
 
     if (error) {
       logger.error('Error fetching workflow executions:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch executions' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to fetch executions' , 500)
     }
 
-    return NextResponse.json(executions || [])
+    return jsonResponse(executions || [])
   } catch (error) {
     logger.error('Error in workflow executions API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

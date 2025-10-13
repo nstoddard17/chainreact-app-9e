@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 export async function GET() {
   // For now, return an empty array instead of mock data
   // This will ensure no fake workflow executions appear in the activity feed
-  return NextResponse.json([])
+  return jsonResponse([])
   
   /*
    * Implementation note:

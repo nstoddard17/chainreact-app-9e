@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -31,10 +28,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
@@ -54,13 +48,10 @@ export async function GET(request: NextRequest) {
     )
 
     if (!allPropertiesResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch contact properties from HubSpot" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch contact properties from HubSpot" , 500)
     }
 
-    const allPropertiesData = await allPropertiesResponse.json()
+    const allPropertiesData = await allPropertiesjsonResponse()
     logger.debug(`Found ${allPropertiesData.results.length} total contact properties`)
 
     // Try to fetch the views to see configured columns
@@ -125,7 +116,7 @@ export async function GET(request: NextRequest) {
           return a.label.localeCompare(b.label)
         })
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: tableProperties,
         totalProperties: allProperties.length,
@@ -136,7 +127,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse views response if available
-    const viewsData = await viewsResponse.json()
+    const viewsData = await viewsjsonResponse()
 
     // Find the default or "All contacts" view
     const defaultView = viewsData.results?.find((view: any) =>
@@ -145,7 +136,7 @@ export async function GET(request: NextRequest) {
 
     if (!defaultView || !defaultView.columns) {
       // No view found, use fallback
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: [],
         message: "No default view found",
@@ -168,13 +159,10 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch contact properties" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch contact properties" , 500)
     }
 
-    const propertiesData = await propertiesResponse.json()
+    const propertiesData = await propertiesjsonResponse()
 
     // Filter to only the properties that are visible in the view
     const tableProperties = propertiesData.results
@@ -195,7 +183,7 @@ export async function GET(request: NextRequest) {
       .map((colName: string) => tableProperties.find((p: any) => p.name === colName))
       .filter(Boolean)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: orderedProperties,
       message: "These are the actual columns configured in your HubSpot contacts view",
@@ -205,13 +193,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("HubSpot contact view columns error:", error)
-    return NextResponse.json(
-      {
-        error: "Internal server error",
+    return errorResponse("Internal server error", 500, {
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    )
+      })
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -50,21 +51,17 @@ export async function GET() {
 
     if (checkError) {
       logger.error('Table check error:', checkError)
-      return NextResponse.json({
-        error: 'Table might not exist or permission issue',
-        details: checkError.message
-      }, { status: 500 })
+      return errorResponse('Table might not exist or permission issue', 500, { details: checkError.message })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'execution_progress table is ready'
     })
 
   } catch (error: any) {
     logger.error('Error ensuring tables:', error)
-    return NextResponse.json({
-      error: error.message || 'Failed to ensure tables'
-    }, { status: 500 })
+    return errorResponse(error.message || 'Failed to ensure tables'
+    , 500)
   }
 }

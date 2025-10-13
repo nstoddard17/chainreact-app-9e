@@ -12,10 +12,7 @@ export async function PUT(
     const { organizationId } = await request.json()
 
     if (!organizationId) {
-      return NextResponse.json(
-        { error: "Organization ID is required" },
-        { status: 400 }
-      )
+      return errorResponse("Organization ID is required" , 400)
     }
 
     const supabase = createSupabaseRouteHandlerClient()
@@ -23,10 +20,7 @@ export async function PUT(
     // Get the current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get the workflow to verify ownership
@@ -38,18 +32,12 @@ export async function PUT(
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json(
-        { error: "Workflow not found or access denied" },
-        { status: 404 }
-      )
+      return errorResponse("Workflow not found or access denied" , 404)
     }
 
     // Check if workflow is already in an organization
     if (workflow.organization_id) {
-      return NextResponse.json(
-        { error: "Workflow is already associated with an organization" },
-        { status: 400 }
-      )
+      return errorResponse("Workflow is already associated with an organization" , 400)
     }
 
     // Verify user is a member of the target organization with appropriate permissions
@@ -61,18 +49,12 @@ export async function PUT(
       .single()
 
     if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: "You are not a member of this organization" },
-        { status: 403 }
-      )
+      return errorResponse("You are not a member of this organization" , 403)
     }
 
     // Check if user has permission to add workflows to the organization
     if (!["admin", "editor"].includes(membership.role)) {
-      return NextResponse.json(
-        { error: "You need admin or editor permissions to add workflows to this organization" },
-        { status: 403 }
-      )
+      return errorResponse("You need admin or editor permissions to add workflows to this organization" , 403)
     }
 
     // Check if a workflow with the same name already exists in the organization
@@ -84,14 +66,11 @@ export async function PUT(
       .single()
 
     if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      return NextResponse.json(
-        { error: "Failed to check for duplicate workflow names" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to check for duplicate workflow names" , 500)
     }
 
     if (existingWorkflow) {
-      return NextResponse.json(
+      return jsonResponse(
         { error: `A workflow named "${workflow.name}" already exists in this organization` },
         { status: 409 }
       )
@@ -107,19 +86,13 @@ export async function PUT(
 
     if (updateError) {
       logger.error("Error updating workflow:", updateError)
-      return NextResponse.json(
-        { error: "Failed to move workflow to organization" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to move workflow to organization" , 500)
     }
 
-    return NextResponse.json(updatedWorkflow)
+    return jsonResponse(updatedWorkflow)
 
   } catch (error) {
     logger.error("Error in move-to-organization:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 } 

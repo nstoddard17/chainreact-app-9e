@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { loadPromptOverrides, savePromptOverrides } from '@/lib/ai/promptOverrides'
 
 export async function GET() {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+    return errorResponse('Not available in production' , 403)
   }
   const data = loadPromptOverrides()
-  return NextResponse.json({ success: true, overrides: data })
+  return jsonResponse({ success: true, overrides: data })
 }
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+    return errorResponse('Not available in production' , 403)
   }
   const body = await request.json().catch(() => ({}))
   const ok = savePromptOverrides({ additionalSystem: body.additionalSystem || '' })
-  if (!ok) return NextResponse.json({ success: false, error: 'Failed to save' }, { status: 500 })
-  return NextResponse.json({ success: true })
+  if (!ok) return jsonResponse({ success: false, error: 'Failed to save' }, { status: 500 })
+  return jsonResponse({ success: true })
 }
 

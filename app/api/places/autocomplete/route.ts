@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const input = searchParams.get("input")
 
     if (!input || input.trim().length < 2) {
-      return NextResponse.json({
+      return jsonResponse({
         predictions: [],
         status: "INVALID_REQUEST"
       })
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!googleMapsApiKey) {
       logger.error("Google Maps API key not configured")
-      return NextResponse.json({
+      return jsonResponse({
         predictions: [],
         status: "REQUEST_DENIED",
         error: "Google Maps API key not configured"
@@ -41,21 +41,21 @@ export async function GET(request: NextRequest) {
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
       logger.error("Google Places API error:", data)
-      return NextResponse.json({
+      return jsonResponse({
         predictions: [],
         status: data.status,
         error: data.error_message || "Google Places API error"
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       predictions: data.predictions || [],
       status: data.status
     })
 
   } catch (error: any) {
     logger.error("Places autocomplete error:", error)
-    return NextResponse.json({
+    return jsonResponse({
       predictions: [],
       status: "REQUEST_DENIED",
       error: error.message || "Internal server error"

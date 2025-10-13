@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       queueItems: queueItems?.length || 0,
       mailEvents: mailEvents?.length || 0,
@@ -82,6 +83,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Mail webhook check error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

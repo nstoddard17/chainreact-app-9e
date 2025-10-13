@@ -1374,7 +1374,30 @@ export function useWorkflowBuilder() {
           // Don't run cleanup automatically to avoid interfering with normal operations
           // The workflow loading already creates Add Actions correctly
         }, 100)
+      } else {
+        // Workflow ID in URL but workflow not found in loaded workflows
+        logger.warn('[WorkflowBuilder] Workflow not found:', workflowId)
+        // Clear current workflow to prevent infinite loading
+        setCurrentWorkflow(null)
+        toast({
+          title: "Workflow not found",
+          description: "The requested workflow could not be loaded. It may have been deleted.",
+          variant: "destructive"
+        })
+        // Redirect to workflows list
+        router.push('/workflows')
       }
+    } else if (workflowId && !workflowLoading && workflows && workflows.length === 0) {
+      // We have a workflow ID but no workflows loaded (and not loading)
+      // This could mean the workflow doesn't exist or there was an error
+      logger.warn('[WorkflowBuilder] No workflows loaded but workflow ID present:', workflowId)
+      setCurrentWorkflow(null)
+      toast({
+        title: "Unable to load workflow",
+        description: "Could not find any workflows. Please try again.",
+        variant: "destructive"
+      })
+      router.push('/workflows')
     }
 
     return () => {
@@ -1386,7 +1409,7 @@ export function useWorkflowBuilder() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowId])
+  }, [workflowId, workflows, workflowLoading])
 
   // Cleanup collaboration on component unmount
   useEffect(() => {
@@ -2068,6 +2091,11 @@ export function useWorkflowBuilder() {
       // But not if we've been loading for too long
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
         logger.warn('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
+        toast({
+          title: "Loading timeout",
+          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
+          variant: "destructive"
+        })
         return false
       }
       return true

@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.totalUsage - a.totalUsage)
     .slice(0, 10)
 
-    return NextResponse.json({
+    return jsonResponse({
       totalUsers,
       activeUsers,
       totalUsage,
@@ -140,9 +140,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error("Error fetching AI usage stats:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch AI usage statistics" },
-      { status: 500 }
-    )
+    return errorResponse("Failed to fetch AI usage statistics" , 500)
   }
 } 

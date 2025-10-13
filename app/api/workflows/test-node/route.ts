@@ -11,24 +11,24 @@ export async function POST(request: Request) {
     const { nodeType, config, testData } = await request.json()
 
     if (!nodeType) {
-      return NextResponse.json({ error: "Node type is required" }, { status: 400 })
+      return errorResponse("Node type is required" , 400)
     }
 
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+      return errorResponse("Authentication required" , 401)
     }
 
     // Find the node component definition
     const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
     if (!nodeComponent) {
-      return NextResponse.json({ error: "Unknown node type" }, { status: 400 })
+      return errorResponse("Unknown node type" , 400)
     }
 
     if (!nodeComponent.testable) {
-      return NextResponse.json({ error: "Node type is not testable" }, { status: 400 })
+      return errorResponse("Node type is not testable" , 400)
     }
 
     // Create a test node object
@@ -179,7 +179,7 @@ export async function POST(request: Request) {
           break
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         testResult,
         nodeInfo: {
@@ -194,7 +194,7 @@ export async function POST(request: Request) {
       logger.error("Test execution error:", error)
       
       // Return a mock success result even if the test fails
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         testResult: {
           success: true,
@@ -218,9 +218,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     logger.error("Node test error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to test node" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Failed to test node" , 500)
   }
 } 

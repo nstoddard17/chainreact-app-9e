@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     
     logger.debug("[Stripe Log] ========================================")
     
-    return NextResponse.json({ 
+    return jsonResponse({ 
       received: true, 
       logged: true,
       timestamp: new Date().toISOString()
@@ -107,16 +107,14 @@ export async function POST(request: Request) {
     
   } catch (error: any) {
     logger.error("[Stripe Log] Error processing webhook:", error)
-    return NextResponse.json({ 
-      error: "Failed to log webhook",
-      details: error.message 
-    }, { status: 500 })
+    return errorResponse("Failed to log webhook", 500, { details: error.message 
+     })
   }
 }
 
 // GET endpoint to check if logging is working
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     status: "Stripe webhook logger is active",
     timestamp: new Date().toISOString(),
     purpose: "This endpoint logs all incoming Stripe webhooks for debugging"

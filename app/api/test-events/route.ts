@@ -63,7 +63,7 @@ export async function GET() {
     // Get subscription info
     const subscriptions = eventBus.getSubscriptions()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       eventDriven: {
         workflowResult: result,
@@ -86,7 +86,7 @@ export async function GET() {
   } catch (error: any) {
     logger.error("❌ Event-driven test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     await eventDrivenExecutor.executeNodeAsync(workflowId, node, context)
 
     // Return immediately (execution continues in background)
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       async: {
         workflowId,
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     logger.error("❌ Async execution test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack

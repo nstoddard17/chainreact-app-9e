@@ -12,12 +12,12 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "AI not configured" }, { status: 500 })
+      return errorResponse("AI not configured" , 500)
     }
     
     const { prompt, context, tone, field, integration, previous, regenerate } = await request.json()
     if (!prompt) {
-      return NextResponse.json({ error: "Missing prompt" }, { status: 400 })
+      return errorResponse("Missing prompt" , 400)
     }
     
     // Get user session
@@ -25,20 +25,20 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization")
     
     if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const token = authHeader.replace("Bearer ", "")
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
     
     // Check AI usage limits
     const usageCheck = await checkUsageLimit(user.id, "ai_compose")
     if (!usageCheck.allowed) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI compose uses this month. Please upgrade your plan for more AI usage.`
       }, { status: 429 })
     }
@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if tracking fails
     }
     
-    return NextResponse.json({ draft })
+    return jsonResponse({ draft })
   } catch (error: any) {
     logger.error("AI Compose error:", error)
-    return NextResponse.json({ error: error.message || "Failed to generate draft" }, { status: 500 })
+    return errorResponse(error.message || "Failed to generate draft" , 500)
   }
 } 

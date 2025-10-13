@@ -7,7 +7,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 export async function GET(request: NextRequest) {
   try {
     if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "Missing Supabase environment variables",
           hasUrl: !!supabaseUrl,
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { data: testData, error: testError } = await supabase.from("integrations").select("count").limit(1)
 
     if (testError) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "Database connection failed",
           details: testError,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       .select()
 
     if (insertError) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "Insert test failed",
           details: insertError,
@@ -68,13 +68,13 @@ export async function GET(request: NextRequest) {
       await supabase.from("integrations").delete().eq("id", insertData[0].id)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Database connection and operations working correctly",
       testId: insertData?.[0]?.id,
     })
   } catch (error: any) {
-    return NextResponse.json(
+    return jsonResponse(
       {
         error: "Unexpected error",
         message: error.message,

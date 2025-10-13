@@ -40,7 +40,7 @@ export async function GET() {
     const totalErrors = errorStats.totalErrors
     const healthScore = totalActions > 0 ? Math.max(0, 100 - (totalErrors / totalActions * 100)) : 100
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       monitoring: {
         healthScore: Math.round(healthScore),
@@ -140,7 +140,7 @@ export async function GET() {
   } catch (error: any) {
     logger.error("❌ Monitoring endpoint failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -160,13 +160,13 @@ export async function DELETE() {
     performanceMonitor.cleanup()
     eventBus.clear()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Monitoring data cleared"
     })
 
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message
     }, { status: 500 })

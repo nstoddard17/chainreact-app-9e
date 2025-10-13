@@ -9,7 +9,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is admin
@@ -20,7 +20,7 @@ export async function GET() {
         .single()
 
     if (!userProfile || userProfile.role !== 'admin') {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+        return errorResponse("Admin access required" , 403)
     }
 
     try {
@@ -34,7 +34,7 @@ export async function GET() {
             .order('created_at', { ascending: false })
 
         if (profilesError) {
-            return NextResponse.json({ error: profilesError.message }, { status: 500 })
+            return errorResponse(profilesError.message , 500)
         }
 
         // Get auth users to get real email addresses
@@ -42,7 +42,7 @@ export async function GET() {
         
         if (authError) {
             logger.error('Error fetching auth users:', authError)
-            return NextResponse.json({ error: 'Failed to fetch user emails' }, { status: 500 })
+            return errorResponse('Failed to fetch user emails' , 500)
         }
 
         // Create a map of user IDs to email addresses and creation dates
@@ -71,11 +71,11 @@ export async function GET() {
             isOnline: onlineUserIds.has(profile.id)
         })) || []
 
-        return NextResponse.json({
+        return jsonResponse({
             success: true,
             users: usersWithOnlineStatus
         })
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        return errorResponse(error.message , 500)
     }
 } 

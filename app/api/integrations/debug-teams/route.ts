@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       debug: {
         hasTeamsClientId,
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message
     }, { status: 500 })

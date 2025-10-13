@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -49,11 +50,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       throw new Error(`Stripe token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     // Upsert the integration details
     const integrationData = {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
 
@@ -14,7 +15,7 @@ export async function GET(
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { id: workflowId } = await params
@@ -27,23 +28,20 @@ export async function GET(
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      return errorResponse('Workflow not found' , 404)
     }
 
     if (workflow.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Get execution history
     const history = await executionHistoryService.getWorkflowHistory(workflowId, 100)
 
-    return NextResponse.json({ history })
+    return jsonResponse({ history })
   } catch (error) {
     logger.error('Error fetching workflow history:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch workflow history' },
-      { status: 500 }
-    )
+    return errorResponse('Failed to fetch workflow history' , 500)
   }
 }
 
@@ -57,7 +55,7 @@ export async function DELETE(
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { id: workflowId } = await params
@@ -70,22 +68,19 @@ export async function DELETE(
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 })
+      return errorResponse('Workflow not found' , 404)
     }
 
     if (workflow.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Delete execution history
     await executionHistoryService.deleteWorkflowHistory(workflowId)
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error('Error deleting workflow history:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete workflow history' },
-      { status: 500 }
-    )
+    return errorResponse('Failed to delete workflow history' , 500)
   }
 }

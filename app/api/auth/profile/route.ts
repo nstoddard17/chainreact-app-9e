@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      return errorResponse('Not authenticated' , 401)
     }
 
     const adminClient = createAdminClient()
@@ -47,19 +48,19 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
 
     if (existingProfile) {
-      return NextResponse.json({ profile: existingProfile })
+      return jsonResponse({ profile: existingProfile })
     }
 
     if (profileError && profileError.code && profileError.code !== 'PGRST116') {
       logger.error('Service profile lookup failed:', profileError)
-      return NextResponse.json({ error: profileError.message }, { status: 500 })
+      return errorResponse(profileError.message , 500)
     }
 
     const userResponse = await adminClient.auth.admin.getUserById(user.id)
 
     if (userResponse.error || !userResponse.data?.user) {
       logger.error('Unable to load auth user for profile creation:', userResponse.error)
-      return NextResponse.json({ error: 'Failed to load user metadata' }, { status: 500 })
+      return errorResponse('Failed to load user metadata' , 500)
     }
 
     const authUser = userResponse.data.user
@@ -104,12 +105,12 @@ export async function GET(req: NextRequest) {
 
     if (insertError) {
       logger.error('Failed to create user profile via service route:', insertError)
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      return errorResponse(insertError.message , 500)
     }
 
-    return NextResponse.json({ profile: createdProfile })
+    return jsonResponse({ profile: createdProfile })
   } catch (error) {
     logger.error('Unexpected error in auth profile route:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }

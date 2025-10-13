@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { decrypt } from '@/lib/security/encryption';
 
@@ -98,31 +99,19 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!objectType) {
-      return NextResponse.json(
-        { error: 'objectType is required' },
-        { status: 400 }
-      );
+      return errorResponse('objectType is required' , 400);
     }
 
     if (!op || !['create', 'update', 'upsert'].includes(op)) {
-      return NextResponse.json(
-        { error: 'op must be one of: create, update, upsert' },
-        { status: 400 }
-      );
+      return errorResponse('op must be one of: create, update, upsert' , 400);
     }
 
     if (op === 'update' && !recordId) {
-      return NextResponse.json(
-        { error: 'recordId is required for update operation' },
-        { status: 400 }
-      );
+      return errorResponse('recordId is required for update operation' , 400);
     }
 
     if (op === 'upsert' && (!identifierProperty || !identifierValue)) {
-      return NextResponse.json(
-        { error: 'identifierProperty and identifierValue are required for upsert operation' },
-        { status: 400 }
-      );
+      return errorResponse('identifierProperty and identifierValue are required for upsert operation' , 400);
     }
 
     // Get user from session
@@ -130,10 +119,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return errorResponse('Unauthorized' , 401);
     }
 
     // Get HubSpot integration
@@ -146,20 +132,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'HubSpot integration not found or not connected' },
-        { status: 404 }
-      );
+      return errorResponse('HubSpot integration not found or not connected' , 404);
     }
 
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
       logger.error('Encryption key not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return errorResponse('Server configuration error' , 500);
     }
 
     const accessToken = decrypt(integration.access_token, encryptionKey);
@@ -342,7 +322,7 @@ export async function POST(request: NextRequest) {
       await Promise.allSettled(associationPromises);
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: result,
       message: `Successfully ${result.operation || op}d ${objectType} record`,
@@ -352,29 +332,23 @@ export async function POST(request: NextRequest) {
 
     // Handle specific error types
     if (error.status === 401 || error.status === 403) {
-      return NextResponse.json(
-        { error: 'HubSpot connection expired or missing required scopes. Please reconnect your HubSpot account.' },
-        { status: 401 }
-      );
+      return errorResponse('HubSpot connection expired or missing required scopes. Please reconnect your HubSpot account.' , 401);
     }
 
     if (error.status === 404) {
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Object type or record not found: ${error.message}` },
         { status: 404 }
       );
     }
 
     if (error.status === 400) {
-      return NextResponse.json(
+      return jsonResponse(
         { error: `Validation error: ${error.message}` },
         { status: 400 }
       );
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return errorResponse(error.message || 'Internal server error' , 500);
   }
 }

@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -26,10 +26,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found" , 404)
     }
 
     const accessToken = await getDecryptedAccessToken(user.id, "hubspot")
@@ -46,13 +43,10 @@ export async function GET(request: NextRequest) {
     )
 
     if (!contactsResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch contacts" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch contacts" , 500)
     }
 
-    const contactsData = await contactsResponse.json()
+    const contactsData = await contactsjsonResponse()
     const contacts = contactsData.results || []
 
     // Analyze which fields are actually populated
@@ -102,7 +96,7 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const propertiesData = await propertiesResponse.json()
+    const propertiesData = await propertiesjsonResponse()
     const propertyMap = new Map(
       propertiesData.results.map((p: any) => [p.name, p])
     )
@@ -119,7 +113,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       analyzedContacts: totalContacts,
       totalFieldsFound: fieldsWithUsage.length,
@@ -130,9 +124,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error detecting used fields:", error)
-    return NextResponse.json(
-      { error: "Failed to analyze field usage" },
-      { status: 500 }
-    )
+    return errorResponse("Failed to analyze field usage" , 500)
   }
 }

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Build query
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       logger.error("Error fetching config preferences:", error)
-      return NextResponse.json({ error: "Failed to fetch preferences" }, { status: 500 })
+      return errorResponse("Failed to fetch preferences" , 500)
     }
 
     // Convert to a more usable format
@@ -68,10 +68,10 @@ export async function GET(request: NextRequest) {
       preferences[pref.node_type][pref.field_name] = value
     })
 
-    return NextResponse.json({ preferences })
+    return jsonResponse({ preferences })
   } catch (error) {
     logger.error("Error in config preferences GET:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const { nodeType, providerId, preferences } = await request.json()
 
     if (!nodeType || !providerId || !preferences) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return errorResponse("Missing required fields" , 400)
     }
 
     const supabase = await createSupabaseServerClient()
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Prepare preferences for insertion/update
@@ -130,13 +130,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Error saving config preferences:", error)
-      return NextResponse.json({ error: "Failed to save preferences" }, { status: 500 })
+      return errorResponse("Failed to save preferences" , 500)
     }
 
-    return NextResponse.json({ success: true, data })
+    return jsonResponse({ success: true, data })
   } catch (error) {
     logger.error("Error in config preferences POST:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -152,7 +152,7 @@ export async function DELETE(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Build delete query
@@ -177,12 +177,12 @@ export async function DELETE(request: NextRequest) {
 
     if (error) {
       logger.error("Error deleting config preferences:", error)
-      return NextResponse.json({ error: "Failed to delete preferences" }, { status: 500 })
+      return errorResponse("Failed to delete preferences" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
     logger.error("Error in config preferences DELETE:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 } 

@@ -19,13 +19,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { prompt, model, debug, strict } = await request.json()
 
     if (!prompt) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+      return errorResponse("Prompt is required" , 400)
     }
 
     // Register nodes if not already registered
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     })
     
     if (mentionedComingSoon.length > 0) {
-      return NextResponse.json({
+      return jsonResponse({
         error: `The following integrations are coming soon and not yet available: ${mentionedComingSoon.join(', ')}. Please try your request without these integrations.`,
         comingSoonIntegrations: mentionedComingSoon,
       }, { status: 400 })
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     
     // If strict mode rejected the output, return 422 without saving
     if (debug && result.debug?.rejected) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: 'Generation rejected by strict mode due to validation issues.',
         debug: result.debug
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     if (dbError) {
       logger.error("Database error:", dbError)
-      return NextResponse.json({ error: "Failed to save workflow" }, { status: 500 })
+      return errorResponse("Failed to save workflow" , 500)
     }
 
     // Log the AI generation with model info
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       metadata: { model: selectedModel, debug: !!debug },
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflow,
       generated: generatedWorkflow,
@@ -156,13 +156,13 @@ export async function POST(request: NextRequest) {
         const jsonStart = msg.indexOf(':') + 1
         if (jsonStart > 0) errors = JSON.parse(msg.slice(jsonStart).trim())
       } catch {}
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         error: 'AI generation failed validation. If it fails again, please try creating the workflow manually.',
         debug: debug ? { errors, rejected: true } : undefined,
       }, { status: 422 })
     }
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: 'AI generation failed. If it fails again, please try creating the workflow manually.',
       details: error?.message,

@@ -31,7 +31,7 @@ export async function POST(
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get current subscription with plan details
@@ -46,7 +46,7 @@ export async function POST(
       .single()
 
     if (subError || !subscription) {
-      return NextResponse.json({ error: "Subscription not found" }, { status: 404 })
+      return errorResponse("Subscription not found" , 404)
     }
 
     // Get the new plan details
@@ -57,7 +57,7 @@ export async function POST(
       .single()
 
     if (planError || !newPlan) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+      return errorResponse("Plan not found" , 404)
     }
 
     // Determine the new price ID based on billing cycle
@@ -113,7 +113,7 @@ export async function POST(
         })
         .eq("id", params.id)
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "Your plan will change to annual at the end of your current billing period, adding 12 months to your subscription.",
         scheduledChange: true,
@@ -145,7 +145,7 @@ export async function POST(
         })
         .eq("id", params.id)
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "Your plan has been updated successfully.",
         scheduledChange: false,
@@ -153,9 +153,6 @@ export async function POST(
     
   } catch (error: any) {
     logger.error("Change plan error:", error)
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 }

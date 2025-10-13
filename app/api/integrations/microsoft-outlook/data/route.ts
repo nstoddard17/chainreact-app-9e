@@ -89,14 +89,14 @@ export async function GET(request: NextRequest) {
     const integrationId = url.searchParams.get('integrationId') || undefined
 
     if (!dataType) {
-      return NextResponse.json({ error: 'Data type required' }, { status: 400 })
+      return errorResponse('Data type required' , 400)
     }
 
     const supabase = await createSupabaseServerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { data: integration, error: integrationError } = await fetchIntegration({
@@ -106,20 +106,14 @@ export async function GET(request: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('[Outlook Data API] No connected integration found:', integrationError)
-      return NextResponse.json(
-        { error: 'No connected Microsoft Outlook integration found' },
-        { status: 404 }
-      )
+      return errorResponse('No connected Microsoft Outlook integration found' , 404)
     }
 
     const data = await buildResponse(dataType, integration, { search })
-    return NextResponse.json({ data })
+    return jsonResponse({ data })
   } catch (error: any) {
     logger.error('[Outlook Data API] Error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch Outlook data' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch Outlook data' , 500)
   }
 }
 
@@ -133,14 +127,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!dataType) {
-      return NextResponse.json({ error: 'Data type required' }, { status: 400 })
+      return errorResponse('Data type required' , 400)
     }
 
     const supabase = await createSupabaseServerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { data: integration, error: integrationError } = await fetchIntegration({
@@ -150,19 +144,13 @@ export async function POST(request: NextRequest) {
 
     if (integrationError || !integration) {
       logger.error('[Outlook Data API] No connected integration found for POST:', integrationError)
-      return NextResponse.json(
-        { error: 'No connected Microsoft Outlook integration found' },
-        { status: 404 }
-      )
+      return errorResponse('No connected Microsoft Outlook integration found' , 404)
     }
 
     const data = await buildResponse(dataType, integration, options)
-    return NextResponse.json({ data })
+    return jsonResponse({ data })
   } catch (error: any) {
     logger.error('[Outlook Data API] POST error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch Outlook data' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch Outlook data' , 500)
   }
 }

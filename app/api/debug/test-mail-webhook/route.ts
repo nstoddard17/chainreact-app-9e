@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     const subscription = subscriptions?.[0]
     if (!subscription) {
-      return NextResponse.json({ error: 'No active subscription found' }, { status: 400 })
+      return errorResponse('No active subscription found' , 400)
     }
 
     logger.debug(`Using subscription: ${subscription.id.substring(0, 8)}...`)
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (queueError) {
       logger.error('❌ Failed to insert test notification:', queueError)
-      return NextResponse.json({ error: 'Failed to create test notification' }, { status: 500 })
+      return errorResponse('Failed to create test notification' , 500)
     }
 
     logger.debug('✅ Test notification queued:', queueItem.id)
@@ -74,10 +75,10 @@ export async function POST(request: NextRequest) {
 
     if (!workerResponse.ok) {
       logger.error('❌ Worker failed:', workerResponse.status, workerResponse.statusText)
-      return NextResponse.json({ error: 'Worker failed' }, { status: 500 })
+      return errorResponse('Worker failed' , 500)
     }
 
-    const workerResult = await workerResponse.json()
+    const workerResult = await workerjsonResponse()
     logger.debug('✅ Worker result:', workerResult)
 
     // Check if events were created
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Mail webhook test completed',
       queueItem: queueItem.id,
@@ -107,6 +108,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error('❌ Mail webhook test error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

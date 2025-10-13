@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { validateDiscordToken, makeDiscordApiRequest } from '../../integrations/discord/data/utils'
 
@@ -107,7 +108,7 @@ async function checkChannelBotStatus(
       })
       
       if (userGuildResponse.ok) {
-        const guilds = await userGuildResponse.json()
+        const guilds = await userGuildjsonResponse()
         const userGuild = guilds.find((g: any) => g.id === guildId)
         
         if (userGuild) {
@@ -145,10 +146,7 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guildId')
 
     if (!channelId || !guildId) {
-      return NextResponse.json(
-        { error: 'Channel ID and Guild ID are required' },
-        { status: 400 }
-      )
+      return errorResponse('Channel ID and Guild ID are required' , 400)
     }
 
     // Verify user is authenticated
@@ -156,10 +154,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Discord integration
@@ -172,10 +167,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json(
-        { error: 'Discord integration not connected' },
-        { status: 400 }
-      )
+      return errorResponse('Discord integration not connected' , 400)
     }
 
     // Check channel bot status
@@ -183,12 +175,9 @@ export async function GET(request: NextRequest) {
     
     logger.debug(`🤖 Channel bot status for ${channelId}:`, status)
 
-    return NextResponse.json(status)
+    return jsonResponse(status)
   } catch (error) {
     logger.error('Error in channel bot status API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 }

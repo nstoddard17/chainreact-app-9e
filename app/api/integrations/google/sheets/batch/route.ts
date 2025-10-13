@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../../data/utils';
 
 import { logger } from '@/lib/utils/logger'
@@ -29,17 +30,11 @@ export async function POST(request: NextRequest) {
     const { integrationId, spreadsheetId, sheetName, action, batchData, columnMapping, options = {} } = body;
 
     if (!integrationId || !spreadsheetId || !sheetName || !action || !batchData || !Array.isArray(batchData)) {
-      return NextResponse.json(
-        { error: 'Missing required parameters or invalid batch data' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required parameters or invalid batch data' , 400);
     }
 
     if (batchData.length === 0) {
-      return NextResponse.json(
-        { error: 'Batch data cannot be empty' },
-        { status: 400 }
-      );
+      return errorResponse('Batch data cannot be empty' , 400);
     }
 
     // Get integration data
@@ -52,10 +47,7 @@ export async function POST(request: NextRequest) {
     }).then(res => res.json());
 
     if (!integration || integration.length === 0) {
-      return NextResponse.json(
-        { error: 'Integration not found' },
-        { status: 404 }
-      );
+      return errorResponse('Integration not found' , 404);
     }
 
     validateGoogleIntegration(integration[0]);
@@ -92,20 +84,14 @@ export async function POST(request: NextRequest) {
         });
         break;
       default:
-        return NextResponse.json(
-          { error: 'Invalid batch action' },
-          { status: 400 }
-        );
+        return errorResponse('Invalid batch action' , 400);
     }
 
-    return NextResponse.json({ success: true, result });
+    return jsonResponse({ success: true, result });
 
   } catch (error: any) {
     logger.error('❌ [Google Sheets Batch] Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to execute batch Google Sheets operation' },
-      { status: 500 }
-    );
+    return errorResponse(error.message || 'Failed to execute batch Google Sheets operation' , 500);
   }
 }
 
@@ -129,7 +115,7 @@ async function batchAddRows(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`,
       accessToken
     );
-    const headersData = await headersResponse.json();
+    const headersData = await headersjsonResponse();
     headers = headersData.values?.[0] || [];
   }
 
@@ -226,7 +212,7 @@ async function batchUpdateRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
     accessToken
   );
-  const sheetData = await dataResponse.json();
+  const sheetData = await datajsonResponse();
   const rows = sheetData.values || [];
   
   if (rows.length === 0) {
@@ -358,7 +344,7 @@ async function batchDeleteRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title))`,
     accessToken
   );
-  const metadata = await metadataResponse.json();
+  const metadata = await metadatajsonResponse();
   const sheet = metadata.sheets?.find((s: any) => s.properties.title === sheetName);
   
   if (!sheet) {
@@ -380,7 +366,7 @@ async function batchDeleteRows(
         `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
         accessToken
       );
-      const sheetData = await dataResponse.json();
+      const sheetData = await datajsonResponse();
       const rows = sheetData.values || [];
       
       if (rows.length <= 1) {

@@ -16,7 +16,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const userId = user.id
@@ -30,7 +30,7 @@ export async function GET() {
 
     if (error) {
       logger.error("Database error:", error)
-      return NextResponse.json({ error: "Database error" }, { status: 500 })
+      return errorResponse("Database error" , 500)
     }
 
     // Process each integration to extract status information only
@@ -59,12 +59,12 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       count: integrations.length,
       integrations: results,
     })
   } catch (error: any) {
     logger.error("Error checking integrations:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 }

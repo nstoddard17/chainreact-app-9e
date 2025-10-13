@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
     
     // Notion tokens don't expire by default
     // We'll set a nominal expiration for safety
@@ -143,7 +144,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (usersResponse.ok) {
-          const usersData = await usersResponse.json()
+          const usersData = await usersjsonResponse()
           if (usersData.results && usersData.results.length > 0) {
             // Find the bot user
             const botUser = usersData.results.find((user: any) => user.type === 'bot' && user.bot?.owner?.type === 'workspace')

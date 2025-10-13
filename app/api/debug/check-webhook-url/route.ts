@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const needsReRegistration = analysis?.some(a => !a.urlsMatch) || false
 
-    return NextResponse.json({
+    return jsonResponse({
       currentWebhookUrl: microsoftWebhookUrl,
       envVars,
       subscriptions: analysis,
@@ -54,6 +55,6 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error checking webhook URL:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    return jsonResponse({ error }, { status: 500 })
   }
 }

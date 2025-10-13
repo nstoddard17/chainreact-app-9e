@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { dropboxHandlers } from './handlers'
 import { DropboxIntegration } from './types'
@@ -23,9 +24,8 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database
@@ -38,9 +38,8 @@ export async function POST(req: NextRequest) {
 
     if (integrationError || !integrationRecord) {
       logger.error('❌ [Dropbox API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'Dropbox integration not found'
-      }, { status: 404 })
+      return errorResponse('Dropbox integration not found'
+      , 404)
     }
 
     integration = integrationRecord
@@ -51,18 +50,17 @@ export async function POST(req: NextRequest) {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'Dropbox integration is not connected. Please reconnect your account.',
+      return errorResponse('Dropbox integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = dropboxHandlers[dataType]
     if (!handler) {
       logger.error('❌ [Dropbox API] Unknown data type:', dataType)
-      return NextResponse.json({
+      return jsonResponse({
         error: `Unknown Dropbox data type: ${dataType}`,
         availableTypes: Object.keys(dropboxHandlers)
       }, { status: 400 })
@@ -83,7 +81,7 @@ export async function POST(req: NextRequest) {
       resultCount: data?.length || 0
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data,
       success: true,
       integrationId,
@@ -106,23 +104,17 @@ export async function POST(req: NextRequest) {
           reason: error.message,
         })
       }
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'Dropbox API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Dropbox API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

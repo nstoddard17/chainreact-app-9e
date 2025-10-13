@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
@@ -12,15 +13,15 @@ export async function POST(request: NextRequest) {
     const { integrationId, userId, config } = await request.json()
 
     if (!integrationId) {
-      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 })
+      return errorResponse('Integration ID is required' , 400)
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return errorResponse('User ID is required' , 400)
     }
 
     if (!config) {
-      return NextResponse.json({ error: 'Config is required' }, { status: 400 })
+      return errorResponse('Config is required' , 400)
     }
 
     // Get integration from database
@@ -31,12 +32,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
+      return errorResponse('Integration not found' , 404)
     }
 
     // Check if the integration belongs to the user
     if (integration.user_id !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Validate and refresh token
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     
     const secret = await getSecret("encryption_key")
     if (!secret) {
-      return NextResponse.json({ error: 'Encryption secret not configured' }, { status: 500 })
+      return errorResponse('Encryption secret not configured' , 500)
     }
 
     let accessToken = integration.access_token
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       try {
         accessToken = decrypt(accessToken, secret)
       } catch (decryptError) {
-        return NextResponse.json({ error: 'Token decryption failed' }, { status: 500 })
+        return errorResponse('Token decryption failed' , 500)
       }
     }
 
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
               })
               
               if (retryResponse.ok) {
-                const data = await retryResponse.json()
+                const data = await retryjsonResponse()
                 
                 // Transform the data to match the expected format
                 const contacts = data.value.map((contact: any) => ({
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest) {
                   companyName: contact.companyName
                 }))
 
-                return NextResponse.json({
+                return jsonResponse({
                   data: {
                     contacts,
                     totalCount: data['@odata.count'] || contacts.length
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `Outlook API error: ${response.status} - ${errorText}` 
       }, { status: response.status })
     }
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
       companyName: contact.companyName
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       data: {
         contacts,
         totalCount: data['@odata.count'] || contacts.length
@@ -175,9 +176,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('Error fetching contacts preview:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return errorResponse('Internal server error' , 500)
   }
 } 

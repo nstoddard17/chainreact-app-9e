@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const { userId } = await request.json()
     
     if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return errorResponse("User ID is required" , 400)
     }
 
     const supabase = createAdminClient()
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       logger.error('Database error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
     logger.debug(`🔍 Found ${integrations?.length || 0} Notion integrations for user ${userId}`)
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       userId,
       integrationCount: integrations?.length || 0,
       integrations: integrations?.map(integration => ({
@@ -58,6 +58,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     logger.error('Debug Notion error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return errorResponse(error.message , 500)
   }
 } 

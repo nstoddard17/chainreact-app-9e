@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
@@ -39,13 +39,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (error) {
       logger.error("Error creating review:", error)
-      return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+      return errorResponse("Failed to create review" , 500)
     }
 
-    return NextResponse.json(review)
+    return jsonResponse(review)
   } catch (error) {
     logger.error("Error in POST /api/templates/[id]/reviews:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -65,12 +65,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     if (error) {
       logger.error("Error fetching reviews:", error)
-      return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
+      return errorResponse("Failed to fetch reviews" , 500)
     }
 
-    return NextResponse.json(reviews)
+    return jsonResponse(reviews)
   } catch (error) {
     logger.error("Error in GET /api/templates/[id]/reviews:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

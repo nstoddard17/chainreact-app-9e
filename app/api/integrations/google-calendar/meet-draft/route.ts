@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    return errorResponse("Not authenticated" , 401)
   }
 
   // Get integration
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     .single()
 
   if (error || !integration) {
-    return NextResponse.json({ error: "Google Calendar integration not found" }, { status: 404 })
+    return errorResponse("Google Calendar integration not found" , 404)
   }
 
   // Create a draft event with Meet link
@@ -56,9 +56,9 @@ export async function POST(req: Request) {
     // Find the Meet link
     const entryPoints = result.conferenceData?.entryPoints || []
     const meetUrl = entryPoints.find((ep: any) => ep.entryPointType === "video")?.uri
-    return NextResponse.json({ eventId: result.id, meetUrl })
+    return jsonResponse({ eventId: result.id, meetUrl })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err.message , 500)
   }
 }
 
@@ -71,12 +71,12 @@ export async function DELETE(req: Request) {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    return errorResponse("Not authenticated" , 401)
   }
 
   const { eventId } = await req.json()
   if (!eventId) {
-    return NextResponse.json({ error: "Missing eventId" }, { status: 400 })
+    return errorResponse("Missing eventId" , 400)
   }
 
   // Get integration
@@ -89,7 +89,7 @@ export async function DELETE(req: Request) {
     .single()
 
   if (error || !integration) {
-    return NextResponse.json({ error: "Google Calendar integration not found" }, { status: 404 })
+    return errorResponse("Google Calendar integration not found" , 404)
   }
 
   try {
@@ -103,8 +103,8 @@ export async function DELETE(req: Request) {
     if (!response.ok && response.status !== 410 && response.status !== 404) {
       throw new Error("Failed to delete draft event")
     }
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return errorResponse(err.message , 500)
   }
 } 

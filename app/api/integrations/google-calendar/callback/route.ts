@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const userInfo = await userInfoResponse.json()
+    const userInfo = await userInfojsonResponse()
 
     const integrationData = {
       user_id: userId,

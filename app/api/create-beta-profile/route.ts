@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -20,10 +21,7 @@ export async function POST(request: Request) {
     const { userId, username, fullName, email } = await request.json()
 
     if (!userId || !username) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required fields' , 400)
     }
 
     // First check if profile already exists
@@ -67,10 +65,7 @@ export async function POST(request: Request) {
 
     if (profileResult.error) {
       logger.error('Profile creation/update error:', profileResult.error)
-      return NextResponse.json(
-        { error: profileResult.error.message },
-        { status: 500 }
-      )
+      return errorResponse(profileResult.error.message , 500)
     }
 
     // Update beta tester status to converted (if they exist and haven't already converted)
@@ -95,16 +90,13 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       profile: profileResult.data
     })
 
   } catch (error) {
     logger.error('Error in create-beta-profile:', error)
-    return NextResponse.json(
-      { error: 'Failed to create profile' },
-      { status: 500 }
-    )
+    return errorResponse('Failed to create profile' , 500)
   }
 }

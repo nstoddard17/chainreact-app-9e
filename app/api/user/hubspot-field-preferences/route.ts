@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get user's HubSpot field preferences
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     if (error || !preferences) {
       // Return default fields if no preferences exist
-      return NextResponse.json({
+      return jsonResponse({
         fields: [
           "firstname",
           "lastname",
@@ -41,16 +41,13 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       fields: preferences.hubspot_contact_fields || []
     })
 
   } catch (error: any) {
     logger.error("Error fetching HubSpot field preferences:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -61,17 +58,14 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { fields } = body
 
     if (!fields || !Array.isArray(fields)) {
-      return NextResponse.json(
-        { error: "Invalid fields array" },
-        { status: 400 }
-      )
+      return errorResponse("Invalid fields array" , 400)
     }
 
     // Upsert user preferences
@@ -87,13 +81,10 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       logger.error("Error saving preferences:", error)
-      return NextResponse.json(
-        { error: "Failed to save preferences" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to save preferences" , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "HubSpot field preferences saved successfully",
       fields: fields
@@ -101,9 +92,6 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     logger.error("Error saving HubSpot field preferences:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }

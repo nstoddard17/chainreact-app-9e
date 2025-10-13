@@ -62,11 +62,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json()
+      const errorData = await tokenjsonResponse()
       throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenResponse.json()
+    const tokenData = await tokenjsonResponse()
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
     const refreshExpiresIn = tokenData.refresh_expires_in || 90 * 24 * 60 * 60 // 90 days in seconds
