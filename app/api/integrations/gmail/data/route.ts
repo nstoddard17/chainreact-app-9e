@@ -4,6 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { gmailHandlers, isGmailDataTypeSupported, getAvailableGmailDataTypes } from './handlers'
 import { GmailIntegration } from './types'

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { cookies } from "next/headers"
 import { GDPRService } from "@/lib/compliance/gdprService"
 import { ComplianceLogger } from "@/lib/security/complianceLogger"

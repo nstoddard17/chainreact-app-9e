@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { initializeDiscordGateway, discordGateway } from "@/lib/integrations/discordGateway"
 
 export async function POST() {
