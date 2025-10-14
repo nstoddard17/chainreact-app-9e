@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request) {
   try {
@@ -11,10 +14,10 @@ export async function GET(request: Request) {
       const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
       
       if (!nodeComponent) {
-        return NextResponse.json({ error: "Node type not found" }, { status: 404 })
+        return errorResponse("Node type not found" , 404)
       }
       
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         nodeType: nodeType,
         title: nodeComponent.title,
@@ -43,18 +46,15 @@ export async function GET(request: Request) {
         })) || []
       }))
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       nodes: nodeOutputs,
       totalNodes: nodeOutputs.length
     })
     
   } catch (error: any) {
-    console.error("Node outputs API error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to get node outputs" },
-      { status: 500 }
-    )
+    logger.error("Node outputs API error:", error)
+    return errorResponse(error.message || "Failed to get node outputs" , 500)
   }
 }
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const { workflowId, nodeIds } = await request.json()
     
     if (!nodeIds || !Array.isArray(nodeIds)) {
-      return NextResponse.json({ error: "Node IDs array is required" }, { status: 400 })
+      return errorResponse("Node IDs array is required" , 400)
     }
     
     // Get output schemas for multiple nodes (useful for workflow context)
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       }
     })
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflowId,
       nodeOutputs,
@@ -115,10 +115,7 @@ export async function POST(request: Request) {
     })
     
   } catch (error: any) {
-    console.error("Node outputs context API error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to get node outputs context" },
-      { status: 500 }
-    )
+    logger.error("Node outputs context API error:", error)
+    return errorResponse(error.message || "Failed to get node outputs context" , 500)
   }
 } 

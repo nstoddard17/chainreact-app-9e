@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 // Placeholder helpers (replace with your actual DB/workflow logic)
 async function getDueScheduledExecutions() {
@@ -26,11 +27,11 @@ async function processScheduledExecutions() {
 // Vercel cron jobs use GET by default
 export async function GET(req: NextRequest) {
   const result = await processScheduledExecutions()
-  return NextResponse.json(result)
+  return jsonResponse(result)
 }
 
 // Keep POST for manual triggers
 export async function POST(req: NextRequest) {
   const result = await processScheduledExecutions()
-  return NextResponse.json(result)
+  return jsonResponse(result)
 } 

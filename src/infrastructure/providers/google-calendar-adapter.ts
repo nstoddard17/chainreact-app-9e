@@ -10,6 +10,8 @@ import { getGoogleCalendars } from '../../../lib/integrations/google-calendar'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleCalendarAdapter implements CalendarProvider {
   readonly providerId = 'google-calendar'
   readonly capabilities: CapabilityDescriptor = {
@@ -79,7 +81,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
         message: 'Calendar event created successfully'
       }
     } catch (error: any) {
-      console.error('Google Calendar create event error:', error)
+      logger.error('Google Calendar create event error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create calendar event',
@@ -133,7 +135,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
         message: 'Calendar event updated successfully'
       }
     } catch (error: any) {
-      console.error('Google Calendar update event error:', error)
+      logger.error('Google Calendar update event error:', error)
       return {
         success: false,
         error: error.message || 'Failed to update calendar event',
@@ -187,7 +189,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
         end: new Date(event.end?.dateTime || event.end?.date || '')
       })) || []
     } catch (error: any) {
-      console.error('Google Calendar get events error:', error)
+      logger.error('Google Calendar get events error:', error)
       return []
     }
   }
@@ -203,7 +205,7 @@ export class GoogleCalendarAdapter implements CalendarProvider {
         primary: cal.primary || false
       }))
     } catch (error: any) {
-      console.error('Google Calendar get calendars error:', error)
+      logger.error('Google Calendar get calendars error:', error)
       return []
     }
   }

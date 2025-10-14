@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getSupabaseClient } from "@/lib/supabase"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("Debug endpoint called")
+    logger.debug("Debug endpoint called")
 
     const supabase = getSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+      return errorResponse("Database connection failed" , 500)
     }
     
     const {
@@ -16,14 +19,14 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: integrations, error } = await supabase.from("integrations").select("*").eq("user_id", user.id)
 
     if (error) {
-      console.error("Database error:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      logger.error("Database error:", error)
+      return errorResponse(error.message , 500)
     }
 
     // Count integrations by provider and status instead of returning all details
@@ -38,14 +41,14 @@ export async function GET(request: NextRequest) {
       byStatus[integration.status || 'unknown'] = (byStatus[integration.status || 'unknown'] || 0) + 1; 
     });
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       count: integrations?.length || 0,
       byProvider,
       byStatus
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Debug endpoint error:", error)
+    return errorResponse(error.message , 500)
   }
 }

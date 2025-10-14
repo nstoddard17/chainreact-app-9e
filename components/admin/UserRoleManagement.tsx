@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 
+import { logger } from '@/lib/utils/logger'
+
 interface User {
   id: string
   email: string
@@ -113,10 +115,10 @@ export default function UserRoleManagement() {
         setUsers(data.users || [])
         setLastUpdated(new Date())
       } else {
-        console.error('Failed to fetch users:', data.error)
+        logger.error('Failed to fetch users:', data.error)
       }
     } catch (error) {
-      console.error('Error fetching users:', error)
+      logger.error('Error fetching users:', error)
     } finally {
       setLoading(false)
     }
@@ -163,7 +165,7 @@ export default function UserRoleManagement() {
       setShowUpdateDialog(false)
       setSelectedUser(null)
     } catch (error) {
-      console.error('Error updating user role:', error)
+      logger.error('Error updating user role:', error)
       // You might want to show a toast notification here
     } finally {
       setUpdating(false)
@@ -203,7 +205,7 @@ export default function UserRoleManagement() {
       
       setShowCreateDialog(false)
     } catch (error) {
-      console.error('Error creating user:', error)
+      logger.error('Error creating user:', error)
       // You might want to show a toast notification here
     } finally {
       setCreating(false)
@@ -243,7 +245,7 @@ export default function UserRoleManagement() {
       setShowEditDialog(false)
       setSelectedUser(null)
     } catch (error) {
-      console.error('Error updating user:', error)
+      logger.error('Error updating user:', error)
       // You might want to show a toast notification here
     } finally {
       setEditing(false)
@@ -280,7 +282,7 @@ export default function UserRoleManagement() {
       setSelectedUser(null)
       setDeleteOptions({ deleteData: false })
     } catch (error) {
-      console.error('Error deleting user:', error)
+      logger.error('Error deleting user:', error)
       // You might want to show a toast notification here
     } finally {
       setDeleting(false)

@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { apiClient } from "@/lib/apiClient"
 
+import { logger } from '@/lib/utils/logger'
+
 interface UserStats {
   totalUsers: number
   freeUsers: number
@@ -37,7 +39,7 @@ export const useAdminStore = create<AdminState>((set) => ({
       const response = await apiClient.get<any>("/api/admin/user-stats")
 
       if (!response.success) {
-        console.warn("Failed to fetch user stats:", response.error)
+        logger.warn("Failed to fetch user stats:", response.error)
         set({
           userStats: {
             totalUsers: 0,
@@ -56,7 +58,7 @@ export const useAdminStore = create<AdminState>((set) => ({
       const userStatsData = response.data || {};
       set({ userStats: userStatsData, loading: false })
     } catch (error) {
-      console.error("Error fetching user stats:", error)
+      logger.error("Error fetching user stats:", error)
       set({
         userStats: {
           totalUsers: 0,

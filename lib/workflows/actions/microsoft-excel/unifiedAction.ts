@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Unified Microsoft Excel action that handles create, update, and delete operations
  * Uses Microsoft Graph API to interact with Excel files stored in OneDrive
@@ -12,7 +14,7 @@ export async function executeMicrosoftExcelUnifiedAction(
   try {
     const action = resolveValue(config.action, input)
 
-    console.log('🔄 [Microsoft Excel Unified Action] Received config:', {
+    logger.debug('🔄 [Microsoft Excel Unified Action] Received config:', {
       action,
       configKeys: Object.keys(config),
       deleteSpecific: {
@@ -66,7 +68,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           updateMultiple: config.updateMultiple
         }
 
-        console.log('🔄 Microsoft Excel Update - Unified Action Config:', {
+        logger.debug('🔄 Microsoft Excel Update - Unified Action Config:', {
           originalConfig: config,
           mappedConfig: updateConfig
         })
@@ -98,7 +100,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           confirmDelete: config.confirmDelete
         }
 
-        console.log('🗑️ [Excel Unified Action] Delete config being passed:', deleteConfig)
+        logger.debug('🗑️ [Excel Unified Action] Delete config being passed:', deleteConfig)
         const deleteResult = await deleteMicrosoftExcelRow(deleteConfig, userId, input)
 
         // Add action type to the output
@@ -118,7 +120,7 @@ export async function executeMicrosoftExcelUnifiedAction(
         }
     }
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel Unified Action] Error:', error)
+    logger.error('❌ [Microsoft Excel Unified Action] Error:', error)
     return {
       success: false,
       output: {},

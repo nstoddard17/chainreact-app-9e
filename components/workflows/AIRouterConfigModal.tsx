@@ -28,6 +28,8 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { v4 as uuidv4 } from 'uuid'
 
+import { logger } from '@/lib/utils/logger'
+
 interface OutputPath {
   id: string
   name: string
@@ -176,7 +178,7 @@ export default function AIRouterConfigModal({
               setConfig(prev => ({ ...prev, ...savedNodeData.config }))
             }
           } catch (error) {
-            console.error('Failed to load saved configuration:', error)
+            logger.error('Failed to load saved configuration:', error)
           } finally {
             setIsLoadingSavedConfig(false)
           }
@@ -297,7 +299,7 @@ export default function AIRouterConfigModal({
         try {
           await saveNodeConfig(workflowId, currentNodeId, "ai_router", config)
         } catch (error) {
-          console.error('Failed to save configuration:', error)
+          logger.error('Failed to save configuration:', error)
         }
       }
     }
@@ -319,8 +321,8 @@ export default function AIRouterConfigModal({
     }
 
     // Simulate routing decision
-    console.log('Testing routing with input:', testInput)
-    console.log('Configuration:', config)
+    logger.debug('Testing routing with input:', testInput)
+    logger.debug('Configuration:', config)
     
     // Show test results in UI
     // This would trigger actual AI call in production

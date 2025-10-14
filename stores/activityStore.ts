@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface Activity {
   id: string
   type: "workflow_execution" | "integration_connect" | "integration_disconnect" | "workflow_create" | "workflow_delete" | "workflow_update"
@@ -144,7 +146,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
       // Only set activities if we have real data, otherwise keep empty
       set({ activities: sortedActivities, loading: false })
     } catch (error: any) {
-      console.error("Error fetching activities:", error)
+      logger.error("Error fetching activities:", error)
       set({ 
         activities: [], 
         loading: false, 

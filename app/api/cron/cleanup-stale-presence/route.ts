@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST() {
   try {
@@ -15,20 +18,20 @@ export async function POST() {
       .select('id, full_name')
 
     if (error) {
-      console.error('Error cleaning up stale presence:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      logger.error('Error cleaning up stale presence:', error)
+      return errorResponse(error.message , 500)
     }
 
-    console.log(`Cleaned up ${data?.length || 0} stale presence records`)
+    logger.debug(`Cleaned up ${data?.length || 0} stale presence records`)
     
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       cleaned: data?.length || 0,
       message: `Cleaned up ${data?.length || 0} stale presence records`
     })
   } catch (error: any) {
-    console.error('Cleanup error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error('Cleanup error:', error)
+    return errorResponse(error.message , 500)
   }
 }
 

@@ -5,6 +5,8 @@ import {
   notionRetrieveComments
 } from './handlers';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Execute unified Notion comments management action
  * Handles create and retrieve comment operations
@@ -69,7 +71,7 @@ export async function executeNotionManageComments(
         };
     }
   } catch (error: any) {
-    console.error('Notion manage comments error:', error);
+    logger.error('Notion manage comments error:', error);
     return {
       success: false,
       output: {},

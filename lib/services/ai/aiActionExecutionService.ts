@@ -9,6 +9,8 @@ import { DeveloperActionHandler } from "./handlers/developerActionHandler"
 import { ProductivityActionHandler } from "./handlers/productivityActionHandler"
 import { CommunicationActionHandler } from "./handlers/communicationActionHandler"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ActionExecutionResult {
   content: string
   metadata: Record<string, any>
@@ -44,7 +46,7 @@ export class AIActionExecutionService {
     supabaseAdmin: any,
     timeout: number = 25000
   ): Promise<ActionExecutionResult> {
-    console.log("🎯 Starting action execution:", {
+    logger.debug("🎯 Starting action execution:", {
       intent: intent.intent,
       action: intent.action,
       specifiedIntegration: intent.specifiedIntegration
@@ -73,10 +75,10 @@ export class AIActionExecutionService {
 
       const result = await Promise.race([actionPromise, timeoutPromise])
       
-      console.log("✅ Action execution completed successfully")
+      logger.debug("✅ Action execution completed successfully")
       return result
     } catch (error: any) {
-      console.error("❌ Action execution failed:", error)
+      logger.error("❌ Action execution failed:", error)
       
       if (error.message?.includes("timeout")) {
         return {

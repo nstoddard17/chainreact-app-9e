@@ -5,6 +5,8 @@ import { IntegrationNodeHandlers } from "./executionHandlers/integrationHandlers
 import { ExecutionContext } from "./workflowExecutionService"
 import { executionHistoryService } from "./executionHistoryService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class NodeExecutionService {
   // Force recompilation - Gmail actions added
   private triggerHandlers: TriggerNodeHandlers
@@ -24,11 +26,11 @@ export class NodeExecutionService {
     context: ExecutionContext
   ): Promise<any> {
     const startTime = Date.now()
-    console.log(`🔧 Executing node: ${node.id} (${node.data.type})`)
+    logger.debug(`🔧 Executing node: ${node.id} (${node.data.type})`)
 
     // Log node configuration for debugging
     if (node.data.type.includes('discord')) {
-      console.log(`   Discord node config:`, {
+      logger.debug(`   Discord node config:`, {
         providerId: node.data.providerId,
         hasConfig: !!node.data.config,
         configKeys: node.data.config ? Object.keys(node.data.config) : []
@@ -59,7 +61,7 @@ export class NodeExecutionService {
         )
         stepRecorded = true
       } catch (error) {
-        console.error('Failed to record execution step:', error)
+        logger.error('Failed to record execution step:', error)
       }
     }
 
@@ -110,7 +112,7 @@ export class NodeExecutionService {
           }
         }
         context.dataFlowManager.setNodeOutput(node.id, nodeOutput)
-        console.log(`💾 Stored output for node ${node.id}:`, {
+        logger.debug(`💾 Stored output for node ${node.id}:`, {
           success: nodeOutput.success,
           dataKeys: nodeOutput.data ? Object.keys(nodeOutput.data) : 'no data'
         })
@@ -124,7 +126,7 @@ export class NodeExecutionService {
       await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
 
       const executionTime = Date.now() - startTime
-      console.log(`✅ Node ${node.id} completed in ${executionTime}ms`)
+      logger.debug(`✅ Node ${node.id} completed in ${executionTime}ms`)
 
       // Record successful step completion
       if (stepRecorded && context.executionHistoryId) {
@@ -138,7 +140,7 @@ export class NodeExecutionService {
             undefined
           )
         } catch (error) {
-          console.error('Failed to complete execution step:', error)
+          logger.error('Failed to complete execution step:', error)
         }
       }
 
@@ -146,7 +148,7 @@ export class NodeExecutionService {
 
     } catch (error: any) {
       const executionTime = Date.now() - startTime
-      console.error(`❌ Node ${node.id} failed after ${executionTime}ms:`, error.message)
+      logger.error(`❌ Node ${node.id} failed after ${executionTime}ms:`, error.message)
 
       // Record failed step
       if (stepRecorded && context.executionHistoryId) {
@@ -160,7 +162,7 @@ export class NodeExecutionService {
             { stack: error.stack, details: error }
           )
         } catch (recordError) {
-          console.error('Failed to record failed step:', recordError)
+          logger.error('Failed to record failed step:', recordError)
         }
       }
 
@@ -187,7 +189,7 @@ export class NodeExecutionService {
   ): Promise<any> {
     // Validate node structure
     if (!node || !node.data) {
-      console.error('Invalid node structure:', node)
+      logger.error('Invalid node structure:', node)
       throw new Error(`Invalid node structure: missing data property`)
     }
 
@@ -195,7 +197,7 @@ export class NodeExecutionService {
 
     // Check if node type is defined
     if (!nodeType) {
-      console.error('Node missing type:', {
+      logger.error('Node missing type:', {
         nodeId: node.id,
         nodeData: node.data
       })
@@ -231,8 +233,8 @@ export class NodeExecutionService {
       .map((conn: any) => allNodes.find((node: any) => node.id === conn.target))
       .filter(Boolean)
 
-    console.log(`🔗 Node ${sourceNode.id} has ${connectedNodes.length} connected nodes`)
-    console.log(`📌 Original context userId: ${context.userId}`)
+    logger.debug(`🔗 Node ${sourceNode.id} has ${connectedNodes.length} connected nodes`)
+    logger.debug(`📌 Original context userId: ${context.userId}`)
 
     // Execute each connected node
     for (const connectedNode of connectedNodes) {
@@ -243,11 +245,11 @@ export class NodeExecutionService {
           data: { ...context.data, ...result }
         }
         
-        console.log(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`)
+        logger.debug(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`)
         
         if (!updatedContext.userId) {
-          console.error('❌ userId lost when creating updatedContext!')
-          console.error('Original context userId:', context.userId)
+          logger.error('❌ userId lost when creating updatedContext!')
+          logger.error('Original context userId:', context.userId)
         }
 
         await this.executeNode(connectedNode, allNodes, connections, updatedContext)

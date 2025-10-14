@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
+
+import { logger } from '@/lib/utils/logger'
 
 // Note: Trello auth flow in this app uses return_url to a client page
 // (/integrations/trello-auth) where token is in the URL fragment.
@@ -45,7 +48,7 @@ export async function GET(req: NextRequest) {
     if (error) throw error
 
     // Return success response immediately
-    const successResponse = NextResponse.json({ success: true })
+    const successResponse = jsonResponse({ success: true })
 
     // Register webhooks for user boards in background (best-effort) - DON'T await this call
     const base = getBaseUrl()
@@ -54,12 +57,12 @@ export async function GET(req: NextRequest) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
-      }).catch(e => console.warn('Failed to register Trello webhooks', e))
+      }).catch(e => logger.warn('Failed to register Trello webhooks', e))
     })
 
     return successResponse
   } catch (e: any) {
-    console.error("Trello callback error:", e)
+    logger.error("Trello callback error:", e)
     const baseUrl = getBaseUrl()
     return createPopupResponse("error", "Trello", e.message || "An unexpected error occurred.", baseUrl)
   }

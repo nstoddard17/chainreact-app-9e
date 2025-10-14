@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 const NOTION_API_VERSION = "2022-06-28"
 
 /**
@@ -77,7 +79,7 @@ export async function notionGetPages(
       message: `Successfully retrieved ${data.results?.length || 0} pages from database`
     }
   } catch (error: any) {
-    console.error('Notion Get Pages error:', error)
+    logger.error('Notion Get Pages error:', error)
     return {
       success: false,
       output: {},

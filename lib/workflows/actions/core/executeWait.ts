@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Interface for action results
  */
@@ -163,7 +165,7 @@ export async function executeWaitForTime(
       .single()
     
     if (error) {
-      console.error("Failed to schedule execution:", error)
+      logger.error("Failed to schedule execution:", error)
       throw new Error(`Failed to schedule execution: ${error.message}`)
     }
     
@@ -201,7 +203,7 @@ export async function executeWaitForTime(
       pauseExecution: true
     }
   } catch (error: any) {
-    console.error("Wait for time execution error:", error)
+    logger.error("Wait for time execution error:", error)
     return { 
       success: false, 
       message: `Wait for time failed: ${error.message}` 

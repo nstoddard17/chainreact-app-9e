@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailLabelSelectorProps {
   value?: string[]
   onChange: (value: string[]) => void
@@ -153,7 +155,7 @@ export function GmailLabelSelector({
       // Keep the popover open so user can select more labels
       // setOpen(false)
     } catch (error) {
-      console.error('Error creating label:', error)
+      logger.error('Error creating label:', error)
       toast({
         title: "Error creating label",
         description: error instanceof Error ? error.message : "Failed to create label",

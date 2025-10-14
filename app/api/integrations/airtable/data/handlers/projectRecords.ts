@@ -5,10 +5,12 @@
 import { AirtableIntegration, AirtableProjectRecord, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getAirtableProjectRecords: AirtableDataHandler<AirtableProjectRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableProjectRecord[]> => {
   const { baseId } = options
   
-  console.log("🔍 Airtable project records fetcher called with:", {
+  logger.debug("🔍 Airtable project records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     hasToken: !!integration.access_token
@@ -18,11 +20,11 @@ export const getAirtableProjectRecords: AirtableDataHandler<AirtableProjectRecor
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    console.log(`🔍 Validating Airtable token...`)
+    logger.debug(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -30,7 +32,7 @@ export const getAirtableProjectRecords: AirtableDataHandler<AirtableProjectRecor
       throw new Error('Base ID is required for fetching project records')
     }
     
-    console.log('🔍 Fetching Airtable project records from API...')
+    logger.debug('🔍 Fetching Airtable project records from API...')
     
     // Try common project table names
     const possibleTableNames = ['Projects', 'Project List', 'Project Management', 'Initiatives', 'Campaigns', 'Work']
@@ -43,25 +45,25 @@ export const getAirtableProjectRecords: AirtableDataHandler<AirtableProjectRecor
         
         if (response.ok) {
           const tableRecords = await parseAirtableApiResponse<AirtableProjectRecord>(response)
-          console.log(`✅ Found project table: ${tableName} with ${tableRecords.length} records`)
+          logger.debug(`✅ Found project table: ${tableName} with ${tableRecords.length} records`)
           records = tableRecords
           break
         }
       } catch (error) {
-        console.log(`❌ Table ${tableName} not found, trying next...`)
+        logger.debug(`❌ Table ${tableName} not found, trying next...`)
         continue
       }
     }
     
     if (records.length === 0) {
-      console.log('📝 No project table found, returning empty array')
+      logger.debug('📝 No project table found, returning empty array')
     }
     
-    console.log(`✅ Airtable project records fetched successfully: ${records.length} records`)
+    logger.debug(`✅ Airtable project records fetched successfully: ${records.length} records`)
     return records
     
   } catch (error: any) {
-    console.error("Error fetching Airtable project records:", error)
+    logger.error("Error fetching Airtable project records:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

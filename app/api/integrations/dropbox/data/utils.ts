@@ -5,6 +5,8 @@
 import { DropboxApiError } from './types'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Dropbox API error with proper context
  */
@@ -82,7 +84,7 @@ export function getDropboxApiHeaders(accessToken: string): Record<string, string
 export async function parseDropboxApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}))
-    console.error(`❌ Dropbox API error: ${response.status}`, errorData)
+    logger.error(`❌ Dropbox API error: ${response.status}`, errorData)
     
     throw createDropboxApiError(
       `Dropbox API error: ${response.status}`,

@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 export class TeamsOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = new Set([
     'teamId',
@@ -20,22 +22,28 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
     return this.supportedFields.has(fieldName);
   }
 
-  async load(
-    fieldName: string,
-    providerId: string,
-    integrationId: string,
-    params?: {
-      nodeType?: string;
-      dependencyFieldName?: string;
-      dependencyValue?: any;
-      signal?: AbortSignal;
+  async loadOptions(params: {
+    fieldName: string;
+    nodeType: string;
+    providerId: string;
+    integrationId?: string;
+    dependsOn?: string;
+    dependsOnValue?: any;
+    forceRefresh?: boolean;
+    extraOptions?: Record<string, any>;
+    signal?: AbortSignal;
+  }): Promise<{ value: string; label: string }[]> {
+    const { fieldName, providerId, integrationId, dependsOn, dependsOnValue, signal } = params;
+
+    if (!integrationId) {
+      logger.error('[TeamsOptionsLoader] No integration ID provided');
+      return [];
     }
-  ): Promise<{ value: string; label: string }[]> {
-    console.log(`[TeamsOptionsLoader] Loading ${fieldName} for provider ${providerId}`, {
+    logger.debug(`[TeamsOptionsLoader] Loading ${fieldName} for provider ${providerId}`, {
       integrationId,
-      dependencyFieldName: params?.dependencyFieldName,
-      dependencyValue: params?.dependencyValue,
-      nodeType: params?.nodeType
+      dependsOn,
+      dependsOnValue,
+      nodeType: params.nodeType
     });
 
     // Determine the resource type based on field name
@@ -47,8 +55,11 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         break;
       case 'channelId':
         // Channels depend on teamId
-        if (!params?.dependencyValue) {
-          console.log('[TeamsOptionsLoader] No teamId provided for channels');
+        if (!dependsOnValue || dependsOnValue === '') {
+          logger.debug('[TeamsOptionsLoader] No teamId provided for channels', {
+            hasDependencyValue: !!dependsOnValue,
+            dependsOnValue
+          });
           return [];
         }
         resourceType = 'teams_channels';
@@ -57,7 +68,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         resourceType = 'teams_chats';
         break;
       default:
-        console.warn(`[TeamsOptionsLoader] Unsupported field: ${fieldName}`);
+        logger.warn(`[TeamsOptionsLoader] Unsupported field: ${fieldName}`);
         return [];
     }
 
@@ -68,8 +79,8 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       url.searchParams.set('type', resourceType);
 
       // Add teamId for channel requests
-      if (fieldName === 'channelId' && params?.dependencyValue) {
-        url.searchParams.set('teamId', params.dependencyValue);
+      if (fieldName === 'channelId' && dependsOnValue) {
+        url.searchParams.set('teamId', dependsOnValue);
       }
 
       const response = await fetch(url.toString(), {
@@ -77,17 +88,17 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: params?.signal,
+        signal,
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error(`[TeamsOptionsLoader] API error:`, errorData);
+        logger.error(`[TeamsOptionsLoader] API error:`, errorData);
         throw new Error(errorData.error || `Failed to load ${fieldName}`);
       }
 
       const data = await response.json();
-      console.log(`[TeamsOptionsLoader] Loaded ${data.length} options for ${fieldName}`);
+      logger.debug(`[TeamsOptionsLoader] Loaded ${data.length} options for ${fieldName}`);
 
       // Ensure we return the expected format
       if (Array.isArray(data)) {
@@ -100,36 +111,13 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       return [];
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.log(`[TeamsOptionsLoader] Request aborted for ${fieldName}`);
+        logger.debug(`[TeamsOptionsLoader] Request aborted for ${fieldName}`);
         return [];
       }
 
-      console.error(`[TeamsOptionsLoader] Error loading ${fieldName}:`, error);
+      logger.error(`[TeamsOptionsLoader] Error loading ${fieldName}:`, error);
       throw error;
     }
   }
 
-  getCacheKey(
-    fieldName: string,
-    providerId: string,
-    integrationId: string,
-    params?: {
-      nodeType?: string;
-      dependencyFieldName?: string;
-      dependencyValue?: any;
-    }
-  ): string {
-    const parts = [providerId, integrationId, fieldName];
-
-    if (params?.nodeType) {
-      parts.push(params.nodeType);
-    }
-
-    // Include dependency value in cache key for dependent fields
-    if (fieldName === 'channelId' && params?.dependencyValue) {
-      parts.push(`team-${params.dependencyValue}`);
-    }
-
-    return parts.join(':');
-  }
 }

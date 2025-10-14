@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,13 +17,13 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { sessionToken } = await request.json()
 
     if (!sessionToken) {
-      return NextResponse.json(
+      return jsonResponse(
         { success: false, error: "Session token is required" },
         { status: 400 }
       )
@@ -34,17 +37,17 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
 
     if (error) {
-      console.error("Error leaving collaboration:", error)
-      return NextResponse.json(
+      logger.error("Error leaving collaboration:", error)
+      return jsonResponse(
         { success: false, error: "Failed to leave collaboration" },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    console.error("Error in leave collaboration:", error)
-    return NextResponse.json(
+    logger.error("Error in leave collaboration:", error)
+    return jsonResponse(
       { success: false, error: "Internal server error" },
       { status: 500 }
     )

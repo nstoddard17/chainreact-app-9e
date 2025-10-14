@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Trash2, Edit, Database } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface VariableManagerProps {
   workflowId: string
 }
@@ -61,7 +63,7 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
       setEditingVariable(null)
       setFormData({ name: "", value: "", type: "string" })
     } catch (error) {
-      console.error("Failed to save variable:", error)
+      logger.error("Failed to save variable:", error)
     }
   }
 
@@ -80,7 +82,7 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
       try {
         await deleteVariable(id)
       } catch (error) {
-        console.error("Failed to delete variable:", error)
+        logger.error("Failed to delete variable:", error)
       }
     }
   }

@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { createClient } from '@supabase/supabase-js';
 import { webhookManager } from '@/lib/webhooks/webhookManager';
+
+import { logger } from '@/lib/utils/logger'
 
 interface ValidationResult {
   isValid: boolean;
@@ -99,13 +102,13 @@ export async function POST(
       .single();
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+      return errorResponse('Workflow not found' , 404);
     }
     
     const triggerNode = workflow.nodes.find((node: any) => node.data.isTrigger && node.data.triggerType === 'webhook');
 
     if (!triggerNode) {
-      return NextResponse.json({ error: 'No webhook trigger found for this workflow' }, { status: 400 });
+      return errorResponse('No webhook trigger found for this workflow' , 400);
     }
 
     const payload = await request.json();
@@ -114,11 +117,9 @@ export async function POST(
     // Validate payload against the trigger node's payload schema
     const validationResult = validateWebhookPayload(payload, triggerNode.data.payloadSchema);
     if (!validationResult.isValid) {
-      console.error(`Webhook payload validation failed for workflow ${workflowId}:`, validationResult.errors);
-      return NextResponse.json({ 
-        error: 'Invalid payload', 
-        details: validationResult.errors 
-      }, { status: 400 });
+      logger.error(`Webhook payload validation failed for workflow ${workflowId}:`, validationResult.errors);
+      return errorResponse('Invalid payload', 400, { details: validationResult.errors 
+       });
     }
 
     // Log webhook execution using the webhook manager
@@ -154,7 +155,7 @@ export async function POST(
         });
       }
     } catch (logError) {
-      console.error('Failed to log webhook execution:', logError);
+      logger.error('Failed to log webhook execution:', logError);
       // Don't fail the webhook if logging fails
     }
 
@@ -169,10 +170,10 @@ export async function POST(
     // Asynchronously execute the workflow without waiting for it to complete
     executionEngine.executeWorkflowAdvanced(executionSession.id, payload);
 
-    return NextResponse.json({ success: true, sessionId: executionSession.id });
+    return jsonResponse({ success: true, sessionId: executionSession.id });
   } catch (error: any) {
-    console.error(`Webhook error for workflow ${workflowId}:`, error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error(`Webhook error for workflow ${workflowId}:`, error);
+    return errorResponse('Internal server error' , 500);
   }
 }
 
@@ -193,7 +194,7 @@ export async function GET(
       .single();
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: 'Workflow not found' }, { status: 404 });
+      return errorResponse('Workflow not found' , 404);
     }
 
     // Get webhook config for this workflow
@@ -204,7 +205,7 @@ export async function GET(
       .eq('status', 'active')
       .single();
 
-    return NextResponse.json({
+    return jsonResponse({
       message: "Webhook endpoint active",
       workflow: {
         id: workflowId,
@@ -221,7 +222,7 @@ export async function GET(
       documentation: "Send a POST request with your payload to trigger this workflow"
     });
   } catch (error: any) {
-    console.error(`Error fetching webhook info for workflow ${workflowId}:`, error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error(`Error fetching webhook info for workflow ${workflowId}:`, error);
+    return errorResponse('Internal server error' , 500);
   }
 }

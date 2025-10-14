@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class EcommerceActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -38,7 +40,7 @@ export class EcommerceActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`E-commerce query "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ E-commerce query error:", error)
+      logger.error("❌ E-commerce query error:", error)
       return this.getErrorResponse("Failed to fetch e-commerce data.")
     }
   }
@@ -69,7 +71,7 @@ export class EcommerceActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`E-commerce action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ E-commerce action error:", error)
+      logger.error("❌ E-commerce action error:", error)
       return this.getErrorResponse("Failed to perform the e-commerce action.")
     }
   }

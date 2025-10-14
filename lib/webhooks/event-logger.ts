@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WebhookEventLog {
   id?: string
   provider: string
@@ -51,10 +53,10 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
     }
 
     if (logData.status === 'error' || logData.error) {
-      console.error(`[Webhook] ${logData.provider} error`, context)
+      logger.error(`[Webhook] ${logData.provider} error`, context)
     } else if (shouldLogWebhookDebug) {
       const label = logData.status === 'success' ? 'success' : 'info'
-      console.log(`[Webhook] ${logData.provider} ${label}`, {
+      logger.debug(`[Webhook] ${logData.provider} ${label}`, {
         requestId: logData.requestId,
         service: logData.service,
         processingTime: logData.processingTime,
@@ -64,8 +66,8 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
 
   } catch (error) {
     // Fallback to console logging if database fails
-    console.error('Failed to log webhook event:', error)
-    console.log('Webhook event data:', logData)
+    logger.error('Failed to log webhook event:', error)
+    logger.debug('Webhook event data:', logData)
   }
 }
 
@@ -89,13 +91,13 @@ export async function getWebhookEventLogs(
     const { data, error } = await query
 
     if (error) {
-      console.error('Failed to fetch webhook logs:', error)
+      logger.error('Failed to fetch webhook logs:', error)
       return []
     }
 
     return data || []
   } catch (error) {
-    console.error('Failed to fetch webhook logs:', error)
+    logger.error('Failed to fetch webhook logs:', error)
     return []
   }
 } 

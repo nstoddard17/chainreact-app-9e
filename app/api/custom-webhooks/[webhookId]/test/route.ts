@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(
   request: Request,
@@ -11,7 +14,7 @@ export async function POST(
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get the webhook configuration
@@ -23,7 +26,7 @@ export async function POST(
       .single()
 
     if (webhookError || !webhook) {
-      return NextResponse.json({ error: "Webhook not found" }, { status: 404 })
+      return errorResponse("Webhook not found" , 404)
     }
 
     // Prepare test payload
@@ -94,7 +97,7 @@ export async function POST(
       .update(updateData)
       .eq('id', webhookId)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: !errorMessage,
       statusCode,
       responseBody,
@@ -103,7 +106,7 @@ export async function POST(
     })
 
   } catch (error: any) {
-    console.error(`Error in POST /api/custom-webhooks/${webhookId}/test:`, error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error(`Error in POST /api/custom-webhooks/${webhookId}/test:`, error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

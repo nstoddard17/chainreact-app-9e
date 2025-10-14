@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get Notion integration
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "No connected Notion integration found",
           details: integrationError?.message,
@@ -81,9 +84,9 @@ export async function GET(request: NextRequest) {
       testResult.apiError = await testResponse.text()
     }
 
-    return NextResponse.json(testResult)
+    return jsonResponse(testResult)
   } catch (error: any) {
-    console.error("Notion test endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Notion test endpoint error:", error)
+    return errorResponse(error.message , 500)
   }
 }

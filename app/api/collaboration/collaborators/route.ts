@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const workflowId = searchParams.get("workflowId")
 
   if (!workflowId) {
-    return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
+    return errorResponse("workflowId is required" , 400)
   }
 
   try {
@@ -19,12 +22,12 @@ export async function GET(request: Request) {
       .eq("is_active", true)
 
     if (sessionsError) {
-      console.error("Error fetching collaboration sessions:", sessionsError)
+      logger.error("Error fetching collaboration sessions:", sessionsError)
       throw sessionsError
     }
 
     if (!sessions || sessions.length === 0) {
-      return NextResponse.json([])
+      return jsonResponse([])
     }
 
     const userIds = sessions.map((s: { user_id: string }) => s.user_id)
@@ -39,9 +42,9 @@ export async function GET(request: Request) {
       // You can add more fields here if needed, like cursor position, etc.
     }))
 
-    return NextResponse.json(collaborators)
+    return jsonResponse(collaborators)
   } catch (error) {
-    console.error("Failed to get collaborators:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    logger.error("Failed to get collaborators:", error)
+    return errorResponse("Internal Server Error" , 500)
   }
 }

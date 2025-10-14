@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -11,15 +14,15 @@ export async function POST(req: NextRequest) {
     const { integrationId, userId, config } = body
 
     if (!integrationId) {
-      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 })
+      return errorResponse('Integration ID is required' , 400)
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return errorResponse('User ID is required' , 400)
     }
 
     if (!config) {
-      return NextResponse.json({ error: 'Config is required' }, { status: 400 })
+      return errorResponse('Config is required' , 400)
     }
 
     const { query, folderId, maxResults = 5, unreadOnly = false } = config
@@ -32,12 +35,12 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
+      return errorResponse('Integration not found' , 404)
     }
 
     // Check if the integration belongs to the user
     if (integration.user_id !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Validate and refresh token
@@ -46,7 +49,7 @@ export async function POST(req: NextRequest) {
     
     const secret = await getSecret("encryption_key")
     if (!secret) {
-      return NextResponse.json({ error: 'Encryption secret not configured' }, { status: 500 })
+      return errorResponse('Encryption secret not configured' , 500)
     }
 
     let accessToken = integration.access_token
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
       try {
         accessToken = decrypt(accessToken, secret)
       } catch (decryptError) {
-        return NextResponse.json({ error: 'Token decryption failed' }, { status: 500 })
+        return errorResponse('Token decryption failed' , 500)
       }
     }
 
@@ -90,8 +93,8 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Outlook API error:', response.status, errorText)
-      return NextResponse.json({ 
+      logger.error('Outlook API error:', response.status, errorText)
+      return jsonResponse({ 
         error: `Outlook API error: ${response.status} - ${errorText}` 
       }, { status: response.status })
     }
@@ -109,7 +112,7 @@ export async function POST(req: NextRequest) {
       snippet: message.bodyPreview || ''
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       data: previewData,
       totalCount: data['@odata.count'] || previewData.length,
       query: query || 'All messages',
@@ -117,9 +120,8 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Outlook search emails preview error:', error)
-    return NextResponse.json({ 
-      error: error.message || 'Internal server error' 
-    }, { status: 500 })
+    logger.error('Outlook search emails preview error:', error)
+    return errorResponse(error.message || 'Internal server error' 
+    , 500)
   }
 } 

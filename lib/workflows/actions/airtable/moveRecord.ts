@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Moves a record from one table to another in Airtable
  * This is implemented by copying the record to the destination table and then deleting it from the source table
@@ -29,7 +31,7 @@ export async function moveAirtableRecord(
       if (!destinationTableName) missingFields.push("Destination Table Name")
       
       const message = `Missing required fields for moving record: ${missingFields.join(", ")}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -119,7 +121,7 @@ export async function moveAirtableRecord(
     }
 
   } catch (error: any) {
-    console.error("Airtable move record error:", error)
+    logger.error("Airtable move record error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while moving the record"

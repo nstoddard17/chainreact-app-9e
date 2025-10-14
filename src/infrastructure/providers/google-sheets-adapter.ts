@@ -11,6 +11,8 @@ import { CapabilityDescriptor, ErrorClassification } from '../../domains/integra
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 import { google, sheets_v4 } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleSheetsAdapter implements DatabaseProvider {
   readonly providerId = 'google-sheets'
   readonly capabilities: CapabilityDescriptor = {
@@ -100,7 +102,7 @@ export class GoogleSheetsAdapter implements DatabaseProvider {
         message: 'Record created successfully in Google Sheets'
       }
     } catch (error: any) {
-      console.error('Google Sheets create record error:', error)
+      logger.error('Google Sheets create record error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create record in Google Sheets',
@@ -278,7 +280,7 @@ export class GoogleSheetsAdapter implements DatabaseProvider {
       
       return filteredRecords
     } catch (error: any) {
-      console.error('Google Sheets get records error:', error)
+      logger.error('Google Sheets get records error:', error)
       return []
     }
   }
@@ -312,7 +314,7 @@ export class GoogleSheetsAdapter implements DatabaseProvider {
         fields: [] // Google Sheets doesn't have fixed field definitions
       }))
     } catch (error: any) {
-      console.error('Google Sheets get tables error:', error)
+      logger.error('Google Sheets get tables error:', error)
       return []
     }
   }
@@ -339,7 +341,7 @@ export class GoogleSheetsAdapter implements DatabaseProvider {
         )
       })
     } catch (error: any) {
-      console.error('Google Sheets search records error:', error)
+      logger.error('Google Sheets search records error:', error)
       return []
     }
   }

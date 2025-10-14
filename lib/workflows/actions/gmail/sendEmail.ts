@@ -5,6 +5,8 @@ import { FileStorageService } from "@/lib/storage/fileStorage"
 import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Enhanced Gmail send email with all field support
  */
@@ -231,7 +233,7 @@ export async function sendGmailEmail(
               };
             }
           } catch (error) {
-            console.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
+            logger.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
           }
         } else if (attachment && typeof attachment === 'object' && attachment.content && attachment.fileName) {
           // File with inline content (for backwards compatibility)
@@ -286,7 +288,7 @@ export async function sendGmailEmail(
                 .download(attachment.filePath);
               
               if (error) {
-                console.error('📎 [sendGmailEmail] Error downloading file from storage:', error);
+                logger.error('📎 [sendGmailEmail] Error downloading file from storage:', error);
                 continue;
               }
               
@@ -301,7 +303,7 @@ export async function sendGmailEmail(
                 };
                 }
             } catch (error) {
-              console.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
+              logger.error('📎 [sendGmailEmail] Error fetching file from storage:', error);
               continue;
             }
           } else {
@@ -343,7 +345,7 @@ export async function sendGmailEmail(
           // No fileData for attachment, skipping
         }
       } catch (error) {
-        console.error(`Failed to attach file:`, error)
+        logger.error(`Failed to attach file:`, error)
       }
     }
 
@@ -384,7 +386,7 @@ export async function sendGmailEmail(
           }
         })
       } catch (labelError) {
-        console.error('Failed to apply labels:', labelError)
+        logger.error('Failed to apply labels:', labelError)
       }
     }
 
@@ -401,7 +403,7 @@ export async function sendGmailEmail(
     }
 
   } catch (error: any) {
-    console.error('Send Gmail error:', error)
+    logger.error('Send Gmail error:', error)
     return {
       success: false,
       output: {},

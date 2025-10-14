@@ -1,5 +1,7 @@
 import { BoxIntegration } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface BoxFile {
   id: string
   name: string
@@ -31,7 +33,7 @@ export async function handleFiles(integration: BoxIntegration, options: any = {}
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ [Box] Failed to fetch files:', {
+      logger.error('❌ [Box] Failed to fetch files:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText,
@@ -55,11 +57,11 @@ export async function handleFiles(integration: BoxIntegration, options: any = {}
       }
     }))
 
-    console.log(`✅ [Box] Fetched ${formattedFiles.length} files from folder ${folderId}`)
+    logger.debug(`✅ [Box] Fetched ${formattedFiles.length} files from folder ${folderId}`)
 
     return formattedFiles
   } catch (error: any) {
-    console.error('❌ [Box] Error fetching files:', error)
+    logger.error('❌ [Box] Error fetching files:', error)
     throw error
   }
 }

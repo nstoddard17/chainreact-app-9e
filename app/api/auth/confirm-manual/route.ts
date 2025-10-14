@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,10 +10,7 @@ export async function POST(request: NextRequest) {
     const { userId, token } = body
 
     if (!userId || !token) {
-      return NextResponse.json(
-        { error: 'Missing userId or token' },
-        { status: 400 }
-      )
+      return errorResponse('Missing userId or token' , 400)
     }
 
     // Verify the token
@@ -19,25 +19,16 @@ export async function POST(request: NextRequest) {
       const [tokenUserId, timestamp] = decodedToken.split(':')
       
       if (tokenUserId !== userId) {
-        return NextResponse.json(
-          { error: 'Invalid token' },
-          { status: 400 }
-        )
+        return errorResponse('Invalid token' , 400)
       }
 
       // Check if token is not too old (24 hours)
       const tokenAge = Date.now() - parseInt(timestamp, 10)
       if (tokenAge > 24 * 60 * 60 * 1000) {
-        return NextResponse.json(
-          { error: 'Confirmation link has expired' },
-          { status: 400 }
-        )
+        return errorResponse('Confirmation link has expired' , 400)
       }
     } catch (tokenError) {
-      return NextResponse.json(
-        { error: 'Invalid token format' },
-        { status: 400 }
-      )
+      return errorResponse('Invalid token format' , 400)
     }
 
     const supabase = createAdminClient()
@@ -48,24 +39,18 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Error confirming user email:', error)
-      return NextResponse.json(
-        { error: 'Failed to confirm email' },
-        { status: 500 }
-      )
+      logger.error('Error confirming user email:', error)
+      return errorResponse('Failed to confirm email' , 500)
     }
 
-    console.log('User email confirmed successfully:', userId)
-    return NextResponse.json({
+    logger.debug('User email confirmed successfully:', userId)
+    return jsonResponse({
       success: true,
       message: 'Email confirmed successfully'
     })
 
   } catch (error) {
-    console.error('Error in manual confirmation:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error in manual confirmation:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

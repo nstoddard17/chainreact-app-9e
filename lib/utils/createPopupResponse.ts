@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Creates a connecting/loading response for OAuth popup windows
  */
@@ -117,7 +119,7 @@ export function createPopupResponse(
   options?: { autoClose?: boolean; payload?: Record<string, any> }
 ) {
   // Log the popup response creation for debugging
-  console.log(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
+  logger.debug(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
   const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
   const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
   const status = type === "success" ? 200 : 400
@@ -170,19 +172,19 @@ ${payloadScript}
       try {
         const channel = new BroadcastChannel('oauth_channel');
         channel.postMessage(responseData);
-        console.log('📡 Sent OAuth response via BroadcastChannel');
+        logger.debug('📡 Sent OAuth response via BroadcastChannel');
         channel.close();
       } catch (e) {
-        console.log('BroadcastChannel not available or failed:', e);
+        logger.debug('BroadcastChannel not available or failed:', e);
       }
       
       // Method 2: Store in localStorage for parent window to find (COOP-safe)
       try {
         localStorage.setItem('${storageKey}', JSON.stringify(responseData));
-        console.log('Response stored in localStorage with key: ${storageKey}');
-        console.log('Response data:', responseData);
+        logger.debug('Response stored in localStorage with key: ${storageKey}');
+        logger.debug('Response data:', responseData);
       } catch (e) {
-        console.error('Failed to store in localStorage:', e);
+        logger.error('Failed to store in localStorage:', e);
       }
       
       // More robust handling of window closing
@@ -201,11 +203,11 @@ ${payloadScript}
             // Also try postMessage if possible
             if (window.opener) {
               window.opener.postMessage(cancelData, '*');
-              console.log('Cancel message sent to parent');
+              logger.debug('Cancel message sent to parent');
             }
             window.sentResponse = true;
           } catch (e) {
-            console.error('Error sending cancel message:', e);
+            logger.error('Error sending cancel message:', e);
           }
         }
       }
@@ -228,15 +230,15 @@ ${payloadScript}
           try {
             // Try postMessage if opener is available
             if (window.opener) {
-              console.log('Sending message to parent window:', JSON.stringify(responseData));
-              console.log('Target origin: ${baseUrl}');
+              logger.debug('Sending message to parent window:', JSON.stringify(responseData));
+              logger.debug('Target origin: ${baseUrl}');
               
               window.opener.postMessage(responseData, '*');
-              console.log('Message sent successfully to parent window');
+              logger.debug('Message sent successfully to parent window');
             }
             messageSent = true;
           } catch (e) {
-            console.error('Failed to send message:', e);
+            logger.error('Failed to send message:', e);
             retryCount++;
             if (retryCount < maxRetries) {
               setTimeout(sendMessage, 500);
@@ -255,15 +257,15 @@ ${payloadScript}
           const closeDelay = isMicrosoftProvider ? 3000 : 2000;
           setTimeout(() => {
             if (!messageSent) {
-              console.warn('Closing window without confirming message was sent');
+              logger.warn('Closing window without confirming message was sent');
             }
             window.close();
           }, closeDelay);
         } else {
-          console.log('Auto-close disabled for this message');
+          logger.debug('Auto-close disabled for this message');
         }
       } catch (e) {
-        console.error('Error in popup window:', e);
+        logger.error('Error in popup window:', e);
         // Only force close if auto-close is enabled
         if (${shouldAutoClose}) {
           setTimeout(() => window.close(), 1000);

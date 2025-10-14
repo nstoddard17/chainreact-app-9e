@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -7,7 +10,7 @@ export async function GET(
 ) {
   const { id: organizationId } = await params
   try {
-    console.log('Invitations API: Starting request for organization:', organizationId)
+    logger.debug('Invitations API: Starting request for organization:', organizationId)
     
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
@@ -15,11 +18,11 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      console.log('Invitations API: User not authenticated')
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      logger.debug('Invitations API: User not authenticated')
+      return errorResponse("Unauthorized" , 401)
     }
 
-    console.log('Invitations API: User authenticated:', user.id)
+    logger.debug('Invitations API: User authenticated:', user.id)
 
     // Check if user is a member of this organization
     const { data: membership, error: membershipError } = await serviceClient
@@ -29,20 +32,20 @@ export async function GET(
       .eq("user_id", user.id)
       .single()
 
-    console.log('Invitations API: Membership check result:', { membership, membershipError })
+    logger.debug('Invitations API: Membership check result:', { membership, membershipError })
 
     if (membershipError || !membership) {
-      console.log('Invitations API: Access denied - user not a member')
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      logger.debug('Invitations API: Access denied - user not a member')
+      return errorResponse("Access denied" , 403)
     }
 
     // Only admins can view invitations
     if (membership.role !== 'admin') {
-      console.log('Invitations API: Insufficient permissions - user role:', membership.role)
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      logger.debug('Invitations API: Insufficient permissions - user role:', membership.role)
+      return errorResponse("Insufficient permissions" , 403)
     }
 
-    console.log('Invitations API: User is admin, fetching invitations')
+    logger.debug('Invitations API: User is admin, fetching invitations')
 
     // Get pending invitations
     const { data: invitations, error } = await serviceClient
@@ -52,17 +55,17 @@ export async function GET(
       .is("accepted_at", null) // Use IS NULL instead of = null
       .order("created_at", { ascending: false })
 
-    console.log('Invitations API: Fetch result:', { invitations, error })
+    logger.debug('Invitations API: Fetch result:', { invitations, error })
 
     if (error) {
-      console.error("Error fetching invitations:", error)
-      return NextResponse.json({ error: "Failed to fetch invitations" }, { status: 500 })
+      logger.error("Error fetching invitations:", error)
+      return errorResponse("Failed to fetch invitations" , 500)
     }
 
-    return NextResponse.json(invitations || [])
+    return jsonResponse(invitations || [])
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -78,14 +81,14 @@ export async function DELETE(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
     const invitationId = searchParams.get('invitationId')
 
     if (!invitationId) {
-      return NextResponse.json({ error: "Invitation ID is required" }, { status: 400 })
+      return errorResponse("Invitation ID is required" , 400)
     }
 
     // Check if user is admin of the organization
@@ -97,7 +100,7 @@ export async function DELETE(
       .single()
 
     if (membershipError || !membership || membership.role !== 'admin') {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     // Delete the invitation
@@ -108,13 +111,13 @@ export async function DELETE(
       .eq("organization_id", organizationId)
 
     if (deleteError) {
-      console.error("Error deleting invitation:", deleteError)
-      return NextResponse.json({ error: "Failed to delete invitation" }, { status: 500 })
+      logger.error("Error deleting invitation:", deleteError)
+      return errorResponse("Failed to delete invitation" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

@@ -8,6 +8,8 @@ import Link from 'next/link'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/utils/supabaseClient'
 
+import { logger } from '@/lib/utils/logger'
+
 export default function ConfirmationSuccessPage() {
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [hasValidSession, setHasValidSession] = useState(false)
@@ -25,14 +27,14 @@ export default function ConfirmationSuccessPage() {
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (session && !error) {
-          console.log('Valid session found after email confirmation')
+          logger.debug('Valid session found after email confirmation')
           setHasValidSession(true)
         } else {
-          console.log('No valid session found, user needs to sign in')
+          logger.debug('No valid session found, user needs to sign in')
           setHasValidSession(false)
         }
       } catch (error) {
-        console.error('Error checking session:', error)
+        logger.error('Error checking session:', error)
         setHasValidSession(false)
       } finally {
         setIsCheckingSession(false)

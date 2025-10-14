@@ -7,6 +7,8 @@
 
 import { FieldType, FieldClassification } from '../schema/fieldClassifier';
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ValidationResult {
   isValid: boolean;
   confidence: number;
@@ -133,7 +135,7 @@ export class SafetyValidator {
       };
 
     } catch (error) {
-      console.error('Validation error:', error);
+      logger.error('Validation error:', error);
       return {
         isValid: false,
         confidence: 0,
@@ -517,7 +519,7 @@ export class SafetyValidator {
     };
 
     // In production, send to monitoring service
-    console.log('🛡️ Validation Log:', {
+    logger.debug('🛡️ Validation Log:', {
       workflowId: logEntry.workflowId,
       nodeId: logEntry.nodeId,
       errorCount: logEntry.errors.length,
@@ -527,7 +529,7 @@ export class SafetyValidator {
     // Alert on critical issues
     const criticalIssues = [...errors, ...flags].filter(issue => issue.severity === 'critical');
     if (criticalIssues.length > 0) {
-      console.error('🚨 Critical validation issues detected:', criticalIssues);
+      logger.error('🚨 Critical validation issues detected:', criticalIssues);
     }
   }
 

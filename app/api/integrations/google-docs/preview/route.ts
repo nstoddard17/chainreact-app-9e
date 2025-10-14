@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createSupabaseServerClient } from "@/utils/supabase/server";
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core";
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,10 +11,7 @@ export async function POST(request: NextRequest) {
     const { documentId, integrationId } = await request.json();
 
     if (!documentId) {
-      return NextResponse.json(
-        { error: "Document ID is required" },
-        { status: 400 }
-      );
+      return errorResponse("Document ID is required" , 400);
     }
 
     // Get the user's session
@@ -20,10 +20,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return errorResponse("Unauthorized" , 401);
     }
 
     // Get the access token
@@ -39,10 +36,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!integration) {
-        return NextResponse.json(
-          { error: "Integration not found" },
-          { status: 404 }
-        );
+        return errorResponse("Integration not found" , 404);
       }
 
       accessToken = await getDecryptedAccessToken(user.id, "google-docs");
@@ -63,8 +57,8 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Google Docs API error:", errorData);
-      return NextResponse.json(
+      logger.error("Google Docs API error:", errorData);
+      return jsonResponse(
         { error: errorData.error?.message || "Failed to fetch document" },
         { status: response.status }
       );
@@ -101,16 +95,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Return the preview data
-    return NextResponse.json({
+    return jsonResponse({
       title: document.title || "Untitled Document",
       paragraphs: paragraphs,
     });
 
   } catch (error: any) {
-    console.error("Error fetching document preview:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch document preview" },
-      { status: 500 }
-    );
+    logger.error("Error fetching document preview:", error);
+    return errorResponse(error.message || "Failed to fetch document preview" , 500);
   }
 }

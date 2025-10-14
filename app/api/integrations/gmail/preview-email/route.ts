@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
 import { google } from 'googleapis'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +16,7 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Gmail integration
@@ -26,27 +29,18 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'No connected Gmail integration found' },
-        { status: 404 }
-      )
+      return errorResponse('No connected Gmail integration found' , 404)
     }
 
     // Decrypt access token
     if (!integration.access_token) {
-      return NextResponse.json(
-        { error: 'No access token available for Gmail integration' },
-        { status: 401 }
-      )
+      return errorResponse('No access token available for Gmail integration' , 401)
     }
 
     const accessToken = await decryptToken(integration.access_token)
 
     if (!accessToken) {
-      return NextResponse.json(
-        { error: 'Failed to decrypt Gmail access token' },
-        { status: 401 }
-      )
+      return errorResponse('Failed to decrypt Gmail access token' , 401)
     }
 
     // Initialize Gmail API client
@@ -104,7 +98,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!listResponse.data.messages || listResponse.data.messages.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         error: 'No emails found matching criteria',
         searchApplied: true,
         query: gmailQuery
@@ -145,26 +139,20 @@ export async function POST(request: NextRequest) {
       hasAttachments
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       email: formattedEmail,
       emails: [formattedEmail],
       searchApplied: true,
       query: gmailQuery
     })
   } catch (error: any) {
-    console.error('[Gmail Preview] Error:', error)
+    logger.error('[Gmail Preview] Error:', error)
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Invalid Credentials')) {
-      return NextResponse.json(
-        { error: 'Gmail authentication failed. Please reconnect your account.' },
-        { status: 401 }
-      )
+      return errorResponse('Gmail authentication failed. Please reconnect your account.' , 401)
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch email preview' },
-      { status: 500 }
-    )
+    return errorResponse(error.message || 'Failed to fetch email preview' , 500)
   }
 }

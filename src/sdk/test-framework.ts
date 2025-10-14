@@ -2,6 +2,8 @@ import { ConnectorContract } from '../domains/integrations/ports/connector-contr
 import { providerRegistry } from '../domains/integrations/use-cases/provider-registry'
 import { actionRegistry } from '../domains/workflows/use-cases/action-registry'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Test result interface
  */
@@ -75,7 +77,7 @@ export class IntegrationTestFramework {
    * Run comprehensive test suite
    */
   async runTestSuite(providerId?: string): Promise<TestResult[]> {
-    console.log('🧪 Starting Integration Test Suite...')
+    logger.debug('🧪 Starting Integration Test Suite...')
     this.startTime = Date.now()
     this.results = []
 
@@ -84,11 +86,11 @@ export class IntegrationTestFramework {
       : providerRegistry.listProviders().map(p => providerRegistry.getProvider(p.providerId)).filter(Boolean)
 
     if (providers.length === 0) {
-      console.log('❌ No providers found to test')
+      logger.debug('❌ No providers found to test')
       return []
     }
 
-    console.log(`📋 Testing ${providers.length} provider(s) with ${this.config.testTypes!.length} test types`)
+    logger.debug(`📋 Testing ${providers.length} provider(s) with ${this.config.testTypes!.length} test types`)
 
     for (const provider of providers) {
       if (provider) {
@@ -105,7 +107,7 @@ export class IntegrationTestFramework {
    */
   async testProvider(provider: ConnectorContract): Promise<void> {
     const providerId = provider.providerId
-    console.log(`\n🔍 Testing Provider: ${providerId}`)
+    logger.debug(`\n🔍 Testing Provider: ${providerId}`)
 
     for (const testType of this.config.testTypes!) {
       try {
@@ -169,7 +171,7 @@ export class IntegrationTestFramework {
       })
 
       if (this.config.verbose) {
-        console.log(`  ✅ ${testType} test passed (${Date.now() - startTime}ms)`)
+        logger.debug(`  ✅ ${testType} test passed (${Date.now() - startTime}ms)`)
       }
 
     } catch (error) {
@@ -183,7 +185,7 @@ export class IntegrationTestFramework {
       })
 
       if (this.config.verbose) {
-        console.log(`  ❌ ${testType} test failed: ${error}`)
+        logger.debug(`  ❌ ${testType} test failed: ${error}`)
       }
     }
   }
@@ -435,20 +437,20 @@ export class IntegrationTestFramework {
     const passedTests = this.results.filter(r => r.success).length
     const failedTests = totalTests - passedTests
 
-    console.log('\n📊 Test Summary')
-    console.log(''.padEnd(50, '='))
-    console.log(`Total Tests: ${totalTests}`)
-    console.log(`Passed: ${passedTests} ✅`)
-    console.log(`Failed: ${failedTests} ❌`)
-    console.log(`Success Rate: ${((passedTests / totalTests) * 100).toFixed(1)}%`)
-    console.log(`Total Time: ${totalTime}ms`)
+    logger.debug('\n📊 Test Summary')
+    logger.debug(''.padEnd(50, '='))
+    logger.debug(`Total Tests: ${totalTests}`)
+    logger.debug(`Passed: ${passedTests} ✅`)
+    logger.debug(`Failed: ${failedTests} ❌`)
+    logger.debug(`Success Rate: ${((passedTests / totalTests) * 100).toFixed(1)}%`)
+    logger.debug(`Total Time: ${totalTime}ms`)
 
     if (failedTests > 0) {
-      console.log('\n❌ Failed Tests:')
+      logger.debug('\n❌ Failed Tests:')
       this.results
         .filter(r => !r.success)
         .forEach(r => {
-          console.log(`  ${r.providerId}:${r.testName} - ${r.error}`)
+          logger.debug(`  ${r.providerId}:${r.testName} - ${r.error}`)
         })
     }
 
@@ -461,12 +463,12 @@ export class IntegrationTestFramework {
       byProvider.get(result.providerId)!.push(result)
     })
 
-    console.log('\n📋 Results by Provider:')
+    logger.debug('\n📋 Results by Provider:')
     for (const [providerId, results] of byProvider.entries()) {
       const passed = results.filter(r => r.success).length
       const total = results.length
       const status = passed === total ? '✅' : passed > 0 ? '⚠️' : '❌'
-      console.log(`  ${status} ${providerId}: ${passed}/${total} tests passed`)
+      logger.debug(`  ${status} ${providerId}: ${passed}/${total} tests passed`)
     }
   }
 
@@ -488,7 +490,7 @@ export class IntegrationTestFramework {
     }
 
     require('fs').writeFileSync(filePath, JSON.stringify(report, null, 2))
-    console.log(`📄 Test report exported to: ${filePath}`)
+    logger.debug(`📄 Test report exported to: ${filePath}`)
   }
 }
 

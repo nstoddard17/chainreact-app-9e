@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +29,7 @@ export async function POST(
       payload = body
     }
 
-    console.log(`📥 Received webhook from ${provider}:`, {
+    logger.debug(`📥 Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
       timestamp: new Date().toISOString()
@@ -40,13 +43,13 @@ export async function POST(
       .eq('status', 'active')
 
     if (webhookError) {
-      console.error(`Error fetching webhooks for ${provider}:`, webhookError)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+      logger.error(`Error fetching webhooks for ${provider}:`, webhookError)
+      return errorResponse('Internal server error' , 500)
     }
 
     if (!webhooks || webhooks.length === 0) {
-      console.log(`No active webhooks found for provider: ${provider}`)
-      return NextResponse.json({ message: 'No active webhooks' }, { status: 200 })
+      logger.debug(`No active webhooks found for provider: ${provider}`)
+      return jsonResponse({ message: 'No active webhooks' }, { status: 200 })
     }
 
     // Process each webhook
@@ -56,20 +59,20 @@ export async function POST(
         const result = await processWebhook(webhook, payload, headers, provider)
         results.push(result)
       } catch (error) {
-        console.error(`Error processing webhook ${webhook.id}:`, error)
+        logger.error(`Error processing webhook ${webhook.id}:`, error)
         results.push({ webhookId: webhook.id, success: false, error: error.message })
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       processed: results.length,
       results
     })
 
   } catch (error: any) {
-    console.error(`Webhook error for ${provider}:`, error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error(`Webhook error for ${provider}:`, error)
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -79,7 +82,7 @@ export async function GET(
 ) {
   const { provider } = params
   
-  return NextResponse.json({
+  return jsonResponse({
     message: "Integration webhook endpoint active",
     provider: provider,
     methods: ["POST"],
@@ -113,7 +116,7 @@ async function processWebhook(
       .single()
 
     if (logError) {
-      console.error('Error logging webhook execution:', logError)
+      logger.error('Error logging webhook execution:', logError)
     }
 
     // Find workflows that use this provider's triggers
@@ -168,7 +171,7 @@ async function processWebhook(
         })
 
       } catch (error) {
-        console.error(`Error executing workflow ${workflow.id}:`, error)
+        logger.error(`Error executing workflow ${workflow.id}:`, error)
         workflowResults.push({
           workflowId: workflow.id,
           success: false,
@@ -234,7 +237,7 @@ async function findWorkflowsForProvider(userId: string, provider: string): Promi
     .eq('status', 'active')
 
   if (error) {
-    console.error('Error fetching workflows:', error)
+    logger.error('Error fetching workflows:', error)
     return []
   }
 

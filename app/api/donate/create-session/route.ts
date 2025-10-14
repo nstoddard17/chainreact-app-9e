@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import Stripe from 'stripe'
+
+import { logger } from '@/lib/utils/logger'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-05-28.basil',
@@ -10,10 +13,7 @@ export async function POST(request: NextRequest) {
     const { amount, email } = await request.json()
 
     if (!amount || amount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount' },
-        { status: 400 }
-      )
+      return errorResponse('Invalid amount' , 400)
     }
 
     // Create Stripe checkout session
@@ -43,12 +43,9 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ sessionId: session.id })
+    return jsonResponse({ sessionId: session.id })
   } catch (error) {
-    console.error('Error creating checkout session:', error)
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    )
+    logger.error('Error creating checkout session:', error)
+    return errorResponse('Failed to create checkout session' , 500)
   }
 } 

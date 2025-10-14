@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
 
   if (error) {
-    console.error(`Error with Shopify OAuth: ${error}`)
+    logger.error(`Error with Shopify OAuth: ${error}`)
     return createPopupResponse("error", "shopify", `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error("Failed to exchange Shopify code for token:", errorData)
+      logger.error("Failed to exchange Shopify code for token:", errorData)
       return createPopupResponse("error", "shopify", "Failed to get Shopify access token.", baseUrl)
     }
 
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error("Error saving Shopify integration to DB:", upsertError)
+      logger.error("Error saving Shopify integration to DB:", upsertError)
       return createPopupResponse(
         "error",
         "shopify",
@@ -99,7 +101,7 @@ export async function GET(request: NextRequest) {
       baseUrl,
     )
   } catch (error) {
-    console.error("Error during Shopify OAuth callback:", error)
+    logger.error("Error during Shopify OAuth callback:", error)
     const message = error instanceof Error ? error.message : "An unexpected error occurred"
     return createPopupResponse("error", "shopify", message, baseUrl)
   }

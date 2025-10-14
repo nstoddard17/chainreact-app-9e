@@ -1,6 +1,89 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createSupabaseServiceClient } from "@/utils/supabase/server"
-import { parseJsonField, requireTemplateAccess } from "./helpers"
+import { cookies } from "next/headers"
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { logger } from '@/lib/utils/logger'
+
+async function requireTemplateAccess(templateId: string) {
+  cookies()
+  const supabase = await createSupabaseServerClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return {
+      supabase,
+      user: null as any,
+      template: null as any,
+      errorResponse: errorResponse("Not authenticated", 401)
+    }
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (profileError) {
+    logger.error("Error fetching user profile for template access:", profileError)
+  }
+
+  const serviceClient = await createSupabaseServiceClient()
+
+  const { data: template, error: templateError } = await serviceClient
+    .from("templates")
+    .select("*")
+    .eq("id", templateId)
+    .maybeSingle()
+
+  if (templateError) {
+    logger.error("Error fetching template for access check:", templateError)
+  }
+
+  if (!template) {
+    return {
+      supabase,
+      user,
+      template: null as any,
+      errorResponse: errorResponse("Template not found", 404),
+    }
+  }
+
+  const isAdmin = profile?.role === "admin"
+  const createdBy =
+    (template as any)?.created_by ??
+    (template as any)?.user_id ??
+    (template as any)?.owner_id ??
+    (template as any)?.author_id ??
+    null
+
+  if (!isAdmin && createdBy !== user.id) {
+    return {
+      supabase,
+      user,
+      template: null as any,
+      errorResponse: errorResponse("Only admins or template owners can manage templates", 403),
+    }
+  }
+
+  return { supabase, user, template, errorResponse: null as any }
+}
+
+function parseJsonField(field: unknown) {
+  if (typeof field === "string") {
+    try {
+      return JSON.parse(field)
+    } catch (error) {
+      logger.error("Failed to parse template field", error)
+      return null
+    }
+  }
+  return field
+}
 
 export async function GET(
   request: NextRequest,
@@ -46,17 +129,14 @@ export async function GET(
       draftSetupOverview,
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       template: hydratedTemplate,
       nodes,
       connections,
     })
   } catch (error) {
-    console.error("Error in GET /api/templates/[id]:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in GET /api/templates/[id]:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -194,11 +274,8 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error("Error updating template:", error)
-      return NextResponse.json(
-        { error: "Failed to update template" },
-        { status: 500 }
-      )
+      logger.error("Error updating template:", error)
+      return errorResponse("Failed to update template" , 500)
     }
 
     const parsedNodes = parseJsonField<any[]>(updatedTemplate.nodes) || filteredNodes
@@ -208,7 +285,7 @@ export async function PUT(
     const parsedDefaultFieldValues = parseJsonField<Record<string, any>>(updatedTemplate.default_field_values) || updatePayload.default_field_values || {}
     const parsedSetupOverview = parseJsonField(updatedTemplate.setup_overview) ?? updatePayload.setup_overview ?? null
 
-    return NextResponse.json({
+    return jsonResponse({
       template: {
         ...updatedTemplate,
         nodes: parsedNodes,
@@ -225,10 +302,7 @@ export async function PUT(
       message: "Template updated successfully"
     })
   } catch (error) {
-    console.error("Error in PUT /api/templates/[id]:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in PUT /api/templates/[id]:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

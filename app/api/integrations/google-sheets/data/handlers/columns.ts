@@ -5,6 +5,8 @@
 import { GoogleSheetsIntegration, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
 import { createGoogleSheetsClient } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getGoogleSheetsColumns: GoogleSheetsDataHandler<string[]> = async (
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
@@ -39,7 +41,7 @@ export const getGoogleSheetsColumns: GoogleSheetsDataHandler<string[]> = async (
       `Column ${String.fromCharCode(65 + i)}`
     )
   } catch (error: any) {
-    console.error("Error fetching columns:", error)
+    logger.error("Error fetching columns:", error)
     throw new Error(error.message || "Error fetching columns")
   }
 }

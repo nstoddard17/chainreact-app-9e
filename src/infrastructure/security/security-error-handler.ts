@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Security error types and classifications
  */
@@ -110,7 +112,7 @@ export class SecurityErrorHandler {
     this.initializeDefaultAlerts()
     this.cleanupInterval = setInterval(() => this.cleanup(), 300000) // 5 minutes
     
-    console.log('🛡️ Security error handler initialized')
+    logger.debug('🛡️ Security error handler initialized')
   }
 
   /**
@@ -161,7 +163,7 @@ export class SecurityErrorHandler {
       this.createOrUpdateIncident(errorDetails)
     }
 
-    console.log(`🚨 Security error handled: ${errorDetails.type} (${errorDetails.severity})`)
+    logger.debug(`🚨 Security error handled: ${errorDetails.type} (${errorDetails.severity})`)
     
     return errorDetails
   }
@@ -334,11 +336,11 @@ export class SecurityErrorHandler {
     if (duration) {
       setTimeout(() => {
         this.blockedUsers.delete(userId)
-        console.log(`🔓 User unblocked: ${userId}`)
+        logger.debug(`🔓 User unblocked: ${userId}`)
       }, duration)
     }
     
-    console.log(`🚫 User blocked: ${userId} (${reason})`)
+    logger.debug(`🚫 User blocked: ${userId} (${reason})`)
   }
 
   /**
@@ -350,11 +352,11 @@ export class SecurityErrorHandler {
     if (duration) {
       setTimeout(() => {
         this.blockedIPs.delete(ip)
-        console.log(`🔓 IP unblocked: ${ip}`)
+        logger.debug(`🔓 IP unblocked: ${ip}`)
       }, duration)
     }
     
-    console.log(`🚫 IP blocked: ${ip} (${reason})`)
+    logger.debug(`🚫 IP blocked: ${ip} (${reason})`)
   }
 
   /**
@@ -399,7 +401,7 @@ export class SecurityErrorHandler {
    */
   configureAlert(config: SecurityAlertConfig): void {
     this.alertConfigs.set(config.errorType, config)
-    console.log(`🔔 Security alert configured: ${config.errorType}`)
+    logger.debug(`🔔 Security alert configured: ${config.errorType}`)
   }
 
   /**
@@ -532,7 +534,7 @@ export class SecurityErrorHandler {
     }
     
     // In production, this would go to a secure log storage
-    console.error('🔒 SECURITY ERROR:', JSON.stringify(logEntry, null, 2))
+    logger.error('🔒 SECURITY ERROR:', JSON.stringify(logEntry, null, 2))
   }
 
   /**
@@ -652,7 +654,7 @@ export class SecurityErrorHandler {
       triggeredAt: Date.now()
     }
     
-    console.error(`🚨 SECURITY ALERT: ${alert.message}`)
+    logger.error(`🚨 SECURITY ALERT: ${alert.message}`)
     
     // In production, this would trigger notifications to security team
     this.sendSecurityAlert(alert)
@@ -668,7 +670,7 @@ export class SecurityErrorHandler {
     // - Incident response platform
     // - Monitoring dashboards
     
-    console.log('📧 Security alert sent to incident response team')
+    logger.debug('📧 Security alert sent to incident response team')
   }
 
   /**
@@ -714,7 +716,7 @@ export class SecurityErrorHandler {
       }
       
       this.incidents.set(incidentKey, incident)
-      console.log(`📋 Security incident created: ${incident.id}`)
+      logger.debug(`📋 Security incident created: ${incident.id}`)
     }
   }
 
@@ -818,7 +820,7 @@ export class SecurityErrorHandler {
     }
     
     if (cleaned > 0) {
-      console.log(`🧹 Security data cleanup: ${cleaned} entries removed`)
+      logger.debug(`🧹 Security data cleanup: ${cleaned} entries removed`)
     }
   }
 
@@ -835,7 +837,7 @@ export class SecurityErrorHandler {
     this.blockedUsers.clear()
     this.suspiciousActivity.clear()
     
-    console.log('🛑 Security error handler shutdown')
+    logger.debug('🛑 Security error handler shutdown')
   }
 }
 

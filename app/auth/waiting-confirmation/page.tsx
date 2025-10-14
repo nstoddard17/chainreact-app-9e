@@ -7,6 +7,8 @@ import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function WaitingConfirmationPage() {
   const [email, setEmail] = useState<string>("")
   const [userId, setUserId] = useState<string>("")
@@ -35,13 +37,13 @@ export default function WaitingConfirmationPage() {
     // Poll every 3 seconds to check if email has been confirmed
     const pollInterval = setInterval(async () => {
       try {
-        console.log('Polling for email confirmation...')
+        logger.debug('Polling for email confirmation...')
         
         // Try to get the current session first
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (session?.user?.email_confirmed_at) {
-          console.log('Email confirmed! Session detected.')
+          logger.debug('Email confirmed! Session detected.')
           setIsConfirmed(true)
           setIsPolling(false)
           clearInterval(pollInterval)
@@ -58,7 +60,7 @@ export default function WaitingConfirmationPage() {
         const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
         
         if (currentUser?.email_confirmed_at) {
-          console.log('Email confirmed! User check succeeded.')
+          logger.debug('Email confirmed! User check succeeded.')
           setIsConfirmed(true)
           setIsPolling(false)
           clearInterval(pollInterval)
@@ -70,7 +72,7 @@ export default function WaitingConfirmationPage() {
           await initialize()
         }
       } catch (error) {
-        console.error('Error polling for confirmation:', error)
+        logger.error('Error polling for confirmation:', error)
       }
     }, 3000) // Poll every 3 seconds
 
@@ -132,7 +134,7 @@ export default function WaitingConfirmationPage() {
         alert(data.error || 'Failed to resend email. Please try again.')
       }
     } catch (error) {
-      console.error('Error resending confirmation email:', error)
+      logger.error('Error resending confirmation email:', error)
       alert('An error occurred. Please try again.')
     }
   }

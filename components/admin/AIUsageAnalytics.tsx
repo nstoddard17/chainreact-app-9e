@@ -20,6 +20,8 @@ import {
 } from "recharts"
 import { Download, Filter, TrendingUp, Users, Zap, DollarSign } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIUsageStats {
   totalUsers: number
   activeUsers: number
@@ -73,7 +75,7 @@ export default function AIUsageAnalytics() {
         setStats(data)
       }
     } catch (error) {
-      console.error('Failed to fetch AI usage stats:', error)
+      logger.error('Failed to fetch AI usage stats:', error)
     } finally {
       setLoading(false)
     }
@@ -94,7 +96,7 @@ export default function AIUsageAnalytics() {
         document.body.removeChild(a)
       }
     } catch (error) {
-      console.error('Failed to export data:', error)
+      logger.error('Failed to export data:', error)
     }
   }
 

@@ -1,5 +1,7 @@
 import { DomainEvent } from '../../domains/workflows/entities/workflow-event'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Event handler interface
  */
@@ -81,7 +83,7 @@ export class EventBus {
       try {
         await subscription.handler.handle(event)
       } catch (error) {
-        console.error(`Event handler failed for ${event.type}:`, error)
+        logger.error(`Event handler failed for ${event.type}:`, error)
         // In production, you might want to implement retry logic or dead letter queues
       }
     })

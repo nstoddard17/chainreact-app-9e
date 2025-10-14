@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * sync-docs.ts
  * 
@@ -67,11 +69,11 @@ async function updateChangelog(
  * Main function to run the synchronization process
  */
 async function syncDocs(): Promise<void> {
-  console.log('Starting documentation synchronization...');
+  logger.debug('Starting documentation synchronization...');
   
   // TO BE IMPLEMENTED
   
-  console.log('Documentation synchronization completed.');
+  logger.debug('Documentation synchronization completed.');
 }
 
 // Entry point (commented out until implementation is complete)

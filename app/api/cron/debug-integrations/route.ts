@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create Supabase client" }, { status: 500 })
+      return errorResponse("Failed to create Supabase client" , 500)
     }
 
     // Get detailed integration data
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (error) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: "Database error",
           details: error.message,
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
       hasAccessToken: !!integration.access_token
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       timestamp: new Date().toISOString(),
       analysis,
@@ -105,8 +108,8 @@ export async function GET(request: NextRequest) {
       rawCount: integrations?.length || 0,
     })
   } catch (error: any) {
-    console.error("💥 Error in debug integrations:", error)
-    return NextResponse.json(
+    logger.error("💥 Error in debug integrations:", error)
+    return jsonResponse(
       {
         success: false,
         error: "Debug failed",

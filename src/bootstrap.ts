@@ -5,6 +5,8 @@
 
 import { bootstrapProviders } from './infrastructure/bootstrap/provider-bootstrap'
 
+import { logger } from '@/lib/utils/logger'
+
 let isBootstrapped = false
 
 export function initializeApplication(): void {
@@ -12,7 +14,7 @@ export function initializeApplication(): void {
     return // Already initialized
   }
 
-  console.log('🚀 Initializing ChainReact application...')
+  logger.debug('🚀 Initializing ChainReact application...')
 
   try {
     // Initialize providers and actions
@@ -25,9 +27,9 @@ export function initializeApplication(): void {
     // - Background job setup
 
     isBootstrapped = true
-    console.log('✅ Application initialized successfully')
+    logger.debug('✅ Application initialized successfully')
   } catch (error) {
-    console.error('❌ Application initialization failed:', error)
+    logger.error('❌ Application initialization failed:', error)
     throw error
   }
 }

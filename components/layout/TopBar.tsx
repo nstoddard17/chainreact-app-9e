@@ -18,6 +18,8 @@ import { NotificationDropdown } from "@/components/ui/notification-dropdown"
 import { AIUsageIndicator } from "@/components/ui/AIUsageIndicator"
 import { type UserRole } from "@/lib/utils/roles"
 
+import { logger } from '@/lib/utils/logger'
+
 interface TopBarProps {
   onMobileMenuChange: (isOpen: boolean) => void
   title: string
@@ -30,13 +32,13 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
 
   const handleSignOut = async () => {
     try {
-      console.log("Starting sign out process...")
+      logger.debug("Starting sign out process...")
       // Navigate to homepage first for smoother UX
       router.push("/")
       // Then sign out (this will clear the state)
       await signOut()
     } catch (error) {
-      console.error("Logout error:", error)
+      logger.error("Logout error:", error)
       // Still try to navigate even on error
       router.push("/")
     }

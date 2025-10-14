@@ -1,6 +1,9 @@
 import { createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { sendBetaInvitationEmail } from '@/lib/services/resend'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
   try {
@@ -22,18 +25,18 @@ export async function POST(request: Request) {
       // Send to specific testers
       query = query.in("id", testerIds)
     } else {
-      return NextResponse.json({ error: "No testers specified" }, { status: 400 })
+      return errorResponse("No testers specified" , 400)
     }
 
     const { data: testers, error: fetchError } = await query
 
     if (fetchError) {
-      console.error("Error fetching beta testers:", fetchError)
-      return NextResponse.json({ error: "Failed to fetch beta testers" }, { status: 500 })
+      logger.error("Error fetching beta testers:", fetchError)
+      return errorResponse("Failed to fetch beta testers" , 500)
     }
 
     if (!testers || testers.length === 0) {
-      return NextResponse.json({ message: "No eligible beta testers found" }, { status: 200 })
+      return jsonResponse({ message: "No eligible beta testers found" }, { status: 200 })
     }
 
     // Generate unique signup links for each tester
@@ -75,29 +78,29 @@ export async function POST(request: Request) {
         )
 
         if (!result.success) {
-          console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, result.error)
+          logger.error(`Failed to send email to beta tester (ID: ${tester.id}):`, result.error)
           // Log the signup URL as fallback
-          console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
-          console.log(`Signup URL: ${signupUrl}`)
+          logger.debug(`Beta Tester Invitation URL for ID ${tester.id}:`)
+          logger.debug(`Signup URL: ${signupUrl}`)
         }
       } catch (emailError) {
-        console.error(`Failed to send email to beta tester (ID: ${tester.id}):`, emailError)
+        logger.error(`Failed to send email to beta tester (ID: ${tester.id}):`, emailError)
         // Log the signup URL as fallback
-        console.log(`Beta Tester Invitation URL for ID ${tester.id}:`)
-        console.log(`Signup URL: ${signupUrl}`)
+        logger.debug(`Beta Tester Invitation URL for ID ${tester.id}:`)
+        logger.debug(`Signup URL: ${signupUrl}`)
       }
     })
 
     await Promise.all(emailPromises)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       count: testers.length,
       message: `Successfully sent offers to ${testers.length} beta tester(s)`
     })
 
   } catch (error: any) {
-    console.error("Error sending beta offers:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Error sending beta offers:", error)
+    return errorResponse(error.message , 500)
   }
 }

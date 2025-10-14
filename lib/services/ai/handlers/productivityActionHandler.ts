@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class ProductivityActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -52,7 +54,7 @@ export class ProductivityActionHandler extends BaseActionHandler {
       }
 
     } catch (error: any) {
-      console.error("❌ Productivity query error:", error)
+      logger.error("❌ Productivity query error:", error)
       return this.getErrorResponse("Failed to fetch productivity data.")
     }
   }
@@ -101,7 +103,7 @@ export class ProductivityActionHandler extends BaseActionHandler {
       }
 
     } catch (error: any) {
-      console.error("❌ Productivity action error:", error)
+      logger.error("❌ Productivity action error:", error)
       return this.getErrorResponse("Failed to perform the productivity action.")
     }
   }

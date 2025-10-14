@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { reportError } from '@/lib/utils/errorReporting'
 
+import { logger } from '@/lib/utils/logger'
+
 interface Props {
   children: ReactNode
   fallback?: ReactNode
@@ -43,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    logger.error('ErrorBoundary caught an error:', error, errorInfo)
     
     this.setState({
       error,
@@ -72,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
       
       this.setState({ reported: true })
     } catch (err) {
-      console.error('Failed to report error:', err)
+      logger.error('Failed to report error:', err)
     } finally {
       this.setState({ isReporting: false })
     }

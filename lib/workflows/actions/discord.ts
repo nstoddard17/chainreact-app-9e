@@ -3,6 +3,8 @@ import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 import { updateDiscordPresenceForAction } from '@/lib/integrations/discordGateway'
 
+import { logger } from '@/lib/utils/logger'
+
 const DISCORD_MAX_RETRIES = 3
 const DISCORD_MIN_RETRY_DELAY_MS = 1000
 
@@ -56,7 +58,7 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
     const botUserId = process.env.DISCORD_BOT_USER_ID
 
     if (!botToken || !botUserId) {
-      console.error("Missing Discord bot credentials")
+      logger.error("Missing Discord bot credentials")
       return false
     }
 
@@ -75,12 +77,12 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
         const botMember = members.find((member: any) => member.user?.id === botUserId)
         
         if (botMember) {
-          console.log(`✅ Bot verified as member of guild ${guildId}`)
+          logger.debug(`✅ Bot verified as member of guild ${guildId}`)
           return true
         }
       }
     } catch (error) {
-      console.error("Error checking guild members:", error)
+      logger.error("Error checking guild members:", error)
     }
 
     // Method 2: Direct member check as fallback
@@ -96,18 +98,18 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
       if (memberResponse.status === 200) {
         const memberData = await memberResponse.json()
         if (memberData.user?.id === botUserId) {
-          console.log(`✅ Bot verified in guild ${guildId} via direct check`)
+          logger.debug(`✅ Bot verified in guild ${guildId} via direct check`)
           return true
         }
       }
     } catch (error) {
-      console.error("Error in direct member check:", error)
+      logger.error("Error in direct member check:", error)
     }
 
-    console.log(`❌ Bot is not a member of guild ${guildId}`)
+    logger.debug(`❌ Bot is not a member of guild ${guildId}`)
     return false
   } catch (error) {
-    console.error("Error verifying bot in guild:", error)
+    logger.error("Error verifying bot in guild:", error)
     return false
   }
 }
@@ -121,10 +123,10 @@ export async function sendDiscordMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
-    console.log(`   userId: ${userId}`)
-    console.log(`   config keys:`, Object.keys(config || {}))
-    console.log(`   input keys:`, Object.keys(input || {}))
+    logger.debug("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
+    logger.debug(`   userId: ${userId}`)
+    logger.debug(`   config keys:`, Object.keys(config || {}))
+    logger.debug(`   input keys:`, Object.keys(input || {}))
 
     // Resolve templated values
     const resolvedConfig = resolveValue(config, { input })
@@ -144,17 +146,17 @@ export async function sendDiscordMessage(
       embedTimestamp = false
     } = resolvedConfig
 
-    console.log(`🔍 [DISCORD DEBUG] Resolved config:`)
-    console.log(`   guildId: ${guildId}`)
-    console.log(`   channelId: ${channelId}`)
-    console.log(`   message: ${message ? 'SET' : 'MISSING'}`)
+    logger.debug(`🔍 [DISCORD DEBUG] Resolved config:`)
+    logger.debug(`   guildId: ${guildId}`)
+    logger.debug(`   channelId: ${channelId}`)
+    logger.debug(`   message: ${message ? 'SET' : 'MISSING'}`)
 
     if (!guildId || !channelId || !message) {
       throw new Error("Guild ID, Channel ID, and message are required")
     }
 
     // Get Discord integration
-    console.log(`🔍 [DISCORD DEBUG] Querying Discord integration for userId: ${userId}`)
+    logger.debug(`🔍 [DISCORD DEBUG] Querying Discord integration for userId: ${userId}`)
 
     // Use service client for webhook-triggered workflows (no cookies in that context)
     const { createClient } = await import('@supabase/supabase-js')
@@ -171,18 +173,18 @@ export async function sendDiscordMessage(
       .eq("status", "connected")
       .single()
 
-    console.log(`🔍 [DISCORD DEBUG] Integration query result:`)
-    console.log(`   error:`, integrationError)
-    console.log(`   integration found:`, !!integration)
+    logger.debug(`🔍 [DISCORD DEBUG] Integration query result:`)
+    logger.debug(`   error:`, integrationError)
+    logger.debug(`   integration found:`, !!integration)
     if (integration) {
-      console.log(`   integration id: ${integration.id}`)
-      console.log(`   integration provider: ${integration.provider}`)
-      console.log(`   integration status: ${integration.status}`)
-      console.log(`   integration userId: ${integration.user_id}`)
+      logger.debug(`   integration id: ${integration.id}`)
+      logger.debug(`   integration provider: ${integration.provider}`)
+      logger.debug(`   integration status: ${integration.status}`)
+      logger.debug(`   integration userId: ${integration.user_id}`)
     }
 
     if (!integration) {
-      console.log(`❌ [DISCORD DEBUG] No Discord integration found for userId: ${userId}`)
+      logger.debug(`❌ [DISCORD DEBUG] No Discord integration found for userId: ${userId}`)
       throw new Error("Discord integration not connected")
     }
 
@@ -257,7 +259,7 @@ export async function sendDiscordMessage(
               ? `${baseMessage}; retrying in ${retryDelay}ms`
               : `${baseMessage}; retries exhausted`
             lastError = new Error(retryMessage)
-            console.warn(`⚠️ [DISCORD DEBUG] ${retryMessage}`)
+            logger.warn(`⚠️ [DISCORD DEBUG] ${retryMessage}`)
 
             if (retryDelay && attempt < DISCORD_MAX_RETRIES - 1) {
               await sleep(retryDelay)
@@ -265,7 +267,7 @@ export async function sendDiscordMessage(
             }
           } else if (response.status >= 500 && attempt < DISCORD_MAX_RETRIES - 1) {
             const backoff = DISCORD_MIN_RETRY_DELAY_MS * Math.pow(2, attempt)
-            console.warn(`⚠️ [DISCORD DEBUG] ${baseMessage}; retrying in ${backoff}ms`)
+            logger.warn(`⚠️ [DISCORD DEBUG] ${baseMessage}; retrying in ${backoff}ms`)
             await sleep(backoff)
             continue
           } else {
@@ -276,11 +278,11 @@ export async function sendDiscordMessage(
         } catch (fetchError: any) {
           const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError)
           lastError = new Error(`Discord fetch failed: ${errorMessage}`)
-          console.warn(`⚠️ [DISCORD DEBUG] ${lastError.message}`)
+          logger.warn(`⚠️ [DISCORD DEBUG] ${lastError.message}`)
 
           if (attempt < DISCORD_MAX_RETRIES - 1) {
             const backoff = DISCORD_MIN_RETRY_DELAY_MS * Math.pow(2, attempt)
-            console.warn(`⚠️ [DISCORD DEBUG] Retrying in ${backoff}ms (attempt ${attempt + 1}/${DISCORD_MAX_RETRIES})`)
+            logger.warn(`⚠️ [DISCORD DEBUG] Retrying in ${backoff}ms (attempt ${attempt + 1}/${DISCORD_MAX_RETRIES})`)
             await sleep(backoff)
             continue
           }
@@ -545,10 +547,10 @@ export async function deleteDiscordCategory(
             })
           }
 
-          console.log(`Moved ${categoryChannels.length} channels out of category ${categoryId}`)
+          logger.debug(`Moved ${categoryChannels.length} channels out of category ${categoryId}`)
         }
       } catch (error) {
-        console.warn("Failed to move channels out of category:", error)
+        logger.warn("Failed to move channels out of category:", error)
         // Continue with deletion even if moving channels fails
       }
     }
@@ -708,7 +710,7 @@ export async function createDiscordChannel(
         const parsedOverwrites = typeof permissionOverwrites === 'string' ? JSON.parse(permissionOverwrites) : permissionOverwrites
         payload.permission_overwrites = parsedOverwrites
       } catch (error) {
-        console.warn('Invalid permission overwrites format:', error)
+        logger.warn('Invalid permission overwrites format:', error)
       }
     }
     
@@ -718,7 +720,7 @@ export async function createDiscordChannel(
         const parsedTags = typeof availableTags === 'string' ? JSON.parse(availableTags) : availableTags
         payload.available_tags = parsedTags
       } catch (error) {
-        console.warn('Invalid available tags format:', error)
+        logger.warn('Invalid available tags format:', error)
       }
     }
 
@@ -1384,7 +1386,7 @@ export async function fetchDiscordMessages(config: any, userId: string, input: R
       message: resultMessage
     }
   } catch (error: any) {
-    console.error("Discord fetch messages error:", error)
+    logger.error("Discord fetch messages error:", error)
     return { 
       success: false, 
       output: {}, 
@@ -1565,7 +1567,7 @@ export async function removeDiscordReaction(config: any, userId: string, input: 
         : `Some reactions failed: ${failedResults.map(r => r.emoji).join(", ")}. ${successfulResults.length} emoji(s) removed successfully.`
     };
   } catch (error: any) {
-    console.error("Discord remove reaction error:", error);
+    logger.error("Discord remove reaction error:", error);
     return {
       success: false,
       output: {},

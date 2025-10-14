@@ -5,8 +5,10 @@
 import { OneNoteIntegration, OneNoteSection, OneNoteDataHandler, OneNoteApiResponse } from '../types'
 import { validateOneNoteIntegration, validateOneNoteToken, tryMultipleOneNoteEndpoints } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (integration: OneNoteIntegration, options: any = {}): Promise<OneNoteApiResponse<OneNoteSection>> => {
-  console.log(`🔍 OneNote sections fetcher called with:`, {
+  logger.debug(`🔍 OneNote sections fetcher called with:`, {
     integrationId: integration.id,
     provider: integration.provider,
     status: integration.status,
@@ -17,9 +19,9 @@ export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (int
     // Validate integration status
     validateOneNoteIntegration(integration)
     
-    console.log(`🔍 Validating OneNote token...`)
+    logger.debug(`🔍 Validating OneNote token...`)
     const tokenResult = await validateOneNoteToken(integration)
-    console.log(`🔍 Token validation result:`, {
+    logger.debug(`🔍 Token validation result:`, {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -28,7 +30,7 @@ export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (int
     })
     
     if (!tokenResult.success) {
-      console.log(`❌ OneNote token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ OneNote token validation failed: ${tokenResult.error}`)
       return {
         data: [],
         error: {
@@ -73,7 +75,7 @@ export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (int
     )
     
     if (result.data.length > 0) {
-      console.log(`🔍 OneNote sections from API:`, result.data.map((section: any) => ({
+      logger.debug(`🔍 OneNote sections from API:`, result.data.map((section: any) => ({
         id: section.id,
         displayName: section.displayName,
         name: section.name,
@@ -86,7 +88,7 @@ export const getOneNoteSections: OneNoteDataHandler<OneNoteSection> = async (int
     
     return result
   } catch (error: any) {
-    console.error("Error fetching OneNote sections:", error)
+    logger.error("Error fetching OneNote sections:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       return {

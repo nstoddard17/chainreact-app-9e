@@ -18,6 +18,8 @@ import {
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -49,13 +51,13 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
     setLoading(true)
 
     try {
-      console.log('Dialog: Starting organization creation...')
+      logger.debug('Dialog: Starting organization creation...')
       const result = await createOrganization({
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
       })
-      console.log('Dialog: Organization created successfully:', result)
+      logger.debug('Dialog: Organization created successfully:', result)
       
       // Show success message
       toast.success(`Organization "${result.name}" created successfully!`)
@@ -69,7 +71,7 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
       // Redirect to the organization overview page
       router.push(`/teams/${result.slug}`)
     } catch (error: any) {
-      console.error("Dialog: Failed to create organization:", {
+      logger.error("Dialog: Failed to create organization:", {
         message: error.message,
         stack: error.stack,
         error: error

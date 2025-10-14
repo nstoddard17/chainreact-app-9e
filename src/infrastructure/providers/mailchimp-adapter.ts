@@ -12,6 +12,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class MailchimpAdapter implements EmailProvider {
   readonly providerId = 'mailchimp'
   readonly capabilities: CapabilityDescriptor = {
@@ -135,7 +137,7 @@ export class MailchimpAdapter implements EmailProvider {
         message: 'Campaign created and sent successfully via Mailchimp'
       }
     } catch (error: any) {
-      console.error('Mailchimp send error:', error)
+      logger.error('Mailchimp send error:', error)
       return {
         success: false,
         error: error.message || 'Failed to send campaign via Mailchimp',
@@ -186,7 +188,7 @@ export class MailchimpAdapter implements EmailProvider {
           }
         }))
     } catch (error: any) {
-      console.error('Mailchimp search error:', error)
+      logger.error('Mailchimp search error:', error)
       return []
     }
   }
@@ -300,7 +302,7 @@ export class MailchimpAdapter implements EmailProvider {
           }
         }))
     } catch (error: any) {
-      console.error('Mailchimp get contacts error:', error)
+      logger.error('Mailchimp get contacts error:', error)
       return []
     }
   }

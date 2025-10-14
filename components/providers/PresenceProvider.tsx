@@ -5,6 +5,8 @@ import { usePresence } from '@/hooks/use-presence'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/utils/supabaseClient'
 
+import { logger } from '@/lib/utils/logger'
+
 interface PresenceProviderProps {
   children: React.ReactNode
 }
@@ -16,8 +18,8 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
   useEffect(() => {
     // Only log when user is authenticated to avoid noise
     if (user?.id) {
-      console.log('PresenceProvider: User online status:', isOnline)
-      console.log('PresenceProvider: Total online users:', onlineCount)
+      logger.debug('PresenceProvider: User online status:', isOnline)
+      logger.debug('PresenceProvider: Total online users:', onlineCount)
     }
   }, [isOnline, onlineCount, user?.id])
 
@@ -32,12 +34,12 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
         .eq('id', user.id)
       
       if (error) {
-        console.error('PresenceProvider: Error removing from database:', error)
+        logger.error('PresenceProvider: Error removing from database:', error)
       } else {
-        console.log('PresenceProvider: Removed from database presence')
+        logger.debug('PresenceProvider: Removed from database presence')
       }
     } catch (error) {
-      console.error('PresenceProvider: Failed to remove from database:', error)
+      logger.error('PresenceProvider: Failed to remove from database:', error)
     }
   }
 
@@ -47,11 +49,11 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
 
     const handleVisibilityChange = async () => {
       if (document.hidden) {
-        console.log('PresenceProvider: Page hidden, user going away')
+        logger.debug('PresenceProvider: Page hidden, user going away')
         // Remove from database when page is hidden
         await removeFromDatabasePresence()
       } else {
-        console.log('PresenceProvider: Page visible, user active')
+        logger.debug('PresenceProvider: Page visible, user active')
         // Update presence when page becomes visible again
         if (updatePresence) {
           await updatePresence({ online_at: new Date().toISOString() })
@@ -60,14 +62,14 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
     }
 
     const handleBeforeUnload = async () => {
-      console.log('PresenceProvider: Page unloading, cleaning up presence')
+      logger.debug('PresenceProvider: Page unloading, cleaning up presence')
       // Remove from database when user leaves
       await removeFromDatabasePresence()
     }
 
     // Handle when user closes tab/browser
     const handleUnload = async () => {
-      console.log('PresenceProvider: User leaving, cleaning up presence')
+      logger.debug('PresenceProvider: User leaving, cleaning up presence')
       await removeFromDatabasePresence()
     }
 
@@ -86,7 +88,7 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development' && user?.id) {
       const logInterval = setInterval(() => {
-        console.log('PresenceProvider Debug:', {
+        logger.debug('PresenceProvider Debug:', {
           isOnline,
           onlineCount,
           totalUsers: onlineUsers.length,

@@ -5,8 +5,10 @@
 import { HubSpotIntegration, HubSpotIndustry, HubSpotDataHandler } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotIndustry[]> => {
-  console.log("🔍 HubSpot industries fetcher called with integration:", {
+  logger.debug("🔍 HubSpot industries fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    console.log(`🔍 Validating HubSpot token...`)
+    logger.debug(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching HubSpot industries from API...')
+    logger.debug('🔍 Fetching HubSpot industries from API...')
     // HubSpot v3 API endpoint for getting industry property with its options
     const apiUrl = buildHubSpotApiUrl('/crm/v3/properties/companies/industry')
 
@@ -33,11 +35,11 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`❌ HubSpot industries API error: ${response.status} ${errorText.substring(0, 500)}`)
+      logger.error(`❌ HubSpot industries API error: ${response.status} ${errorText.substring(0, 500)}`)
 
       // If the property doesn't exist or there's an issue, return a default list
       if (response.status === 404 || response.status === 400) {
-        console.log('⚠️ Using default industries list')
+        logger.debug('⚠️ Using default industries list')
         return getDefaultIndustries()
       }
 
@@ -52,11 +54,11 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
       value: opt.value
     })) || getDefaultIndustries()
     
-    console.log(`✅ HubSpot industries fetched successfully: ${industries.length} industries`)
+    logger.debug(`✅ HubSpot industries fetched successfully: ${industries.length} industries`)
     return industries
     
   } catch (error: any) {
-    console.error("Error fetching HubSpot industries:", error)
+    logger.error("Error fetching HubSpot industries:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('HubSpot authentication expired. Please reconnect your account.')

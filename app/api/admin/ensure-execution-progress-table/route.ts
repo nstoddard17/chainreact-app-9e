@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   try {
@@ -9,7 +12,7 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    console.log('Checking execution_progress table...')
+    logger.debug('Checking execution_progress table...')
 
     // First check if the table exists
     const { data: tableExists, error: checkError } = await supabase
@@ -18,8 +21,8 @@ export async function GET() {
       .limit(1)
 
     if (!checkError) {
-      console.log('✅ execution_progress table already exists')
-      return NextResponse.json({
+      logger.debug('✅ execution_progress table already exists')
+      return jsonResponse({
         success: true,
         message: 'execution_progress table already exists',
         exists: true
@@ -28,7 +31,7 @@ export async function GET() {
 
     // If table doesn't exist, try to create it
     if (checkError?.message?.includes('relation') && checkError?.message?.includes('does not exist')) {
-      console.log('Table does not exist, attempting to create it...')
+      logger.debug('Table does not exist, attempting to create it...')
 
       // Create the table using raw SQL
       const createTableSQL = `
@@ -117,11 +120,11 @@ export async function GET() {
       const { error: createError } = await supabase.rpc('exec', {
         sql: createTableSQL
       }).catch((rpcError) => {
-        console.error('RPC exec failed:', rpcError)
+        logger.error('RPC exec failed:', rpcError)
 
         // If RPC doesn't work, try a different approach
         // This might require the database to have the necessary extensions
-        console.log('Trying alternative approach...')
+        logger.debug('Trying alternative approach...')
 
         // Return error to indicate manual creation is needed
         return {
@@ -133,8 +136,8 @@ export async function GET() {
       })
 
       if (createError) {
-        console.error('Failed to create table:', createError)
-        return NextResponse.json({
+        logger.error('Failed to create table:', createError)
+        return jsonResponse({
           success: false,
           message: 'Failed to create execution_progress table. Please create it manually using the SQL script.',
           error: createError.message,
@@ -149,16 +152,16 @@ export async function GET() {
         .limit(1)
 
       if (verifyError) {
-        console.error('Table creation verification failed:', verifyError)
-        return NextResponse.json({
+        logger.error('Table creation verification failed:', verifyError)
+        return jsonResponse({
           success: false,
           message: 'Table creation could not be verified',
           error: verifyError.message
         }, { status: 500 })
       }
 
-      console.log('✅ execution_progress table created successfully')
-      return NextResponse.json({
+      logger.debug('✅ execution_progress table created successfully')
+      return jsonResponse({
         success: true,
         message: 'execution_progress table created successfully',
         created: true
@@ -166,15 +169,15 @@ export async function GET() {
     }
 
     // Some other error occurred
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       message: 'Error checking execution_progress table',
       error: checkError.message
     }, { status: 500 })
 
   } catch (error: any) {
-    console.error('Error ensuring execution_progress table:', error)
-    return NextResponse.json({
+    logger.error('Error ensuring execution_progress table:', error)
+    return jsonResponse({
       success: false,
       error: error.message || 'Failed to ensure execution_progress table',
       sqlScript: '/CREATE_EXECUTION_PROGRESS_TABLE.sql',
@@ -197,7 +200,7 @@ export async function POST() {
       .limit(1)
 
     if (error?.message?.includes('relation') && error?.message?.includes('does not exist')) {
-      return NextResponse.json({
+      return jsonResponse({
         exists: false,
         message: 'execution_progress table does not exist',
         instructions: [
@@ -213,20 +216,16 @@ export async function POST() {
     }
 
     if (error) {
-      return NextResponse.json({
-        error: error.message,
-        message: 'Error checking table existence'
-      }, { status: 500 })
+      return errorResponse('Error checking table existence', 500, { message: error.message })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       exists: true,
       message: 'execution_progress table exists and is ready'
     })
 
   } catch (error: any) {
-    return NextResponse.json({
-      error: error.message || 'Failed to check table status'
-    }, { status: 500 })
+    return errorResponse(error.message || 'Failed to check table status'
+    , 500)
   }
 }

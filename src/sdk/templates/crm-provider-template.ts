@@ -9,6 +9,8 @@ import {
 } from '../../domains/integrations/ports/capability-interfaces'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Template for CRM Provider integrations
  * 
@@ -182,7 +184,7 @@ export class TemplateCRMAdapter extends BaseProvider implements CRMProvider {
       }))
 
     } catch (error: any) {
-      console.error('CRM get contacts error:', error)
+      logger.error('CRM get contacts error:', error)
       return []
     }
   }
@@ -301,7 +303,7 @@ export function registerTemplateCRMProvider(): void {
       // TODO: Add more actions as needed
     ])
 
-    console.log('✅ Template CRM provider registered')
+    logger.debug('✅ Template CRM provider registered')
   }
   */
 }

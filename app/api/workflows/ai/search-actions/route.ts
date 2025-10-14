@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { 
   searchActions, 
@@ -8,6 +9,8 @@ import {
   extractIntent,
   matchIntentToActions
 } from '@/lib/workflows/ai/semanticSearch'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * API endpoint for semantic action search
@@ -26,10 +29,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -50,17 +50,11 @@ export async function POST(request: NextRequest) {
         return handleIntent(body)
       
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        )
+        return errorResponse('Invalid action' , 400)
     }
   } catch (error) {
-    console.error('Action search error:', error)
-    return NextResponse.json(
-      { error: 'Failed to search actions' },
-      { status: 500 }
-    )
+    logger.error('Action search error:', error)
+    return errorResponse('Failed to search actions' , 500)
   }
 }
 
@@ -89,7 +83,7 @@ async function handleSearch(params: {
       rankActions(searchResults, params.context) :
       searchResults.map(r => ({ ...r, reasoning: 'Semantic match' }))
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       results: rankedResults.map(r => ({
         actionId: r.action.id,
@@ -102,8 +96,8 @@ async function handleSearch(params: {
       }))
     })
   } catch (error) {
-    console.error('Search failed:', error)
-    return NextResponse.json(
+    logger.error('Search failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -128,7 +122,7 @@ async function handleSimilar(params: {
       params.topK || 3
     )
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       results: similarActions.map(action => ({
         actionId: action.id,
@@ -139,8 +133,8 @@ async function handleSimilar(params: {
       }))
     })
   } catch (error) {
-    console.error('Similar search failed:', error)
-    return NextResponse.json(
+    logger.error('Similar search failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -169,7 +163,7 @@ async function handleSuggest(params: {
       params.allActions
     )
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       suggestions: suggestions.map(s => ({
         actionId: s.action.id,
@@ -181,8 +175,8 @@ async function handleSuggest(params: {
       }))
     })
   } catch (error) {
-    console.error('Suggestion failed:', error)
-    return NextResponse.json(
+    logger.error('Suggestion failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -206,7 +200,7 @@ async function handleIntent(params: {
     // Match intent to actions
     const matches = matchIntentToActions(intent, params.availableActions)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       intent: {
         action: intent.action,
@@ -219,8 +213,8 @@ async function handleIntent(params: {
       }))
     })
   } catch (error) {
-    console.error('Intent matching failed:', error)
-    return NextResponse.json(
+    logger.error('Intent matching failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
@@ -12,7 +14,7 @@ export async function GET(request: NextRequest) {
   const provider = "github"
 
   if (error) {
-    console.error(`Error with GitHub OAuth: ${error}`)
+    logger.error(`Error with GitHub OAuth: ${error}`)
     return createPopupResponse("error", provider, `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json()
-      console.error("Failed to exchange GitHub code for token:", errorData)
+      logger.error("Failed to exchange GitHub code for token:", errorData)
       return createPopupResponse(
         "error",
         provider,
@@ -80,13 +82,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error("Error saving GitHub integration to DB:", upsertError)
+      logger.error("Error saving GitHub integration to DB:", upsertError)
       return createPopupResponse("error", provider, `Database Error: ${upsertError.message}`, baseUrl)
     }
 
     return createPopupResponse("success", provider, "GitHub account connected successfully.", baseUrl)
   } catch (error) {
-    console.error("Error during GitHub OAuth callback:", error)
+    logger.error("Error during GitHub OAuth callback:", error)
     const message = error instanceof Error ? error.message : "An unexpected error occurred"
     return createPopupResponse("error", provider, message, baseUrl)
   }

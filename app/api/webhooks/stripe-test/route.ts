@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
+import { logger } from '@/lib/utils/logger'
+
 // Test endpoint to verify webhook and Supabase connection
 export async function GET() {
-  console.log("[Webhook Test] Testing webhook configuration...")
+  logger.debug("[Webhook Test] Testing webhook configuration...")
   
   const results = {
     timestamp: new Date().toISOString(),
@@ -48,14 +51,14 @@ export async function GET() {
     results.error = error.message
   }
   
-  console.log("[Webhook Test] Results:", JSON.stringify(results, null, 2))
+  logger.debug("[Webhook Test] Results:", JSON.stringify(results, null, 2))
   
-  return NextResponse.json(results)
+  return jsonResponse(results)
 }
 
 // Test POST to simulate webhook
 export async function POST(request: Request) {
-  console.log("[Webhook Test] Received test POST request")
+  logger.debug("[Webhook Test] Received test POST request")
   
   try {
     const body = await request.json()
@@ -70,7 +73,7 @@ export async function POST(request: Request) {
       headers: Object.fromEntries(request.headers.entries())
     }
     
-    console.log("[Webhook Test] Test log:", JSON.stringify(testLog, null, 2))
+    logger.debug("[Webhook Test] Test log:", JSON.stringify(testLog, null, 2))
     
     // Try to insert a test record
     const { data, error } = await supabase
@@ -84,7 +87,7 @@ export async function POST(request: Request) {
     
     if (error) {
       // If webhook_logs table doesn't exist, try another table
-      console.log("[Webhook Test] webhook_logs table error:", error.message)
+      logger.debug("[Webhook Test] webhook_logs table error:", error.message)
       
       // Try to at least verify Supabase connection
       const { data: testQuery, error: queryError } = await supabase
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
         .select("count")
         .single()
       
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         message: "Could not write to webhook_logs",
         error: error.message,
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
       })
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Test webhook processed",
       data: data,
@@ -109,8 +112,8 @@ export async function POST(request: Request) {
     })
     
   } catch (error: any) {
-    console.error("[Webhook Test] Error:", error)
-    return NextResponse.json({
+    logger.error("[Webhook Test] Error:", error)
+    return jsonResponse({
       success: false,
       error: error.message,
       timestamp: new Date().toISOString()

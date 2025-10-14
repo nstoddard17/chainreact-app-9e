@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { runWebhookTaskProcessor } from '@/lib/webhooks/task-queue'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,36 +11,34 @@ export async function POST(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron job request')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      logger.error('Unauthorized cron job request')
+      return errorResponse('Unauthorized' , 401)
     }
 
-    console.log('[Cron] Starting webhook task processing')
+    logger.debug('[Cron] Starting webhook task processing')
     
     // Process webhook tasks
     await runWebhookTaskProcessor()
     
-    console.log('[Cron] Completed webhook task processing')
+    logger.debug('[Cron] Completed webhook task processing')
     
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       message: 'Webhook tasks processed successfully',
       timestamp: new Date().toISOString()
     })
 
   } catch (error) {
-    console.error('[Cron] Error processing webhook tasks:', error)
+    logger.error('[Cron] Error processing webhook tasks:', error)
     
-    return NextResponse.json({ 
-      error: 'Failed to process webhook tasks',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return errorResponse('Failed to process webhook tasks', 500, { details: error instanceof Error ? error.message : 'Unknown error'
+     })
   }
 }
 
 export async function GET(request: NextRequest) {
   // Health check endpoint
-  return NextResponse.json({ 
+  return jsonResponse({ 
     status: 'healthy', 
     service: 'webhook-task-processor',
     timestamp: new Date().toISOString()

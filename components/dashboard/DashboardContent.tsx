@@ -18,6 +18,8 @@ import { Workflow, Puzzle } from "lucide-react"
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton-loader"
 import { PageLoader } from "@/components/ui/page-loader"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function DashboardContent() {
   const searchParams = useSearchParams()
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
@@ -28,8 +30,8 @@ export default function DashboardContent() {
   const isProductionReady = useProductionReady()
   const connectedIntegrationsCount = getConnectedProviders().length
 
-  // Count active workflows (workflows that are not drafts)
-  const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status !== 'draft').length
+  // Count active workflows (only workflows with status 'active', not paused or draft)
+  const activeWorkflowsCount = workflows.filter((workflow: any) => workflow.status === 'active').length
 
   // Ensure client-side only code runs after mount
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function DashboardContent() {
   // Debug logging
   useEffect(() => {
     if (isClientReady) {
-      console.log('🎯 [Dashboard] Auth state:', {
+      logger.debug('🎯 [Dashboard] Auth state:', {
         user: user ? {
           id: user.id,
           email: user.email,
@@ -73,19 +75,19 @@ export default function DashboardContent() {
       // Load all data in parallel for maximum speed
       const promises = [
         fetchMetrics().catch(error => {
-          console.warn('Failed to fetch metrics:', error)
+          logger.warn('Failed to fetch metrics:', error)
           return null
         }),
         fetchChartData().catch(error => {
-          console.warn('Failed to fetch chart data:', error)
+          logger.warn('Failed to fetch chart data:', error)
           return null
         }),
         fetchWorkflows().catch(error => {
-          console.warn('Failed to fetch workflows:', error)
+          logger.warn('Failed to fetch workflows:', error)
           return null
         }),
         fetchIntegrations(force).catch(error => {
-          console.warn('Failed to fetch integrations:', error)
+          logger.warn('Failed to fetch integrations:', error)
           return null
         })
       ]
@@ -99,12 +101,12 @@ export default function DashboardContent() {
     dependencies: [user],
     onError: (error) => {
       // Don't block render on errors
-      console.warn('Dashboard data loading error (non-blocking):', error)
+      logger.warn('Dashboard data loading error (non-blocking):', error)
     }
   })
 
   const getFirstName = () => {
-    console.log('📝 [Dashboard] Getting first name from:', {
+    logger.debug('📝 [Dashboard] Getting first name from:', {
       'profile.username': profile?.username,
       'profile.full_name': profile?.full_name,
       'user.name': user?.name,
@@ -113,28 +115,28 @@ export default function DashboardContent() {
 
     // First try username from profile
     if (profile?.username) {
-      console.log('✅ [Dashboard] Using username from profile')
+      logger.debug('✅ [Dashboard] Using username from profile')
       return profile.username
     }
     // Then try full name and extract first part
     if (profile?.full_name) {
       const firstName = profile.full_name.split(" ")[0]
-      console.log('✅ [Dashboard] Using full_name first part')
+      logger.debug('✅ [Dashboard] Using full_name first part')
       return firstName
     }
     // Fallback to user name if available
     if (user?.name) {
       const firstName = user.name.split(" ")[0]
-      console.log('⚠️ [Dashboard] Falling back to user.name')
+      logger.debug('⚠️ [Dashboard] Falling back to user.name')
       return firstName
     }
     // Last resort: extract from email
     if (user?.email) {
       const emailName = user.email.split("@")[0]
-      console.log('⚠️ [Dashboard] Falling back to email prefix')
+      logger.debug('⚠️ [Dashboard] Falling back to email prefix')
       return emailName
     }
-    console.log('❌ [Dashboard] No name found, using default "User"')
+    logger.debug('❌ [Dashboard] No name found, using default "User"')
     return "User"
   }
 
@@ -152,7 +154,7 @@ export default function DashboardContent() {
         message="Loading your dashboard..."
         timeout={1000} // Very short timeout - 1 second max
         onTimeout={() => {
-          console.log('Dashboard render forced after 1 second')
+          logger.debug('Dashboard render forced after 1 second')
           // Don't reload, just continue rendering
         }}
       />

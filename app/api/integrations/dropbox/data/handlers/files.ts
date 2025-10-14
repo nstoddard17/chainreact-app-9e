@@ -1,5 +1,7 @@
 import { DropboxIntegration } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function handleFiles(integration: DropboxIntegration, options: any = {}) {
   const { path = '' } = options
 
@@ -30,7 +32,7 @@ export async function handleFiles(integration: DropboxIntegration, options: any 
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ [Dropbox] Failed to fetch files:', {
+      logger.error('❌ [Dropbox] Failed to fetch files:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText,
@@ -54,11 +56,11 @@ export async function handleFiles(integration: DropboxIntegration, options: any 
       }
     }))
 
-    console.log(`✅ [Dropbox] Fetched ${formattedFiles.length} files from path '${path}'`)
+    logger.debug(`✅ [Dropbox] Fetched ${formattedFiles.length} files from path '${path}'`)
 
     return formattedFiles
   } catch (error: any) {
-    console.error('❌ [Dropbox] Error fetching files:', error)
+    logger.error('❌ [Dropbox] Error fetching files:', error)
     throw error
   }
 }

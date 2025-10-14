@@ -18,6 +18,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,7 +34,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    console.log(`🔔 Activating Slack trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Slack trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -65,7 +67,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       status: 'active'
     })
 
-    console.log(`✅ Slack trigger activated: ${triggerType}`)
+    logger.debug(`✅ Slack trigger activated: ${triggerType}`)
   }
 
   /**
@@ -75,7 +77,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    console.log(`🛑 Deactivating Slack triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Slack triggers for workflow ${workflowId}`)
 
     // Mark triggers as deleted (no external cleanup needed)
     await supabase
@@ -85,7 +87,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       .eq('provider_id', 'slack')
       .eq('status', 'active')
 
-    console.log(`✅ Slack triggers deactivated`)
+    logger.debug(`✅ Slack triggers deactivated`)
   }
 
   /**

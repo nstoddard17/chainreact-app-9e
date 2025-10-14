@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
+
+import { logger } from '@/lib/utils/logger'
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -43,19 +46,19 @@ export async function POST(request: NextRequest) {
       // Admin test mode - verify the current user is an admin
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
       }
 
       // TODO: Add proper admin check here
       // For now, we'll allow any authenticated user to test
       // In production, you should verify the user has admin role
-      console.log(`Admin test mode: User ${user.id} testing as ${testUserId}`)
+      logger.debug(`Admin test mode: User ${user.id} testing as ${testUserId}`)
       userId = testUserId
     } else {
       // Normal mode - use authenticated user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return errorResponse("Unauthorized" , 401)
       }
       userId = user.id
     }
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
     ] : null)
     
     if (!messages || messages.length === 0) {
-      return NextResponse.json({ error: "Messages are required" }, { status: 400 })
+      return errorResponse("Messages are required" , 400)
     }
 
     const {
@@ -90,8 +93,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingRequest) {
-      console.log('Request already processed:', requestId)
-      return NextResponse.json({
+      logger.debug('Request already processed:', requestId)
+      return jsonResponse({
         requestId,
         cached: true,
         content: existingRequest.metadata?.response_content || '',
@@ -150,7 +153,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (costLogError) {
-        console.error('Failed to save cost log:', costLogError)
+        logger.error('Failed to save cost log:', costLogError)
       }
 
       // Save to chat history for backward compatibility
@@ -165,7 +168,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Return response in expected format
-      return NextResponse.json({
+      return jsonResponse({
         requestId,
         content: responseContent,
         choices: completion.choices,
@@ -185,7 +188,7 @@ export async function POST(request: NextRequest) {
       
     } catch (error) {
       // Log the error for debugging
-      console.error('OpenAI API error:', error)
+      logger.error('OpenAI API error:', error)
 
       // Still try to save error to cost logs for tracking
       await supabase
@@ -205,15 +208,12 @@ export async function POST(request: NextRequest) {
           }
         })
 
-      return NextResponse.json(
-        { error: 'AI service error', message: error instanceof Error ? error.message : 'Unknown error' },
-        { status: 500 }
-      )
+      return errorResponse('AI service error', 500, { message: error instanceof Error ? error.message : 'Unknown error'  })
     }
     
   } catch (error) {
-    console.error("AI chat error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("AI chat error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 

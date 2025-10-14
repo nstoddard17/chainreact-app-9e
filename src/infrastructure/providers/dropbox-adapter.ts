@@ -13,6 +13,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class DropboxAdapter implements FileProvider {
   readonly providerId = 'dropbox'
   readonly capabilities: CapabilityDescriptor = {
@@ -101,7 +103,7 @@ export class DropboxAdapter implements FileProvider {
         message: 'File uploaded successfully to Dropbox'
       }
     } catch (error: any) {
-      console.error('Dropbox upload error:', error)
+      logger.error('Dropbox upload error:', error)
       return {
         success: false,
         error: error.message || 'Failed to upload file to Dropbox',
@@ -211,7 +213,7 @@ export class DropboxAdapter implements FileProvider {
           isFolder: false
         }))
     } catch (error: any) {
-      console.error('Dropbox list files error:', error)
+      logger.error('Dropbox list files error:', error)
       return []
     }
   }

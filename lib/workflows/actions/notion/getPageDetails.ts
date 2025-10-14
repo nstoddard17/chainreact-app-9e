@@ -2,6 +2,8 @@ import { ExecutionContext } from '@/types/workflows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { decrypt } from '@/lib/security/encryption';
 
+import { logger } from '@/lib/utils/logger'
+
 export async function notionGetPageDetails(
   context: ExecutionContext
 ): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -251,7 +253,7 @@ export async function notionGetPageDetails(
     }
     
   } catch (error: any) {
-    console.error('Error getting Notion page details:', error);
+    logger.error('Error getting Notion page details:', error);
     return {
       success: false,
       error: error.message || 'Failed to get page details'

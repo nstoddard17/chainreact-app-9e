@@ -997,6 +997,7 @@ const params = new URLSearchParams({
 - Trust notification timestamps (use actual resource timestamps)
 - Skip deduplication (Microsoft can send duplicates)
 - Ignore webhook signature validation
+- **Forget to request required OAuth scopes** - Missing scopes cause 403 Forbidden errors
 
 ---
 
@@ -1094,6 +1095,7 @@ deletedTriggerBackupRef.current = null
 - Clean up subscriptions when workflows are deactivated
 - Test with actual Microsoft accounts (dev accounts behave differently)
 - Default to Inbox folder if no folder is configured
+- **Verify OAuth scopes match resource requirements** - See "Teams Channel Message Subscription 403 Fix" below
 
 ### Testing Microsoft Graph Triggers
 
@@ -1144,6 +1146,152 @@ User DELETES workflow:
   ✅ DELETE from trigger_resources (cascades)
 ```
 
+### Teams Channel Message Subscription 403 Fix
+
+**Issue**: When activating a Teams "New Message in Channel" trigger, subscription creation fails with:
+```
+403 Forbidden: Caller does not have access to '/teams/{teamId}/channels/{channelId}/messages'
+```
+
+**Root Cause**: The Teams OAuth configuration in [lib/integrations/oauthConfig.ts:352](../../lib/integrations/oauthConfig.ts#L352) was missing the `ChannelMessage.Read.All` scope required to create subscriptions to channel messages.
+
+**Original Scope (Incomplete)**:
+```typescript
+scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All"
+```
+
+**Fixed Scope (Complete)**:
+```typescript
+scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Team.Create https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/ChannelMessage.Read.All https://graph.microsoft.com/ChannelMessage.Send https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send"
+```
+
+**Required Scopes for Teams Triggers**:
+- `ChannelMessage.Read.All` - **CRITICAL for channel message subscriptions**
+- `ChannelMessage.Send` - For sending messages to channels
+- `Chat.Read` - For reading 1:1 and group chats
+- `ChatMessage.Send` - For sending chat messages
+- `TeamMember.Read.All` - For reading team membership
+- `Team.Create` - For creating teams
+- `Channel.Create` - For creating channels
+
+**After Fixing**:
+1. ✅ Update the scope in `oauthConfig.ts`
+2. ⚠️ **Users MUST reconnect their Teams integration** to get the new scopes
+3. ✅ Delete old integration connection from Supabase `integrations` table (forces reconnect)
+4. ✅ Go through OAuth flow again to grant new permissions
+
+**How to Prevent**:
+1. **Cross-check scopes**: Compare `oauthConfig.ts` scope with `availableIntegrations.ts` scopes array
+2. **Test with actual API calls**: Verify token has required permissions before creating subscriptions
+3. **Add scope validation**: In `MicrosoftGraphTriggerLifecycle.ts` (lines 63-96), test permissions for each provider
+4. **Document required scopes**: Add comments in trigger lifecycle explaining what each scope enables
+
+**Related Files**:
+- [lib/integrations/oauthConfig.ts:352](../../lib/integrations/oauthConfig.ts#L352) - OAuth scope configuration
+- [lib/integrations/availableIntegrations.ts:112](../../lib/integrations/availableIntegrations.ts#L112) - Declared scopes list
+- [lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts:293](../../lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts#L293) - Teams resource mapping
+- [lib/triggers/index.ts:24](../../lib/triggers/index.ts#L24) - Provider registration (uses 'teams' not 'microsoft-teams')
+
+**Date**: October 13, 2025
+
+---
+
+## 🎯 Best Practice: Metadata-Driven Webhook Filtering
+
+**Purpose**: Make webhook handlers easily extensible for new triggers without modifying filtering logic.
+
+### The Problem
+Hard-coded trigger type checks like `if (triggerType?.includes('email_sent'))` become brittle and unmaintainable as you add more triggers.
+
+### The Solution: Declarative Filter Configuration
+**Location:** Top of webhook handler file (e.g., `/app/api/webhooks/microsoft/route.ts`)
+
+```typescript
+interface TriggerFilterConfig {
+  supportsFolder: boolean;      // Does this trigger support folder filtering?
+  supportsSender: boolean;       // Does this trigger filter by sender (from)?
+  supportsRecipient: boolean;    // Does this trigger filter by recipient (to)?
+  supportsSubject: boolean;      // Does this trigger filter by subject?
+  supportsImportance: boolean;   // Does this trigger filter by importance?
+  supportsAttachment: boolean;   // Does this trigger filter by attachment?
+  defaultFolder?: string;        // Default folder if not specified
+}
+
+const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
+  'microsoft-outlook_trigger_new_email': {
+    supportsFolder: true,
+    supportsSender: true,
+    supportsRecipient: false,
+    supportsSubject: true,
+    supportsImportance: true,
+    supportsAttachment: true,
+    defaultFolder: 'inbox'
+  },
+  'microsoft-outlook_trigger_email_sent': {
+    supportsFolder: false,  // Subscription already scoped to Sent Items
+    supportsSender: false,
+    supportsRecipient: true,
+    supportsSubject: true,
+    supportsImportance: false,
+    supportsAttachment: false,
+    defaultFolder: 'sentitems'
+  }
+  // Add new triggers here - just config, no logic changes!
+}
+```
+
+### Using the Configuration
+```typescript
+// Get trigger-specific filter configuration
+const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+// Apply filters conditionally based on metadata
+if (filterConfig?.supportsFolder && email.parentFolderId) {
+  // Only check folder if trigger supports it
+}
+
+if (filterConfig?.supportsSender && triggerConfig.from) {
+  // Only check sender if trigger supports it
+}
+
+if (filterConfig?.supportsRecipient && triggerConfig.to) {
+  // Only check recipient if trigger supports it
+}
+```
+
+### Benefits
+1. **Single Source of Truth**: Trigger capabilities defined in one place
+2. **Easy Expansion**: Add new triggers by adding config, not modifying logic
+3. **Self-Documenting**: Config clearly shows what each trigger supports
+4. **Type-Safe**: TypeScript ensures all required fields are present
+5. **Maintainable**: No brittle string matching or scattered if statements
+
+### Example: Adding a New Trigger
+```typescript
+// Step 1: Add to config (NO logic changes needed)
+'microsoft-outlook_trigger_email_draft': {
+  supportsFolder: false,     // Drafts folder is implicit
+  supportsSender: false,     // Drafts don't have senders yet
+  supportsRecipient: true,   // Can filter by intended recipient
+  supportsSubject: true,     // Can filter by subject
+  supportsImportance: false, // Importance not set yet
+  supportsAttachment: true,  // Can check for attachments
+  defaultFolder: 'drafts'
+}
+
+// Step 2: That's it! Filtering logic automatically respects this config
+```
+
+### When to Use This Pattern
+- ✅ Webhook handlers with multiple trigger types
+- ✅ Complex filtering logic that varies by trigger
+- ✅ Providers with many triggers (Gmail, Outlook, Slack)
+- ✅ When you expect to add more triggers in the future
+
+### Implementation Reference
+- **Example Implementation**: `/app/api/webhooks/microsoft/route.ts` (lines 13-62)
+- **Used By**: Outlook Email Sent trigger, Outlook New Email trigger
+
 ---
 
 ## Notes
@@ -1152,7 +1300,11 @@ User DELETES workflow:
 - Triggers may have additional webhook handling requirements
 - Some providers may need special authentication handling
 - **This is a living document** - Update when discovering new patterns or requirements
-- Last major update: October 2025 (Provider ID Mismatch Troubleshooting)
+- Last major update: October 2025 (Metadata-Driven Webhook Filtering)
+  - Added declarative filter configuration pattern for scalable webhook handlers
+  - Implemented for Outlook Email Sent trigger to support future trigger expansion
+  - Refactored Microsoft Graph webhook filtering to be metadata-driven
+- Previous update: October 2025 (Provider ID Mismatch Troubleshooting)
   - Added troubleshooting section for trigger lifecycle provider registration issues
   - Documented Microsoft provider naming mismatches (teams vs microsoft-teams)
 - Previous update: January 2025 (Microsoft Excel implementation)

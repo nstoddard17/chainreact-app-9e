@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -122,7 +124,7 @@ export async function createAirtableRecord(params: ActionParams): Promise<Action
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("Airtable create record failed:", error)
+    logger.error("Airtable create record failed:", error)
     return {
       success: false,
       error: error.message || "Failed to create Airtable record"

@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'crypto'
 import { EventEmitter } from 'events'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Security header configuration
  */
@@ -140,7 +142,7 @@ export class SecurityHeadersManager extends EventEmitter {
     this.csrfConfig = this.mergeCSRFDefaults(csrfConfig)
     
     this.startCleanup()
-    console.log('🛡️ Security headers manager initialized')
+    logger.debug('🛡️ Security headers manager initialized')
   }
 
   /**
@@ -234,7 +236,7 @@ export class SecurityHeadersManager extends EventEmitter {
 
     this.csrfTokens.set(tokenValue, csrfToken)
     
-    console.log(`🎫 CSRF token generated for session: ${sessionId}`)
+    logger.debug(`🎫 CSRF token generated for session: ${sessionId}`)
     return tokenValue
   }
 
@@ -371,7 +373,7 @@ export class SecurityHeadersManager extends EventEmitter {
     // Mark token as used
     csrfToken.used = true
 
-    console.log(`✅ CSRF token validated for session: ${sessionId}`)
+    logger.debug(`✅ CSRF token validated for session: ${sessionId}`)
     return { valid: true }
   }
 
@@ -409,7 +411,7 @@ export class SecurityHeadersManager extends EventEmitter {
     this.recordViolation(violation)
     this.emit('cspViolation', violation)
     
-    console.warn(`🚨 CSP violation detected:`, report)
+    logger.warn(`🚨 CSP violation detected:`, report)
   }
 
   /**
@@ -454,7 +456,7 @@ export class SecurityHeadersManager extends EventEmitter {
    */
   updateConfig(newConfig: Partial<SecurityHeadersConfig>): void {
     this.config = this.mergeWithDefaults(newConfig)
-    console.log('🔧 Security headers configuration updated')
+    logger.debug('🔧 Security headers configuration updated')
   }
 
   /**
@@ -462,7 +464,7 @@ export class SecurityHeadersManager extends EventEmitter {
    */
   updateCSRFConfig(newConfig: Partial<CSRFConfig>): void {
     this.csrfConfig = this.mergeCSRFDefaults(newConfig)
-    console.log('🔧 CSRF protection configuration updated')
+    logger.debug('🔧 CSRF protection configuration updated')
   }
 
   /**
@@ -615,7 +617,7 @@ export class SecurityHeadersManager extends EventEmitter {
     }
 
     if (cleanedTokens > 0 || cleanedNonces > 0) {
-      console.log(`🧹 Security cleanup: ${cleanedTokens} tokens, ${cleanedNonces} nonces removed`)
+      logger.debug(`🧹 Security cleanup: ${cleanedTokens} tokens, ${cleanedNonces} nonces removed`)
     }
   }
 
@@ -725,7 +727,7 @@ export class SecurityHeadersManager extends EventEmitter {
     this.violations.length = 0
     this.removeAllListeners()
     
-    console.log('🛑 Security headers manager shutdown')
+    logger.debug('🛑 Security headers manager shutdown')
   }
 }
 

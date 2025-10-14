@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { refreshIntegrationToken } from "./refreshToken"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Gets a decrypted access token for a specific integration
  * Will automatically refresh the token if it's expired or close to expiring
@@ -37,7 +39,7 @@ export async function getDecryptedAccessToken(
       // Decrypt and return the new access token
       return decrypt(refreshedData.access_token)
     } catch (refreshError) {
-      console.error("Error refreshing token:", refreshError)
+      logger.error("Error refreshing token:", refreshError)
       throw new Error(`Failed to refresh ${provider} token. User needs to reconnect.`)
     }
   }
@@ -87,7 +89,7 @@ export async function getIntegrationCredentials(
       customFields: metadata.custom_fields || {}
     }
   } catch (error) {
-    console.error(`Error getting ${provider} credentials:`, error)
+    logger.error(`Error getting ${provider} credentials:`, error)
     throw error
   }
 } 

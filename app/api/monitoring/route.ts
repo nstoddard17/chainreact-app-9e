@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Monitoring and metrics endpoint
@@ -38,7 +41,7 @@ export async function GET() {
     const totalErrors = errorStats.totalErrors
     const healthScore = totalActions > 0 ? Math.max(0, 100 - (totalErrors / totalActions * 100)) : 100
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       monitoring: {
         healthScore: Math.round(healthScore),
@@ -136,9 +139,9 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Monitoring endpoint failed:", error)
+    logger.error("❌ Monitoring endpoint failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -158,13 +161,13 @@ export async function DELETE() {
     performanceMonitor.cleanup()
     eventBus.clear()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Monitoring data cleared"
     })
 
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message
     }, { status: 500 })

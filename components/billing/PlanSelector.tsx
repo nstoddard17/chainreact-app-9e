@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Check, Loader2, AlertTriangle } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface PlanSelectorProps {
   plans: any[]
   currentSubscription: any
@@ -37,7 +39,7 @@ export default function PlanSelector({ plans, currentSubscription, targetPlanId 
       // Redirect to the checkout URL
       window.location.href = checkoutUrl
     } catch (error: any) {
-      console.error("Failed to create checkout session:", error)
+      logger.error("Failed to create checkout session:", error)
 
       if (error.message.includes("STRIPE_NOT_CONFIGURED")) {
         setError("Billing is not yet configured for this application. Please contact support.")

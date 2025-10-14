@@ -1,7 +1,10 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
   const provider = 'box'
 
   if (error) {
-    console.error(`Box OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`Box OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse(
       'error',
       provider,
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code || !state) {
-    console.error('Missing code or state in Box callback')
+    logger.error('Missing code or state in Box callback')
     return createPopupResponse(
       'error',
       provider,
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Box token exchange error response:', errorData)
+      logger.error('Box token exchange error response:', errorData)
       throw new Error(`Box token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
     }
 
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse('success', provider, 'You can now close this window.', baseUrl)
   } catch (e: any) {
-    console.error('Box callback error:', e)
+    logger.error('Box callback error:', e)
     return createPopupResponse(
       'error',
       provider,

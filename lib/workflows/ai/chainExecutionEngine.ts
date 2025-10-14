@@ -8,11 +8,13 @@
 import { executeNode } from '../executeNode'
 import { resolveValue } from '../actions/core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 // AI Agent logging utility - always enabled for AI agent workflows
 const AI_LOGGING_ENABLED = true
 const aiLog = (...args: any[]) => {
   if (AI_LOGGING_ENABLED) {
-    console.log(...args)
+    logger.debug(...args)
   }
 }
 
@@ -135,7 +137,7 @@ export class ChainExecutionEngine {
         )
       }
     } catch (error) {
-      console.error('Chain execution failed:', error)
+      logger.error('Chain execution failed:', error)
       results.errors.push(error)
     }
 
@@ -281,11 +283,11 @@ export class ChainExecutionEngine {
     } catch (error) {
       const executionTime = Date.now() - startTime
       if (AI_LOGGING_ENABLED) {
-        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        console.error(`❌ CHAIN EXECUTION FAILED: ${chain.chainId}`)
-        console.error(`⏱️  Execution Time: ${executionTime}ms`)
-        console.error(`Error:`, error)
-        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        logger.error(`❌ CHAIN EXECUTION FAILED: ${chain.chainId}`)
+        logger.error(`⏱️  Execution Time: ${executionTime}ms`)
+        logger.error(`Error:`, error)
+        logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       }
       return {
         chainId: chain.chainId,
@@ -359,8 +361,8 @@ export class ChainExecutionEngine {
 
       } catch (error) {
         if (AI_LOGGING_ENABLED) {
-          console.error(`    ❌ Node execution failed: ${node.id}`)
-          console.error(`    Error:`, error)
+          logger.error(`    ❌ Node execution failed: ${node.id}`)
+          logger.error(`    Error:`, error)
         }
         nodeResults[node.id] = {
           success: false,
@@ -418,7 +420,7 @@ export class ChainExecutionEngine {
         this.executionContext.config
       )
     } catch (error) {
-      console.error(`Failed to generate AI value for field: ${fieldName}`, error)
+      logger.error(`Failed to generate AI value for field: ${fieldName}`, error)
 
       // Return a default value based on field name
       if (fieldName.toLowerCase().includes('message')) {

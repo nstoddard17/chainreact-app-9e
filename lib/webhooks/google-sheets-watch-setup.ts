@@ -2,6 +2,8 @@ import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+import { logger } from '@/lib/utils/logger'
+
 function buildSheetRange(sheetName: string, columnRange?: string): string {
   if (!sheetName) return columnRange || 'A:Z'
   const escaped = sheetName.replace(/'/g, "''")
@@ -77,7 +79,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     // Check if token needs refresh
     const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      console.log('Access token expired, refreshing...')
+      logger.debug('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Sheets
       // For now, throw an error
       throw new Error('Google Sheets token expired - please reconnect the integration')
@@ -158,7 +160,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
         }
       }
     } catch (err) {
-      console.warn('Could not get initial sheet data:', err)
+      logger.warn('Could not get initial sheet data:', err)
     }
 
     // Generate a unique channel ID
@@ -192,7 +194,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       throw new Error('Failed to create Google Sheets watch - missing required data')
     }
 
-    console.log('✅ Google Sheets watch created successfully:', {
+    logger.debug('✅ Google Sheets watch created successfully:', {
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
@@ -222,7 +224,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       updated_at: new Date().toISOString()
     })
 
-    console.log('📦 Stored Google Sheets watch metadata', {
+    logger.debug('📦 Stored Google Sheets watch metadata', {
       userId: config.userId,
       integrationId: config.integrationId,
       metadata: {
@@ -241,7 +243,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       lastRowCount
     }
   } catch (error) {
-    console.error('Failed to set up Google Sheets watch:', error)
+    logger.error('Failed to set up Google Sheets watch:', error)
     throw error
   }
 }
@@ -266,7 +268,7 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
       .single()
 
     if (error || !integration) {
-      console.log('Google Sheets integration not found - watch may already be stopped')
+      logger.debug('Google Sheets integration not found - watch may already be stopped')
       return
     }
 
@@ -280,7 +282,7 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      console.log('Failed to decrypt Google Sheets access token - watch may already be stopped')
+      logger.debug('Failed to decrypt Google Sheets access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -303,9 +305,9 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
       .eq('channel_id', channelId)
       .eq('user_id', userId)
 
-    console.log('✅ Google Sheets watch stopped successfully')
+    logger.debug('✅ Google Sheets watch stopped successfully')
   } catch (error) {
-    console.error('Failed to stop Google Sheets watch:', error)
+    logger.error('Failed to stop Google Sheets watch:', error)
     // Don't throw - watch might already be stopped
   }
 }
@@ -381,7 +383,7 @@ export async function checkGoogleSheetsChanges(
       ? Object.keys(previousMetadata.rowSignatures).length
       : 0
 
-    console.log('[Google Sheets] Change detection context', {
+    logger.debug('[Google Sheets] Change detection context', {
       spreadsheetId,
       sheetName: previousMetadata.sheetName,
       lastRowCount: previousMetadata.lastRowCount,
@@ -405,7 +407,7 @@ export async function checkGoogleSheetsChanges(
         const previousRowSignatures: Record<string, string> = previousMetadata.rowSignatures || {}
         const currentRowSignatures: Record<string, string> = {}
 
-        console.log('[Google Sheets] Row count comparison', {
+        logger.debug('[Google Sheets] Row count comparison', {
           previousRowCount,
           currentRowCount
         })
@@ -425,7 +427,7 @@ export async function checkGoogleSheetsChanges(
           const signaturesDiffer = previousSignature !== signature
 
           if (rowNumber <= 10 || rowNumber >= Math.max(previousRowCount - 3, 1)) {
-            console.log('[Google Sheets] Row snapshot', {
+            logger.debug('[Google Sheets] Row snapshot', {
               rowNumber,
               signature,
               previousSignature,
@@ -448,7 +450,7 @@ export async function checkGoogleSheetsChanges(
           }
 
           if (signaturesDiffer) {
-            console.log('[Google Sheets] Row signature change detected', {
+            logger.debug('[Google Sheets] Row signature change detected', {
               sheetName: previousMetadata.sheetName,
               rowNumber,
               wasPreviouslyEmpty,
@@ -506,7 +508,7 @@ export async function checkGoogleSheetsChanges(
       updatedMetadata: previousMetadata
     }
   } catch (error) {
-    console.error('Failed to check Google Sheets changes:', error)
+    logger.error('Failed to check Google Sheets changes:', error)
     throw error
   }
 }

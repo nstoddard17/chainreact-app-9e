@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -14,17 +17,17 @@ interface DataFetcher {
 
 // Add comprehensive error handling and fix API calls
 export async function POST(req: NextRequest) {
-  console.log('🚀 [SERVER] fetch-user-data API route called')
+  logger.debug('🚀 [SERVER] fetch-user-data API route called')
   
   try {
     const body = await req.json();
     const { integrationId, dataType, options = {} } = body;
 
-    console.log('🔍 [SERVER] fetch-user-data request parsed:', { integrationId, dataType, options });
+    logger.debug('🔍 [SERVER] fetch-user-data request parsed:', { integrationId, dataType, options });
 
     if (!integrationId || !dataType) {
-      console.log('❌ [SERVER] Missing required parameters');
-      return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+      logger.debug('❌ [SERVER] Missing required parameters');
+      return jsonResponse({ error: 'Missing required parameters' }, { status: 400 });
     }
     
     const gmailDataTypes = new Set([
@@ -35,9 +38,42 @@ export async function POST(req: NextRequest) {
       'gmail_signatures',
     ]);
 
+    const teamsDataTypes = new Set([
+      'teams_teams',
+      'teams_channels',
+      'teams_chats',
+    ]);
+
+    // Route Teams-specific data requests through Teams API
+    if (teamsDataTypes.has(dataType)) {
+      logger.debug('🔍 [SERVER] Routing Teams data request', { dataType, integrationId, options });
+
+      const baseUrl = req.nextUrl.origin;
+      const teamsApiResponse = await fetch(`${baseUrl}/api/integrations/teams/data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          integrationId,
+          dataType,
+          params: options,
+        }),
+      });
+
+      if (!teamsApiResponse.ok) {
+        const errorText = await teamsApiResponse.text();
+        logger.error('❌ [SERVER] Teams API error:', errorText);
+        return jsonResponse({ error: errorText || 'Failed to load Teams data' }, { status: teamsApiResponse.status });
+      }
+
+      const teamsData = await teamsApiResponse.json();
+      return jsonResponse(teamsData);
+    }
+
     // Route Gmail-specific data requests (including enhanced recipients and labels) through Gmail API
     if (gmailDataTypes.has(dataType)) {
-      console.log('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
+      logger.debug('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
 
       try {
         // Fetch the integration initiating the request
@@ -48,15 +84,15 @@ export async function POST(req: NextRequest) {
           .single();
 
         if (requestingError || !requestingIntegration) {
-          console.error('❌ [SERVER] Requesting integration not found:', requestingError);
-          return Response.json({ error: 'Requesting integration not found' }, { status: 404 });
+          logger.error('❌ [SERVER] Requesting integration not found:', requestingError);
+          return jsonResponse({ error: 'Requesting integration not found' }, { status: 404 });
         }
 
         // Determine which Gmail integration to use
         let gmailIntegration = requestingIntegration.provider === 'gmail' ? requestingIntegration : null;
 
         if (!gmailIntegration) {
-          console.log('🔍 [SERVER] Resolving Gmail integration for user', {
+          logger.debug('🔍 [SERVER] Resolving Gmail integration for user', {
             userId: requestingIntegration.user_id,
             requestingProvider: requestingIntegration.provider,
             dataType,
@@ -71,19 +107,19 @@ export async function POST(req: NextRequest) {
             .maybeSingle();
 
           if (gmailError) {
-            console.error('❌ [SERVER] Gmail integration lookup error:', gmailError);
+            logger.error('❌ [SERVER] Gmail integration lookup error:', gmailError);
           }
 
           if (!resolvedGmailIntegration) {
-            console.error('❌ [SERVER] Gmail integration not found for user or not connected:', {
+            logger.error('❌ [SERVER] Gmail integration not found for user or not connected:', {
               userId: requestingIntegration.user_id,
               requestingProvider: requestingIntegration.provider
             });
-            return Response.json({ error: 'A connected Gmail integration is required to load Gmail data.' }, { status: 404 });
+            return jsonResponse({ error: 'A connected Gmail integration is required to load Gmail data.' }, { status: 404 });
           }
 
           gmailIntegration = resolvedGmailIntegration;
-          console.log('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegration.id);
+          logger.debug('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegration.id);
         }
 
         const baseUrl = req.nextUrl.origin;
@@ -101,18 +137,18 @@ export async function POST(req: NextRequest) {
 
         if (!gmailApiResponse.ok) {
           const error = await gmailApiResponse.json();
-          console.error(`❌ [SERVER] Gmail API error:`, error);
-          return Response.json(error, { status: gmailApiResponse.status });
+          logger.error(`❌ [SERVER] Gmail API error:`, error);
+          return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
         const gmailResult = await gmailApiResponse.json();
-        console.log(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
-        return Response.json(gmailResult);
+        return jsonResponse(gmailResult);
 
       } catch (error: any) {
-        console.error(`❌ [SERVER] Gmail API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gmail request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Gmail API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Gmail request' }, { status: 500 });
       }
     }
 
@@ -124,13 +160,13 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      console.error('❌ [SERVER] Integration not found:', integrationError);
-      return Response.json({ error: 'Integration not found' }, { status: 404 });
+      logger.error('❌ [SERVER] Integration not found:', integrationError);
+      return jsonResponse({ error: 'Integration not found' }, { status: 404 });
     }
 
     // Handle Gmail recent recipients with original working method (no contacts permission needed)
     if (integration.provider === 'gmail' && dataType === 'gmail-recent-recipients') {
-      console.log(`🔄 [SERVER] Using original Gmail recipients method`);
+      logger.debug(`🔄 [SERVER] Using original Gmail recipients method`);
       
       try {
         // Validate integration has access token
@@ -165,7 +201,7 @@ export async function POST(req: NextRequest) {
         const messages = messagesData.messages || []
 
         if (messages.length === 0) {
-          return Response.json({ data: [] })
+          return jsonResponse({ data: [] })
         }
 
         // Get detailed information for each message
@@ -187,7 +223,7 @@ export async function POST(req: NextRequest) {
               const data = await response.json()
               return data.payload?.headers || []
             } catch (error) {
-              console.warn(`Failed to fetch message ${message.id}:`, error)
+              logger.warn(`Failed to fetch message ${message.id}:`, error)
               return null
             }
           })
@@ -237,12 +273,12 @@ export async function POST(req: NextRequest) {
             name: recipient.name
           }))
 
-        console.log(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
-        return Response.json({ data: recipientArray })
+        logger.debug(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
+        return jsonResponse({ data: recipientArray })
 
       } catch (error: any) {
-        console.error(`❌ [SERVER] Gmail recipients error:`, error)
-        return Response.json({ 
+        logger.error(`❌ [SERVER] Gmail recipients error:`, error)
+        return jsonResponse({ 
           error: error.message || 'Failed to get Gmail recipients' 
         }, { status: 500 })
       }
@@ -255,7 +291,7 @@ export async function POST(req: NextRequest) {
       if (dataType.startsWith('google-') || 
           dataType === 'google-calendars' || 
           dataType === 'google-contacts') {
-        console.log(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType} (provider: ${integration.provider})`);
+        logger.debug(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType} (provider: ${integration.provider})`);
         
         try {
           const baseUrl = req.nextUrl.origin
@@ -273,17 +309,17 @@ export async function POST(req: NextRequest) {
 
           if (!googleApiResponse.ok) {
             const error = await googleApiResponse.json();
-            console.error(`❌ [SERVER] Google API error:`, error);
-            return Response.json(error, { status: googleApiResponse.status });
+            logger.error(`❌ [SERVER] Google API error:`, error);
+            return jsonResponse(error, { status: googleApiResponse.status });
           }
 
           const googleResult = await googleApiResponse.json();
-          console.log(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
+          logger.debug(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
 
-          return Response.json(googleResult);
+          return jsonResponse(googleResult);
         } catch (error: any) {
-          console.error(`❌ [SERVER] Google API routing error:`, error);
-          return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+          logger.error(`❌ [SERVER] Google API routing error:`, error);
+          return jsonResponse({ error: 'Failed to route Google request' }, { status: 500 });
         }
       }
     }
@@ -294,7 +330,7 @@ export async function POST(req: NextRequest) {
       dataType === 'gmail_recipients' ||
       dataType === 'gmail_signatures'
     )) {
-      console.log(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -312,19 +348,19 @@ export async function POST(req: NextRequest) {
 
         if (!gmailApiResponse.ok) {
           const error = await gmailApiResponse.json();
-          console.error(`❌ [SERVER] Gmail API error:`, error);
-          return Response.json(error, { status: gmailApiResponse.status });
+          logger.error(`❌ [SERVER] Gmail API error:`, error);
+          return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
         const gmailResult = await gmailApiResponse.json();
-        console.log(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         // Return the Gmail API response directly (it's already in the correct format)
-        return Response.json(gmailResult);
+        return jsonResponse(gmailResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Gmail API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gmail request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Gmail API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Gmail request' }, { status: 500 });
       }
     }
 
@@ -333,7 +369,7 @@ export async function POST(req: NextRequest) {
       dataType === 'slack_channels' ||
       dataType === 'slack_users'
     )) {
-      console.log(`🔄 [SERVER] Routing Slack request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Slack request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -351,19 +387,19 @@ export async function POST(req: NextRequest) {
 
         if (!slackApiResponse.ok) {
           const error = await slackApiResponse.json();
-          console.error(`❌ [SERVER] Slack API error:`, error);
-          return Response.json(error, { status: slackApiResponse.status });
+          logger.error(`❌ [SERVER] Slack API error:`, error);
+          return jsonResponse(error, { status: slackApiResponse.status });
         }
 
         const slackResult = await slackApiResponse.json();
-        console.log(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
 
         // Return the Slack API response directly (it's already in the correct format)
-        return Response.json(slackResult);
+        return jsonResponse(slackResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Slack API routing error:`, error);
-        return Response.json({ error: 'Failed to route Slack request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Slack API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Slack request' }, { status: 500 });
       }
     }
 
@@ -378,7 +414,7 @@ export async function POST(req: NextRequest) {
       dataType === 'google-sheets_columns' ||
       dataType === 'google-sheets_enhanced-preview'
     )) {
-      console.log(`🔄 [SERVER] Routing Google request to dedicated API:`, {
+      logger.debug(`🔄 [SERVER] Routing Google request to dedicated API:`, {
         dataType,
         integrationId,
         provider: integration.provider,
@@ -394,7 +430,7 @@ export async function POST(req: NextRequest) {
           options
         }
         
-        console.log(`🚀 [SERVER] Making Google API request:`, requestPayload);
+        logger.debug(`🚀 [SERVER] Making Google API request:`, requestPayload);
         
         const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
           method: 'POST',
@@ -404,7 +440,7 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify(requestPayload)
         });
 
-        console.log(`📡 [SERVER] Google API response:`, {
+        logger.debug(`📡 [SERVER] Google API response:`, {
           status: googleApiResponse.status,
           statusText: googleApiResponse.statusText,
           ok: googleApiResponse.ok,
@@ -419,32 +455,32 @@ export async function POST(req: NextRequest) {
             const errorText = await googleApiResponse.text().catch(() => 'Unknown error');
             error = { error: `Failed to parse error response: ${errorText}` };
           }
-          console.error(`❌ [SERVER] Google API error:`, {
+          logger.error(`❌ [SERVER] Google API error:`, {
             status: googleApiResponse.status,
             error,
             requestPayload
           });
-          return Response.json(error, { status: googleApiResponse.status });
+          return jsonResponse(error, { status: googleApiResponse.status });
         }
 
         const googleResult = await googleApiResponse.json();
-        console.log(`✅ [SERVER] Google API completed for ${dataType}:`, {
+        logger.debug(`✅ [SERVER] Google API completed for ${dataType}:`, {
           resultLength: googleResult.data?.length || 'unknown',
           success: googleResult.success,
           hasData: !!googleResult.data
         });
 
         // Return the Google API response directly (it's already in the correct format)
-        return Response.json(googleResult);
+        return jsonResponse(googleResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Google API routing error:`, {
+        logger.error(`❌ [SERVER] Google API routing error:`, {
           error: error.message,
           stack: error.stack,
           dataType,
           integrationId
         });
-        return Response.json({ error: 'Failed to route Google request' }, { status: 500 });
+        return jsonResponse({ error: 'Failed to route Google request' }, { status: 500 });
       }
     }
 
@@ -457,7 +493,7 @@ export async function POST(req: NextRequest) {
       dataType === 'notion_workspaces' ||
       dataType === 'notion_database_properties'
     )) {
-      console.log(`🔄 [SERVER] Routing Notion request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Notion request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -475,19 +511,19 @@ export async function POST(req: NextRequest) {
 
         if (!notionApiResponse.ok) {
           const error = await notionApiResponse.json();
-          console.error(`❌ [SERVER] Notion API error:`, error);
-          return Response.json(error, { status: notionApiResponse.status });
+          logger.error(`❌ [SERVER] Notion API error:`, error);
+          return jsonResponse(error, { status: notionApiResponse.status });
         }
 
         const notionResult = await notionApiResponse.json();
-        console.log(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
         
         // Return the Notion API response directly (it's already in the correct format)
-        return Response.json(notionResult);
+        return jsonResponse(notionResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Notion API routing error:`, error);
-        return Response.json({ error: 'Failed to route Notion request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Notion API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Notion request' }, { status: 500 });
       }
     }
 
@@ -503,7 +539,7 @@ export async function POST(req: NextRequest) {
       dataType === 'discord_banned_users' ||
       dataType === 'discord_users'
     )) {
-      console.log(`🔄 [SERVER] Routing Discord request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Discord request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -521,19 +557,19 @@ export async function POST(req: NextRequest) {
 
         if (!discordApiResponse.ok) {
           const error = await discordApiResponse.json();
-          console.error(`❌ [SERVER] Discord API error:`, error);
-          return Response.json(error, { status: discordApiResponse.status });
+          logger.error(`❌ [SERVER] Discord API error:`, error);
+          return jsonResponse(error, { status: discordApiResponse.status });
         }
 
         const discordResult = await discordApiResponse.json();
-        console.log(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
         
         // Return the Discord API response directly (it's already in the correct format)
-        return Response.json(discordResult);
+        return jsonResponse(discordResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Discord API routing error:`, error);
-        return Response.json({ error: 'Failed to route Discord request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Discord API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Discord request' }, { status: 500 });
       }
     }
 
@@ -541,7 +577,7 @@ export async function POST(req: NextRequest) {
     if (integration.provider === 'facebook' && (
       dataType === 'facebook_pages'
     )) {
-      console.log(`🔄 [SERVER] Routing Facebook request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Facebook request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -559,19 +595,19 @@ export async function POST(req: NextRequest) {
 
         if (!facebookApiResponse.ok) {
           const error = await facebookApiResponse.json();
-          console.error(`❌ [SERVER] Facebook API error:`, error);
-          return Response.json(error, { status: facebookApiResponse.status });
+          logger.error(`❌ [SERVER] Facebook API error:`, error);
+          return jsonResponse(error, { status: facebookApiResponse.status });
         }
 
         const facebookResult = await facebookApiResponse.json();
-        console.log(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
         
         // Return the Facebook API response directly (it's already in the correct format)
-        return Response.json(facebookResult);
+        return jsonResponse(facebookResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Facebook API routing error:`, error);
-        return Response.json({ error: 'Failed to route Facebook request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Facebook API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Facebook request' }, { status: 500 });
       }
     }
 
@@ -579,7 +615,7 @@ export async function POST(req: NextRequest) {
     if (integration.provider === 'twitter' && (
       dataType === 'twitter_mentions'
     )) {
-      console.log(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -597,19 +633,19 @@ export async function POST(req: NextRequest) {
 
         if (!twitterApiResponse.ok) {
           const error = await twitterApiResponse.json();
-          console.error(`❌ [SERVER] Twitter API error:`, error);
-          return Response.json(error, { status: twitterApiResponse.status });
+          logger.error(`❌ [SERVER] Twitter API error:`, error);
+          return jsonResponse(error, { status: twitterApiResponse.status });
         }
 
         const twitterResult = await twitterApiResponse.json();
-        console.log(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
+        logger.debug(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
         
         // Return the Twitter API response directly (it's already in the correct format)
-        return Response.json(twitterResult);
+        return jsonResponse(twitterResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Twitter API routing error:`, error);
-        return Response.json({ error: 'Failed to route Twitter request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Twitter API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Twitter request' }, { status: 500 });
       }
     }
 
@@ -619,7 +655,7 @@ export async function POST(req: NextRequest) {
       dataType === 'onenote_sections' ||
       dataType === 'onenote_pages'
     )) {
-      console.log(`🔄 [SERVER] Routing OneNote request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing OneNote request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -637,22 +673,22 @@ export async function POST(req: NextRequest) {
 
         if (!oneNoteApiResponse.ok) {
           const error = await oneNoteApiResponse.json();
-          console.error(`❌ [SERVER] OneNote API error:`, error);
-          return Response.json(error, { status: oneNoteApiResponse.status });
+          logger.error(`❌ [SERVER] OneNote API error:`, error);
+          return jsonResponse(error, { status: oneNoteApiResponse.status });
         }
 
         const oneNoteResult = await oneNoteApiResponse.json();
-        console.log(`✅ [SERVER] OneNote API success:`, {
+        logger.debug(`✅ [SERVER] OneNote API success:`, {
           dataType,
           resultCount: oneNoteResult.data?.length || 0
         });
 
         // Return the OneNote API response directly (it's already in the correct format)
-        return Response.json(oneNoteResult);
+        return jsonResponse(oneNoteResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] OneNote API routing error:`, error);
-        return Response.json({ error: 'Failed to route OneNote request' }, { status: 500 });
+        logger.error(`❌ [SERVER] OneNote API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route OneNote request' }, { status: 500 });
       }
     }
 
@@ -665,7 +701,7 @@ export async function POST(req: NextRequest) {
       dataType === 'outlook_calendars' ||
       dataType === 'outlook_signatures'
     )) {
-      console.log(`🔄 [SERVER] Routing Outlook request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Outlook request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -683,22 +719,22 @@ export async function POST(req: NextRequest) {
 
         if (!outlookApiResponse.ok) {
           const error = await outlookApiResponse.json();
-          console.error(`❌ [SERVER] Outlook API error:`, error);
-          return Response.json(error, { status: outlookApiResponse.status });
+          logger.error(`❌ [SERVER] Outlook API error:`, error);
+          return jsonResponse(error, { status: outlookApiResponse.status });
         }
 
         const outlookResult = await outlookApiResponse.json();
-        console.log(`✅ [SERVER] Outlook API success:`, {
+        logger.debug(`✅ [SERVER] Outlook API success:`, {
           dataType,
           resultCount: outlookResult.data?.length || 0
         });
 
         // Return the Outlook API response directly (it's already in the correct format)
-        return Response.json(outlookResult);
+        return jsonResponse(outlookResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Outlook API routing error:`, error);
-        return Response.json({ error: 'Failed to route Outlook request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Outlook API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Outlook request' }, { status: 500 });
       }
     }
 
@@ -713,7 +749,7 @@ export async function POST(req: NextRequest) {
       dataType === 'hubspot_contact_properties' ||
       dataType === 'hubspot_deal_properties'
     )) {
-      console.log(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -731,22 +767,22 @@ export async function POST(req: NextRequest) {
 
         if (!hubspotApiResponse.ok) {
           const error = await hubspotApiResponse.json();
-          console.error(`❌ [SERVER] HubSpot API error:`, error);
-          return Response.json(error, { status: hubspotApiResponse.status });
+          logger.error(`❌ [SERVER] HubSpot API error:`, error);
+          return jsonResponse(error, { status: hubspotApiResponse.status });
         }
 
         const hubspotResult = await hubspotApiResponse.json();
-        console.log(`✅ [SERVER] HubSpot API success:`, {
+        logger.debug(`✅ [SERVER] HubSpot API success:`, {
           dataType,
           resultCount: hubspotResult.data?.length || 0
         });
 
         // Return the HubSpot API response directly (it's already in the correct format)
-        return Response.json(hubspotResult);
+        return jsonResponse(hubspotResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] HubSpot API routing error:`, error);
-        return Response.json({ error: 'Failed to route HubSpot request' }, { status: 500 });
+        logger.error(`❌ [SERVER] HubSpot API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route HubSpot request' }, { status: 500 });
       }
     }
 
@@ -762,7 +798,7 @@ export async function POST(req: NextRequest) {
       dataType === 'airtable_field_values' ||
       dataType === 'airtable_records'
     )) {
-      console.log(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -780,22 +816,22 @@ export async function POST(req: NextRequest) {
 
         if (!airtableApiResponse.ok) {
           const error = await airtableApiResponse.json();
-          console.error(`❌ [SERVER] Airtable API error:`, error);
-          return Response.json(error, { status: airtableApiResponse.status });
+          logger.error(`❌ [SERVER] Airtable API error:`, error);
+          return jsonResponse(error, { status: airtableApiResponse.status });
         }
 
         const airtableResult = await airtableApiResponse.json();
-        console.log(`✅ [SERVER] Airtable API success:`, {
+        logger.debug(`✅ [SERVER] Airtable API success:`, {
           dataType,
           resultCount: airtableResult.data?.length || 0
         });
 
         // Return the Airtable API response directly (it's already in the correct format)
-        return Response.json(airtableResult);
+        return jsonResponse(airtableResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Airtable API routing error:`, error);
-        return Response.json({ error: 'Failed to route Airtable request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Airtable API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Airtable request' }, { status: 500 });
       }
     }
 
@@ -809,7 +845,7 @@ export async function POST(req: NextRequest) {
       dataType === 'trello_lists' ||
       dataType === 'trello_cards'
     )) {
-      console.log(`🔄 [SERVER] Routing Trello request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Trello request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -827,22 +863,22 @@ export async function POST(req: NextRequest) {
 
         if (!trelloApiResponse.ok) {
           const error = await trelloApiResponse.json();
-          console.error(`❌ [SERVER] Trello API error:`, error);
-          return Response.json(error, { status: trelloApiResponse.status });
+          logger.error(`❌ [SERVER] Trello API error:`, error);
+          return jsonResponse(error, { status: trelloApiResponse.status });
         }
 
         const trelloResult = await trelloApiResponse.json();
-        console.log(`✅ [SERVER] Trello API success:`, {
+        logger.debug(`✅ [SERVER] Trello API success:`, {
           dataType,
           resultCount: trelloResult.data?.length || 0
         });
 
         // Return the Trello API response directly (it's already in the correct format)
-        return Response.json(trelloResult);
+        return jsonResponse(trelloResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Trello API routing error:`, error);
-        return Response.json({ error: 'Failed to route Trello request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Trello API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Trello request' }, { status: 500 });
       }
     }
 
@@ -856,7 +892,7 @@ export async function POST(req: NextRequest) {
       dataType === 'microsoft-excel_data_preview' ||
       dataType.startsWith('microsoft-excel_')
     )) {
-      console.log(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
 
       try {
         const baseUrl = req.nextUrl.origin
@@ -878,22 +914,22 @@ export async function POST(req: NextRequest) {
 
         if (!excelApiResponse.ok) {
           const error = await excelApiResponse.json();
-          console.error(`❌ [SERVER] Microsoft Excel API error:`, error);
-          return Response.json(error, { status: excelApiResponse.status });
+          logger.error(`❌ [SERVER] Microsoft Excel API error:`, error);
+          return jsonResponse(error, { status: excelApiResponse.status });
         }
 
         const excelResult = await excelApiResponse.json();
-        console.log(`✅ [SERVER] Microsoft Excel API success:`, {
+        logger.debug(`✅ [SERVER] Microsoft Excel API success:`, {
           dataType,
           resultCount: excelResult.data?.length || 0
         });
 
         // Return the Excel API response directly (it's already in the correct format)
-        return Response.json(excelResult);
+        return jsonResponse(excelResult);
 
       } catch (error) {
-        console.error(`❌ [SERVER] Microsoft Excel API routing error:`, error);
-        return Response.json({ error: 'Failed to route Microsoft Excel request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Microsoft Excel API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Microsoft Excel request' }, { status: 500 });
       }
     }
 
@@ -901,7 +937,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'onedrive-folders'
     )) {
-      console.log(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -919,22 +955,22 @@ export async function POST(req: NextRequest) {
 
         if (!onedriveApiResponse.ok) {
           const error = await onedriveApiResponse.json();
-          console.error(`❌ [SERVER] OneDrive API error:`, error);
-          return Response.json(error, { status: onedriveApiResponse.status });
+          logger.error(`❌ [SERVER] OneDrive API error:`, error);
+          return jsonResponse(error, { status: onedriveApiResponse.status });
         }
 
         const onedriveResult = await onedriveApiResponse.json();
-        console.log(`✅ [SERVER] OneDrive API success:`, {
+        logger.debug(`✅ [SERVER] OneDrive API success:`, {
           dataType,
           resultCount: onedriveResult.data?.length || 0
         });
 
         // Return the OneDrive API response directly (it's already in the correct format)
-        return Response.json(onedriveResult);
+        return jsonResponse(onedriveResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] OneDrive API routing error:`, error);
-        return Response.json({ error: 'Failed to route OneDrive request' }, { status: 500 });
+        logger.error(`❌ [SERVER] OneDrive API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route OneDrive request' }, { status: 500 });
       }
     }
 
@@ -942,7 +978,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'gumroad_products'
     )) {
-      console.log(`🔄 [SERVER] Routing Gumroad request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Gumroad request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -960,22 +996,22 @@ export async function POST(req: NextRequest) {
 
         if (!gumroadApiResponse.ok) {
           const error = await gumroadApiResponse.json();
-          console.error(`❌ [SERVER] Gumroad API error:`, error);
-          return Response.json(error, { status: gumroadApiResponse.status });
+          logger.error(`❌ [SERVER] Gumroad API error:`, error);
+          return jsonResponse(error, { status: gumroadApiResponse.status });
         }
 
         const gumroadResult = await gumroadApiResponse.json();
-        console.log(`✅ [SERVER] Gumroad API success:`, {
+        logger.debug(`✅ [SERVER] Gumroad API success:`, {
           dataType,
           resultCount: gumroadResult.data?.length || 0
         });
 
         // Return the Gumroad API response directly (it's already in the correct format)
-        return Response.json(gumroadResult);
+        return jsonResponse(gumroadResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Gumroad API routing error:`, error);
-        return Response.json({ error: 'Failed to route Gumroad request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Gumroad API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Gumroad request' }, { status: 500 });
       }
     }
 
@@ -983,7 +1019,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'blackbaud_constituents'
     )) {
-      console.log(`🔄 [SERVER] Routing Blackbaud request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Blackbaud request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1001,22 +1037,22 @@ export async function POST(req: NextRequest) {
 
         if (!blackbaudApiResponse.ok) {
           const error = await blackbaudApiResponse.json();
-          console.error(`❌ [SERVER] Blackbaud API error:`, error);
-          return Response.json(error, { status: blackbaudApiResponse.status });
+          logger.error(`❌ [SERVER] Blackbaud API error:`, error);
+          return jsonResponse(error, { status: blackbaudApiResponse.status });
         }
 
         const blackbaudResult = await blackbaudApiResponse.json();
-        console.log(`✅ [SERVER] Blackbaud API success:`, {
+        logger.debug(`✅ [SERVER] Blackbaud API success:`, {
           dataType,
           resultCount: blackbaudResult.data?.length || 0
         });
 
         // Return the Blackbaud API response directly (it's already in the correct format)
-        return Response.json(blackbaudResult);
+        return jsonResponse(blackbaudResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Blackbaud API routing error:`, error);
-        return Response.json({ error: 'Failed to route Blackbaud request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Blackbaud API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Blackbaud request' }, { status: 500 });
       }
     }
 
@@ -1024,7 +1060,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'dropbox-folders'
     )) {
-      console.log(`🔄 [SERVER] Routing Dropbox request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Dropbox request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1042,22 +1078,22 @@ export async function POST(req: NextRequest) {
 
         if (!dropboxApiResponse.ok) {
           const error = await dropboxApiResponse.json();
-          console.error(`❌ [SERVER] Dropbox API error:`, error);
-          return Response.json(error, { status: dropboxApiResponse.status });
+          logger.error(`❌ [SERVER] Dropbox API error:`, error);
+          return jsonResponse(error, { status: dropboxApiResponse.status });
         }
 
         const dropboxResult = await dropboxApiResponse.json();
-        console.log(`✅ [SERVER] Dropbox API success:`, {
+        logger.debug(`✅ [SERVER] Dropbox API success:`, {
           dataType,
           resultCount: dropboxResult.data?.length || 0
         });
 
         // Return the Dropbox API response directly (it's already in the correct format)
-        return Response.json(dropboxResult);
+        return jsonResponse(dropboxResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Dropbox API routing error:`, error);
-        return Response.json({ error: 'Failed to route Dropbox request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Dropbox API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Dropbox request' }, { status: 500 });
       }
     }
 
@@ -1065,7 +1101,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'box-folders'
     )) {
-      console.log(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
+      logger.debug(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1083,44 +1119,44 @@ export async function POST(req: NextRequest) {
 
         if (!boxApiResponse.ok) {
           const error = await boxApiResponse.json();
-          console.error(`❌ [SERVER] Box API error:`, error);
-          return Response.json(error, { status: boxApiResponse.status });
+          logger.error(`❌ [SERVER] Box API error:`, error);
+          return jsonResponse(error, { status: boxApiResponse.status });
         }
 
         const boxResult = await boxApiResponse.json();
-        console.log(`✅ [SERVER] Box API success:`, {
+        logger.debug(`✅ [SERVER] Box API success:`, {
           dataType,
           resultCount: boxResult.data?.length || 0
         });
 
         // Return the Box API response directly (it's already in the correct format)
-        return Response.json(boxResult);
+        return jsonResponse(boxResult);
         
       } catch (error: any) {
-        console.error(`❌ [SERVER] Box API routing error:`, error);
-        return Response.json({ error: 'Failed to route Box request' }, { status: 500 });
+        logger.error(`❌ [SERVER] Box API routing error:`, error);
+        return jsonResponse({ error: 'Failed to route Box request' }, { status: 500 });
       }
     }
 
     // Find the data fetcher for the requested data type (legacy path)
     const dataFetcher = dataFetchers[dataType];
     if (!dataFetcher) {
-      return Response.json({ error: `Unsupported data type: ${dataType}` }, { status: 400 });
+      return jsonResponse({ error: `Unsupported data type: ${dataType}` }, { status: 400 });
     }
 
     // Fetch the data
     try {
-      console.log(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
+      logger.debug(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const data = await dataFetcher(integration, options);
-      console.log(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
-      return Response.json({ data });
+      logger.debug(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
+      return jsonResponse({ data });
     } catch (error: any) {
-      console.error(`❌ [SERVER] Error calling dataFetcher for ${dataType}:`, error);
+      logger.error(`❌ [SERVER] Error calling dataFetcher for ${dataType}:`, error);
       
       // Check if it's an authentication error
       if (error.message?.includes('authentication') || error.message?.includes('expired') || 
           error.message?.includes('401') || error.message?.includes('unauthorized')) {
-        return Response.json({ 
+        return jsonResponse({ 
           error: 'Authentication expired. Please reconnect your account.',
           needsReconnection: true 
         }, { status: 401 });
@@ -1129,21 +1165,21 @@ export async function POST(req: NextRequest) {
       // Check if it's a rate limit error
       if (error.message?.includes('rate limit') || error.message?.includes('429') || 
           error.message?.includes('too many requests')) {
-        return Response.json({ 
+        return jsonResponse({ 
           error: 'API rate limit exceeded. Please try again later.',
           retryAfter: 60 
         }, { status: 429 });
       }
       
-      return Response.json({ error: error.message || 'Internal server error' }, { status: 500 });
+      return jsonResponse({ error: error.message || 'Internal server error' }, { status: 500 });
     }
   } catch (error: any) {
-    console.error('❌ [SERVER] Unexpected error in fetch-user-data:', {
+    logger.error('❌ [SERVER] Unexpected error in fetch-user-data:', {
       message: error.message,
       stack: error.stack,
       name: error.name
     });
-    return Response.json({ 
+    return jsonResponse({ 
       error: error.message || 'Internal server error',
       type: 'server_error'
     }, { status: 500 });
@@ -1226,14 +1262,14 @@ async function checkChannelPermissions(channelName: string, botToken: string): P
     channelPermissionCache.set(cacheKey, { accessible, timestamp: Date.now() })
     
     if (accessible) {
-      console.log(`📋 Channel ${channelName}: accessible`)
+      logger.debug(`📋 Channel ${channelName}: accessible`)
     } else {
-      console.log(`❌ Channel ${channelName}: bot cannot access (${channelResponse.status})`)
+      logger.debug(`❌ Channel ${channelName}: bot cannot access (${channelResponse.status})`)
     }
     
     return accessible
   } catch (error) {
-    console.warn(`Failed to check permissions for channel ${channelName}:`, error)
+    logger.warn(`Failed to check permissions for channel ${channelName}:`, error)
     // If we can't check permissions, assume accessible to avoid breaking functionality
     channelPermissionCache.set(cacheKey, { accessible: true, timestamp: Date.now() })
     return true

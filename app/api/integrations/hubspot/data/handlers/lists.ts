@@ -5,8 +5,10 @@
 import { HubSpotIntegration, HubSpotList, HubSpotDataHandler } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, parseHubSpotApiResponse, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getHubSpotLists: HubSpotDataHandler<HubSpotList> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotList[]> => {
-  console.log("🔍 HubSpot lists fetcher called with integration:", {
+  logger.debug("🔍 HubSpot lists fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,18 +19,18 @@ export const getHubSpotLists: HubSpotDataHandler<HubSpotList> = async (integrati
   
   try {
     // Validate integration status
-    console.log('🔍 Validating HubSpot integration...')
+    logger.debug('🔍 Validating HubSpot integration...')
     validateHubSpotIntegration(integration)
     
-    console.log(`🔍 Validating HubSpot token...`)
+    logger.debug(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching HubSpot lists from API...')
+    logger.debug('🔍 Fetching HubSpot lists from API...')
     const apiUrl = buildHubSpotApiUrl('/contacts/v1/lists?count=100')
     
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -36,18 +38,18 @@ export const getHubSpotLists: HubSpotDataHandler<HubSpotList> = async (integrati
     const data = await response.json()
     
     if (!response.ok) {
-      console.error(`❌ HubSpot lists API error: ${response.status} ${JSON.stringify(data)}`)
+      logger.error(`❌ HubSpot lists API error: ${response.status} ${JSON.stringify(data)}`)
       throw new Error(`HubSpot API error: ${response.status}`)
     }
     
     // HubSpot lists API returns data in 'lists' property
     const lists = data.lists || []
     
-    console.log(`✅ HubSpot lists fetched successfully: ${lists.length} lists`)
+    logger.debug(`✅ HubSpot lists fetched successfully: ${lists.length} lists`)
     return lists
     
   } catch (error: any) {
-    console.error("Error fetching HubSpot lists:", error)
+    logger.error("Error fetching HubSpot lists:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('HubSpot authentication expired. Please reconnect your account.')

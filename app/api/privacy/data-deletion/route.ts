@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { cookies } from "next/headers"
 import { GDPRService } from "@/lib/compliance/gdprService"
 import { ComplianceLogger } from "@/lib/security/complianceLogger"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 const gdprService = new GDPRService()
 const complianceLogger = new ComplianceLogger()
@@ -19,7 +22,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { 
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Validate deletion type
     if (!["full", "partial", "integration_specific"].includes(deletionType)) {
-      return NextResponse.json({ error: "Invalid deletion type" }, { status: 400 })
+      return errorResponse("Invalid deletion type" , 400)
     }
 
     // Create deletion request record
@@ -52,8 +55,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.error("Failed to create deletion request:", insertError)
-      return NextResponse.json({ error: "Failed to create deletion request" }, { status: 500 })
+      logger.error("Failed to create deletion request:", insertError)
+      return errorResponse("Failed to create deletion request" , 500)
     }
 
     // Log the deletion request
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", requestRecord.id)
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "Data deletion completed successfully",
         requestId: requestRecord.id
@@ -95,7 +98,7 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", requestRecord.id)
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "Data deletion request received and scheduled for processing within 30 days",
         requestId: requestRecord.id,
@@ -104,11 +107,9 @@ export async function POST(request: NextRequest) {
     
 
   } catch (error: any) {
-    console.error("Data deletion error:", error)
-    return NextResponse.json({ 
-      error: "Failed to process deletion request",
-      details: error.message 
-    }, { status: 500 })
+    logger.error("Data deletion error:", error)
+    return errorResponse("Failed to process deletion request", 500, { details: error.message 
+     })
   }
 }
 
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
@@ -139,10 +140,10 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (error || !deletionRequest) {
-        return NextResponse.json({ error: "Deletion request not found" }, { status: 404 })
+        return errorResponse("Deletion request not found" , 404)
       }
 
-      return NextResponse.json({ deletionRequest })
+      return jsonResponse({ deletionRequest })
     } 
       // Get all deletion requests for user
       const { data: deletionRequests, error } = await supabase
@@ -152,19 +153,17 @@ export async function GET(request: NextRequest) {
         .order("requested_at", { ascending: false })
 
       if (error) {
-        console.error("Failed to fetch deletion requests:", error)
-        return NextResponse.json({ error: "Failed to fetch deletion requests" }, { status: 500 })
+        logger.error("Failed to fetch deletion requests:", error)
+        return errorResponse("Failed to fetch deletion requests" , 500)
       }
 
-      return NextResponse.json({ deletionRequests })
+      return jsonResponse({ deletionRequests })
     
 
   } catch (error: any) {
-    console.error("Error fetching deletion requests:", error)
-    return NextResponse.json({ 
-      error: "Failed to fetch deletion requests",
-      details: error.message 
-    }, { status: 500 })
+    logger.error("Error fetching deletion requests:", error)
+    return errorResponse("Failed to fetch deletion requests", 500, { details: error.message 
+     })
   }
 }
 
@@ -201,7 +200,7 @@ async function processDeletion(userId: string, deletionType: string, integration
     })
 
   } catch (error) {
-    console.error("Error processing deletion:", error)
+    logger.error("Error processing deletion:", error)
     
     // Log failed deletion
     await complianceLogger.logDataDeletion(userId, "data_deletion", userId, {
@@ -237,7 +236,7 @@ async function performFullDeletion(userId: string) {
       .eq("user_id", userId)
 
     if (error) {
-      console.error(`Error deleting from ${table}:`, error)
+      logger.error(`Error deleting from ${table}:`, error)
       // Continue with other tables even if one fails
     }
   }
@@ -258,7 +257,7 @@ async function performFullDeletion(userId: string) {
   const { error: userDeleteError } = await supabase.auth.admin.deleteUser(userId)
   
   if (userDeleteError) {
-    console.error("Error deleting user account:", userDeleteError)
+    logger.error("Error deleting user account:", userDeleteError)
     throw new Error("Failed to delete user account")
   }
 }
@@ -284,7 +283,7 @@ async function performPartialDeletion(userId: string) {
       .eq("user_id", userId)
 
     if (error) {
-      console.error(`Error deleting from ${table}:`, error)
+      logger.error(`Error deleting from ${table}:`, error)
     }
   }
 
@@ -311,7 +310,7 @@ async function performIntegrationSpecificDeletion(userId: string, provider: stri
     .eq("provider", provider)
 
   if (error) {
-    console.error(`Error deleting ${provider} integration:`, error)
+    logger.error(`Error deleting ${provider} integration:`, error)
     throw new Error(`Failed to delete ${provider} integration`)
   }
 

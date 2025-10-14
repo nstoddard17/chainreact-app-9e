@@ -22,6 +22,8 @@ import {
   RefreshCw
 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface TestResult {
   requestId: string
   model: string
@@ -81,7 +83,7 @@ export default function AIUsageTest() {
         }
       }
     } catch (err) {
-      console.error('Failed to load users:', err)
+      logger.error('Failed to load users:', err)
     } finally {
       setLoadingUsers(false)
     }
@@ -102,10 +104,10 @@ export default function AIUsageTest() {
       // Step 1: Get the selected user's current balance
       const selectedUser = users.find(u => u.id === selectedUserId)
       const userBalanceBefore = selectedUser?.current_month_cost || 0
-      console.log('📊 User balance before test:', userBalanceBefore)
+      logger.debug('📊 User balance before test:', userBalanceBefore)
 
       // Step 2: Make the AI request with test user ID
-      console.log('🚀 Making AI request for user:', selectedUser?.email)
+      logger.debug('🚀 Making AI request for user:', selectedUser?.email)
       const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -127,7 +129,7 @@ export default function AIUsageTest() {
       }
 
       const aiData = await aiResponse.json()
-      console.log('✅ AI Response received:', aiData)
+      logger.debug('✅ AI Response received:', aiData)
 
       // Extract the response content
       const responseContent = aiData.content || aiData.choices?.[0]?.message?.content || 'No response'
@@ -146,7 +148,7 @@ export default function AIUsageTest() {
 
       // Step 3: Calculate expected cost
       const expectedCost = calculateExpectedCost(model, aiData.usage)
-      console.log('💰 Expected cost calculation:', {
+      logger.debug('💰 Expected cost calculation:', {
         model,
         promptTokens: aiData.usage.prompt_tokens,
         completionTokens: aiData.usage.completion_tokens,
@@ -155,7 +157,7 @@ export default function AIUsageTest() {
       })
 
       // Step 4: Verify in database (wait a moment for the record to be saved)
-      console.log('⏳ Waiting for database write...')
+      logger.debug('⏳ Waiting for database write...')
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       // Step 5: Reload users to check if the balance increased
@@ -179,24 +181,24 @@ export default function AIUsageTest() {
         result.databaseVerified = false
       }
 
-      console.log('📊 User balance after test:', result.userBalanceAfter)
-      console.log('💸 Balance increase:', (result.userBalanceAfter || 0) - userBalanceBefore)
+      logger.debug('📊 User balance after test:', result.userBalanceAfter)
+      logger.debug('💸 Balance increase:', (result.userBalanceAfter || 0) - userBalanceBefore)
 
       setTestResult(result)
 
       // Display comparison
       if (Math.abs(expectedCost - aiData.usage.cost_usd) > 0.000001) {
-        console.warn('⚠️ Cost mismatch detected!', {
+        logger.warn('⚠️ Cost mismatch detected!', {
           expected: expectedCost,
           actual: aiData.usage.cost_usd,
           difference: Math.abs(expectedCost - aiData.usage.cost_usd)
         })
       } else {
-        console.log('✅ Cost calculation verified!')
+        logger.debug('✅ Cost calculation verified!')
       }
 
     } catch (err: any) {
-      console.error('❌ Test error:', err)
+      logger.error('❌ Test error:', err)
       setError(err.message || 'Test failed')
     } finally {
       setLoading(false)

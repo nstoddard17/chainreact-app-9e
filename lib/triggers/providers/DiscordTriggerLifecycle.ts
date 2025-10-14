@@ -13,6 +13,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,7 +29,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    console.log(`🔔 Activating Discord trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Discord trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -48,7 +50,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         config,
         status: 'active'
       })
-      console.log(`✅ Discord ${triggerType} trigger activated (passive listener)`)
+      logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener)`)
     }
   }
 
@@ -73,7 +75,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Guild ID and command name are required for Discord slash commands')
     }
 
-    console.log(`📤 Registering Discord slash command: /${command} in guild ${guildId}`)
+    logger.debug(`📤 Registering Discord slash command: /${command} in guild ${guildId}`)
 
     // Check if command already exists
     const listUrl = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
@@ -114,7 +116,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         throw new Error(`Failed to update Discord command: ${updateResponse.status}`)
       }
 
-      console.log(`✅ Updated existing Discord slash command: ${commandId}`)
+      logger.debug(`✅ Updated existing Discord slash command: ${commandId}`)
     } else {
       // Create new command
       const createResponse = await fetch(listUrl, {
@@ -138,7 +140,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
 
       const created = await createResponse.json()
       commandId = created.id
-      console.log(`✅ Created new Discord slash command: ${commandId}`)
+      logger.debug(`✅ Created new Discord slash command: ${commandId}`)
     }
 
     // Store in trigger_resources table
@@ -167,7 +169,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    console.log(`🛑 Deactivating Discord triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Discord triggers for workflow ${workflowId}`)
 
     // Get all Discord triggers for this workflow
     const { data: resources } = await supabase
@@ -178,7 +180,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No active Discord triggers for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Discord triggers for workflow ${workflowId}`)
       return
     }
 
@@ -190,7 +192,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         // Only delete slash commands (other triggers are passive)
         if (resource.trigger_type === 'discord_trigger_slash_command' && resource.external_id) {
           if (!botToken || !appId || !resource.config?.guildId) {
-            console.warn('Missing Discord credentials, skipping command deletion')
+            logger.warn('Missing Discord credentials, skipping command deletion')
             continue
           }
 
@@ -206,7 +208,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
             throw new Error(`Failed to delete command: ${response.status}`)
           }
 
-          console.log(`✅ Deleted Discord slash command: ${resource.external_id}`)
+          logger.debug(`✅ Deleted Discord slash command: ${resource.external_id}`)
         }
 
         // Mark as deleted in trigger_resources
@@ -216,7 +218,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
           .eq('id', resource.id)
 
       } catch (error) {
-        console.error(`❌ Failed to deactivate Discord trigger ${resource.id}:`, error)
+        logger.error(`❌ Failed to deactivate Discord trigger ${resource.id}:`, error)
         await supabase
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })

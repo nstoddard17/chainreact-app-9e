@@ -1,6 +1,9 @@
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,8 +37,8 @@ export async function GET(request: NextRequest) {
     const { data: templates, error } = await query
 
     if (error) {
-      console.error("Error fetching templates:", error)
-      return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 })
+      logger.error("Error fetching templates:", error)
+      return errorResponse("Failed to fetch templates", 500)
     }
 
     const hydratedTemplates = (templates || []).map((template) => {
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
               try {
                 return JSON.parse(template.airtable_setup)
               } catch (parseError) {
-                console.error("Failed to parse airtable_setup for template", template.id, parseError)
+                logger.error("Failed to parse airtable_setup for template", template.id, parseError)
                 return null
               }
             })()
@@ -57,7 +60,7 @@ export async function GET(request: NextRequest) {
               try {
                 return JSON.parse(template.integration_setup)
               } catch (parseError) {
-                console.error("Failed to parse integration_setup for template", template.id, parseError)
+                logger.error("Failed to parse integration_setup for template", template.id, parseError)
                 return null
               }
           })()
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
               try {
                 return JSON.parse(template.setup_overview)
               } catch (parseError) {
-                console.error("Failed to parse setup_overview for template", template.id, parseError)
+                logger.error("Failed to parse setup_overview for template", template.id, parseError)
                 return null
               }
             })()
@@ -81,7 +84,7 @@ export async function GET(request: NextRequest) {
               try {
                 return JSON.parse(template.default_field_values)
               } catch (parseError) {
-                console.error("Failed to parse default_field_values for template", template.id, parseError)
+                logger.error("Failed to parse default_field_values for template", template.id, parseError)
                 return null
               }
             })()
@@ -100,10 +103,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({ templates: hydratedTemplates })
+    return jsonResponse({ templates: hydratedTemplates })
   } catch (error) {
-    console.error("Error in GET /api/templates:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in GET /api/templates:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -117,7 +120,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const {
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
         ...workflow_json,
         nodes: filteredNodes
       }
-      console.log(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
+      logger.debug(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
     }
 
     const { data: template, error } = await supabase
@@ -178,8 +181,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error("Error creating template:", error)
-      return NextResponse.json({ error: "Failed to create template" }, { status: 500 })
+      logger.error("Error creating template:", error)
+      return errorResponse("Failed to create template", 500)
     }
 
     const parsedAirtableSetup =
@@ -188,7 +191,7 @@ export async function POST(request: NextRequest) {
             try {
               return JSON.parse(template.airtable_setup)
             } catch (parseError) {
-              console.error("Failed to parse airtable_setup after creation", parseError)
+              logger.error("Failed to parse airtable_setup after creation", parseError)
               return null
             }
           })()
@@ -200,7 +203,7 @@ export async function POST(request: NextRequest) {
             try {
               return JSON.parse(template.integration_setup)
             } catch (parseError) {
-              console.error("Failed to parse integration_setup after creation", parseError)
+              logger.error("Failed to parse integration_setup after creation", parseError)
               return null
             }
           })()
@@ -212,7 +215,7 @@ export async function POST(request: NextRequest) {
             try {
               return JSON.parse(template.setup_overview)
             } catch (parseError) {
-              console.error("Failed to parse setup_overview after creation", parseError)
+              logger.error("Failed to parse setup_overview after creation", parseError)
               return null
             }
           })()
@@ -224,13 +227,13 @@ export async function POST(request: NextRequest) {
             try {
               return JSON.parse(template.default_field_values)
             } catch (parseError) {
-              console.error("Failed to parse default_field_values after creation", parseError)
+              logger.error("Failed to parse default_field_values after creation", parseError)
               return null
             }
           })()
         : template?.default_field_values || null
 
-    return NextResponse.json({
+    return jsonResponse({
       template: {
         ...template,
         airtable_setup: parsedAirtableSetup,
@@ -244,7 +247,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error("Error in POST /api/templates:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in POST /api/templates:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

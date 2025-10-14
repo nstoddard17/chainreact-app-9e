@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, CheckCircle, Sparkles, Zap, Shield, Users } from "lucide-react"
 import Link from "next/link"
 
+import { logger } from '@/lib/utils/logger'
+
 function BetaSignupContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -57,7 +59,7 @@ function BetaSignupContent() {
       const decoded = atob(token)
       const [tokenEmail] = decoded.split(":")
 
-      console.log("Token validation:", { token, decoded, tokenEmail, urlEmail })
+      logger.debug("Token validation:", { token, decoded, tokenEmail, urlEmail })
 
       if (tokenEmail === urlEmail) {
         // Token matches the email, check if this beta tester exists and has this token
@@ -91,10 +93,10 @@ function BetaSignupContent() {
           .eq("email", urlEmail)
           .single()
 
-        console.log("Beta tester query result:", { data, error })
+        logger.debug("Beta tester query result:", { data, error })
 
         if (error) {
-          console.error("Database error:", error)
+          logger.error("Database error:", error)
           setTokenValid(false)
           toast({
             title: "Invitation Not Found",
@@ -105,7 +107,7 @@ function BetaSignupContent() {
         }
 
         if (data) {
-          console.log("Beta tester data:", {
+          logger.debug("Beta tester data:", {
             status: data.status,
             expires_at: data.expires_at,
             signup_token: data.signup_token,
@@ -168,7 +170,7 @@ function BetaSignupContent() {
         setTokenValid(false)
       }
     } catch (error) {
-      console.error("Token validation error:", error)
+      logger.error("Token validation error:", error)
       setTokenValid(false)
     } finally {
       setValidatingToken(false)
@@ -220,7 +222,7 @@ function BetaSignupContent() {
         return
       }
     } catch (checkErr: any) {
-      console.log("Username pre-check error:", checkErr)
+      logger.debug("Username pre-check error:", checkErr)
       // Continue with signup - database constraints will handle duplicates
     }
 
@@ -272,7 +274,7 @@ function BetaSignupContent() {
 
         while (!profileCreated && retryCount < maxRetries) {
           try {
-            console.log(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
+            logger.debug(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
 
             // Use API endpoint with service role to bypass RLS
             const response = await fetch('/api/create-beta-profile', {
@@ -291,19 +293,19 @@ function BetaSignupContent() {
             const result = await response.json()
 
             if (response.ok && result.success) {
-              console.log("Profile created successfully:", result.profile)
+              logger.debug("Profile created successfully:", result.profile)
               profileCreated = true
             } else {
               throw new Error(result.error || 'Failed to create profile')
             }
 
           } catch (err: any) {
-            console.error(`Profile creation attempt ${retryCount + 1} error:`, err)
+            logger.error(`Profile creation attempt ${retryCount + 1} error:`, err)
             retryCount++
 
             if (retryCount >= maxRetries) {
               // Profile creation failed after all retries
-              console.error("Failed to create user profile after all retries. Error details:", {
+              logger.error("Failed to create user profile after all retries. Error details:", {
                 error: err,
                 message: err?.message
               })
@@ -332,7 +334,7 @@ function BetaSignupContent() {
           })
 
           if (convertError) {
-            console.error("Failed to mark beta tester as converted:", convertError)
+            logger.error("Failed to mark beta tester as converted:", convertError)
           }
 
           // Try to confirm email for beta testers (if function exists)
@@ -341,11 +343,11 @@ function BetaSignupContent() {
           })
 
           if (confirmError) {
-            console.error("Failed to confirm email:", confirmError)
+            logger.error("Failed to confirm email:", confirmError)
             // Not critical - user can confirm via email
           }
         } catch (err) {
-          console.error("Error updating beta tester status:", err)
+          logger.error("Error updating beta tester status:", err)
           // Non-critical errors, continue
         }
 
@@ -359,7 +361,7 @@ function BetaSignupContent() {
         })
 
         if (signInError) {
-          console.error("Auto sign-in error:", signInError)
+          logger.error("Auto sign-in error:", signInError)
           toast({
             title: "Account Created",
             description: "Your account has been created. Please sign in to continue.",
@@ -379,7 +381,7 @@ function BetaSignupContent() {
             .single()
 
           if (!finalCheckError && finalProfileCheck && finalProfileCheck.username) {
-            console.log("Final profile check passed:", finalProfileCheck)
+            logger.debug("Final profile check passed:", finalProfileCheck)
 
             toast({
               title: "Welcome to ChainReact Beta! 🎉",
@@ -393,7 +395,7 @@ function BetaSignupContent() {
             window.location.href = "/dashboard"
           } else {
             // This should never happen with our retry logic, but just in case
-            console.error("Profile missing after all checks:", finalCheckError)
+            logger.error("Profile missing after all checks:", finalCheckError)
             toast({
               title: "Setup Required",
               description: "Please complete your profile setup.",
@@ -412,7 +414,7 @@ function BetaSignupContent() {
         }
       }
     } catch (error: any) {
-      console.error("Signup error:", error)
+      logger.error("Signup error:", error)
       toast({
         title: "Signup Failed",
         description: error.message || "There was an error creating your account",
@@ -599,7 +601,7 @@ function BetaSignupContent() {
                             const data = await response.json()
                             setUsernameAvailable(data.available)
                           } catch (err: any) {
-                            console.error("Username availability check error:", err)
+                            logger.error("Username availability check error:", err)
                             // Default to showing as available - actual check happens at signup
                             setUsernameAvailable(true)
                           } finally {

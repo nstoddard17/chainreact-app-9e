@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseVariableReference } from "@/lib/workflows/variableReferences";
 
+import { logger } from '@/lib/utils/logger'
+
 interface GenericSelectFieldProps {
   field: any;
   value: any;
@@ -108,7 +110,7 @@ export function GenericSelectField({
   const isAIEnabled = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
   // Debug logging for board field
   if (field.name === 'boardId') {
-    console.log('[GenericSelectField] Board field props:', {
+    logger.debug('[GenericSelectField] Board field props:', {
       fieldName: field.name,
       options: options,
       optionsLength: options?.length || 0,
@@ -349,7 +351,7 @@ export function GenericSelectField({
   
   // Generic loading behavior
   const handleFieldOpen = (open: boolean) => {
-    console.log('🔍 [GenericSelectField] handleFieldOpen called:', {
+    logger.debug('🔍 [GenericSelectField] handleFieldOpen called:', {
       open,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
@@ -375,7 +377,7 @@ export function GenericSelectField({
 
     // If this is a dependent field and dependency hasn't changed, don't reload if recently loaded
     if (isDependentField && hasAttemptedLoad && recentlyLoaded) {
-      console.log('⏭️ [GenericSelectField] Skipping reload for dependent field - recently loaded:', field.name)
+      logger.debug('⏭️ [GenericSelectField] Skipping reload for dependent field - recently loaded:', field.name)
       return
     }
 
@@ -397,7 +399,7 @@ export function GenericSelectField({
     if (shouldLoad) {
       const forceRefresh = hasAttemptedLoad && !hasOptions // Only force refresh if we tried but got no options
 
-      console.log('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
+      logger.debug('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
         dependsOn: field.dependsOn,
         dependsOnValue: dependencyValue,
         forceRefresh,
@@ -426,7 +428,7 @@ export function GenericSelectField({
 
   // Drag and drop handlers
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
-    console.log('🎯 [GenericSelectField] Drag over:', { fieldName: field.name })
+    logger.debug('🎯 [GenericSelectField] Drag over:', { fieldName: field.name })
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -445,7 +447,7 @@ export function GenericSelectField({
     setIsDragOver(false)
 
     const droppedText = e.dataTransfer.getData('text/plain')
-    console.log('🎯 [GenericSelectField] Variable dropped:', {
+    logger.debug('🎯 [GenericSelectField] Variable dropped:', {
       fieldName: field.name,
       droppedText,
       isVariable: droppedText.startsWith('{{') && droppedText.endsWith('}}'),
@@ -467,7 +469,7 @@ export function GenericSelectField({
       const friendlyLabel = getFriendlyVariableLabel(droppedText, workflowNodes)
       setDisplayLabel(friendlyLabel)
 
-      console.log('✅ [GenericSelectField] Variable accepted:', {
+      logger.debug('✅ [GenericSelectField] Variable accepted:', {
         fieldName: field.name,
         variable: droppedText,
         friendlyLabel,

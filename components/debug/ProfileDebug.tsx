@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge"
 import { RefreshCw, User, Mail, Crown } from "lucide-react"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function ProfileDebug() {
   const { user, profile, initialize } = useAuthStore()
 
   const refreshProfile = async () => {
-    console.log("🔄 Manually refreshing profile...")
+    logger.debug("🔄 Manually refreshing profile...")
     await initialize()
   }
 
@@ -19,46 +21,46 @@ export default function ProfileDebug() {
     if (!user?.id) return
     
     try {
-      console.log("🔍 Checking database profile for user:", user.id)
+      logger.debug("🔍 Checking database profile for user:", user.id)
       
       // Try with role column
-      console.log("1. Trying query with role column...")
+      logger.debug("1. Trying query with role column...")
       const { data: withRole, error: withRoleError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .single()
       
-      console.log("With role column:", { data: withRole, error: withRoleError })
+      logger.debug("With role column:", { data: withRole, error: withRoleError })
       
       // Try without role column
-      console.log("2. Trying query without role column...")
+      logger.debug("2. Trying query without role column...")
       const { data: withoutRole, error: withoutRoleError } = await supabase
         .from('user_profiles')
         .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
         .eq('id', user.id)
         .single()
       
-      console.log("Without role column:", { data: withoutRole, error: withoutRoleError })
+      logger.debug("Without role column:", { data: withoutRole, error: withoutRoleError })
       
       // Try minimal query
-      console.log("3. Trying minimal query...")
+      logger.debug("3. Trying minimal query...")
       const { data: minimal, error: minimalError } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .eq('id', user.id)
         .single()
       
-      console.log("Minimal query:", { data: minimal, error: minimalError })
+      logger.debug("Minimal query:", { data: minimal, error: minimalError })
       
       // Try without single() to see if it's a single record issue
-      console.log("4. Trying without single()...")
+      logger.debug("4. Trying without single()...")
       const { data: multiple, error: multipleError } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .eq('id', user.id)
       
-      console.log("Multiple records query:", { data: multiple, error: multipleError })
+      logger.debug("Multiple records query:", { data: multiple, error: multipleError })
       
       alert(`Check console for detailed database profile results. 
       
@@ -67,7 +69,7 @@ Without role: ${withoutRoleError ? 'ERROR' : 'SUCCESS'}
 Minimal: ${minimalError ? 'ERROR' : 'SUCCESS'}
 Multiple: ${multipleError ? 'ERROR' : 'SUCCESS'}`)
     } catch (error) {
-      console.error("Error checking database profile:", error)
+      logger.error("Error checking database profile:", error)
       alert(`Error: ${error}`)
     }
   }

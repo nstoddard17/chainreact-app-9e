@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { renewExpiringGoogleWatches, cleanupExpiredSubscriptions } from '@/lib/webhooks/google-watch-renewal'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,10 +11,10 @@ export async function POST(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
 
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
-    console.log('🔄 Starting Google watch renewal process...')
+    logger.debug('🔄 Starting Google watch renewal process...')
 
     // Renew expiring watches
     await renewExpiringGoogleWatches()
@@ -19,28 +22,23 @@ export async function POST(request: NextRequest) {
     // Clean up old expired subscriptions
     await cleanupExpiredSubscriptions()
 
-    console.log('✅ Google watch renewal process completed')
+    logger.debug('✅ Google watch renewal process completed')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Google watches renewed successfully',
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Failed to renew Google watches:', error)
-    return NextResponse.json(
-      {
-        error: 'Failed to renew watches',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    logger.error('Failed to renew Google watches:', error)
+    return errorResponse('Failed to renew watches', 500, { details: error instanceof Error ? error.message : 'Unknown error'
+       })
   }
 }
 
 export async function GET(request: NextRequest) {
   // Health check endpoint
-  return NextResponse.json({
+  return jsonResponse({
     status: 'healthy',
     service: 'google-watch-renewal',
     description: 'Renews expiring Google API watches for Gmail, Drive, Calendar, and Sheets',

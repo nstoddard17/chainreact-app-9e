@@ -6,6 +6,8 @@ import { GmailIntegration, GmailSignature, GmailDataHandler } from '../types'
 import { validateGmailIntegration } from '../utils'
 import { decrypt } from '../../../../../../lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Gmail signatures from recent sent emails
  * Since Gmail doesn't have a direct signatures API, we analyze recent sent emails to extract signatures
@@ -13,11 +15,11 @@ import { decrypt } from '../../../../../../lib/security/encryption'
 export const getGmailSignatures: GmailDataHandler<GmailSignature> = async (integration: GmailIntegration) => {
   try {
     validateGmailIntegration(integration)
-    console.log('🔍 [Gmail Signatures] Fetching signatures for user:', integration.user_id)
+    logger.debug('🔍 [Gmail Signatures] Fetching signatures for user:', integration.user_id)
     
     // Validate integration has access token
     if (!integration.access_token) {
-      console.log('⚠️ [Gmail Signatures] No access token, returning empty signatures')
+      logger.debug('⚠️ [Gmail Signatures] No access token, returning empty signatures')
       return []
     }
 
@@ -35,13 +37,13 @@ export const getGmailSignatures: GmailDataHandler<GmailSignature> = async (integ
 
       if (settingsResponse.ok) {
         const settings = await settingsResponse.json()
-        console.log('📧 [Gmail Signatures] Settings data:', settings)
+        logger.debug('📧 [Gmail Signatures] Settings data:', settings)
         
         // Gmail API doesn't actually expose signatures in settings
         // This will likely not contain signature data
       }
     } catch (error) {
-      console.log('⚠️ [Gmail Signatures] Settings API not available')
+      logger.debug('⚠️ [Gmail Signatures] Settings API not available')
     }
 
     // Get profile for email address
@@ -55,15 +57,15 @@ export const getGmailSignatures: GmailDataHandler<GmailSignature> = async (integ
     const profile = profileResponse.ok ? await profileResponse.json() : null
     const emailAddress = profile?.emailAddress || 'your-email@gmail.com'
 
-    console.log('📧 [Gmail Signatures] Unfortunately, Gmail API does not expose user signatures')
-    console.log('📧 [Gmail Signatures] Gmail signatures are stored locally in browser/client, not on Google servers')
+    logger.debug('📧 [Gmail Signatures] Unfortunately, Gmail API does not expose user signatures')
+    logger.debug('📧 [Gmail Signatures] Gmail signatures are stored locally in browser/client, not on Google servers')
     
     // Since Gmail API doesn't provide signatures, return empty array
     // The UI should show a message that Gmail doesn't support signature sync
     return []
 
   } catch (error: any) {
-    console.error('❌ [Gmail Signatures] Error fetching signatures:', error)
+    logger.error('❌ [Gmail Signatures] Error fetching signatures:', error)
     
     // Fallback signatures
     return [

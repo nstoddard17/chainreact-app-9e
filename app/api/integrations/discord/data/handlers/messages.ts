@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordMessage, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
     const { channelId, actionType } = options
@@ -14,21 +16,21 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       return []
     }
 
-    console.log("🔍 Fetching messages for channel:", channelId)
+    logger.debug("🔍 Fetching messages for channel:", channelId)
 
     // Use bot token for server operations
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not available - returning empty messages list")
+      logger.warn("Discord bot token not available - returning empty messages list")
       return []
     }
 
-    console.log("🔍 Bot token available, making Discord API call...")
+    logger.debug("🔍 Bot token available, making Discord API call...")
 
     try {
       // Validate channel ID format
       if (!channelId || typeof channelId !== 'string' || !/^\d+$/.test(channelId)) {
-        console.error(`❌ Invalid channel ID format: ${channelId}`)
+        logger.error(`❌ Invalid channel ID format: ${channelId}`)
         throw new Error(`Invalid channel ID format: ${channelId}. Please select a valid Discord channel.`)
       }
 
@@ -63,7 +65,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       })
 
       if (isEditAction && filteredMessages.length === 0 && data.length > 0) {
-        console.log(`⚠️ [Discord Messages] No editable messages found. Discord API limitation: Bots can only edit their own messages, not messages from other users.`);
+        logger.debug(`⚠️ [Discord Messages] No editable messages found. Discord API limitation: Bots can only edit their own messages, not messages from other users.`);
       }
 
       const processedMessages = filteredMessages
@@ -136,13 +138,13 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
 
       // Debug: Log message data
       if (isEditAction) {
-        console.log(`📝 [Discord Messages] Edit action: Found ${processedMessages.length} bot messages that can be edited (Discord API only allows editing own messages)`);
+        logger.debug(`📝 [Discord Messages] Edit action: Found ${processedMessages.length} bot messages that can be edited (Discord API only allows editing own messages)`);
       }
       const messagesWithReactions = processedMessages.filter(msg => msg.reactions && msg.reactions.length > 0);
-      console.log(`🔍 [Discord Messages] Processed ${processedMessages.length} messages, ${messagesWithReactions.length} have reactions`);
+      logger.debug(`🔍 [Discord Messages] Processed ${processedMessages.length} messages, ${messagesWithReactions.length} have reactions`);
       
       if (messagesWithReactions.length > 0) {
-        console.log('🔍 [Discord Messages] Sample message with reactions:', {
+        logger.debug('🔍 [Discord Messages] Sample message with reactions:', {
           id: messagesWithReactions[0].id,
           content: `${messagesWithReactions[0].content?.substring(0, 30) }...`,
           reactions: messagesWithReactions[0].reactions.map((r: any) => ({
@@ -151,9 +153,9 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
           }))
         });
       } else {
-        console.log('🔍 [Discord Messages] No messages found with reactions in this response');
+        logger.debug('🔍 [Discord Messages] No messages found with reactions in this response');
         if (processedMessages.length > 0) {
-          console.log('🔍 [Discord Messages] Sample message structure:', {
+          logger.debug('🔍 [Discord Messages] Sample message structure:', {
             id: processedMessages[0].id,
             hasReactions: processedMessages[0].hasOwnProperty('reactions'),
             reactions: processedMessages[0].reactions
@@ -163,7 +165,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
 
       return processedMessages
     } catch (error: any) {
-      console.error("🔍 Discord API error:", error.message, "Status:", error.status)
+      logger.error("🔍 Discord API error:", error.message, "Status:", error.status)
       // Handle specific Discord API errors by status code
       if (error.status === 401 || error.message.includes("401")) {
         throw new Error("Discord authentication failed. Please reconnect your Discord account.")
@@ -173,12 +175,12 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       }
       if (error.status === 404 || error.message.includes("404")) {
         // Channel not found - return empty array instead of throwing error
-        console.log(`Channel ${channelId} not found - returning empty messages list`)
+        logger.debug(`Channel ${channelId} not found - returning empty messages list`)
         return []
       }
       if (error.status === 400 || error.message.includes("400")) {
         // Invalid request - likely invalid channel ID or bot permissions
-        console.error(`Invalid Discord API request for channel ${channelId}:`, error.message)
+        logger.error(`Invalid Discord API request for channel ${channelId}:`, error.message)
         throw new Error(`Invalid Discord channel or insufficient bot permissions. Please ensure the bot has access to this channel and try again.`)
       }
       if (error.status === 429 || error.message.includes("rate limit")) {
@@ -186,11 +188,11 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       }
       
       // For unexpected errors, provide better context
-      console.error(`Unexpected error fetching messages for channel ${channelId}:`, error)
+      logger.error(`Unexpected error fetching messages for channel ${channelId}:`, error)
       throw new Error(`Failed to fetch Discord messages: ${error.message}`)
     }
   } catch (error: any) {
-    console.error("Error fetching Discord messages:", error)
+    logger.error("Error fetching Discord messages:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

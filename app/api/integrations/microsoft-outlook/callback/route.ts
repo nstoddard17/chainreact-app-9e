@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const message = errorDescription || error
-    console.error(`Error with Microsoft Outlook OAuth: ${message}`)
+    logger.error(`Error with Microsoft Outlook OAuth: ${message}`)
     return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
@@ -90,9 +93,9 @@ export async function GET(request: NextRequest) {
                                  email.includes("gmail.com")
         
         if (isPersonalAccount) {
-          console.warn("⚠️ Personal Microsoft account detected:", email)
-          console.warn("   Outlook API may have limitations with personal accounts")
-          console.warn("   Some features may not work as expected")
+          logger.warn("⚠️ Personal Microsoft account detected:", email)
+          logger.warn("   Outlook API may have limitations with personal accounts")
+          logger.warn("   Some features may not work as expected")
           
           // Store a warning flag in the integration metadata
           const metadata = {
@@ -105,7 +108,7 @@ export async function GET(request: NextRequest) {
           
           tokenData._metadata = metadata
         } else {
-          console.log("✅ Work/School account detected:", email)
+          logger.debug("✅ Work/School account detected:", email)
           tokenData._metadata = {
             accountType: "work",
             email: email,
@@ -114,7 +117,7 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (checkError) {
-      console.error("Could not check account type:", checkError)
+      logger.error("Could not check account type:", checkError)
     }
 
     // Calculate refresh token expiration (Microsoft default is 90 days)
@@ -184,7 +187,7 @@ export async function GET(request: NextRequest) {
       { payload }
     )
   } catch (e: any) {
-    console.error("Microsoft Outlook callback error:", e)
+    logger.error("Microsoft Outlook callback error:", e)
     return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }

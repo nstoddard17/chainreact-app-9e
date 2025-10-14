@@ -8,6 +8,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class MicrosoftCalendarAdapter implements CalendarProvider {
   readonly providerId = 'microsoft-calendar'
   readonly capabilities: CapabilityDescriptor = {
@@ -104,7 +106,7 @@ export class MicrosoftCalendarAdapter implements CalendarProvider {
         message: 'Event created successfully in Microsoft Calendar'
       }
     } catch (error: any) {
-      console.error('Microsoft Calendar create event error:', error)
+      logger.error('Microsoft Calendar create event error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create event in Microsoft Calendar',
@@ -329,7 +331,7 @@ export class MicrosoftCalendarAdapter implements CalendarProvider {
       
       return response.json()
     } catch (error: any) {
-      console.error('Microsoft Calendar free/busy error:', error)
+      logger.error('Microsoft Calendar free/busy error:', error)
       throw error
     }
   }
@@ -376,7 +378,7 @@ export class MicrosoftCalendarAdapter implements CalendarProvider {
       
       return response.json()
     } catch (error: any) {
-      console.error('Microsoft Calendar find meeting times error:', error)
+      logger.error('Microsoft Calendar find meeting times error:', error)
       throw error
     }
   }

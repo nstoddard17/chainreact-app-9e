@@ -5,13 +5,15 @@
 import { SlackIntegration, SlackChannel, SlackDataHandler } from '../types'
 import { validateSlackIntegration, makeSlackApiRequest } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Slack channels for the authenticated workspace
  */
 export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    console.log("💬 [Slack Channels] Fetching channels")
+    logger.debug("💬 [Slack Channels] Fetching channels")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=1000",
@@ -41,11 +43,11 @@ export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integrati
         purpose: channel.purpose,
       }))
 
-    console.log(`✅ [Slack Channels] Retrieved ${channels.length} channels`)
+    logger.debug(`✅ [Slack Channels] Retrieved ${channels.length} channels`)
     return channels
 
   } catch (error: any) {
-    console.error("❌ [Slack Channels] Error fetching channels:", error)
+    logger.error("❌ [Slack Channels] Error fetching channels:", error)
     throw error
   }
 }

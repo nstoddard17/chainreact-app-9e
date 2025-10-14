@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Creates a new row in a Microsoft Excel worksheet using the Microsoft Graph API
  */
@@ -37,15 +39,15 @@ export async function createMicrosoftExcelRow(
     // Extract values in the order they appear in the mapping object
     const values: any[] = []
 
-    console.log('📊 [Excel Create Row] Field mapping received:', fieldMapping)
-    console.log('📊 [Excel Create Row] Mapping order:', Object.keys(fieldMapping))
+    logger.debug('📊 [Excel Create Row] Field mapping received:', fieldMapping)
+    logger.debug('📊 [Excel Create Row] Mapping order:', Object.keys(fieldMapping))
 
     for (const [columnName, value] of Object.entries(fieldMapping)) {
       values.push(value || '')
-      console.log(`  Column "${columnName}" -> value: "${value}"`)
+      logger.debug(`  Column "${columnName}" -> value: "${value}"`)
     }
 
-    console.log('📊 [Excel Create Row] Final values array (length:', values.length, '):', values)
+    logger.debug('📊 [Excel Create Row] Final values array (length:', values.length, '):', values)
 
     // Determine where to insert the row
     let rangeAddress = ''
@@ -146,7 +148,7 @@ export async function createMicrosoftExcelRow(
     }
 
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel Create Row] Error:', error)
+    logger.error('❌ [Microsoft Excel Create Row] Error:', error)
     return {
       success: false,
       output: {},

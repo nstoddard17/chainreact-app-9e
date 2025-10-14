@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,10 +12,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -25,10 +25,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
@@ -63,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     if (!propertiesResponse.ok) {
       const errorData = await propertiesResponse.json().catch(() => ({}))
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: `HubSpot API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
           status: propertiesResponse.status,
@@ -94,21 +91,17 @@ export async function GET(request: NextRequest) {
       .map(colName => tableProperties.find((p: any) => p.name === colName))
       .filter(Boolean)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: orderedProperties,
       message: "These are the fields typically shown in the HubSpot contacts table"
     })
 
   } catch (error: any) {
-    console.error("HubSpot contact table columns error:", error)
-    return NextResponse.json(
-      {
-        error: "Internal server error",
+    logger.error("HubSpot contact table columns error:", error)
+    return errorResponse("Internal server error", 500, {
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    )
+      })
   }
 }

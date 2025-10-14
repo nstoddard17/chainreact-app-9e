@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteGetPageContent(
   params: {
     pageId: string
@@ -12,7 +14,7 @@ export async function onenoteGetPageContent(
   const { pageId, includeIDs = false, preGenerated = true } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would get OneNote page content:", { pageId, includeIDs })
+    logger.debug("[TEST MODE] Would get OneNote page content:", { pageId, includeIDs })
     return {
       success: true,
       data: {
@@ -74,7 +76,7 @@ export async function onenoteGetPageContent(
       }
     }
   } catch (error: any) {
-    console.error("Error getting OneNote page content:", error)
+    logger.error("Error getting OneNote page content:", error)
     return {
       success: false,
       error: error.message || "Failed to get OneNote page content"

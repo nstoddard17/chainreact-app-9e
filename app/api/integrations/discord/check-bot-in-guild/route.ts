@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   // Debug endpoint to check bot configuration
@@ -7,7 +10,7 @@ export async function GET(request: NextRequest) {
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botUserId || !botToken) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: "Bot configuration missing",
         botUserId: botUserId ? "SET" : "MISSING",
         botToken: botToken ? "SET" : "MISSING",
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
         guilds = await guildsResponse.json()
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         status: "Bot credentials valid",
         botUserId: botUserId,
         botInfo: {
@@ -54,14 +57,14 @@ export async function GET(request: NextRequest) {
         guilds: guilds.map((g: any) => ({ id: g.id, name: g.name }))
       })
     } 
-      return NextResponse.json({
+      return jsonResponse({
         error: "Bot credentials invalid",
         status: botInfoResponse.status,
         statusText: botInfoResponse.statusText
       })
     
   } catch (error) {
-    return NextResponse.json({
+    return jsonResponse({
       error: "Error testing bot credentials",
       message: error instanceof Error ? error.message : "Unknown error"
     })
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
     const { guildId, channelId } = await request.json()
     
     if (!guildId) {
-      return NextResponse.json({ error: "Guild ID is required" }, { status: 400 })
+      return errorResponse("Guild ID is required" , 400)
     }
 
     // Bot credentials from environment variables
@@ -81,14 +84,13 @@ export async function POST(request: NextRequest) {
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botUserId || !botToken) {
-      console.error("Missing Discord bot credentials in environment variables")
-      return NextResponse.json({ 
-        error: "Bot configuration missing",
+      logger.error("Missing Discord bot credentials in environment variables")
+      return errorResponse("Bot configuration missing", 500, {
         missingVars: [
           ...(!botUserId ? ['DISCORD_CLIENT_ID'] : []),
           ...(!botToken ? ['DISCORD_BOT_TOKEN'] : [])
         ]
-      }, { status: 500 })
+      })
     }
 
     // First, verify bot credentials are valid by checking bot's own user info
@@ -101,16 +103,16 @@ export async function POST(request: NextRequest) {
       })
 
       if (botInfoResponse.status !== 200) {
-        return NextResponse.json({ error: "Invalid bot credentials" }, { status: 500 })
+        return errorResponse("Invalid bot credentials" , 500)
       }
 
       const botInfo = await botInfoResponse.json()
       
       if (botInfo.id !== botUserId) {
-        return NextResponse.json({ error: "Bot user ID mismatch" }, { status: 500 })
+        return errorResponse("Bot user ID mismatch" , 500)
       }
     } catch (credentialError) {
-      return NextResponse.json({ error: "Failed to verify bot credentials" }, { status: 500 })
+      return errorResponse("Failed to verify bot credentials" , 500)
     }
 
     // Check if bot is in the guild by fetching guild members
@@ -137,16 +139,16 @@ export async function POST(request: NextRequest) {
         }
       } else if (guildResponse.status === 403) {
         // Bot doesn't have permission to view guild members
-        return NextResponse.json({ 
+        return jsonResponse({ 
           present: false, 
           error: "Insufficient permissions",
           details: "Bot cannot view guild members"
         })
       } else if (guildResponse.status === 404) {
         // Guild not found or bot not in guild
-        return NextResponse.json({ present: false })
+        return jsonResponse({ present: false })
       } else {
-        return NextResponse.json({ error: "Failed to check bot status" }, { status: 500 })
+        return errorResponse("Failed to check bot status" , 500)
       }
     } catch (guildError) {
       // Fallback method: Try direct member check
@@ -169,7 +171,7 @@ export async function POST(request: NextRequest) {
         } else if (memberResponse.status === 404) {
           botInGuild = false
         } else if (memberResponse.status === 403) {
-          return NextResponse.json({ 
+          return jsonResponse({ 
             present: false, 
             error: "Insufficient permissions",
             details: "Bot cannot access guild member information"
@@ -182,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     // If bot is not in guild, return early
     if (!botInGuild) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         present: false,
         details: "Bot is not a member of this guild"
       })
@@ -236,7 +238,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       present: true,
       botInGuild: true,
       guildPermissions: guildPermissions,
@@ -245,7 +247,7 @@ export async function POST(request: NextRequest) {
     })
     
   } catch (error) {
-    console.error("❌ Error checking bot in guild:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("❌ Error checking bot in guild:", error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

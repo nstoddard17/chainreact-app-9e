@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Verify admin authorization
     const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
     if (authError || !currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get current user's profile to check admin role
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (currentProfile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      return errorResponse('Admin access required' , 403)
     }
 
     const body = await request.json()
@@ -29,18 +32,12 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      )
+      return errorResponse('User ID is required' , 400)
     }
 
     // Validate role if provided
     if (role && !ROLES[role as UserRole]) {
-      return NextResponse.json(
-        { error: 'Invalid role specified' },
-        { status: 400 }
-      )
+      return errorResponse('Invalid role specified' , 400)
     }
 
     const adminSupabase = await createSupabaseServiceClient()
@@ -48,10 +45,7 @@ export async function POST(request: NextRequest) {
     // Check if user exists
     const { data: existingUser } = await adminSupabase.auth.admin.getUserById(userId)
     if (!existingUser.user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return errorResponse('User not found' , 404)
     }
 
     // Prepare updates for auth user
@@ -68,11 +62,8 @@ export async function POST(request: NextRequest) {
       )
 
       if (authUpdateError) {
-        console.error('Error updating auth user:', authUpdateError)
-        return NextResponse.json(
-          { error: authUpdateError.message },
-          { status: 400 }
-        )
+        logger.error('Error updating auth user:', authUpdateError)
+        return errorResponse(authUpdateError.message , 400)
       }
     }
 
@@ -91,11 +82,8 @@ export async function POST(request: NextRequest) {
       .eq('id', userId)
 
     if (profileUpdateError) {
-      console.error('Error updating user profile:', profileUpdateError)
-      return NextResponse.json(
-        { error: 'Failed to update user profile' },
-        { status: 500 }
-      )
+      logger.error('Error updating user profile:', profileUpdateError)
+      return errorResponse('Failed to update user profile' , 500)
     }
 
     // Get updated user data
@@ -107,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const { data: updatedAuthUser } = await adminSupabase.auth.admin.getUserById(userId)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       user: {
         id: userId,
@@ -119,10 +107,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in user update API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error in user update API:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

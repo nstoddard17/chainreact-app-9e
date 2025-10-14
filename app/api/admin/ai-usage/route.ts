@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 // Initialize Supabase with service role for admin access
 const supabase = createClient(
@@ -24,8 +27,8 @@ export async function GET(request: NextRequest) {
       .select('id, email, username')
 
     if (usersError) {
-      console.error('Error fetching users:', usersError)
-      return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+      logger.error('Error fetching users:', usersError)
+      return errorResponse('Failed to fetch users' , 500)
     }
 
     // Fetch usage data for all users
@@ -103,13 +106,13 @@ export async function GET(request: NextRequest) {
       users_at_limit: userUsageData.filter(u => u.budget.usage_percent >= 100).length
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       users: userUsageData,
       stats
     })
     
   } catch (error) {
-    console.error("Error fetching admin AI usage:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error fetching admin AI usage:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

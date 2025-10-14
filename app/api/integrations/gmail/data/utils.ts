@@ -5,6 +5,8 @@
 import { decrypt } from '@/lib/security/encryption'
 import { GmailApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Extract email addresses from header value
  */
@@ -38,13 +40,13 @@ export function extractEmailAddresses(headerValue: string): { email: string; nam
           emails.push({ email: email.trim() })
         }
       } catch (error) {
-        console.warn(`Failed to parse email part: ${part}`, error)
+        logger.warn(`Failed to parse email part: ${part}`, error)
       }
     })
     
     return emails
   } catch (error) {
-    console.warn('Failed to extract email addresses:', error)
+    logger.warn('Failed to extract email addresses:', error)
     return emails
   }
 }
@@ -89,7 +91,7 @@ export function getGmailAccessToken(integration: any): string {
     const decryptedToken = decrypt(integration.access_token)
     return decryptedToken
   } catch (error: any) {
-    console.error('Failed to decrypt Gmail access token:', error.message)
+    logger.error('Failed to decrypt Gmail access token:', error.message)
     throw new Error('Gmail token decryption failed. Please reconnect your account.')
   }
 }

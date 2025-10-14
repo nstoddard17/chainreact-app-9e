@@ -2,6 +2,8 @@ import type { Buffer } from 'buffer'
 import { randomUUID } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+import { logger } from '@/lib/utils/logger'
+
 const DEFAULT_BUCKET = process.env.AIRTABLE_TEMP_STORAGE_BUCKET || 'workflow-files'
 const DEFAULT_BASE_PATH = 'temp-attachments/airtable'
 const SIGNED_URL_EXPIRATION_SECONDS = 60 * 60 // 1 hour
@@ -29,7 +31,7 @@ async function ensureBucketReady(): Promise<void> {
       const supabase = createAdminClient()
       const { data: buckets, error: listError } = await supabase.storage.listBuckets()
       if (listError) {
-        console.error('❌ [Airtable] Failed to list Supabase buckets:', listError)
+        logger.error('❌ [Airtable] Failed to list Supabase buckets:', listError)
         throw listError
       }
 
@@ -41,7 +43,7 @@ async function ensureBucketReady(): Promise<void> {
         })
 
         if (createError) {
-          console.error('❌ [Airtable] Failed to create Supabase bucket:', createError)
+          logger.error('❌ [Airtable] Failed to create Supabase bucket:', createError)
           throw createError
         }
 
@@ -123,9 +125,9 @@ export function scheduleTempAttachmentCleanup(paths: string[], delayMs: number =
   setTimeout(async () => {
     try {
       await deleteTempAttachments(paths)
-      console.log(`🧹 [Airtable] Cleaned up ${paths.length} temporary Supabase attachment(s)`) // eslint-disable-line no-console
+      logger.debug(`🧹 [Airtable] Cleaned up ${paths.length} temporary Supabase attachment(s)`) // eslint-disable-line no-console
     } catch (error) {
-      console.error('❌ [Airtable] Failed to clean up Supabase attachments:', error)
+      logger.error('❌ [Airtable] Failed to clean up Supabase attachments:', error)
     }
   }, delayMs)
 }

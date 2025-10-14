@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
     // Admin-only endpoint - check for admin key
     const adminKey = request.headers.get('x-admin-key')
     if (adminKey !== process.env.ADMIN_API_KEY) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get request data
@@ -40,17 +43,14 @@ export async function POST(request: NextRequest) {
     } else if (user_id) {
       query = query.eq('user_id', user_id)
     } else {
-      return NextResponse.json(
-        { error: 'At least one filter (integration_id, provider, or user_id) is required' }, 
-        { status: 400 }
-      )
+      return errorResponse('At least one filter (integration_id, provider, or user_id) is required' , 400)
     }
 
     const { error, count } = await query
     
     if (error) {
-      console.error('Error reactivating integrations:', error)
-      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+      logger.error('Error reactivating integrations:', error)
+      return errorResponse('Database error' , 500)
     }
 
     // Get the updated integrations for the response
@@ -69,17 +69,17 @@ export async function POST(request: NextRequest) {
     const { data: updatedIntegrations, error: selectError } = await selectQuery
     
     if (selectError) {
-      console.error('Error fetching updated integrations:', selectError)
+      logger.error('Error fetching updated integrations:', selectError)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Successfully reactivated ${count} integration(s)`,
       count,
       integrations: updatedIntegrations || []
     })
   } catch (error) {
-    console.error('Error in reactivate integration endpoint:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error('Error in reactivate integration endpoint:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

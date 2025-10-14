@@ -1,6 +1,8 @@
 import { resolveValue } from "@/lib/workflows/actions/core/resolveValue"
 import { ActionResult } from "@/lib/workflows/actions"
 
+import { logger } from '@/lib/utils/logger'
+
 type OutputField = {
   name: string
   description?: string
@@ -153,7 +155,7 @@ function extractStructuredOutput(raw: string, fields: OutputField[]): Record<str
     if (typeof parsed !== "object" || parsed === null) return null
     return parsed
   } catch (error) {
-    console.warn("[AI Message] Failed to parse JSON output:", error)
+    logger.warn("[AI Message] Failed to parse JSON output:", error)
     return null
   }
 }
@@ -273,7 +275,7 @@ export async function executeAIMessage({
         contextSections.push(`Step ${nodeId} Output:\n${serialised}`)
       }
     } catch (error) {
-      console.warn("[AI Message] Failed to serialise context for node", nodeId, error)
+      logger.warn("[AI Message] Failed to serialise context for node", nodeId, error)
     }
   })
 
@@ -341,7 +343,7 @@ export async function executeAIMessage({
       message: "AI message generated successfully",
     }
   } catch (error: any) {
-    console.error("[AI Message] Execution failed:", error)
+    logger.error("[AI Message] Execution failed:", error)
     return {
       success: false,
       output: {},

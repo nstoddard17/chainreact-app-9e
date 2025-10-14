@@ -2,6 +2,8 @@ import { ActionResult, ActionConfig } from '../../integrations/ports/connector-c
 import { providerRegistry } from '../../integrations/use-cases/provider-registry'
 import { WorkflowError, ErrorType } from '../../integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 export type ActionHandler = (config: ActionConfig, context: ActionContext) => Promise<ActionResult>
 
 export interface ActionContext {
@@ -64,7 +66,7 @@ export class ActionRegistry {
 
     // Check if action is deprecated
     if (actionDef.metadata.deprecated) {
-      console.warn(`Action ${actionId} is deprecated. Consider updating workflow.`)
+      logger.warn(`Action ${actionId} is deprecated. Consider updating workflow.`)
     }
 
     // Verify provider is available

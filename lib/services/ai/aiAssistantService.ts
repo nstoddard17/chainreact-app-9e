@@ -4,6 +4,8 @@ import { AIIntentAnalysisService } from "./aiIntentAnalysisService"
 import { AIActionExecutionService } from "./aiActionExecutionService"
 import { trackUsage } from "@/lib/usageTracking"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface AIAssistantRequest {
   message: string
 }
@@ -26,7 +28,7 @@ export class AIAssistantService {
   }
 
   async processMessage(request: NextRequest): Promise<AIAssistantResponse> {
-    console.log("🤖 Starting AI Assistant message processing")
+    logger.debug("🤖 Starting AI Assistant message processing")
 
     try {
       // 1. Validate OpenAI configuration
@@ -51,7 +53,7 @@ export class AIAssistantService {
         }
       }
 
-      console.log("📝 Processing message:", `${message.substring(0, 100) }...`)
+      logger.debug("📝 Processing message:", `${message.substring(0, 100) }...`)
 
       // 3. Authenticate user
       const authResult = await this.authService.authenticateRequest(request)
@@ -66,7 +68,7 @@ export class AIAssistantService {
       }
 
       const user = authResult.user
-      console.log("✅ User authenticated:", user.id)
+      logger.debug("✅ User authenticated:", user.id)
 
       // 4. Check usage limits
       const usageCheck = await this.authService.checkAIUsageLimit(user.id)
@@ -94,13 +96,13 @@ export class AIAssistantService {
       let intent
       try {
         intent = await this.intentService.analyzeIntent(message, integrations, 15000)
-        console.log("🧠 Intent analysis completed:", {
+        logger.debug("🧠 Intent analysis completed:", {
           intent: intent.intent,
           action: intent.action,
           specifiedIntegration: intent.specifiedIntegration
         })
       } catch (intentError: any) {
-        console.error("❌ Intent analysis failed:", intentError)
+        logger.error("❌ Intent analysis failed:", intentError)
         // Fallback to general response
         intent = {
           intent: "general",
@@ -113,9 +115,9 @@ export class AIAssistantService {
       let result
       try {
         result = await this.actionService.executeAction(intent, integrations, user.id, this.authService.getSupabaseAdmin())
-        console.log("✅ Action execution completed")
+        logger.debug("✅ Action execution completed")
       } catch (actionError: any) {
-        console.error("❌ Action execution failed:", actionError)
+        logger.error("❌ Action execution failed:", actionError)
         // Fallback response
         result = this.actionService.getFallbackResponse()
       }
@@ -133,18 +135,18 @@ export class AIAssistantService {
           message_length: message.length
         })
       } catch (trackingError) {
-        console.error("❌ Failed to track AI usage:", trackingError)
+        logger.error("❌ Failed to track AI usage:", trackingError)
         // Don't fail the request if tracking fails
       }
 
-      console.log("✅ AI Assistant processing completed successfully")
+      logger.debug("✅ AI Assistant processing completed successfully")
       return {
         content: result.content,
         metadata: result.metadata
       }
 
     } catch (error: any) {
-      console.error("❌ AI Assistant error:", error)
+      logger.error("❌ AI Assistant error:", error)
       
       let errorMessage = "Internal server error"
       let userMessage = "I encountered an unexpected error. Please try again."

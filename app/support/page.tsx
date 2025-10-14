@@ -18,6 +18,8 @@ import AppLayout from "@/components/layout/AppLayout"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface SupportTicket {
   id: string
   ticket_number: string
@@ -367,7 +369,7 @@ export default function SupportPage() {
         toast.error('Failed to fetch tickets')
       }
     } catch (error) {
-      console.error('Error fetching tickets:', error)
+      logger.error('Error fetching tickets:', error)
       toast.error('Failed to fetch tickets')
     } finally {
       setLoading(false)
@@ -445,7 +447,7 @@ export default function SupportPage() {
         toast.error(error.error || 'Failed to create ticket')
       }
     } catch (error) {
-      console.error('Error creating ticket:', error)
+      logger.error('Error creating ticket:', error)
       toast.error('Failed to create ticket')
     } finally {
       setCreatingTicket(false)

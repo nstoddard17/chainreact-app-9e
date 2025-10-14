@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteCreateNotebook(
   params: {
     displayName: string
@@ -12,7 +14,7 @@ export async function onenoteCreateNotebook(
   const { displayName, userRole = "owner", overwriteIfExists = false } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would create OneNote notebook:", { displayName, userRole })
+    logger.debug("[TEST MODE] Would create OneNote notebook:", { displayName, userRole })
     return {
       success: true,
       data: {
@@ -76,13 +78,13 @@ export async function onenoteCreateNotebook(
         accessToken,
         { method: 'GET' }
       )
-      console.log('[OneNote] Created notebook for user', {
+      logger.debug('[OneNote] Created notebook for user', {
         userId: me?.id,
         userPrincipalName: me?.userPrincipalName,
         mail: me?.mail
       })
     } catch (e) {
-      console.warn('[OneNote] Failed to fetch profile after creation:', (e as any)?.message)
+      logger.warn('[OneNote] Failed to fetch profile after creation:', (e as any)?.message)
     }
 
     try {
@@ -91,13 +93,13 @@ export async function onenoteCreateNotebook(
         accessToken,
         { method: 'GET' }
       )
-      console.log('[OneNote] Notebook confirmation', {
+      logger.debug('[OneNote] Notebook confirmation', {
         id: confirmed?.id,
         displayName: confirmed?.displayName,
         webUrl: confirmed?.links?.oneNoteWebUrl?.href || confirmed?.webUrl
       })
     } catch (e) {
-      console.warn('[OneNote] Notebook not immediately visible via GET by id (may be eventual consistency).', {
+      logger.warn('[OneNote] Notebook not immediately visible via GET by id (may be eventual consistency).', {
         id: notebook?.id,
         message: (e as any)?.message
       })
@@ -115,7 +117,7 @@ export async function onenoteCreateNotebook(
       }
     }
   } catch (error: any) {
-    console.error("Error creating OneNote notebook:", error?.message || error)
+    logger.error("Error creating OneNote notebook:", error?.message || error)
     return {
       success: false,
       error: error.message || "Failed to create OneNote notebook"

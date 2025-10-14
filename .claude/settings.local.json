@@ -98,7 +98,27 @@
       "Bash(git clean:*)",
       "Bash(git rm:*)",
       "Bash(del \"c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\app\\api\\webhooks\\microsoft\\route_BACKUP.ts\")",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git log:*)",
+      "Bash(awk:*)",
+      "Bash(find:*)",
+      "Bash(for file in app/api/integrations/discord/gateway-status/route.ts app/api/microsoft-graph/auto-subscribe/route.ts app/api/webhooks/notion/route.ts \"app/api/workflows/[id]/test-session/route.ts\")",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)",
+      "Bash(perl:*)",
+      "Bash(while read file)",
+      "Bash(do grep -L \"from ''''@/lib/utils/api-response''''\" \"$file\")",
+      "Bash(do if ! grep -q \"from ''''@/lib/utils/api-response''''\" \"$file\")",
+      "Bash(then echo \"$file\")",
+      "Bash(fi)",
+      "Bash(for file in app/api/*/route.ts)",
+      "Bash(do if grep -q \"jsonResponse\\|errorResponse\" \"$file\")",
+      "Bash(then if ! grep -q \"api-response\" \"$file\")",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(if grep -q \"from [''\"\"]next/server[''\"\"]\" \"$file\")",
+      "Bash(then)",
+      "Bash(echo:*)"
     ],
     "defaultMode": "acceptEdits"
   }

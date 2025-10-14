@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { updateSlackProviderPlan } from "@/lib/integrations/slack";
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server";
 
 export async function POST(request: NextRequest) {
   const { userId, workspaceId } = await request.json();
   if (!userId || !workspaceId) {
-    return NextResponse.json({ error: "Missing userId or workspaceId" }, { status: 400 });
+    return errorResponse("Missing userId or workspaceId" , 400);
   }
 
   await updateSlackProviderPlan(userId, workspaceId);
@@ -20,8 +21,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ plan: "free" });
+    return jsonResponse({ plan: "free" });
   }
 
-  return NextResponse.json({ plan: data.provider_plan || "free" });
+  return jsonResponse({ plan: data.provider_plan || "free" });
 } 

@@ -7,6 +7,8 @@ import { loadPromptOverrides } from "@/lib/ai/promptOverrides"
 import { NodeComponent } from "@/lib/workflows/nodes/types"
 import { nodeRegistry, getAllNodes, getNodeByType } from "@/lib/workflows/nodes/registry"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -525,7 +527,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
               a.type?.includes('github') || a.type?.includes('trello')
             )
             if (!hasTicketAction) {
-              console.warn(`Fixing Bug Report chain - adding ticket creation`)
+              logger.warn(`Fixing Bug Report chain - adding ticket creation`)
               chain.actions = [
                 { type: "github_action_create_issue", providerId: "github", aiConfigured: true, label: "Create Issue" },
                 { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Notify Team" },
@@ -539,7 +541,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
               a.type === 'notion_action_search_pages'
             )
             if (!hasSearchAction) {
-              console.warn(`Fixing Support chain - adding search action`)
+              logger.warn(`Fixing Support chain - adding search action`)
               chain.actions = [
                 { type: "notion_action_search_pages", providerId: "notion", aiConfigured: true, label: "Search Knowledge Base" },
                 ...(chain.actions || [])
@@ -550,7 +552,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
             // Urgent Chain - ensure it has Slack alert first
             const firstAction = chain.actions?.[0]
             if (!firstAction || !firstAction.type?.includes('slack')) {
-              console.warn(`Fixing Urgent chain - adding Slack alert`)
+              logger.warn(`Fixing Urgent chain - adding Slack alert`)
               chain.actions = [
                 { type: "slack_action_send_message", providerId: "slack", aiConfigured: true, label: "Alert Team" },
                 { type: "github_action_create_issue", providerId: "github", aiConfigured: true, label: "Create Urgent Ticket" },
@@ -564,7 +566,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
               a.type?.includes('notion') || a.type?.includes('airtable')
             )
             if (!hasStorageAction) {
-              console.warn(`Fixing Feature Request chain - adding storage action`)
+              logger.warn(`Fixing Feature Request chain - adding storage action`)
               chain.actions = [
                 { type: "notion_action_create_page", providerId: "notion", aiConfigured: true, label: "Log Request" },
                 ...(chain.actions || [])
@@ -603,7 +605,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
           
           // Add fallback chains if missing critical ones
           if (!hasBugChain) {
-            console.warn('Discord support workflow missing bug report chain - adding fallback')
+            logger.warn('Discord support workflow missing bug report chain - adding fallback')
             node.data.config.chains.push({
               id: `chain-fallback-bug-${Date.now()}`,
               name: "Bug Report Handler",
@@ -617,7 +619,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
           }
           
           if (!hasQuestionChain) {
-            console.warn('Discord support workflow missing question chain - adding fallback')
+            logger.warn('Discord support workflow missing question chain - adding fallback')
             node.data.config.chains.push({
               id: `chain-fallback-support-${Date.now()}`,
               name: "General Support",
@@ -630,7 +632,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
           }
 
           if (!hasUrgentChain) {
-            console.warn('Discord support workflow missing urgent chain - adding fallback')
+            logger.warn('Discord support workflow missing urgent chain - adding fallback')
             node.data.config.chains.push({
               id: `chain-fallback-urgent-${Date.now()}`,
               name: "Urgent Alert Handler",
@@ -644,7 +646,7 @@ function validateAndFixNodes(workflow: GeneratedWorkflow): { valid: boolean; wor
           }
 
           if (!hasFeatureChain) {
-            console.warn('Discord support workflow missing feature request chain - adding fallback')
+            logger.warn('Discord support workflow missing feature request chain - adding fallback')
             node.data.config.chains.push({
               id: `chain-fallback-feature-${Date.now()}`,
               name: "Feature Request Logging",
@@ -1137,7 +1139,7 @@ Respond with ONLY valid JSON that creates chains for the detected scenarios.${ r
       const { valid, workflow, errors } = validateAndFixNodes(generatedWorkflow)
       
       if (!valid) {
-        console.error("Workflow validation errors:", errors)
+        logger.error("Workflow validation errors:", errors)
       }
 
       // Step 3a: If user refers to updating an existing Notion page (e.g., "customer support page"),
@@ -1221,11 +1223,11 @@ Respond with ONLY valid JSON that creates chains for the detected scenarios.${ r
       return { workflow: finalWorkflow }
       
     } catch (aiError: any) {
-      console.error("AI generation failed:", aiError?.message || aiError)
+      logger.error("AI generation failed:", aiError?.message || aiError)
       throw aiError
     }
   } catch (error) {
-    console.error("Error generating dynamic workflow:", error)
+    logger.error("Error generating dynamic workflow:", error)
     throw error
   }
 }

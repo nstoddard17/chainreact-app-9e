@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get cards from a Trello board
  */
@@ -60,7 +62,7 @@ export async function getTrelloCards(
       message: `Successfully retrieved ${cards?.length || 0} cards from board`
     }
   } catch (error: any) {
-    console.error('Trello Get Cards error:', error)
+    logger.error('Trello Get Cards error:', error)
     return {
       success: false,
       output: {},

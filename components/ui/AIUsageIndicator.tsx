@@ -12,6 +12,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
+import { logger } from '@/lib/utils/logger'
+
 interface UsageData {
   usage_percent: number
   estimated_remaining?: {
@@ -30,7 +32,7 @@ const MIN_REFRESH_INTERVAL = 30 * 1000 // Minimum 30 seconds between fetches
 
 // Export a function to invalidate cache when AI actions occur
 export const refreshAIUsage = () => {
-  console.log('🔄 AI usage cache invalidated - will refresh on next render')
+  logger.debug('🔄 AI usage cache invalidated - will refresh on next render')
   cachedUsageData = null
   lastFetchTime = 0
 }
@@ -77,7 +79,7 @@ export function AIUsageIndicator() {
     // Prevent fetching if we just fetched recently
     const now = Date.now()
     if (now - lastFetchTime < MIN_REFRESH_INTERVAL) {
-      console.log('Skipping AI usage fetch - too soon since last fetch')
+      logger.debug('Skipping AI usage fetch - too soon since last fetch')
       return
     }
 
@@ -101,7 +103,7 @@ export function AIUsageIndicator() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch AI usage:', error)
+      logger.error('Failed to fetch AI usage:', error)
     } finally {
       if (isMounted.current) {
         setLoading(false)

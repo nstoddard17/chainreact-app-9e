@@ -3,6 +3,8 @@ import { GmailIntegrationService } from "../integrations/gmailIntegrationService
 import { SlackIntegrationService } from "../integrations/slackIntegrationService"
 import { GoogleIntegrationService } from "../integrations/googleIntegrationService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class IntegrationNodeHandlers {
   private gmailService: GmailIntegrationService
   private slackService: SlackIntegrationService
@@ -16,8 +18,8 @@ export class IntegrationNodeHandlers {
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
-    console.log(`🔌 Executing integration node: ${nodeType}`)
-    console.log(`📌 IntegrationHandlers - Context userId: ${context.userId}`)
+    logger.debug(`🔌 Executing integration node: ${nodeType}`)
+    logger.debug(`📌 IntegrationHandlers - Context userId: ${context.userId}`)
 
     // Gmail integrations
     if (nodeType.startsWith('gmail_')) {
@@ -67,12 +69,12 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_new_email':
           // Triggers in manual execution return sample data
           // In production, webhooks would provide real data
-          console.log('📧 Outlook email trigger executing in mode:', context.testMode ? 'test' : 'live')
-          console.log('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.debug('📧 Outlook email trigger executing in mode:', context.testMode ? 'test' : 'live')
+          logger.debug('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
           // Check if we have real email data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
-            console.log('📧 Fetching real email from Microsoft Graph API')
+            logger.debug('📧 Fetching real email from Microsoft Graph API')
 
             try {
               // Fetch the actual email using Microsoft Graph API
@@ -94,7 +96,7 @@ export class IntegrationNodeHandlers {
               }
 
               const email = await response.json()
-              console.log('📧 Fetched email:', {
+              logger.debug('📧 Fetched email:', {
                 subjectLength: email.subject?.length || 0,
                 hasFrom: !!email.from?.emailAddress?.address
               })
@@ -120,7 +122,7 @@ export class IntegrationNodeHandlers {
                 messageId: email.internetMessageId
               }
             } catch (error) {
-              console.error('❌ Error fetching email from Microsoft Graph:', error)
+              logger.error('❌ Error fetching email from Microsoft Graph:', error)
               // Fall through to sample data
             }
           }
@@ -336,7 +338,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeWebhookCall(node: any, context: ExecutionContext) {
-    console.log("🌐 Executing webhook call")
+    logger.debug("🌐 Executing webhook call")
     
     const url = node.data.config?.url
     const method = node.data.config?.method || 'POST'
@@ -382,7 +384,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
-    console.log("📧 Executing send email")
+    logger.debug("📧 Executing send email")
     
     const to = node.data.config?.to
     const subject = node.data.config?.subject
@@ -412,12 +414,12 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeOneDriveUpload(node: any, context: ExecutionContext) {
-    console.log("☁️ Executing OneDrive upload")
+    logger.debug("☁️ Executing OneDrive upload")
 
     const config = node.data.config || {}
 
-    console.log("📦 OneDrive config received:", JSON.stringify(config, null, 2))
-    console.log("📦 Node data:", JSON.stringify(node.data, null, 2))
+    logger.debug("📦 OneDrive config received:", JSON.stringify(config, null, 2))
+    logger.debug("📦 Node data:", JSON.stringify(node.data, null, 2))
 
     // Process OneDrive file upload
 
@@ -461,24 +463,24 @@ export class IntegrationNodeHandlers {
 
       return result.output || result
     } catch (error: any) {
-      console.error("❌ OneDrive upload error:", error)
+      logger.error("❌ OneDrive upload error:", error)
       throw error
     }
   }
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
-    console.log("💬 Executing Discord action")
-    console.log(`   Node type: "${node.data.type}"`)
-    console.log(`   User ID: ${context.userId}`)
-    console.log(`🔍 [INTEGRATION DEBUG] Full context:`)
-    console.log(`   context.userId: ${context.userId}`)
-    console.log(`   context.data:`, JSON.stringify(context.data, null, 2))
+    logger.debug("💬 Executing Discord action")
+    logger.debug(`   Node type: "${node.data.type}"`)
+    logger.debug(`   User ID: ${context.userId}`)
+    logger.debug(`🔍 [INTEGRATION DEBUG] Full context:`)
+    logger.debug(`   context.userId: ${context.userId}`)
+    logger.debug(`   context.data:`, JSON.stringify(context.data, null, 2))
 
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`🔍 [INTEGRATION DEBUG] Node config:`)
-    console.log(JSON.stringify(config, null, 2))
+    logger.debug(`🔍 [INTEGRATION DEBUG] Node config:`)
+    logger.debug(JSON.stringify(config, null, 2))
 
     // Import the actual Discord action handlers
     const { sendDiscordMessage } = await import("@/lib/workflows/actions/discord")
@@ -488,10 +490,10 @@ export class IntegrationNodeHandlers {
       case "discord_action_send_message":
       case "discord_action_send_channel_message": // This is the actual type used
       case "discord_send_channel_message":
-        console.log("📤 Sending Discord channel message...")
-        console.log(`   Channel ID: ${config.channelId || 'not set'}`)
-        console.log(`   Has message: ${!!config.message}`)
-        console.log(`🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: ${context.userId}`)
+        logger.debug("📤 Sending Discord channel message...")
+        logger.debug(`   Channel ID: ${config.channelId || 'not set'}`)
+        logger.debug(`   Has message: ${!!config.message}`)
+        logger.debug(`🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: ${context.userId}`)
 
         // Use the actual Discord message sending function
         const result = await sendDiscordMessage(
@@ -500,9 +502,9 @@ export class IntegrationNodeHandlers {
           context.data || {}
         )
 
-        console.log(`   Discord send result: ${result.success ? '✅ Success' : '❌ Failed'}`)
+        logger.debug(`   Discord send result: ${result.success ? '✅ Success' : '❌ Failed'}`)
         if (!result.success) {
-          console.log(`   Error: ${result.message}`)
+          logger.debug(`   Error: ${result.message}`)
           throw new Error(result.message || "Failed to send Discord message")
         }
 
@@ -563,7 +565,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeAirtableAction(node: any, context: ExecutionContext) {
-    console.log("📊 Executing Airtable action")
+    logger.debug("📊 Executing Airtable action")
 
     const nodeType = node.data.type
     const config = node.data.config || {}
@@ -632,7 +634,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeNotionAction(node: any, context: ExecutionContext) {
-    console.log("📝 Executing Notion action")
+    logger.debug("📝 Executing Notion action")
 
     const nodeType = node.data.type
     const config = node.data.config || {}
@@ -757,7 +759,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeDropboxUpload(node: any, context: ExecutionContext) {
-    console.log("📦 Executing Dropbox upload")
+    logger.debug("📦 Executing Dropbox upload")
 
     const config = node.data.config || {}
 
@@ -775,7 +777,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeTrelloAction(node: any, context: ExecutionContext) {
-    console.log("📋 Executing Trello action")
+    logger.debug("📋 Executing Trello action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
@@ -847,7 +849,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeHubSpotAction(node: any, context: ExecutionContext) {
-    console.log("🎯 Executing HubSpot action")
+    logger.debug("🎯 Executing HubSpot action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
@@ -939,12 +941,12 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeMicrosoftExcelAction(node: any, context: ExecutionContext) {
-    console.log("📊 Executing Microsoft Excel action")
+    logger.debug("📊 Executing Microsoft Excel action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    console.log(`   Excel action type: ${nodeType}`)
-    console.log(`   Config:`, JSON.stringify(config, null, 2))
+    logger.debug(`   Excel action type: ${nodeType}`)
+    logger.debug(`   Config:`, JSON.stringify(config, null, 2))
 
     // Handle different Microsoft Excel action types
     switch (nodeType) {

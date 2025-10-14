@@ -1,5 +1,7 @@
 import { getApiBaseUrl } from "./utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 // Client-side API utilities for making requests to our API routes
 export class ApiClient {
   private baseUrl: string
@@ -26,7 +28,7 @@ export class ApiClient {
       const data = await response.json()
       return { data }
     } catch (error) {
-      console.error("API request failed:", error)
+      logger.error("API request failed:", error)
       return { error: "Network error" }
     }
   }

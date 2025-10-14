@@ -5,8 +5,10 @@
 import { HubSpotIntegration, HubSpotJobTitle, HubSpotDataHandler } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getHubSpotJobTitles: HubSpotDataHandler<HubSpotJobTitle> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotJobTitle[]> => {
-  console.log("🔍 HubSpot job titles fetcher called with integration:", {
+  logger.debug("🔍 HubSpot job titles fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,23 +19,23 @@ export const getHubSpotJobTitles: HubSpotDataHandler<HubSpotJobTitle> = async (i
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    console.log(`🔍 Validating HubSpot token...`)
+    logger.debug(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Using predefined HubSpot job titles list...')
+    logger.debug('🔍 Using predefined HubSpot job titles list...')
     // Job titles are free text fields in HubSpot, but we'll provide common options
     const jobTitles = getDefaultJobTitles()
     
-    console.log(`✅ HubSpot job titles fetched successfully: ${jobTitles.length} job titles`)
+    logger.debug(`✅ HubSpot job titles fetched successfully: ${jobTitles.length} job titles`)
     return jobTitles
     
   } catch (error: any) {
-    console.error("Error fetching HubSpot job titles:", error)
+    logger.error("Error fetching HubSpot job titles:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('HubSpot authentication expired. Please reconnect your account.')

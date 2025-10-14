@@ -7,6 +7,8 @@ import { OAuth2Client } from 'google-auth-library'
 import { GoogleSheetsIntegration } from './types'
 import { decrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create authenticated Google Sheets client
  */
@@ -37,9 +39,9 @@ export async function createGoogleSheetsClient(integration: GoogleSheetsIntegrat
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
       // Note: You should update the database with new tokens here
-      console.log('🔄 Refreshed Google Sheets access token')
+      logger.debug('🔄 Refreshed Google Sheets access token')
     } catch (error) {
-      console.error('Failed to refresh token:', error)
+      logger.error('Failed to refresh token:', error)
       throw new Error('Authentication expired. Please reconnect your Google account.')
     }
   }

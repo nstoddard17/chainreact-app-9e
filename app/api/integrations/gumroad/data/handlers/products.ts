@@ -5,8 +5,10 @@
 import { GumroadIntegration, GumroadProduct, GumroadDataHandler } from '../types'
 import { validateGumroadIntegration, validateGumroadToken, makeGumroadApiRequest, parseGumroadApiResponse, buildGumroadApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (integration: GumroadIntegration, options: any = {}): Promise<GumroadProduct[]> => {
-  console.log("🔍 Gumroad products fetcher called with integration:", {
+  logger.debug("🔍 Gumroad products fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,22 +19,22 @@ export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (int
     // Validate integration status
     validateGumroadIntegration(integration)
     
-    console.log(`🔍 Validating Gumroad token...`)
+    logger.debug(`🔍 Validating Gumroad token...`)
     const tokenResult = await validateGumroadToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Gumroad token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Gumroad token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Gumroad products...')
+    logger.debug('🔍 Fetching Gumroad products...')
     
     const apiUrl = buildGumroadApiUrl('/products')
     const response = await makeGumroadApiRequest(apiUrl, tokenResult.token!)
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ Gumroad API error: ${response.status}`, errorData)
+      logger.error(`❌ Gumroad API error: ${response.status}`, errorData)
       
       if (response.status === 401) {
         throw new Error('Gumroad authentication expired. Please reconnect your account.')
@@ -59,11 +61,11 @@ export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (int
       tags: product.tags
     }))
     
-    console.log(`✅ Gumroad products fetched successfully: ${products.length} products`)
+    logger.debug(`✅ Gumroad products fetched successfully: ${products.length} products`)
     return products
     
   } catch (error: any) {
-    console.error("Error fetching Gumroad products:", error)
+    logger.error("Error fetching Gumroad products:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Gumroad authentication expired. Please reconnect your account.')

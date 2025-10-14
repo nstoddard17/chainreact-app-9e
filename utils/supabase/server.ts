@@ -2,6 +2,8 @@ import { type Database } from '@/types/supabase'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies()
   return createServerClient<Database>(
@@ -19,7 +21,7 @@ export async function createSupabaseServerClient() {
               cookieStore.set(name, value, options)
             )
           } catch (error) {
-            console.warn("Failed to set cookies in server client:", error)
+            logger.warn("Failed to set cookies in server client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
@@ -47,7 +49,7 @@ export async function createSupabaseServerActionClient() {
               cookieStore.set(name, value, options)
             )
           } catch (error) {
-            console.warn("Failed to set cookies in server action client:", error)
+            logger.warn("Failed to set cookies in server action client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
@@ -75,7 +77,7 @@ export async function createSupabaseRouteHandlerClient() {
               cookieStore.set(name, value, options)
             )
           } catch (error) {
-            console.warn("Failed to set cookies in route handler client:", error)
+            logger.warn("Failed to set cookies in route handler client:", error)
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.

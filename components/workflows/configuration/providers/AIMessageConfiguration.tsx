@@ -19,6 +19,8 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Sparkles, Wand2, FileText, PenSquare, ListChecks, Target, Languages, Mic, Search, ChevronDown } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIMessageConfigurationProps {
   nodeInfo: any
   values: Record<string, any>
@@ -220,7 +222,7 @@ export function AIMessageConfiguration({
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('[AIMessageConfiguration] Failed to load dynamic options', error)
+      logger.error('[AIMessageConfiguration] Failed to load dynamic options', error)
     }
   }, [loadOptions, nodeInfo?.configSchema, values])
 
@@ -326,7 +328,7 @@ export function AIMessageConfiguration({
       }
     } catch (error: any) {
       // eslint-disable-next-line no-console
-      console.error('[AIMessageConfiguration] Improve prompt failed', error)
+      logger.error('[AIMessageConfiguration] Improve prompt failed', error)
       toast({
         title: "Unable to improve prompt",
         description: error.message || 'The AI service was unavailable.',

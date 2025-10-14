@@ -20,22 +20,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 export async function POST(req: NextRequest) {
-  return NextResponse.json({
-    error: 'This endpoint is deprecated',
+  return errorResponse('This endpoint is deprecated', 410, {
     message: 'Microsoft Graph subscriptions are now managed automatically via workflow activation. No manual subscription needed.',
     instructions: 'Simply create a workflow with a Microsoft Outlook/Teams/OneDrive trigger and activate it. Subscriptions will be created automatically.',
     deprecatedOn: '2025-10-03',
     replacedBy: 'TriggerLifecycleManager'
-  }, { status: 410 }) // 410 Gone - resource permanently removed
+  }) // 410 Gone - resource permanently removed
 }
 
 export async function GET(req: NextRequest) {
-  return NextResponse.json({
-    error: 'This endpoint is deprecated',
+  return errorResponse('This endpoint is deprecated', 410, {
     message: 'Health checks are now handled via TriggerLifecycleManager.checkWorkflowTriggerHealth()',
     deprecatedOn: '2025-10-03',
     replacedBy: 'TriggerLifecycleManager.checkWorkflowTriggerHealth()'
-  }, { status: 410 })
+    })
 }

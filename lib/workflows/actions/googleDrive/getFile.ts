@@ -3,6 +3,8 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get a file from Google Drive
  */
@@ -11,7 +13,7 @@ export async function getGoogleDriveFile(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
-  console.log('🚀 [getGoogleDriveFile] Starting with config:', {
+  logger.debug('🚀 [getGoogleDriveFile] Starting with config:', {
     config,
     userId,
     hasInput: !!input
@@ -31,19 +33,19 @@ export async function getGoogleDriveFile(
       }
     }
 
-    console.log('📋 [getGoogleDriveFile] Resolved config:', {
+    logger.debug('📋 [getGoogleDriveFile] Resolved config:', {
       fileId,
       folderId: resolvedConfig.folderId
     });
 
-    console.log('🔐 [getGoogleDriveFile] Getting access token for userId:', userId);
+    logger.debug('🔐 [getGoogleDriveFile] Getting access token for userId:', userId);
     
     let accessToken;
     try {
       accessToken = await getDecryptedAccessToken(userId, "google-drive")
-      console.log('✅ [getGoogleDriveFile] Got access token');
+      logger.debug('✅ [getGoogleDriveFile] Got access token');
     } catch (error: any) {
-      console.error('❌ [getGoogleDriveFile] Failed to get access token:', error);
+      logger.error('❌ [getGoogleDriveFile] Failed to get access token:', error);
       throw new Error(`Failed to get Google Drive access token: ${error.message}`);
     }
     
@@ -52,7 +54,7 @@ export async function getGoogleDriveFile(
     oauth2Client.setCredentials({ access_token: accessToken })
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    console.log('📁 [getGoogleDriveFile] Fetching file metadata for:', fileId);
+    logger.debug('📁 [getGoogleDriveFile] Fetching file metadata for:', fileId);
     
     // Get file metadata
     const metadataResponse = await drive.files.get({
@@ -62,14 +64,14 @@ export async function getGoogleDriveFile(
 
     const fileMetadata = metadataResponse.data
     
-    console.log('✅ [getGoogleDriveFile] Got file metadata:', {
+    logger.debug('✅ [getGoogleDriveFile] Got file metadata:', {
       name: fileMetadata.name,
       mimeType: fileMetadata.mimeType,
       size: fileMetadata.size
     });
 
     // Download the file as binary data for use as attachment
-    console.log('📥 [getGoogleDriveFile] Downloading file for attachment use');
+    logger.debug('📥 [getGoogleDriveFile] Downloading file for attachment use');
     
     let fileBuffer: Buffer;
     let finalFileName = fileMetadata.name || 'file';
@@ -87,7 +89,7 @@ export async function getGoogleDriveFile(
       if (googleDocsMimeTypes[fileMetadata.mimeType || '']) {
         // Export Google Docs files to standard formats
         const exportConfig = googleDocsMimeTypes[fileMetadata.mimeType || ''];
-        console.log('📝 [getGoogleDriveFile] Exporting Google Docs file as:', exportConfig.exportType);
+        logger.debug('📝 [getGoogleDriveFile] Exporting Google Docs file as:', exportConfig.exportType);
         
         const contentResponse = await drive.files.export({
           fileId: fileId,
@@ -111,7 +113,7 @@ export async function getGoogleDriveFile(
         fileBuffer = Buffer.from(contentResponse.data as ArrayBuffer)
       }
       
-      console.log('✅ [getGoogleDriveFile] Downloaded file:', {
+      logger.debug('✅ [getGoogleDriveFile] Downloaded file:', {
         fileName: finalFileName,
         size: fileBuffer.length,
         mimeType: finalMimeType
@@ -136,12 +138,12 @@ export async function getGoogleDriveFile(
       }
       
     } catch (error: any) {
-      console.error('⚠️ [getGoogleDriveFile] Error downloading file:', error)
+      logger.error('⚠️ [getGoogleDriveFile] Error downloading file:', error)
       throw new Error(`Failed to download file: ${error.message}`)
     }
 
   } catch (error: any) {
-    console.error('❌ [getGoogleDriveFile] Failed with error:', {
+    logger.error('❌ [getGoogleDriveFile] Failed with error:', {
       message: error.message,
       stack: error.stack,
       code: error.code,

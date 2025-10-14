@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Resolves templated values in a string or object
  * 
@@ -56,13 +58,13 @@ function resolveStringTemplate(
   
   return template.replace(regex, (match, path) => {
     const trimmedPath = path.trim()
-    console.log(`🔧 Legacy resolveValue attempting to resolve: "${match}"`)
+    logger.debug(`🔧 Legacy resolveValue attempting to resolve: "${match}"`)
     
     // First try to get the value from the context using the dot path
     const value = getValueByPath(context, trimmedPath)
     
     if (value !== undefined) {
-      console.log(`✅ Found in context:`, value)
+      logger.debug(`✅ Found in context:`, value)
       return typeof value === 'object' 
         ? JSON.stringify(value) 
         : String(value)
@@ -70,26 +72,26 @@ function resolveStringTemplate(
     
     // If not found in context and we have a DataFlowManager, try that
     if (dataFlowManager && dataFlowManager.resolveVariable) {
-      console.log(`🔧 Trying DataFlowManager for: "${match}"`)
+      logger.debug(`🔧 Trying DataFlowManager for: "${match}"`)
       try {
         const dataFlowValue = dataFlowManager.resolveVariable(match)
         
         if (dataFlowValue !== match) { // If it resolved to something different
-          console.log(`✅ DataFlowManager resolved:`, dataFlowValue)
+          logger.debug(`✅ DataFlowManager resolved:`, dataFlowValue)
           return typeof dataFlowValue === 'object' 
             ? JSON.stringify(dataFlowValue) 
             : String(dataFlowValue)
         } 
-          console.log(`⚠️ DataFlowManager could not resolve: "${match}"`)
+          logger.debug(`⚠️ DataFlowManager could not resolve: "${match}"`)
         
       } catch (error) {
-        console.error(`❌ DataFlowManager error for "${match}":`, error)
+        logger.error(`❌ DataFlowManager error for "${match}":`, error)
       }
     } else {
-      console.log(`⚠️ No DataFlowManager available for: "${match}"`)
+      logger.debug(`⚠️ No DataFlowManager available for: "${match}"`)
     }
     
-    console.log(`❌ Could not resolve: "${match}"`)
+    logger.debug(`❌ Could not resolve: "${match}"`)
     // Return the original placeholder if not found
     return match
   })

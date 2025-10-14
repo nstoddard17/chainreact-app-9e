@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import crypto from 'crypto'
 
+import { logger } from '@/lib/utils/logger'
+
 // Function to list page posts using page access token
 async function listPagePosts(pageId: string, pageAccessToken: string) {
-  console.log(`📝 Fetching posts from page ${pageId}...`)
+  logger.debug(`📝 Fetching posts from page ${pageId}...`)
   
   // Check if we have the app secret for appsecret_proof
   const appSecret = process.env.FACEBOOK_CLIENT_SECRET
   if (!appSecret) {
-    console.log('⚠️ FACEBOOK_CLIENT_SECRET not found, making request without appsecret_proof')
+    logger.debug('⚠️ FACEBOOK_CLIENT_SECRET not found, making request without appsecret_proof')
     
     const response = await fetch(
       `https://graph.facebook.com/v17.0/${pageId}/posts?access_token=${pageAccessToken}`
@@ -17,14 +20,14 @@ async function listPagePosts(pageId: string, pageAccessToken: string) {
     
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ Failed to fetch posts:', errorText)
+      logger.error('❌ Failed to fetch posts:', errorText)
       throw new Error(`Failed to fetch posts: ${errorText}`)
     }
     
     const data = await response.json()
     const posts = data.data || []
     
-    console.log(`✅ Successfully fetched ${posts.length} posts`)
+    logger.debug(`✅ Successfully fetched ${posts.length} posts`)
     return posts
   }
   
@@ -40,44 +43,44 @@ async function listPagePosts(pageId: string, pageAccessToken: string) {
   
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('❌ Failed to fetch posts:', errorText)
+    logger.error('❌ Failed to fetch posts:', errorText)
     throw new Error(`Failed to fetch posts: ${errorText}`)
   }
   
   const data = await response.json()
   const posts = data.data || []
   
-  console.log(`✅ Successfully fetched ${posts.length} posts`)
+  logger.debug(`✅ Successfully fetched ${posts.length} posts`)
   return posts
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Facebook posts API called')
+    logger.debug('🔄 Facebook posts API called')
     
     const body = await request.json()
     const { pageId, userId } = body
-    console.log('📝 Request body:', { pageId, userId })
+    logger.debug('📝 Request body:', { pageId, userId })
 
     if (!pageId) {
-      console.log('❌ Missing pageId')
-      return NextResponse.json({ error: 'Missing pageId' }, { status: 400 })
+      logger.debug('❌ Missing pageId')
+      return errorResponse('Missing pageId' , 400)
     }
 
     // Get user's Facebook integration
-    console.log('🔍 Getting Supabase client')
+    logger.debug('🔍 Getting Supabase client')
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
     
-    console.log('👤 User:', user ? { id: user.id } : null)
+    logger.debug('👤 User:', user ? { id: user.id } : null)
     
     if (!user) {
-      console.log('❌ No user found')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      logger.debug('❌ No user found')
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Facebook access token
-    console.log('🔍 Getting Facebook integration for user:', user.id)
+    logger.debug('🔍 Getting Facebook integration for user:', user.id)
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('access_token, refresh_token, expires_at')
@@ -85,19 +88,19 @@ export async function POST(request: NextRequest) {
       .eq('provider', 'facebook')
       .single()
 
-    console.log('🔍 Integration result:', integration ? { hasToken: !!integration.access_token, expiresAt: integration.expires_at } : null)
-    console.log('🔍 Integration error:', integrationError)
+    logger.debug('🔍 Integration result:', integration ? { hasToken: !!integration.access_token, expiresAt: integration.expires_at } : null)
+    logger.debug('🔍 Integration error:', integrationError)
 
     if (!integration) {
-      console.log('❌ Facebook integration not found')
-      return NextResponse.json({ error: 'Facebook integration not found' }, { status: 404 })
+      logger.debug('❌ Facebook integration not found')
+      return errorResponse('Facebook integration not found' , 404)
     }
 
     // Check if token is expired and refresh if needed
     let userAccessToken = integration.access_token
     
     if (integration.expires_at && new Date(integration.expires_at) <= new Date()) {
-      console.log('🔄 Token is expired, refreshing...')
+      logger.debug('🔄 Token is expired, refreshing...')
       
       if (integration.refresh_token) {
         try {
@@ -117,7 +120,7 @@ export async function POST(request: NextRequest) {
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json()
             userAccessToken = refreshData.access_token
-            console.log('✅ Token refreshed successfully')
+            logger.debug('✅ Token refreshed successfully')
 
             // Update the token in the database
             await supabase
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
               .eq('provider', 'facebook')
           }
         } catch (error) {
-          console.error('❌ Error refreshing token:', error)
+          logger.error('❌ Error refreshing token:', error)
         }
       }
     }
@@ -140,11 +143,9 @@ export async function POST(request: NextRequest) {
     try {
       posts = await listPagePosts(pageId, userAccessToken)
     } catch (error) {
-      console.error('❌ Error fetching posts:', error)
-      return NextResponse.json({ 
-        error: 'Failed to fetch posts from the page.',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, { status: 500 })
+      logger.error('❌ Error fetching posts:', error)
+      return errorResponse('Failed to fetch posts from the page.', 500, { details: error instanceof Error ? error.message : 'Unknown error'
+       })
     }
 
     // Format posts for the dropdown
@@ -155,12 +156,12 @@ export async function POST(request: NextRequest) {
         : `Post ${post.id} (${new Date(post.created_time).toLocaleDateString()})`
     }))
 
-    console.log(`✅ Successfully formatted ${formattedPosts.length} posts`)
-    return NextResponse.json({ data: formattedPosts })
+    logger.debug(`✅ Successfully formatted ${formattedPosts.length} posts`)
+    return jsonResponse({ data: formattedPosts })
 
   } catch (error) {
-    console.error('❌ Error fetching Facebook posts:', error)
-    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error('❌ Error fetching Facebook posts:', error)
+    logger.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    return errorResponse('Internal server error' , 500)
   }
 } 

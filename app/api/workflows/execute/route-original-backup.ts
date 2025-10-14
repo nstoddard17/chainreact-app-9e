@@ -5,6 +5,8 @@ import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibili
 import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ExecutionContext {
   userId: string
   workflowId: string
@@ -17,12 +19,12 @@ interface ExecutionContext {
 
 export async function POST(request: Request) {
   try {
-    console.log("=== Workflow Execution Started ===")
+    logger.debug("=== Workflow Execution Started ===")
     
     const body = await request.json()
     const { workflowId, testMode = false, inputData = {}, workflowData } = body
     
-    console.log("Execution parameters:", {
+    logger.debug("Execution parameters:", {
       workflowId,
       testMode,
       hasInputData: !!inputData,
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
     })
 
     if (!workflowId) {
-      console.error("No workflowId provided")
+      logger.error("No workflowId provided")
       return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
     }
 
@@ -43,11 +45,11 @@ export async function POST(request: Request) {
       .single()
 
     if (workflowError || !workflow) {
-      console.error("Error fetching workflow:", workflowError)
+      logger.error("Error fetching workflow:", workflowError)
       return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
     }
 
-    console.log("Workflow found:", {
+    logger.debug("Workflow found:", {
       id: workflow.id,
       name: workflow.name,
       nodesCount: workflow.nodes?.length || 0
@@ -56,42 +58,42 @@ export async function POST(request: Request) {
     // Get the current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      console.error("User authentication error:", userError)
+      logger.error("User authentication error:", userError)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    console.log("User authenticated:", user.id)
+    logger.debug("User authenticated:", user.id)
 
     // Parse workflow data
     const nodes = workflowData?.nodes || workflow.nodes || []
     const edges = workflowData?.edges || workflow.edges || []
     
-    console.log("Workflow structure:", {
+    logger.debug("Workflow structure:", {
       nodesCount: nodes.length,
       edgesCount: edges.length,
       nodeTypes: nodes.map((n: any) => n.data?.type).filter(Boolean)
     })
 
     if (nodes.length === 0) {
-      console.error("No nodes found in workflow")
+      logger.error("No nodes found in workflow")
       return NextResponse.json({ error: "No nodes found in workflow" }, { status: 400 })
     }
 
     // Find trigger nodes
     const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
-    console.log("Trigger nodes found:", triggerNodes.length)
+    logger.debug("Trigger nodes found:", triggerNodes.length)
 
     if (triggerNodes.length === 0) {
-      console.error("No trigger nodes found")
+      logger.error("No trigger nodes found")
       return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
     }
 
     // Execute the workflow using the existing function
-    console.log("Starting workflow execution with testMode:", testMode)
+    logger.debug("Starting workflow execution with testMode:", testMode)
     
     const results = await executeWorkflowAdvanced(workflow, inputData, user.id, testMode, workflowData)
     
-    console.log("Workflow execution completed successfully")
+    logger.debug("Workflow execution completed successfully")
 
     return NextResponse.json({
       success: true,
@@ -100,7 +102,7 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("Workflow execution error:", {
+    logger.error("Workflow execution error:", {
       message: error.message,
       stack: error.stack,
       name: error.name
@@ -120,7 +122,7 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
   const nodes = workflowData?.nodes || workflow.nodes || []
   const connections = workflowData?.connections || workflow.connections || []
 
-  console.log("Executing workflow with:", {
+  logger.debug("Executing workflow with:", {
     nodesCount: nodes.length,
     connectionsCount: connections.length,
     usingWorkflowData: !!workflowData,
@@ -172,7 +174,7 @@ async function executeWorkflowAdvanced(workflow: any, inputData: any, userId: st
 
 async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[], context: any): Promise<any> {
   const startTime = Date.now()
-  console.log(`Executing node: ${node.id} (${node.data.type})`)
+  logger.debug(`Executing node: ${node.id} (${node.data.type})`)
 
   try {
     // Set current node in data flow manager and store metadata
@@ -288,7 +290,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
         // Resolve variable references in config before executing
         const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
         
-        console.log("🤖 AI Agent executing with resolved config:", JSON.stringify(aiResolvedConfig, null, 2))
+        logger.debug("🤖 AI Agent executing with resolved config:", JSON.stringify(aiResolvedConfig, null, 2))
         
         // Call AI agent directly instead of going through executeAction to avoid integration lookup
         const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
@@ -306,7 +308,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
           }
         })
         
-        console.log("🤖 AI Agent raw result:", JSON.stringify(nodeResult, null, 2))
+        logger.debug("🤖 AI Agent raw result:", JSON.stringify(nodeResult, null, 2))
         
         // Transform result to match ActionResult interface expected by the execution flow
         if (nodeResult && nodeResult.success) {
@@ -319,7 +321,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
           }
         }
         
-        console.log("🤖 AI Agent transformed result:", JSON.stringify(nodeResult, null, 2))
+        logger.debug("🤖 AI Agent transformed result:", JSON.stringify(nodeResult, null, 2))
         break
       case "google_calendar_action_create_event":
         nodeResult = await executeCalendarEventNode(node, context)
@@ -404,7 +406,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       default:
         // Handle any action type that ends with _action_ using the generic executeAction function
         if (node.data.type && node.data.type.includes('_action_')) {
-          console.log(`Using generic executeAction for node type: ${node.data.type}`)
+          logger.debug(`Using generic executeAction for node type: ${node.data.type}`)
           
           // Enhance input with node outputs from DataFlowManager
           const enhancedInput = {
@@ -430,7 +432,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
     
     // Store output in data flow manager
     if (context.dataFlowManager) {
-      console.log(`💾 Storing node output for ${node.id} (${node.data.type}):`, {
+      logger.debug(`💾 Storing node output for ${node.id} (${node.data.type}):`, {
         nodeResult,
         output: (nodeResult as any).output,
         success: !(nodeResult as any).error
@@ -452,7 +454,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
 
     return nodeResult
   } catch (error: any) {
-    console.error(`Error executing node ${node.id}:`, error)
+    logger.error(`Error executing node ${node.id}:`, error)
 
     // Check if this node has error handling
     const errorConnections = connections.filter((conn: any) => conn.source === node.id && conn.sourceHandle === "error")
@@ -512,7 +514,7 @@ async function executeConnectedNodes(sourceNode: any, allNodes: any[], connectio
         }
       }
       
-      console.log(`Data flow: ${sourceNode.data.type} -> ${targetNode.data.type}`, {
+      logger.debug(`Data flow: ${sourceNode.data.type} -> ${targetNode.data.type}`, {
         sourceOutput: result,
         availableData: Object.keys(newContext.data)
       })
@@ -542,7 +544,7 @@ async function executeScheduleNode(node: any, context: any) {
 }
 
 async function executeManualTriggerNode(node: any, context: any) {
-  console.log("Executing manual trigger")
+  logger.debug("Executing manual trigger")
   
   // For manual triggers, we use the input data provided by the user
   const triggerData = {
@@ -558,7 +560,7 @@ async function executeManualTriggerNode(node: any, context: any) {
     }
   }
   
-  console.log("Manual trigger data:", triggerData)
+  logger.debug("Manual trigger data:", triggerData)
   return triggerData
 }
 
@@ -1041,7 +1043,7 @@ function renderTemplate(template: string, context: any, engine: string): string 
         
         
       } catch (error) {
-        console.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
+        logger.warn(`Template variable evaluation failed for "${trimmedPath}":`, error)
         return match // Return original if evaluation fails
       }
     })
@@ -1503,7 +1505,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Sheets append row execution...")
+  logger.debug("Starting Google Sheets append row execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -1519,7 +1521,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
     throw new Error("Google Sheets integration not connected")
   }
 
-  console.log("Found Google Sheets integration:", {
+  logger.debug("Found Google Sheets integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -1540,7 +1542,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-sheets",
           integration.refresh_token,
@@ -1549,16 +1551,16 @@ async function executeSheetsAppendNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Sheets access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Sheets access token")
     }
   }
@@ -1596,7 +1598,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
       values.push(new Date().toISOString())
     }
 
-    console.log("Prepared row data:", {
+    logger.debug("Prepared row data:", {
       spreadsheetId,
       sheetName,
       valueInputOption,
@@ -1628,7 +1630,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error("Google Sheets API error:", {
+      logger.error("Google Sheets API error:", {
         status: response.status,
         statusText: response.statusText,
         error: errorData
@@ -1638,7 +1640,7 @@ async function executeSheetsAppendNode(node: any, context: any) {
 
     const result = await response.json()
 
-    console.log("Google Sheets API success response:", {
+    logger.debug("Google Sheets API success response:", {
       updatedRange: result.updates?.updatedRange,
       updatedRows: result.updates?.updatedRows,
       updatedColumns: result.updates?.updatedColumns,
@@ -1677,7 +1679,7 @@ async function executeSheetsReadNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Sheets read data execution...")
+  logger.debug("Starting Google Sheets read data execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -1693,7 +1695,7 @@ async function executeSheetsReadNode(node: any, context: any) {
     throw new Error("Google Sheets integration not connected")
   }
 
-  console.log("Found Google Sheets integration:", {
+  logger.debug("Found Google Sheets integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -1714,7 +1716,7 @@ async function executeSheetsReadNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-sheets",
           integration.refresh_token,
@@ -1723,16 +1725,16 @@ async function executeSheetsReadNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Sheets access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Sheets access token")
     }
   }
@@ -1756,7 +1758,7 @@ async function executeSheetsReadNode(node: any, context: any) {
   // Build the range string
   const rangeString = range ? `${sheetName}!${range}` : sheetName
 
-  console.log("Reading Google Sheets data:", {
+  logger.debug("Reading Google Sheets data:", {
     spreadsheetId,
     sheetName,
     range: rangeString,
@@ -1779,7 +1781,7 @@ async function executeSheetsReadNode(node: any, context: any) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error("Google Sheets API error:", {
+      logger.error("Google Sheets API error:", {
         status: response.status,
         statusText: response.statusText,
         error: errorData
@@ -1790,7 +1792,7 @@ async function executeSheetsReadNode(node: any, context: any) {
     const result = await response.json()
     const rawData = result.values || []
 
-    console.log("Raw data from Google Sheets:", {
+    logger.debug("Raw data from Google Sheets:", {
       range: result.range,
       rows: rawData.length,
       columns: rawData[0]?.length || 0
@@ -1845,7 +1847,7 @@ async function executeSheetsReadNode(node: any, context: any) {
       }
     }
 
-    console.log("Processed data:", {
+    logger.debug("Processed data:", {
       outputFormat,
       includeHeaders,
       dataLength: Array.isArray(formattedData) ? formattedData.length : formattedData.length,
@@ -1866,7 +1868,7 @@ async function executeSheetsReadNode(node: any, context: any) {
     }
 
   } catch (error: any) {
-    console.error("Error reading Google Sheets data:", error)
+    logger.error("Error reading Google Sheets data:", error)
     throw error
   }
 }
@@ -1883,7 +1885,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Sheets update data execution...")
+  logger.debug("Starting Google Sheets update data execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -1899,7 +1901,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
     throw new Error("Google Sheets integration not connected")
   }
 
-  console.log("Found Google Sheets integration:", {
+  logger.debug("Found Google Sheets integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -1920,7 +1922,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-sheets",
           integration.refresh_token,
@@ -1929,16 +1931,16 @@ async function executeSheetsUpdateNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Sheets access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Sheets access token")
     }
   }
@@ -1985,7 +1987,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
       values = [parsedData.map((value: string) => renderTemplate(value, context, "handlebars"))]
     }
 
-    console.log("Prepared update data:", {
+    logger.debug("Prepared update data:", {
       spreadsheetId,
       sheetName,
       range: rangeString,
@@ -2015,7 +2017,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error("Google Sheets API error:", {
+      logger.error("Google Sheets API error:", {
         status: response.status,
         statusText: response.statusText,
         error: errorData
@@ -2025,7 +2027,7 @@ async function executeSheetsUpdateNode(node: any, context: any) {
 
     const result = await response.json()
 
-    console.log("Google Sheets API success response:", {
+    logger.debug("Google Sheets API success response:", {
       updatedRange: result.updatedRange,
       updatedRows: result.updatedRows,
       updatedColumns: result.updatedColumns,
@@ -2091,7 +2093,7 @@ async function executeGmailSendEmailNode(node: any, context: any) {
       nodeOutputs: context.dataFlowManager?.getNodeOutputs() || {}
     }
     
-    console.log(`📧 Enhanced input for Gmail action:`, {
+    logger.debug(`📧 Enhanced input for Gmail action:`, {
       originalData: context.data,
       nodeOutputsCount: Object.keys(enhancedInput.nodeOutputs).length,
       nodeOutputKeys: Object.keys(enhancedInput.nodeOutputs)
@@ -2198,7 +2200,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Drive create file execution...")
+  logger.debug("Starting Google Drive create file execution...")
 
   // Get Google Drive integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -2214,7 +2216,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
     throw new Error("Google Drive integration not connected")
   }
 
-  console.log("Found Google Drive integration:", {
+  logger.debug("Found Google Drive integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -2233,7 +2235,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-drive",
           integration.refresh_token,
@@ -2242,16 +2244,16 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Drive access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Drive access token")
     }
   }
@@ -2262,7 +2264,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
   const uploadedFileIds = config.uploadedFiles || []
   const folderId = config.folderId
 
-  console.log("Google Drive create file config:", {
+  logger.debug("Google Drive create file config:", {
     fileName,
     hasFileContent: !!fileContent,
     uploadedFileIds: uploadedFileIds.length,
@@ -2292,13 +2294,13 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
 
     // Handle uploaded files if any
     if (uploadedFileIds && uploadedFileIds.length > 0) {
-      console.log(`Processing ${uploadedFileIds.length} uploaded files...`)
+      logger.debug(`Processing ${uploadedFileIds.length} uploaded files...`)
       
       const { FileStorageService } = await import("@/lib/storage/fileStorage")
       
       // Get the uploaded files
       const uploadedFiles = await FileStorageService.getFilesFromReferences(uploadedFileIds, context.userId)
-      console.log(`Retrieved ${uploadedFiles.length} files from storage`)
+      logger.debug(`Retrieved ${uploadedFiles.length} files from storage`)
       
       for (const file of uploadedFiles) {
         if (!file.content) {
@@ -2315,7 +2317,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
         } else {
           throw new Error(`Unsupported file content type for ${file.fileName}`)
         }
-        console.log(`Uploading file: ${file.fileName} (${fileBuffer.length} bytes)`)
+        logger.debug(`Uploading file: ${file.fileName} (${fileBuffer.length} bytes)`)
         
         // Create file in Google Drive using the googleapis library
         const fileMetadata = {
@@ -2323,7 +2325,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
           parents: folderId ? [folderId] : undefined
         }
 
-        console.log("Making Google Drive API request for file:", file.fileName)
+        logger.debug("Making Google Drive API request for file:", file.fileName)
         
         const response = await drive.files.create({
           requestBody: fileMetadata,
@@ -2333,7 +2335,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
           }
         })
 
-        console.log("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
+        logger.debug("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
         
         results.push({
           fileName: file.fileName,
@@ -2346,14 +2348,14 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
 
     // Handle text content if provided
     if (fileContent) {
-      console.log(`Creating text file: ${fileName} (${fileContent.length} characters)`)
+      logger.debug(`Creating text file: ${fileName} (${fileContent.length} characters)`)
       
       const fileMetadata = {
         name: fileName,
         parents: folderId ? [folderId] : undefined
       }
 
-      console.log("Making Google Drive API request for text file:", fileName)
+      logger.debug("Making Google Drive API request for text file:", fileName)
       
       const textBuffer = Buffer.from(fileContent, 'utf8')
       const response = await drive.files.create({
@@ -2364,7 +2366,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
         }
       })
 
-      console.log("Google Drive API success response for text file:", { fileId: response.data.id, fileName: response.data.name })
+      logger.debug("Google Drive API success response for text file:", { fileId: response.data.id, fileName: response.data.name })
       
       results.push({
         fileName: fileName,
@@ -2374,7 +2376,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
       })
     }
 
-    console.log(`Successfully created ${results.length} files in Google Drive:`, results)
+    logger.debug(`Successfully created ${results.length} files in Google Drive:`, results)
 
     return {
       type: "google-drive:create_file",
@@ -2386,7 +2388,7 @@ async function executeGoogleDriveCreateFileNode(node: any, context: any) {
     }
 
   } catch (error: any) {
-    console.error("Google Drive file creation failed:", error)
+    logger.error("Google Drive file creation failed:", error)
     throw new Error(`Google Drive file creation failed: ${error.message}`)
   }
 }
@@ -2401,7 +2403,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Drive upload file execution...")
+  logger.debug("Starting Google Drive upload file execution...")
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
@@ -2427,7 +2429,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
     throw new Error("Google Drive integration not connected")
   }
 
-  console.log("Found Google Drive integration:", {
+  logger.debug("Found Google Drive integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -2446,7 +2448,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-drive",
           integration.refresh_token,
@@ -2455,16 +2457,16 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Drive access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Drive access token")
     }
   }
@@ -2481,7 +2483,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
     if (googleDriveMatch && (fileUrl.includes('drive.google.com') || fileUrl.includes('docs.google.com'))) {
       // This is a Google Drive URL - use the API to download the actual file
       const fileId = googleDriveMatch[1]
-      console.log(`Detected Google Drive URL, extracting file ID: ${fileId}`)
+      logger.debug(`Detected Google Drive URL, extracting file ID: ${fileId}`)
       
       // First, get file metadata to determine the correct MIME type and filename
       const { google } = await import("googleapis")
@@ -2499,7 +2501,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
       mimeType = driveFile.mimeType || "application/octet-stream"
       actualFileName = driveFile.name || fileName
       
-      console.log(`Google Drive file metadata:`, {
+      logger.debug(`Google Drive file metadata:`, {
         name: driveFile.name,
         mimeType: driveFile.mimeType,
         size: driveFile.size
@@ -2526,7 +2528,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
           actualFileName = `${actualFileName.replace(/\.[^.]*$/, '') }.pdf`
         }
         
-        console.log(`Exporting Google Apps file as ${exportMimeType}`)
+        logger.debug(`Exporting Google Apps file as ${exportMimeType}`)
         
         const exportResponse = await drive.files.export({
           fileId: fileId,
@@ -2550,7 +2552,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
         fileBuffer = Buffer.from(fileResponse.data as ArrayBuffer)
       }
       
-      console.log(`Downloaded Google Drive file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+      logger.debug(`Downloaded Google Drive file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
       
     } else {
       // Regular URL - download normally
@@ -2561,7 +2563,7 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
       }
       mimeType = response.headers.get("content-type") || mimeType
       fileBuffer = Buffer.from(await response.arrayBuffer())
-      console.log(`Downloaded file: ${fileName} (${fileBuffer.length} bytes, ${mimeType})`)
+      logger.debug(`Downloaded file: ${fileName} (${fileBuffer.length} bytes, ${mimeType})`)
     }
   } catch (error: any) {
     throw new Error(`Failed to download file from URL: ${error.message}`)
@@ -2588,12 +2590,12 @@ async function executeGoogleDriveUploadFileNode(node: any, context: any) {
       mimeType,
       body: Readable.from(fileBuffer)
     }
-    console.log("Making Google Drive API request for uploaded file:", finalFileName)
+    logger.debug("Making Google Drive API request for uploaded file:", finalFileName)
     const response = await drive.files.create({
       requestBody: fileMetadata,
       media
     })
-    console.log("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
+    logger.debug("Google Drive API success response:", { fileId: response.data.id, fileName: response.data.name })
     return {
       type: "google_drive_action_upload_file",
       success: true,
@@ -2619,7 +2621,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting OneDrive upload file from URL execution...")
+  logger.debug("Starting OneDrive upload file from URL execution...")
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
@@ -2644,7 +2646,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
     throw new Error("OneDrive integration not connected")
   }
 
-  console.log("Found OneDrive integration:", {
+  logger.debug("Found OneDrive integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -2663,7 +2665,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "onedrive",
           integration.refresh_token,
@@ -2672,16 +2674,16 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh OneDrive access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh OneDrive access token")
     }
   }
@@ -2711,7 +2713,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
       }
     }
     
-    console.log(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+    logger.debug(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
   } catch (error: any) {
     throw new Error(`Failed to download file from URL: ${error.message}`)
   }
@@ -2726,7 +2728,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
       ? `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}:/${encodeURIComponent(finalFileName)}:/content`
       : `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(finalFileName)}:/content`
     
-    console.log("Making OneDrive API request for uploaded file:", finalFileName)
+    logger.debug("Making OneDrive API request for uploaded file:", finalFileName)
     const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
@@ -2742,7 +2744,7 @@ async function executeOneDriveUploadFileFromUrlNode(node: any, context: any) {
     }
     
     const result = await response.json()
-    console.log("OneDrive API success response:", { fileId: result.id, fileName: result.name })
+    logger.debug("OneDrive API success response:", { fileId: result.id, fileName: result.name })
     
     return {
       type: "onedrive_action_upload_file_from_url",
@@ -2769,7 +2771,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Dropbox upload file from URL execution...")
+  logger.debug("Starting Dropbox upload file from URL execution...")
 
   const config = node.data.config || {}
   const fileUrl = config.fileUrl
@@ -2794,7 +2796,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
     throw new Error("Dropbox integration not connected")
   }
 
-  console.log("Found Dropbox integration:", {
+  logger.debug("Found Dropbox integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -2813,7 +2815,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "dropbox",
           integration.refresh_token,
@@ -2822,16 +2824,16 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Dropbox access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Dropbox access token")
     }
   }
@@ -2861,7 +2863,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
       }
     }
     
-    console.log(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
+    logger.debug(`Downloaded file: ${actualFileName} (${fileBuffer.length} bytes, ${mimeType})`)
   } catch (error: any) {
     throw new Error(`Failed to download file from URL: ${error.message}`)
   }
@@ -2874,7 +2876,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
     
     const dropboxPath = path ? `${path}/${finalFileName}` : `/${finalFileName}`
     
-    console.log("Making Dropbox API request for uploaded file:", finalFileName)
+    logger.debug("Making Dropbox API request for uploaded file:", finalFileName)
     const response = await fetch("https://content.dropboxapi.com/2/files/upload", {
       method: "POST",
       headers: {
@@ -2896,7 +2898,7 @@ async function executeDropboxUploadFileFromUrlNode(node: any, context: any) {
     }
     
     const result = await response.json()
-    console.log("Dropbox API success response:", { fileId: result.id, fileName: result.name })
+    logger.debug("Dropbox API success response:", { fileId: result.id, fileName: result.name })
     
     return {
       type: "dropbox_action_upload_file_from_url",
@@ -2924,7 +2926,7 @@ async function executeGoogleSheetsUnifiedAction(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Sheets unified action execution...")
+  logger.debug("Starting Google Sheets unified action execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -3165,7 +3167,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Sheets create spreadsheet execution...")
+  logger.debug("Starting Google Sheets create spreadsheet execution...")
 
   // Get Google Sheets integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -3181,7 +3183,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
     throw new Error("Google Sheets integration not connected")
   }
 
-  console.log("Found Google Sheets integration:", {
+  logger.debug("Found Google Sheets integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -3202,7 +3204,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-sheets",
           integration.refresh_token,
@@ -3211,16 +3213,16 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Sheets access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Sheets access token")
     }
   }
@@ -3238,7 +3240,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
       // Get user's timezone from the request context or default to UTC
       timeZone = context.userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
     } catch (error) {
-      console.warn("Could not detect user timezone, using UTC:", error)
+      logger.warn("Could not detect user timezone, using UTC:", error)
       timeZone = "UTC"
     }
   }
@@ -3247,7 +3249,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
     throw new Error("Spreadsheet title is required")
   }
 
-  console.log("Creating Google Sheets spreadsheet:", {
+  logger.debug("Creating Google Sheets spreadsheet:", {
     title,
     description,
     sheets: sheets.map((s: any) => ({ name: s.name, columns: s.columns })),
@@ -3287,7 +3289,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
 
     if (!createResponse.ok) {
       const errorData = await createResponse.json().catch(() => ({}))
-      console.error("Google Sheets API error:", {
+      logger.error("Google Sheets API error:", {
         status: createResponse.status,
         statusText: createResponse.statusText,
         error: errorData
@@ -3300,7 +3302,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
     const spreadsheetUrl = createResult.spreadsheets?.properties?.title ? 
       `https://docs.google.com/spreadsheets/d/${spreadsheetId}` : undefined
 
-    console.log("Created Google Sheets spreadsheet:", {
+    logger.debug("Created Google Sheets spreadsheet:", {
       spreadsheetId,
       title: createResult.spreadsheets?.properties?.title,
       url: spreadsheetUrl
@@ -3321,7 +3323,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
             const endColumn = String.fromCharCode(65 + processedColumnNames.length - 1)
             const range = `${sheet.name}!A1:${endColumn}1`
             
-            console.log(`Adding headers to sheet ${sheet.name}:`, processedColumnNames)
+            logger.debug(`Adding headers to sheet ${sheet.name}:`, processedColumnNames)
             
             const headerResponse = await fetch(
               `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=RAW`,
@@ -3338,14 +3340,14 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
             )
             
             if (headerResponse.ok) {
-              console.log(`Successfully added headers to sheet ${sheet.name}`)
+              logger.debug(`Successfully added headers to sheet ${sheet.name}`)
             } else {
-              console.warn(`Failed to add headers to sheet ${sheet.name}:`, headerResponse.statusText)
+              logger.warn(`Failed to add headers to sheet ${sheet.name}:`, headerResponse.statusText)
             }
           }
         }
       } catch (error) {
-        console.warn("Error adding headers to sheets:", error)
+        logger.warn("Error adding headers to sheets:", error)
       }
     }
 
@@ -3367,7 +3369,7 @@ async function executeSheetsCreateSpreadsheetNode(node: any, context: any) {
     }
 
   } catch (error: any) {
-    console.error("Error creating Google Sheets spreadsheet:", error)
+    logger.error("Error creating Google Sheets spreadsheet:", error)
     throw error
   }
 }
@@ -3384,7 +3386,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Docs create document execution...")
+  logger.debug("Starting Google Docs create document execution...")
 
   // Get Google Docs integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -3400,7 +3402,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
     throw new Error("Google Docs integration not connected")
   }
 
-  console.log("Found Google Docs integration:", {
+  logger.debug("Found Google Docs integration:", {
     id: integration.id,
     hasAccessToken: !!integration.access_token,
     hasRefreshToken: !!integration.refresh_token,
@@ -3418,7 +3420,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-docs",
           integration.refresh_token,
@@ -3427,16 +3429,16 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Docs access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Docs access token")
     }
   }
@@ -3453,7 +3455,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
     throw new Error("Document title is required")
   }
 
-  console.log("Creating Google Docs document:", {
+  logger.debug("Creating Google Docs document:", {
     title,
     hasContent: !!content,
     templateId,
@@ -3479,7 +3481,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
 
     if (!createResponse.ok) {
       const errorData = await createResponse.json().catch(() => ({}))
-      console.error("Google Docs API error:", {
+      logger.error("Google Docs API error:", {
         status: createResponse.status,
         statusText: createResponse.statusText,
         error: errorData
@@ -3491,7 +3493,7 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
     const documentId = createResult.documentId
     const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
 
-    console.log("Created Google Docs document:", {
+    logger.debug("Created Google Docs document:", {
       documentId,
       title: createResult.title,
       url: documentUrl
@@ -3523,9 +3525,9 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
       )
 
       if (!contentResponse.ok) {
-        console.warn("Failed to add content to document:", contentResponse.statusText)
+        logger.warn("Failed to add content to document:", contentResponse.statusText)
       } else {
-        console.log("Successfully added content to document")
+        logger.debug("Successfully added content to document")
       }
     }
 
@@ -3544,12 +3546,12 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
         )
 
         if (!moveResponse.ok) {
-          console.warn("Failed to move document to folder:", moveResponse.statusText)
+          logger.warn("Failed to move document to folder:", moveResponse.statusText)
         } else {
-          console.log("Successfully moved document to folder")
+          logger.debug("Successfully moved document to folder")
         }
       } catch (error) {
-        console.warn("Error moving document to folder:", error)
+        logger.warn("Error moving document to folder:", error)
       }
     }
 
@@ -3577,13 +3579,13 @@ async function executeGoogleDocsCreateDocumentNode(node: any, context: any) {
           )
 
           if (!shareResponse.ok) {
-            console.warn(`Failed to share document with ${email}:`, shareResponse.statusText)
+            logger.warn(`Failed to share document with ${email}:`, shareResponse.statusText)
           } else {
-            console.log(`Successfully shared document with ${email}`)
+            logger.debug(`Successfully shared document with ${email}`)
           }
         }
       } catch (error) {
-        console.warn("Error sharing document:", error)
+        logger.warn("Error sharing document:", error)
       }
     }
 
@@ -3613,7 +3615,7 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Docs read document execution...")
+  logger.debug("Starting Google Docs read document execution...")
 
   // Get Google Docs integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -3640,7 +3642,7 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-docs",
           integration.refresh_token,
@@ -3649,16 +3651,16 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Docs access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Docs access token")
     }
   }
@@ -3673,7 +3675,7 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
     throw new Error("Document ID is required")
   }
 
-  console.log("Reading Google Docs document:", {
+  logger.debug("Reading Google Docs document:", {
     documentId,
     includeFormatting,
     includeComments,
@@ -3695,7 +3697,7 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
 
     if (!readResponse.ok) {
       const errorData = await readResponse.json().catch(() => ({}))
-      console.error("Google Docs API error:", {
+      logger.error("Google Docs API error:", {
         status: readResponse.status,
         statusText: readResponse.statusText,
         error: errorData
@@ -3720,7 +3722,7 @@ async function executeGoogleDocsReadDocumentNode(node: any, context: any) {
       }
     }
 
-    console.log("Successfully read Google Docs document:", {
+    logger.debug("Successfully read Google Docs document:", {
       documentId,
       title,
       contentLength: content.length,
@@ -3773,7 +3775,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
     }
   }
 
-  console.log("Starting Google Docs update document execution...")
+  logger.debug("Starting Google Docs update document execution...")
 
   // Get Google Docs integration
   const supabase = await createSupabaseRouteHandlerClient()
@@ -3800,7 +3802,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
       })
       
       if (shouldRefresh) {
-        console.log("Access token needs refresh, refreshing...")
+        logger.debug("Access token needs refresh, refreshing...")
         const refreshResult = await TokenRefreshService.refreshTokenForProvider(
           "google-docs",
           integration.refresh_token,
@@ -3809,16 +3811,16 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
         
         if (refreshResult.success && refreshResult.accessToken) {
           accessToken = refreshResult.accessToken
-          console.log("Successfully refreshed access token")
+          logger.debug("Successfully refreshed access token")
         } else {
-          console.error("Failed to refresh access token:", refreshResult.error)
+          logger.error("Failed to refresh access token:", refreshResult.error)
           throw new Error("Failed to refresh Google Docs access token")
         }
       } else {
-        console.log("Access token is still valid")
+        logger.debug("Access token is still valid")
       }
     } catch (error) {
-      console.error("Error refreshing token:", error)
+      logger.error("Error refreshing token:", error)
       throw new Error("Failed to refresh Google Docs access token")
     }
   }
@@ -3838,7 +3840,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
     throw new Error("Content is required")
   }
 
-  console.log("Updating Google Docs document:", {
+  logger.debug("Updating Google Docs document:", {
     documentId,
     operation,
     contentLength: content.length,
@@ -4001,7 +4003,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
 
     if (!updateResponse.ok) {
       const errorData = await updateResponse.json().catch(() => ({}))
-      console.error("Google Docs API error:", {
+      logger.error("Google Docs API error:", {
         status: updateResponse.status,
         statusText: updateResponse.statusText,
         error: errorData
@@ -4009,7 +4011,7 @@ async function executeGoogleDocsUpdateDocumentNode(node: any, context: any) {
       throw new Error(`Google Docs API error: ${updateResponse.status} - ${errorData.error?.message || updateResponse.statusText}`)
     }
 
-    console.log("Successfully updated Google Docs document")
+    logger.debug("Successfully updated Google Docs document")
 
     return {
       type: "google_docs_update_document",

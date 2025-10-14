@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`LinkedIn OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`LinkedIn OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (pkceError || !pkceData) {
-      console.error('Invalid state or PKCE lookup error:', pkceError)
+      logger.error('Invalid state or PKCE lookup error:', pkceError)
       return createPopupResponse('error', provider, 'Invalid state parameter', baseUrl)
     }
 
@@ -42,7 +45,7 @@ export async function GET(request: NextRequest) {
     try {
       stateData = JSON.parse(atob(state));
     } catch (e) {
-      console.error('Failed to parse state:', e);
+      logger.error('Failed to parse state:', e);
       return createPopupResponse('error', provider, 'Invalid state format', baseUrl);
     }
     
@@ -64,7 +67,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/linkedin/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('LinkedIn OAuth credentials not configured')
+      logger.error('LinkedIn OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('LinkedIn token exchange failed:', tokenResponse.status, errorText)
+      logger.error('LinkedIn token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -103,7 +106,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!profileResponse.ok) {
-      console.error('Failed to fetch LinkedIn profile:', await profileResponse.text())
+      logger.error('Failed to fetch LinkedIn profile:', await profileResponse.text())
     }
 
     const profileData = profileResponse.ok ? await profileResponse.json() : {}
@@ -136,13 +139,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save LinkedIn integration:', upsertError)
+      logger.error('Failed to save LinkedIn integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'LinkedIn connected successfully!', baseUrl)
   } catch (error) {
-    console.error('LinkedIn callback error:', error)
+    logger.error('LinkedIn callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

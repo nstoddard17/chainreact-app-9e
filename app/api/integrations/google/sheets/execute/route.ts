@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../../data/utils';
+
+import { logger } from '@/lib/utils/logger'
 
 interface ExecuteRequest {
   integrationId: string;
@@ -39,10 +42,7 @@ export async function POST(request: NextRequest) {
     const { integrationId, spreadsheetId, sheetName, action, data, conditions, columnMapping, batchData, options = {} } = body;
 
     if (!integrationId || !spreadsheetId || !sheetName || !action) {
-      return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
-      );
+      return errorResponse('Missing required parameters' , 400);
     }
 
     // Get integration data
@@ -55,10 +55,7 @@ export async function POST(request: NextRequest) {
     }).then(res => res.json());
 
     if (!integration || integration.length === 0) {
-      return NextResponse.json(
-        { error: 'Integration not found' },
-        { status: 404 }
-      );
+      return errorResponse('Integration not found' , 404);
     }
 
     validateGoogleIntegration(integration[0]);
@@ -82,20 +79,14 @@ export async function POST(request: NextRequest) {
         result = await clearRows(spreadsheetId, sheetName, sheetMetadata, conditions, accessToken);
         break;
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return errorResponse('Invalid action' , 400);
     }
 
-    return NextResponse.json({ success: true, result });
+    return jsonResponse({ success: true, result });
 
   } catch (error: any) {
-    console.error('❌ [Google Sheets Execute] Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to execute Google Sheets operation' },
-      { status: 500 }
-    );
+    logger.error('❌ [Google Sheets Execute] Error:', error);
+    return errorResponse(error.message || 'Failed to execute Google Sheets operation' , 500);
   }
 }
 

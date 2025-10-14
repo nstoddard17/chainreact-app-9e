@@ -12,8 +12,8 @@ export const teamsNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId" }
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel to monitor", dependsOn: "teamId", showWhen: { teamId: { $exists: true } } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the new message" },
@@ -57,8 +57,8 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "teamId", label: "Team", type: "select", dynamic: true, required: true, placeholder: "Select a team first" },
-      { name: "channelId", label: "Channel", type: "select", dynamic: true, required: true, placeholder: "Select a channel", dependsOn: "teamId" },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
+      { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", showWhen: { teamId: { $exists: true } } },
       { name: "message", label: "Message", type: "textarea", required: true, placeholder: "Enter your message" },
       { name: "attachments", label: "Attachments", type: "file", required: false, accept: ".pdf,.doc,.docx,.txt,.jpg,.png,.gif", multiple: true, placeholder: "Add file attachments (optional)" }
     ],

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,9 +11,9 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('\n========================================')
-    console.log('🔍 ONEDRIVE WORKFLOW DEBUG TEST')
-    console.log('========================================\n')
+    logger.debug('\n========================================')
+    logger.debug('🔍 ONEDRIVE WORKFLOW DEBUG TEST')
+    logger.debug('========================================\n')
 
     // Step 1: Check webhook queue
     const { data: queueItems } = await supabase
@@ -20,11 +23,11 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(5)
 
-    console.log('📥 Webhook Queue Status:')
-    console.log(`  - Pending items: ${queueItems?.length || 0}`)
+    logger.debug('📥 Webhook Queue Status:')
+    logger.debug(`  - Pending items: ${queueItems?.length || 0}`)
     if (queueItems && queueItems.length > 0) {
-      console.log(`  - Latest: ${queueItems[0].created_at}`)
-      console.log(`  - Subscription: ${queueItems[0].subscription_id?.substring(0, 8)}...`)
+      logger.debug(`  - Latest: ${queueItems[0].created_at}`)
+      logger.debug(`  - Subscription: ${queueItems[0].subscription_id?.substring(0, 8)}...`)
     }
 
     // Step 2: Check subscriptions
@@ -37,14 +40,14 @@ export async function GET(request: NextRequest) {
 
     const subscription = subscriptions?.[0]
     if (!subscription) {
-      console.log('❌ No active Microsoft Graph subscriptions found')
-      return NextResponse.json({ error: 'No active subscriptions' })
+      logger.debug('❌ No active Microsoft Graph subscriptions found')
+      return jsonResponse({ error: 'No active subscriptions' })
     }
 
-    console.log('\n📝 Active Subscription:')
-    console.log(`  - ID: ${subscription.id.substring(0, 8)}...`)
-    console.log(`  - User: ${subscription.user_id?.substring(0, 8)}...`)
-    console.log(`  - Expires: ${subscription.expiration_date_time}`)
+    logger.debug('\n📝 Active Subscription:')
+    logger.debug(`  - ID: ${subscription.id.substring(0, 8)}...`)
+    logger.debug(`  - User: ${subscription.user_id?.substring(0, 8)}...`)
+    logger.debug(`  - Expires: ${subscription.expiration_date_time}`)
 
     // Step 3: Check workflows for this user
     const userId = subscription.user_id
@@ -54,8 +57,8 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .eq('status', 'active')
 
-    console.log('\n🔄 User Workflows:')
-    console.log(`  - Total active workflows: ${workflows?.length || 0}`)
+    logger.debug('\n🔄 User Workflows:')
+    logger.debug(`  - Total active workflows: ${workflows?.length || 0}`)
 
     // Check for OneDrive triggers
     let oneDriveWorkflow = null
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
 
         if (hasTrigger) {
           oneDriveWorkflow = workflow
-          console.log(`  ✅ Found OneDrive workflow: "${workflow.name}"`)
+          logger.debug(`  ✅ Found OneDrive workflow: "${workflow.name}"`)
 
           // Find the trigger details
           const triggerNode = nodes.find((n: any) =>
@@ -82,22 +85,22 @@ export async function GET(request: NextRequest) {
              n?.data?.type?.includes('onedrive'))
           )
 
-          console.log(`     - Trigger type: ${triggerNode?.data?.type || 'unknown'}`)
-          console.log(`     - Config:`, triggerNode?.data?.config || {})
+          logger.debug(`     - Trigger type: ${triggerNode?.data?.type || 'unknown'}`)
+          logger.debug(`     - Config:`, triggerNode?.data?.config || {})
           break
         }
       } catch (e) {
-        console.log(`  ⚠️ Error parsing workflow ${workflow.id}`)
+        logger.debug(`  ⚠️ Error parsing workflow ${workflow.id}`)
       }
     }
 
     if (!oneDriveWorkflow) {
-      console.log('  ❌ No OneDrive workflows found for user')
+      logger.debug('  ❌ No OneDrive workflows found for user')
     }
 
     // Step 4: Test the workflow trigger
     if (oneDriveWorkflow && subscription) {
-      console.log('\n🚀 Testing Workflow Trigger:')
+      logger.debug('\n🚀 Testing Workflow Trigger:')
 
       // Create a test event
       const testEvent = {
@@ -113,9 +116,9 @@ export async function GET(request: NextRequest) {
         lastModifiedDateTime: new Date().toISOString()
       }
 
-      console.log('  - Would trigger with event:', testEvent.type)
-      console.log('  - For workflow:', oneDriveWorkflow.name)
-      console.log('  - User:', userId?.substring(0, 8))
+      logger.debug('  - Would trigger with event:', testEvent.type)
+      logger.debug('  - For workflow:', oneDriveWorkflow.name)
+      logger.debug('  - User:', userId?.substring(0, 8))
     }
 
     // Step 5: Check integration
@@ -127,26 +130,26 @@ export async function GET(request: NextRequest) {
       .eq('status', 'connected')
       .single()
 
-    console.log('\n🔗 OneDrive Integration:')
+    logger.debug('\n🔗 OneDrive Integration:')
     if (integration) {
-      console.log('  ✅ Connected')
+      logger.debug('  ✅ Connected')
       const metadata = typeof integration.metadata === 'string'
         ? JSON.parse(integration.metadata)
         : integration.metadata || {}
-      console.log(`  - Has subscription ID in metadata: ${!!metadata.subscriptionId}`)
+      logger.debug(`  - Has subscription ID in metadata: ${!!metadata.subscriptionId}`)
     } else {
-      console.log('  ❌ Not connected or not found')
+      logger.debug('  ❌ Not connected or not found')
     }
 
-    console.log('\n========================================')
-    console.log('📊 SUMMARY:')
-    console.log(`  - Subscription: ${subscription ? '✅' : '❌'}`)
-    console.log(`  - OneDrive Workflow: ${oneDriveWorkflow ? '✅' : '❌'}`)
-    console.log(`  - Integration: ${integration ? '✅' : '❌'}`)
-    console.log(`  - Queue Items: ${queueItems?.length || 0}`)
-    console.log('========================================\n')
+    logger.debug('\n========================================')
+    logger.debug('📊 SUMMARY:')
+    logger.debug(`  - Subscription: ${subscription ? '✅' : '❌'}`)
+    logger.debug(`  - OneDrive Workflow: ${oneDriveWorkflow ? '✅' : '❌'}`)
+    logger.debug(`  - Integration: ${integration ? '✅' : '❌'}`)
+    logger.debug(`  - Queue Items: ${queueItems?.length || 0}`)
+    logger.debug('========================================\n')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       subscription: subscription?.id,
       userId,
@@ -156,7 +159,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Debug test error:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    logger.error('Debug test error:', error)
+    return jsonResponse({ error }, { status: 500 })
   }
 }

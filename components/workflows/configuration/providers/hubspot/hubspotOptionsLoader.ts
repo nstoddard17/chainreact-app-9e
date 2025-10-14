@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export const hubspotOptionsLoader: ProviderOptionsLoader = {
   canHandle(fieldName: string, providerId: string): boolean {
     // Check if this is a HubSpot provider
@@ -29,7 +31,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, searchQuery } = params
     
-    console.log('🔍 HubSpot options loader called with params:', { 
+    logger.debug('🔍 HubSpot options loader called with params:', { 
       fieldName, 
       integrationId,
       integrationIdType: typeof integrationId,
@@ -40,7 +42,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     })
     
     if (!integrationId) {
-      console.error('❌ [HubSpot Loader] No integration ID provided. Please connect your HubSpot account first.')
+      logger.error('❌ [HubSpot Loader] No integration ID provided. Please connect your HubSpot account first.')
       // Return message to user about needing to connect
       return [{
         value: '',
@@ -62,7 +64,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
     
     const dataType = fieldToDataType[fieldName]
     if (!dataType) {
-      console.warn(`No data type mapping for HubSpot field: ${fieldName}`)
+      logger.warn(`No data type mapping for HubSpot field: ${fieldName}`)
       return []
     }
     
@@ -73,7 +75,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         options: { searchQuery }
       }
       
-      console.log('📡 [HubSpot Loader] Making API request:', {
+      logger.debug('📡 [HubSpot Loader] Making API request:', {
         integrationId,
         dataType,
         fieldName,
@@ -83,7 +85,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       
       // Make sure we have valid data before making the request
       if (!integrationId || typeof integrationId !== 'string') {
-        console.error('❌ [HubSpot Loader] Invalid integration ID:', integrationId)
+        logger.error('❌ [HubSpot Loader] Invalid integration ID:', integrationId)
         return []
       }
       
@@ -96,7 +98,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       })
       
       if (!response) {
-        console.error('❌ [HubSpot Loader] No response received')
+        logger.error('❌ [HubSpot Loader] No response received')
         throw new Error('No response from server')
       }
       
@@ -105,10 +107,10 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         try {
           errorText = await response.text()
         } catch (e) {
-          console.error('❌ [HubSpot Loader] Could not read error text:', e)
+          logger.error('❌ [HubSpot Loader] Could not read error text:', e)
         }
         
-        console.error('❌ [HubSpot Loader] API error:', {
+        logger.error('❌ [HubSpot Loader] API error:', {
           status: response.status,
           statusText: response.statusText,
           errorText: errorText || '(empty error response)',
@@ -134,7 +136,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       }
       
       const result = await response.json()
-      console.log('✅ [HubSpot Loader] API response:', {
+      logger.debug('✅ [HubSpot Loader] API response:', {
         dataType,
         dataLength: result.data?.length || 0,
         success: result.success
@@ -194,7 +196,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       }))
       
     } catch (error) {
-      console.error(`Error loading HubSpot ${fieldName} options:`, error)
+      logger.error(`Error loading HubSpot ${fieldName} options:`, error)
       return []
     }
   },

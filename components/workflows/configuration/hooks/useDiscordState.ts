@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { getDiscordBotInviteUrl } from '../utils/helpers';
 
+import { logger } from '@/lib/utils/logger'
+
 interface BotStatus {
   isInGuild: boolean;
   hasPermissions: boolean;
@@ -70,16 +72,16 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       // If bot is now connected with permissions, automatically load channels
       // BUT only if we don't already have a saved channel value
       if (newBotStatus.isInGuild && newBotStatus.hasPermissions && !values.channelId) {
-        console.log('🔍 Bot connected with permissions, loading channels for guild:', guildId);
+        logger.debug('🔍 Bot connected with permissions, loading channels for guild:', guildId);
         // Let the useDynamicOptions hook handle all loading state management
         loadOptions('channelId', 'guildId', guildId)
           .then(() => {
-            console.log('✅ Channels loaded successfully after bot connection');
+            logger.debug('✅ Channels loaded successfully after bot connection');
             // Clear any rate limit errors
             setRateLimitInfo({ isRateLimited: false });
           })
           .catch((channelError: any) => {
-            console.error('Failed to load channels after bot connection:', channelError);
+            logger.error('Failed to load channels after bot connection:', channelError);
             
             // Check if it's a rate limit error
             if (channelError?.message?.includes('rate limit') || channelError?.status === 429) {
@@ -93,7 +95,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
               // Auto-retry after the rate limit expires
               if (channelError.retryAfter) {
                 setTimeout(() => {
-                  console.log('🔄 Retrying channel load after rate limit...');
+                  logger.debug('🔄 Retrying channel load after rate limit...');
                   setRateLimitInfo({ isRateLimited: false });
                   loadOptions('channelId', 'guildId', guildId);
                 }, (channelError.retryAfter + 1) * 1000);
@@ -103,10 +105,10 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
             }
           });
       } else if (newBotStatus.isInGuild && newBotStatus.hasPermissions && values.channelId) {
-        console.log('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
+        logger.debug('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
       }
     } catch (error) {
-      console.error("Error checking Discord bot status:", error);
+      logger.error("Error checking Discord bot status:", error);
       setBotStatus({
         isInGuild: false,
         hasPermissions: false
@@ -133,7 +135,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         error: data.error
       });
     } catch (error) {
-      console.error("Error checking Discord channel bot status:", error);
+      logger.error("Error checking Discord channel bot status:", error);
       setChannelBotStatus({
         isInChannel: false,
         canSendMessages: false,
@@ -156,7 +158,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       
       return data.isInGuild && data.hasPermissions;
     } catch (error) {
-      console.error("Error checking if bot is in server:", error);
+      logger.error("Error checking if bot is in server:", error);
       return false;
     }
   }, [discordIntegration]);
@@ -164,12 +166,12 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   // Function to load Discord reactions for a specific message
   const loadReactionsForMessage = useCallback(async (channelId: string, messageId: string) => {
     if (!channelId || !messageId || !discordIntegration) {
-      console.warn('Missing required parameters for loading reactions:', { channelId, messageId, hasIntegration: !!discordIntegration });
+      logger.warn('Missing required parameters for loading reactions:', { channelId, messageId, hasIntegration: !!discordIntegration });
       return;
     }
 
     try {
-      console.log('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
+      logger.debug('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
       
       // Load reactions using the integration service directly
       const reactionsData = await loadIntegrationData('discord_reactions', discordIntegration.id, {
@@ -189,30 +191,30 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       // Update selected emoji reactions state
       setSelectedEmojiReactions(formattedReactions);
       
-      console.log('✅ Loaded', formattedReactions.length, 'reactions for message');
+      logger.debug('✅ Loaded', formattedReactions.length, 'reactions for message');
     } catch (error: any) {
-      console.error('Failed to load reactions:', error);
+      logger.error('Failed to load reactions:', error);
       setSelectedEmojiReactions([]);
     }
   }, [discordIntegration, loadIntegrationData]);
   
   // Function to invite bot to Discord server
   const handleInviteBot = useCallback((guildId?: string) => {
-    console.log('🔍 Discord invite bot called:', { 
+    logger.debug('🔍 Discord invite bot called:', { 
       discordClientId: discordClientId ? 'Present' : 'Missing',
       isDiscordBotConfigured,
       guildId 
     });
     
     if (!discordClientId) {
-      console.error('Discord client ID not available - cannot open OAuth flow');
+      logger.error('Discord client ID not available - cannot open OAuth flow');
       return;
     }
     
     // Use helper function to get the invite URL
     const inviteUrl = getDiscordBotInviteUrl(discordClientId, guildId);
     
-    console.log('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
+    logger.debug('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
     
     // Set loading state
     setIsBotConnectionInProgress(true);
@@ -244,7 +246,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           clearInterval(interval);
           setIsBotConnectionInProgress(false);
           
-          console.log('🔍 Discord OAuth popup closed, checking bot status...');
+          logger.debug('🔍 Discord OAuth popup closed, checking bot status...');
 
           // Check bot status after popup closes
           if (guildId) {
@@ -274,7 +276,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
             // Additional checks with delays to handle Discord's eventual consistency
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
-                console.log('🔍 Bot not detected yet, checking again...');
+                logger.debug('🔍 Bot not detected yet, checking again...');
                 await checkBotStatus(guildId);
 
                 // Try loading channels again if bot is now detected
@@ -291,7 +293,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
 
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
-                console.log('🔍 Final bot status check...');
+                logger.debug('🔍 Final bot status check...');
                 await checkBotStatus(guildId);
               }
               // Clear loading state after final check
@@ -306,12 +308,12 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         if (pollCount >= maxPolls) {
           clearInterval(interval);
           setIsBotConnectionInProgress(false);
-          console.log('Discord OAuth timeout - exceeded maximum wait time');
+          logger.debug('Discord OAuth timeout - exceeded maximum wait time');
           popup.close();
           
         }
       } catch (error) {
-        console.error('Error in popup monitoring:', error);
+        logger.error('Error in popup monitoring:', error);
       }
     }, 500); // Check every 500ms
     
@@ -324,10 +326,10 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   
   // Function to connect Discord integration
   const handleConnectDiscord = useCallback(async () => {
-    console.log('Starting Discord connection...');
+    logger.debug('Starting Discord connection...');
     const result = await connectIntegration('discord');
     if (result) {
-      console.log('Discord connected successfully!');
+      logger.debug('Discord connected successfully!');
       // The integration data will be updated automatically via the store
     }
   }, [connectIntegration]);
@@ -341,7 +343,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         const response = await fetch('/api/discord/config');
         const data = await response.json();
         
-        console.log('🔍 Discord configuration check on mount:', data);
+        logger.debug('🔍 Discord configuration check on mount:', data);
         
         if (data.configured && data.clientId) {
           setIsDiscordBotConfigured(true);
@@ -352,7 +354,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           // The bot configuration is optional and checked per-guild later
         }
       } catch (error) {
-        console.error('Error fetching Discord config:', error);
+        logger.error('Error fetching Discord config:', error);
         setIsDiscordBotConfigured(false);
       }
     };
@@ -368,11 +370,11 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     if (values.guildId && discordIntegration && nodeInfo?.providerId === 'discord') {
       // Only check if guild ID actually changed
       if (previousGuildId !== values.guildId) {
-        console.log('🔍 Guild ID changed from', previousGuildId, 'to', values.guildId, '- checking bot status');
+        logger.debug('🔍 Guild ID changed from', previousGuildId, 'to', values.guildId, '- checking bot status');
         setPreviousGuildId(values.guildId);
         checkBotStatus(values.guildId);
       } else {
-        console.log('📌 Guild ID unchanged - skipping bot status check');
+        logger.debug('📌 Guild ID unchanged - skipping bot status check');
       }
     }
   }, [values.guildId, discordIntegration, nodeInfo?.providerId, checkBotStatus, previousGuildId]);

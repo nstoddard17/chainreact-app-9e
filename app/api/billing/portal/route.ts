@@ -1,7 +1,10 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import Stripe from "stripe"
+
+import { logger } from '@/lib/utils/logger'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -14,7 +17,7 @@ function getBaseUrlFromRequest(request: NextRequest): string {
   if (host) {
     // Check if it's localhost - if so, ALWAYS use localhost regardless of env vars
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      console.log("[Portal API] Detected localhost, using local URL")
+      logger.debug("[Portal API] Detected localhost, using local URL")
       return `http://${host}`
     }
     
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get customer ID from subscription
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error || !subscription?.stripe_customer_id) {
-      return NextResponse.json({ error: "No subscription found" }, { status: 404 })
+      return errorResponse("No subscription found" , 404)
     }
 
     // Get the base URL dynamically from the request
@@ -81,9 +84,9 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to create portal session URL")
     }
 
-    return NextResponse.json({ url: portalSession.url })
+    return jsonResponse({ url: portalSession.url })
   } catch (error: any) {
-    console.error("Portal session error:", error)
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    logger.error("Portal session error:", error)
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 }

@@ -1,6 +1,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -175,7 +177,7 @@ export async function createNotionDatabase(params: ActionParams): Promise<Action
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error("Notion API error:", errorData)
+      logger.error("Notion API error:", errorData)
       
       if (response.status === 401) {
         return {
@@ -213,7 +215,7 @@ export async function createNotionDatabase(params: ActionParams): Promise<Action
     }
     
   } catch (error) {
-    console.error("Error creating Notion database:", error)
+    logger.error("Error creating Notion database:", error)
     return {
       success: false,
       error: `Failed to create database: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -354,7 +356,7 @@ async function createDatabaseViews(databaseId: string, views: any[], accessToken
         body: JSON.stringify(viewPayload),
       })
     } catch (error) {
-      console.error("Error creating view:", error)
+      logger.error("Error creating view:", error)
     }
   }
 }

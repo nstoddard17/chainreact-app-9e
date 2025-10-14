@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 
@@ -7,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Get the OneDrive integration
@@ -21,10 +24,8 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (fetchError || !onedriveIntegration) {
-      return NextResponse.json({ 
-        error: "No disconnected OneDrive integration found",
-        details: fetchError?.message 
-      }, { status: 404 })
+      return errorResponse("No disconnected OneDrive integration found", 404, { details: fetchError?.message 
+       })
     }
 
     // Test the refresh token
@@ -32,16 +33,15 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET
 
     if (!clientId || !clientSecret) {
-      return NextResponse.json({ 
-        error: "Missing Microsoft OAuth credentials",
+      return errorResponse("Missing Microsoft OAuth credentials", 500, {
         hasClientId: !!clientId,
         hasClientSecret: !!clientSecret
-      }, { status: 500 })
+      })
     }
 
-    console.log(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
-    console.log(`📋 Client ID: ${clientId.substring(0, 10)}...`)
-    console.log(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
+    logger.debug(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
+    logger.debug(`📋 Client ID: ${clientId.substring(0, 10)}...`)
+    logger.debug(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
 
     const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
     })
 
     const data = await response.json()
-    console.log(`📊 Response status: ${response.status}`)
-    console.log(`📊 Response data:`, data)
+    logger.debug(`📊 Response status: ${response.status}`)
+    logger.debug(`📊 Response data:`, data)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       integration: {
         id: onedriveIntegration.id,
@@ -86,8 +86,8 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("OneDrive refresh test error:", error)
-    return NextResponse.json({
+    logger.error("OneDrive refresh test error:", error)
+    return jsonResponse({
       success: false,
       error: "Failed to test OneDrive refresh",
       details: error.message

@@ -5,6 +5,8 @@ import { MultiCombobox } from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailEmailFieldProps {
   field: any;
   value: any;
@@ -85,7 +87,7 @@ export function GmailEmailField({
 
   // Handle dropdown opening to load data
   const handleDropdownOpen = (isOpen: boolean) => {
-    console.log('📧 [GmailEmailField] Dropdown opened:', {
+    logger.debug('📧 [GmailEmailField] Dropdown opened:', {
       isOpen,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
@@ -96,7 +98,7 @@ export function GmailEmailField({
     });
     
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
-      console.log('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
+      logger.debug('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };

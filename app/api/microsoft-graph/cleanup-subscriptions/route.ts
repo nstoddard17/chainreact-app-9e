@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
+
+import { logger } from '@/lib/utils/logger'
 
 const graphAuth = new MicrosoftGraphAuth()
 
@@ -16,23 +19,22 @@ export async function DELETE(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
-    console.log('🧹 Starting cleanup of all Microsoft Graph subscriptions for user:', user.id)
+    logger.debug('🧹 Starting cleanup of all Microsoft Graph subscriptions for user:', user.id)
 
     // Get access token for Microsoft Graph
     let accessToken: string
     try {
       accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
     } catch (error) {
-      return NextResponse.json({
-        error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      }, { status: 400 })
+      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
+      , 400)
     }
 
     // List all subscriptions
-    console.log('📋 Fetching all Microsoft Graph subscriptions...')
+    logger.debug('📋 Fetching all Microsoft Graph subscriptions...')
     const listResponse = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
       method: 'GET',
       headers: {
@@ -43,8 +45,8 @@ export async function DELETE(request: NextRequest) {
 
     if (!listResponse.ok) {
       const errorText = await listResponse.text()
-      console.error('❌ Failed to list subscriptions:', errorText)
-      return NextResponse.json({
+      logger.error('❌ Failed to list subscriptions:', errorText)
+      return jsonResponse({
         error: 'Failed to list subscriptions',
         details: errorText
       }, { status: listResponse.status })
@@ -53,13 +55,13 @@ export async function DELETE(request: NextRequest) {
     const listData = await listResponse.json()
     const subscriptions = listData.value || []
 
-    console.log(`📊 Found ${subscriptions.length} subscription(s)`)
+    logger.debug(`📊 Found ${subscriptions.length} subscription(s)`)
 
     // Delete each subscription
     const results = []
     for (const subscription of subscriptions) {
       try {
-        console.log(`🗑️ Deleting subscription: ${subscription.id}`)
+        logger.debug(`🗑️ Deleting subscription: ${subscription.id}`)
 
         const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subscription.id}`, {
           method: 'DELETE',
@@ -69,7 +71,7 @@ export async function DELETE(request: NextRequest) {
         })
 
         if (deleteResponse.ok || deleteResponse.status === 404) {
-          console.log(`✅ Deleted subscription: ${subscription.id}`)
+          logger.debug(`✅ Deleted subscription: ${subscription.id}`)
           results.push({
             id: subscription.id,
             status: 'deleted',
@@ -77,7 +79,7 @@ export async function DELETE(request: NextRequest) {
           })
         } else {
           const errorText = await deleteResponse.text()
-          console.error(`❌ Failed to delete subscription ${subscription.id}:`, errorText)
+          logger.error(`❌ Failed to delete subscription ${subscription.id}:`, errorText)
           results.push({
             id: subscription.id,
             status: 'failed',
@@ -85,7 +87,7 @@ export async function DELETE(request: NextRequest) {
           })
         }
       } catch (error: any) {
-        console.error(`❌ Error deleting subscription ${subscription.id}:`, error)
+        logger.error(`❌ Error deleting subscription ${subscription.id}:`, error)
         results.push({
           id: subscription.id,
           status: 'error',
@@ -95,7 +97,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Also clean up orphaned records in trigger_resources
-    console.log('🧹 Cleaning up orphaned trigger_resources records...')
+    logger.debug('🧹 Cleaning up orphaned trigger_resources records...')
     const { data: triggerResources } = await supabase
       .from('trigger_resources')
       .select('id, external_id')
@@ -112,13 +114,13 @@ export async function DELETE(request: NextRequest) {
         .eq('resource_type', 'subscription')
 
       if (deleteError) {
-        console.error('❌ Failed to clean up trigger_resources:', deleteError)
+        logger.error('❌ Failed to clean up trigger_resources:', deleteError)
       } else {
-        console.log(`✅ Cleaned up ${triggerResources.length} trigger_resources record(s)`)
+        logger.debug(`✅ Cleaned up ${triggerResources.length} trigger_resources record(s)`)
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Cleaned up ${results.length} Microsoft Graph subscription(s)`,
       results,
@@ -126,11 +128,9 @@ export async function DELETE(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Error during cleanup:', error)
-    return NextResponse.json({
-      error: 'Failed to cleanup subscriptions',
-      details: error.message
-    }, { status: 500 })
+    logger.error('❌ Error during cleanup:', error)
+    return errorResponse('Failed to cleanup subscriptions', 500, { details: error.message
+     })
   }
 }
 
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get access token for Microsoft Graph
@@ -153,9 +153,8 @@ export async function GET(request: NextRequest) {
     try {
       accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
     } catch (error) {
-      return NextResponse.json({
-        error: 'No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      }, { status: 400 })
+      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
+      , 400)
     }
 
     // List all subscriptions
@@ -169,7 +168,7 @@ export async function GET(request: NextRequest) {
 
     if (!listResponse.ok) {
       const errorText = await listResponse.text()
-      return NextResponse.json({
+      return jsonResponse({
         error: 'Failed to list subscriptions',
         details: errorText
       }, { status: listResponse.status })
@@ -186,7 +185,7 @@ export async function GET(request: NextRequest) {
       .like('provider_id', 'microsoft%')
       .eq('resource_type', 'subscription')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       microsoftGraphSubscriptions: subscriptions,
       triggerResources: triggerResources || [],
@@ -200,10 +199,8 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Error listing subscriptions:', error)
-    return NextResponse.json({
-      error: 'Failed to list subscriptions',
-      details: error.message
-    }, { status: 500 })
+    logger.error('❌ Error listing subscriptions:', error)
+    return errorResponse('Failed to list subscriptions', 500, { details: error.message
+     })
   }
 }

@@ -1,7 +1,10 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { z } from "zod"
+
+import { logger } from '@/lib/utils/logger'
 
 const reviewSchema = z.object({
   rating: z.number().min(1).max(5),
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
@@ -36,14 +39,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .single()
 
     if (error) {
-      console.error("Error creating review:", error)
-      return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+      logger.error("Error creating review:", error)
+      return errorResponse("Failed to create review" , 500)
     }
 
-    return NextResponse.json(review)
+    return jsonResponse(review)
   } catch (error) {
-    console.error("Error in POST /api/templates/[id]/reviews:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in POST /api/templates/[id]/reviews:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -62,13 +65,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching reviews:", error)
-      return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
+      logger.error("Error fetching reviews:", error)
+      return errorResponse("Failed to fetch reviews" , 500)
     }
 
-    return NextResponse.json(reviews)
+    return jsonResponse(reviews)
   } catch (error) {
-    console.error("Error in GET /api/templates/[id]/reviews:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in GET /api/templates/[id]/reviews:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

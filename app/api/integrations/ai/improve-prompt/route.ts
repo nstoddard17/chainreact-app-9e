@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import OpenAI from "openai"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 interface ImprovePromptBody {
   prompt?: string
@@ -16,24 +19,24 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return errorResponse("Unauthorized" , 401)
   }
 
   let body: ImprovePromptBody
   try {
     body = await request.json()
   } catch (error) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    return errorResponse("Invalid request body" , 400)
   }
 
   const prompt = body.prompt?.trim()
   if (!prompt) {
-    return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
+    return errorResponse("Prompt is required" , 400)
   }
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 })
+    return errorResponse("OpenAI API key not configured" , 500)
   }
 
   const quickAction = body.quickAction || "custom"
@@ -58,10 +61,10 @@ export async function POST(request: Request) {
 
     const improvedPrompt = completion.choices?.[0]?.message?.content?.trim()
 
-    return NextResponse.json({ improvedPrompt: improvedPrompt || prompt })
+    return jsonResponse({ improvedPrompt: improvedPrompt || prompt })
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("[Improve Prompt] Failed to refine prompt", error)
-    return NextResponse.json({ error: "Failed to improve prompt" }, { status: 500 })
+    logger.error("[Improve Prompt] Failed to refine prompt", error)
+    return errorResponse("Failed to improve prompt" , 500)
   }
 }

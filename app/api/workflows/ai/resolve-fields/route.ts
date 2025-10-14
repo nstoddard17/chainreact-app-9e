@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { processAIFields, ProcessingContext } from '@/lib/workflows/ai/fieldProcessor'
 import { discoverActions } from '@/lib/workflows/ai/fieldProcessor'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * API endpoint for AI field resolution
@@ -19,10 +22,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -68,17 +68,11 @@ export async function POST(request: NextRequest) {
         })
       
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        )
+        return errorResponse('Invalid action' , 400)
     }
   } catch (error) {
-    console.error('AI field resolution error:', error)
-    return NextResponse.json(
-      { error: 'Failed to process AI fields' },
-      { status: 500 }
-    )
+    logger.error('AI field resolution error:', error)
+    return errorResponse('Failed to process AI fields' , 500)
   }
 }
 
@@ -111,7 +105,7 @@ async function handleFieldResolution(params: {
   try {
     const result = await processAIFields(processingContext)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       resolvedFields: result.fields,
       routing: result.routing,
@@ -119,8 +113,8 @@ async function handleFieldResolution(params: {
       tokensUsed: result.tokensUsed
     })
   } catch (error) {
-    console.error('Field resolution failed:', error)
-    return NextResponse.json(
+    logger.error('Field resolution failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -153,15 +147,15 @@ async function handleActionDiscovery(params: {
       }
     )
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       actions: result.actions,
       confidence: result.confidence,
       cost: result.cost
     })
   } catch (error) {
-    console.error('Action discovery failed:', error)
-    return NextResponse.json(
+    logger.error('Action discovery failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -229,15 +223,15 @@ async function handlePreview(params: {
       }
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       preview,
       routing: result.routing,
       estimatedCost: result.cost
     })
   } catch (error) {
-    console.error('Preview generation failed:', error)
-    return NextResponse.json(
+    logger.error('Preview generation failed:', error)
+    return jsonResponse(
       { 
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

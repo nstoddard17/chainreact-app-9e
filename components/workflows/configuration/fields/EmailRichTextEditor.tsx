@@ -41,6 +41,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 
 interface EmailRichTextEditorProps {
   value: string
@@ -642,7 +644,7 @@ export function EmailRichTextEditor({
 
   // Initialize editor content and sync with value prop
   useEffect(() => {
-    console.log('📧 [EmailRichTextEditor] Value prop changed:', {
+    logger.debug('📧 [EmailRichTextEditor] Value prop changed:', {
       value: value?.substring(0, 100) + (value?.length > 100 ? '...' : ''),
       length: value?.length,
       hasEditorRef: !!editorRef.current,
@@ -652,7 +654,7 @@ export function EmailRichTextEditor({
     if (editorRef.current) {
       // Only update if the content is different to prevent cursor jumps
       if (editorRef.current.innerHTML !== value && !editorRef.current.contains(document.activeElement)) {
-        console.log('📧 [EmailRichTextEditor] Updating editor content')
+        logger.debug('📧 [EmailRichTextEditor] Updating editor content')
         editorRef.current.innerHTML = value || ''
       }
       setIsEditorInitialized(true)
@@ -677,7 +679,7 @@ export function EmailRichTextEditor({
         
         // Check if integration needs connection
         if (data.needsConnection) {
-          console.log(`🔍 [SIGNATURES] ${integrationProvider} integration not connected for user`)
+          logger.debug(`🔍 [SIGNATURES] ${integrationProvider} integration not connected for user`)
           // Still set empty signatures array - the UI will handle showing no signatures available
           return
         }
@@ -693,10 +695,10 @@ export function EmailRichTextEditor({
           // Don't auto-add signature - user must manually add it using the signature button
         }
       } else {
-        console.error(`Failed to load ${integrationProvider} signatures:`, response.status, response.statusText)
+        logger.error(`Failed to load ${integrationProvider} signatures:`, response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Failed to load email signatures:', error)
+      logger.error('Failed to load email signatures:', error)
     } finally {
       setIsLoadingSignatures(false)
     }
@@ -783,7 +785,7 @@ export function EmailRichTextEditor({
   const handleContentChange = () => {
     if (editorRef.current) {
       const content = editorRef.current.innerHTML
-      console.log('📧 [EmailRichTextEditor] Content changed:', {
+      logger.debug('📧 [EmailRichTextEditor] Content changed:', {
         content: content?.substring(0, 100) + (content?.length > 100 ? '...' : ''),
         length: content?.length
       })

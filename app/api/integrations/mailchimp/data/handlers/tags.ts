@@ -11,13 +11,15 @@ import {
   buildMailchimpApiUrl
 } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpTag[]> => {
   const { audienceId } = options
 
-  console.log("🔍 [Mailchimp] Fetching tags:", {
+  logger.debug("🔍 [Mailchimp] Fetching tags:", {
     integrationId: integration.id,
     audienceId
   })
@@ -30,15 +32,15 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    console.log(`🔍 [Mailchimp] Validating token...`)
+    logger.debug(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    console.log('🔍 [Mailchimp] Fetching tags from API...')
+    logger.debug('🔍 [Mailchimp] Fetching tags from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/tag-search`)
 
     // Add query parameters - we need to search with an empty string to get all tags
@@ -52,11 +54,11 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
     // Tags come back in a different format - they're in a tags array
     const tags = result.tags || []
 
-    console.log(`✅ [Mailchimp] Tags fetched successfully: ${tags.length} tags`)
+    logger.debug(`✅ [Mailchimp] Tags fetched successfully: ${tags.length} tags`)
     return tags
 
   } catch (error: any) {
-    console.error("❌ [Mailchimp] Error fetching tags:", error)
+    logger.error("❌ [Mailchimp] Error fetching tags:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Mailchimp authentication expired. Please reconnect your account.')
@@ -68,7 +70,7 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
 
     // If tag-search doesn't work, return empty array (some accounts may not have this feature)
     if (error.message?.includes('404') || error.message?.includes('not found')) {
-      console.log('⚠️ [Mailchimp] Tag search not available for this account')
+      logger.debug('⚠️ [Mailchimp] Tag search not available for this account')
       return []
     }
 

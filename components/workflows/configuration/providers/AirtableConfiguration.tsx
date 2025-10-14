@@ -12,6 +12,8 @@ import { AirtableRecordsTable } from '../AirtableRecordsTable';
 import { getAirtableFieldTypeFromSchema, isEditableFieldType } from '../utils/airtableHelpers';
 import { BubbleDisplay } from '../components/BubbleDisplay';
 
+import { logger } from '@/lib/utils/logger'
+
 interface AirtableConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -155,7 +157,7 @@ export function AirtableConfiguration({
     
     // Check if integration exists
     if (!airtableIntegration) {
-      console.error('Airtable integration not found');
+      logger.error('Airtable integration not found');
       setIsLoadingTableSchema(false);
       return;
     }
@@ -176,16 +178,16 @@ export function AirtableConfiguration({
       
       if (metaResponse.ok) {
         const metadata = await metaResponse.json();
-        console.log('📋 Fetched Airtable table metadata:', metadata);
+        logger.debug('📋 Fetched Airtable table metadata:', metadata);
         
         // Log specific fields we care about
         const linkedFields = metadata.fields?.filter((f: any) => 
           f.type === 'multipleRecordLinks' || f.type === 'singleRecordLink'
         );
-        console.log('🔗 Linked record fields found in metadata:', linkedFields);
+        logger.debug('🔗 Linked record fields found in metadata:', linkedFields);
         
         if (metadata.fields && metadata.fields.length > 0) {
-          console.log('📋 Setting table schema with fields:', metadata.fields.map((f: any) => ({
+          logger.debug('📋 Setting table schema with fields:', metadata.fields.map((f: any) => ({
             name: f.name,
             type: f.type,
             id: f.id
@@ -277,7 +279,7 @@ export function AirtableConfiguration({
       }
       
       // Fallback: Infer schema from records if metadata API fails
-      console.log('⚠️ Metadata API failed or returned no fields, falling back to record inference');
+      logger.debug('⚠️ Metadata API failed or returned no fields, falling back to record inference');
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -293,7 +295,7 @@ export function AirtableConfiguration({
       });
       
       if (!response.ok) {
-        console.error('Failed to fetch table data');
+        logger.error('Failed to fetch table data');
         setAirtableTableSchema(null);
         return;
       }
@@ -351,7 +353,7 @@ export function AirtableConfiguration({
         visibilityByFieldId: {}
       });
     } catch (error) {
-      console.error('Error fetching table schema:', error);
+      logger.error('Error fetching table schema:', error);
       setAirtableTableSchema(null);
     } finally {
       setIsLoadingTableSchema(false);
@@ -364,7 +366,7 @@ export function AirtableConfiguration({
     
     // Check if integration exists
     if (!airtableIntegration) {
-      console.error('Airtable integration not found');
+      logger.error('Airtable integration not found');
       setLoadingRecords(false);
       setAirtableRecords([]);
       return;
@@ -393,7 +395,7 @@ export function AirtableConfiguration({
       });
       
       if (!response.ok) {
-        console.error('Failed to fetch records');
+        logger.error('Failed to fetch records');
         setAirtableRecords([]);
         return;
       }
@@ -401,7 +403,7 @@ export function AirtableConfiguration({
       const result = await response.json();
       setAirtableRecords(result.data || []);
     } catch (error) {
-      console.error('Error loading records:', error);
+      logger.error('Error loading records:', error);
       setAirtableRecords([]);
     } finally {
       setLoadingRecords(false);
@@ -414,7 +416,7 @@ export function AirtableConfiguration({
     
     // Check if integration exists
     if (!airtableIntegration) {
-      console.error('Airtable integration not found');
+      logger.error('Airtable integration not found');
       setPreviewData([]);
       return;
     }
@@ -443,7 +445,7 @@ export function AirtableConfiguration({
       });
       
       if (!response.ok) {
-        console.error('Failed to fetch preview data');
+        logger.error('Failed to fetch preview data');
         setPreviewData([]);
         return;
       }
@@ -451,7 +453,7 @@ export function AirtableConfiguration({
       const result = await response.json();
       setPreviewData(result.data || []);
     } catch (error) {
-      console.error('Error loading preview:', error);
+      logger.error('Error loading preview:', error);
       setPreviewData([]);
     } finally {
       setLoadingPreview(false);
@@ -471,7 +473,7 @@ export function AirtableConfiguration({
       .filter((field: any) => {
         if (!field) return false;
         if (unsupportedFieldTypes.has(field.type)) {
-          console.log('🚫 [AirtableConfig] Excluding unsupported field:', field.name, field.type);
+          logger.debug('🚫 [AirtableConfig] Excluding unsupported field:', field.name, field.type);
           return false;
         }
 
@@ -479,7 +481,7 @@ export function AirtableConfiguration({
         if (isCreateRecord) {
           // Always hide autoNumber fields - they're generated by Airtable on creation
           if (field.type === 'autoNumber') {
-            console.log('🚫 [AirtableConfig] Excluding autoNumber field for create action:', field.name);
+            logger.debug('🚫 [AirtableConfig] Excluding autoNumber field for create action:', field.name);
             return false;
           }
 
@@ -489,7 +491,7 @@ export function AirtableConfiguration({
             const isHidden = visibilitySetting.toLowerCase() !== 'visible' &&
                            visibilitySetting.toLowerCase() !== 'shown';
             if (isHidden) {
-              console.log('🚫 [AirtableConfig] Excluding hidden field for create action:', field.name, visibilitySetting);
+              logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', field.name, visibilitySetting);
               return false;
             }
           }
@@ -643,7 +645,7 @@ export function AirtableConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    console.log('🔍 [AirtableConfig] handleDynamicLoad called:', {
+    logger.debug('🔍 [AirtableConfig] handleDynamicLoad called:', {
       fieldName,
       dependsOn,
       dependsOnValue,
@@ -653,7 +655,7 @@ export function AirtableConfiguration({
 
     // Check if options are already loaded (don't reload on every dropdown open)
     if (!forceReload && dynamicOptions[fieldName] && dynamicOptions[fieldName].length > 0) {
-      console.log('✅ [AirtableConfig] Options already loaded for field:', fieldName);
+      logger.debug('✅ [AirtableConfig] Options already loaded for field:', fieldName);
       return;
     }
 
@@ -663,7 +665,7 @@ export function AirtableConfiguration({
       tableName: values.tableName
     };
 
-    console.log('🔍 [AirtableConfig] Loading options for dynamic field:', {
+    logger.debug('🔍 [AirtableConfig] Loading options for dynamic field:', {
       fieldName,
       baseId: values.baseId,
       tableName: values.tableName,
@@ -676,7 +678,7 @@ export function AirtableConfiguration({
       const dynamicField = dynamicFields.find((f: any) => f.name === fieldName);
 
       if (dynamicField) {
-        console.log('🔍 [AirtableConfig] Loading options for dynamic field:', {
+        logger.debug('🔍 [AirtableConfig] Loading options for dynamic field:', {
           fieldName,
           fieldType: dynamicField.airtableFieldType,
           isLinkedRecord: dynamicField.airtableFieldType === 'multipleRecordLinks' ||
@@ -701,7 +703,7 @@ export function AirtableConfiguration({
     // Check in the regular config schema
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
-      console.warn('Field not found in schema:', fieldName);
+      logger.warn('Field not found in schema:', fieldName);
       return;
     }
 
@@ -719,7 +721,7 @@ export function AirtableConfiguration({
         await loadOptions(fieldName, undefined, undefined, forceReload, false, extraOptions);
       }
     } catch (error) {
-      console.error('Error loading dynamic options:', error);
+      logger.error('Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions, dynamicFields, dynamicOptions]);
 
@@ -727,7 +729,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     // Check if we're reopening the modal with existing values
     if (values.baseId && values.tableName && !airtableTableSchema && !isLoadingTableSchema) {
-      console.log('📂 [INITIAL LOAD] Modal opened with existing values, loading schema:', {
+      logger.debug('📂 [INITIAL LOAD] Modal opened with existing values, loading schema:', {
         baseId: values.baseId,
         tableName: values.tableName,
         isEditMode
@@ -748,18 +750,18 @@ export function AirtableConfiguration({
 
   // Reset processed schema ref and clear aiFields when table changes so AI fields can be re-applied
   useEffect(() => {
-    console.log('🔄 [AirtableConfig] Table changed, resetting processedSchemaRef and clearing aiFields');
+    logger.debug('🔄 [AirtableConfig] Table changed, resetting processedSchemaRef and clearing aiFields');
     processedSchemaRef.current = null;
     // Clear aiFields so all fields in the new table can be set to AI mode
     setAiFields({});
     // Also clear the schema to ensure we don't apply AI fields with stale schema
     setAirtableTableSchema?.(null);
-    console.log('✅ [AirtableConfig] Cleared schema to force reload for new table');
+    logger.debug('✅ [AirtableConfig] Cleared schema to force reload for new table');
   }, [values.tableName, setAiFields, setAirtableTableSchema]);
 
   // Log component mount and initial state
   useEffect(() => {
-    console.log('🔍 [AirtableConfig] Component mounted/updated:', {
+    logger.debug('🔍 [AirtableConfig] Component mounted/updated:', {
       nodeType: nodeInfo?.type,
       hasAllFieldsAI: !!values._allFieldsAI,
       allFieldsAIValue: values._allFieldsAI,
@@ -776,7 +778,7 @@ export function AirtableConfiguration({
 
   // Auto-set AI mode for dynamically loaded fields
   useEffect(() => {
-    console.log('🔍 [AirtableConfig] Auto-AI useEffect triggered:', {
+    logger.debug('🔍 [AirtableConfig] Auto-AI useEffect triggered:', {
       hasAllFieldsAI: !!values._allFieldsAI,
       allFieldsAIValue: values._allFieldsAI,
       hasSchema: !!airtableTableSchema,
@@ -791,7 +793,7 @@ export function AirtableConfiguration({
       // Create a unique key for this schema
       const schemaKey = `${values.baseId}-${values.tableName}-${airtableTableSchema.fields.length}`;
 
-      console.log('🔍 [AirtableConfig] Schema detected:', {
+      logger.debug('🔍 [AirtableConfig] Schema detected:', {
         schemaKey,
         previousSchemaKey: processedSchemaRef.current,
         alreadyProcessed: processedSchemaRef.current === schemaKey
@@ -799,14 +801,14 @@ export function AirtableConfiguration({
 
       // Skip if we've already processed this exact schema
       if (processedSchemaRef.current === schemaKey) {
-        console.log('⏭️ [AirtableConfig] Skipping - already processed this schema');
+        logger.debug('⏭️ [AirtableConfig] Skipping - already processed this schema');
         return;
       }
 
-      console.log('🤖 [AirtableConfig] Auto-setting AI mode for dynamic fields');
+      logger.debug('🤖 [AirtableConfig] Auto-setting AI mode for dynamic fields');
 
       const dynamicFields = getDynamicFields();
-      console.log('🔍 [AirtableConfig] Dynamic fields:', dynamicFields.map((f: any) => f.name));
+      logger.debug('🔍 [AirtableConfig] Dynamic fields:', dynamicFields.map((f: any) => f.name));
 
       const newAiFields: Record<string, boolean> = { ...aiFields };
       let hasChanges = false;
@@ -831,7 +833,7 @@ export function AirtableConfiguration({
                              field.formula ||
                              readOnlyAirtableTypes.includes(field.airtableFieldType);
 
-        console.log('🔍 [AirtableConfig] Processing field:', {
+        logger.debug('🔍 [AirtableConfig] Processing field:', {
           fieldName,
           rawFieldName,
           fieldType: field.type,
@@ -847,21 +849,21 @@ export function AirtableConfiguration({
           // Also set the value to the AI placeholder using the raw field name
           setValue(fieldName, `{{AI_FIELD:${rawFieldName}}}`);
           hasChanges = true;
-          console.log('✅ [AirtableConfig] Set field to AI mode:', fieldName);
+          logger.debug('✅ [AirtableConfig] Set field to AI mode:', fieldName);
         }
       });
 
       // Update aiFields state only if there are changes
       if (hasChanges) {
-        console.log('🤖 [AirtableConfig] Setting aiFields for', Object.keys(newAiFields).length, 'fields');
-        console.log('🔍 [AirtableConfig] New aiFields:', newAiFields);
+        logger.debug('🤖 [AirtableConfig] Setting aiFields for', Object.keys(newAiFields).length, 'fields');
+        logger.debug('🔍 [AirtableConfig] New aiFields:', newAiFields);
         setAiFields(newAiFields);
         processedSchemaRef.current = schemaKey;
       } else {
-        console.log('⚠️ [AirtableConfig] No changes to make');
+        logger.debug('⚠️ [AirtableConfig] No changes to make');
       }
     } else {
-      console.log('⚠️ [AirtableConfig] Conditions not met:', {
+      logger.debug('⚠️ [AirtableConfig] Conditions not met:', {
         hasAllFieldsAI: !!values._allFieldsAI,
         hasSchema: !!airtableTableSchema?.fields
       });
@@ -974,7 +976,7 @@ export function AirtableConfiguration({
         setValue(fieldName, null);
       } else if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
         // Handle linked record fields - parse the id::name format
-        console.log('🔵 [BUBBLE CREATION] Linked record field detected:', {
+        logger.debug('🔵 [BUBBLE CREATION] Linked record field detected:', {
           fieldName,
           fieldType: field.airtableFieldType,
           value,
@@ -985,7 +987,7 @@ export function AirtableConfiguration({
         const valuesToAdd = Array.isArray(value) ? value : [value];
         
         valuesToAdd.forEach(val => {
-          console.log('🔵 [BUBBLE CREATION] Processing value:', {
+          logger.debug('🔵 [BUBBLE CREATION] Processing value:', {
             rawValue: val,
             hasDoubleColon: val?.includes('::'),
             valueLength: val?.length
@@ -999,13 +1001,13 @@ export function AirtableConfiguration({
             const parts = val.split('::');
             recordId = parts[0]; // The actual record ID for the API
             recordName = parts[1]; // The human-readable name for display
-            console.log('🔵 [BUBBLE CREATION] Parsed ID::Name format:', {
+            logger.debug('🔵 [BUBBLE CREATION] Parsed ID::Name format:', {
               recordId,
               recordName,
               partsCount: parts.length
             });
           } else {
-            console.log('⚠️ [BUBBLE CREATION] No :: separator found, using raw value:', val);
+            logger.debug('⚠️ [BUBBLE CREATION] No :: separator found, using raw value:', val);
           }
           
           // Check if bubble already exists (by ID)
@@ -1017,7 +1019,7 @@ export function AirtableConfiguration({
               fieldName: field.name
             };
             
-            console.log('🔵 [BUBBLE CREATION] Creating new bubble:', newBubble);
+            logger.debug('🔵 [BUBBLE CREATION] Creating new bubble:', newBubble);
             
             setFieldSuggestions(prev => ({
               ...prev,
@@ -1068,7 +1070,7 @@ export function AirtableConfiguration({
     if (!values.tableName || !values.baseId) return;
     if (dynamicFields.length === 0) return;
 
-    console.log('🚀 [AUTO-LOAD] Checking for fields to auto-load', {
+    logger.debug('🚀 [AUTO-LOAD] Checking for fields to auto-load', {
       totalFields: dynamicFields.length,
       tableName: values.tableName,
       baseId: values.baseId
@@ -1097,7 +1099,7 @@ export function AirtableConfiguration({
     });
 
     if (fieldsToAutoLoad.length > 0) {
-      console.log('🚀 [AUTO-LOAD] Auto-loading fields:', fieldsToAutoLoad.map(f => ({
+      logger.debug('🚀 [AUTO-LOAD] Auto-loading fields:', fieldsToAutoLoad.map(f => ({
         name: f.name,
         label: f.label,
         dynamic: f.dynamic
@@ -1122,7 +1124,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        console.log(`🔄 [AUTO-LOAD] Loading options for: ${field.label}`, {
+        logger.debug(`🔄 [AUTO-LOAD] Loading options for: ${field.label}`, {
           fieldName: field.name,
           dynamic: field.dynamic,
           dependsOn: field.dependsOn
@@ -1162,7 +1164,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     if (!values.recordId || !dynamicFields.length) return;
 
-    console.log('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
+    logger.debug('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
 
     // Find linked fields that haven't been loaded yet
     const linkedFieldsToLoad = dynamicFields.filter(field =>
@@ -1171,7 +1173,7 @@ export function AirtableConfiguration({
     );
 
     if (linkedFieldsToLoad.length > 0) {
-      console.log('🟢 [LINKED FIELDS] Loading options for linked fields:', linkedFieldsToLoad.map(f => f.name));
+      logger.debug('🟢 [LINKED FIELDS] Loading options for linked fields:', linkedFieldsToLoad.map(f => f.name));
 
       // Mark fields as loaded
       setLoadedLinkedFields(prev => {
@@ -1189,7 +1191,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        console.log('🟢 [LINKED FIELDS] Loading with context:', {
+        logger.debug('🟢 [LINKED FIELDS] Loading with context:', {
           fieldName: field.name,
           fieldType: field.airtableFieldType,
           extraOptions
@@ -1235,7 +1237,7 @@ export function AirtableConfiguration({
 
     if (!isDropdownField) return;
 
-    console.log('🔄 [DROPDOWN FIELDS] Loading options for field:', fieldName);
+    logger.debug('🔄 [DROPDOWN FIELDS] Loading options for field:', fieldName);
 
     // Mark field as loaded first to prevent duplicate loads
     setLoadedDropdownFields(prev => new Set([...prev, fieldName]));
@@ -1246,7 +1248,7 @@ export function AirtableConfiguration({
         tableName: values.tableName
       };
 
-      console.log('🔄 [DROPDOWN FIELDS] Loading with context:', {
+      logger.debug('🔄 [DROPDOWN FIELDS] Loading with context:', {
         fieldName,
         dynamicType: field.dynamic,
         extraOptions
@@ -1254,9 +1256,9 @@ export function AirtableConfiguration({
 
       // Load the options
       await loadOptions(fieldName, 'tableName', values.tableName, false, false, extraOptions);
-      console.log('✅ [DROPDOWN FIELDS] Field loaded:', fieldName);
+      logger.debug('✅ [DROPDOWN FIELDS] Field loaded:', fieldName);
     } catch (error) {
-      console.error('❌ [DROPDOWN FIELDS] Error loading field:', fieldName, error);
+      logger.error('❌ [DROPDOWN FIELDS] Error loading field:', fieldName, error);
     }
   }, [dynamicFields, values.tableName, values.baseId, loadOptions, loadedDropdownFields, dynamicOptions]);
   
@@ -1269,11 +1271,11 @@ export function AirtableConfiguration({
       (Object.keys(values).some(key => key.startsWith('airtable_field_') && values[key]));
 
     if (!shouldInitialize) {
-      console.log('🟢 [BUBBLE INIT] No existing values to initialize');
+      logger.debug('🟢 [BUBBLE INIT] No existing values to initialize');
       return;
     }
     
-    console.log('🟢 [BUBBLE INIT] Record selected, checking fields for existing values:', {
+    logger.debug('🟢 [BUBBLE INIT] Record selected, checking fields for existing values:', {
       recordId: values.recordId,
       dynamicFieldsCount: dynamicFields.length,
       valuesKeys: Object.keys(values)
@@ -1286,7 +1288,7 @@ export function AirtableConfiguration({
       const altFieldName = `airtable_field_${field.label}`;
       const existingValue = values[fieldName] || values[altFieldName];
       
-      console.log('🟢 [BUBBLE INIT] Checking field:', {
+      logger.debug('🟢 [BUBBLE INIT] Checking field:', {
         fieldName,
         altFieldName,
         fieldLabel: field.label,
@@ -1300,7 +1302,7 @@ export function AirtableConfiguration({
       const actualFieldName = values[fieldName] ? fieldName : altFieldName;
       
       if (existingValue && !fieldSuggestions[actualFieldName]?.length) {
-        console.log('🟢 [BUBBLE INIT] Found existing value for field:', {
+        logger.debug('🟢 [BUBBLE INIT] Found existing value for field:', {
           fieldName,
           fieldType: field.airtableFieldType,
           existingValue,
@@ -1316,7 +1318,7 @@ export function AirtableConfiguration({
           
           // Look up names from dynamic options if available
           const options = dynamicOptions[fieldName] || [];
-          console.log('🟢 [BUBBLE INIT] Looking up names in options:', {
+          logger.debug('🟢 [BUBBLE INIT] Looking up names in options:', {
             fieldName,
             recordIds,
             optionsCount: options.length,
@@ -1333,7 +1335,7 @@ export function AirtableConfiguration({
               return opt.value === recordId;
             });
             
-            console.log('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
+            logger.debug('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
               recordId,
               foundOption: !!option,
               optionLabel: option?.label,
@@ -1412,7 +1414,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     if (!dynamicFields.length || !values.recordId) return;
     
-    console.log('🔄 [BUBBLE UPDATE] Checking if bubble labels need updating after options loaded');
+    logger.debug('🔄 [BUBBLE UPDATE] Checking if bubble labels need updating after options loaded');
     
     // Check each dynamic field to see if we need to update bubble labels
     dynamicFields.forEach(field => {
@@ -1425,7 +1427,7 @@ export function AirtableConfiguration({
         const options = dynamicOptions[fieldName] || [];
         
         if (currentBubbles && options.length > 0) {
-          console.log('🔄 [BUBBLE UPDATE] Updating labels for field:', {
+          logger.debug('🔄 [BUBBLE UPDATE] Updating labels for field:', {
             fieldName,
             bubblesCount: currentBubbles.length,
             optionsCount: options.length
@@ -1447,7 +1449,7 @@ export function AirtableConfiguration({
             });
             
             if (option) {
-              console.log('🔄 [BUBBLE UPDATE] Updating bubble label:', {
+              logger.debug('🔄 [BUBBLE UPDATE] Updating bubble label:', {
                 oldLabel: bubble.label,
                 newLabel: option.label,
                 value: bubble.value
@@ -1485,7 +1487,7 @@ export function AirtableConfiguration({
       // For dynamic fields, respect Airtable visibility settings
       if (isDynamic) {
         if (field.hidden) {
-          console.log('👁️‍🗨️ [AirtableConfig] Hiding field marked as hidden in Airtable view:', {
+          logger.debug('👁️‍🗨️ [AirtableConfig] Hiding field marked as hidden in Airtable view:', {
             fieldName: field.name,
             airtableFieldId: field.airtableFieldId,
             visibilityType: field.visibilityType
@@ -1500,7 +1502,7 @@ export function AirtableConfiguration({
     });
     
     return visibleFields.map((field, index) => {
-      console.log(`🎨 [RENDER] Rendering field ${field.name}:`, {
+      logger.debug(`🎨 [RENDER] Rendering field ${field.name}:`, {
         fieldName: field.name,
         fieldType: field.type,
         dynamic: field.dynamic,
@@ -1629,7 +1631,7 @@ export function AirtableConfiguration({
     if (!isValid) {
       setValidationErrors(errors);
       // Optionally show a toast or alert
-      console.error('Validation failed:', errors);
+      logger.error('Validation failed:', errors);
       return;
     }
     
@@ -1739,7 +1741,7 @@ export function AirtableConfiguration({
                         );
 
                         if (hasAttachmentValue || field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
-                          console.log('🔍 [RECORD SELECT] Checking attachment field:', {
+                          logger.debug('🔍 [RECORD SELECT] Checking attachment field:', {
                             key,
                             fieldName: actualFieldName,
                             fieldType: field.type,
@@ -1755,7 +1757,7 @@ export function AirtableConfiguration({
                           
                           // Look up names from dynamic options if available
                           const options = dynamicOptions[actualFieldName] || [];
-                          console.log('🟣 [RECORD SELECT] Looking up linked record names:', {
+                          logger.debug('🟣 [RECORD SELECT] Looking up linked record names:', {
                             actualFieldName,
                             recordIds,
                             optionsAvailable: options.length > 0,
@@ -1777,7 +1779,7 @@ export function AirtableConfiguration({
                               fieldName: field.name
                             };
                             
-                            console.log('🟣 [RECORD SELECT] Created bubble for linked record:', bubble);
+                            logger.debug('🟣 [RECORD SELECT] Created bubble for linked record:', bubble);
                             return bubble;
                           });
                           
@@ -1848,7 +1850,7 @@ export function AirtableConfiguration({
                         } else if ((field.airtableFieldType === 'multipleAttachments' || field.type === 'file' ||
                                    (Array.isArray(value) && value[0]?.url) || value?.url) && value) {
                           // For attachment/image fields, populate with the image URLs
-                          console.log('🖼️ [RECORD SELECT] Populating image field:', {
+                          logger.debug('🖼️ [RECORD SELECT] Populating image field:', {
                             fieldName: actualFieldName,
                             fieldType: field.airtableFieldType,
                             fieldActualType: field.type,
@@ -1870,7 +1872,7 @@ export function AirtableConfiguration({
 
                             // Set the value to the attachments array
                             setValue(actualFieldName, attachments);
-                            console.log('🖼️ [RECORD SELECT] Set multiple attachments:', attachments);
+                            logger.debug('🖼️ [RECORD SELECT] Set multiple attachments:', attachments);
                           } else if (!Array.isArray(value) && value.url) {
                             // Single attachment (convert to array for consistency with AirtableImageField)
                             const attachment = {
@@ -1882,7 +1884,7 @@ export function AirtableConfiguration({
                               size: value.size
                             };
                             setValue(actualFieldName, [attachment]);
-                            console.log('🖼️ [RECORD SELECT] Set single attachment as array:', attachment);
+                            logger.debug('🖼️ [RECORD SELECT] Set single attachment as array:', attachment);
                           }
                         } else {
                           // For non-select fields, handle the value properly

@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService";
 import { db } from "@/lib/db";
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Debug endpoint for testing token refresh for specific providers
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
   const integrationId = searchParams.get("id");
   
   if (!provider && !integrationId) {
-    return NextResponse.json({ error: "Provider or integration ID is required" }, { status: 400 });
+    return errorResponse("Provider or integration ID is required" , 400);
   }
   
   try {
@@ -45,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ error: "No matching integrations found" }, { status: 404 });
+      return errorResponse("No matching integrations found" , 404);
     }
     
     // Process each integration
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
       
-      const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
+      const refreshResult = await refreshTokenForProvider(
         integration.provider,
         integration.refresh_token,
         integration
@@ -74,12 +77,12 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       count: results.length,
       results,
     });
   } catch (error: any) {
-    console.error("Error in debug-refresh endpoint:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logger.error("Error in debug-refresh endpoint:", error);
+    return errorResponse(error.message , 500);
   }
 }

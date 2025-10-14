@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import OpenAI from "openai"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -38,13 +40,13 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true;
-    console.log("Client connection aborted");
+    logger.debug("Client connection aborted");
   });
 
   try {
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key is not configured")
+      logger.error("OpenAI API key is not configured")
       return NextResponse.json({ 
         error: "Configuration error",
         content: "AI assistant is not properly configured. Please contact support."
@@ -60,11 +62,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log("Processing message:", `${message.substring(0, 100) }...`)
+    logger.debug("Processing message:", `${message.substring(0, 100) }...`)
 
     // Early exit if connection closed
     if (connectionClosed) {
-      console.log("Connection closed early, aborting processing");
+      logger.debug("Connection closed early, aborting processing");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    console.log("User authenticated:", user.id)
+    logger.debug("User authenticated:", user.id)
 
     // Check AI usage limits
     const usageCheck = await checkUsageLimit(user.id, "ai_assistant")
@@ -117,17 +119,17 @@ export async function POST(request: NextRequest) {
     ]) as any
 
     if (integrationsError) {
-      console.error("Error fetching integrations:", integrationsError)
+      logger.error("Error fetching integrations:", integrationsError)
       return NextResponse.json({ 
         error: "Database error",
         content: "Failed to fetch your integrations. Please try again."
       }, { status: 500 })
     }
 
-    console.log("User integrations:", integrations?.map((i: Integration) => ({ provider: i.provider, hasToken: !!i.access_token })))
+    logger.debug("User integrations:", integrations?.map((i: Integration) => ({ provider: i.provider, hasToken: !!i.access_token })))
 
     // Analyze the user's message to determine intent with timeout
-    console.log("Starting intent analysis...")
+    logger.debug("Starting intent analysis...")
     const intentPromise = analyzeIntent(message, integrations || [])
     const intentTimeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Intent analysis timeout")), 15000)
@@ -136,15 +138,15 @@ export async function POST(request: NextRequest) {
     let intent
     try {
       intent = await Promise.race([intentPromise, intentTimeout]) as any
-      console.log("Intent analysis completed:", intent)
+      logger.debug("Intent analysis completed:", intent)
     } catch (intentError) {
-      console.error("Intent analysis failed:", intentError)
+      logger.error("Intent analysis failed:", intentError)
       // Fallback to general response
       intent = { intent: "general", action: "chat", parameters: {} }
     }
     
     // Execute the appropriate action based on intent with timeout
-    console.log("Starting action execution...")
+    logger.debug("Starting action execution...")
     const actionPromise = executeAction(intent, integrations || [], user.id, supabaseAdmin)
     const actionTimeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Action execution timeout")), 25000)
@@ -153,9 +155,9 @@ export async function POST(request: NextRequest) {
     let result
     try {
       result = await Promise.race([actionPromise, actionTimeout]) as any
-      console.log("Action execution completed")
+      logger.debug("Action execution completed")
     } catch (actionError) {
-      console.error("Action execution failed:", actionError)
+      logger.error("Action execution failed:", actionError)
       // Fallback response
       result = {
         content: "I'm having trouble processing your request right now. Please try again in a moment.",
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("Sending response to user")
+    logger.debug("Sending response to user")
     
     // Track AI usage after successful response
     try {
@@ -181,13 +183,13 @@ export async function POST(request: NextRequest) {
         message_length: message.length
       })
     } catch (trackingError) {
-      console.error("Failed to track AI usage:", trackingError)
+      logger.error("Failed to track AI usage:", trackingError)
       // Don't fail the request if tracking fails
     }
     
     return NextResponse.json(result)
   } catch (error) {
-    console.error("AI Assistant error:", error)
+    logger.error("AI Assistant error:", error)
     
     let errorMessage = "Internal server error"
     let userMessage = "I encountered an unexpected error. Please try again."
@@ -271,7 +273,7 @@ User message: "${message}"`
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000) // Reduced to 8 seconds
 
-    console.log("Making OpenAI API call...")
+    logger.debug("Making OpenAI API call...")
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "system", content: systemPrompt }],
@@ -282,7 +284,7 @@ User message: "${message}"`
     })
 
     clearTimeout(timeoutId)
-    console.log("OpenAI API call completed")
+    logger.debug("OpenAI API call completed")
 
     const content = response.choices[0].message.content
     if (!content) {
@@ -292,12 +294,12 @@ User message: "${message}"`
     try {
       return JSON.parse(content)
     } catch (parseError) {
-      console.error("Failed to parse OpenAI response:", parseError)
-      console.error("Raw response:", content)
+      logger.error("Failed to parse OpenAI response:", parseError)
+      logger.error("Raw response:", content)
       return { intent: "general", action: "chat", parameters: {} }
     }
   } catch (error) {
-    console.error("OpenAI API error:", error)
+    logger.error("OpenAI API error:", error)
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error("OpenAI request timed out")
     } else if (error instanceof Error && error.message.includes('401')) {
@@ -373,8 +375,8 @@ async function executeAction(intent: any, integrations: Integration[], userId: s
 async function handleCalendarQuery(intent: any, integrations: Integration[], userId: string, supabaseAdmin: any) {
   const calendarIntegrations = integrations.filter(i => i.provider === "google-calendar")
   
-  console.log("Calendar query - found integrations:", calendarIntegrations.length)
-  console.log("Calendar integrations:", calendarIntegrations.map(i => ({ id: i.id, hasToken: !!i.access_token })))
+  logger.debug("Calendar query - found integrations:", calendarIntegrations.length)
+  logger.debug("Calendar integrations:", calendarIntegrations.map(i => ({ id: i.id, hasToken: !!i.access_token })))
   
   if (calendarIntegrations.length === 0) {
     return {
@@ -387,7 +389,7 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
     const events = []
     
     for (const integration of calendarIntegrations) {
-      console.log("Processing calendar integration:", integration.id)
+      logger.debug("Processing calendar integration:", integration.id)
       
       // First, get the list of calendars
       const calendarsUrl = new URL("https://www.googleapis.com/calendar/v3/users/me/calendarList")
@@ -398,14 +400,14 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
       })
 
       if (!calendarsResponse.ok) {
-        console.error("Failed to fetch calendars:", await calendarsResponse.text())
+        logger.error("Failed to fetch calendars:", await calendarsResponse.text())
         continue
       }
 
       const calendarsData = await calendarsResponse.json()
       const calendars = calendarsData.items || []
       
-      console.log("Found calendars:", calendars.length)
+      logger.debug("Found calendars:", calendars.length)
 
       // Determine time range based on user query
       let timeMin = new Date()
@@ -423,11 +425,11 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
         timeMax = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       }
 
-      console.log("Time range:", { timeMin, timeMax })
+      logger.debug("Time range:", { timeMin, timeMax })
 
       // Get events from each calendar
       for (const calendar of calendars) {
-        console.log("Fetching events from calendar:", calendar.summary || calendar.id)
+        logger.debug("Fetching events from calendar:", calendar.summary || calendar.id)
         
         const eventsUrl = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar.id)}/events`)
         eventsUrl.searchParams.set("timeMin", timeMin.toISOString())
@@ -444,19 +446,19 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
         if (eventsResponse.ok) {
           const eventsData = await eventsResponse.json()
           const calendarEvents = eventsData.items || []
-          console.log(`Found ${calendarEvents.length} events in calendar ${calendar.summary || calendar.id}`)
+          logger.debug(`Found ${calendarEvents.length} events in calendar ${calendar.summary || calendar.id}`)
           
           events.push(...calendarEvents.map((event: any) => ({
             ...event,
             calendar: calendar.summary || calendar.id,
           })))
         } else {
-          console.error(`Failed to fetch events from calendar ${calendar.id}:`, await eventsResponse.text())
+          logger.error(`Failed to fetch events from calendar ${calendar.id}:`, await eventsResponse.text())
         }
       }
     }
 
-    console.log("Total events found:", events.length)
+    logger.debug("Total events found:", events.length)
 
     if (events.length === 0) {
       const timeframe = intent.parameters.timeframe || "this week"
@@ -506,7 +508,7 @@ async function handleCalendarQuery(intent: any, integrations: Integration[], use
       metadata: { type: "calendar", data: formattedEvents }
     }
   } catch (error) {
-    console.error("Calendar query error:", error)
+    logger.error("Calendar query error:", error)
     return {
       content: "Sorry, I couldn't fetch your calendar events. Please try again.",
       metadata: {}
@@ -609,7 +611,7 @@ async function handleEmailQuery(intent: any, integrations: Integration[], userId
       metadata: { type: "email", data: emails }
     }
   } catch (error) {
-    console.error("Email query error:", error)
+    logger.error("Email query error:", error)
     return {
       content: "Sorry, I couldn't fetch your emails. Please try again.",
       metadata: {}
@@ -699,7 +701,7 @@ async function handleFileQuery(intent: any, integrations: Integration[], userId:
       metadata: { type: "file", data: fileList }
     }
   } catch (error) {
-    console.error("File query error:", error)
+    logger.error("File query error:", error)
     return {
       content: "Sorry, I couldn't search your files. Please try again.",
       metadata: {}
@@ -780,7 +782,7 @@ async function handleSocialQuery(intent: any, integrations: Integration[], userI
       metadata: { type: "social", data: posts }
     }
   } catch (error) {
-    console.error("Social query error:", error)
+    logger.error("Social query error:", error)
     return {
       content: "Sorry, I couldn't fetch your social media posts. Please try again.",
       metadata: {}
@@ -861,7 +863,7 @@ async function handleCRMQuery(intent: any, integrations: Integration[], userId: 
       metadata: { type: "crm", data: data }
     }
   } catch (error) {
-    console.error("CRM query error:", error)
+    logger.error("CRM query error:", error)
     return {
       content: "Sorry, I couldn't fetch your CRM data. Please try again.",
       metadata: {}
@@ -943,7 +945,7 @@ async function handleEcommerceQuery(intent: any, integrations: Integration[], us
       metadata: { type: "ecommerce", data: data }
     }
   } catch (error) {
-    console.error("E-commerce query error:", error)
+    logger.error("E-commerce query error:", error)
     return {
       content: "Sorry, I couldn't fetch your e-commerce data. Please try again.",
       metadata: {}
@@ -1025,7 +1027,7 @@ async function handleDeveloperQuery(intent: any, integrations: Integration[], us
       metadata: { type: "developer", data: data }
     }
   } catch (error) {
-    console.error("Developer query error:", error)
+    logger.error("Developer query error:", error)
     return {
       content: "Sorry, I couldn't fetch your developer data. Please try again.",
       metadata: {}
@@ -1068,14 +1070,14 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
     const data = []
     
     for (const integration of integrationsToUse) {
-      console.log(`Processing ${integration.provider} integration...`)
+      logger.debug(`Processing ${integration.provider} integration...`)
       
       if (integration.provider === "notion") {
         // Only do this for the 'what notion pages do I have' intent or similar
         if (intent.message && /what.*notion.*pages.*have|list.*notion.*pages/i.test(intent.message)) {
           try {
-            console.log("[Notion Debug] Intent: ", intent.message);
-            console.log("[Notion Debug] Found Notion integration: ", !!integration);
+            logger.debug("[Notion Debug] Intent: ", intent.message);
+            logger.debug("[Notion Debug] Found Notion integration: ", !!integration);
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
@@ -1101,7 +1103,7 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
               throw new Error(`Notion search failed: ${searchResponse.status}`);
             }
             const pagesData = await searchResponse.json();
-            console.log("[Notion Debug] Raw Notion API results:", JSON.stringify(pagesData.results, null, 2));
+            logger.debug("[Notion Debug] Raw Notion API results:", JSON.stringify(pagesData.results, null, 2));
             const mainPages = [];
 
             for (const page of pagesData.results || []) {
@@ -1147,7 +1149,7 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
                     }));
                 }
               } catch (subErr) {
-                console.error("Notion subpage fetch error:", subErr);
+                logger.error("Notion subpage fetch error:", subErr);
               }
 
               mainPages.push({
@@ -1158,14 +1160,14 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
               });
             }
 
-            console.log("[Notion Debug] Pages fetched: ", mainPages.length);
+            logger.debug("[Notion Debug] Pages fetched: ", mainPages.length);
 
             return {
               content: `Here are your Notion pages:`,
               metadata: { type: "notion_page_hierarchy", pages: mainPages }
             };
           } catch (err) {
-            console.error("Notion fetch error:", err);
+            logger.error("Notion fetch error:", err);
             return {
               content: "Sorry, I couldn't fetch your Notion pages. Please try again.",
               metadata: { type: "notion_page_hierarchy", pages: [] }
@@ -1223,7 +1225,7 @@ async function handleProductivityQuery(intent: any, integrations: Integration[],
       metadata: { type: "productivity", data: data }
     }
   } catch (error) {
-    console.error("Productivity query error:", error)
+    logger.error("Productivity query error:", error)
     return {
       content: "Sorry, I couldn't fetch your productivity data. Please try again.",
       metadata: {}
@@ -1303,7 +1305,7 @@ async function handleCommunicationQuery(intent: any, integrations: Integration[]
       metadata: { type: "communication", data: data }
     }
   } catch (error) {
-    console.error("Communication query error:", error)
+    logger.error("Communication query error:", error)
     return {
       content: "Sorry, I couldn't fetch your communication data. Please try again.",
       metadata: {}

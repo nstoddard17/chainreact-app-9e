@@ -28,6 +28,8 @@ import {
   Zap
 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface IntegrationWebhook {
   id: string
   user_id: string
@@ -863,12 +865,12 @@ export default function IntegrationWebhookManager() {
         const webhooks = data.webhooks || []
         setWebhooks(webhooks)
       } else {
-        console.error('Failed to fetch integration webhooks, using fallback data')
+        logger.error('Failed to fetch integration webhooks, using fallback data')
         // Use fallback sample data when API fails
         setWebhooks(createFallbackWebhooks())
       }
     } catch (error) {
-      console.error('Error fetching integration webhooks:', error)
+      logger.error('Error fetching integration webhooks:', error)
       // Use fallback data on any error
       setWebhooks(createFallbackWebhooks())
     } finally {
@@ -885,7 +887,7 @@ export default function IntegrationWebhookManager() {
         setExecutions(data.executions || [])
       }
     } catch (error) {
-      console.error('Error fetching webhook executions:', error)
+      logger.error('Error fetching webhook executions:', error)
     }
   }
 
@@ -900,7 +902,7 @@ export default function IntegrationWebhookManager() {
       })
       setTimeout(() => setCopiedWebhookId(null), 2000)
     } catch (error) {
-      console.error('Error copying to clipboard:', error)
+      logger.error('Error copying to clipboard:', error)
     }
   }
 

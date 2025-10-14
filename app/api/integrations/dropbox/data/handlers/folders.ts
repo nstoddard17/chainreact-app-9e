@@ -5,8 +5,10 @@
 import { DropboxIntegration, DropboxFolder, DropboxDataHandler, DropboxEntry } from '../types'
 import { validateDropboxIntegration, validateDropboxToken, makeDropboxApiRequest, parseDropboxApiResponse, buildDropboxApiUrl, createListFolderRequestBody } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integration: DropboxIntegration, options: any = {}): Promise<DropboxFolder[]> => {
-  console.log("🔍 Dropbox folders fetcher called with integration:", {
+  logger.debug("🔍 Dropbox folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
     // Validate integration status
     validateDropboxIntegration(integration)
     
-    console.log(`🔍 Validating Dropbox token...`)
+    logger.debug(`🔍 Validating Dropbox token...`)
     const tokenResult = await validateDropboxToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Dropbox token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Dropbox token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Dropbox folders...')
+    logger.debug('🔍 Fetching Dropbox folders...')
     
     const apiUrl = buildDropboxApiUrl('/files/list_folder')
     const requestBody = createListFolderRequestBody(options)
@@ -37,7 +39,7 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ Dropbox API error: ${response.status}`, errorData)
+      logger.error(`❌ Dropbox API error: ${response.status}`, errorData)
       
       if (response.status === 401) {
         throw new Error('Dropbox authentication expired. Please reconnect your account.')
@@ -76,11 +78,11 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
       path_display: ""
     })
     
-    console.log(`✅ Dropbox folders fetched successfully: ${folders.length} folders`)
+    logger.debug(`✅ Dropbox folders fetched successfully: ${folders.length} folders`)
     return folders
     
   } catch (error: any) {
-    console.error("Error fetching Dropbox folders:", error)
+    logger.error("Error fetching Dropbox folders:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Dropbox authentication expired. Please reconnect your account.')
@@ -91,7 +93,7 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
     }
     
     // Return just the root folder as a fallback
-    console.log('🔄 Returning root folder as fallback...')
+    logger.debug('🔄 Returning root folder as fallback...')
     return [
       {
         id: "",

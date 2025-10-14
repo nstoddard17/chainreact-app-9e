@@ -1,5 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface UserSession {
   user: {
     id: string
@@ -41,12 +43,12 @@ export class SessionManager {
     }
 
     // If no session or it's incomplete, try to refresh
-    console.log("No valid session found, attempting refresh...")
+    logger.debug("No valid session found, attempting refresh...")
     const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
 
     if (refreshError || !refreshedSession?.access_token || !refreshedSession?.user) {
       // Only log, don't console.error to avoid scary messages
-      console.log("Session refresh not possible, user needs to log in")
+      logger.debug("Session refresh not possible, user needs to log in")
       throw new Error("No authenticated user found. Please log in.")
     }
 
@@ -70,7 +72,7 @@ export class SessionManager {
     const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
     
     if (refreshError || !session) {
-      console.error("❌ Session refresh failed:", refreshError)
+      logger.error("❌ Session refresh failed:", refreshError)
       throw new Error("Session refresh failed. Please log in again.")
     }
 

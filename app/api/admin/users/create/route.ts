@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +14,7 @@ export async function POST(request: NextRequest) {
     // Verify admin authorization
     const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
     if (authError || !currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get current user's profile to check admin role
@@ -22,7 +25,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (currentProfile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      return errorResponse('Admin access required' , 403)
     }
 
     const body = await request.json()
@@ -30,18 +33,12 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
+      return errorResponse('Email and password are required' , 400)
     }
 
     // Validate role
     if (!ROLES[role as UserRole]) {
-      return NextResponse.json(
-        { error: 'Invalid role specified' },
-        { status: 400 }
-      )
+      return errorResponse('Invalid role specified' , 400)
     }
 
     // Create user with Supabase Admin API
@@ -59,18 +56,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (createError) {
-      console.error('Error creating user:', createError)
-      return NextResponse.json(
-        { error: createError.message },
-        { status: 400 }
-      )
+      logger.error('Error creating user:', createError)
+      return errorResponse(createError.message , 400)
     }
 
     if (!newUser.user) {
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to create user' , 500)
     }
 
     // Create user profile
@@ -86,13 +77,10 @@ export async function POST(request: NextRequest) {
       })
 
     if (profileError) {
-      console.error('Error creating user profile:', profileError)
+      logger.error('Error creating user profile:', profileError)
       // Try to cleanup the created user
       await adminSupabase.auth.admin.deleteUser(newUser.user.id)
-      return NextResponse.json(
-        { error: 'Failed to create user profile' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to create user profile' , 500)
     }
 
     // Send welcome email if requested
@@ -118,7 +106,7 @@ export async function POST(request: NextRequest) {
           }
         )
       } catch (emailError) {
-        console.error('Error sending welcome email:', emailError)
+        logger.error('Error sending welcome email:', emailError)
         // Don't fail the user creation if email fails
       }
     }
@@ -130,7 +118,7 @@ export async function POST(request: NextRequest) {
       .eq('id', newUser.user.id)
       .single()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       user: {
         id: newUser.user.id,
@@ -142,10 +130,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in user creation API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error in user creation API:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

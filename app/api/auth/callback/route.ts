@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      console.error('Auth callback error:', error)
+      logger.error('Auth callback error:', error)
       
       // Check for specific error types
       if (error.message.includes('expired') || error.message.includes('invalid')) {
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     if (!error && data.user) {
       // Debug logging to understand the auth flow
-      console.log('Auth callback - User data:', {
+      logger.debug('Auth callback - User data:', {
         id: data.user.id,
         email: data.user.email,
         email_confirmed_at: data.user.email_confirmed_at,
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
       const isEmailConfirmation = type === 'email-confirmation' || 
         (data.user.email_confirmed_at && (isNewUser || userCreatedRecently || emailJustConfirmed))
 
-      console.log('Auth callback - Email confirmation check:', {
+      logger.debug('Auth callback - Email confirmation check:', {
         isNewUser,
         userCreatedRecently,
         emailJustConfirmed,
@@ -106,13 +108,13 @@ export async function GET(request: NextRequest) {
             })
           
           if (insertError) {
-            console.error('Error creating profile during email confirmation:', insertError)
+            logger.error('Error creating profile during email confirmation:', insertError)
           }
         }
 
         // User is already signed in via exchangeCodeForSession
         // Redirect directly to dashboard
-        console.log('Email confirmation successful, redirecting to dashboard')
+        logger.debug('Email confirmation successful, redirecting to dashboard')
         return NextResponse.redirect(`${origin}/dashboard`)
       }
 
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
                           data.user.app_metadata?.providers?.includes('google') ||
                           data.user.identities?.some(id => id.provider === 'google')
       
-      console.log('OAuth callback - Is Google auth:', isGoogleAuth, {
+      logger.debug('OAuth callback - Is Google auth:', isGoogleAuth, {
         provider: data.user.app_metadata?.provider,
         providers: data.user.app_metadata?.providers,
         identities: data.user.identities?.map(id => id.provider)
@@ -136,7 +138,7 @@ export async function GET(request: NextRequest) {
           .eq('id', data.user.id)
           .single()
         
-        console.log('Profile check result:', { profileData, profileError })
+        logger.debug('Profile check result:', { profileData, profileError })
         
         // If profile doesn't exist, create it first
         if (profileError && profileError.code === 'PGRST116') {
@@ -153,7 +155,7 @@ export async function GET(request: NextRequest) {
             lastName = lastName || nameParts.slice(1).join(' ') || ''
           }
           
-          console.log('Creating new Google user profile:', {
+          logger.debug('Creating new Google user profile:', {
             id: data.user.id,
             email: data.user.email,
             firstName,
@@ -180,18 +182,18 @@ export async function GET(request: NextRequest) {
             })
           
           if (createError) {
-            console.error('Error creating Google user profile:', createError)
+            logger.error('Error creating Google user profile:', createError)
           }
           
           // Always redirect to username setup for new Google users
-          console.log('New Google user created, redirecting to username setup')
+          logger.debug('New Google user created, redirecting to username setup')
           return NextResponse.redirect(`${origin}/auth/setup-username`)
         }
         
         // Check if this is a Google user without username
         // This check should catch ALL Google users without usernames
         if (!profileData?.username || profileData.username === '' || profileData.username === null) {
-          console.log('Google user without username detected, redirecting to setup:', {
+          logger.debug('Google user without username detected, redirecting to setup:', {
             hasUsername: !!profileData?.username,
             provider: profileData?.provider
           })
@@ -199,7 +201,7 @@ export async function GET(request: NextRequest) {
         }
         
         // Google user has a username, proceed normally
-        console.log('Google user has username, proceeding to dashboard')
+        logger.debug('Google user has username, proceeding to dashboard')
       }
       
       // User has username or is not Google auth, proceed to dashboard

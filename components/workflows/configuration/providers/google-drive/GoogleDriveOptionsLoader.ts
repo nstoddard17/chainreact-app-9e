@@ -1,6 +1,8 @@
 import { ProviderOptionsLoader } from '../types'
 import { supabase } from '@/utils/supabaseClient'
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
   private async getAuthHeaders(): Promise<HeadersInit> {
     try {
@@ -12,7 +14,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
         }
       }
     } catch (error) {
-      console.error('[GoogleDriveOptionsLoader] Error getting auth session:', error)
+      logger.error('[GoogleDriveOptionsLoader] Error getting auth session:', error)
     }
     return { 'Content-Type': 'application/json' }
   }
@@ -29,7 +31,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
   }): Promise<{ value: string; label: string }[]> {
     const { fieldName, providerId, dependsOnValue, forceRefresh } = params;
 
-    console.log('[GoogleDriveOptionsLoader] Loading options for:', {
+    logger.debug('[GoogleDriveOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
       dependsOnValue,
@@ -49,7 +51,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
         })
 
         if (!response.ok) {
-          console.error('[GoogleDriveOptionsLoader] Failed to fetch file preview')
+          logger.error('[GoogleDriveOptionsLoader] Failed to fetch file preview')
           return []
         }
 
@@ -60,7 +62,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
           label: 'Preview'
         }]
       } catch (error) {
-        console.error('[GoogleDriveOptionsLoader] Error fetching file preview:', error)
+        logger.error('[GoogleDriveOptionsLoader] Error fetching file preview:', error)
         return []
       }
     }
@@ -78,7 +80,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
           headers
         })
         if (!response.ok) {
-          console.error('[GoogleDriveOptionsLoader] Failed to fetch files')
+          logger.error('[GoogleDriveOptionsLoader] Failed to fetch files')
           return []
         }
 
@@ -88,7 +90,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
           label: file.name
         }))
       } catch (error) {
-        console.error('[GoogleDriveOptionsLoader] Error fetching files:', error)
+        logger.error('[GoogleDriveOptionsLoader] Error fetching files:', error)
         return []
       }
     }
@@ -96,7 +98,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     // Default: Use the standard data endpoint for folders
     const dataType = this.getDataTypeForField(fieldName)
     if (!dataType) {
-      console.warn(`[GoogleDriveOptionsLoader] No data type mapping for field: ${fieldName}`)
+      logger.warn(`[GoogleDriveOptionsLoader] No data type mapping for field: ${fieldName}`)
       return []
     }
 
@@ -107,7 +109,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
       })
       
       if (!response.ok) {
-        console.error(`[GoogleDriveOptionsLoader] Failed to fetch ${dataType}`)
+        logger.error(`[GoogleDriveOptionsLoader] Failed to fetch ${dataType}`)
         return []
       }
 
@@ -117,7 +119,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
         label: item.name
       }))
     } catch (error) {
-      console.error(`[GoogleDriveOptionsLoader] Error fetching ${dataType}:`, error)
+      logger.error(`[GoogleDriveOptionsLoader] Error fetching ${dataType}:`, error)
       return []
     }
   }

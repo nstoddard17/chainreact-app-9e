@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +14,7 @@ export async function GET(request: NextRequest) {
     // Get session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       auth: {
         hasUser: !!user,
@@ -25,8 +28,8 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    console.error("Debug auth error:", error)
-    return NextResponse.json({ 
+    logger.error("Debug auth error:", error)
+    return jsonResponse({ 
       success: false, 
       error: error.message 
     }, { status: 500 })

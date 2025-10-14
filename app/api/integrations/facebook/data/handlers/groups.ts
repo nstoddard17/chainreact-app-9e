@@ -5,6 +5,8 @@
 import { FacebookIntegration, FacebookDataHandler } from '../types'
 import { makeFacebookApiRequest, validateFacebookToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface FacebookGroup {
   id: string
   name: string
@@ -16,7 +18,7 @@ interface FacebookGroup {
 
 export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (integration: FacebookIntegration, options: any = {}) => {
   try {
-    console.log("🔍 Facebook groups fetcher called with:", {
+    logger.debug("🔍 Facebook groups fetcher called with:", {
       integrationId: integration.id,
       hasToken: !!integration.access_token
     })
@@ -25,14 +27,14 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
     const tokenResult = await validateFacebookToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Facebook token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Facebook token validation failed: ${tokenResult.error}`)
       return []
     }
 
     // Facebook API endpoint for groups the user is a member of
     // Note: As of API v19.0, the /me/groups endpoint requires special permissions
     // that are not available to most apps. We'll return a helpful message instead.
-    console.log("🔍 Attempting to fetch Facebook groups")
+    logger.debug("🔍 Attempting to fetch Facebook groups")
     
     try {
       const response = await makeFacebookApiRequest(
@@ -42,14 +44,14 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+        logger.error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
         
         // Return empty array on error - let the UI handle empty state
         return []
       }
 
       const data = await response.json()
-      console.log("🔍 Facebook groups API response:", {
+      logger.debug("🔍 Facebook groups API response:", {
         hasData: !!data.data,
         groupCount: data.data?.length || 0,
         sample: data.data?.[0]
@@ -65,7 +67,7 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
           description: group.description
         }))
         
-        console.log(`✅ Processed ${groups.length} Facebook groups:`, groups)
+        logger.debug(`✅ Processed ${groups.length} Facebook groups:`, groups)
         return groups
       }
       
@@ -73,12 +75,12 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
       return []
       
     } catch (apiError: any) {
-      console.error("Error calling Facebook groups API:", apiError)
+      logger.error("Error calling Facebook groups API:", apiError)
       // Return empty array on error
       return []
     }
   } catch (error: any) {
-    console.error("Error fetching Facebook groups:", error)
+    logger.error("Error fetching Facebook groups:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Facebook authentication expired. Please reconnect your account.')
@@ -89,7 +91,7 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
     }
     
     // Return empty array instead of throwing to prevent breaking the UI
-    console.warn("Returning empty array to prevent UI breakage")
+    logger.warn("Returning empty array to prevent UI breakage")
     return []
   }
 }

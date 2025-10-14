@@ -1,5 +1,7 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
+import { logger } from '@/lib/utils/logger'
+
 interface FlagOptions {
   integrationId?: string
   provider?: string
@@ -64,7 +66,7 @@ async function resolveIntegrationDetails(options: FlagOptions | ClearOptions) {
     .single()
 
   if (error || !data) {
-    console.warn('[IntegrationWorkflowManager] Could not resolve integration details', { integrationId, error })
+    logger.warn('[IntegrationWorkflowManager] Could not resolve integration details', { integrationId, error })
     return null
   }
 
@@ -86,7 +88,7 @@ async function updateWorkflowRecords(updates: Array<{ id: string; nodes: any; me
       .eq('id', record.id)
 
     if (error) {
-      console.error('[IntegrationWorkflowManager] Failed to update workflow', {
+      logger.error('[IntegrationWorkflowManager] Failed to update workflow', {
         workflowId: record.id,
         error
       })
@@ -134,7 +136,7 @@ async function updateWebhookStatuses(userId: string, provider: string, status: '
       .eq('id', config.id)
 
     if (error) {
-      console.error('[IntegrationWorkflowManager] Failed to update webhook config', {
+      logger.error('[IntegrationWorkflowManager] Failed to update webhook config', {
         webhookConfigId: config.id,
         error
       })
@@ -247,7 +249,7 @@ async function processWorkflows(
 export async function flagIntegrationWorkflows(options: FlagOptions) {
   const resolved = await resolveIntegrationDetails(options)
   if (!resolved) {
-    console.warn('[IntegrationWorkflowManager] Unable to flag workflows – missing integration context', options)
+    logger.warn('[IntegrationWorkflowManager] Unable to flag workflows – missing integration context', options)
     return { updated: 0 }
   }
 
@@ -286,7 +288,7 @@ export async function flagIntegrationWorkflows(options: FlagOptions) {
 export async function clearIntegrationWorkflowFlags(options: ClearOptions) {
   const resolved = await resolveIntegrationDetails(options)
   if (!resolved) {
-    console.warn('[IntegrationWorkflowManager] Unable to clear workflow flags – missing integration context', options)
+    logger.warn('[IntegrationWorkflowManager] Unable to clear workflow flags – missing integration context', options)
     return { cleared: 0 }
   }
 

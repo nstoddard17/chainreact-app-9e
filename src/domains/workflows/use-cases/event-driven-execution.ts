@@ -13,6 +13,8 @@ import {
 import { executeWorkflowUseCase } from './execute-workflow'
 import { ActionContext } from './action-registry'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Event-driven workflow execution orchestrator
  */
@@ -296,7 +298,7 @@ export class EventDrivenWorkflowExecutor {
 // Event handlers
 class WorkflowStartedHandler implements EventHandler<WorkflowStartedEvent> {
   async handle(event: WorkflowStartedEvent): Promise<void> {
-    console.log(`🚀 Workflow ${event.aggregateId} started for user ${event.data.userId}`)
+    logger.debug(`🚀 Workflow ${event.aggregateId} started for user ${event.data.userId}`)
     
     // Here you could:
     // - Log to analytics
@@ -308,7 +310,7 @@ class WorkflowStartedHandler implements EventHandler<WorkflowStartedEvent> {
 
 class NodeCompletedHandler implements EventHandler<NodeExecutionCompletedEvent> {
   async handle(event: NodeExecutionCompletedEvent): Promise<void> {
-    console.log(`✅ Node ${event.data.nodeId} completed in ${event.data.duration}ms`)
+    logger.debug(`✅ Node ${event.data.nodeId} completed in ${event.data.duration}ms`)
     
     // Here you could:
     // - Update progress tracking
@@ -319,7 +321,7 @@ class NodeCompletedHandler implements EventHandler<NodeExecutionCompletedEvent> 
 
 class NodeFailedHandler implements EventHandler<NodeExecutionFailedEvent> {
   async handle(event: NodeExecutionFailedEvent): Promise<void> {
-    console.error(`❌ Node ${event.data.nodeId} failed: ${event.data.error}`)
+    logger.error(`❌ Node ${event.data.nodeId} failed: ${event.data.error}`)
     
     // Here you could:
     // - Trigger retry logic
@@ -331,7 +333,7 @@ class NodeFailedHandler implements EventHandler<NodeExecutionFailedEvent> {
 
 class IntegrationActionHandler implements EventHandler<IntegrationActionExecutedEvent> {
   async handle(event: IntegrationActionExecutedEvent): Promise<void> {
-    console.log(`🔌 Integration action ${event.data.providerId}.${event.data.actionType} executed`)
+    logger.debug(`🔌 Integration action ${event.data.providerId}.${event.data.actionType} executed`)
     
     // Here you could:
     // - Track integration usage

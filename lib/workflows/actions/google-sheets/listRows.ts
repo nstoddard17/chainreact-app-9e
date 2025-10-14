@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Lists and filters rows from a Google Sheets spreadsheet
  */
@@ -30,7 +32,7 @@ export async function listGoogleSheetsRows(
     const range = resolveValue(config.range, input)
     const formula = resolveValue(config.formula, input)
 
-    console.log("Resolved list rows values:", {
+    logger.debug("Resolved list rows values:", {
       spreadsheetId,
       sheetName,
       keywordSearch,
@@ -46,7 +48,7 @@ export async function listGoogleSheetsRows(
 
     if (!spreadsheetId || !sheetName) {
       const message = `Missing required fields: ${!spreadsheetId ? "Spreadsheet ID" : ""} ${!sheetName ? "Sheet Name" : ""}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -346,7 +348,7 @@ export async function listGoogleSheetsRows(
     }
 
   } catch (error: any) {
-    console.error("Google Sheets list rows error:", error)
+    logger.error("Google Sheets list rows error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while listing rows"

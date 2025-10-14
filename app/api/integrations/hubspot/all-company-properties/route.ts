@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +11,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
     
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return errorResponse('User ID is required' , 400)
     }
 
     // Get HubSpot integration
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json({ error: "HubSpot integration not connected" }, { status: 400 })
+      return errorResponse("HubSpot integration not connected" , 400)
     }
 
     const accessToken = await getDecryptedAccessToken(userId, "hubspot")
@@ -117,7 +120,7 @@ export async function GET(request: NextRequest) {
       existingValues: prop.existingValues || []
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       properties: configFields,
       groupedProperties,
       totalProperties: properties.length,
@@ -125,10 +128,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Error fetching HubSpot company properties:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch company properties" },
-      { status: 500 }
-    )
+    logger.error("Error fetching HubSpot company properties:", error)
+    return errorResponse(error.message || "Failed to fetch company properties" , 500)
   }
 } 

@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   const supabase = createAdminClient();
@@ -43,10 +46,10 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, message: 'Polling complete.' });
+    return jsonResponse({ success: true, message: 'Polling complete.' });
   } catch (error: any) {
-    console.error('Polling cron job error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    logger.error('Polling cron job error:', error);
+    return errorResponse('Internal server error' , 500);
   }
 }
 
@@ -54,7 +57,7 @@ async function fetchDataForPollingTrigger(triggerNode: any, userId: string): Pro
   const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === triggerNode.data.type);
   if (!nodeComponent) return [];
 
-  console.log(`Polling for ${nodeComponent.title} for user ${userId}...`);
+  logger.debug(`Polling for ${nodeComponent.title} for user ${userId}...`);
 
   // In a real implementation, you would:
   // 1. Use the `getApiClientForNode` logic to get an authenticated client.

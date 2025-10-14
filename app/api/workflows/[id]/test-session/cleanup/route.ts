@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Cleanup endpoint for test sessions
@@ -26,17 +29,17 @@ export async function POST(
       }
     } catch {
       // Invalid body, can't proceed
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+      return errorResponse('Invalid request' , 400)
     }
 
     if (!sessionId || !userId) {
-      return NextResponse.json({ error: 'Missing sessionId or userId' }, { status: 400 })
+      return errorResponse('Missing sessionId or userId' , 400)
     }
 
     // Use service role client to avoid auth issues during page unload
     const supabase = await createSupabaseServiceClient()
 
-    console.log(`🧹 Cleanup request received for session ${sessionId}`)
+    logger.debug(`🧹 Cleanup request received for session ${sessionId}`)
 
     // Verify session exists and belongs to this workflow
     const { data: session } = await supabase
@@ -48,8 +51,8 @@ export async function POST(
       .single()
 
     if (!session) {
-      console.log('Session not found or already cleaned up')
-      return NextResponse.json({ success: true })
+      logger.debug('Session not found or already cleaned up')
+      return jsonResponse({ success: true })
     }
 
     // Get workflow to deactivate triggers
@@ -63,11 +66,11 @@ export async function POST(
     if (workflow?.nodes) {
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
-        console.log('🔄 Deactivating trigger for live test mode...')
+        logger.debug('🔄 Deactivating trigger for live test mode...')
         await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, userId)
-        console.log('✅ Trigger deactivated successfully')
+        logger.debug('✅ Trigger deactivated successfully')
       } catch (error) {
-        console.error('Error deactivating triggers:', error)
+        logger.error('Error deactivating triggers:', error)
         // Continue with cleanup even if deactivation fails
       }
     }
@@ -81,15 +84,15 @@ export async function POST(
       })
       .eq('id', sessionId)
 
-    console.log(`✅ Test session ${sessionId} cleaned up successfully`)
+    logger.debug(`✅ Test session ${sessionId} cleaned up successfully`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Test session cleaned up',
     })
   } catch (error: any) {
-    console.error('Error during cleanup:', error)
+    logger.error('Error during cleanup:', error)
     // Don't fail during cleanup - best effort
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   }
 }

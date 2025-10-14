@@ -1,5 +1,7 @@
 import { ExecutionContext } from "../workflowExecutionService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class TriggerNodeHandlers {
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
@@ -33,7 +35,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeWebhookTrigger(node: any, context: ExecutionContext) {
-    console.log("🪝 Executing webhook trigger")
+    logger.debug("🪝 Executing webhook trigger")
 
     const timestamp = new Date().toISOString()
     const config = node.data?.config || {}
@@ -67,7 +69,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeScheduleTrigger(node: any, context: ExecutionContext) {
-    console.log("⏰ Executing schedule trigger")
+    logger.debug("⏰ Executing schedule trigger")
 
     const config = node.data?.config || {}
     const scheduledTime = new Date().toISOString()
@@ -90,7 +92,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeManualTrigger(node: any, context: ExecutionContext) {
-    console.log("👆 Executing manual trigger")
+    logger.debug("👆 Executing manual trigger")
 
     const config = node.data?.config || {}
     const timestamp = new Date().toISOString()
@@ -103,7 +105,7 @@ export class TriggerNodeHandlers {
           ? JSON.parse(config.inputData)
           : config.inputData
       } catch (e) {
-        console.warn("Failed to parse manual trigger input data:", e)
+        logger.warn("Failed to parse manual trigger input data:", e)
         inputData = { raw: config.inputData }
       }
     }
@@ -124,7 +126,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailTrigger(node: any, context: ExecutionContext) {
-    console.log("📧 Executing Gmail new email trigger")
+    logger.debug("📧 Executing Gmail new email trigger")
     
     if (context.testMode) {
       return {
@@ -149,7 +151,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailAttachmentTrigger(node: any, context: ExecutionContext) {
-    console.log("📎 Executing Gmail attachment trigger")
+    logger.debug("📎 Executing Gmail attachment trigger")
     
     if (context.testMode) {
       return {
@@ -178,7 +180,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailLabelTrigger(node: any, context: ExecutionContext) {
-    console.log("🏷️ Executing Gmail label trigger")
+    logger.debug("🏷️ Executing Gmail label trigger")
     
     return {
       type: "gmail_trigger_new_label",
@@ -188,7 +190,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarNewEventTrigger(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Calendar new event trigger")
+    logger.debug("📅 Executing Calendar new event trigger")
     
     return {
       type: "google_calendar_trigger_new_event",
@@ -198,7 +200,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarEventUpdatedTrigger(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Calendar event updated trigger")
+    logger.debug("📅 Executing Calendar event updated trigger")
     
     return {
       type: "google_calendar_trigger_event_updated",
@@ -208,7 +210,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarEventCanceledTrigger(node: any, context: ExecutionContext) {
-    console.log("📅 Executing Calendar event canceled trigger")
+    logger.debug("📅 Executing Calendar event canceled trigger")
     
     return {
       type: "google_calendar_trigger_event_canceled",
@@ -218,7 +220,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGoogleDriveTrigger(node: any, context: ExecutionContext) {
-    console.log("📁 Executing Google Drive trigger")
+    logger.debug("📁 Executing Google Drive trigger")
     
     return {
       type: node.data.type,

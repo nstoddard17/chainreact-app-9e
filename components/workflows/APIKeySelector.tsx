@@ -8,6 +8,8 @@ import { Key, Plus, Settings, Loader2, AlertCircle, ExternalLink } from "lucide-
 import Link from "next/link"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
+import { logger } from '@/lib/utils/logger'
+
 interface APIKey {
   id: string
   name: string
@@ -46,13 +48,13 @@ export function APIKeySelector({ value, onChange, className, disabled }: APIKeyS
       } else {
         // Don't throw error, just log it and continue with empty keys
         // This allows the component to work even if the API fails
-        console.warn("API keys endpoint not available, using platform key by default")
+        logger.warn("API keys endpoint not available, using platform key by default")
         setApiKeys([])
       }
     } catch (error: any) {
       // Don't show error to user, just log it
       // The component will show "Using platform API key" message
-      console.warn("Failed to load API keys (this is ok, will use platform key):", error)
+      logger.warn("Failed to load API keys (this is ok, will use platform key):", error)
       setApiKeys([])
     } finally {
       setLoading(false)

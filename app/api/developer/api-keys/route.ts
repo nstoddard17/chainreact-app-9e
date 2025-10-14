@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { z } from "zod"
 import crypto from "crypto"
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: apiKeys, error } = await supabase
@@ -27,12 +28,12 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: "Failed to fetch API keys" }, { status: 500 })
+      return errorResponse("Failed to fetch API keys" , 500)
     }
 
-    return NextResponse.json({ data: apiKeys })
+    return jsonResponse({ data: apiKeys })
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -70,10 +71,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: "Failed to create API key" }, { status: 500 })
+      return errorResponse("Failed to create API key" , 500)
     }
 
-    return NextResponse.json(
+    return jsonResponse(
       {
         data: newApiKey,
         api_key: apiKey, // Only returned once during creation
@@ -82,9 +83,9 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request data", details: error.errors }, { status: 400 })
+      return errorResponse("Invalid request data", 400, { details: error.errors  })
     }
 
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

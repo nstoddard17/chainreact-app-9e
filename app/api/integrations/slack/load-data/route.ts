@@ -1,6 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getSlackChannels } from "@/lib/integrations/slack"
 
 export async function POST(req: Request) {
@@ -12,13 +13,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+    return errorResponse("Not authenticated" , 401)
   }
 
   const { integrationId } = await req.json()
 
   if (!integrationId) {
-    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+    return errorResponse("Integration ID is required" , 400)
   }
 
   try {
@@ -30,12 +31,12 @@ export async function POST(req: Request) {
       .single()
 
     if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return errorResponse("Integration not found" , 404)
     }
 
     const channels = await getSlackChannels(integration.access_token)
-    return NextResponse.json(channels)
+    return jsonResponse(channels)
   } catch (error) {
-    return NextResponse.json({ error: "Failed to load channels" }, { status: 500 })
+    return errorResponse("Failed to load channels" , 500)
   }
 }

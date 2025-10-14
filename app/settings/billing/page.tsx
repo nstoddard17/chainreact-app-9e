@@ -3,6 +3,8 @@ import { requireUsername } from "@/utils/checkUsername"
 import BillingContent from "@/components/billing/BillingContent"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 // Force dynamic rendering since billing uses auth and real-time data
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +21,7 @@ export default async function BillingPage() {
     .map(([key]) => key)
 
   if (missingVars.length > 0) {
-    console.warn(`Missing environment variables: ${missingVars.join(", ")}`)
+    logger.warn(`Missing environment variables: ${missingVars.join(", ")}`)
   }
 
   // This will check for username and redirect if needed

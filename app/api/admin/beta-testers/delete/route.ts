@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function DELETE(request: Request) {
   try {
@@ -8,10 +11,7 @@ export async function DELETE(request: Request) {
     const testerId = url.searchParams.get('id')
 
     if (!testerId) {
-      return NextResponse.json(
-        { error: "Tester ID is required" },
-        { status: 400 }
-      )
+      return errorResponse("Tester ID is required" , 400)
     }
 
     // Create route handler client for auth verification
@@ -21,18 +21,15 @@ export async function DELETE(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error("Auth error:", authError)
-      return NextResponse.json(
-        { error: "Unauthorized - please log in" },
-        { status: 401 }
-      )
+      logger.error("Auth error:", authError)
+      return errorResponse("Unauthorized - please log in" , 401)
     }
 
     // Create service client to bypass RLS
     const supabaseAdmin = await createSupabaseServiceClient()
 
     // Check if user is admin using the service client
-    console.log("Checking admin status for user:", user.id, user.email)
+    logger.debug("Checking admin status for user:", user.id, user.email)
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -40,35 +37,29 @@ export async function DELETE(request: Request) {
       .eq("id", user.id)
       .single()
 
-    console.log("Profile fetch result:", { profile, profileError })
+    logger.debug("Profile fetch result:", { profile, profileError })
 
     if (profileError) {
-      console.error("Error fetching profile:", profileError)
-      return NextResponse.json(
-        { error: "Failed to verify admin status" },
-        { status: 500 }
-      )
+      logger.error("Error fetching profile:", profileError)
+      return errorResponse("Failed to verify admin status" , 500)
     }
 
     if (!profile) {
-      console.error("No profile found for user:", user.id)
-      return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 }
-      )
+      logger.error("No profile found for user:", user.id)
+      return errorResponse("User profile not found" , 404)
     }
 
-    console.log("User role:", profile.role)
+    logger.debug("User role:", profile.role)
 
     if (profile.role !== 'admin') {
-      console.log("User is not admin. Role:", profile.role)
-      return NextResponse.json(
+      logger.debug("User is not admin. Role:", profile.role)
+      return jsonResponse(
         { error: `Only admins can delete beta testers. Your role: ${profile.role || 'user'}` },
         { status: 403 }
       )
     }
 
-    console.log("User confirmed as admin, proceeding with beta tester deletion")
+    logger.debug("User confirmed as admin, proceeding with beta tester deletion")
 
     // First, get the beta tester details for logging
     const { data: tester, error: fetchError } = await supabaseAdmin
@@ -78,11 +69,8 @@ export async function DELETE(request: Request) {
       .single()
 
     if (fetchError || !tester) {
-      console.error("Error fetching beta tester:", fetchError)
-      return NextResponse.json(
-        { error: "Beta tester not found" },
-        { status: 404 }
-      )
+      logger.error("Error fetching beta tester:", fetchError)
+      return errorResponse("Beta tester not found" , 404)
     }
 
     // Delete the beta tester using admin client (bypasses RLS)
@@ -92,26 +80,20 @@ export async function DELETE(request: Request) {
       .eq("id", testerId)
 
     if (error) {
-      console.error("Error deleting beta tester:", error)
-      return NextResponse.json(
-        { error: error.message || "Failed to delete beta tester" },
-        { status: 500 }
-      )
+      logger.error("Error deleting beta tester:", error)
+      return errorResponse(error.message || "Failed to delete beta tester" , 500)
     }
 
-    console.log(`Successfully deleted beta tester (ID: ${testerId})`)
+    logger.debug(`Successfully deleted beta tester (ID: ${testerId})`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Beta tester ${tester.email} has been deleted`,
       deletedId: testerId
     })
 
   } catch (error) {
-    console.error("Error in delete beta tester API:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in delete beta tester API:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

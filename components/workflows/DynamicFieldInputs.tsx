@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DynamicFieldInputsProps {
   selectedProperties: string[]
   values: Record<string, any>
@@ -82,12 +84,12 @@ export default function DynamicFieldInputs({
           loadExistingValues(propertyName)
         }
       } else if (response.status === 401) {
-        console.warn(`Unauthorized access for property ${propertyName}. Please check your HubSpot integration.`)
+        logger.warn(`Unauthorized access for property ${propertyName}. Please check your HubSpot integration.`)
       } else {
-        console.error(`Failed to load property details for ${propertyName}: ${response.status} ${response.statusText}`)
+        logger.error(`Failed to load property details for ${propertyName}: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      console.error(`Failed to load property details for ${propertyName}:`, error)
+      logger.error(`Failed to load property details for ${propertyName}:`, error)
     } finally {
       loadingRef.current.delete(propertyName)
       setLoading(prev => ({ ...prev, [propertyName]: false }))
@@ -114,10 +116,10 @@ export default function DynamicFieldInputs({
           }
         }))
       } else {
-        console.error(`Failed to load existing values for ${propertyName}: ${response.status} ${response.statusText}`)
+        logger.error(`Failed to load existing values for ${propertyName}: ${response.status} ${response.statusText}`)
       }
     } catch (error) {
-      console.error(`Failed to load existing values for ${propertyName}:`, error)
+      logger.error(`Failed to load existing values for ${propertyName}:`, error)
     } finally {
       setExistingValuesLoading(prev => ({ ...prev, [propertyName]: false }))
     }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { initializeDiscordGateway, discordGateway } from "@/lib/integrations/discordGateway"
 
 export async function POST() {
@@ -8,7 +9,7 @@ export async function POST() {
     const botUserId = process.env.DISCORD_BOT_USER_ID
     
     if (!botToken || !botUserId) {
-      return NextResponse.json({
+      return jsonResponse({
         success: false,
         message: "Discord bot not configured",
         status: {
@@ -23,14 +24,14 @@ export async function POST() {
     
     const status = discordGateway.getStatus()
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: "Discord bot presence initialized",
       status
     })
     
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message || "Failed to initialize Discord bot presence",
       status: {
@@ -46,13 +47,13 @@ export async function GET() {
   try {
     const status = discordGateway.getStatus()
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       status
     })
     
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message || "Failed to get Discord bot presence status"
     }, { status: 500 })

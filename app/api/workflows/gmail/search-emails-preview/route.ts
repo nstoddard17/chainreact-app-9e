@@ -1,33 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { searchGmailEmails } from "@/lib/workflows/actions/gmail/searchEmails";
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
     const { config, userId } = await request.json();
 
     if (!config) {
-      return NextResponse.json(
-        { error: "Config is required" },
-        { status: 400 }
-      )
+      return errorResponse("Config is required" , 400)
     }
 
     // Validate required fields
     const { query } = config
     
     if (!query) {
-      return NextResponse.json(
-        { error: "Query is required" },
-        { status: 400 }
-      )
+      return errorResponse("Query is required" , 400)
     }
 
     // For preview, we need to get the actual user's Gmail integration
     if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required for Gmail preview" },
-        { status: 400 }
-      )
+      return errorResponse("User ID is required for Gmail preview" , 400)
     }
 
     // For preview/sample, always use 1 message regardless of configured maxResults
@@ -45,7 +39,7 @@ export async function POST(request: NextRequest) {
           result.message?.includes("not connected") ||
           result.message?.includes("JSON object requested, multiple (or no) rows returned") ||
           result.error?.includes("JSON object requested, multiple (or no) rows returned")) {
-        return NextResponse.json({
+        return jsonResponse({
           success: false,
           error: "No Gmail integration found. Please connect your Gmail account first.",
           data: {
@@ -55,14 +49,11 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
       
-      return NextResponse.json(
-        { error: result.message || "Failed to search Gmail emails" },
-        { status: 500 }
-      )
+      return errorResponse(result.message || "Failed to search Gmail emails" , 500)
     }
 
     // Return structured preview data
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         emails: result.output?.emails || [],
@@ -73,10 +64,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("Gmail search emails preview error:", error)
-    return NextResponse.json(
-      { error: error.message || "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Gmail search emails preview error:", error)
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 } 

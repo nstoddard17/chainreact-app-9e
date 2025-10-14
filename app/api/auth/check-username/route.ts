@@ -1,12 +1,15 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
   try {
     const { username } = await request.json()
 
     if (!username) {
-      return NextResponse.json({ error: "Username is required" }, { status: 400 })
+      return errorResponse("Username is required" , 400)
     }
 
     const supabase = await createSupabaseRouteHandlerClient()
@@ -21,17 +24,17 @@ export async function POST(request: Request) {
     if (error) {
       // PGRST116 means no rows found, which is what we want
       if (error.code === "PGRST116") {
-        return NextResponse.json({ exists: false })
+        return jsonResponse({ exists: false })
       }
       
-      console.error("Error checking username:", error)
-      return NextResponse.json({ error: "Failed to check username" }, { status: 500 })
+      logger.error("Error checking username:", error)
+      return errorResponse("Failed to check username" , 500)
     }
 
     // If data exists, username is taken
-    return NextResponse.json({ exists: true })
+    return jsonResponse({ exists: true })
   } catch (error) {
-    console.error("Error in check-username route:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in check-username route:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

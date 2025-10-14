@@ -1,7 +1,10 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { RealTimeCollaboration } from "@/lib/collaboration/realTimeCollaboration"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
   cookies()
@@ -14,19 +17,19 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const { workflowId } = await request.json()
 
     if (!workflowId) {
-      return NextResponse.json({ error: "Workflow ID is required" }, { status: 400 })
+      return errorResponse("Workflow ID is required" , 400)
     }
 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(workflowId)) {
-      return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
+      return errorResponse("Invalid workflow ID format" , 400)
     }
 
     // Verify workflow access - first try as owner
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found or access denied" }, { status: 404 })
+      return errorResponse("Workflow not found or access denied" , 404)
     }
 
     // Check if collaboration tables exist by testing a simple query
@@ -70,16 +73,15 @@ export async function POST(request: Request) {
         .select("id")
         .limit(1)
     } catch (tableError: any) {
-      console.error("Collaboration tables not found:", tableError)
-      return NextResponse.json({ 
-        error: "Collaboration feature not available. Please contact support." 
-      }, { status: 503 })
+      logger.error("Collaboration tables not found:", tableError)
+      return errorResponse("Collaboration feature not available. Please contact support." 
+      , 503)
     }
 
     const collaboration = new RealTimeCollaboration()
     const collaborationSession = await collaboration.joinCollaborationSession(workflowId, user.id)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       session: {
         ...collaborationSession,
@@ -87,15 +89,14 @@ export async function POST(request: Request) {
       },
     })
   } catch (error: any) {
-    console.error("Collaboration join error:", error)
+    logger.error("Collaboration join error:", error)
     
     // Provide more specific error messages
     if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-      return NextResponse.json({ 
-        error: "Collaboration feature not available. Database tables missing." 
-      }, { status: 503 })
+      return errorResponse("Collaboration feature not available. Database tables missing." 
+      , 503)
     }
     
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+    return errorResponse(error.message || "Internal server error" , 500)
   }
 }

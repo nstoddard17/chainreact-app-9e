@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 
@@ -7,10 +10,10 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
-    console.log("🔍 Debugging expired integrations...")
+    logger.debug("🔍 Debugging expired integrations...")
 
     // Get ALL integrations to see their current status
     const { data: allIntegrations, error: allError } = await supabase
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
       .order("updated_at", { ascending: false })
 
     if (allError) {
-      return NextResponse.json({ error: `Database error: ${allError.message}` }, { status: 500 })
+      return jsonResponse({ error: `Database error: ${allError.message}` }, { status: 500 })
     }
 
     // Analyze each integration
@@ -87,15 +90,15 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       analysis,
       timestamp: new Date().toISOString()
     })
 
   } catch (error: any) {
-    console.error("Error debugging expired integrations:", error)
-    return NextResponse.json(
+    logger.error("Error debugging expired integrations:", error)
+    return jsonResponse(
       {
         success: false,
         error: "Failed to debug expired integrations",

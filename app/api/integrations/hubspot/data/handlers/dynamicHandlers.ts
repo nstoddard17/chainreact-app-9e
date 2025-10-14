@@ -5,6 +5,8 @@
 
 import { HubSpotDataHandler } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get available HubSpot objects (standard and custom)
  */
@@ -29,7 +31,7 @@ export const getHubSpotObjects: HubSpotDataHandler = async (accessToken: string,
       data: objects
     };
   } catch (error: any) {
-    console.error('Error fetching HubSpot objects:', error);
+    logger.error('Error fetching HubSpot objects:', error);
     return {
       success: false,
       error: error.message || 'Failed to fetch HubSpot objects'
@@ -62,7 +64,7 @@ export const getHubSpotObjectProperties: HubSpotDataHandler = async (accessToken
       data: properties
     };
   } catch (error: any) {
-    console.error('Error fetching HubSpot object properties:', error);
+    logger.error('Error fetching HubSpot object properties:', error);
     return {
       success: false,
       error: error.message || 'Failed to fetch object properties'
@@ -121,7 +123,7 @@ export const getHubSpotObjectRecords: HubSpotDataHandler = async (accessToken: s
       data: results
     };
   } catch (error: any) {
-    console.error('Error fetching HubSpot object records:', error);
+    logger.error('Error fetching HubSpot object records:', error);
     return {
       success: false,
       error: error.message || 'Failed to fetch object records'
@@ -187,7 +189,7 @@ export const getHubSpotContactAvailableProperties: HubSpotDataHandler = async (a
       data: availableProperties
     };
   } catch (error: any) {
-    console.error('Error fetching HubSpot contact available properties:', error);
+    logger.error('Error fetching HubSpot contact available properties:', error);
     return {
       success: false,
       error: error.message || 'Failed to fetch contact properties'
@@ -243,7 +245,7 @@ export const getHubSpotIdentifierProperties: HubSpotDataHandler = async (accessT
       data: formattedProperties
     };
   } catch (error: any) {
-    console.error('Error fetching HubSpot identifier properties:', error);
+    logger.error('Error fetching HubSpot identifier properties:', error);
     return {
       success: false,
       error: error.message || 'Failed to fetch identifier properties'

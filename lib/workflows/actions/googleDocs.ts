@@ -3,6 +3,8 @@ import { resolveValue } from './core/resolveValue'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create a new Google Docs document
  */
@@ -87,7 +89,7 @@ export async function createGoogleDocument(
           const emailList = emails.split(',').map((e: string) => e.trim()).filter(Boolean)
           
           if (emailList.length === 0) {
-            console.log('No valid email addresses provided for sharing')
+            logger.debug('No valid email addresses provided for sharing')
           } else {
             for (const email of emailList) {
               try {
@@ -112,9 +114,9 @@ export async function createGoogleDocument(
                 
                 await drive.permissions.create(permissionRequest)
                 shareResults.sharedWith.push(email)
-                console.log(`Successfully shared with ${email}`)
+                logger.debug(`Successfully shared with ${email}`)
               } catch (error: any) {
-                console.error(`Failed to share with ${email}:`, error)
+                logger.error(`Failed to share with ${email}:`, error)
                 shareResults.errors.push(`Failed to share with ${email}: ${error.message}`)
                 shareResults.success = false
               }
@@ -132,9 +134,9 @@ export async function createGoogleDocument(
               }
             })
             shareResults.sharedWith.push('anyone with link')
-            console.log('Successfully shared with anyone with link')
+            logger.debug('Successfully shared with anyone with link')
           } catch (error: any) {
-            console.error('Failed to share with anyone with link:', error)
+            logger.error('Failed to share with anyone with link:', error)
             shareResults.errors.push(`Failed to share with anyone with link: ${error.message}`)
             shareResults.success = false
           }
@@ -150,9 +152,9 @@ export async function createGoogleDocument(
               }
             })
             shareResults.sharedWith.push('public')
-            console.log('Successfully made document public')
+            logger.debug('Successfully made document public')
           } catch (error: any) {
-            console.error('Failed to make document public:', error)
+            logger.error('Failed to make document public:', error)
             shareResults.errors.push(`Failed to make document public: ${error.message}`)
             shareResults.success = false
           }
@@ -168,9 +170,9 @@ export async function createGoogleDocument(
                 viewersCanCopyContent: false
               }
             })
-            console.log('Successfully set download/print/copy restrictions')
+            logger.debug('Successfully set download/print/copy restrictions')
           } catch (error: any) {
-            console.error('Failed to set download restrictions:', error)
+            logger.error('Failed to set download restrictions:', error)
             shareResults.errors.push(`Failed to set download restrictions: ${error.message}`)
           }
         }
@@ -179,11 +181,11 @@ export async function createGoogleDocument(
         if (expirationDate && shareType !== 'anyone_with_link') {
           // Note: Expiration dates require Google Workspace and specific API setup
           // For now, we'll log this as a limitation
-          console.log('Note: Expiration dates require Google Workspace Enterprise features')
+          logger.debug('Note: Expiration dates require Google Workspace Enterprise features')
           // We could potentially store the expiration date in metadata for manual handling
         }
       } catch (shareError: any) {
-        console.error('Unexpected sharing error:', shareError)
+        logger.error('Unexpected sharing error:', shareError)
         shareResults.errors.push(`Unexpected sharing error: ${shareError.message}`)
         shareResults.success = false
       }
@@ -212,7 +214,7 @@ export async function createGoogleDocument(
       message
     }
   } catch (error: any) {
-    console.error('Create Google Document error:', error)
+    logger.error('Create Google Document error:', error)
     return {
       success: false,
       output: {},
@@ -236,7 +238,7 @@ export async function updateGoogleDocument(
     const searchText = resolveValue(config.searchText, input)
     const content = resolveValue(config.content, input)
 
-    console.log('Google Docs Update - Resolved config:', {
+    logger.debug('Google Docs Update - Resolved config:', {
       documentId,
       insertLocation,
       searchText,
@@ -450,7 +452,7 @@ export async function updateGoogleDocument(
       message: successMessage
     }
   } catch (error: any) {
-    console.error('Update Google Document error:', error)
+    logger.error('Update Google Document error:', error)
     return {
       success: false,
       output: {},
@@ -516,7 +518,7 @@ export async function shareGoogleDocument(
             
             sharedEmails.push(email)
             permissionIds.push(permission.data.id || '')
-            console.log(`Ownership transferred to ${email}`)
+            logger.debug(`Ownership transferred to ${email}`)
           } else {
             // Regular permission sharing
             const actualRole = permission === 'owner' ? 'writer' : permission // Can't share as owner without transfer
@@ -536,7 +538,7 @@ export async function shareGoogleDocument(
             permissionIds.push(permissionResult.data.id || '')
           }
         } catch (error: any) {
-          console.error(`Failed to share with ${email}:`, error)
+          logger.error(`Failed to share with ${email}:`, error)
           errors.push(`${email}: ${error.message}`)
         }
       }
@@ -559,9 +561,9 @@ export async function shareGoogleDocument(
         
         permissionIds.push(publicPermissionResult.data.id || '')
         
-        console.log(`Document made public with ${publicRole} permission`)
+        logger.debug(`Document made public with ${publicRole} permission`)
       } catch (error: any) {
-        console.error('Failed to make document public:', error)
+        logger.error('Failed to make document public:', error)
         errors.push(`Public sharing: ${error.message}`)
       }
     }
@@ -606,7 +608,7 @@ export async function shareGoogleDocument(
       message: successMessage
     }
   } catch (error: any) {
-    console.error('Share Google Document error:', error)
+    logger.error('Share Google Document error:', error)
     return {
       success: false,
       output: {},
@@ -663,7 +665,7 @@ export async function getGoogleDocument(
       message: `Document "${doc.data.title}" retrieved successfully`
     }
   } catch (error: any) {
-    console.error('Get Google Document error:', error)
+    logger.error('Get Google Document error:', error)
     return {
       success: false,
       output: {},
@@ -838,7 +840,7 @@ export async function exportGoogleDocument(
             const parsedHeaders = JSON.parse(webhookHeaders)
             headers = { ...headers, ...parsedHeaders }
           } catch (e) {
-            console.warn('Failed to parse webhook headers:', e)
+            logger.warn('Failed to parse webhook headers:', e)
           }
         }
 
@@ -876,7 +878,7 @@ export async function exportGoogleDocument(
     }
 
   } catch (error: any) {
-    console.error('Export Google Document error:', error)
+    logger.error('Export Google Document error:', error)
     return {
       success: false,
       output: {},

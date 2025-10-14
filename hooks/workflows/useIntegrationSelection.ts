@@ -4,6 +4,8 @@ import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useAuthStore } from '@/stores/authStore'
 
+import { logger } from '@/lib/utils/logger'
+
 interface IntegrationInfo {
   id: string
   name: string
@@ -168,7 +170,7 @@ export function useIntegrationSelection() {
     const storeIntegrations = useIntegrationStore.getState().integrations
 
     // Debug logging (commented out to reduce console noise)
-    // console.log(`🔍 [isIntegrationConnected] Checking ${integrationId}:`, {
+    // logger.debug(`🔍 [isIntegrationConnected] Checking ${integrationId}:`, {
     //   connectedProviders,
     //   storeIntegrationsCount: storeIntegrations.length,
     //   storeIntegrations: storeIntegrations.map(i => ({ provider: i.provider, status: i.status }))
@@ -178,11 +180,11 @@ export function useIntegrationSelection() {
     if (!connectedProviders || connectedProviders.length === 0) {
       // But check if we actually have integrations loaded in the store
       if (storeIntegrations.length === 0) {
-        // console.log(`⚠️ [isIntegrationConnected] No integrations loaded yet for ${integrationId}`)
+        // logger.debug(`⚠️ [isIntegrationConnected] No integrations loaded yet for ${integrationId}`)
         return false
       }
       // If we have integrations but no connected providers, they must all be disconnected
-      // console.log(`⚠️ [isIntegrationConnected] Have ${storeIntegrations.length} integrations but none are connected`)
+      // logger.debug(`⚠️ [isIntegrationConnected] Have ${storeIntegrations.length} integrations but none are connected`)
       return false
     }
 
@@ -297,14 +299,14 @@ export function useIntegrationSelection() {
 
       // Hide actions marked with hideInActionSelection
       if (action.hideInActionSelection) {
-        console.log(`Hiding action: ${action.title || action.type}`)
+        logger.debug(`Hiding action: ${action.title || action.type}`)
         return false
       }
 
       return true
     })
 
-    console.log(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
+    logger.debug(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
       total: selectedIntegration.actions.length,
       filtered: filtered.length,
       actions: filtered.map(a => a.title || a.type)

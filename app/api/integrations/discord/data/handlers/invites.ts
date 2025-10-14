@@ -1,5 +1,7 @@
 import { DiscordIntegration } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch invites for a Discord guild
  */
@@ -74,7 +76,7 @@ export async function getDiscordInvites(
 
     return formattedInvites
   } catch (error: any) {
-    console.error('Error fetching Discord invites:', error)
+    logger.error('Error fetching Discord invites:', error)
     throw error
   }
 }

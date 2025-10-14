@@ -4,6 +4,8 @@ import { createServerActionClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function initiateOAuth(provider: string, reconnect = false, integrationId?: string) {
   try {
     // Verify user session first
@@ -36,7 +38,7 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
     const data = await response.json()
 
     if (!response.ok) {
-      console.error(`OAuth configuration error for ${provider}:`, data)
+      logger.error(`OAuth configuration error for ${provider}:`, data)
 
       // Handle specific error types
       if (data.error?.includes("Missing") && data.error?.includes("environment variable")) {
@@ -66,7 +68,7 @@ export async function initiateOAuth(provider: string, reconnect = false, integra
       authUrl: data.authUrl,
     }
   } catch (error: any) {
-    console.error(`OAuth initiation error for ${provider}:`, error)
+    logger.error(`OAuth initiation error for ${provider}:`, error)
     return {
       success: false,
       error: `Failed to initiate OAuth for ${getProviderDisplayName(provider)}: ${error.message}`,

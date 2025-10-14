@@ -12,6 +12,8 @@ import { useDiscordState } from '../hooks/useDiscordState';
 import { DiscordReactionRemover } from '../fields/discord/DiscordReactionRemover';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -55,7 +57,7 @@ export function DiscordConfiguration({
 }: DiscordConfigurationProps) {
   // Simple debug log on mount only
   React.useEffect(() => {
-    console.log('🔍 [DiscordConfig] Component mounted:', {
+    logger.debug('🔍 [DiscordConfig] Component mounted:', {
       nodeType: nodeInfo?.type,
       hasConfigSchema: !!nodeInfo?.configSchema
     });
@@ -79,21 +81,21 @@ export function DiscordConfiguration({
     setHasSavedValues(hasSavedConfiguration);
     
     if (hasSavedConfiguration) {
-      console.log('🔍 [DiscordConfig] Detected saved configuration');
-      console.log('  - channelId:', values.channelId);
-      console.log('  - authorFilter:', values.authorFilter);
-      console.log('  - hasSavedConfiguration:', hasSavedConfiguration);
+      logger.debug('🔍 [DiscordConfig] Detected saved configuration');
+      logger.debug('  - channelId:', values.channelId);
+      logger.debug('  - authorFilter:', values.authorFilter);
+      logger.debug('  - hasSavedConfiguration:', hasSavedConfiguration);
       
       // Silently load the data in background to get actual names
       // This won't show loading states but will populate the options
       if (hasChannelValue && values.guildId) {
-        console.log('📥 [DiscordConfig] Silently loading channels for display');
+        logger.debug('📥 [DiscordConfig] Silently loading channels for display');
         // Direct call to loadOptions with silent flag
         loadOptions('channelId', 'guildId', values.guildId, false, true);
       }
       
       if (hasAuthorValue && values.channelId) {
-        console.log('📥 [DiscordConfig] Silently loading users for display');
+        logger.debug('📥 [DiscordConfig] Silently loading users for display');
         // Load after a short delay to ensure channel context is ready
         setTimeout(() => {
           // authorFilter depends on channelId for discord_members
@@ -126,11 +128,11 @@ export function DiscordConfiguration({
   // Listen for integration reconnection events
   React.useEffect(() => {
     const handleReconnection = async (event: CustomEvent) => {
-      console.log('🔄 [DiscordConfig] Integration reconnection event received:', event.detail);
+      logger.debug('🔄 [DiscordConfig] Integration reconnection event received:', event.detail);
       
       // Check if this is for Discord
       if (event.detail?.provider === 'discord') {
-        console.log('✅ [DiscordConfig] Discord reconnected, refreshing fields...');
+        logger.debug('✅ [DiscordConfig] Discord reconnected, refreshing fields...');
         
         
         // Set loading state for the guild field
@@ -171,7 +173,7 @@ export function DiscordConfiguration({
   React.useEffect(() => {
     // SKIP if we have saved values
     if (hasSavedValues && values.channelId) {
-      console.log('📌 [DiscordConfig] Bot connected but skipping channel load - using saved channel value:', values.channelId);
+      logger.debug('📌 [DiscordConfig] Bot connected but skipping channel load - using saved channel value:', values.channelId);
       return;
     }
     
@@ -179,11 +181,11 @@ export function DiscordConfiguration({
     if (discordState?.botStatus?.isInGuild && values.guildId && !discordState?.isBotStatusChecking) {
       // Check if we already have channels loaded
       if (dynamicOptions?.channelId?.length > 0) {
-        console.log('📌 [DiscordConfig] Channels already loaded, skipping');
+        logger.debug('📌 [DiscordConfig] Channels already loaded, skipping');
         return;
       }
       
-      console.log('🤖 [DiscordConfig] Bot is connected, loading channels for guild:', values.guildId);
+      logger.debug('🤖 [DiscordConfig] Bot is connected, loading channels for guild:', values.guildId);
       
       // Set loading state for channels
       setLoadingFields(prev => {
@@ -293,7 +295,7 @@ export function DiscordConfiguration({
     forceReload?: boolean,
     silent?: boolean // Add silent parameter
   ) => {
-    console.log('🔍 [DiscordConfig] handleDynamicLoad called:', { 
+    logger.debug('🔍 [DiscordConfig] handleDynamicLoad called:', { 
       fieldName, 
       dependsOn, 
       dependsOnValue,
@@ -306,7 +308,7 @@ export function DiscordConfiguration({
     // For saved configurations with non-silent calls, skip loading for channelId only
     // authorFilter always needs to load its options even with saved values
     if (hasSavedValues && fieldName === 'channelId' && !forceReload && !silent) {
-      console.log(`🚫 [DiscordConfig] SKIPPING load for ${fieldName} - using saved value:`, values[fieldName]);
+      logger.debug(`🚫 [DiscordConfig] SKIPPING load for ${fieldName} - using saved value:`, values[fieldName]);
       // Clear any loading state that might have been set
       setLoadingFields(prev => {
         const newSet = new Set(prev);
@@ -318,7 +320,7 @@ export function DiscordConfiguration({
     
     // For silent loads, proceed but don't show loading state
     if (silent) {
-      console.log(`🔇 [DiscordConfig] Silent load for ${fieldName}`);
+      logger.debug(`🔇 [DiscordConfig] Silent load for ${fieldName}`);
     }
     
     
@@ -327,7 +329,7 @@ export function DiscordConfiguration({
     if (fieldName === 'guildId' && !forceReload) {
       // If we have a selected value AND options, definitely skip
       if (values.guildId && dynamicOptions?.guildId?.length > 0) {
-        console.log('📌 [DiscordConfig] Skipping guildId reload - value selected and options exist');
+        logger.debug('📌 [DiscordConfig] Skipping guildId reload - value selected and options exist');
         // Make sure loading state is cleared
         setLoadingFields(prev => {
           const newSet = new Set(prev);
@@ -338,7 +340,7 @@ export function DiscordConfiguration({
       }
       // Check if we already have options loaded (even without a value)
       if (dynamicOptions?.guildId?.length > 0) {
-        console.log('📌 [DiscordConfig] Skipping guildId reload - already have options');
+        logger.debug('📌 [DiscordConfig] Skipping guildId reload - already have options');
         // Make sure loading state is cleared
         setLoadingFields(prev => {
           const newSet = new Set(prev);
@@ -351,13 +353,13 @@ export function DiscordConfiguration({
     
     // Skip loading channelId if bot is not connected yet
     if (fieldName === 'channelId' && values.guildId && !discordState?.botStatus?.isInGuild && !discordState?.isBotStatusChecking) {
-      console.log('⏸️ [DiscordConfig] Skipping channelId load - bot not connected yet');
+      logger.debug('⏸️ [DiscordConfig] Skipping channelId load - bot not connected yet');
       return;
     }
     
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
-      console.warn('Field not found in schema:', fieldName);
+      logger.warn('Field not found in schema:', fieldName);
       return;
     }
     
@@ -384,7 +386,7 @@ export function DiscordConfiguration({
         await loadOptions(fieldName, undefined, undefined, forceReload, silent);
       }
     } catch (error) {
-      console.error('Error loading dynamic options:', error);
+      logger.error('Error loading dynamic options:', error);
     } finally {
       // Clear loading state when done (but not for silent loads)
       if (!silent) {

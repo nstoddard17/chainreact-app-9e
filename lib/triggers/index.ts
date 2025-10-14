@@ -14,6 +14,8 @@ import { GoogleApisTriggerLifecycle } from './providers/GoogleApisTriggerLifecyc
 import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 
+import { logger } from '@/lib/utils/logger'
+
 // Register Microsoft Graph provider (all Microsoft services use same lifecycle)
 const microsoftLifecycle = new MicrosoftGraphTriggerLifecycle()
 const microsoftProviders = [
@@ -93,7 +95,7 @@ triggerLifecycleManager.registerProvider({
 // - Mailchimp
 // etc.
 
-console.log('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
+logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
 
 // Export the manager for use in workflow activation/deactivation
 export { triggerLifecycleManager } from './TriggerLifecycleManager'

@@ -14,6 +14,8 @@ import { useWorkflowStore } from "@/stores/workflowStore"
 import { TemplatePreviewWithProvider } from "./TemplatePreview"
 import { TemplatePreviewModal } from "./TemplatePreviewModal"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Template {
   id: string
   name: string
@@ -99,7 +101,7 @@ const capitalizeTag = (tag: string): string => {
 const getTemplateWorkflowData = (template: Template) => {
   // Try direct nodes/connections first
   if (template.nodes && template.connections) {
-    console.log('Using direct nodes/connections:', template.nodes.length, template.connections.length)
+    logger.debug('Using direct nodes/connections:', template.nodes.length, template.connections.length)
     return {
       nodes: template.nodes,
       connections: template.connections
@@ -110,14 +112,14 @@ const getTemplateWorkflowData = (template: Template) => {
   if (template.workflow_json) {
     const nodes = template.workflow_json.nodes || []
     const connections = template.workflow_json.connections || template.workflow_json.edges || []
-    console.log('Using workflow_json:', nodes.length, connections.length)
+    logger.debug('Using workflow_json:', nodes.length, connections.length)
     return {
       nodes,
       connections
     }
   }
 
-  console.log('No workflow data found for template')
+  logger.debug('No workflow data found for template')
   return { nodes: [], connections: [] }
 }
 
@@ -156,7 +158,7 @@ export function TemplateGallery() {
         setTemplates(data.templates)
       }
     } catch (error) {
-      console.error("Error fetching templates:", error)
+      logger.error("Error fetching templates:", error)
       toast({
         title: "Error",
         description: "Failed to fetch templates",
@@ -180,29 +182,29 @@ export function TemplateGallery() {
         setPredefinedTemplates(data.templates)
       }
     } catch (error) {
-      console.error("Error fetching predefined templates:", error)
+      logger.error("Error fetching predefined templates:", error)
     }
   }
 
   const handleCopyTemplate = async (templateId: string) => {
     try {
       setCopying(templateId)
-      console.log(`Copying template ${templateId}...`)
+      logger.debug(`Copying template ${templateId}...`)
 
       const response = await fetch(`/api/templates/${templateId}/copy`, {
         method: "POST",
       })
 
       const data = await response.json()
-      console.log("Copy response:", data)
+      logger.debug("Copy response:", data)
 
       if (!response.ok) {
-        console.error("Copy failed with status:", response.status, data)
+        logger.error("Copy failed with status:", response.status, data)
         throw new Error(data.error || `Failed to copy template (${response.status})`)
       }
 
       if (data.workflow && data.workflow.id) {
-        console.log(`Workflow created with ID: ${data.workflow.id}, adding to store...`)
+        logger.debug(`Workflow created with ID: ${data.workflow.id}, adding to store...`)
 
         // Add the workflow to the store immediately to avoid cache issues
         addWorkflowToStore(data.workflow)
@@ -212,14 +214,14 @@ export function TemplateGallery() {
           description: "Template copied to your workflows",
         })
 
-        console.log(`Navigating to workflow builder...`)
+        logger.debug(`Navigating to workflow builder...`)
         router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${templateId}`)
       } else {
-        console.error("No workflow ID in response:", data)
+        logger.error("No workflow ID in response:", data)
         throw new Error(data.error || "Failed to copy template - no workflow ID returned")
       }
     } catch (error) {
-      console.error("Error copying template:", error)
+      logger.error("Error copying template:", error)
       const errorMessage = error instanceof Error ? error.message : "Failed to copy template"
       toast({
         title: "Error",

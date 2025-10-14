@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 // Simple in-memory cache for online count (resets on server restart)
 const onlineCountCache = {
@@ -28,8 +31,8 @@ export async function POST(request: Request) {
     try {
       body = await request.json()
     } catch (e) {
-      console.error('Failed to parse request body:', e)
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+      logger.error('Failed to parse request body:', e)
+      return errorResponse('Invalid request body', 400)
     }
     
     const { userId, count, timestamp } = body
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
     // If userId is provided, we can process without full auth check
     // This allows the presence system to work even during auth transitions
     if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+      return errorResponse('User ID required', 400)
     }
     
     // Update in-memory cache
@@ -71,15 +74,12 @@ export async function POST(request: Request) {
       }
     }
     
-    return NextResponse.json({ 
+    return jsonResponse({
       success: true,
-      count: onlineCountCache.count 
+      count: onlineCountCache.count
     })
   } catch (error) {
-    console.error('Error updating presence count:', error)
-    return NextResponse.json(
-      { error: 'Failed to update presence count' },
-      { status: 500 }
-    )
+    logger.error('Error updating presence count:', error)
+    return errorResponse('Failed to update presence count', 500)
   }
 }

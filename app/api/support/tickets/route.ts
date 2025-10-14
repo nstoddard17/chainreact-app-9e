@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { Resend } from 'resend'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!subject || !description) {
-      return NextResponse.json({ error: 'Subject and description are required' }, { status: 400 })
+      return errorResponse('Subject and description are required' , 400)
     }
 
     // Get user profile
@@ -55,8 +58,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (ticketError) {
-      console.error('Error creating ticket:', ticketError)
-      return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 })
+      logger.error('Error creating ticket:', ticketError)
+      return errorResponse('Failed to create ticket' , 500)
     }
 
     // Send email notification to support team
@@ -82,14 +85,14 @@ export async function POST(request: NextRequest) {
         `,
       })
     } catch (emailError) {
-      console.error('Error sending support email:', emailError)
+      logger.error('Error sending support email:', emailError)
       // Don't fail the request if email fails
     }
 
-    return NextResponse.json({ ticket })
+    return jsonResponse({ ticket })
   } catch (error) {
-    console.error('Error in POST /api/support/tickets:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error('Error in POST /api/support/tickets:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -100,7 +103,7 @@ export async function GET(request: NextRequest) {
     // Get user session
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get query parameters
@@ -129,11 +132,11 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error('Error fetching tickets:', error)
-      return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 })
+      logger.error('Error fetching tickets:', error)
+      return errorResponse('Failed to fetch tickets' , 500)
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       tickets, 
       count,
       pagination: {
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Error in GET /api/support/tickets:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logger.error('Error in GET /api/support/tickets:', error)
+    return errorResponse('Internal server error' , 500)
   }
 } 

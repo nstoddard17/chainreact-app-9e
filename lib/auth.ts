@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -104,7 +106,7 @@ export async function getAuthSession() {
     const { user, session } = await validateRequest()
     return { user, session }
   } catch (error) {
-    console.error("Error getting auth session:", error)
+    logger.error("Error getting auth session:", error)
     return { user: null, session: null }
   }
 }

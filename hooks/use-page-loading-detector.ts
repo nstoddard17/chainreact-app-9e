@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Detects when a page is stuck loading and provides recovery options
  */
@@ -22,7 +24,7 @@ export function usePageLoadingDetector() {
 
         // If page hasn't loaded after 10 seconds, something is wrong
         if (elapsed > 10000) {
-          console.error(`⚠️ Page stuck loading for ${elapsed}ms on ${pathname}`)
+          logger.error(`⚠️ Page stuck loading for ${elapsed}ms on ${pathname}`)
 
           // Show a user-friendly message
           const existingMessage = document.getElementById('loading-stuck-message')
@@ -104,7 +106,7 @@ export function usePageLoadingDetector() {
     const handleLoad = () => {
       if (loadStartTime.current) {
         const loadTime = Date.now() - loadStartTime.current
-        console.log(`✅ Page loaded in ${loadTime}ms: ${pathname}`)
+        logger.debug(`✅ Page loaded in ${loadTime}ms: ${pathname}`)
         loadStartTime.current = null
       }
 

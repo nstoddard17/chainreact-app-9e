@@ -5,10 +5,12 @@
 import { AirtableIntegration, AirtableFeedbackRecord, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFeedbackRecord[]> => {
   const { baseId } = options
   
-  console.log("🔍 Airtable feedback records fetcher called with:", {
+  logger.debug("🔍 Airtable feedback records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     hasToken: !!integration.access_token
@@ -18,11 +20,11 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    console.log(`🔍 Validating Airtable token...`)
+    logger.debug(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -30,7 +32,7 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
       throw new Error('Base ID is required for fetching feedback records')
     }
     
-    console.log('🔍 Fetching Airtable feedback records from API...')
+    logger.debug('🔍 Fetching Airtable feedback records from API...')
     
     // Try common feedback table names
     const possibleTableNames = ['Feedback', 'User Feedback', 'Customer Feedback', 'Reviews', 'Comments']
@@ -43,25 +45,25 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
         
         if (response.ok) {
           const tableRecords = await parseAirtableApiResponse<AirtableFeedbackRecord>(response)
-          console.log(`✅ Found feedback table: ${tableName} with ${tableRecords.length} records`)
+          logger.debug(`✅ Found feedback table: ${tableName} with ${tableRecords.length} records`)
           records = tableRecords
           break
         }
       } catch (error) {
-        console.log(`❌ Table ${tableName} not found, trying next...`)
+        logger.debug(`❌ Table ${tableName} not found, trying next...`)
         continue
       }
     }
     
     if (records.length === 0) {
-      console.log('📝 No feedback table found, returning empty array')
+      logger.debug('📝 No feedback table found, returning empty array')
     }
     
-    console.log(`✅ Airtable feedback records fetched successfully: ${records.length} records`)
+    logger.debug(`✅ Airtable feedback records fetched successfully: ${records.length} records`)
     return records
     
   } catch (error: any) {
-    console.error("Error fetching Airtable feedback records:", error)
+    logger.error("Error fetching Airtable feedback records:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

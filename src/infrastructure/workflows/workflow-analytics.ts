@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { WorkflowExecution, WorkflowStatus, ExecutionPriority, WorkflowDefinition } from './workflow-engine'
 import { performanceMonitor } from '../performance/performance-monitor'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Metric types for workflow analytics
  */
@@ -291,7 +293,7 @@ export class WorkflowAnalytics extends EventEmitter {
     super()
     this.startMetricsCollection()
     this.startAlertMonitoring()
-    console.log('📊 Workflow analytics initialized')
+    logger.debug('📊 Workflow analytics initialized')
   }
 
   /**
@@ -493,7 +495,7 @@ export class WorkflowAnalytics extends EventEmitter {
     this.alertConfigs.set(alertId, fullConfig)
     
     this.emit('alertConfigCreated', fullConfig)
-    console.log(`🚨 Alert created: ${fullConfig.name}`)
+    logger.debug(`🚨 Alert created: ${fullConfig.name}`)
     
     return alertId
   }
@@ -565,7 +567,7 @@ export class WorkflowAnalytics extends EventEmitter {
     this.dashboards.set(dashboardId, fullDashboard)
     
     this.emit('dashboardCreated', fullDashboard)
-    console.log(`📊 Dashboard created: ${fullDashboard.name}`)
+    logger.debug(`📊 Dashboard created: ${fullDashboard.name}`)
     
     return dashboardId
   }
@@ -1220,7 +1222,7 @@ export class WorkflowAnalytics extends EventEmitter {
         
         this.activeAlerts.set(config.id, alert)
         this.emit('alertTriggered', alert)
-        console.warn(`🚨 Alert triggered: ${config.name}`)
+        logger.warn(`🚨 Alert triggered: ${config.name}`)
         
       } else if (!triggered && this.activeAlerts.has(config.id)) {
         // Resolve alert
@@ -1228,7 +1230,7 @@ export class WorkflowAnalytics extends EventEmitter {
         alert.resolvedAt = Date.now()
         this.activeAlerts.delete(config.id)
         this.emit('alertResolved', alert)
-        console.log(`✅ Alert resolved: ${config.name}`)
+        logger.debug(`✅ Alert resolved: ${config.name}`)
       }
     }
   }
@@ -1310,7 +1312,7 @@ export class WorkflowAnalytics extends EventEmitter {
     // Clean up old system metrics
     this.systemMetrics = this.systemMetrics.filter(m => m.timestamp >= cutoff)
     
-    console.log(`🧹 Analytics cleanup: removed ${executionsToDelete.length} old executions`)
+    logger.debug(`🧹 Analytics cleanup: removed ${executionsToDelete.length} old executions`)
   }
 
   /**
@@ -1334,7 +1336,7 @@ export class WorkflowAnalytics extends EventEmitter {
     this.systemMetrics.length = 0
     
     this.removeAllListeners()
-    console.log('🛑 Workflow analytics shutdown')
+    logger.debug('🛑 Workflow analytics shutdown')
   }
 }
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
+
+import { logger } from '@/lib/utils/logger'
 
 function sanitizeSearchQuery(query?: string): string | null {
   if (!query || typeof query !== "string") {
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: integration, error: integrationError } = await supabase
@@ -57,26 +60,17 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "No connected Microsoft Outlook integration found" },
-        { status: 404 }
-      )
+      return errorResponse("No connected Microsoft Outlook integration found" , 404)
     }
 
     if (!integration.access_token) {
-      return NextResponse.json(
-        { error: "No access token available for Microsoft Outlook integration" },
-        { status: 401 }
-      )
+      return errorResponse("No access token available for Microsoft Outlook integration" , 401)
     }
 
     const accessToken = await decryptToken(integration.access_token)
 
     if (!accessToken) {
-      return NextResponse.json(
-        { error: "Failed to decrypt Microsoft Outlook access token" },
-        { status: 401 }
-      )
+      return errorResponse("Failed to decrypt Microsoft Outlook access token" , 401)
     }
 
     let baseUrl = "https://graph.microsoft.com/v1.0/me/"
@@ -153,16 +147,13 @@ export async function POST(request: NextRequest) {
 
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text()
-      console.error("[Outlook Preview] API Error:", graphResponse.status, errorText, { url: lastUrl })
+      logger.error("[Outlook Preview] API Error:", graphResponse.status, errorText, { url: lastUrl })
 
       if (graphResponse.status === 401) {
-        return NextResponse.json(
-          { error: "Microsoft Outlook authentication failed. Please reconnect your account." },
-          { status: 401 }
-        )
+        return errorResponse("Microsoft Outlook authentication failed. Please reconnect your account." , 401)
       }
 
-      return NextResponse.json(
+      return jsonResponse(
         { error: "Failed to fetch email preview" },
         { status: graphResponse.status }
       )
@@ -172,7 +163,7 @@ export async function POST(request: NextRequest) {
     const messages = Array.isArray(data?.value) ? data.value : []
 
     if (!messages.length) {
-      return NextResponse.json({
+      return jsonResponse({
         error: usedSearch ? "No emails found matching criteria" : "No emails found",
         searchApplied: usedSearch,
         query: sanitizedQuery,
@@ -189,7 +180,7 @@ export async function POST(request: NextRequest) {
       hasAttachments: email.hasAttachments
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       email: formattedEmails[0],
       emails: formattedEmails,
       searchApplied: usedSearch,
@@ -197,10 +188,7 @@ export async function POST(request: NextRequest) {
       fallbackReason
     })
   } catch (error: any) {
-    console.error("[Outlook Preview] Error:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to fetch email preview" },
-      { status: 500 }
-    )
+    logger.error("[Outlook Preview] Error:", error)
+    return errorResponse(error.message || "Failed to fetch email preview" , 500)
   }
 }

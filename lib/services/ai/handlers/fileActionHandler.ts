@@ -5,6 +5,8 @@ import { ActionExecutionResult } from "../aiActionExecutionService"
 import { getDecryptedAccessToken } from "@/lib/integrations/getDecryptedAccessToken"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class FileActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -55,7 +57,7 @@ export class FileActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`File provider "${integration.provider}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ File query error:", error)
+      logger.error("❌ File query error:", error)
       return this.getErrorResponse("Failed to fetch files. Please try again.")
     }
   }
@@ -111,7 +113,7 @@ export class FileActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`File provider "${integration.provider}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ File action error:", error)
+      logger.error("❌ File action error:", error)
       return this.getErrorResponse("Failed to complete the file operation.")
     }
   }

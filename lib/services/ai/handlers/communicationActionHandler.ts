@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class CommunicationActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -46,7 +48,7 @@ export class CommunicationActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Communication query "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Communication query error:", error)
+      logger.error("❌ Communication query error:", error)
       return this.getErrorResponse("Failed to complete the communication request.")
     }
   }
@@ -81,7 +83,7 @@ export class CommunicationActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Communication action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Communication action error:", error)
+      logger.error("❌ Communication action error:", error)
       return this.getErrorResponse("Failed to perform the communication action.")
     }
   }

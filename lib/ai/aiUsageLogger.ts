@@ -1,5 +1,7 @@
 import { createAdminClient } from '../supabase/admin';
 
+import { logger } from '@/lib/utils/logger'
+
 export interface AIUsageLogEntry {
   userId: string;
   workflowId: string;
@@ -60,7 +62,7 @@ export async function logAIUsage(entry: AIUsageLogEntry): Promise<void> {
       });
 
     if (error) {
-      console.error('Failed to log AI usage:', error);
+      logger.error('Failed to log AI usage:', error);
       throw error;
     }
 
@@ -68,7 +70,7 @@ export async function logAIUsage(entry: AIUsageLogEntry): Promise<void> {
     await updateUserUsageTotals(entry.userId, entry.tokensUsed, entry.costEstimate);
 
   } catch (error) {
-    console.error('Error logging AI usage:', error);
+    logger.error('Error logging AI usage:', error);
     // Don't throw error to prevent breaking the main workflow
   }
 }
@@ -138,7 +140,7 @@ export async function getAIUsageSummary(
     };
 
   } catch (error) {
-    console.error('Failed to get AI usage summary:', error);
+    logger.error('Failed to get AI usage summary:', error);
     throw error;
   }
 }
@@ -198,7 +200,7 @@ export async function getUserAIBudget(userId: string): Promise<{
     };
 
   } catch (error) {
-    console.error('Failed to get user AI budget:', error);
+    logger.error('Failed to get user AI budget:', error);
     return null;
   }
 }
@@ -274,7 +276,7 @@ async function updateUserUsageTotals(userId: string, tokensUsed: number, cost: n
     await updateMonthlyStats(userId, tokensUsed, cost);
 
   } catch (error) {
-    console.error('Failed to update user usage totals:', error);
+    logger.error('Failed to update user usage totals:', error);
   }
 }
 
@@ -322,7 +324,7 @@ async function updateMonthlyStats(userId: string, tokensUsed: number, cost: numb
     }
 
   } catch (error) {
-    console.error('Failed to update monthly stats:', error);
+    logger.error('Failed to update monthly stats:', error);
   }
 }
 
@@ -357,7 +359,7 @@ export async function getTopAIUsers(limit: number = 10): Promise<Array<{
     }));
 
   } catch (error) {
-    console.error('Failed to get top AI users:', error);
+    logger.error('Failed to get top AI users:', error);
     return [];
   }
 }
@@ -397,7 +399,7 @@ export async function getAIUsageByWorkflow(
     }));
 
   } catch (error) {
-    console.error('Failed to get AI usage by workflow:', error);
+    logger.error('Failed to get AI usage by workflow:', error);
     return [];
   }
 }

@@ -6,6 +6,8 @@ import { OneDriveApiError } from './types'
 import { getMicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create OneDrive API error with proper context
  */
@@ -82,7 +84,7 @@ export function getOneDriveApiHeaders(accessToken: string): Record<string, strin
 export async function parseOneDriveApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ OneDrive API error: ${response.status} ${errorText}`)
+    logger.error(`❌ OneDrive API error: ${response.status} ${errorText}`)
     
     throw createOneDriveApiError(
       `Microsoft Graph API error: ${response.status}`,

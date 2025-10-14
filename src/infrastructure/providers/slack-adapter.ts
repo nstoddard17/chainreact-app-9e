@@ -29,6 +29,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Slack adapter implementing ChatProvider interface
  */
@@ -290,7 +292,7 @@ export class SlackAdapter implements ChatProvider {
           throw new Error(`Slack method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`Slack API call failed for method ${method}:`, error)
+      logger.error(`Slack API call failed for method ${method}:`, error)
       throw error
     }
   }

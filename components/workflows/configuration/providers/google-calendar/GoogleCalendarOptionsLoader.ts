@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, SelectOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
   /**
    * Check if this loader can handle the field
@@ -31,7 +33,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<SelectOption[]> {
     const { fieldName, resourceType, integrationId, dependsOnValue } = params;
 
-    console.log('🗓️ [GoogleCalendar] Loading options:', {
+    logger.debug('🗓️ [GoogleCalendar] Loading options:', {
       fieldName,
       resourceType,
       integrationId,
@@ -39,7 +41,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
     });
 
     if (!integrationId) {
-      console.warn('🗓️ [GoogleCalendar] No integration ID provided');
+      logger.warn('🗓️ [GoogleCalendar] No integration ID provided');
       return [];
     }
 
@@ -70,7 +72,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('🗓️ [GoogleCalendar] Failed to load options:', errorData);
+        logger.error('🗓️ [GoogleCalendar] Failed to load options:', errorData);
 
         if (errorData.needsReconnection) {
           throw new Error('Google Calendar integration needs reconnection. Please reconnect your account.');
@@ -112,7 +114,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
       return items;
 
     } catch (error: any) {
-      console.error('🗓️ [GoogleCalendar] Error loading options:', error);
+      logger.error('🗓️ [GoogleCalendar] Error loading options:', error);
       throw error;
     }
   }

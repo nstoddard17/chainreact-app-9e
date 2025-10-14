@@ -11,6 +11,8 @@ import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { NodeAIIndicator } from "./nodes/AINodeIndicators"
 
+import { logger } from '@/lib/utils/logger'
+
 // The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
   title: string
@@ -414,7 +416,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 alt={`${title || ''} logo`}
                 className="w-7 h-7 object-contain flex-shrink-0 mt-0.5"
                 onError={(e) => {
-                  console.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
+                  logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                   // Fallback to icon if image fails
                   if (component?.icon) {
                     const parent = e.currentTarget.parentElement
@@ -425,7 +427,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     }
                   }
                 }}
-                onLoad={() => console.log(`Successfully loaded logo for ${providerId}`)}
+                onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
               />
             ) : (
               component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0 mt-0.5" })
@@ -555,7 +557,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               } else {
                 // Fallback: simulate clicking on the placeholder node itself
                 // This should trigger the handleAddActionClick with the placeholder's ID
-                console.warn('Chain placeholder missing onAddAction callback, using fallback')
+                logger.warn('Chain placeholder missing onAddAction callback, using fallback')
                 // Find the workflow builder's handleAddActionClick function
                 const event = new CustomEvent('chain-placeholder-add-action', {
                   detail: { nodeId: id, parentId: id }

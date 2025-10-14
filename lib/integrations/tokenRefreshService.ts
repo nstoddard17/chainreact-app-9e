@@ -15,6 +15,8 @@ import { getSecret } from "@/lib/secrets"
 import { encryptTokens } from "./tokenUtils"
 import { getAllScopes } from "./integrationScopes"
 
+import { logger } from '@/lib/utils/logger'
+
 // Standard response for token refresh operations
 export interface RefreshResult {
   success: boolean
@@ -141,11 +143,11 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
     const { data: integrations, error } = await query
 
     if (error) {
-      console.error("Error fetching integrations:", error.message)
+      logger.error("Error fetching integrations:", error.message)
       throw error
     }
 
-    console.log(`Found ${integrations.length} integrations with refresh tokens`)
+    logger.debug(`Found ${integrations.length} integrations with refresh tokens`)
 
     // Process integrations in batches
     const batchSize = config.batchSize || 50
@@ -157,7 +159,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
     // Process each batch sequentially
     for (const [batchIndex, batch] of batches.entries()) {
-      console.log(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
+      logger.debug(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
 
       // Process integrations in parallel within each batch
       const batchPromises = batch.map(async (integration) => {
@@ -182,15 +184,15 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
           })
 
           if (!needsRefresh.shouldRefresh) {
-            if (verbose) console.log(`No refresh needed for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
+            if (verbose) logger.debug(`No refresh needed for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
             stats.skipped++
             return
           }
 
-          if (verbose) console.log(`Refreshing token for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
+          if (verbose) logger.debug(`Refreshing token for ${integration.provider} (ID: ${integration.id}): ${needsRefresh.reason}`)
 
           if (!integration.refresh_token) {
-            console.error(
+            logger.error(
               `Skipping refresh for ${integration.provider}: Refresh token is null.`,
             )
             stats.skipped++
@@ -233,7 +235,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
             }
           }
         } catch (error: any) {
-          console.error(`Unexpected error refreshing token for ${integration.provider} (ID: ${integration.id}):`, error)
+          logger.error(`Unexpected error refreshing token for ${integration.provider} (ID: ${integration.id}):`, error)
           stats.failed++
           stats.providerStats[integration.provider].failed++
           stats.errors["unexpected_error"] = (stats.errors["unexpected_error"] || 0) + 1
@@ -256,7 +258,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
     return stats
   } catch (error) {
-    console.error("Error during token refresh:", error)
+    logger.error("Error during token refresh:", error)
     throw error
   }
 }
@@ -324,7 +326,7 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       .single()
 
     if (fetchError) {
-      console.error(`Error fetching integration data:`, fetchError.message)
+      logger.error(`Error fetching integration data:`, fetchError.message)
       throw fetchError
     }
 
@@ -352,9 +354,9 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
 
       encryptedAccessToken = newEncryptedAccessToken
       encryptedRefreshToken = newEncryptedRefreshToken || undefined
-      if (verbose) console.log(`Encrypted new tokens for integration ID: ${integrationId}`)
+      if (verbose) logger.debug(`Encrypted new tokens for integration ID: ${integrationId}`)
     } catch (error: any) {
-      console.error(`Failed to encrypt tokens:`, error)
+      logger.error(`Failed to encrypt tokens:`, error)
       // Continue with unencrypted tokens as fallback
     }
 
@@ -411,9 +413,9 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       throw error
     }
 
-    if (verbose) console.log(`Updated tokens for integration ID: ${integrationId}`)
+    if (verbose) logger.debug(`Updated tokens for integration ID: ${integrationId}`)
   } catch (error: any) {
-    console.error(`Failed to update tokens:`, error)
+    logger.error(`Failed to update tokens:`, error)
     throw error
   }
 }
@@ -436,7 +438,7 @@ async function updateIntegrationWithError(
       .single()
 
     if (fetchError) {
-      console.error(`Error fetching integration data:`, fetchError.message)
+      logger.error(`Error fetching integration data:`, fetchError.message)
       throw fetchError
     }
 
@@ -479,10 +481,10 @@ async function updateIntegrationWithError(
     const { error: updateError } = await db.from("integrations").update(updateData).eq("id", integrationId)
 
     if (updateError) {
-      console.error(`Error updating integration with error:`, updateError.message)
+      logger.error(`Error updating integration with error:`, updateError.message)
     }
   } catch (error) {
-    console.error(`Unexpected error updating integration with error:`, error)
+    logger.error(`Unexpected error updating integration with error:`, error)
   }
 }
 
@@ -497,8 +499,8 @@ export async function refreshTokenForProvider(
 ): Promise<RefreshResult> {
   const verbose = options.verbose ?? false;
   
-  if (verbose) console.log(`Starting token refresh for ${provider} (ID: ${integration.id})`)
-  else console.log(`Refreshing token for ${provider}`) // No user ID in regular logs
+  if (verbose) logger.debug(`Starting token refresh for ${provider} (ID: ${integration.id})`)
+  else logger.debug(`Refreshing token for ${provider}`) // No user ID in regular logs
 
   try {
     // Decrypt the refresh token if it appears to be encrypted
@@ -510,10 +512,10 @@ export async function refreshTokenForProvider(
           throw new Error("Encryption secret is not configured")
         }
 
-        if (verbose) console.log(`Decrypting refresh token for ${provider} (ID: ${integration.id})`)
+        if (verbose) logger.debug(`Decrypting refresh token for ${provider} (ID: ${integration.id})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
       } catch (error: any) {
-        console.error(`Decryption error:`, error)
+        logger.error(`Decryption error:`, error)
         
         // Check for specific decryption errors
         if (error.code === 'ERR_CRYPTO_INVALID_IV') {
@@ -537,17 +539,17 @@ export async function refreshTokenForProvider(
         
       }
     } else {
-      if (verbose) console.log(`Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
+      if (verbose) logger.debug(`Refresh token for ${provider} (ID: ${integration.id}) does not appear to be encrypted`)
     }
 
     const config = getOAuthConfig(provider)
 
     if (!config) {
-      console.error(`No OAuth config found for provider: ${provider}`)
+      logger.error(`No OAuth config found for provider: ${provider}`)
       return { success: false, error: `No OAuth config found for provider: ${provider}` }
     }
 
-    if (verbose) console.log(`Found OAuth config for ${provider}`)
+    if (verbose) logger.debug(`Found OAuth config for ${provider}`)
 
     // Special handling for Microsoft services to ensure they use the correct client credentials
     let clientId: string | undefined
@@ -579,11 +581,11 @@ export async function refreshTokenForProvider(
     }
 
     if (!clientId || !clientSecret) {
-      console.error(`Missing client credentials for provider: ${provider}`)
+      logger.error(`Missing client credentials for provider: ${provider}`)
       return { success: false, error: `Missing client credentials for provider: ${provider}` }
     }
 
-    if (verbose) console.log(`Got client credentials for ${provider}`)
+    if (verbose) logger.debug(`Got client credentials for ${provider}`)
 
     // Create a fresh URLSearchParams object to avoid "body used already" errors
     const bodyParams: Record<string, string> = {
@@ -595,7 +597,7 @@ export async function refreshTokenForProvider(
       if (config.authMethod === "body") {
         bodyParams.client_id = clientId
         bodyParams.client_secret = clientSecret
-        if (verbose) console.log(`Added client auth to body for ${provider}`)
+        if (verbose) logger.debug(`Added client auth to body for ${provider}`)
       }
     } else {
       // Some providers like Kit only need client_id, not client_secret for refresh
@@ -603,7 +605,7 @@ export async function refreshTokenForProvider(
         bodyParams.client_id = clientId
         // Remove any client_secret if it was added
         delete bodyParams.client_secret
-        if (verbose) console.log(`Special handling for Kit: added only client_id to body`)
+        if (verbose) logger.debug(`Special handling for Kit: added only client_id to body`)
       }
     }
 
@@ -613,11 +615,11 @@ export async function refreshTokenForProvider(
       if (provider === "teams") {
         const scopeString = config.scope || ""
         bodyParams.scope = scopeString
-        if (verbose) console.log(`Added Teams scope from config: ${scopeString}`)
+        if (verbose) logger.debug(`Added Teams scope from config: ${scopeString}`)
       } else {
         const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
         bodyParams.scope = scopeString
-        if (verbose) console.log(`Added scope to body for ${provider}: ${scopeString}`)
+        if (verbose) logger.debug(`Added scope to body for ${provider}: ${scopeString}`)
       }
     }
 
@@ -626,7 +628,7 @@ export async function refreshTokenForProvider(
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) console.log(`Added redirect_uri to body for ${provider}: ${redirectUri}`)
+      if (verbose) logger.debug(`Added redirect_uri to body for ${provider}: ${redirectUri}`)
     }
 
     // Special handling for Airtable
@@ -634,12 +636,12 @@ export async function refreshTokenForProvider(
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) console.log(`Added redirect_uri to body for Airtable: ${redirectUri}`)
+      if (verbose) logger.debug(`Added redirect_uri to body for Airtable: ${redirectUri}`)
     }
 
     // Special handling for Dropbox
     if (provider === "dropbox") {
-      if (verbose) console.log(`Skipping redirect_uri for Dropbox as it's not supported during refresh`)
+      if (verbose) logger.debug(`Skipping redirect_uri for Dropbox as it's not supported during refresh`)
       delete bodyParams.redirect_uri
     }
 
@@ -648,11 +650,11 @@ export async function refreshTokenForProvider(
     if (config.authMethod === "basic") {
       const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
       headers.set("Authorization", `Basic ${basicAuth}`)
-      if (verbose) console.log(`Added Basic auth header for ${provider}`)
+      if (verbose) logger.debug(`Added Basic auth header for ${provider}`)
     } else if (config.authMethod === "header") {
       headers.set("Client-ID", clientId)
       headers.set("Authorization", `Bearer ${clientSecret}`)
-      if (verbose) console.log(`Added header auth for ${provider}`)
+      if (verbose) logger.debug(`Added header auth for ${provider}`)
     }
     headers.set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -661,10 +663,10 @@ export async function refreshTokenForProvider(
 
     // Log the request details
     if (verbose) {
-      console.log(`Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
-      console.log(`Request body params:`, Object.keys(bodyParams).join(', '))
+      logger.debug(`Sending refresh request to ${config.tokenEndpoint} for ${provider}`)
+      logger.debug(`Request body params:`, Object.keys(bodyParams).join(', '))
     } else {
-      console.log(`Refreshing token for ${provider}`)
+      logger.debug(`Refreshing token for ${provider}`)
     }
 
     // Make the request
@@ -674,7 +676,7 @@ export async function refreshTokenForProvider(
       body: bodyString,
     })
 
-    if (verbose) console.log(`Received response from ${provider}: ${response.status} ${response.statusText}`)
+    if (verbose) logger.debug(`Received response from ${provider}: ${response.status} ${response.statusText}`)
 
     // Try to parse the response as JSON, but handle non-JSON responses gracefully
     let responseData: any
@@ -685,7 +687,7 @@ export async function refreshTokenForProvider(
       
       // Check if the response is HTML (common with Kit and some other providers)
       if (responseText.trim().startsWith("<!doctype html>") || responseText.trim().startsWith("<html")) {
-        console.error(`❌ Failed to parse JSON response from ${provider}: ${responseText.substring(0, 200)}...`)
+        logger.error(`❌ Failed to parse JSON response from ${provider}: ${responseText.substring(0, 200)}...`)
         return {
           success: false,
           error: `Provider returned HTML instead of JSON. The refresh token may be invalid or the provider's API may have changed.`,
@@ -694,7 +696,7 @@ export async function refreshTokenForProvider(
         }
       }
       
-      console.error(`❌ Failed to parse JSON response from ${provider}:`, parseError)
+      logger.error(`❌ Failed to parse JSON response from ${provider}:`, parseError)
       return {
         success: false,
         error: `Failed to parse response: ${parseError.message}`,
@@ -704,7 +706,7 @@ export async function refreshTokenForProvider(
 
     if (!response.ok) {
       const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
-      console.error(
+      logger.error(
         `Failed to refresh token for ${provider} (ID: ${integration.id}). ` +
           `Status: ${response.status}. ` +
           `Error: ${errorMessage}. ` +
@@ -721,7 +723,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Airtable errors
       if (provider === "airtable") {
-        if (verbose) console.log(`Airtable error type: ${responseData.error}`)
+        if (verbose) logger.debug(`Airtable error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
           needsReauth = true
@@ -730,7 +732,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Microsoft-related providers (Teams, OneDrive)
       if (provider === "teams" || provider === "onedrive" || provider.startsWith("microsoft")) {
-        if (verbose) console.log(`Microsoft error type: ${responseData.error}`)
+        if (verbose) logger.debug(`Microsoft error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
           needsReauth = true
@@ -739,7 +741,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for TikTok
       else if (provider === "tiktok") {
-        if (verbose) console.log(`TikTok error type: ${responseData.error}`)
+        if (verbose) logger.debug(`TikTok error type: ${responseData.error}`)
         
         // Common TikTok error patterns
         if (responseData.error === "invalid_client") {
@@ -757,7 +759,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for Kit
       else if (provider === "kit") {
-        if (verbose) console.log(`Kit error type: ${responseData.error}`)
+        if (verbose) logger.debug(`Kit error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
           finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
@@ -770,7 +772,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for PayPal
       else if (provider === "paypal") {
-        if (verbose) console.log(`PayPal error type: ${responseData.error}`)
+        if (verbose) logger.debug(`PayPal error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_client") {
           finalErrorMessage = "PayPal client credentials are invalid. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET."
@@ -808,7 +810,7 @@ export async function refreshTokenForProvider(
       providerResponse: responseData,
     }
   } catch (error: any) {
-    console.error("Error during token refresh:", error)
+    logger.error("Error during token refresh:", error)
     return {
       success: false,
       error: `Unexpected error during token refresh: ${error.message || "Unknown error"}`,
@@ -867,7 +869,7 @@ export async function getTokensNeedingRefresh(options: {
   const { data: integrations, error } = await query
 
   if (error) {
-    console.error("Error fetching integrations:", error.message)
+    logger.error("Error fetching integrations:", error.message)
     throw error
   }
 
@@ -899,7 +901,7 @@ export async function getTokensWithRefreshErrors(options: {
   const { data: integrations, error } = await query
 
   if (error) {
-    console.error("Error fetching integrations with errors:", error.message)
+    logger.error("Error fetching integrations with errors:", error.message)
     throw error
   }
 

@@ -2,6 +2,8 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetches Gmail labels for the authenticated user
  */
@@ -83,7 +85,7 @@ export async function addGmailLabels(
             const newLabel = await createGmailLabel(accessToken, labelName)
             labelIds.push(newLabel.id)
           } catch (error: any) {
-            console.error(`Failed to create label "${labelName}":`, error)
+            logger.error(`Failed to create label "${labelName}":`, error)
             // Continue with other labels
           }
         }
@@ -124,7 +126,7 @@ export async function addGmailLabels(
       message: `Successfully added ${labelIds.length} label(s) to the message`,
     }
   } catch (error: any) {
-    console.error("Error adding Gmail labels:", error)
+    logger.error("Error adding Gmail labels:", error)
     return {
       success: false,
       message: `Failed to add labels: ${error.message}`,

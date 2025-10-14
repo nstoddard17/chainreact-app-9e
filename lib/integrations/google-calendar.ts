@@ -1,5 +1,7 @@
 import { google, calendar_v3 } from "googleapis"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function getGoogleCalendars(accessToken: string) {
   const oauth2Client = new google.auth.OAuth2()
   oauth2Client.setCredentials({ access_token: accessToken })
@@ -19,7 +21,7 @@ export async function getGoogleCalendars(accessToken: string) {
 
     return calendars
   } catch (error) {
-    console.error("Failed to get Google calendars:", error)
+    logger.error("Failed to get Google calendars:", error)
     throw new Error("Failed to get Google calendars")
   }
 }

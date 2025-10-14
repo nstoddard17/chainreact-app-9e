@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordCategory, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordCategories: DiscordDataHandler<DiscordCategory> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
     const { 
@@ -20,7 +22,7 @@ export const getDiscordCategories: DiscordDataHandler<DiscordCategory> = async (
     // Use bot token for category listing (bot must be in the guild)
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not configured - returning empty categories list")
+      logger.warn("Discord bot token not configured - returning empty categories list")
       return []
     }
 
@@ -84,18 +86,18 @@ export const getDiscordCategories: DiscordDataHandler<DiscordCategory> = async (
       }
       if (error.message.includes("404")) {
         // Bot is not in the server - return empty array instead of throwing error
-        console.log(`Bot is not a member of server ${guildId} - returning empty categories list`)
+        logger.debug(`Bot is not a member of server ${guildId} - returning empty categories list`)
         return []
       }
       if (error.message.includes("429")) {
         // Return empty array instead of throwing for rate limits
-        console.warn("Discord rate limited, returning empty categories list")
+        logger.warn("Discord rate limited, returning empty categories list")
         return []
       }
       throw error
     }
   } catch (error: any) {
-    console.error("Error fetching Discord categories:", error)
+    logger.error("Error fetching Discord categories:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')
@@ -107,12 +109,12 @@ export const getDiscordCategories: DiscordDataHandler<DiscordCategory> = async (
     
     // Handle rate limiting gracefully
     if (error.message.includes("429")) {
-      console.warn("Discord rate limited, returning empty categories list")
+      logger.warn("Discord rate limited, returning empty categories list")
       return []
     }
     
     // For other errors, return empty array to prevent workflow failures
-    console.warn("Discord categories fetch failed, returning empty list:", error.message)
+    logger.warn("Discord categories fetch failed, returning empty list:", error.message)
     return []
   }
 }

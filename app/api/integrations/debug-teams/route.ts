@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getOAuthConfig } from "@/lib/integrations/oauthConfig"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       debug: {
         hasTeamsClientId,
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error: any) {
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message
     }, { status: 500 })

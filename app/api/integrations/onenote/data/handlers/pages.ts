@@ -5,8 +5,10 @@
 import { OneNoteIntegration, OneNotePage, OneNoteDataHandler, OneNoteApiResponse } from '../types'
 import { validateOneNoteIntegration, validateOneNoteToken, tryMultipleOneNoteEndpoints } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integration: OneNoteIntegration, options: any = {}): Promise<OneNoteApiResponse<OneNotePage>> => {
-  console.log(`🔍 OneNote pages fetcher called with:`, {
+  logger.debug(`🔍 OneNote pages fetcher called with:`, {
     integrationId: integration.id,
     provider: integration.provider,
     status: integration.status,
@@ -17,9 +19,9 @@ export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integrati
     // Validate integration status
     validateOneNoteIntegration(integration)
     
-    console.log(`🔍 Validating OneNote token...`)
+    logger.debug(`🔍 Validating OneNote token...`)
     const tokenResult = await validateOneNoteToken(integration)
-    console.log(`🔍 Token validation result:`, {
+    logger.debug(`🔍 Token validation result:`, {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -28,7 +30,7 @@ export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integrati
     })
     
     if (!tokenResult.success) {
-      console.log(`❌ OneNote token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ OneNote token validation failed: ${tokenResult.error}`)
       return {
         data: [],
         error: {
@@ -75,7 +77,7 @@ export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integrati
     )
     
     if (result.data.length > 0) {
-      console.log(`🔍 OneNote pages from API:`, result.data.map((page: any) => ({
+      logger.debug(`🔍 OneNote pages from API:`, result.data.map((page: any) => ({
         id: page.id,
         title: page.title,
         contentUrl: page.contentUrl,
@@ -87,7 +89,7 @@ export const getOneNotePages: OneNoteDataHandler<OneNotePage> = async (integrati
     
     return result
   } catch (error: any) {
-    console.error("Error fetching OneNote pages:", error)
+    logger.error("Error fetching OneNote pages:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       return {

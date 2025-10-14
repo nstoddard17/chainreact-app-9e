@@ -10,28 +10,15 @@ import {
   Trash2
 } from "lucide-react"
 
-// Microsoft OneNote Triggers
-const onenoteTriggerNewNote: NodeComponent = {
-  type: "microsoft-onenote_trigger_new_note",
-  title: "New note created",
-  description: "Triggers when a new note is created",
-  icon: FileText,
-  providerId: "microsoft-onenote",
-  category: "Productivity",
-  isTrigger: true,
-  requiredScopes: ["Notes.ReadWrite.All"],
-}
-
-const onenoteTriggerNoteModified: NodeComponent = {
-  type: "microsoft-onenote_trigger_note_modified",
-  title: "Note modified",
-  description: "Triggers when a note is modified",
-  icon: Edit,
-  providerId: "microsoft-onenote",
-  category: "Productivity",
-  isTrigger: true,
-  requiredScopes: ["Notes.ReadWrite.All"],
-}
+// Microsoft OneNote Triggers - REMOVED
+// Microsoft Graph doesn't support webhook subscriptions for OneNote resources
+// OneNote Webhooks API was deprecated in May 2023
+// See: https://devblogs.microsoft.com/microsoft365dev/onenote-webhooks-api-deprecation/
+//
+// Possible future implementation: Polling-based triggers that check for new/modified notes periodically
+//
+// const onenoteTriggerNewNote: NodeComponent = { ... }
+// const onenoteTriggerNoteModified: NodeComponent = { ... }
 
 // Microsoft OneNote Actions
 const onenoteActionCreatePage: NodeComponent = {
@@ -565,10 +552,10 @@ const onenoteActionDeletePage: NodeComponent = {
 
 // Export all OneNote nodes
 export const onenoteNodes: NodeComponent[] = [
-  // Triggers (2)
-  onenoteTriggerNewNote,
-  onenoteTriggerNoteModified,
-  
+  // Note: OneNote triggers removed - Microsoft Graph doesn't support webhook subscriptions for OneNote
+  // OneNote Webhooks API was deprecated in May 2023
+  // Future: Could implement polling-based triggers instead
+
   // Actions (10)
   onenoteActionCreatePage,
   onenoteActionCreateNotebook,

@@ -3,6 +3,8 @@
 import React, { useEffect, useRef } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
+import { logger } from '@/lib/utils/logger'
+
 interface GoogleCalendarConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -61,7 +63,7 @@ export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationPr
         hasRequestedCalendarsRef.current = true;
         await loadOptions('calendars', undefined, undefined, true);
       } catch (error) {
-        console.error('[GoogleCalendarConfiguration] Failed to preload calendars', error);
+        logger.error('[GoogleCalendarConfiguration] Failed to preload calendars', error);
         if (isMounted) {
           hasRequestedCalendarsRef.current = false;
         }

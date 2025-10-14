@@ -2,6 +2,8 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
+import { logger } from '@/lib/utils/logger'
+
 interface IntegrationStatusProps {
   status: string
   expiresAt?: string | null
@@ -40,7 +42,7 @@ export default function IntegrationStatus({ status, expiresAt, lastRefresh, clas
         timeUntilExpiry = `${diffHours}h ${diffMinutes}m`
       }
     } catch (e) {
-      console.error("Error parsing expiry date:", e)
+      logger.error("Error parsing expiry date:", e)
     }
   }
 
@@ -65,7 +67,7 @@ export default function IntegrationStatus({ status, expiresAt, lastRefresh, clas
         }
       }
     } catch (e) {
-      console.error("Error parsing refresh date:", e)
+      logger.error("Error parsing refresh date:", e)
     }
   }
 

@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { X, Plus, Filter, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { logger } from '@/lib/utils/logger'
+
 interface Condition {
   id: string;
   column: string;
@@ -113,7 +115,7 @@ export function GoogleSheetsConditionBuilder({
     try {
       await onDynamicLoad('google-sheets_columns', 'sheetName', sheetName, true);
     } catch (error) {
-      console.error('Failed to load columns:', error);
+      logger.error('Failed to load columns:', error);
     }
   };
 

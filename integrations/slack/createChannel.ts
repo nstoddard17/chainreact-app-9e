@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -143,11 +145,11 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
           if (inviteData.ok) {
             results.invitedMembers = initialMembers
           } else {
-            console.warn(`Warning: Failed to invite members: ${inviteData.error}`)
+            logger.warn(`Warning: Failed to invite members: ${inviteData.error}`)
           }
         }
       } catch (inviteError) {
-        console.warn(`Warning: Failed to invite members:`, inviteError)
+        logger.warn(`Warning: Failed to invite members:`, inviteError)
       }
     }
 
@@ -171,11 +173,11 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
           if (purposeData.ok) {
             results.purpose = purpose
           } else {
-            console.warn(`Warning: Failed to set purpose: ${purposeData.error}`)
+            logger.warn(`Warning: Failed to set purpose: ${purposeData.error}`)
           }
         }
       } catch (purposeError) {
-        console.warn(`Warning: Failed to set purpose:`, purposeError)
+        logger.warn(`Warning: Failed to set purpose:`, purposeError)
       }
     }
 
@@ -199,11 +201,11 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
           if (topicData.ok) {
             results.topic = topic
           } else {
-            console.warn(`Warning: Failed to set topic: ${topicData.error}`)
+            logger.warn(`Warning: Failed to set topic: ${topicData.error}`)
           }
         }
       } catch (topicError) {
-        console.warn(`Warning: Failed to set topic:`, topicError)
+        logger.warn(`Warning: Failed to set topic:`, topicError)
       }
     }
 
@@ -227,11 +229,11 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
           if (archiveData.ok) {
             results.autoArchiveSettings = autoArchiveSettings
           } else {
-            console.warn(`Warning: Failed to set auto-archive settings: ${archiveData.error}`)
+            logger.warn(`Warning: Failed to set auto-archive settings: ${archiveData.error}`)
           }
         }
       } catch (archiveError) {
-        console.warn(`Warning: Failed to set auto-archive settings:`, archiveError)
+        logger.warn(`Warning: Failed to set auto-archive settings:`, archiveError)
       }
     }
 
@@ -255,11 +257,11 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
           if (headerData.ok) {
             results.customHeader = customChannelHeader
           } else {
-            console.warn(`Warning: Failed to set custom header: ${headerData.error}`)
+            logger.warn(`Warning: Failed to set custom header: ${headerData.error}`)
           }
         }
       } catch (headerError) {
-        console.warn(`Warning: Failed to set custom header:`, headerError)
+        logger.warn(`Warning: Failed to set custom header:`, headerError)
       }
     }
 
@@ -272,7 +274,7 @@ export async function createSlackChannel(params: ActionParams): Promise<ActionRe
     
   } catch (error: any) {
     // 13. Handle errors and return failure result
-    console.error("Slack create channel failed:", error)
+    logger.error("Slack create channel failed:", error)
     return {
       success: false,
       error: error.message || "Failed to create Slack channel"

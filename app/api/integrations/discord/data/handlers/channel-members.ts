@@ -6,16 +6,18 @@
 import { DiscordIntegration, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 // Simple in-memory cache for channel members
 const channelMembersCache = new Map<string, { data: any[], timestamp: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export const getDiscordChannelMembers: DiscordDataHandler = async (integration: DiscordIntegration, options: any = {}) => {
-  console.log("📍 [Discord Channel Members] Handler called with options:", options)
+  logger.debug("📍 [Discord Channel Members] Handler called with options:", options)
   const { channelId } = options
   
   if (!channelId) {
-    console.warn("No channelId provided for channel members")
+    logger.warn("No channelId provided for channel members")
     return []
   }
   
@@ -23,17 +25,17 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
   const cacheKey = `channel_members_${channelId}`
   const cached = channelMembersCache.get(cacheKey)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log(`📦 [Discord Channel Members] Using cached data for channel ${channelId} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
+    logger.debug(`📦 [Discord Channel Members] Using cached data for channel ${channelId} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
     return cached.data
   }
   
-  console.log("✅ [Discord Channel Members] Loading members for channel:", channelId)
+  logger.debug("✅ [Discord Channel Members] Loading members for channel:", channelId)
 
   try {
     // Use bot token for fetching channel members (bot must be in the guild)
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Bot token not configured - returning empty members")
+      logger.warn("Bot token not configured - returning empty members")
       return []
     }
 
@@ -48,7 +50,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     )
 
     if (!channelResponse || !channelResponse.guild_id) {
-      console.warn("Could not get channel info or guild_id")
+      logger.warn("Could not get channel info or guild_id")
       return []
     }
 
@@ -77,7 +79,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     };
 
     if (!membersResponse || membersResponse.length === 0) {
-      console.log(`⚠️ [Discord Channel Members] No members found for channel ${channelId}, returning "Anyone" option only`)
+      logger.debug(`⚠️ [Discord Channel Members] No members found for channel ${channelId}, returning "Anyone" option only`)
       // Return just the "Anyone" option so the field isn't completely empty
       return [anyoneOption]
     }
@@ -99,7 +101,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
 
     // Cache the result
     channelMembersCache.set(cacheKey, { data: members, timestamp: Date.now() })
-    console.log(`✅ [Discord Channel Members] Cached and returning ${members.length} members for channel ${channelId}`)
+    logger.debug(`✅ [Discord Channel Members] Cached and returning ${members.length} members for channel ${channelId}`)
     
     // Clean up old cache entries if cache is getting large
     if (channelMembersCache.size > 20) {
@@ -113,7 +115,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     
     return members
   } catch (error: any) {
-    console.error("Error fetching Discord channel members:", error)
+    logger.error("Error fetching Discord channel members:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

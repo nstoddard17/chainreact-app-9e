@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 import { db } from "@/lib/db"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,7 +11,7 @@ export async function GET(req: NextRequest) {
     const email = url.searchParams.get("email")
 
     if (!email) {
-      return NextResponse.json({ user: null, message: "Email parameter is required" }, { status: 400 })
+      return jsonResponse({ user: null, message: "Email parameter is required" }, { status: 400 })
     }
 
     const { data: user, error } = await db
@@ -18,12 +21,12 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (error || !user) {
-      return NextResponse.json({ user: null, message: "User not found" }, { status: 404 })
+      return jsonResponse({ user: null, message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ user, message: "User found" }, { status: 200 })
+    return jsonResponse({ user, message: "User found" }, { status: 200 })
   } catch (error) {
-    console.error("[INTEGRATIONS_AUTH_GET]", error)
-    return NextResponse.json({ user: null, message: "Internal error" }, { status: 500 })
+    logger.error("[INTEGRATIONS_AUTH_GET]", error)
+    return jsonResponse({ user: null, message: "Internal error" }, { status: 500 })
   }
 }

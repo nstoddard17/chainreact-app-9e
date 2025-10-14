@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -11,7 +14,7 @@ export async function GET(request: Request) {
   // Get the current user
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return errorResponse('Unauthorized' , 401)
   }
 
   try {
@@ -19,7 +22,7 @@ export async function GET(request: Request) {
       case 'previous_nodes': {
         // Get nodes from the current workflow that produce output
         if (!workflowId) {
-          return NextResponse.json([])
+          return jsonResponse([])
         }
 
         const { data: workflow } = await supabase
@@ -29,7 +32,7 @@ export async function GET(request: Request) {
           .single()
 
         if (!workflow?.configuration?.nodes) {
-          return NextResponse.json([])
+          return jsonResponse([])
         }
 
         // Filter nodes that produce output and are not UI nodes
@@ -54,7 +57,7 @@ export async function GET(request: Request) {
             icon: node.data?.icon
           }))
 
-        return NextResponse.json(outputNodes)
+        return jsonResponse(outputNodes)
       }
 
       case 'connected_integrations': {
@@ -67,7 +70,7 @@ export async function GET(request: Request) {
           .order('created_at', { ascending: false })
 
         if (!integrations) {
-          return NextResponse.json([])
+          return jsonResponse([])
         }
 
         // Map to options format with proper labels
@@ -103,14 +106,14 @@ export async function GET(request: Request) {
           }
         })
 
-        return NextResponse.json(integrationOptions)
+        return jsonResponse(integrationOptions)
       }
 
       default:
-        return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+        return errorResponse('Invalid type parameter' , 400)
     }
   } catch (error) {
-    console.error('Error fetching AI data:', error)
-    return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 })
+    logger.error('Error fetching AI data:', error)
+    return errorResponse('Failed to fetch data' , 500)
   }
 }

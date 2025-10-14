@@ -59,6 +59,8 @@ import { AIAgentFlowBuilder } from './AIAgentFlowBuilder'
 import AIAgentVisualChainBuilder from './AIAgentVisualChainBuilder'
 import { ChainActionConfigModal } from './ChainActionConfigModal'
 
+import { logger } from '@/lib/utils/logger'
+
 interface AIAgentModalProps {
   isOpen: boolean
   onClose: () => void
@@ -211,7 +213,7 @@ export function AIAgentModal({
         })
       }
     } catch (error) {
-      console.error('Action discovery failed:', error)
+      logger.error('Action discovery failed:', error)
       toast({
         title: "Discovery Failed",
         description: "Could not discover actions. Please try again.",
@@ -253,7 +255,7 @@ export function AIAgentModal({
         })
       }
     } catch (error) {
-      console.error('Preview failed:', error)
+      logger.error('Preview failed:', error)
     }
   }
 
@@ -272,7 +274,7 @@ export function AIAgentModal({
     
     // Log what we're saving for debugging
     const saveData = { ...config, chains: chainsToSave }
-    console.log('🔄 [AIAgentModal] Saving configuration:', {
+    logger.debug('🔄 [AIAgentModal] Saving configuration:', {
       hasChains: chains?.length > 0,
       chainsCount: chains?.length || 0,
       chainsStructure: chainsToSave,

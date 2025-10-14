@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useIntegrationStore } from '@/stores/integrationStore'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DiscordUser {
   id: string
   name: string
@@ -51,7 +53,7 @@ export function DiscordUserSelector({
       
       setLoading(true)
       try {
-        console.log('DiscordUserSelector loading users with:', { searchQuery })
+        logger.debug('DiscordUserSelector loading users with:', { searchQuery })
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => {
@@ -64,13 +66,13 @@ export function DiscordUserSelector({
         
         const data = await Promise.race([dataPromise, timeoutPromise])
         
-        console.log('DiscordUserSelector received data:', data)
+        logger.debug('DiscordUserSelector received data:', data)
         
         if (data && Array.isArray(data)) {
           setUsers(data)
         }
       } catch (error) {
-        console.error('Failed to load Discord users:', error)
+        logger.error('Failed to load Discord users:', error)
         setUsers([])
       } finally {
         setLoading(false)

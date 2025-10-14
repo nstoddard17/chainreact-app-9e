@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 // Create a service role client to bypass RLS
 const supabaseAdmin = createClient(
@@ -18,10 +21,7 @@ export async function POST(request: Request) {
     const { userId, username, fullName, email } = await request.json()
 
     if (!userId || !username) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required fields' , 400)
     }
 
     // First check if profile already exists
@@ -64,11 +64,8 @@ export async function POST(request: Request) {
     }
 
     if (profileResult.error) {
-      console.error('Profile creation/update error:', profileResult.error)
-      return NextResponse.json(
-        { error: profileResult.error.message },
-        { status: 500 }
-      )
+      logger.error('Profile creation/update error:', profileResult.error)
+      return errorResponse(profileResult.error.message , 500)
     }
 
     // Update beta tester status to converted (if they exist and haven't already converted)
@@ -85,24 +82,21 @@ export async function POST(request: Request) {
 
         // Don't throw error if update fails - it's not critical for signup
         if (error) {
-          console.log('Note: Could not update beta tester status (non-critical):', error.message)
+          logger.debug('Note: Could not update beta tester status (non-critical):', error.message)
         }
       } catch (err) {
         // Log but don't fail the signup
-        console.log('Note: Beta tester status update skipped (non-critical):', err)
+        logger.debug('Note: Beta tester status update skipped (non-critical):', err)
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       profile: profileResult.data
     })
 
   } catch (error) {
-    console.error('Error in create-beta-profile:', error)
-    return NextResponse.json(
-      { error: 'Failed to create profile' },
-      { status: 500 }
-    )
+    logger.error('Error in create-beta-profile:', error)
+    return errorResponse('Failed to create profile' , 500)
   }
 }

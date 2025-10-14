@@ -1,6 +1,8 @@
 import { FetchUserDataRequest, FetchUserDataResponse } from '@/types/integration'
 import { configValidator } from '@/lib/config/validator'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Protected API client that validates requests and responses
  * This prevents common issues like missing parameters or wrong data types
@@ -91,7 +93,7 @@ export class ProtectedApiClient {
 
       return responseData
     } catch (error) {
-      console.error('Protected API client error:', error)
+      logger.error('Protected API client error:', error)
       
       return {
         success: false,

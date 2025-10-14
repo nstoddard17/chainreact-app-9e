@@ -2,6 +2,8 @@ import { evaluateCondition } from './evaluateCondition'
 import { resolveValue } from './resolveValue'
 import { ActionResult } from './executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Executes an if-then condition node in a workflow
  * Supports simple, multiple, and advanced conditions
@@ -38,7 +40,7 @@ export async function executeIfThenCondition(
               return (${advancedExpression});
             }
           } catch (e) {
-            console.error('Expression evaluation error:', e);
+            logger.error('Expression evaluation error:', e);
             return false;
           }
         `)
@@ -51,7 +53,7 @@ export async function executeIfThenCondition(
         )
         evaluatedExpression = advancedExpression
       } catch (error) {
-        console.error("Advanced expression evaluation error:", error)
+        logger.error("Advanced expression evaluation error:", error)
         finalResult = false
         evaluatedExpression = advancedExpression
       }
@@ -96,14 +98,14 @@ export async function executeIfThenCondition(
       finalResult = evaluateCondition(resolvedField, operator, resolvedValue)
       evaluatedExpression = `${field} ${operator} ${value || ''}`
 
-      console.log(`Simple condition evaluated: ${evaluatedExpression} => ${finalResult}`, {
+      logger.debug(`Simple condition evaluated: ${evaluatedExpression} => ${finalResult}`, {
         resolvedField,
         resolvedValue
       })
     }
     // Legacy support for conditionGroups
     else if (conditionGroups.length > 0) {
-      console.log("Using legacy conditionGroups format")
+      logger.debug("Using legacy conditionGroups format")
 
       // Evaluate each condition group
       const groupResults = conditionGroups.map((group: any) => {
@@ -122,7 +124,7 @@ export async function executeIfThenCondition(
           // Evaluate the condition
           const result = evaluateCondition(resolvedField, operator, resolvedValue)
 
-          console.log(`Condition evaluated: ${field} ${operator} ${value} => ${result}`, {
+          logger.debug(`Condition evaluated: ${field} ${operator} ${value} => ${result}`, {
             resolvedField,
             resolvedValue
           })
@@ -141,12 +143,12 @@ export async function executeIfThenCondition(
     }
     // No conditions defined - default to true
     else {
-      console.log("No conditions defined, defaulting to true")
+      logger.debug("No conditions defined, defaulting to true")
       finalResult = true
       evaluatedExpression = "No conditions (default: true)"
     }
 
-    console.log(`Final condition result: ${finalResult} (expression: ${evaluatedExpression})`)
+    logger.debug(`Final condition result: ${finalResult} (expression: ${evaluatedExpression})`)
 
     // For if/then nodes, we always return success: true
     // The conditionMet field indicates whether the condition was true or false
@@ -164,7 +166,7 @@ export async function executeIfThenCondition(
         : `Condition evaluated to false`
     }
   } catch (error: any) {
-    console.error("If-then condition execution error:", error)
+    logger.error("If-then condition execution error:", error)
     return {
       success: false,
       output: {

@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface PromptOverrides {
   additionalSystem?: string
 }
@@ -14,7 +16,7 @@ export function loadPromptOverrides(): PromptOverrides {
       return JSON.parse(raw)
     }
   } catch (e) {
-    console.warn('Unable to load prompt overrides:', e)
+    logger.warn('Unable to load prompt overrides:', e)
   }
   return {}
 }
@@ -26,7 +28,7 @@ export function savePromptOverrides(data: PromptOverrides) {
     fs.writeFileSync(OVERRIDES_PATH, JSON.stringify(data, null, 2), 'utf-8')
     return true
   } catch (e) {
-    console.error('Failed to save prompt overrides:', e)
+    logger.error('Failed to save prompt overrides:', e)
     return false
   }
 }

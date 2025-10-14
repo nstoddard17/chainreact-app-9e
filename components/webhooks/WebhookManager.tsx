@@ -25,6 +25,8 @@ import {
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
 
+import { logger } from '@/lib/utils/logger'
+
 interface WebhookConfig {
   id: string
   workflowId: string
@@ -69,7 +71,7 @@ export default function WebhookManager() {
         setWebhooks(data)
       }
     } catch (error) {
-      console.error('Failed to fetch webhooks:', error)
+      logger.error('Failed to fetch webhooks:', error)
       toast.error('Failed to load webhooks')
     } finally {
       setLoading(false)
@@ -84,7 +86,7 @@ export default function WebhookManager() {
         setWorkflows(data)
       }
     } catch (error) {
-      console.error('Failed to fetch workflows:', error)
+      logger.error('Failed to fetch workflows:', error)
     }
   }
 
@@ -120,7 +122,7 @@ export default function WebhookManager() {
         toast.error(error.error || 'Failed to create webhook')
       }
     } catch (error) {
-      console.error('Failed to create webhook:', error)
+      logger.error('Failed to create webhook:', error)
       toast.error('Failed to create webhook')
     }
   }
@@ -138,7 +140,7 @@ export default function WebhookManager() {
         toast.error('Failed to delete webhook')
       }
     } catch (error) {
-      console.error('Failed to delete webhook:', error)
+      logger.error('Failed to delete webhook:', error)
       toast.error('Failed to delete webhook')
     }
   }

@@ -4,8 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { OpenAI } from 'openai'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 // Dynamic import for Anthropic SDK (optional dependency)
 let Anthropic: any
@@ -39,18 +42,15 @@ export async function POST(req: NextRequest) {
 
     // Validate input
     if (!model || !systemPrompt || !userPrompt) {
-      return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
-      )
+      return errorResponse('Missing required parameters' , 400)
     }
 
     // Check cache
     const cacheKey = `${userId}-${fieldType}-${userPrompt.substring(0, 100)}`
     const cached = fieldCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('📦 Returning cached field value')
-      return NextResponse.json({ value: cached.value })
+      logger.debug('📦 Returning cached field value')
+      return jsonResponse({ value: cached.value })
     }
 
     // For anonymous field generation (during workflow building)
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         temperature,
         fieldType
       )
-      return NextResponse.json({ value })
+      return jsonResponse({ value })
     }
 
     // Check user authentication
@@ -74,17 +74,14 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Check usage limits
     const { checkUsageLimit } = await import('@/lib/usageTracking')
     const usageCheck = await checkUsageLimit(userId, 'ai_field_generation')
     if (!usageCheck.allowed) {
-      return NextResponse.json(
+      return jsonResponse(
         {
           error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} field generations this month.`
         },
@@ -118,14 +115,11 @@ export async function POST(req: NextRequest) {
     const { trackUsage } = await import('@/lib/usageTracking')
     await trackUsage(userId, 'ai_field_generation', { model, fieldType })
 
-    return NextResponse.json({ value })
+    return jsonResponse({ value })
 
   } catch (error: any) {
-    console.error('Field generation API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate field value' },
-      { status: 500 }
-    )
+    logger.error('Field generation API error:', error)
+    return errorResponse('Failed to generate field value' , 500)
   }
 }
 
@@ -176,7 +170,7 @@ async function generateFieldValue(
         value = content.type === 'text' ? content.text : ''
       } else {
         // Fallback to OpenAI if Anthropic not available
-        console.warn('Anthropic SDK not installed, using OpenAI as fallback for field generation')
+        logger.warn('Anthropic SDK not installed, using OpenAI as fallback for field generation')
         const openai = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY
         })
@@ -221,7 +215,7 @@ async function generateFieldValue(
     return value
 
   } catch (error: any) {
-    console.error('AI generation error:', error)
+    logger.error('AI generation error:', error)
 
     // Return default value based on field type
     return getDefaultFieldValue(fieldType)

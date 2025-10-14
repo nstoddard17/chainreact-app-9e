@@ -8,6 +8,8 @@ import { Eye, RefreshCw, Brain } from "lucide-react"
 import { ExecutionDetailsModal } from "./ExecutionDetailsModal"
 import { AIFieldResolutionSummary } from "./AIFieldResolutionDisplay"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Execution {
   id: string
   status: "pending" | "running" | "success" | "error"
@@ -31,14 +33,14 @@ export default function WorkflowExecutions({ workflowId }: WorkflowExecutionsPro
     try {
       const response = await fetch(`/api/workflows/${workflowId}/executions`)
       if (!response.ok) {
-        console.error("Failed to fetch executions:", response.status, response.statusText)
+        logger.error("Failed to fetch executions:", response.status, response.statusText)
         setExecutions([])
       } else {
         const data = await response.json()
         setExecutions(Array.isArray(data) ? data : [])
       }
     } catch (error) {
-      console.error("Failed to fetch executions:", error)
+      logger.error("Failed to fetch executions:", error)
       setExecutions([])
     } finally {
       setLoading(false)

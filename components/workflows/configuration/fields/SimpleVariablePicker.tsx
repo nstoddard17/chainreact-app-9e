@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { apiClient } from '@/lib/apiClient'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
+import { logger } from '@/lib/utils/logger'
 
 interface SimpleVariablePickerProps {
   workflowData?: { nodes: any[], edges: any[] }
@@ -136,7 +137,7 @@ function SimpleVariablePickerComponent({
       // Context-aware filtering for AI agent nodes
       if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
         const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
-        console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in SimpleVariablePicker for ${currentNodeType}:`, {
+        logger.debug(`🎯 [CONTEXT-AWARE] AI Agent filtering in SimpleVariablePicker for ${currentNodeType}:`, {
           currentNodeType,
           relevantOutputs,
           availableOutputs: node.outputs.map((o: any) => o.name),
@@ -148,7 +149,7 @@ function SimpleVariablePickerComponent({
           relevantOutputs.includes(output.name)
         );
 
-        console.log(`🎯 [CONTEXT-AWARE] SimpleVariablePicker After filtering:`, {
+        logger.debug(`🎯 [CONTEXT-AWARE] SimpleVariablePicker After filtering:`, {
           filteredOutputsCount: aiNodeOutputs.length,
           filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
         });
@@ -228,7 +229,7 @@ function SimpleVariablePickerComponent({
   const handleVariableSelect = (variable: string) => {
     // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
     // Do NOT try to resolve it at design time - that should happen during workflow execution
-    console.log(`🎯 SimpleVariablePicker inserting template variable: ${variable}`)
+    logger.debug(`🎯 SimpleVariablePicker inserting template variable: ${variable}`)
     onVariableSelect(variable)
     
     // Keep the dropdown open after selecting a variable
@@ -323,7 +324,7 @@ function SimpleVariablePickerComponent({
         });
       }
     } catch (error) {
-      console.error("Error running workflow test:", error);
+      logger.error("Error running workflow test:", error);
       toast({
         title: "Test error",
         description: "An error occurred while testing the workflow.",

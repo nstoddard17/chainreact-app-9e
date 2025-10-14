@@ -31,6 +31,8 @@ import {
   Wrench
 } from 'lucide-react'
 
+import { logger } from '@/lib/utils/logger'
+
 interface SupportTicket {
   id: string
   ticket_number: string
@@ -118,7 +120,7 @@ export default function TicketDetailPage() {
         })
       }
     } catch (error) {
-      console.error('Error fetching ticket details:', error)
+      logger.error('Error fetching ticket details:', error)
       toast({
         title: "Error",
         description: "Failed to load ticket details",
@@ -160,7 +162,7 @@ export default function TicketDetailPage() {
         })
       }
     } catch (error) {
-      console.error('Error sending response:', error)
+      logger.error('Error sending response:', error)
       toast({
         title: "Error",
         description: "Failed to send response",
@@ -199,7 +201,7 @@ export default function TicketDetailPage() {
         })
       }
     } catch (error) {
-      console.error('Error updating ticket status:', error)
+      logger.error('Error updating ticket status:', error)
       toast({
         title: "Error",
         description: "Failed to update ticket status",

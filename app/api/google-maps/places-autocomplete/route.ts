@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -6,13 +9,13 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('query')
     
     if (!query) {
-      return NextResponse.json({ error: 'Query parameter is required' }, { status: 400 })
+      return errorResponse('Query parameter is required' , 400)
     }
 
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY
     
     if (!googleMapsApiKey) {
-      return NextResponse.json({ error: 'Google Maps API key not configured' }, { status: 500 })
+      return errorResponse('Google Maps API key not configured' , 500)
     }
 
     // Call Google Places API
@@ -30,16 +33,13 @@ export async function GET(request: NextRequest) {
       throw new Error(`Google Maps API error: ${data.status} - ${data.error_message || 'Unknown error'}`)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       predictions: data.predictions || [],
       status: data.status
     })
 
   } catch (error) {
-    console.error('Google Maps Places API error:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch place suggestions' },
-      { status: 500 }
-    )
+    logger.error('Google Maps Places API error:', error)
+    return errorResponse('Failed to fetch place suggestions' , 500)
   }
 } 

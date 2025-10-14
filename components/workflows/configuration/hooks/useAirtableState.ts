@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseAirtableStateProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -30,17 +32,17 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
       
       // Ensure table schema is loaded first (for linked field name mappings)
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
-        console.log('🔍 Loading table schema before records');
+        logger.debug('🔍 Loading table schema before records');
         await fetchAirtableTableSchema(baseId, tableName);
       }
       
       const integration = getIntegrationByProvider('airtable');
       if (!integration) {
-        console.warn('No Airtable integration found');
+        logger.warn('No Airtable integration found');
         return;
       }
 
-      console.log('🔍 Loading Airtable records:', { baseId, tableName });
+      logger.debug('🔍 Loading Airtable records:', { baseId, tableName });
       
       // Call the Airtable-specific data API endpoint
       const response = await fetch('/api/integrations/airtable/data', {
@@ -62,17 +64,17 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error('Failed to load records:', error);
+        logger.error('Failed to load records:', error);
         throw new Error(`Failed to load records: ${error}`);
       }
 
       const data = await response.json();
-      console.log('✅ Loaded', data.length, 'records');
+      logger.debug('✅ Loaded', data.length, 'records');
       
       setAirtableRecords(data || []);
       setShowRecordsTable(true);
     } catch (error) {
-      console.error('Error loading Airtable records:', error);
+      logger.error('Error loading Airtable records:', error);
       setAirtableRecords([]);
     } finally {
       setLoadingRecords(false);
@@ -86,11 +88,11 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
       
       const integration = getIntegrationByProvider('airtable');
       if (!integration) {
-        console.warn('No Airtable integration found');
+        logger.warn('No Airtable integration found');
         return;
       }
 
-      console.log('🔍 Fetching Airtable table schema:', { baseId, tableName });
+      logger.debug('🔍 Fetching Airtable table schema:', { baseId, tableName });
       
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
@@ -109,17 +111,17 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
 
       if (!response.ok) {
         const error = await response.text();
-        console.error('Failed to fetch table schema:', error);
+        logger.error('Failed to fetch table schema:', error);
         return;
       }
 
       const data = await response.json();
-      console.log('✅ Fetched table schema:', data);
+      logger.debug('✅ Fetched table schema:', data);
       
       setAirtableTableSchema(data);
       return data;
     } catch (error) {
-      console.error('Error fetching table schema:', error);
+      logger.error('Error fetching table schema:', error);
       setAirtableTableSchema(null);
     } finally {
       setIsLoadingTableSchema(false);

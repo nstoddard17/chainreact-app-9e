@@ -170,12 +170,12 @@ export async function uploadAirtableAttachment(
   const extension = guessFileExtension(mimeType)
   const fileName = explicitFilename || buildDefaultFilename(fieldName, index, extension)
 
-  console.log(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`) // eslint-disable-line no-console
+  logger.debug(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`)
 
   const { url: fileUrl, filePath } = await uploadTempAttachmentToSupabase(buffer, fileName, mimeType)
   cleanupPaths.push(filePath)
 
-  console.log(
+  logger.debug(
     `📎 [Airtable] Supabase temporary attachment ready for "${fieldName}" at ${filePath}`
   )
 
@@ -209,7 +209,7 @@ export async function resolveTableId(
 
     if (!response.ok) {
       const errorPayload = await response.json().catch(() => ({}))
-      console.warn(
+      logger.warn(
         `⚠️ [Airtable] Failed to resolve table ID for ${tableName}: ${response.status} - ${errorPayload.error?.message || response.statusText}`
       )
       return null
@@ -223,9 +223,9 @@ export async function resolveTableId(
       return match.id
     }
 
-    console.warn(`⚠️ [Airtable] Unable to locate table ID for name "${tableName}" in base ${baseId}`)
+    logger.warn(`⚠️ [Airtable] Unable to locate table ID for name "${tableName}" in base ${baseId}`)
   } catch (error) {
-    console.error(`❌ [Airtable] Error resolving table ID for ${tableName}:`, error)
+    logger.error(`❌ [Airtable] Error resolving table ID for ${tableName}:`, error)
   }
 
   return null
@@ -371,7 +371,7 @@ export async function createAirtableRecord(
 
   try {
     // Only log essential info, not the entire config
-    console.log("📊 [Airtable] Creating record...")
+    logger.debug("📊 [Airtable] Creating record...")
 
     // Validate config object
     if (!config || typeof config !== 'object') {
@@ -402,7 +402,7 @@ export async function createAirtableRecord(
         }
       }
     } catch (err) {
-      console.error("Error extracting fields from config:", err)
+      logger.error("Error extracting fields from config:", err)
     }
 
     // Also check for a direct fields object (fallback to old structure)
@@ -412,7 +412,7 @@ export async function createAirtableRecord(
       fieldCount += Object.keys(directFields).length
     }
 
-    console.log(`📊 [Airtable] Found ${fieldCount} fields to process`)
+    logger.debug(`📊 [Airtable] Found ${fieldCount} fields to process`)
 
     if (!baseId || !tableName) {
       const missingFields = []
@@ -420,18 +420,18 @@ export async function createAirtableRecord(
       if (!tableName) missingFields.push("Table Name")
 
       const message = `Missing required fields for creating record: ${missingFields.join(", ")}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
     const resolvedTableId = await resolveTableId(baseId, tableName, tableId, accessToken)
 
     if (resolvedTableId) {
-      console.log(
+      logger.debug(
         `📎 [Airtable] Using tableId ${resolvedTableId} for table "${tableName}" in base ${baseId}`
       )
     } else {
-      console.log('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
+      logger.debug('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
     }
 
     // Resolve field values using template variables
@@ -467,7 +467,7 @@ export async function createAirtableRecord(
         const candidateEntries = extractAttachmentCandidates(resolved)
 
         if ((isLikelyAttachment || candidateEntries) && resolved) {
-          console.log(
+          logger.debug(
             `📊 [Airtable] Processing attachment field "${fieldName}" (${Array.isArray(candidateEntries) ? candidateEntries.length : 1} value(s))`
           )
 
@@ -488,19 +488,19 @@ export async function createAirtableRecord(
               if (attachment) {
                 attachments.push(attachment)
               } else {
-                console.log(`📊 [Airtable] Ignored attachment entry ${index + 1} for field "${fieldName}" (unrecognized format)`)
+                logger.debug(`📊 [Airtable] Ignored attachment entry ${index + 1} for field "${fieldName}" (unrecognized format)`)
               }
             } catch (attachmentError) {
               hadAttachmentIssue = true
               attachmentErrors.push(fieldName)
-              console.error(`❌ [Airtable] Error processing attachment for field "${fieldName}":`, attachmentError)
+              logger.error(`❌ [Airtable] Error processing attachment for field "${fieldName}":`, attachmentError)
             }
           }
 
           if (attachments.length > 0) {
             resolvedFields[fieldName] = attachments
             attachmentFields.push(fieldName)
-            console.log(
+            logger.debug(
               `📊 [Airtable] Prepared ${attachments.length} attachment(s) for field "${fieldName}"`
             )
             continue
@@ -508,7 +508,7 @@ export async function createAirtableRecord(
 
           if (hadAttachmentIssue) {
             skippedFields.push(fieldName)
-            console.log(`📊 [Airtable] Skipping field "${fieldName}" due to attachment processing errors`)
+            logger.debug(`📊 [Airtable] Skipping field "${fieldName}" due to attachment processing errors`)
             continue
           }
 
@@ -521,21 +521,21 @@ export async function createAirtableRecord(
           let finalValue = resolved
           if (Array.isArray(resolved) && resolved.length === 1) {
             finalValue = resolved[0]
-            console.log(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+            logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
           }
 
           // Final safety check: if this is base64 data that wasn't detected as an attachment field,
           // skip it to prevent API errors
           if (typeof finalValue === 'string' && finalValue.startsWith('data:') && finalValue.includes('base64,')) {
-            console.log(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
-            console.log(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
+            logger.debug(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
+            logger.debug(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
             skippedFields.push(fieldName)
             continue
           }
 
           // Additional check for very large string data that might cause issues
           if (typeof finalValue === 'string' && finalValue.length > 100000) {
-            console.log(`📊 [Airtable] Field "${fieldName}" contains very large data (${(finalValue.length / 1024).toFixed(1)}KB) - skipping`)
+            logger.debug(`📊 [Airtable] Field "${fieldName}" contains very large data (${(finalValue.length / 1024).toFixed(1)}KB) - skipping`)
             skippedFields.push(fieldName)
             continue
           }
@@ -546,16 +546,16 @@ export async function createAirtableRecord(
     }
 
     if (attachmentFields.length > 0) {
-      console.log(`📊 [Airtable] Prepared attachment fields: ${attachmentFields.join(', ')}`)
+      logger.debug(`📊 [Airtable] Prepared attachment fields: ${attachmentFields.join(', ')}`)
     }
     if (attachmentErrors.length > 0) {
-      console.log(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
+      logger.debug(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
     if (skippedFields.length > 0) {
-      console.log(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
+      logger.debug(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
     }
-    console.log(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
-    console.log(`📊 [Airtable] Field names being sent: ${Object.keys(resolvedFields).join(', ')}`)
+    logger.debug(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
+    logger.debug(`📊 [Airtable] Field names being sent: ${Object.keys(resolvedFields).join(', ')}`)
 
 
     // Create the record in Airtable
@@ -563,7 +563,7 @@ export async function createAirtableRecord(
       fields: resolvedFields,
     }
 
-    console.log(`📊 [Airtable] Sending request to table: ${tableName}`)
+    logger.debug(`📊 [Airtable] Sending request to table: ${tableName}`)
 
     const response = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`,
@@ -585,8 +585,8 @@ export async function createAirtableRecord(
       if (errorMessage.includes('Unknown field name')) {
         const fieldMatch = errorMessage.match(/Unknown field name: "([^"]+)"/)
         const unknownField = fieldMatch ? fieldMatch[1] : 'unknown'
-        console.error(`❌ [Airtable] Field "${unknownField}" does not exist in table "${tableName}"`)
-        console.error(`📊 [Airtable] Available fields being sent: ${Object.keys(resolvedFields).join(', ')}`)
+        logger.error(`❌ [Airtable] Field "${unknownField}" does not exist in table "${tableName}"`)
+        logger.error(`📊 [Airtable] Available fields being sent: ${Object.keys(resolvedFields).join(', ')}`)
         throw new Error(
           `Airtable field mismatch: The field "${unknownField}" does not exist in your Airtable table "${tableName}". ` +
           `Please either add this field to your Airtable table or remove it from the workflow configuration.`
@@ -597,7 +597,7 @@ export async function createAirtableRecord(
     }
 
     const result = await response.json()
-    console.log(`📊 [Airtable] Record created successfully with ID: ${result.id}`)
+    logger.debug(`📊 [Airtable] Record created successfully with ID: ${result.id}`)
     recordCreated = true
 
     return {
@@ -613,7 +613,7 @@ export async function createAirtableRecord(
     }
 
   } catch (error: any) {
-    console.error("Airtable create record error:", error)
+    logger.error("Airtable create record error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while creating the record"
@@ -621,18 +621,18 @@ export async function createAirtableRecord(
   } finally {
     if (cleanupPaths.length > 0) {
       if (recordCreated) {
-        console.log(
+        logger.debug(
           `🧹 [Airtable] Scheduling cleanup for ${cleanupPaths.length} temporary attachment(s)`
         )
         scheduleTempAttachmentCleanup(cleanupPaths)
       } else {
         try {
           await deleteTempAttachments(cleanupPaths)
-          console.log(
+          logger.debug(
             `🧹 [Airtable] Removed ${cleanupPaths.length} temporary attachment(s) after failure`
           )
         } catch (cleanupError) {
-          console.error('❌ [Airtable] Failed to remove temporary attachments:', cleanupError)
+          logger.error('❌ [Airtable] Failed to remove temporary attachments:', cleanupError)
         }
       }
     }

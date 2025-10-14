@@ -3,6 +3,8 @@
 import { create } from "zustand"
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Organization {
   id: string
   name: string
@@ -116,14 +118,14 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
       const organizations = await response.json()
       set({ organizations, loading: false })
     } catch (error: any) {
-      console.error('Fetch organizations error:', error)
+      logger.error('Fetch organizations error:', error)
       set({ error: error.message || 'Failed to fetch organizations', loading: false })
     }
   },
 
   createOrganization: async (data: Partial<Organization>) => {
     try {
-      console.log('Starting organization creation with data:', data)
+      logger.debug('Starting organization creation with data:', data)
       
       const response = await fetch('/api/organizations', {
         method: 'POST',
@@ -139,7 +141,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
       }
 
       const organization = await response.json()
-      console.log('Organization created successfully:', organization)
+      logger.debug('Organization created successfully:', organization)
 
       set((state) => ({
         organizations: [organization, ...state.organizations],
@@ -147,7 +149,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
       return organization
     } catch (error: any) {
-      console.error('Create organization error:', error)
+      logger.error('Create organization error:', error)
       set({ error: error.message || 'Failed to create organization' })
       throw error
     }
@@ -393,7 +395,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   logAction: async (action: string, resourceType: string, resourceId?: string, details?: any) => {
     const supabase = getSupabaseClient()
     if (!supabase) {
-      console.error("Supabase client not configured")
+      logger.error("Supabase client not configured")
       return
     }
     
@@ -409,7 +411,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
         details: details || {},
       })
     } catch (error) {
-      console.error("Failed to log action:", error)
+      logger.error("Failed to log action:", error)
     }
   },
 }))

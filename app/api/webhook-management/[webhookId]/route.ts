@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { webhookManager } from "@/lib/webhooks/webhookManager"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -14,25 +17,22 @@ export async function GET(
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const webhook = await webhookManager.getWebhook(webhookId)
     if (!webhook) {
-      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
+      return errorResponse('Webhook not found' , 404)
     }
 
     if (webhook.userId !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
-    return NextResponse.json(webhook)
+    return jsonResponse(webhook)
   } catch (error: any) {
-    console.error(`Error fetching webhook ${webhookId}:`, error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error(`Error fetching webhook ${webhookId}:`, error)
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -48,28 +48,25 @@ export async function DELETE(
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Verify webhook belongs to user
     const webhook = await webhookManager.getWebhook(webhookId)
     if (!webhook) {
-      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
+      return errorResponse('Webhook not found' , 404)
     }
 
     if (webhook.userId !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Unregister webhook
     await webhookManager.unregisterWebhook(webhookId)
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error: any) {
-    console.error(`Error deleting webhook ${webhookId}:`, error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error(`Error deleting webhook ${webhookId}:`, error)
+    return errorResponse('Internal server error' , 500)
   }
 } 

@@ -34,6 +34,8 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 
+import { logger } from '@/lib/utils/logger'
+
 interface BetaTester {
   id: string
   email: string
@@ -128,7 +130,7 @@ export default function BetaTestersContent() {
       const result = await response.json()
 
       if (!response.ok) {
-        console.error("Error fetching beta testers:", result.error)
+        logger.error("Error fetching beta testers:", result.error)
         // Only show toast for non-404 errors (table doesn't exist)
         if (response.status !== 404) {
           toast({
@@ -139,12 +141,12 @@ export default function BetaTestersContent() {
         }
         setBetaTesters([])
       } else {
-        console.log(`Fetched ${result.data?.length || 0} beta testers`)
-        console.log("Setting beta testers:", result.data)
+        logger.debug(`Fetched ${result.data?.length || 0} beta testers`)
+        logger.debug("Setting beta testers:", result.data)
         setBetaTesters(result.data || [])
       }
     } catch (err) {
-      console.error("Unexpected error fetching beta testers:", err)
+      logger.error("Unexpected error fetching beta testers:", err)
       setBetaTesters([])
     }
   }
@@ -170,7 +172,7 @@ export default function BetaTestersContent() {
         setActivities([])
       }
     } catch (err) {
-      console.error("Error fetching activities:", err)
+      logger.error("Error fetching activities:", err)
       setActivities([])
     }
   }
@@ -192,7 +194,7 @@ export default function BetaTestersContent() {
         setFeedback([])
       }
     } catch (err) {
-      console.error("Error fetching feedback:", err)
+      logger.error("Error fetching feedback:", err)
       setFeedback([])
     }
   }
@@ -276,7 +278,7 @@ export default function BetaTestersContent() {
         fetchBetaTesters()
       }
     } catch (error) {
-      console.error("Error adding beta tester:", error)
+      logger.error("Error adding beta tester:", error)
       toast({
         title: "Error",
         description: "Failed to add beta tester. Please try again.",
@@ -314,7 +316,7 @@ export default function BetaTestersContent() {
         fetchBetaTesters()
       }
     } catch (error) {
-      console.error("Error updating status:", error)
+      logger.error("Error updating status:", error)
       toast({
         title: "Error",
         description: "Failed to update status. Please try again.",
@@ -339,7 +341,7 @@ export default function BetaTestersContent() {
           .eq("id", tester.id)
 
         if (clearError) {
-          console.error("Error clearing previous offer:", clearError)
+          logger.error("Error clearing previous offer:", clearError)
         }
 
         // Small delay to ensure the update is processed
@@ -375,7 +377,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
-      console.error("Error sending offer:", error)
+      logger.error("Error sending offer:", error)
       toast({
         title: "Error",
         description: "Failed to send offer",
@@ -420,7 +422,7 @@ export default function BetaTestersContent() {
         await fetchBetaTesters()
       }
     } catch (error) {
-      console.error("Error deleting beta tester:", error)
+      logger.error("Error deleting beta tester:", error)
       toast({
         title: "Error",
         description: "Failed to delete beta tester. Please try again.",
@@ -471,7 +473,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
-      console.error("Error sending offers to all:", error)
+      logger.error("Error sending offers to all:", error)
       toast({
         title: "Error",
         description: "Failed to send offers",
@@ -536,7 +538,7 @@ export default function BetaTestersContent() {
         })
       }
     } catch (error) {
-      console.error("Error sending mass invites:", error)
+      logger.error("Error sending mass invites:", error)
       toast({
         title: "Error",
         description: "Failed to send invites",
@@ -1274,7 +1276,7 @@ export default function BetaTestersContent() {
                     fetchBetaTesters()
                   }
                 } catch (error) {
-                  console.error("Error updating beta tester:", error)
+                  logger.error("Error updating beta tester:", error)
                   toast({
                     title: "Error",
                     description: "Failed to update beta tester. Please try again.",

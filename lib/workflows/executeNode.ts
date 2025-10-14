@@ -27,6 +27,8 @@ import { executeAIAgent } from './aiAgent'
 import { processAIFields as processAIFieldsForChains, ProcessingContext } from './ai/fieldProcessor'
 import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Generate mock output for sandbox mode based on action type
  */
@@ -140,7 +142,7 @@ async function executeAIAgentWrapper(
       message: result.message || "AI Agent execution completed"
     }
   } catch (error: any) {
-    console.error("AI Agent execution error:", error)
+    logger.error("AI Agent execution error:", error)
     return {
       success: false,
       output: {},
@@ -174,7 +176,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       .single()
 
     if (error) {
-      console.error(`Database error fetching integration for ${provider}:`, error)
+      logger.error(`Database error fetching integration for ${provider}:`, error)
       throw new Error(`Database error: ${error.message}`)
     }
 
@@ -193,7 +195,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     let accessToken = integration.access_token
 
     if (shouldRefresh.shouldRefresh && integration.refresh_token) {
-      console.log(`Refreshing token for ${provider}: ${shouldRefresh.reason}`)
+      logger.debug(`Refreshing token for ${provider}: ${shouldRefresh.reason}`)
       
       const refreshResult = await TokenRefreshService.refreshTokenForProvider(
         integration.provider,
@@ -203,9 +205,9 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
 
       if (refreshResult.success && refreshResult.accessToken) {
         accessToken = refreshResult.accessToken
-        console.log(`Token refresh successful for ${provider}`)
+        logger.debug(`Token refresh successful for ${provider}`)
       } else {
-        console.error(`Token refresh failed for ${provider}:`, refreshResult.error)
+        logger.error(`Token refresh failed for ${provider}:`, refreshResult.error)
         throw new Error(`Failed to refresh ${provider} token: ${refreshResult.error}`)
       }
     }
@@ -216,12 +218,12 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
 
     const secret = await getSecret("encryption_key")
     if (!secret) {
-      console.error("Encryption key not found in environment")
+      logger.error("Encryption key not found in environment")
       throw new Error("Encryption secret not configured. Please set ENCRYPTION_KEY environment variable.")
     }
 
-    console.log(`Attempting to decrypt access token for ${provider}`)
-    console.log(`Token format check:`, {
+    logger.debug(`Attempting to decrypt access token for ${provider}`)
+    logger.debug(`Token format check:`, {
       hasColon: accessToken.includes(':'),
       tokenLength: accessToken.length,
       tokenPreview: `${accessToken.substring(0, 20) }...`
@@ -229,10 +231,10 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     
     try {
     const decryptedToken = decrypt(accessToken, secret)
-    console.log(`Successfully decrypted access token for ${provider}`)
+    logger.debug(`Successfully decrypted access token for ${provider}`)
     return decryptedToken
     } catch (decryptError: any) {
-      console.error(`Decryption failed for ${provider}:`, {
+      logger.error(`Decryption failed for ${provider}:`, {
         error: decryptError.message,
         tokenFormat: accessToken.includes(':') ? 'encrypted' : 'plain',
         tokenLength: accessToken.length
@@ -240,14 +242,14 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       
       // If the token doesn't have the expected format, it might be stored as plain text
       if (!accessToken.includes(':')) {
-        console.log(`Token for ${provider} appears to be stored as plain text, returning as-is`)
+        logger.debug(`Token for ${provider} appears to be stored as plain text, returning as-is`)
         return accessToken
       }
       
       throw new Error(`Failed to decrypt ${provider} access token: ${decryptError.message}`)
     }
   } catch (error: any) {
-    console.error(`Error in getDecryptedAccessToken for ${provider}:`, {
+    logger.error(`Error in getDecryptedAccessToken for ${provider}:`, {
       message: error.message,
       stack: error.stack,
       userId,
@@ -280,7 +282,7 @@ export async function executeNode(
     const result = await executeAction(params)
     return result
   } catch (error) {
-    console.error(`Failed to execute node ${node.id}:`, error)
+    logger.error(`Failed to execute node ${node.id}:`, error)
     throw error
   }
 }
@@ -290,7 +292,7 @@ export async function executeNode(
  * Routes to the appropriate handler based on node type
  */
 export async function executeAction({ node, input, userId, workflowId, testMode, executionMode }: ExecuteActionParams): Promise<ActionResult> {
-  console.log(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
+  logger.debug(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
   
   const { type, config } = node.data
   const startTime = Date.now()
@@ -312,7 +314,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   if (workflowId) {
     storeExecutionLog(workflowId, startLogEntry)
     const formattedLog = formatExecutionLogEntry(startLogEntry)
-    console.log('[Execution Started]', formattedLog)
+    logger.debug('[Execution Started]', formattedLog)
     // Add to backend logger for debug modal
     if (input?.executionId) {
       logInfo(input.executionId, '[Execution Started]', formattedLog)
@@ -334,7 +336,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   const hasEncryptionKey = process.env.ENCRYPTION_KEY
 
   if (!hasSupabaseConfig) {
-    console.warn("Supabase configuration missing, running in test mode")
+    logger.warn("Supabase configuration missing, running in test mode")
     return { 
       success: true, 
       output: { test: true, mockResult: true }, 
@@ -357,7 +359,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        console.log('[Wait Completed]', formatExecutionLogEntry(logEntry))
+        logger.debug('[Wait Completed]', formatExecutionLogEntry(logEntry))
       }
       
       return result
@@ -371,7 +373,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        console.log('[Wait Error]', formatExecutionLogEntry(errorEntry))
+        logger.debug('[Wait Error]', formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -396,7 +398,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        console.log(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
+        logger.debug(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
       }
       
       return result
@@ -410,7 +412,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        console.log(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Error]`, formatExecutionLogEntry(errorEntry))
+        logger.debug(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Error]`, formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -419,7 +421,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   // SANDBOX MODE INTERCEPTION
   // If we're in sandbox mode, return mock data instead of executing real actions
   if (isSandboxMode) {
-    console.log(`[SANDBOX MODE] Intercepting ${type} action - no external calls will be made`)
+    logger.debug(`[SANDBOX MODE] Intercepting ${type} action - no external calls will be made`)
     
     // Generate mock response based on action type
     const mockOutput = generateMockOutput(type, processedConfig)
@@ -433,7 +435,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     
     if (workflowId) {
       storeExecutionLog(workflowId, logEntry)
-      console.log('[SANDBOX Completed]', formatExecutionLogEntry(logEntry))
+      logger.debug('[SANDBOX Completed]', formatExecutionLogEntry(logEntry))
     }
     
     return {
@@ -454,7 +456,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
   // If there's no handler for this node type, try the generic handler
   if (!handler) {
-    console.log(`Using generic handler for node type: ${type}`)
+    logger.debug(`Using generic handler for node type: ${type}`)
     try {
       const result = await executeGenericAction(
         { ...processedConfig, actionType: type },
@@ -471,7 +473,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        console.log('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
+        logger.debug('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
       }
       
       return result
@@ -485,7 +487,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        console.log('[Generic Action Error]', formatExecutionLogEntry(errorEntry))
+        logger.debug('[Generic Action Error]', formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -497,7 +499,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
        type.startsWith('google_sheets_') || 
        type.startsWith('google_drive_') ||
        type.startsWith('airtable_'))) {
-    console.warn(`Encryption key missing, running ${type} in test mode`)
+    logger.warn(`Encryption key missing, running ${type} in test mode`)
     return { 
       success: true, 
       output: { 
@@ -530,7 +532,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     if (workflowId) {
       storeExecutionLog(workflowId, successLogEntry)
       const formattedLog = formatExecutionLogEntry(successLogEntry)
-      console.log('[Execution Completed]', formattedLog)
+      logger.debug('[Execution Completed]', formattedLog)
       // Add to backend logger for debug modal
       if (input?.executionId) {
         logSuccess(input.executionId, '[Execution Completed]', formattedLog)
@@ -561,7 +563,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     if (workflowId) {
       storeExecutionLog(workflowId, errorLogEntry)
       const formattedLog = formatExecutionLogEntry(errorLogEntry)
-      console.log('[Execution Error]', formattedLog)
+      logger.debug('[Execution Error]', formattedLog)
       // Add to backend logger for debug modal
       if (input?.executionId) {
         logError(input.executionId, '[Execution Error]', formattedLog)
@@ -618,7 +620,7 @@ async function processAIFieldsIfNeeded(
         apiKey: config.customApiKey || config.apiKey
       })
     } catch (error) {
-      console.error('AI placeholder processing failed:', error)
+      logger.error('AI placeholder processing failed:', error)
       // Continue with original config if AI processing fails
     }
   }
@@ -658,7 +660,7 @@ async function processAIFieldsIfNeeded(
         ...result.fields
       }
     } catch (error) {
-      console.error('AI chain processing failed:', error)
+      logger.error('AI chain processing failed:', error)
       // Continue with processed config if chain processing fails
     }
   }

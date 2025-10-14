@@ -11,13 +11,15 @@ import {
   buildMailchimpApiUrl
 } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getMailchimpMergeFields: MailchimpDataHandler<MailchimpMergeField> = async (
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpMergeField[]> => {
   const { audienceId } = options
 
-  console.log("🔍 [Mailchimp] Fetching merge fields:", {
+  logger.debug("🔍 [Mailchimp] Fetching merge fields:", {
     integrationId: integration.id,
     audienceId
   })
@@ -30,15 +32,15 @@ export const getMailchimpMergeFields: MailchimpDataHandler<MailchimpMergeField> 
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    console.log(`🔍 [Mailchimp] Validating token...`)
+    logger.debug(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    console.log('🔍 [Mailchimp] Fetching merge fields from API...')
+    logger.debug('🔍 [Mailchimp] Fetching merge fields from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/merge-fields`)
 
     // Add query parameters
@@ -52,11 +54,11 @@ export const getMailchimpMergeFields: MailchimpDataHandler<MailchimpMergeField> 
     // Sort by display order
     const sortedFields = mergeFields.sort((a, b) => a.display_order - b.display_order)
 
-    console.log(`✅ [Mailchimp] Merge fields fetched successfully: ${sortedFields.length} fields`)
+    logger.debug(`✅ [Mailchimp] Merge fields fetched successfully: ${sortedFields.length} fields`)
     return sortedFields
 
   } catch (error: any) {
-    console.error("❌ [Mailchimp] Error fetching merge fields:", error)
+    logger.error("❌ [Mailchimp] Error fetching merge fields:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Mailchimp authentication expired. Please reconnect your account.')

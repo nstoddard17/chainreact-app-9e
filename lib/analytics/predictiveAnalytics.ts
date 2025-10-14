@@ -1,5 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WorkflowFailurePrediction {
   workflowId: string
   failureProbability: number
@@ -110,7 +112,7 @@ export class PredictiveAnalytics {
         confidenceScore: totalExecutions > 50 ? 0.8 : 0.5,
       }
     } catch (error) {
-      console.error("Error predicting workflow failure:", error)
+      logger.error("Error predicting workflow failure:", error)
       throw error
     }
   }
@@ -163,7 +165,7 @@ export class PredictiveAnalytics {
 
       return forecasts
     } catch (error) {
-      console.error("Error forecasting usage patterns:", error)
+      logger.error("Error forecasting usage patterns:", error)
       throw error
     }
   }
@@ -249,7 +251,7 @@ export class PredictiveAnalytics {
         trend,
       }
     } catch (error) {
-      console.error("Error calculating integration health:", error)
+      logger.error("Error calculating integration health:", error)
       throw error
     }
   }
@@ -318,7 +320,7 @@ export class PredictiveAnalytics {
         paybackPeriodMonths: Math.round(paybackPeriodMonths * 100) / 100,
       }
     } catch (error) {
-      console.error("Error calculating ROI:", error)
+      logger.error("Error calculating ROI:", error)
       throw error
     }
   }

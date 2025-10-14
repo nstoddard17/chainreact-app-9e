@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +13,7 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('\n🔄 REFRESHING ONEDRIVE WEBHOOK SUBSCRIPTION')
+    logger.debug('\n🔄 REFRESHING ONEDRIVE WEBHOOK SUBSCRIPTION')
 
     // Get the user's workflow
     const { data: workflows } = await supabase
@@ -20,11 +23,11 @@ export async function POST(request: NextRequest) {
       .eq('user_id', 'a3e3a51a-175c-4b59-ad03-227ba12a18b0')
 
     if (!workflows || workflows.length === 0) {
-      return NextResponse.json({ error: 'No active workflow found' }, { status: 400 })
+      return errorResponse('No active workflow found' , 400)
     }
 
     const workflow = workflows[0]
-    console.log(`Found workflow: ${workflow.name}`)
+    logger.debug(`Found workflow: ${workflow.name}`)
 
     // Toggle the workflow off
     await supabase
@@ -32,7 +35,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'inactive' })
       .eq('id', workflow.id)
 
-    console.log('✅ Workflow deactivated')
+    logger.debug('✅ Workflow deactivated')
 
     // Wait a moment
     await new Promise(resolve => setTimeout(resolve, 2000))
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
       .update({ status: 'active' })
       .eq('id', workflow.id)
 
-    console.log('✅ Workflow reactivated - this should trigger webhook re-registration')
+    logger.debug('✅ Workflow reactivated - this should trigger webhook re-registration')
 
     // Check the new subscription
     await new Promise(resolve => setTimeout(resolve, 3000))
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflow: workflow.name,
       newSubscription: newSub ? {
@@ -100,13 +103,13 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error refreshing webhook:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    logger.error('Error refreshing webhook:', error)
+    return jsonResponse({ error }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'POST to this endpoint to refresh OneDrive webhook subscription by toggling the workflow'
   })
 }

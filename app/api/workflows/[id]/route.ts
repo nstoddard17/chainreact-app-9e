@@ -2,6 +2,9 @@ import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@
 import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies()
@@ -14,7 +17,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const resolvedParams = await params
@@ -22,7 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(resolvedParams.id)) {
-      return NextResponse.json({ error: "Invalid workflow ID format" }, { status: 400 })
+      return errorResponse("Invalid workflow ID format" , 400)
     }
 
     // First try to get the workflow by ID only to see if it exists
@@ -33,12 +36,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .single()
 
     if (existsError || !workflowExists) {
-      console.error('Workflow does not exist:', resolvedParams.id, existsError)
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      logger.error('Workflow does not exist:', resolvedParams.id, existsError)
+      return errorResponse("Workflow not found" , 404)
     }
 
     // Log for debugging
-    console.log('🔍 [Workflow API] Checking access:', {
+    logger.debug('🔍 [Workflow API] Checking access:', {
       workflowId: resolvedParams.id,
       workflowOwnerId: workflowExists.user_id,
       currentUserId: user.id,
@@ -55,8 +58,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         .single()
 
       if (error) {
-        console.error('Error fetching owned workflow:', error)
-        return NextResponse.json({ error: "Failed to fetch workflow" }, { status: 500 })
+        logger.error('Error fetching owned workflow:', error)
+        return errorResponse("Failed to fetch workflow" , 500)
       }
 
       // Sanitize payload: drop UI-only or malformed nodes that can render as "Unnamed Action"
@@ -75,14 +78,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       }
 
       if (Array.isArray(data?.nodes) && safeData.nodes.length !== data.nodes.length) {
-        console.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
+        logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
           workflowId: data.id,
           before: data.nodes.length,
           after: safeData.nodes.length
         })
       }
 
-      return NextResponse.json(safeData)
+      return jsonResponse(safeData)
     }
 
     // Not the owner, check if user has shared access
@@ -100,15 +103,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .single()
 
     if (sharedError || !sharedData) {
-      console.error('User does not have access to workflow:', {
+      logger.error('User does not have access to workflow:', {
         workflowId: resolvedParams.id,
         userId: user.id,
         error: sharedError
       })
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
-    console.log('🔍 [Workflow API] Returning shared workflow data:', {
+    logger.debug('🔍 [Workflow API] Returning shared workflow data:', {
       id: sharedData.id,
       name: sharedData.name,
       nameType: typeof sharedData.name,
@@ -118,10 +121,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       nameValue: JSON.stringify(sharedData.name)
     })
 
-    return NextResponse.json(sharedData)
+    return jsonResponse(sharedData)
   } catch (error) {
-    console.error('Workflow API error:', error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error('Workflow API error:', error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -136,13 +139,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
     const resolvedParams = await params
 
-    console.log('📝 [Workflow API] Updating workflow with body:', {
+    logger.debug('📝 [Workflow API] Updating workflow with body:', {
       id: resolvedParams.id,
       name: body.name,
       hasName: 'name' in body,
@@ -163,11 +166,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         .single()
 
       if (existingWorkflow && existingWorkflow.nodes && existingWorkflow.nodes.length > 0) {
-        console.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', existingWorkflow.nodes.length, 'nodes')
-        return NextResponse.json({
-          error: "Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.",
-          code: "NODE_ERASURE_PREVENTED"
-        }, { status: 400 })
+        logger.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', existingWorkflow.nodes.length, 'nodes')
+        return errorResponse("Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.", 400, { code: "NODE_ERASURE_PREVENTED"
+         })
       }
     }
 
@@ -179,11 +180,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .single()
 
     if (checkError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     if (workflow.user_id !== user.id) {
-      return NextResponse.json({ error: "Not authorized to update this workflow" }, { status: 403 })
+      return errorResponse("Not authorized to update this workflow" , 403)
     }
 
     const previousStatus = workflow.status // Store the status before update
@@ -203,7 +204,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         .single()
 
       if (currentData && currentData.nodes && currentData.nodes.length > 0) {
-        console.warn('⚠️ [SAFETY] Removing empty nodes array from update to preserve existing nodes')
+        logger.warn('⚠️ [SAFETY] Removing empty nodes array from update to preserve existing nodes')
         delete updateData.nodes
       }
     }
@@ -219,11 +220,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .single()
 
     if (error) {
-      console.error('❌ [Workflow API] Update error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      logger.error('❌ [Workflow API] Update error:', error)
+      return errorResponse(error.message , 500)
     }
 
-    console.log('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
+    logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
 
     // Determine graph connectivity (trigger → action). If broken, force deactivate and skip registration
     let nodes = (Array.isArray(body.nodes) ? body.nodes : (data.nodes || [])) as any[]
@@ -254,7 +255,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const sanitizedNodes = sanitizeNodes(nodes)
     if (sanitizedNodes.length !== nodes.length) {
-      console.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on PUT', {
+      logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on PUT', {
         workflowId: resolvedParams.id,
         before: nodes.length,
         after: sanitizedNodes.length
@@ -326,9 +327,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         .single()
 
       if (saveErr) {
-        console.warn('⚠️ Failed to auto-connect single trigger→action:', saveErr)
+        logger.warn('⚠️ Failed to auto-connect single trigger→action:', saveErr)
       } else {
-        console.log('🔗 Auto-connected single trigger to single action')
+        logger.debug('🔗 Auto-connected single trigger to single action')
         // Update local copy for subsequent checks
         connections = updatedConnections as any
       }
@@ -412,9 +413,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           .update({ connections, updated_at: new Date().toISOString() })
           .eq('id', resolvedParams.id)
         if (saveErr) {
-          console.warn('⚠️ Failed to persist auto-connections for triggers:', saveErr)
+          logger.warn('⚠️ Failed to persist auto-connections for triggers:', saveErr)
         } else {
-          console.log('🔗 Auto-connected triggers to nearest actions where needed')
+          logger.debug('🔗 Auto-connected triggers to nearest actions where needed')
         }
       }
     }
@@ -453,9 +454,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
           await webhookManager.unregisterWorkflowWebhooks(data.id)
-          console.log('♻️ Unregistered existing webhooks due to missing action connections')
+          logger.debug('♻️ Unregistered existing webhooks due to missing action connections')
         } catch (cleanupErr) {
-          console.warn('⚠️ Failed to unregister webhooks after connectivity check:', cleanupErr)
+          logger.warn('⚠️ Failed to unregister webhooks after connectivity check:', cleanupErr)
         }
       }
 
@@ -468,7 +469,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         .select()
         .single()
       if (forceErr) {
-        console.warn('⚠️ Failed to force-deactivate workflow lacking action connections:', forceErr)
+        logger.warn('⚠️ Failed to force-deactivate workflow lacking action connections:', forceErr)
       }
 
       const responsePayload = {
@@ -477,7 +478,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         activationBlocked: true,
         activationReason: 'No action nodes connected to a trigger. Connect at least one action to activate this workflow.'
       }
-      return NextResponse.json(responsePayload)
+      return jsonResponse(responsePayload)
     }
 
     const statusProvided = Object.prototype.hasOwnProperty.call(body, 'status')
@@ -495,14 +496,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
           await webhookManager.unregisterWorkflowWebhooks(data.id)
-          console.log('♻️ Unregistered existing webhooks before re-registering (active workflow save)')
+          logger.debug('♻️ Unregistered existing webhooks before re-registering (active workflow save)')
 
           // Clean up managed trigger resources (Microsoft Graph, etc.)
           const { triggerLifecycleManager } = await import('@/lib/triggers')
           await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
-          console.log('♻️ Deactivated existing trigger resources before re-activating')
+          logger.debug('♻️ Deactivated existing trigger resources before re-activating')
         } catch (cleanupErr) {
-          console.warn('⚠️ Failed to cleanup existing resources prior to re-register:', cleanupErr)
+          logger.warn('⚠️ Failed to cleanup existing resources prior to re-register:', cleanupErr)
         }
       }
       // Get the full workflow data including nodes if not present in the update result
@@ -511,7 +512,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       // If nodes are not in the update result (e.g., when only status was updated),
       // fetch the full workflow to get nodes
       if (nodes.length === 0 && !body.nodes) {
-        console.log('📋 Fetching full workflow data to check for triggers...')
+        logger.debug('📋 Fetching full workflow data to check for triggers...')
         const { data: fullWorkflow } = await serviceClient
           .from("workflows")
           .select("nodes")
@@ -520,7 +521,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
         if (fullWorkflow) {
           nodes = fullWorkflow.nodes || []
-          console.log(`📋 Found ${nodes.length} nodes in workflow`)
+          logger.debug(`📋 Found ${nodes.length} nodes in workflow`)
         }
       }
 
@@ -533,7 +534,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           nodes
         )
         if (result.errors.length > 0) {
-          console.error('❌ Trigger activation failed:', result.errors)
+          logger.error('❌ Trigger activation failed:', result.errors)
           // Rollback workflow status to previous state
           const { data: rolledBackWorkflow } = await serviceClient
             .from('workflows')
@@ -546,7 +547,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             .single()
 
           // Return 200 with error details so frontend handles it gracefully
-          return NextResponse.json({
+          return jsonResponse({
             ...rolledBackWorkflow,
             triggerActivationError: {
               message: 'Failed to activate workflow triggers',
@@ -554,10 +555,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             }
           }, { status: 200 })
         } 
-          console.log('✅ All lifecycle-managed triggers activated successfully')
+          logger.debug('✅ All lifecycle-managed triggers activated successfully')
         
       } catch (lifecycleErr) {
-        console.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
+        logger.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
         // Rollback workflow status to previous state
         const { data: rolledBackWorkflow } = await serviceClient
           .from('workflows')
@@ -570,7 +571,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           .single()
 
         // Return 200 with error details so frontend handles it gracefully
-        return NextResponse.json({
+        return jsonResponse({
           ...rolledBackWorkflow,
           triggerActivationError: {
             message: 'Failed to activate workflow triggers',
@@ -585,22 +586,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (shouldUnregisterWebhooks) {
-      console.log('🔗 Workflow deactivated/paused - unregistering all trigger resources')
+      logger.debug('🔗 Workflow deactivated/paused - unregistering all trigger resources')
 
       try {
         // Deactivate lifecycle-managed triggers (Microsoft Graph, etc.)
         const { triggerLifecycleManager } = await import('@/lib/triggers')
         await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
-        console.log('✅ Lifecycle-managed triggers deactivated')
+        logger.debug('✅ Lifecycle-managed triggers deactivated')
 
         // Unregister legacy webhooks
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
         const webhookManager = new TriggerWebhookManager()
         await webhookManager.unregisterWorkflowWebhooks(data.id)
-        console.log('✅ Legacy webhooks unregistered')
+        logger.debug('✅ Legacy webhooks unregistered')
 
       } catch (webhookError) {
-        console.error('Failed to unregister triggers on deactivation:', webhookError)
+        logger.error('Failed to unregister triggers on deactivation:', webhookError)
       }
     }
 
@@ -609,13 +610,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.cleanupUnusedWebhooks(data.id)
     } catch (cleanupErr) {
-      console.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
+      logger.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
     }
 
-    return NextResponse.json(data)
+    return jsonResponse(data)
   } catch (error) {
-    console.error('❌ [Workflow API] Error in PUT handler:', error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error('❌ [Workflow API] Error in PUT handler:', error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -631,7 +632,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const resolvedParams = await params
@@ -644,26 +645,26 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .single()
 
     if (fetchError || !workflowRecord) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     if (workflowRecord.user_id !== user.id) {
-      return NextResponse.json({ error: "Not authorized to delete this workflow" }, { status: 403 })
+      return errorResponse("Not authorized to delete this workflow" , 403)
     }
 
     try {
       // Delete lifecycle-managed trigger resources (Microsoft Graph, etc.)
       const { triggerLifecycleManager } = await import('@/lib/triggers')
       await triggerLifecycleManager.deleteWorkflowTriggers(workflowId, user.id)
-      console.log('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
+      logger.debug('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
 
       // Unregister legacy webhooks
       const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.unregisterWorkflowWebhooks(workflowId)
-      console.log('♻️ Unregistered legacy webhooks before deleting workflow', { workflowId })
+      logger.debug('♻️ Unregistered legacy webhooks before deleting workflow', { workflowId })
     } catch (unregisterError) {
-      console.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
+      logger.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
     }
 
     const { error } = await supabase
@@ -673,11 +674,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .eq('user_id', user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
