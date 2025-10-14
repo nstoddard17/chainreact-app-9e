@@ -1,4 +1,4 @@
-import { FileText, Database, Search, Users, MessageSquare, Layers, Plus } from "lucide-react"
+import { FileText, Database, Users, Layers } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -7,57 +7,6 @@ import { NodeComponent } from "../../types"
  */
 
 export const notionUnifiedActions: NodeComponent[] = [
-  // ============= SIMPLE CREATE PAGE (for backwards compatibility with templates) =============
-  {
-    type: "notion_action_create_page",
-    title: "Create Page",
-    description: "Create a new page in Notion workspace",
-    icon: Plus,
-    providerId: "notion",
-    requiredScopes: ["content.write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "databaseId",
-        label: "Database",
-        type: "select",
-        dynamic: "notion_databases",
-        required: true,
-        placeholder: "Select database",
-        loadOnMount: true,
-        tooltip: "Select the Notion database where the page will be created"
-      },
-      {
-        name: "title",
-        label: "Page Title",
-        type: "text",
-        required: true,
-        placeholder: "Enter page title"
-      },
-      {
-        name: "content",
-        label: "Page Content",
-        type: "rich-text",
-        required: false,
-        placeholder: "Enter page content"
-      }
-    ],
-    outputSchema: [
-      {
-        name: "pageId",
-        label: "Page ID",
-        type: "string",
-        description: "The unique ID of the created page"
-      },
-      {
-        name: "url",
-        label: "Page URL",
-        type: "string",
-        description: "The web URL of the created page"
-      }
-    ]
-  },
   // ============= UNIFIED PAGE MANAGEMENT =============
   {
     type: "notion_action_manage_page",
@@ -655,85 +604,6 @@ export const notionUnifiedActions: NodeComponent[] = [
     ]
   },
 
-  // ============= UNIFIED SEARCH =============
-  {
-    type: "notion_action_search",
-    title: "Search Notion",
-    description: "Search for pages and databases across your Notion workspace",
-    icon: Search,
-    providerId: "notion",
-    requiredScopes: ["content.read"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "workspace",
-        label: "Workspace",
-        type: "select",
-        dynamic: "notion_workspaces",
-        required: true,
-        placeholder: "Select Notion workspace",
-        visibilityCondition: "always"
-      },
-      {
-        name: "query",
-        label: "Search Query",
-        type: "text",
-        required: false,
-        placeholder: "Enter search terms",
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      },
-      {
-        name: "filter",
-        label: "Filter Type",
-        type: "select",
-        required: false,
-        clearable: false,
-        options: [
-          { value: "all", label: "All" },
-          { value: "page", label: "Pages Only" },
-          { value: "database", label: "Databases Only" }
-        ],
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      },
-      {
-        name: "sort",
-        label: "Sort By",
-        type: "select",
-        required: false,
-        clearable: false,
-        options: [
-          { value: "relevance", label: "Relevance" },
-          { value: "last_edited_time", label: "Last Edited" }
-        ],
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      },
-      {
-        name: "maxResults",
-        label: "Max Results",
-        type: "number",
-        required: false,
-        defaultValue: 10,
-        placeholder: "10",
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      }
-    ],
-    outputSchema: [
-      {
-        name: "results",
-        label: "Search Results",
-        type: "array",
-        description: "Array of matching pages and databases"
-      },
-      {
-        name: "hasMore",
-        label: "Has More",
-        type: "boolean",
-        description: "Whether there are more results"
-      }
-    ]
-  },
-
   // ============= UNIFIED USER MANAGEMENT =============
   {
     type: "notion_action_manage_users",
@@ -802,95 +672,6 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "User",
         type: "object",
         description: "User details (for get operation)"
-      }
-    ]
-  },
-
-  // ============= UNIFIED COMMENT MANAGEMENT =============
-  {
-    type: "notion_action_manage_comments",
-    title: "Manage Comments",
-    description: "Create or retrieve comments on Notion pages",
-    icon: MessageSquare,
-    providerId: "notion",
-    requiredScopes: ["comments.read", "comments.write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "workspace",
-        label: "Workspace",
-        type: "select",
-        dynamic: "notion_workspaces",
-        required: true,
-        placeholder: "Select Notion workspace",
-        visibilityCondition: "always"
-      },
-      {
-        name: "operation",
-        label: "Operation",
-        type: "select",
-        required: true,
-        clearable: false,
-        options: [
-          { value: "create", label: "Create Comment" },
-          { value: "retrieve", label: "Get Comments" }
-        ],
-        placeholder: "Select operation",
-        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
-      },
-      {
-        name: "page",
-        label: "Page",
-        type: "select",
-        dynamic: "notion_pages",
-        required: true,
-        placeholder: "Select a page (must be shared with integration)",
-        description: "Only pages shared with your Notion integration will appear",
-        dependsOn: "workspace",
-        visibilityCondition: { field: "operation", operator: "isNotEmpty" }
-      },
-      {
-        name: "commentText",
-        label: "Comment Text",
-        type: "textarea",
-        required: true,
-        placeholder: "Enter your comment",
-        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
-      },
-      {
-        name: "parentId",
-        label: "Parent Block ID (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "ID of block to comment on",
-        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
-      },
-      {
-        name: "includeResolved",
-        label: "Include Resolved",
-        type: "select",
-        defaultValue: "false",
-        clearable: false,
-        options: [
-          { value: "true", label: "True" },
-          { value: "false", label: "False" }
-        ],
-        visibilityCondition: { field: "operation", operator: "equals", value: "retrieve" }
-      }
-    ],
-    outputSchema: [
-      {
-        name: "commentId",
-        label: "Comment ID",
-        type: "string",
-        description: "The ID of the created comment"
-      },
-      {
-        name: "comments",
-        label: "Comments",
-        type: "array",
-        description: "List of comments (for retrieve operation)"
       }
     ]
   },
