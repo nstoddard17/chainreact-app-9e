@@ -1906,72 +1906,51 @@ export function useWorkflowBuilder() {
     try {
       setIsUpdatingStatus(true)
 
-      const newStatus = currentWorkflow.status === 'active' ? 'paused' : 'active'
+      const isActivating = currentWorkflow.status !== 'active'
+      const endpoint = isActivating ? 'activate' : 'deactivate'
 
-      logger.debug('Updating workflow status:', {
+      logger.debug(`${isActivating ? 'Activating' : 'Deactivating'} workflow:`, {
         workflowId: currentWorkflow.id,
-        currentStatus: currentWorkflow.status,
-        newStatus: newStatus
+        currentStatus: currentWorkflow.status
       })
 
-      // Use the API endpoint instead of direct Supabase update
-      // This ensures webhook registration happens when activating
-      const response = await fetch(`/api/workflows/${currentWorkflow.id}`, {
-        method: 'PUT',
+      // Use dedicated activate/deactivate endpoints
+      const response = await fetch(`/api/workflows/${currentWorkflow.id}/${endpoint}`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          nodes: currentWorkflow.nodes || nodes,
-          connections: currentWorkflow.connections || edges
-        })
+        }
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to update workflow status')
+        throw new Error(errorData.error || `Failed to ${endpoint} workflow`)
       }
 
       const data = await response.json()
-      logger.debug('Update result:', data)
+      logger.debug(`${endpoint} result:`, data)
 
-      // Check if there was a trigger activation error (API returns 200 but rolls back status)
-      if (data.triggerActivationError) {
-        logger.error('Trigger activation failed:', data.triggerActivationError)
-
-        // Update with the actual status from the response (rolled back to paused)
-        setCurrentWorkflow({
-          ...currentWorkflow,
-          ...data
-        })
-
-        toast({
-          title: "Activation Failed",
-          description: data.triggerActivationError.message || "Failed to activate workflow triggers",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Update the local state with the actual status from response
+      // Update local state with the new workflow data
       setCurrentWorkflow({
         ...currentWorkflow,
         ...data
       })
 
+      // Show appropriate success message
+      const successMessage = isActivating
+        ? 'Workflow is now live and listening for triggers'
+        : 'Workflow deactivated. All triggers and webhooks have been cleaned up.'
+
       toast({
         title: "Success",
-        description: `Workflow ${data.status === 'active' ? 'is now live' : 'has been paused'}`,
-        variant: data.status === 'active' ? 'default' : 'secondary',
+        description: successMessage,
+        variant: isActivating ? 'default' : 'secondary',
       })
     } catch (error: any) {
-      logger.error('Error updating workflow status:', error)
-      logger.error('Error type:', typeof error)
-      logger.error('Error keys:', error ? Object.keys(error) : 'null')
+      logger.error(`Error ${currentWorkflow.status === 'active' ? 'deactivating' : 'activating'} workflow:`, error)
       toast({
         title: "Error",
-        description: error?.message || "Failed to update workflow status",
+        description: error?.message || `Failed to ${currentWorkflow.status === 'active' ? 'deactivate' : 'activate'} workflow`,
         variant: "destructive",
       })
     } finally {
