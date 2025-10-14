@@ -1,4 +1,4 @@
-import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { executeAction } from "@/lib/workflows/executeNode"
 import { ExecutionContext } from "./workflowExecutionService"
 
 import { logger } from '@/lib/utils/logger'

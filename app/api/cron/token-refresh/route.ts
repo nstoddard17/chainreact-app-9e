@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
-import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
           }
 
           // Refresh the token
-          const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
+          const refreshResult = await refreshTokenForProvider(
             integration.provider,
             integration.refresh_token,
             integration,

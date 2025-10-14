@@ -2,7 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { executeAction } from "@/lib/workflows/executeNode"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 import { logger } from '@/lib/utils/logger'

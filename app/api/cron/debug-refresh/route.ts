@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
-import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility";
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService";
 import { db } from "@/lib/db";
 
 import { logger } from '@/lib/utils/logger'
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         continue;
       }
       
-      const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
+      const refreshResult = await refreshTokenForProvider(
         integration.provider,
         integration.refresh_token,
         integration

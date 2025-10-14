@@ -280,11 +280,8 @@ export default function WorkflowsContent() {
       return
     }
 
-    setUpdatingWorkflows(prev => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
+    // Set loading state
+    setUpdatingWorkflows(prev => new Set(prev).add(id))
 
     let webhookRegistrationPromise: Promise<void> | null = null
 
@@ -358,37 +355,18 @@ export default function WorkflowsContent() {
       }
 
       logger.debug(`📝 About to call updateWorkflowById for ${id} with status: ${newStatus}`)
-      let updatedWorkflow
-      try {
-        updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
-        logger.debug(`✅ Workflow update completed:`, updatedWorkflow)
+      const updatedWorkflow = await updateWorkflowById(id, { status: newStatus })
+      logger.debug(`✅ Workflow update completed:`, updatedWorkflow)
 
-        if ((updatedWorkflow as any)?.triggerActivationError) {
-          const error = (updatedWorkflow as any).triggerActivationError
-          logger.error('❌ Trigger activation failed:', error)
-          toast({
-            title: "Failed to activate workflow",
-            description: error.message || "Could not activate triggers",
-            variant: "destructive",
-          })
-          // Don't return here - let finally block clear loading state
-          throw new Error(error.message || "Trigger activation failed")
-        }
-
-        // Wait for the store to update before clearing loading state
-        // Use a small delay to ensure Zustand state propagates to UI
-        await new Promise(resolve => setTimeout(resolve, 100))
-
-        const verifyWorkflow = (workflows || []).find(w => w.id === id)
-        logger.debug(`✔️ Verified workflow status:`, {
-          id: verifyWorkflow?.id,
-          status: verifyWorkflow?.status,
-          expectedStatus: newStatus,
-          statusMatches: verifyWorkflow?.status === newStatus
+      if ((updatedWorkflow as any)?.triggerActivationError) {
+        const error = (updatedWorkflow as any).triggerActivationError
+        logger.error('❌ Trigger activation failed:', error)
+        toast({
+          title: "Failed to activate workflow",
+          description: error.message || "Could not activate triggers",
+          variant: "destructive",
         })
-      } catch (updateError) {
-        logger.error(`❌ updateWorkflowById failed:`, updateError)
-        throw updateError
+        throw new Error(error.message || "Trigger activation failed")
       }
 
       logger.debug(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
@@ -402,14 +380,6 @@ export default function WorkflowsContent() {
         logger.debug('🚀 Starting Gmail webhook registration in background...')
         webhookRegistrationPromise
       }
-
-      // Clear loading state after successful update
-      logger.debug(`🧹 Clearing loading state for workflow ${id} after success`)
-      setUpdatingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(id)
-        return newSet
-      })
     } catch (error) {
       logger.error("Failed to update workflow status:", error)
 
@@ -418,9 +388,8 @@ export default function WorkflowsContent() {
         description: "Failed to update workflow status",
         variant: "destructive",
       })
-
-      // Clear loading state after error
-      logger.debug(`🧹 Clearing loading state for workflow ${id} after error`)
+    } finally {
+      // Always clear loading state when done (success or error)
       setUpdatingWorkflows(prev => {
         const newSet = new Set(prev)
         newSet.delete(id)
@@ -1017,49 +986,47 @@ export default function WorkflowsContent() {
                         <div className="flex justify-between items-center mt-2">
                           <div></div>
                           <div className="flex items-center gap-1">
-                            {updatingWorkflows.has(workflow.id) ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled
-                                className="h-7 w-7 p-0"
-                              >
-                                <LightningLoader size="sm" />
-                                <span className="sr-only">Updating...</span>
-                              </Button>
-                            ) : (
-                              <PermissionGuard permission="workflows.edit">
-                                {workflow.status === "active" ? (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      handleToggleStatus(workflow.id, workflow.status)
-                                    }}
-                                    className="h-7 w-7 p-0 hover:bg-yellow-50 hover:text-yellow-600 transition-colors"
-                                    title="Pause workflow"
-                                  >
-                                    <Pause className="h-3 w-3" />
-                                    <span className="sr-only">Pause</span>
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      handleToggleStatus(workflow.id, workflow.status)
-                                    }}
-                                    className="h-7 w-7 p-0 hover:bg-green-50 hover:text-green-600 transition-colors"
-                                    title={workflow.status === "draft" ? "Activate workflow" : "Resume workflow"}
-                                  >
-                                    <Play className="h-3 w-3" />
-                                    <span className="sr-only">Activate</span>
-                                  </Button>
-                                )}
-                              </PermissionGuard>
-                            )}
+                            <PermissionGuard permission="workflows.edit">
+                              {updatingWorkflows.has(workflow.id) ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  className="h-7 w-7 p-0"
+                                >
+                                  <LightningLoader size="sm" />
+                                  <span className="sr-only">Updating...</span>
+                                </Button>
+                              ) : workflow.status === "active" ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleToggleStatus(workflow.id, workflow.status)
+                                  }}
+                                  className="h-7 w-7 p-0 hover:bg-yellow-50 hover:text-yellow-600 transition-colors"
+                                  title="Pause workflow"
+                                >
+                                  <Pause className="h-3 w-3" />
+                                  <span className="sr-only">Pause</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleToggleStatus(workflow.id, workflow.status)
+                                  }}
+                                  className="h-7 w-7 p-0 hover:bg-green-50 hover:text-green-600 transition-colors"
+                                  title={workflow.status === "draft" ? "Activate workflow" : "Resume workflow"}
+                                >
+                                  <Play className="h-3 w-3" />
+                                  <span className="sr-only">Activate</span>
+                                </Button>
+                              )}
+                            </PermissionGuard>
                             <PermissionGuard permission="workflows.delete">
                               <Button
                                 size="sm"
