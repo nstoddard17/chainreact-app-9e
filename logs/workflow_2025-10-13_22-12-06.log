@@ -581,3 +581,4 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
   "hasUsername": true,
   "isGoogleUser": false
 }
+[2025-10-14T03:52:52.421Z] [WARN   ]  [33m[1m⚠[22m[39m Found a change in next.config.mjs. Restarting the server to apply the changes...
