@@ -997,6 +997,7 @@ const params = new URLSearchParams({
 - Trust notification timestamps (use actual resource timestamps)
 - Skip deduplication (Microsoft can send duplicates)
 - Ignore webhook signature validation
+- **Forget to request required OAuth scopes** - Missing scopes cause 403 Forbidden errors
 
 ---
 
@@ -1094,6 +1095,7 @@ deletedTriggerBackupRef.current = null
 - Clean up subscriptions when workflows are deactivated
 - Test with actual Microsoft accounts (dev accounts behave differently)
 - Default to Inbox folder if no folder is configured
+- **Verify OAuth scopes match resource requirements** - See "Teams Channel Message Subscription 403 Fix" below
 
 ### Testing Microsoft Graph Triggers
 
@@ -1143,6 +1145,54 @@ User DELETES workflow:
   ✅ DELETE all subscriptions
   ✅ DELETE from trigger_resources (cascades)
 ```
+
+### Teams Channel Message Subscription 403 Fix
+
+**Issue**: When activating a Teams "New Message in Channel" trigger, subscription creation fails with:
+```
+403 Forbidden: Caller does not have access to '/teams/{teamId}/channels/{channelId}/messages'
+```
+
+**Root Cause**: The Teams OAuth configuration in [lib/integrations/oauthConfig.ts:352](../../lib/integrations/oauthConfig.ts#L352) was missing the `ChannelMessage.Read.All` scope required to create subscriptions to channel messages.
+
+**Original Scope (Incomplete)**:
+```typescript
+scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All"
+```
+
+**Fixed Scope (Complete)**:
+```typescript
+scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Team.Create https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/ChannelMessage.Read.All https://graph.microsoft.com/ChannelMessage.Send https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send"
+```
+
+**Required Scopes for Teams Triggers**:
+- `ChannelMessage.Read.All` - **CRITICAL for channel message subscriptions**
+- `ChannelMessage.Send` - For sending messages to channels
+- `Chat.Read` - For reading 1:1 and group chats
+- `ChatMessage.Send` - For sending chat messages
+- `TeamMember.Read.All` - For reading team membership
+- `Team.Create` - For creating teams
+- `Channel.Create` - For creating channels
+
+**After Fixing**:
+1. ✅ Update the scope in `oauthConfig.ts`
+2. ⚠️ **Users MUST reconnect their Teams integration** to get the new scopes
+3. ✅ Delete old integration connection from Supabase `integrations` table (forces reconnect)
+4. ✅ Go through OAuth flow again to grant new permissions
+
+**How to Prevent**:
+1. **Cross-check scopes**: Compare `oauthConfig.ts` scope with `availableIntegrations.ts` scopes array
+2. **Test with actual API calls**: Verify token has required permissions before creating subscriptions
+3. **Add scope validation**: In `MicrosoftGraphTriggerLifecycle.ts` (lines 63-96), test permissions for each provider
+4. **Document required scopes**: Add comments in trigger lifecycle explaining what each scope enables
+
+**Related Files**:
+- [lib/integrations/oauthConfig.ts:352](../../lib/integrations/oauthConfig.ts#L352) - OAuth scope configuration
+- [lib/integrations/availableIntegrations.ts:112](../../lib/integrations/availableIntegrations.ts#L112) - Declared scopes list
+- [lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts:293](../../lib/triggers/providers/MicrosoftGraphTriggerLifecycle.ts#L293) - Teams resource mapping
+- [lib/triggers/index.ts:24](../../lib/triggers/index.ts#L24) - Provider registration (uses 'teams' not 'microsoft-teams')
+
+**Date**: October 13, 2025
 
 ---
 
