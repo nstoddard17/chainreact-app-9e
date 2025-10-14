@@ -10,6 +10,20 @@ export function resolveValue(
   input: Record<string, any>,
   mockTriggerOutputs?: Record<string, any>
 ): any {
+  // Handle arrays - recursively resolve each element
+  if (Array.isArray(value)) {
+    return value.map(item => resolveValue(item, input, mockTriggerOutputs))
+  }
+
+  // Handle objects - recursively resolve each property value
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const resolved: Record<string, any> = {}
+    for (const [key, val] of Object.entries(value)) {
+      resolved[key] = resolveValue(val, input, mockTriggerOutputs)
+    }
+    return resolved
+  }
+
   if (typeof value !== "string") return value
   
   // First check if the entire value is a single template

@@ -380,7 +380,7 @@ export class AIRouterAction {
   
   private preparePrompt(config: AIRouterConfig, context: ExecutionContext) {
     let systemPrompt = ''
-    
+
     // Get template prompt or custom prompt
     if (config.template !== 'custom') {
       const template = AI_ROUTER_TEMPLATES[config.template as keyof typeof AI_ROUTER_TEMPLATES]
@@ -388,24 +388,27 @@ export class AIRouterAction {
     } else {
       systemPrompt = config.systemPrompt || ''
     }
-    
+
     // Add output paths to prompt
-    const pathDescriptions = config.outputPaths.map(path => 
+    const pathDescriptions = config.outputPaths.map(path =>
       `- ${path.name}: ${path.description || 'No description'}`
     ).join('\n')
-    
+
     systemPrompt += `\n\nAvailable output paths:\n${pathDescriptions}`
-    
+
     // Add decision mode instructions
     if (config.decisionMode === 'single') {
       systemPrompt += '\n\nSelect ONLY ONE output path that best matches the input.'
     } else if (config.decisionMode === 'multi') {
       systemPrompt += '\n\nYou may select MULTIPLE output paths if the input matches multiple categories.'
     }
-    
+
+    // Add JSON format instruction (required by OpenAI when using response_format: json_object)
+    systemPrompt += '\n\nRespond with a JSON object containing: classification (string), confidence (number 0-1), and reasoning (string).'
+
     // Format input data
     const userPrompt = `Analyze the following input and make a routing decision:\n\n${JSON.stringify(context.input, null, 2)}`
-    
+
     return { systemPrompt, userPrompt }
   }
   

@@ -3347,8 +3347,10 @@ export function useWorkflowBuilder() {
 
   // Wrap execution handlers to provide nodes and edges
   const handleTestSandbox = useCallback(() => {
-    return executionHook.handleTestSandbox()
-  }, [executionHook])
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+    return executionHook.handleTestSandbox(currentNodes, currentEdges)
+  }, [getNodes, getEdges, executionHook])
 
   const handleExecuteLive = useCallback(async () => {
     const currentNodes = getNodes()
@@ -3408,6 +3410,7 @@ export function useWorkflowBuilder() {
     currentWorkflow,
     workflowId,
     editTemplateId,
+    isTemplateEditing,
     workflows,
     
     // Loading/saving states

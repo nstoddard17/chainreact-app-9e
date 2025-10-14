@@ -29,11 +29,12 @@ import { onedriveNodes } from "./providers/onedrive"
 import { onenoteNodes } from "./providers/onenote"
 import { dropboxNodes } from "./providers/dropbox"
 import { miscNodes } from "./providers/misc"
+import { OUTPUT_SCHEMA_FALLBACKS } from "./outputSchemaFallbacks"
 
 // Migration complete! All 247 nodes have been extracted and organized by provider
 // This file now replaces the original availableNodes.ts
 
-export const ALL_NODE_COMPONENTS: NodeComponent[] = [
+const BASE_NODE_COMPONENTS: NodeComponent[] = [
   ...automationNodes,
   ...genericTriggers,
   ...logicNodes,
@@ -62,6 +63,26 @@ export const ALL_NODE_COMPONENTS: NodeComponent[] = [
   ...dropboxNodes,
   ...miscNodes,
 ]
+
+export const ALL_NODE_COMPONENTS: NodeComponent[] = BASE_NODE_COMPONENTS.map((node) => {
+  if (
+    node.isTrigger ||
+    (Array.isArray(node.outputSchema) && node.outputSchema.length > 0)
+  ) {
+    return node
+  }
+
+  const fallback = OUTPUT_SCHEMA_FALLBACKS[node.type]
+  if (!fallback) {
+    return node
+  }
+
+  return {
+    ...node,
+    outputSchema: fallback,
+    producesOutput: node.producesOutput ?? true,
+  }
+})
 
 // Re-export types for backward compatibility
 export type { ConfigField, NodeField, NodeOutputField, NodeComponent } from "./types"

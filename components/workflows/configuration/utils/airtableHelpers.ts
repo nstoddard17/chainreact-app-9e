@@ -48,11 +48,15 @@ export function getAirtableFieldTypeFromSchema(field: any): string {
   if (name) {
     const lowerFieldName = name.toLowerCase();
     // Date-related field names should always be date pickers
-    if (lowerFieldName.includes('date') || 
-        lowerFieldName.includes('time') || 
-        lowerFieldName.includes('created') || 
-        lowerFieldName.includes('modified') ||
-        lowerFieldName.includes('updated')) {
+    // Use word boundaries to avoid false matches (e.g., "Sentiment" contains "time")
+    const dateKeywords = ['date', 'time', 'created', 'modified', 'updated'];
+    const hasDateKeyword = dateKeywords.some(keyword => {
+      // Check if the keyword appears as a separate word (surrounded by non-letter characters or at start/end)
+      const regex = new RegExp(`(^|[^a-z])${keyword}([^a-z]|$)`, 'i');
+      return regex.test(lowerFieldName);
+    });
+
+    if (hasDateKeyword) {
       return 'date';
     }
   }
@@ -64,9 +68,12 @@ export function getAirtableFieldTypeFromSchema(field: any): string {
   
   switch (type) {
     case 'singleLineText':
-      // Check if it should be a date based on field name
-      if (name && name.toLowerCase().includes('date')) {
-        return 'date';
+      // Check if it should be a date based on field name (with word boundaries)
+      if (name) {
+        const regex = new RegExp(`(^|[^a-z])date([^a-z]|$)`, 'i');
+        if (regex.test(name.toLowerCase())) {
+          return 'date';
+        }
       }
       return 'text';
     case 'multilineText':

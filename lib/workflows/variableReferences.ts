@@ -1,5 +1,3 @@
-"use client"
-
 const VARIABLE_REGEX = /\{\{([^}]+)\}\}/g
 
 export interface ParsedVariableReference {

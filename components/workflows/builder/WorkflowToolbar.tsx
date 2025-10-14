@@ -17,7 +17,7 @@ import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
   Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown,
   MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2,
-  TrendingUp, Clock, CheckCircle, XCircle, Activity, ClipboardCheck
+  TrendingUp, Clock, CheckCircle, XCircle, Activity, ClipboardCheck, Table2
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
@@ -42,6 +42,7 @@ interface WorkflowToolbarProps {
   currentWorkflow?: any
   workflowId?: string | null
   editTemplateId?: string | null
+  isTemplateEditing?: boolean
   // New props for missing buttons
   handleTestSandbox?: () => void
   handleExecuteLive?: () => void
@@ -88,6 +89,7 @@ export function WorkflowToolbar({
   currentWorkflow,
   workflowId,
   editTemplateId,
+  isTemplateEditing = false,
   handleTestSandbox,
   handleExecuteLive,
   handleExecuteLiveSequential,
@@ -187,7 +189,7 @@ export function WorkflowToolbar({
                 title={workflowName || "Untitled Workflow"}
               />
             </div>
-            {editTemplateId && (
+            {isTemplateEditing && (
               <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 flex-shrink-0">
                 Editing Template
               </Badge>
@@ -506,6 +508,28 @@ export function WorkflowToolbar({
                   >
                     <History className="w-4 h-4 mr-2" />
                     View History
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {(currentWorkflow?.source_template_id || editTemplateId) && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      // Update localStorage to reopen the Airtable Setup Panel
+                      const templateId = currentWorkflow?.source_template_id || editTemplateId
+                      const storageKey = `airtable-setup-panel-${workflowId || templateId}`
+                      localStorage.setItem(storageKey, 'expanded')
+                      // Trigger a re-render by dispatching a custom event
+                      window.dispatchEvent(new CustomEvent('airtable-panel-reopen'))
+                      toast({
+                        title: "Airtable Setup Panel",
+                        description: "Opening setup instructions...",
+                      })
+                    }}
+                  >
+                    <Table2 className="w-4 h-4 mr-2" />
+                    Airtable Setup Guide
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>

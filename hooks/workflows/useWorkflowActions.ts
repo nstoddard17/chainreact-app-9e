@@ -129,8 +129,10 @@ export function useWorkflowActions() {
       // Optimistically remove from local store so UI updates immediately
       removeWorkflowFromStore(workflowId)
 
-      // Refresh the workflows list
-      await fetchWorkflows()
+      // Refresh the workflows list in the background to keep data in sync
+      void fetchWorkflows().catch((err) => {
+        console.warn("Background workflow refresh after delete failed:", err)
+      })
 
       toast({
         title: "Success",
@@ -150,7 +152,7 @@ export function useWorkflowActions() {
     } finally {
       setIsDeleting(false)
     }
-  }, [router, toast, fetchWorkflows])
+  }, [router, toast, fetchWorkflows, removeWorkflowFromStore])
 
   // Share workflow (generate shareable link)
   const shareWorkflow = useCallback(async (workflowId: string) => {

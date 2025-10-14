@@ -6,8 +6,6 @@ import {
   uploadTempAttachmentToSupabase
 } from './supabaseAttachment'
 
-import { logger } from '@/lib/utils/logger'
-
 export interface UploadContext {
   accessToken: string
   baseId: string
@@ -172,7 +170,7 @@ export async function uploadAirtableAttachment(
   const extension = guessFileExtension(mimeType)
   const fileName = explicitFilename || buildDefaultFilename(fieldName, index, extension)
 
-  logger.debug(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`) // eslint-disable-line no-console
+  logger.debug(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`)
 
   const { url: fileUrl, filePath } = await uploadTempAttachmentToSupabase(buffer, fileName, mimeType)
   cleanupPaths.push(filePath)
@@ -518,9 +516,17 @@ export async function createAirtableRecord(
 
         // Regular fields - add non-empty resolved values
         if (resolved !== undefined && resolved !== null && resolved !== '') {
+          // Unwrap single-element arrays for non-attachment fields
+          // This handles cases where the config stores values as arrays but the field expects a single value
+          let finalValue = resolved
+          if (Array.isArray(resolved) && resolved.length === 1) {
+            finalValue = resolved[0]
+            logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+          }
+
           // Final safety check: if this is base64 data that wasn't detected as an attachment field,
           // skip it to prevent API errors
-          if (typeof resolved === 'string' && resolved.startsWith('data:') && resolved.includes('base64,')) {
+          if (typeof finalValue === 'string' && finalValue.startsWith('data:') && finalValue.includes('base64,')) {
             logger.debug(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
             logger.debug(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
             skippedFields.push(fieldName)
@@ -528,13 +534,13 @@ export async function createAirtableRecord(
           }
 
           // Additional check for very large string data that might cause issues
-          if (typeof resolved === 'string' && resolved.length > 100000) {
-            logger.debug(`📊 [Airtable] Field "${fieldName}" contains very large data (${(resolved.length / 1024).toFixed(1)}KB) - skipping`)
+          if (typeof finalValue === 'string' && finalValue.length > 100000) {
+            logger.debug(`📊 [Airtable] Field "${fieldName}" contains very large data (${(finalValue.length / 1024).toFixed(1)}KB) - skipping`)
             skippedFields.push(fieldName)
             continue
           }
 
-          resolvedFields[fieldName] = resolved
+          resolvedFields[fieldName] = finalValue
         }
       }
     }
@@ -549,6 +555,7 @@ export async function createAirtableRecord(
       logger.debug(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
     }
     logger.debug(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
+    logger.debug(`📊 [Airtable] Field names being sent: ${Object.keys(resolvedFields).join(', ')}`)
 
 
     // Create the record in Airtable
@@ -572,7 +579,21 @@ export async function createAirtableRecord(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(`Failed to create record: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      const errorMessage = errorData.error?.message || response.statusText
+
+      // Enhanced error message for unknown field errors
+      if (errorMessage.includes('Unknown field name')) {
+        const fieldMatch = errorMessage.match(/Unknown field name: "([^"]+)"/)
+        const unknownField = fieldMatch ? fieldMatch[1] : 'unknown'
+        logger.error(`❌ [Airtable] Field "${unknownField}" does not exist in table "${tableName}"`)
+        logger.error(`📊 [Airtable] Available fields being sent: ${Object.keys(resolvedFields).join(', ')}`)
+        throw new Error(
+          `Airtable field mismatch: The field "${unknownField}" does not exist in your Airtable table "${tableName}". ` +
+          `Please either add this field to your Airtable table or remove it from the workflow configuration.`
+        )
+      }
+
+      throw new Error(`Failed to create record: ${response.status} - ${errorMessage}`)
     }
 
     const result = await response.json()

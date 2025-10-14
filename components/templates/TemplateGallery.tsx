@@ -33,6 +33,10 @@ interface Template {
   difficulty?: string
   estimatedTime?: string
   integrations?: string[]
+  airtable_setup?: any
+  airtableSetup?: any
+  integration_setup?: any
+  integrationSetup?: any
 }
 
 const categories = [
@@ -211,7 +215,7 @@ export function TemplateGallery() {
         })
 
         logger.debug(`Navigating to workflow builder...`)
-        router.push(`/workflows/builder?id=${data.workflow.id}`)
+        router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${templateId}`)
       } else {
         logger.error("No workflow ID in response:", data)
         throw new Error(data.error || "Failed to copy template - no workflow ID returned")

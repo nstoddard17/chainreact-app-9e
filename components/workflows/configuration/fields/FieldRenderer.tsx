@@ -46,6 +46,7 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
+import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -771,6 +772,38 @@ export function FieldRenderer({
           />
         );
 
+      case "dynamic_list":
+        if (nodeInfo?.type === "ai_router") {
+          return (
+            <AIRouterOutputPathsField
+              value={Array.isArray(value) ? value : []}
+              onChange={onChange}
+              error={error}
+              workflowData={workflowData}
+              parentValues={parentValues}
+              currentNodeId={currentNodeId}
+            />
+          )
+        }
+        return (
+          <GenericTextInput
+            field={{
+              ...field,
+              workflowId: parentValues?.workflowId || workflowData?.id || 'temp',
+              nodeId: nodeInfo?.id || currentNodeId || `temp-${Date.now()}`
+            }}
+            value={value}
+            onChange={onChange}
+            error={error}
+            dynamicOptions={fieldOptions}
+            onDynamicLoad={onDynamicLoad}
+            workflowNodes={workflowData?.nodes}
+            aiFields={aiFields}
+            setAiFields={setAiFields}
+            isConnectedToAIAgent={isConnectedToAIAgent}
+          />
+        );
+
       case "toggle_group":
         // Toggle group for pill-style selection
         const toggleOptions = Array.isArray(field.options)
@@ -1064,7 +1097,9 @@ export function FieldRenderer({
       case "date": {
         // Handle single date selection with native HTML date input
         // Check if field is in AI mode first
-        const isDateFieldInAIMode = aiFields?.[field.name] || (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
+        const isDateFieldInAIMode =
+          aiFields?.[field.name] ||
+          (typeof value === 'string' && value.startsWith('{{AI_FIELD:'));
 
         if (isDateFieldInAIMode) {
           return (
@@ -1102,9 +1137,18 @@ export function FieldRenderer({
           );
         }
 
+        const rawDateValue = typeof value === 'string' ? value : '';
+        const isVariableValue =
+          rawDateValue.startsWith('{{') &&
+          rawDateValue.endsWith('}}') &&
+          rawDateValue !== '{{NOW}}';
+
+        // Check if "Use current date/time" is selected
+        const isUsingNow = typeof value === 'string' && value === '{{NOW}}';
+
         // Format date value for input
         let formattedDateValue = '';
-        if (value) {
+        if (value && !isUsingNow && !isVariableValue) {
           if (value instanceof Date) {
             formattedDateValue = value.toISOString().split('T')[0];
           } else if (typeof value === 'string') {
@@ -1120,122 +1164,204 @@ export function FieldRenderer({
           onChange(newValue || null);
         };
 
+        const handleVariableSelect = (variable: string) => {
+          onChange(variable);
+        };
+
+        const handleUseNowChange = (checked: boolean) => {
+          if (checked) {
+            onChange('{{NOW}}');
+          } else {
+            onChange('');
+          }
+        };
+
         return (
-          <Input
-            type="date"
-            value={formattedDateValue}
-            onChange={handleDateChange}
-            placeholder={field.placeholder || "Select date..."}
-            disabled={field.disabled}
-            className={cn(
-              "w-full",
-              error && "border-red-500"
+          <div className="space-y-2">
+            <Input
+              type={isVariableValue ? "text" : "date"}
+              value={isVariableValue ? rawDateValue : formattedDateValue}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                if (isVariableValue || e.target.type === "text") {
+                  onChange(newValue);
+                } else {
+                  handleDateChange(e);
+                }
+              }}
+              placeholder={field.placeholder || "Select date or insert variable"}
+              disabled={field.disabled || (isUsingNow && !isVariableValue)}
+              className={cn(
+                "w-full",
+                error && "border-red-500",
+                isUsingNow && !isVariableValue && "opacity-50"
+              )}
+            />
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`${field.name}-use-now`}
+                checked={isUsingNow}
+                onCheckedChange={handleUseNowChange}
+                disabled={field.disabled}
+              />
+              <Label
+                htmlFor={`${field.name}-use-now`}
+                className="text-sm text-muted-foreground cursor-pointer font-normal"
+              >
+                Use current date/time when action runs
+              </Label>
+            </div>
+            {isVariableValue && (
+              <p className="text-xs text-muted-foreground">
+                Variable value will be resolved when the workflow runs.
+              </p>
             )}
-          />
+          </div>
         );
       }
 
-      case "daterange":
-        // Handle date range with two native HTML date inputs
-        const startDateValue = useMemo(() => {
-          if (!value) return '';
-          const startDate = value.startDate || value.from;
-          if (startDate) {
-            const date = new Date(startDate);
-            if (!isNaN(date.getTime())) {
-              return date.toISOString().split('T')[0];
-            }
-          }
-          return '';
-        }, [value]);
+      case "daterange": {
+        const startSource = value?.startDate ?? value?.from ?? '';
+        const endSource = value?.endDate ?? value?.to ?? '';
 
-        const endDateValue = useMemo(() => {
-          if (!value) return '';
-          const endDate = value.endDate || value.to;
-          if (endDate) {
-            const date = new Date(endDate);
-            if (!isNaN(date.getTime())) {
-              return date.toISOString().split('T')[0];
-            }
+        const rawStartValue =
+          typeof startSource === 'string'
+            ? startSource
+            : startSource instanceof Date
+              ? startSource.toISOString()
+              : '';
+        const rawEndValue =
+          typeof endSource === 'string'
+            ? endSource
+            : endSource instanceof Date
+              ? endSource.toISOString()
+              : '';
+
+        const startIsVariable =
+          typeof rawStartValue === 'string' &&
+          rawStartValue.startsWith('{{') &&
+          rawStartValue.endsWith('}}');
+        const endIsVariable =
+          typeof rawEndValue === 'string' &&
+          rawEndValue.startsWith('{{') &&
+          rawEndValue.endsWith('}}');
+
+        const startDateValue = (() => {
+          if (!rawStartValue || startIsVariable) return '';
+          const date = new Date(rawStartValue);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
           }
           return '';
-        }, [value]);
+        })();
+
+        const endDateValue = (() => {
+          if (!rawEndValue || endIsVariable) return '';
+          const date = new Date(rawEndValue);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+          return '';
+        })();
+
+        const updateRange = (start: string | null, end: string | null) => {
+          if (!start && !end) {
+            onChange(null);
+            return;
+          }
+          onChange({
+            startDate: start,
+            endDate: end,
+            from: start,
+            to: end,
+          });
+        };
 
         const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const newStartDate = e.target.value;
-          const currentEndDate = value?.endDate || value?.to;
-          
-          if (newStartDate) {
-            // Use YYYY-MM-DD format to match Airtable's date format
-            onChange({
-              startDate: newStartDate,
-              endDate: currentEndDate,
-              from: newStartDate,
-              to: currentEndDate
-            });
-          } else if (!currentEndDate) {
-            onChange(null);
-          } else {
-            onChange({
-              startDate: null,
-              endDate: currentEndDate,
-              from: null,
-              to: currentEndDate
-            });
-          }
+          const currentEnd = typeof rawEndValue === 'string' && rawEndValue !== '' ? rawEndValue : null;
+          updateRange(newStartDate || null, currentEnd);
         };
 
         const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           const newEndDate = e.target.value;
-          const currentStartDate = value?.startDate || value?.from;
-          
-          if (newEndDate) {
-            // Use YYYY-MM-DD format to match Airtable's date format
-            onChange({
-              startDate: currentStartDate,
-              endDate: newEndDate,
-              from: currentStartDate,
-              to: newEndDate
-            });
-          } else if (!currentStartDate) {
-            onChange(null);
-          } else {
-            onChange({
-              startDate: currentStartDate,
-              endDate: null,
-              from: currentStartDate,
-              to: null
-            });
-          }
+          const currentStart = typeof rawStartValue === 'string' && rawStartValue !== '' ? rawStartValue : null;
+          updateRange(currentStart, newEndDate || null);
+        };
+
+        const handleStartVariableSelect = (variable: string) => {
+          const currentEnd = typeof rawEndValue === 'string' && rawEndValue !== '' ? rawEndValue : null;
+          updateRange(variable, currentEnd);
+        };
+
+        const handleEndVariableSelect = (variable: string) => {
+          const currentStart = typeof rawStartValue === 'string' && rawStartValue !== '' ? rawStartValue : null;
+          updateRange(currentStart, variable);
         };
 
         return (
-          <div className="flex gap-2 items-center">
-            <Input
-              type="date"
-              value={startDateValue}
-              onChange={handleStartDateChange}
-              placeholder="Start date"
-              disabled={field.disabled}
-              className={cn(
-                "flex-1",
-                error && "border-red-500"
-              )}
-            />
-            <span className="text-sm text-gray-500">to</span>
-            <Input
-              type="date"
-              value={endDateValue}
-              onChange={handleEndDateChange}
-              placeholder="End date"
-              disabled={field.disabled}
-              className={cn(
-                "flex-1",
-                error && "border-red-500"
-              )}
-            />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  type={startIsVariable ? "text" : "date"}
+                  value={startIsVariable ? rawStartValue : startDateValue}
+                  onChange={(e) => {
+                    if (startIsVariable || e.target.type === "text") {
+                      updateRange(e.target.value || null, typeof rawEndValue === 'string' && rawEndValue !== '' ? rawEndValue : null);
+                    } else {
+                      handleStartDateChange(e);
+                    }
+                  }}
+                  placeholder="Start date or variable"
+                  disabled={field.disabled}
+                  className={cn(
+                    "flex-1",
+                    error && "border-red-500"
+                  )}
+                />
+                <SimpleVariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                  onVariableSelect={handleStartVariableSelect}
+                />
+              </div>
+              <span className="text-sm text-gray-500">to</span>
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  type={endIsVariable ? "text" : "date"}
+                  value={endIsVariable ? rawEndValue : endDateValue}
+                  onChange={(e) => {
+                    if (endIsVariable || e.target.type === "text") {
+                      updateRange(typeof rawStartValue === 'string' && rawStartValue !== '' ? rawStartValue : null, e.target.value || null);
+                    } else {
+                      handleEndDateChange(e);
+                    }
+                  }}
+                  placeholder="End date or variable"
+                  disabled={field.disabled}
+                  className={cn(
+                    "flex-1",
+                    error && "border-red-500"
+                  )}
+                />
+                <SimpleVariablePicker
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                  onVariableSelect={handleEndVariableSelect}
+                />
+              </div>
+            </div>
+            {(startIsVariable || endIsVariable) && (
+              <p className="text-xs text-muted-foreground">
+                Variable values will be resolved when the workflow executes.
+              </p>
+            )}
           </div>
         );
+      }
 
       case "time":
         return (
@@ -1252,10 +1378,14 @@ export function FieldRenderer({
           />
         );
 
-      case "datetime-local":
+      case "datetime-local": {
         // Handle datetime-local input for date and time selection
+        const rawDateTime = typeof value === 'string' ? value : '';
+        const isVariableDateTime =
+          rawDateTime.startsWith('{{') && rawDateTime.endsWith('}}');
+
         const datetimeValue = useMemo(() => {
-          if (!value) return '';
+          if (!value || isVariableDateTime) return '';
           if (value instanceof Date) {
             // Format as YYYY-MM-DDTHH:mm for datetime-local input
             const year = value.getFullYear();
@@ -1277,36 +1407,54 @@ export function FieldRenderer({
             }
           }
           return '';
-        }, [value]);
+        }, [value, isVariableDateTime]);
 
         return (
           <div className="space-y-2">
-            <Input
-              type="datetime-local"
-              value={datetimeValue}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                if (newValue) {
-                  // Convert to ISO string for storage
-                  const date = new Date(newValue);
-                  onChange(date.toISOString());
-                } else {
-                  onChange('');
-                }
-              }}
-              min={field.min}
-              max={field.max}
-              className={cn(
-                "w-full",
-                error && "border-red-500"
-              )}
-              placeholder={field.placeholder}
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                type={isVariableDateTime ? "text" : "datetime-local"}
+                value={isVariableDateTime ? rawDateTime : datetimeValue}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  if (isVariableDateTime || e.target.type === "text") {
+                    onChange(newValue);
+                    return;
+                  }
+
+                  if (newValue) {
+                    const date = new Date(newValue);
+                    onChange(date.toISOString());
+                  } else {
+                    onChange('');
+                  }
+                }}
+                min={field.min}
+                max={field.max}
+                className={cn(
+                  "w-full",
+                  error && "border-red-500"
+                )}
+                placeholder={field.placeholder || "Select date & time or insert variable"}
+              />
+              <SimpleVariablePicker
+                workflowData={workflowData}
+                currentNodeId={currentNodeId}
+                currentNodeType={nodeInfo?.type}
+                onVariableSelect={(variable) => onChange(variable)}
+              />
+            </div>
             {field.description && (
               <p className="text-sm text-muted-foreground">{field.description}</p>
             )}
+            {isVariableDateTime && (
+              <p className="text-xs text-muted-foreground">
+                Variable value will be resolved at runtime.
+              </p>
+            )}
           </div>
         );
+      }
 
 
       case "button-toggle":
