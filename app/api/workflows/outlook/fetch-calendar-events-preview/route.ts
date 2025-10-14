@@ -114,8 +114,8 @@ export async function POST(request: NextRequest) {
         logger.debug('Attempting token refresh due to 401/403 error...')
         
         try {
-          const { LegacyTokenRefreshService: TokenRefreshService } = await import("@/src/infrastructure/workflows/legacy-compatibility")
-          
+          const { refreshTokenForProvider } = await import("@/lib/integrations/tokenRefreshService")
+
           // Decrypt refresh token if needed
           let refreshToken = integration.refresh_token
           if (refreshToken && refreshToken.includes(":")) {
@@ -126,9 +126,9 @@ export async function POST(request: NextRequest) {
               refreshToken = decrypt(refreshToken, secret)
             }
           }
-          
+
           if (refreshToken) {
-            const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+            const refreshResult = await refreshTokenForProvider(
               "microsoft-outlook",
               refreshToken,
               integration
