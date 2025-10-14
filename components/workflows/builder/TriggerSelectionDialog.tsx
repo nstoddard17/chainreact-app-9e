@@ -12,6 +12,8 @@ import { LightningLoader } from '@/components/ui/lightning-loader'
 import type { NodeComponent } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
+import { useIntegrationStore } from '@/stores/integrationStore'
+import { useShallow } from 'zustand/react/shallow'
 
 interface IntegrationInfo {
   id: string
@@ -75,12 +77,39 @@ export function TriggerSelectionDialog({
   const { comingSoonIntegrations } = useIntegrationSelection()
   const [showComingSoon, setShowComingSoon] = React.useState(false) // Local state for coming soon filter
 
+  // Get integration store functions - same as IntegrationCard
+  const { getIntegrationByProvider, connectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore(
+    useShallow(state => ({
+      getIntegrationByProvider: state.getIntegrationByProvider,
+      connectIntegration: state.connectIntegration,
+      reconnectIntegration: state.reconnectIntegration,
+      loadingStates: state.loadingStates
+    }))
+  )
+
   // Refresh integrations when dialog opens
   useEffect(() => {
     if (open && refreshIntegrations) {
       refreshIntegrations()
     }
   }, [open, refreshIntegrations])
+
+  // Handle OAuth connection - mirrors IntegrationCard logic
+  const handleConnect = React.useCallback((integrationId: string) => {
+    // Just call the store function - it handles the OAuth flow via popup
+    // Success/error is handled by the store's onSuccess/onError callbacks
+    connectIntegration(integrationId)
+  }, [connectIntegration])
+
+  // Handle reconnection - mirrors IntegrationCard logic
+  const handleReconnect = React.useCallback((integrationId: string) => {
+    const integration = getIntegrationByProvider(integrationId)
+    if (!integration) return
+
+    // Just call the store function - it handles the OAuth flow via popup
+    // Success/error is handled by the store's onSuccess/onError callbacks
+    reconnectIntegration(integration.id)
+  }, [getIntegrationByProvider, reconnectIntegration])
 
   const filteredIntegrations = useMemo(() => {
     // First filter by coming soon
@@ -185,7 +214,10 @@ export function TriggerSelectionDialog({
               ) : (
                 filteredIntegrations.map((integration) => {
                   const isConnected = isIntegrationConnected(integration.id)
+                  const integrationData = getIntegrationByProvider(integration.id)
+                  const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
                   const isComingSoon = comingSoonIntegrations.has(integration.id)
+
                   return (
                     <div
                       key={integration.id}
@@ -194,8 +226,8 @@ export function TriggerSelectionDialog({
                           ? 'cursor-not-allowed opacity-60'
                           : 'cursor-pointer'
                       } ${
-                        selectedIntegration?.id === integration.id 
-                          ? 'bg-primary/10 ring-1 ring-primary/20' 
+                        selectedIntegration?.id === integration.id
+                          ? 'bg-primary/10 ring-1 ring-primary/20'
                           : 'hover:bg-muted/50'
                       }`}
                       onClick={() => {
@@ -213,21 +245,32 @@ export function TriggerSelectionDialog({
                         <Badge variant="secondary" className="ml-2 shrink-0">
                           Coming soon
                         </Badge>
-                      ) : !isConnected && integration.id !== 'core' && integration.id !== 'logic' && integration.id !== 'webhook' && integration.id !== 'scheduler' && integration.id !== 'ai' && integration.id !== 'manual' ? (
+                      ) : (!isConnected || needsReauth) && integration.id !== 'core' && integration.id !== 'logic' && integration.id !== 'webhook' && integration.id !== 'scheduler' && integration.id !== 'ai' && integration.id !== 'manual' ? (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant={needsReauth ? "destructive" : "outline"}
                           className="ml-2 shrink-0"
+                          disabled={loadingStates[`connect-${integration.id}`] || false}
                           onClick={(e) => {
                             e.stopPropagation()
-                            const config = INTEGRATION_CONFIGS[integration.id as keyof typeof INTEGRATION_CONFIGS]
-                            if (config?.oauthUrl) {
-                              window.location.href = config.oauthUrl
+                            if (needsReauth) {
+                              handleReconnect(integration.id)
+                            } else {
+                              handleConnect(integration.id)
                             }
                           }}
                         >
-                          <LinkIcon className="w-3 h-3 mr-1" />
-                          Connect
+                          {loadingStates[`connect-${integration.id}`] ? (
+                            <>
+                              <LightningLoader className="w-3 h-3 mr-1" />
+                              {needsReauth ? 'Reconnecting...' : 'Connecting...'}
+                            </>
+                          ) : (
+                            <>
+                              <LinkIcon className="w-3 h-3 mr-1" />
+                              {needsReauth ? 'Reconnect' : 'Connect'}
+                            </>
+                          )}
                         </Button>
                       ) : null}
                     </div>
@@ -242,7 +285,18 @@ export function TriggerSelectionDialog({
             <ScrollArea className="h-full">
               <div className="p-4">
                 {selectedIntegration ? (
-                  !isIntegrationConnected(selectedIntegration.id) && selectedIntegration.id !== 'core' && selectedIntegration.id !== 'logic' && selectedIntegration.id !== 'webhook' && selectedIntegration.id !== 'scheduler' && selectedIntegration.id !== 'ai' && selectedIntegration.id !== 'manual' ? (
+                  (() => {
+                    const integrationData = getIntegrationByProvider(selectedIntegration.id)
+                    const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
+                    const showConnectButton = (!isIntegrationConnected(selectedIntegration.id) || needsReauth) &&
+                                            selectedIntegration.id !== 'core' &&
+                                            selectedIntegration.id !== 'logic' &&
+                                            selectedIntegration.id !== 'webhook' &&
+                                            selectedIntegration.id !== 'scheduler' &&
+                                            selectedIntegration.id !== 'ai' &&
+                                            selectedIntegration.id !== 'manual'
+
+                    return showConnectButton ? (
                     // Show message for unconnected integrations
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <div className="text-muted-foreground mb-4">
@@ -250,21 +304,37 @@ export function TriggerSelectionDialog({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Connect {selectedIntegration.name}</h3>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {needsReauth ? 'Reconnect' : 'Connect'} {selectedIntegration.name}
+                      </h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        You need to connect your {selectedIntegration.name} account to use these triggers.
+                        {needsReauth
+                          ? `Your ${selectedIntegration.name} connection has expired. Please reconnect to continue using these triggers.`
+                          : `You need to connect your ${selectedIntegration.name} account to use these triggers.`
+                        }
                       </p>
                       <Button
-                        variant="default"
+                        variant={needsReauth ? "destructive" : "default"}
+                        disabled={loadingStates[`connect-${selectedIntegration.id}`] || false}
                         onClick={() => {
-                          const config = INTEGRATION_CONFIGS[selectedIntegration.id as keyof typeof INTEGRATION_CONFIGS]
-                          if (config?.oauthUrl) {
-                            window.location.href = config.oauthUrl
+                          if (needsReauth) {
+                            handleReconnect(selectedIntegration.id)
+                          } else {
+                            handleConnect(selectedIntegration.id)
                           }
                         }}
                       >
-                        <LinkIcon className="w-4 h-4 mr-2" />
-                        Connect {selectedIntegration.name}
+                        {loadingStates[`connect-${selectedIntegration.id}`] ? (
+                          <>
+                            <LightningLoader className="w-4 h-4 mr-2" />
+                            {needsReauth ? 'Reconnecting...' : 'Connecting...'}
+                          </>
+                        ) : (
+                          <>
+                            <LinkIcon className="w-4 h-4 mr-2" />
+                            {needsReauth ? 'Reconnect' : 'Connect'} {selectedIntegration.name}
+                          </>
+                        )}
                       </Button>
                     </div>
                   ) : displayedTriggers.length > 0 ? (
@@ -330,6 +400,7 @@ export function TriggerSelectionDialog({
                       </p>
                     </div>
                   )
+                  })()
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <p>Select an integration to see its triggers</p>

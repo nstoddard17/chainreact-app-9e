@@ -1,6 +1,47 @@
 # CLAUDE.md
 Guidance for Claude Code when working with this repository.
 
+## 🚨 CRITICAL: Root Cause Analysis Protocol - MANDATORY
+**THIS IS NON-NEGOTIABLE. FAILURE TO FOLLOW THIS WILL BREAK THE CODEBASE.**
+
+When debugging ANY issue:
+
+### Step 1: STOP and Do NOT Assume
+- **DO NOT** jump to conclusions about caching, timing, or stale data
+- **DO NOT** implement a fix based on your first hypothesis
+- **DO NOT** assume you understand the issue without comparing implementations
+
+### Step 2: Compare Working vs Broken Implementations
+1. **Read the working implementation** - understand EXACTLY how it works
+2. **Read the broken implementation** - understand EXACTLY how it works
+3. **Trace the complete logic path** for both - don't stop at surface level
+4. **Identify the EXACT difference** in logic, not just symptoms
+
+### Step 3: Verify Root Cause
+- What specific line of code causes the difference in behavior?
+- Why does the working version not have this issue?
+- Is this a logic difference, data difference, or timing difference?
+
+### Step 4: Only Then Implement Fix
+- Fix should address the ROOT CAUSE identified in Step 3
+- Fix should make broken implementation match working implementation's logic
+- Test that fix actually resolves the issue
+
+**Example of WRONG approach:**
+- "Page A works, Page B doesn't" → Assume caching issue → Add refresh logic → May or may not work
+
+**Example of CORRECT approach:**
+- "Page A works, Page B doesn't" → Compare both implementations → Page A checks `integrations.find(i => i.provider === id)`, Page B calls `getConnectedProviders()` which has different logic → Fix Page B to use same logic as Page A → Verified fix
+
+**If user says "look at how X works", that means:**
+1. Read X's implementation completely
+2. Trace through its logic paths
+3. Compare to the broken code's logic paths
+4. Identify the EXACT difference
+5. Only then propose a fix
+
+This is a large codebase with many moving parts. Jumping to conclusions will break things.
+
 ## Architectural Decision Guidelines
 **IMPORTANT**: For architectural changes ALWAYS:
 1. **Provide analysis** comparing approaches with pros/cons

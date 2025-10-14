@@ -13,9 +13,8 @@ import type { NodeComponent } from '@/lib/workflows/nodes'
 import type { Node } from '@xyflow/react'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
-import { openOAuthPopup } from '@/lib/utils/oauth-popup'
-import { toast } from '@/components/ui/use-toast'
 import { useIntegrationStore } from '@/stores/integrationStore'
+import { useShallow } from 'zustand/react/shallow'
 
 interface IntegrationInfo {
   id: string
@@ -81,83 +80,41 @@ export function ActionSelectionDialog({
 
   // Get the coming soon integrations from the hook
   const { comingSoonIntegrations } = useIntegrationSelection()
-  const [connectingIntegration, setConnectingIntegration] = useState<string | null>(null)
   const [showComingSoon, setShowComingSoon] = useState(false) // Local state for coming soon filter
-  
-  // Get integration store to check status
-  const { getIntegrationByProvider } = useIntegrationStore()
 
-  // Parent handles refreshing integrations before opening to avoid double-fetch races
+  // Get integration store functions - same as IntegrationCard
+  const { getIntegrationByProvider, connectIntegration, reconnectIntegration, loadingStates } = useIntegrationStore(
+    useShallow(state => ({
+      getIntegrationByProvider: state.getIntegrationByProvider,
+      connectIntegration: state.connectIntegration,
+      reconnectIntegration: state.reconnectIntegration,
+      loadingStates: state.loadingStates
+    }))
+  )
 
-  // Handle OAuth connection
-  const handleConnect = useCallback(async (integrationId: string) => {
-    console.log('handleConnect called with:', integrationId)
-    setConnectingIntegration(integrationId)
-    
-    try {
-      console.log('Generating OAuth URL for:', integrationId)
-      // Generate OAuth URL via API
-      const response = await fetch('/api/integrations/auth/generate-url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: integrationId,
-          forceFresh: false,
-        }),
-      })
-      console.log('OAuth URL response:', response.status)
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to generate OAuth URL')
-      }
-
-      const data = await response.json()
-      console.log('OAuth URL data:', data)
-      const { url } = data
-      
-      if (!url) {
-        console.error('No OAuth URL in response:', data)
-        throw new Error('No OAuth URL returned')
-      }
-
-      console.log('Opening OAuth popup with URL:', url)
-      const config = INTEGRATION_CONFIGS[integrationId as keyof typeof INTEGRATION_CONFIGS]
-      
-      openOAuthPopup({
-        url,
-        name: `${integrationId}_oauth`,
-        onSuccess: () => {
-          // Refresh integrations to get updated connection status
-          if (refreshIntegrations) {
-            refreshIntegrations()
-          }
-          setConnectingIntegration(null)
-          toast({
-            title: "Connected Successfully",
-            description: `${config?.name || integrationId} has been connected to your account.`,
-          })
-        },
-        onError: (error) => {
-          setConnectingIntegration(null)
-          toast({
-            title: "Connection Failed",
-            description: error.message || "Failed to connect integration. Please try again.",
-            variant: "destructive"
-          })
-        }
-      })
-    } catch (error) {
-      setConnectingIntegration(null)
-      toast({
-        title: "Connection Error",
-        description: error instanceof Error ? error.message : "Failed to initiate OAuth connection.",
-        variant: "destructive"
-      })
+  // Refresh integrations when dialog opens
+  useEffect(() => {
+    if (open && refreshIntegrations) {
+      refreshIntegrations()
     }
-  }, [refreshIntegrations])
+  }, [open, refreshIntegrations])
+
+  // Handle OAuth connection - mirrors IntegrationCard logic
+  const handleConnect = useCallback((integrationId: string) => {
+    // Just call the store function - it handles the OAuth flow via popup
+    // Success/error is handled by the store's onSuccess/onError callbacks
+    connectIntegration(integrationId)
+  }, [connectIntegration])
+
+  // Handle reconnection - mirrors IntegrationCard logic
+  const handleReconnect = useCallback((integrationId: string) => {
+    const integration = getIntegrationByProvider(integrationId)
+    if (!integration) return
+
+    // Just call the store function - it handles the OAuth flow via popup
+    // Success/error is handled by the store's onSuccess/onError callbacks
+    reconnectIntegration(integration.id)
+  }, [getIntegrationByProvider, reconnectIntegration])
 
   const filteredIntegrationsForActions = useMemo(() => {
     const filtered = availableIntegrations.filter(int => {
@@ -298,21 +255,6 @@ export function ActionSelectionDialog({
                   const isConnected = isIntegrationConnected(integration.id)
                   const integrationData = getIntegrationByProvider(integration.id)
                   const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
-
-                  // Debug logging (commented out to reduce console noise)
-                  // console.log(`ActionDialog: ${integration.id}, isConnected: ${isConnected}, needsReauth: ${needsReauth}, status: ${integrationData?.status}, comingSoon: ${comingSoonIntegrations.has(integration.id)}`)
-
-                  // Special debug for Discord (commented out to reduce console noise)
-                  // if (integration.id === 'discord') {
-                  //   console.log('Discord integration details:', {
-                  //     id: integration.id,
-                  //     isConnected,
-                  //     needsReauth,
-                  //     status: integrationData?.status,
-                  //     isSystemIntegration: ['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id),
-                  //     showConnectButton: (!isConnected || needsReauth) && !['core', 'logic', 'webhook', 'scheduler', 'ai', 'manual'].includes(integration.id)
-                  //   })
-                  // }
                   
                   return (
                     <div
@@ -346,14 +288,17 @@ export function ActionSelectionDialog({
                           size="sm"
                           variant={needsReauth ? "destructive" : "outline"}
                           className="ml-2 shrink-0"
-                          disabled={connectingIntegration === integration.id}
+                          disabled={loadingStates[`connect-${integration.id}`] || false}
                           onClick={(e) => {
                             e.stopPropagation()
-                            console.log(`${needsReauth ? 'Reconnect' : 'Connect'} button clicked for:`, integration.id)
-                            handleConnect(integration.id)
+                            if (needsReauth) {
+                              handleReconnect(integration.id)
+                            } else {
+                              handleConnect(integration.id)
+                            }
                           }}
                         >
-                          {connectingIntegration === integration.id ? (
+                          {loadingStates[`connect-${integration.id}`] ? (
                             <>
                               <LightningLoader className="w-3 h-3 mr-1" />
                               {needsReauth ? 'Reconnecting...' : 'Connecting...'}
@@ -381,12 +326,12 @@ export function ActionSelectionDialog({
                   (() => {
                     const integrationData = getIntegrationByProvider(selectedIntegration.id)
                     const needsReauth = integrationData?.status === 'needs_reauthorization' || integrationData?.status === 'expired'
-                    const showConnectButton = (!isIntegrationConnected(selectedIntegration.id) || needsReauth) && 
-                                            selectedIntegration.id !== 'core' && 
-                                            selectedIntegration.id !== 'logic' && 
-                                            selectedIntegration.id !== 'webhook' && 
-                                            selectedIntegration.id !== 'scheduler' && 
-                                            selectedIntegration.id !== 'ai' && 
+                    const showConnectButton = (!isIntegrationConnected(selectedIntegration.id) || needsReauth) &&
+                                            selectedIntegration.id !== 'core' &&
+                                            selectedIntegration.id !== 'logic' &&
+                                            selectedIntegration.id !== 'webhook' &&
+                                            selectedIntegration.id !== 'scheduler' &&
+                                            selectedIntegration.id !== 'ai' &&
                                             selectedIntegration.id !== 'manual'
                     
                     return showConnectButton ? (
@@ -408,10 +353,16 @@ export function ActionSelectionDialog({
                       </p>
                       <Button
                         variant={needsReauth ? "destructive" : "default"}
-                        disabled={connectingIntegration === selectedIntegration.id}
-                        onClick={() => handleConnect(selectedIntegration.id)}
+                        disabled={loadingStates[`connect-${selectedIntegration.id}`] || false}
+                        onClick={() => {
+                          if (needsReauth) {
+                            handleReconnect(selectedIntegration.id)
+                          } else {
+                            handleConnect(selectedIntegration.id)
+                          }
+                        }}
                       >
-                        {connectingIntegration === selectedIntegration.id ? (
+                        {loadingStates[`connect-${selectedIntegration.id}`] ? (
                           <>
                             <LightningLoader className="w-4 h-4 mr-2" />
                             {needsReauth ? 'Reconnecting...' : 'Connecting...'}
