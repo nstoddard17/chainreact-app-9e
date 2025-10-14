@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
       })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     // Debug logging for token response
     logger.debug('🔍 Teams Token Response Debug:')
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    const validationData = await validationjsonResponse()
+    const validationData = await validationResponse.json()
     logger.debug('🔍 Teams account validation result:', validationData)
 
     if (!validationData.success) {
