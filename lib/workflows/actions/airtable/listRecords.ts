@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Lists records from an Airtable table
  */
@@ -33,7 +35,7 @@ export async function listAirtableRecords(
       if (!tableName) missingFields.push("Table Name")
       
       const message = `Missing required fields for listing records: ${missingFields.join(", ")}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -261,7 +263,7 @@ export async function listAirtableRecords(
     }
 
   } catch (error: any) {
-    console.error("Airtable list records error:", error)
+    logger.error("Airtable list records error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while listing records"

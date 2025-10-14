@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface BubbleSuggestion {
   value: any;
   label: string;
@@ -146,7 +148,7 @@ export function useAirtableBubbleHandler({
 
     // Only handle select and linked fields
     if (!isLinkedField(tableField) && !isSelectField(tableField)) {
-      console.log(`[Update] Skipping bubble creation for non-select/linked field: ${tableField.name} (${tableField.type})`);
+      logger.debug(`[Update] Skipping bubble creation for non-select/linked field: ${tableField.name} (${tableField.type})`);
       return false;
     }
 
@@ -168,7 +170,7 @@ export function useAirtableBubbleHandler({
       const selectedOption = currentOptions.find((opt: any) => opt.value === value);
       
       if (!selectedOption) {
-        console.warn(`Could not find label for value ${value} in field ${tableField.name}`);
+        logger.warn(`Could not find label for value ${value} in field ${tableField.name}`);
         setValue(fieldName, '');
         return true;
       }
@@ -185,7 +187,7 @@ export function useAirtableBubbleHandler({
     
     // Check if value already exists
     if (bubbleExists(fieldName, actualValue)) {
-      console.log(`[Update] Value ${label} already exists as a bubble`);
+      logger.debug(`[Update] Value ${label} already exists as a bubble`);
       setTimeout(() => setValue(fieldName, ''), 50);
       return true;
     }
@@ -203,7 +205,7 @@ export function useAirtableBubbleHandler({
         [fieldName]: 0
       }));
       
-      console.log(`[Update] Replaced bubble for single-value field ${tableField.name}`);
+      logger.debug(`[Update] Replaced bubble for single-value field ${tableField.name}`);
     } else if (hasActiveBubble(fieldName)) {
       // Multi-value field with active bubble - replace active
       const activeBubbleIndices = activeBubbles[fieldName];
@@ -226,7 +228,7 @@ export function useAirtableBubbleHandler({
         };
       });
       
-      console.log(`[Update] Replaced active bubble with ${label}`);
+      logger.debug(`[Update] Replaced active bubble with ${label}`);
     } else {
       // Multi-value field with no active bubble - add new
       setFieldSuggestions(prev => ({
@@ -234,7 +236,7 @@ export function useAirtableBubbleHandler({
         [fieldName]: [...(prev[fieldName] || []), newSuggestion]
       }));
       
-      console.log(`[Update] Added new bubble for ${label}`);
+      logger.debug(`[Update] Added new bubble for ${label}`);
     }
     
     // Clear the dropdown selection
@@ -302,7 +304,7 @@ export function useAirtableBubbleHandler({
       
       newSuggestion = createBubbleSuggestion(actualValue, suggestionLabel, tableField);
       
-      console.log(`[Create] Created suggestion for linked field ${tableField.name}: value="${actualValue}", label="${suggestionLabel}"`);
+      logger.debug(`[Create] Created suggestion for linked field ${tableField.name}: value="${actualValue}", label="${suggestionLabel}"`);
       
       // Set dynamic options if needed
       if (!dynamicOptions?.[fieldName] && fieldChoices && setDynamicOptions) {
@@ -326,7 +328,7 @@ export function useAirtableBubbleHandler({
     // Check if value already exists
     const valueToCompare = isLinked && Array.isArray(value) ? value[0] : value;
     if (bubbleExists(fieldName, valueToCompare)) {
-      console.log(`[Create] Value already exists as a bubble`);
+      logger.debug(`[Create] Value already exists as a bubble`);
       setTimeout(() => setValue(fieldName, ''), 50);
       return true;
     }
@@ -344,7 +346,7 @@ export function useAirtableBubbleHandler({
         [fieldName]: 0
       }));
       
-      console.log(`[Create] Created bubble for single-value field ${tableField.name}`);
+      logger.debug(`[Create] Created bubble for single-value field ${tableField.name}`);
     } else if (hasActiveBubble(fieldName)) {
       // Multi-value with active bubble - replace
       const activeBubbleIndices = activeBubbles[fieldName];
@@ -367,7 +369,7 @@ export function useAirtableBubbleHandler({
         };
       });
       
-      console.log(`[Create] Replaced active bubble`);
+      logger.debug(`[Create] Replaced active bubble`);
     } else {
       // Multi-value with no active bubble - add new
       setFieldSuggestions(prev => ({
@@ -375,7 +377,7 @@ export function useAirtableBubbleHandler({
         [fieldName]: [...(prev[fieldName] || []), newSuggestion]
       }));
       
-      console.log(`[Create] Added new bubble`);
+      logger.debug(`[Create] Added new bubble`);
     }
     
     // Clear the dropdown selection

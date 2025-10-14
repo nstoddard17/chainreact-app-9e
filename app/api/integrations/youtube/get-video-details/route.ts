@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createClient } from "@supabase/supabase-js";
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
     const { videoId, integrationId } = await request.json();
 
     if (!videoId || !integrationId) {
-      return NextResponse.json(
-        { error: "Video ID and integration ID are required" },
-        { status: 400 }
-      );
+      return errorResponse("Video ID and integration ID are required" , 400);
     }
 
     // Get the integration to access the access token
@@ -24,10 +24,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "Integration not found" },
-        { status: 404 }
-      );
+      return errorResponse("Integration not found" , 404);
     }
 
     // Fetch video details from YouTube API
@@ -43,13 +40,10 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       if (response.status === 401) {
-        return NextResponse.json(
-          { error: "YouTube authentication expired. Please reconnect your account." },
-          { status: 401 }
-        );
+        return errorResponse("YouTube authentication expired. Please reconnect your account." , 401);
       }
       const errorData = await response.json().catch(() => ({}));
-      return NextResponse.json(
+      return jsonResponse(
         { error: `YouTube API error: ${response.status} - ${errorData.error?.message || response.statusText}` },
         { status: response.status }
       );
@@ -59,10 +53,7 @@ export async function POST(request: NextRequest) {
     const video = data.items?.[0];
 
     if (!video) {
-      return NextResponse.json(
-        { error: "Video not found" },
-        { status: 404 }
-      );
+      return errorResponse("Video not found" , 404);
     }
 
     // Extract video details
@@ -78,12 +69,9 @@ export async function POST(request: NextRequest) {
       defaultAudioLanguage: video.snippet?.defaultAudioLanguage,
     };
 
-    return NextResponse.json(videoDetails);
+    return jsonResponse(videoDetails);
   } catch (error: any) {
-    console.error("Error fetching YouTube video details:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch video details" },
-      { status: 500 }
-    );
+    logger.error("Error fetching YouTube video details:", error);
+    return errorResponse("Failed to fetch video details" , 500);
   }
 } 

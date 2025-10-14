@@ -5,8 +5,10 @@
 import { NotionIntegration, NotionWorkspace, NotionDataHandler } from '../types'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (integration: any): Promise<NotionWorkspace[]> => {
-  console.log('🔍 Notion workspaces fetcher called - fetching workspaces from metadata')
+  logger.debug('🔍 Notion workspaces fetcher called - fetching workspaces from metadata')
   
   try {
     // Get the Notion integration - handle both integrationId and userId cases
@@ -16,7 +18,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
     
     if (integration.id) {
       // If we have a specific integration ID, use that
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -26,7 +28,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
       integrationError = result.error
     } else if (integration.userId) {
       // If we have a user ID, find the Notion integration for that user
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -41,12 +43,12 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
     }
     
     if (integrationError || !notionIntegration) {
-      console.error('🔍 Integration lookup failed:', integrationError)
+      logger.error('🔍 Integration lookup failed:', integrationError)
       throw new Error("Notion integration not found")
     }
     
-    console.log(`🔍 Found integration: ${notionIntegration.id}`)
-    console.log('📦 Full metadata object:', JSON.stringify(notionIntegration.metadata, null, 2))
+    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
+    logger.debug('📦 Full metadata object:', JSON.stringify(notionIntegration.metadata, null, 2))
     
     // Get workspaces from metadata - check different possible structures
     let workspaces = notionIntegration.metadata?.workspaces || {}
@@ -55,7 +57,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
     if (Object.keys(workspaces).length === 0 && notionIntegration.metadata) {
       // Check if metadata has workspace_id and workspace_name directly
       if (notionIntegration.metadata.workspace_id && notionIntegration.metadata.workspace_name) {
-        console.log('📦 Found workspace data directly in metadata')
+        logger.debug('📦 Found workspace data directly in metadata')
         workspaces = {
           [notionIntegration.metadata.workspace_id]: {
             workspace_id: notionIntegration.metadata.workspace_id,
@@ -69,10 +71,10 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
       }
     }
     
-    console.log('📦 Workspaces object to process:', JSON.stringify(workspaces, null, 2))
+    logger.debug('📦 Workspaces object to process:', JSON.stringify(workspaces, null, 2))
     
     const workspaceArray = Object.entries(workspaces).map(([id, workspace]: [string, any]) => {
-      console.log(`🔍 Processing workspace ${id}:`, JSON.stringify(workspace, null, 2))
+      logger.debug(`🔍 Processing workspace ${id}:`, JSON.stringify(workspace, null, 2))
       return {
         id,
         name: workspace.workspace_name || workspace.name || id, // Use workspace_name (correct property)
@@ -84,12 +86,12 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (in
       }
     })
     
-    console.log(`✅ Found ${workspaceArray.length} workspaces in metadata`)
+    logger.debug(`✅ Found ${workspaceArray.length} workspaces in metadata`)
     
     return workspaceArray
     
   } catch (error: any) {
-    console.error("Error fetching Notion workspaces:", error)
+    logger.error("Error fetching Notion workspaces:", error)
     throw new Error(error.message || "Error fetching Notion workspaces")
   }
 }

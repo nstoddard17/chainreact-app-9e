@@ -4,10 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { trelloHandlers } from './handlers'
 import { clearIntegrationWorkflowFlags } from '@/lib/integrations/integrationWorkflowManager'
 import { TrelloIntegration } from './types'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -24,9 +27,8 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database
@@ -38,30 +40,28 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Trello API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'Trello integration not found'
-      }, { status: 404 })
+      logger.error('❌ [Trello API] Integration not found:', { integrationId, error: integrationError })
+      return errorResponse('Trello integration not found'
+      , 404)
     }
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [Trello API] Integration not connected:', {
+      logger.error('❌ [Trello API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'Trello integration is not connected. Please reconnect your account.',
+      return errorResponse('Trello integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = trelloHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Trello API] Unknown data type:', dataType)
-      return NextResponse.json({
+      logger.error('❌ [Trello API] Unknown data type:', dataType)
+      return jsonResponse({
         error: `Unknown Trello data type: ${dataType}`,
         availableTypes: Object.keys(trelloHandlers)
       }, { status: 400 })
@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
     // Check if we have a recent cached result
     const cachedResult = requestResults.get(requestKey)
     if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
-      console.log(`✨ [Trello API] Using cached result for ${dataType}`)
-      return NextResponse.json({
+      logger.debug(`✨ [Trello API] Using cached result for ${dataType}`)
+      return jsonResponse({
         data: cachedResult.data,
         success: true,
         integrationId,
@@ -86,10 +86,10 @@ export async function POST(req: NextRequest) {
     // Check if there's already an active request for this exact same data
     const activeRequest = activeRequests.get(requestKey)
     if (activeRequest) {
-      console.log(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
+      logger.debug(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
       try {
         const data = await activeRequest
-        return NextResponse.json({
+        return jsonResponse({
           data,
           success: true,
           integrationId,
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`🔍 [Trello API] Processing request:`, {
+    logger.debug(`🔍 [Trello API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log(`✅ [Trello API] Successfully processed ${dataType}:`, {
+      logger.debug(`✅ [Trello API] Successfully processed ${dataType}:`, {
         integrationId,
         resultCount: data?.length || 0
       })
@@ -142,11 +142,11 @@ export async function POST(req: NextRequest) {
         try {
           await clearIntegrationWorkflowFlags({ integrationId: integration.id, provider: 'trello', userId: integration.user_id })
         } catch (clearError) {
-          console.warn('⚠️ [Trello API] Failed to clear reconnect flag after successful data load:', clearError)
+          logger.warn('⚠️ [Trello API] Failed to clear reconnect flag after successful data load:', clearError)
         }
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         data,
         success: true,
         integrationId,
@@ -158,30 +158,24 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('❌ [Trello API] Unexpected error:', {
+    logger.error('❌ [Trello API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'Trello API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Trello API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

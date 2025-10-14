@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: Request,
@@ -11,7 +14,7 @@ export async function GET(
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: webhook, error } = await supabase
@@ -22,15 +25,15 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error(`Error fetching webhook ${webhookId}:`, error)
-      return NextResponse.json({ error: "Webhook not found or unauthorized" }, { status: 404 })
+      logger.error(`Error fetching webhook ${webhookId}:`, error)
+      return errorResponse("Webhook not found or unauthorized" , 404)
     }
 
-    return NextResponse.json(webhook)
+    return jsonResponse(webhook)
 
   } catch (error: any) {
-    console.error(`Error in GET /api/custom-webhooks/${webhookId}:`, error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error(`Error in GET /api/custom-webhooks/${webhookId}:`, error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -44,7 +47,7 @@ export async function PUT(
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -67,15 +70,15 @@ export async function PUT(
       .single()
 
     if (error) {
-      console.error(`Error updating webhook ${webhookId}:`, error)
-      return NextResponse.json({ error: "Failed to update webhook" }, { status: 500 })
+      logger.error(`Error updating webhook ${webhookId}:`, error)
+      return errorResponse("Failed to update webhook" , 500)
     }
 
-    return NextResponse.json(webhook)
+    return jsonResponse(webhook)
 
   } catch (error: any) {
-    console.error(`Error in PUT /api/custom-webhooks/${webhookId}:`, error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error(`Error in PUT /api/custom-webhooks/${webhookId}:`, error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -89,7 +92,7 @@ export async function DELETE(
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { error } = await supabase
@@ -99,14 +102,14 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (error) {
-      console.error(`Error deleting webhook ${webhookId}:`, error)
-      return NextResponse.json({ error: "Failed to delete webhook" }, { status: 500 })
+      logger.error(`Error deleting webhook ${webhookId}:`, error)
+      return errorResponse("Failed to delete webhook" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
 
   } catch (error: any) {
-    console.error(`Error in DELETE /api/custom-webhooks/${webhookId}:`, error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error(`Error in DELETE /api/custom-webhooks/${webhookId}:`, error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get Notion integration for this user
@@ -26,11 +29,11 @@ export async function GET(request: NextRequest) {
       .eq("status", "connected")
 
     if (integrationsError) {
-      return NextResponse.json({ error: integrationsError.message }, { status: 500 })
+      return errorResponse(integrationsError.message , 500)
     }
 
     if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ error: "No Notion integration found" }, { status: 404 })
+      return errorResponse("No Notion integration found" , 404)
     }
 
     const notionIntegration = integrations[0]
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!pagesResponse.ok) {
-      return NextResponse.json({ error: `Notion API error: ${pagesResponse.status}`, details: await pagesResponse.text() }, { status: pagesResponse.status })
+      return jsonResponse({ error: `Notion API error: ${pagesResponse.status}`, details: await pagesResponse.text() }, { status: pagesResponse.status })
     }
 
     const pagesData = await pagesResponse.json()
@@ -105,11 +108,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       pages: mainPages
     })
   } catch (error: any) {
-    console.error("Notion debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Notion debug endpoint error:", error)
+    return errorResponse(error.message , 500)
   }
 }

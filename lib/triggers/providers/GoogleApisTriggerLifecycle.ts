@@ -18,6 +18,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,7 +34,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, providerId, config } = context
 
-    console.log(`🔔 Activating Google API trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Google API trigger for workflow ${workflowId}`, {
       triggerType,
       providerId,
       config
@@ -79,7 +81,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = this.getWebhookUrl(providerId)
     const channelId = `chainreact-${workflowId}-${Date.now()}`
 
-    console.log(`📤 Creating Google push notification`, {
+    logger.debug(`📤 Creating Google push notification`, {
       api,
       resourceId,
       channelId,
@@ -103,7 +105,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           throw new Error(`Unsupported Google API: ${api}`)
       }
     } catch (error: any) {
-      console.error(`Failed to create Google push notification:`, error)
+      logger.error(`Failed to create Google push notification:`, error)
       throw new Error(`Failed to create ${api} subscription: ${error.message}`)
     }
 
@@ -127,7 +129,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       expires_at: channelData.expiration ? new Date(parseInt(channelData.expiration)).toISOString() : null
     })
 
-    console.log(`✅ Google ${api} push notification created: ${channelData.id}`)
+    logger.debug(`✅ Google ${api} push notification created: ${channelData.id}`)
   }
 
   /**
@@ -144,7 +146,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       throw new Error('GMAIL_PUBSUB_TOPIC environment variable is not set. Gmail requires Google Cloud Pub/Sub to be configured.')
     }
 
-    console.log(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`)
+    logger.debug(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`)
 
     const response = await gmail.users.watch({
       userId: 'me',
@@ -155,7 +157,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       }
     })
 
-    console.log(`✅ Gmail watch created - historyId: ${response.data.historyId}`)
+    logger.debug(`✅ Gmail watch created - historyId: ${response.data.historyId}`)
 
     return {
       id: channelId,
@@ -217,7 +219,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    console.log(`🛑 Deactivating Google API triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Google API triggers for workflow ${workflowId}`)
 
     // Get all Google API subscriptions for this workflow
     const { data: resources } = await supabase
@@ -228,7 +230,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No active Google API subscriptions for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}`)
       return
     }
 
@@ -241,7 +243,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       .single()
 
     if (!integration) {
-      console.warn(`⚠️ Google integration not found, marking subscriptions as deleted`)
+      logger.warn(`⚠️ Google integration not found, marking subscriptions as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -259,7 +261,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       : null
 
     if (!accessToken) {
-      console.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
+      logger.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -305,9 +307,9 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        console.log(`✅ Stopped Google ${api} subscription: ${channelId}`)
+        logger.debug(`✅ Stopped Google ${api} subscription: ${channelId}`)
       } catch (error) {
-        console.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
+        logger.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
         await supabase
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })

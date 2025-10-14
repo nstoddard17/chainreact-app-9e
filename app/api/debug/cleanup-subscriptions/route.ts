@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphClient } from '@/lib/microsoft-graph/client'
 import { safeDecrypt } from '@/lib/security/encryption'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,7 +13,7 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('\n🧹 CLEANING UP DUPLICATE ONEDRIVE SUBSCRIPTIONS')
+    logger.debug('\n🧹 CLEANING UP DUPLICATE ONEDRIVE SUBSCRIPTIONS')
 
     // Get all active subscriptions
     const { data: subscriptions } = await supabase
@@ -20,10 +23,10 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: 'No subscriptions found' })
+      return jsonResponse({ message: 'No subscriptions found' })
     }
 
-    console.log(`Found ${subscriptions.length} active subscriptions`)
+    logger.debug(`Found ${subscriptions.length} active subscriptions`)
 
     // Group by user_id to find duplicates
     const userSubscriptions = new Map<string, typeof subscriptions>()
@@ -41,13 +44,13 @@ export async function POST(request: NextRequest) {
     // For each user, keep only the newest subscription
     for (const [userId, subs] of userSubscriptions.entries()) {
       if (subs.length > 1) {
-        console.log(`User ${userId.substring(0, 8)}... has ${subs.length} subscriptions`)
+        logger.debug(`User ${userId.substring(0, 8)}... has ${subs.length} subscriptions`)
 
         // Keep the first one (newest), delete the rest
         const toKeep = subs[0]
         const toDelete = subs.slice(1)
 
-        console.log(`  Keeping subscription: ${toKeep.id.substring(0, 8)}... (created: ${toKeep.created_at})`)
+        logger.debug(`  Keeping subscription: ${toKeep.id.substring(0, 8)}... (created: ${toKeep.created_at})`)
 
         // Get user's OneDrive token to delete from Microsoft
         const { data: integration } = await supabase
@@ -63,12 +66,12 @@ export async function POST(request: NextRequest) {
           try {
             accessToken = safeDecrypt(integration.access_token)
           } catch (e) {
-            console.error('Failed to decrypt token for cleanup')
+            logger.error('Failed to decrypt token for cleanup')
           }
         }
 
         for (const sub of toDelete) {
-          console.log(`  Deleting subscription: ${sub.id.substring(0, 8)}...`)
+          logger.debug(`  Deleting subscription: ${sub.id.substring(0, 8)}...`)
 
           // Try to delete from Microsoft Graph
           if (accessToken) {
@@ -77,9 +80,9 @@ export async function POST(request: NextRequest) {
               await client.request(`/subscriptions/${sub.id}`, {
                 method: 'DELETE'
               })
-              console.log(`    ✅ Deleted from Microsoft Graph`)
+              logger.debug(`    ✅ Deleted from Microsoft Graph`)
             } catch (e: any) {
-              console.log(`    ⚠️ Failed to delete from Microsoft: ${e.message}`)
+              logger.debug(`    ⚠️ Failed to delete from Microsoft: ${e.message}`)
             }
           }
 
@@ -98,9 +101,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`\n✅ Cleanup complete: Deleted ${deletedCount} duplicate subscriptions`)
+    logger.debug(`\n✅ Cleanup complete: Deleted ${deletedCount} duplicate subscriptions`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       totalSubscriptions: subscriptions.length,
       deletedCount,
@@ -109,13 +112,13 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error cleaning up subscriptions:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    logger.error('Error cleaning up subscriptions:', error)
+    return jsonResponse({ error }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     message: 'POST to this endpoint to clean up duplicate OneDrive subscriptions'
   })
 }

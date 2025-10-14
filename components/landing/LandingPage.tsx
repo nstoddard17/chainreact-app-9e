@@ -11,6 +11,8 @@ import { LightningLoader } from "@/components/ui/lightning-loader"
 import LandingNavigation from './LandingNavigation'
 import LandingHero from './LandingHero'
 
+import { logger } from '@/lib/utils/logger'
+
 // Heavy components loaded dynamically for better performance
 const AnimatedBackground = dynamic(() => import('./AnimatedBackground'), {
   ssr: false, // Don't render on server for better initial load
@@ -88,7 +90,7 @@ export default function LandingPage() {
     try {
       await signOut()
     } catch (error) {
-      console.error("Logout error:", error)
+      logger.error("Logout error:", error)
     }
   }, [signOut])
 

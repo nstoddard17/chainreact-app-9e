@@ -8,6 +8,8 @@ import { useAuthStore } from "@/stores/authStore"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function ProfileContent() {
   
   // Get auth state and profile from stores
@@ -107,7 +109,7 @@ export async function getServerSideProps() {
       }
     }
   } catch (error) {
-    console.error("Error in getServerSideProps:", error)
+    logger.error("Error in getServerSideProps:", error)
     return { props: {} }
   }
 } 

@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react'
+
+import { logger } from '@/lib/utils/logger'
 import type { NodeComponent } from '@/lib/workflows/nodes'
 
 interface IntegrationInfo {
@@ -79,7 +81,7 @@ export function useWorkflowDialogs() {
           setPendingNavigation(null)
         }
       } catch (error) {
-        console.error('Failed to save before navigation:', error)
+        logger.error('Failed to save before navigation:', error)
       }
     }
   }, [pendingNavigation])

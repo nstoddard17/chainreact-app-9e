@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordUser, DiscordDataHandler } from '../types'
 import { fetchDiscordWithRateLimit, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getDiscordBannedUsers: DiscordDataHandler<DiscordUser> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
     const { guildId } = options
@@ -16,7 +18,7 @@ export const getDiscordBannedUsers: DiscordDataHandler<DiscordUser> = async (int
     // Use bot token instead of user token for banned users
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not configured - returning empty banned users list")
+      logger.warn("Discord bot token not configured - returning empty banned users list")
       return []
     }
 
@@ -57,13 +59,13 @@ export const getDiscordBannedUsers: DiscordDataHandler<DiscordUser> = async (int
       }
       if (error.message.includes("404")) {
         // Bot is not in the server - return empty array instead of throwing error
-        console.log(`Bot is not a member of server ${guildId} - returning empty banned users list`)
+        logger.debug(`Bot is not a member of server ${guildId} - returning empty banned users list`)
         return []
       }
       throw error
     }
   } catch (error: any) {
-    console.error("Error fetching Discord banned users:", error)
+    logger.error("Error fetching Discord banned users:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

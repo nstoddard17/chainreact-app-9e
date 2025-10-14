@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * API endpoint to fetch the actual columns visible in HubSpot's contacts table view
@@ -13,10 +16,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -29,17 +29,14 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
     const accessToken = await getDecryptedAccessToken(user.id, "hubspot")
 
     // First, let's fetch ALL contact properties to see what's available
-    console.log("Fetching all HubSpot contact properties...")
+    logger.debug("Fetching all HubSpot contact properties...")
 
     const allPropertiesResponse = await fetch(
       "https://api.hubapi.com/crm/v3/properties/contacts",
@@ -52,14 +49,11 @@ export async function GET(request: NextRequest) {
     )
 
     if (!allPropertiesResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch contact properties from HubSpot" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch contact properties from HubSpot" , 500)
     }
 
     const allPropertiesData = await allPropertiesResponse.json()
-    console.log(`Found ${allPropertiesData.results.length} total contact properties`)
+    logger.debug(`Found ${allPropertiesData.results.length} total contact properties`)
 
     // Try to fetch the views to see configured columns
     const viewsResponse = await fetch(
@@ -74,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     if (!viewsResponse.ok) {
       // If views API is not available, return ALL properties with metadata
-      console.log("Views API not available, returning all properties with metadata")
+      logger.debug("Views API not available, returning all properties with metadata")
 
       // Since we already fetched all properties above, use that data
       const allProperties = allPropertiesData.results
@@ -123,7 +117,7 @@ export async function GET(request: NextRequest) {
           return a.label.localeCompare(b.label)
         })
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: tableProperties,
         totalProperties: allProperties.length,
@@ -143,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     if (!defaultView || !defaultView.columns) {
       // No view found, use fallback
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         data: [],
         message: "No default view found",
@@ -166,10 +160,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch contact properties" },
-        { status: 500 }
-      )
+      return errorResponse("Failed to fetch contact properties" , 500)
     }
 
     const propertiesData = await propertiesResponse.json()
@@ -193,7 +184,7 @@ export async function GET(request: NextRequest) {
       .map((colName: string) => tableProperties.find((p: any) => p.name === colName))
       .filter(Boolean)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: orderedProperties,
       message: "These are the actual columns configured in your HubSpot contacts view",
@@ -202,14 +193,10 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error("HubSpot contact view columns error:", error)
-    return NextResponse.json(
-      {
-        error: "Internal server error",
+    logger.error("HubSpot contact view columns error:", error)
+    return errorResponse("Internal server error", 500, {
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    )
+      })
   }
 }

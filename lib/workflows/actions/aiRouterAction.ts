@@ -12,6 +12,8 @@ import type {
   ChainExecutionResult
 } from '@/lib/workflows/ai/chainExecutionEngine'
 
+import { logger } from '@/lib/utils/logger'
+
 // Model pricing (per 1K tokens)
 const MODEL_PRICING = {
   'gpt-4-turbo': { input: 0.01, output: 0.03 },
@@ -158,7 +160,7 @@ export class AIRouterAction {
       }
       
     } catch (error: any) {
-      console.error('[AI Router] Execution error:', error)
+      logger.error('[AI Router] Execution error:', error)
       
       // Track failed attempt
       await this.trackFailedAttempt(context.userId, config.model, error.message)
@@ -484,7 +486,7 @@ export class AIRouterAction {
       }
       
     } catch (error) {
-      console.error('[AI Router] Decision error:', error)
+      logger.error('[AI Router] Decision error:', error)
       throw error
     }
   }
@@ -618,7 +620,7 @@ export class AIRouterAction {
       })
       
     } catch (error) {
-      console.error('[AI Router] Failed to track usage:', error)
+      logger.error('[AI Router] Failed to track usage:', error)
       // Don't throw - allow execution to continue even if tracking fails
     }
   }
@@ -724,7 +726,7 @@ export class AIRouterAction {
         timestamp: new Date().toISOString()
       })
     } catch (err) {
-      console.error('[AI Router] Failed to track error:', err)
+      logger.error('[AI Router] Failed to track error:', err)
     }
   }
 }

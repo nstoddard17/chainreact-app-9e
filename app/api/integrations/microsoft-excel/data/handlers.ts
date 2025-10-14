@@ -13,6 +13,8 @@ import {
   ExcelWorksheet
 } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 
 /**
@@ -26,7 +28,7 @@ async function getAccessToken(integration: MicrosoftExcelIntegration): Promise<s
   try {
     return await decrypt(integration.access_token)
   } catch (error) {
-    console.error('Failed to decrypt access token:', error)
+    logger.error('Failed to decrypt access token:', error)
     throw new Error('Failed to decrypt OneDrive access token')
   }
 }
@@ -64,7 +66,7 @@ const fetchWorkbooks: ExcelDataHandler = async (integration: MicrosoftExcelInteg
     }))
 
   } catch (error) {
-    console.error('Error fetching workbooks:', error)
+    logger.error('Error fetching workbooks:', error)
     throw error
   }
 }
@@ -106,7 +108,7 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
     }))
 
   } catch (error) {
-    console.error('Error fetching worksheets:', error)
+    logger.error('Error fetching worksheets:', error)
     throw error
   }
 }
@@ -152,7 +154,7 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
       }))
 
   } catch (error) {
-    console.error('Error fetching columns:', error)
+    logger.error('Error fetching columns:', error)
     throw error
   }
 }
@@ -225,7 +227,7 @@ const fetchColumnValues: ExcelDataHandler = async (integration: MicrosoftExcelIn
     }))
 
   } catch (error) {
-    console.error('Error fetching column values:', error)
+    logger.error('Error fetching column values:', error)
     throw error
   }
 }
@@ -267,7 +269,7 @@ const fetchFolders: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     return folderOptions
 
   } catch (error) {
-    console.error('Error fetching folders:', error)
+    logger.error('Error fetching folders:', error)
     throw error
   }
 }
@@ -347,7 +349,7 @@ const fetchDataPreview: ExcelDataHandler = async (integration: MicrosoftExcelInt
     
 
   } catch (error) {
-    console.error('Error fetching data preview:', error)
+    logger.error('Error fetching data preview:', error)
     throw error
   }
 }

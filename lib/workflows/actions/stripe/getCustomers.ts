@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get customers from Stripe
  */
@@ -58,7 +60,7 @@ export async function stripeGetCustomers(
       message: `Successfully retrieved ${customers.length} customers from Stripe`
     }
   } catch (error: any) {
-    console.error('Stripe Get Customers error:', error)
+    logger.error('Stripe Get Customers error:', error)
     return {
       success: false,
       output: {},

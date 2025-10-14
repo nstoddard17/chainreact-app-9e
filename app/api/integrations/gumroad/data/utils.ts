@@ -4,6 +4,8 @@
 
 import { GumroadApiError } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Gumroad API error with proper context
  */
@@ -80,7 +82,7 @@ export function getGumroadApiHeaders(accessToken: string): Record<string, string
 export async function parseGumroadApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ Gumroad API error: ${response.status} ${errorText}`)
+    logger.error(`❌ Gumroad API error: ${response.status} ${errorText}`)
     
     throw createGumroadApiError(
       `Gumroad API error: ${response.status}`,

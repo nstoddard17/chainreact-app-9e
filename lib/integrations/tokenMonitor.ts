@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PostgrestError } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 interface TokenHealth {
   provider: string
   userId: string
@@ -171,7 +173,7 @@ async function getTokenHealthForProvider(provider: string, accessToken: string):
         return { status: "healthy" } // Assume healthy for unknown providers
     }
   } catch (error) {
-    console.error(`Error checking token health for ${provider}:`, error)
+    logger.error(`Error checking token health for ${provider}:`, error)
     return { status: "error", error: error instanceof Error ? error.message : "Unknown error" }
   }
 }
@@ -297,7 +299,7 @@ async function checkNotionTokenHealth(accessToken: string) {
 }
 
 export async function checkTokenHealth(integrationIds?: string[]) {
-  console.log("Starting token health check...")
+  logger.debug("Starting token health check...")
   const supabase = createAdminClient()
 
   let query = supabase.from("integrations").select("id, provider, user_id, refresh_token, access_token, status, consecutive_failures")
@@ -309,7 +311,7 @@ export async function checkTokenHealth(integrationIds?: string[]) {
   const { data: integrations, error } = await query
 
   if (error) {
-    console.error("Error fetching integrations:", error)
+    logger.error("Error fetching integrations:", error)
     return { healthy: 0, unhealthy: 0, results: [] }
   }
 
@@ -364,7 +366,7 @@ export async function checkTokenHealth(integrationIds?: string[]) {
   const healthy = results.filter((r) => r.status === "healthy").length
   const unhealthy = results.length - healthy
 
-  console.log(`Token health check complete: ${healthy} healthy, ${unhealthy} unhealthy`)
+  logger.debug(`Token health check complete: ${healthy} healthy, ${unhealthy} unhealthy`)
 
   return { healthy, unhealthy, results }
 }

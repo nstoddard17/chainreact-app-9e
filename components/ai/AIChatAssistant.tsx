@@ -10,6 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { MessageSquare, Send, X, Bot, User, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ChatMessage {
   id: string
   type: "user" | "assistant"
@@ -93,7 +95,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
         throw new Error(data.error || "Failed to get response")
       }
     } catch (error) {
-      console.error("Error sending message:", error)
+      logger.error("Error sending message:", error)
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: "assistant",

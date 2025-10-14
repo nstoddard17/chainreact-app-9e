@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 import type { Database } from "@/types/supabase"
 
 export async function GET() {
@@ -14,7 +17,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const userId = user.id
@@ -27,8 +30,8 @@ export async function GET() {
       .eq("status", "connected")
 
     if (error) {
-      console.error("Database error:", error)
-      return NextResponse.json({ error: "Database error" }, { status: 500 })
+      logger.error("Database error:", error)
+      return errorResponse("Database error" , 500)
     }
 
     // Process each integration to extract status information only
@@ -57,12 +60,12 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       count: integrations.length,
       integrations: results,
     })
   } catch (error: any) {
-    console.error("Error checking integrations:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Error checking integrations:", error)
+    return errorResponse(error.message , 500)
   }
 }

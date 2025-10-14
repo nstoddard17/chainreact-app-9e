@@ -1,5 +1,7 @@
 import { OpenAI } from "openai"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -377,12 +379,12 @@ Respond with ONLY valid JSON.`,
       // Process the workflow to expand chains into visual nodes
       return expandAIAgentChains(workflow)
     } catch (aiError: any) {
-      console.error("OpenAI generation failed, using fallback:", aiError.message)
+      logger.error("OpenAI generation failed, using fallback:", aiError.message)
       // Fallback to default workflow if OpenAI fails
       return createDefaultCustomerSupportWorkflow(triggerId, aiAgentId)
     }
   } catch (error) {
-    console.error("Error generating enhanced workflow:", error)
+    logger.error("Error generating enhanced workflow:", error)
     // Return a default customer support workflow as fallback
     const timestamp = Date.now()
     return createDefaultCustomerSupportWorkflow(`trigger-${timestamp}`, `node-${timestamp + 1}`)

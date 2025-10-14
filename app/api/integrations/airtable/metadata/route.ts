@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createClient } from '@supabase/supabase-js';
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,13 +14,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { integrationId, baseId, tableName } = body;
     
-    console.log('Metadata API called with:', { integrationId, baseId, tableName });
+    logger.debug('Metadata API called with:', { integrationId, baseId, tableName });
 
     if (!integrationId || !baseId || !tableName) {
-      return NextResponse.json(
-        { error: 'Integration ID, base ID, and table name are required' },
-        { status: 400 }
-      );
+      return errorResponse('Integration ID, base ID, and table name are required' , 400);
     }
 
     // Fetch the integration
@@ -28,10 +28,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'Integration not found' },
-        { status: 404 }
-      );
+      return errorResponse('Integration not found' , 404);
     }
 
     // Decrypt the access token
@@ -39,22 +36,18 @@ export async function POST(req: NextRequest) {
     try {
       const { safeDecrypt } = await import('../../../../../lib/security/encryption');
       accessToken = safeDecrypt(integration.access_token);
-      console.log('Access token decrypted successfully');
+      logger.debug('Access token decrypted successfully');
     } catch (decryptError: any) {
-      console.error('Failed to decrypt access token:', decryptError);
-      return NextResponse.json(
-        { 
-          error: 'Failed to decrypt access token', 
-          fields: null,
-          details: decryptError.message 
-        },
-        { status: 200 }
-      );
+      logger.error('Failed to decrypt access token:', decryptError);
+      return errorResponse('Failed to decrypt access token', 200, {
+        fields: null,
+        details: decryptError.message 
+      });
     }
 
     // Fetch table metadata from Airtable API
     const metaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
-    console.log('Fetching metadata from Airtable:', metaUrl);
+    logger.debug('Fetching metadata from Airtable:', metaUrl);
     const metaResponse = await fetch(metaUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -64,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     if (!metaResponse.ok) {
       const errorText = await metaResponse.text();
-      console.error('Airtable metadata API error:', {
+      logger.error('Airtable metadata API error:', {
         status: metaResponse.status,
         statusText: metaResponse.statusText,
         error: errorText,
@@ -74,7 +67,7 @@ export async function POST(req: NextRequest) {
       });
       
       // If metadata API fails, return empty to trigger fallback
-      return NextResponse.json({ 
+      return jsonResponse({ 
         fields: null,
         error: `Metadata API failed: ${metaResponse.status} ${metaResponse.statusText}`,
         details: errorText
@@ -83,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const metaData = await metaResponse.json();
     
-    console.log('Airtable metadata response received:', {
+    logger.debug('Airtable metadata response received:', {
       hasData: !!metaData,
       tableCount: metaData.tables?.length || 0,
       baseId,
@@ -96,9 +89,9 @@ export async function POST(req: NextRequest) {
     );
 
     if (!table) {
-      console.log('Table not found in metadata, available tables:', 
+      logger.debug('Table not found in metadata, available tables:', 
         metaData.tables?.map((t: any) => ({ name: t.name, id: t.id })));
-      return NextResponse.json({ 
+      return jsonResponse({ 
         fields: null,
         error: 'Table not found in base',
         availableTables: metaData.tables?.map((t: any) => t.name)
@@ -111,10 +104,10 @@ export async function POST(req: NextRequest) {
       type: f.type,
       id: f.id
     }));
-    console.log('Table fields found:', fieldTypes);
+    logger.debug('Table fields found:', fieldTypes);
 
     // Return the table with its fields including all metadata
-    return NextResponse.json({
+    return jsonResponse({
       id: table.id,
       name: table.name,
       fields: table.fields || [],
@@ -122,14 +115,14 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Error fetching Airtable metadata:', {
+    logger.error('Error fetching Airtable metadata:', {
       error: error.message,
       stack: error.stack,
       integrationId,
       baseId,
       tableName
     });
-    return NextResponse.json(
+    return jsonResponse(
       { 
         error: 'Failed to fetch metadata', 
         fields: null,

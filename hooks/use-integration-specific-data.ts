@@ -3,6 +3,8 @@ import { useAuth } from './use-auth'
 import { useAuthStore } from '@/stores/authStore'
 import { apiClient } from '@/lib/apiClient'
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseIntegrationSpecificDataOptions {
   integrationId?: string
   providerId?: string
@@ -16,19 +18,19 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
 
   // Helper function to handle authentication failures
   const handleAuthFailure = useCallback(async (originalError: any) => {
-    console.log("🔄 Authentication failed, attempting session refresh...")
+    logger.debug("🔄 Authentication failed, attempting session refresh...")
     
     try {
       const refreshSuccess = await refreshSession()
       if (refreshSuccess) {
-        console.log("✅ Session refreshed successfully")
+        logger.debug("✅ Session refreshed successfully")
         return true
       } else {
-        console.error("❌ Session refresh failed")
+        logger.error("❌ Session refresh failed")
         return false
       }
     } catch (refreshError) {
-      console.error("❌ Session refresh error:", refreshError)
+      logger.error("❌ Session refresh error:", refreshError)
       return false
     }
   }, [refreshSession])
@@ -36,7 +38,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Discord-specific data loading
   const loadDiscordData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'discord') {
-      console.warn('Cannot load Discord data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Discord data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -58,7 +60,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -78,7 +80,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Discord data after refresh'
                    setError(errorMessage)
-                   console.error('Discord data loading retry error:', retryErr)
+                   logger.error('Discord data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -86,7 +88,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Discord data'
              setError(errorMessage)
-             console.error('Discord data loading error:', err)
+             logger.error('Discord data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -96,7 +98,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Notion-specific data loading
   const loadNotionData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'notion') {
-      console.warn('Cannot load Notion data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Notion data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -118,7 +120,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -138,7 +140,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Notion data after refresh'
                    setError(errorMessage)
-                   console.error('Notion data loading retry error:', retryErr)
+                   logger.error('Notion data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -146,7 +148,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Notion data'
              setError(errorMessage)
-             console.error('Notion data loading error:', err)
+             logger.error('Notion data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -156,7 +158,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Slack-specific data loading
   const loadSlackData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'slack') {
-      console.warn('Cannot load Slack data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Slack data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -188,7 +190,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -218,7 +220,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Slack data after refresh'
                    setError(errorMessage)
-                   console.error('Slack data loading retry error:', retryErr)
+                   logger.error('Slack data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -226,7 +228,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Slack data'
              setError(errorMessage)
-             console.error('Slack data loading error:', err)
+             logger.error('Slack data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -236,7 +238,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Trello-specific data loading
   const loadTrelloData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'trello') {
-      console.warn('Cannot load Trello data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Trello data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -258,7 +260,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -278,7 +280,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Trello data after refresh'
                    setError(errorMessage)
-                   console.error('Trello data loading retry error:', retryErr)
+                   logger.error('Trello data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -286,7 +288,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Trello data'
              setError(errorMessage)
-             console.error('Trello data loading error:', err)
+             logger.error('Trello data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -296,7 +298,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Google Sheets-specific data loading
   const loadGoogleSheetsData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'google-sheets') {
-      console.warn('Cannot load Google Sheets data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Google Sheets data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -318,7 +320,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -338,7 +340,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Google Sheets data after refresh'
                    setError(errorMessage)
-                   console.error('Google Sheets data loading retry error:', retryErr)
+                   logger.error('Google Sheets data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -346,7 +348,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Google Sheets data'
              setError(errorMessage)
-             console.error('Google Sheets data loading error:', err)
+             logger.error('Google Sheets data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -356,7 +358,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Gmail-specific data loading
   const loadGmailData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'gmail') {
-      console.warn('Cannot load Gmail data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Gmail data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -378,7 +380,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -398,7 +400,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load Gmail data after refresh'
                    setError(errorMessage)
-                   console.error('Gmail data loading retry error:', retryErr)
+                   logger.error('Gmail data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -406,7 +408,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load Gmail data'
              setError(errorMessage)
-             console.error('Gmail data loading error:', err)
+             logger.error('Gmail data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -416,7 +418,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // HubSpot-specific data loading
   const loadHubSpotData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'hubspot') {
-      console.warn('Cannot load HubSpot data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load HubSpot data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -438,7 +440,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               console.log("🔐 Authentication error detected, attempting session refresh...")
+               logger.debug("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -458,7 +460,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                  } catch (retryErr: any) {
                    const errorMessage = retryErr.message || 'Failed to load HubSpot data after refresh'
                    setError(errorMessage)
-                   console.error('HubSpot data loading retry error:', retryErr)
+                   logger.error('HubSpot data loading retry error:', retryErr)
                    return null
                  }
                }
@@ -466,7 +468,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
              
              const errorMessage = err.message || 'Failed to load HubSpot data'
              setError(errorMessage)
-             console.error('HubSpot data loading error:', err)
+             logger.error('HubSpot data loading error:', err)
              return null
            } finally {
              setLoading(false)
@@ -476,7 +478,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Airtable-specific data loading
   const loadAirtableData = useCallback(async (dataType: string, options: any = {}) => {
     if (!user || !integrationId || providerId !== 'airtable') {
-      console.warn('Cannot load Airtable data: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Airtable data: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -498,7 +500,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } catch (err: any) {
       // Check if it's an authentication error
       if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-        console.log("🔐 Authentication error detected, attempting session refresh...")
+        logger.debug("🔐 Authentication error detected, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(err)
         
         if (refreshSuccess) {
@@ -518,7 +520,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
           } catch (retryErr: any) {
             const errorMessage = retryErr.message || 'Failed to load Airtable data after refresh'
             setError(errorMessage)
-            console.error('Airtable data loading retry error:', retryErr)
+            logger.error('Airtable data loading retry error:', retryErr)
             return null
           }
         }
@@ -526,7 +528,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
       
       const errorMessage = err.message || 'Failed to load Airtable data'
       setError(errorMessage)
-      console.error('Airtable data loading error:', err)
+      logger.error('Airtable data loading error:', err)
       return null
     } finally {
       setLoading(false)
@@ -536,7 +538,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Notion database properties loading
   const loadNotionDatabaseProperties = useCallback(async (databaseId: string) => {
     if (!user || !integrationId || providerId !== 'notion') {
-      console.warn('Cannot load Notion database properties: missing user, integrationId, or wrong provider')
+      logger.warn('Cannot load Notion database properties: missing user, integrationId, or wrong provider')
       return null
     }
 
@@ -558,7 +560,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } catch (err: any) {
       // Check if it's an authentication error
       if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-        console.log("🔐 Authentication error detected, attempting session refresh...")
+        logger.debug("🔐 Authentication error detected, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(err)
         
         if (refreshSuccess) {
@@ -578,7 +580,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
           } catch (retryErr: any) {
             const errorMessage = retryErr.message || 'Failed to load Notion database properties after refresh'
             setError(errorMessage)
-            console.error('Notion database properties loading retry error:', retryErr)
+            logger.error('Notion database properties loading retry error:', retryErr)
             return null
           }
         }
@@ -586,7 +588,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
       
       const errorMessage = err.message || 'Failed to load Notion database properties'
       setError(errorMessage)
-      console.error('Notion database properties loading error:', err)
+      logger.error('Notion database properties loading error:', err)
       return null
     } finally {
       setLoading(false)
@@ -596,7 +598,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
   // Generic data loading function that routes to the appropriate provider-specific function
   const loadData = useCallback(async (dataType: string, options: any = {}) => {
     if (!providerId) {
-      console.warn('Cannot load data: providerId is required')
+      logger.warn('Cannot load data: providerId is required')
       return null
     }
 
@@ -618,7 +620,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
       case 'airtable':
         return loadAirtableData(dataType, options)
       default:
-        console.warn(`No specific data loader for provider: ${providerId}`)
+        logger.warn(`No specific data loader for provider: ${providerId}`)
         return null
     }
   }, [providerId, loadDiscordData, loadNotionData, loadSlackData, loadTrelloData, loadGoogleSheetsData, loadGmailData, loadHubSpotData, loadAirtableData])

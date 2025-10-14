@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
+import { logger } from '@/lib/utils/logger'
+
 interface NotionConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -75,8 +77,8 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     }
     
     // New visibility condition logic for actions like Get Page Details
-    console.log('🔍 [NotionConfig] Processing visibility conditions for:', nodeInfo.type);
-    console.log('  Current values:', {
+    logger.debug('🔍 [NotionConfig] Processing visibility conditions for:', nodeInfo.type);
+    logger.debug('  Current values:', {
       workspace: values.workspace,
       operation: values.operation,
       page: values.page
@@ -86,13 +88,13 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     const isFieldVisible = (field: any): boolean => {
       // Always show fields with "always" condition
       if (field.visibilityCondition === 'always') {
-        console.log(`  ✅ Field '${field.name}' - always visible`);
+        logger.debug(`  ✅ Field '${field.name}' - always visible`);
         return true;
       }
       
       // Fields without visibility conditions default to visible (for legacy compatibility)
       if (!field.visibilityCondition) {
-        console.log(`  ✅ Field '${field.name}' - no visibility condition (legacy)`);
+        logger.debug(`  ✅ Field '${field.name}' - no visibility condition (legacy)`);
         return true;
       }
       
@@ -118,12 +120,12 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
                 if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
                 return Array.isArray(value) && value.includes(fieldValue);
               default:
-                console.warn(`  ⚠️ Unknown operator in 'and' condition: ${operator}`);
+                logger.warn(`  ⚠️ Unknown operator in 'and' condition: ${operator}`);
                 return true;
             }
           });
 
-          console.log(`  ${allConditions ? '✅' : '❌'} Field '${field.name}' visibility (AND):`, {
+          logger.debug(`  ${allConditions ? '✅' : '❌'} Field '${field.name}' visibility (AND):`, {
             conditions: field.visibilityCondition.and,
             values: field.visibilityCondition.and.map((c: any) => ({ [c.field]: values[c.field] })),
             visible: allConditions
@@ -156,12 +158,12 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
               return Array.isArray(field.visibilityCondition.value) &&
                      field.visibilityCondition.value.includes(fieldValue);
             default:
-              console.warn(`  ⚠️ Unknown operator: ${operator}`);
+              logger.warn(`  ⚠️ Unknown operator: ${operator}`);
               return true;
           }
         })();
         
-        console.log(`  ${result ? '✅' : '❌'} Field '${field.name}' visibility:`, {
+        logger.debug(`  ${result ? '✅' : '❌'} Field '${field.name}' visibility:`, {
           condition: field.visibilityCondition,
           dependsOnValue: fieldValue,
           visible: result
@@ -170,7 +172,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
         return result;
       }
       
-      console.log(`  ⚠️ Field '${field.name}' - unexpected visibility condition type:`, field.visibilityCondition);
+      logger.debug(`  ⚠️ Field '${field.name}' - unexpected visibility condition type:`, field.visibilityCondition);
       return true;
     };
     
@@ -190,23 +192,23 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
   // Load workspaces immediately when component mounts
   useEffect(() => {
     const loadWorkspaces = async () => {
-      console.log('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
-      console.log('  Current dynamic options:', props.dynamicOptions);
-      console.log('  Loading fields:', loadingFields);
+      logger.debug('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
+      logger.debug('  Current dynamic options:', props.dynamicOptions);
+      logger.debug('  Loading fields:', loadingFields);
       
       // Only load if not already loading and we don't have options yet
       if (!loadingFields.has('workspace') && !props.dynamicOptions['workspace']?.length) {
-        console.log('  ✅ Loading workspaces...');
+        logger.debug('  ✅ Loading workspaces...');
         setIsLoadingWorkspace(true);
         try {
           await loadOptions('workspace', undefined, undefined, true);
         } catch (error) {
-          console.error('  ❌ Failed to load workspaces:', error);
+          logger.error('  ❌ Failed to load workspaces:', error);
         } finally {
           setIsLoadingWorkspace(false);
         }
       } else {
-        console.log('  ⏭️ Skipping workspace load:', {
+        logger.debug('  ⏭️ Skipping workspace load:', {
           isLoading: loadingFields.has('workspace'),
           hasOptions: props.dynamicOptions['workspace']?.length > 0
         });
@@ -237,19 +239,19 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
         );
         
         if (hasOperationField && !values.operation) {
-          console.log('🔄 [NotionConfig] Skipping page load - operation not selected yet');
+          logger.debug('🔄 [NotionConfig] Skipping page load - operation not selected yet');
           return; // Don't load pages until operation is selected
         }
       }
       
-      console.log('🔄 [NotionConfig] Auto-loading pages for workspace:', values.workspace);
+      logger.debug('🔄 [NotionConfig] Auto-loading pages for workspace:', values.workspace);
       
       // Check if we already have pages loaded for this workspace
       if (!props.dynamicOptions['page']?.length && !loadingFields.has('page')) {
         try {
           await loadOptions('page', 'workspace', values.workspace, true);
         } catch (error) {
-          console.error('  ❌ Failed to auto-load pages:', error);
+          logger.error('  ❌ Failed to auto-load pages:', error);
         }
       }
     };

@@ -7,6 +7,8 @@
 
 import { FieldType, FieldClassification, FieldPriority } from '../schema/fieldClassifier';
 
+import { logger } from '@/lib/utils/logger'
+
 export interface FallbackStrategy {
   type: 'template' | 'default_value' | 'user_input' | 'skip' | 'context_derived' | 'api_lookup';
   priority: number;
@@ -47,7 +49,7 @@ export class FallbackHandler {
    * Handle fallback generation when AI fails or context is insufficient
    */
   static async handleFallback(context: FallbackContext): Promise<FallbackResult> {
-    console.log(`🔄 Handling fallback for field: ${context.field.name}`);
+    logger.debug(`🔄 Handling fallback for field: ${context.field.name}`);
     
     const strategies = this.getFallbackStrategies(context);
     
@@ -59,7 +61,7 @@ export class FallbackHandler {
       
       const result = await this.executeStrategy(strategy, context);
       if (result.success) {
-        console.log(`✅ Fallback successful using strategy: ${strategy.type}`);
+        logger.debug(`✅ Fallback successful using strategy: ${strategy.type}`);
         return result;
       }
     }
@@ -158,7 +160,7 @@ export class FallbackHandler {
           };
       }
     } catch (error: any) {
-      console.error(`❌ Strategy ${strategy.type} failed:`, error);
+      logger.error(`❌ Strategy ${strategy.type} failed:`, error);
       return {
         success: false,
         value: null,

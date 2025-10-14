@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +16,7 @@ export async function POST() {
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
     
     if (!user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Quick check: Do we have any integrations with the current user ID?
@@ -24,7 +27,7 @@ export async function POST() {
 
     // If user has integrations with current ID, likely no orphaned ones
     if (currentCount && currentCount > 0) {
-      return NextResponse.json({
+      return jsonResponse({
         hasOrphaned: false,
         currentCount
       })
@@ -38,7 +41,7 @@ export async function POST() {
     const userEmail = user.email
     
     if (!userEmail) {
-      return NextResponse.json({
+      return jsonResponse({
         hasOrphaned: false,
         reason: "No email to match against"
       })
@@ -53,7 +56,7 @@ export async function POST() {
       .neq("id", user.id)
 
     if (!userProfiles || userProfiles.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         hasOrphaned: false,
         reason: "No alternate user profiles found"
       })
@@ -66,16 +69,16 @@ export async function POST() {
       .select("*", { count: "exact", head: true })
       .in("user_id", oldUserIds)
 
-    return NextResponse.json({
+    return jsonResponse({
       hasOrphaned: orphanedCount > 0,
       orphanedCount,
       currentCount: currentCount || 0
     })
     
   } catch (error: any) {
-    console.error("Check orphaned error:", error)
+    logger.error("Check orphaned error:", error)
     // Don't fail the check, just return false
-    return NextResponse.json({
+    return jsonResponse({
       hasOrphaned: false,
       error: error.message
     })

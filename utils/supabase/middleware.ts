@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -29,7 +31,7 @@ export async function updateSession(request: NextRequest) {
               response.cookies.set(name, value, options)
             })
           } catch (error) {
-            console.warn("Failed to set cookies:", error)
+            logger.warn("Failed to set cookies:", error)
           }
         },
       },
@@ -43,7 +45,7 @@ export async function updateSession(request: NextRequest) {
 
     return { response, supabase, user }
   } catch (error) {
-    console.warn("Failed to get user from Supabase:", error)
+    logger.warn("Failed to get user from Supabase:", error)
     return { response, supabase, user: null }
   }
 }

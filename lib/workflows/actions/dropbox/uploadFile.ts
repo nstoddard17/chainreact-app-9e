@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
 import { FileStorageService } from "@/lib/storage/fileStorage"
 
+import { logger } from '@/lib/utils/logger'
+
 interface DropboxUploadConfig {
   fileName: string
   sourceType: 'file' | 'url' | 'text' | 'node'
@@ -18,7 +20,7 @@ export async function uploadDropboxFile(
   context: any
 ): Promise<ActionResult> {
   try {
-    console.log('[Dropbox Upload] Starting upload with config:', {
+    logger.debug('[Dropbox Upload] Starting upload with config:', {
       fileName: config.fileName,
       sourceType: config.sourceType,
       path: config.path
@@ -67,7 +69,7 @@ export async function uploadDropboxFile(
           throw new Error('No file uploaded')
         }
 
-        console.log('[Dropbox Upload] Processing uploaded file:', {
+        logger.debug('[Dropbox Upload] Processing uploaded file:', {
           type: typeof fileInfo,
           hasFilePath: !!fileInfo.filePath,
           hasContent: !!fileInfo.content,
@@ -176,7 +178,7 @@ export async function uploadDropboxFile(
     // Add filename to path
     const fullPath = destinationPath ? `${destinationPath}/${actualFileName}` : `/${actualFileName}`
 
-    console.log('[Dropbox Upload] Uploading to path:', fullPath)
+    logger.debug('[Dropbox Upload] Uploading to path:', fullPath)
 
     // Check if folder exists, create if it doesn't and path is specified
     if (destinationPath && destinationPath !== '') {
@@ -195,7 +197,7 @@ export async function uploadDropboxFile(
 
         if (!checkFolderResponse.ok) {
           // Folder doesn't exist, create it
-          console.log('[Dropbox Upload] Folder does not exist, creating:', destinationPath)
+          logger.debug('[Dropbox Upload] Folder does not exist, creating:', destinationPath)
 
           const createFolderResponse = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
             method: 'POST',
@@ -211,14 +213,14 @@ export async function uploadDropboxFile(
 
           if (!createFolderResponse.ok) {
             const errorData = await createFolderResponse.json()
-            console.error('[Dropbox Upload] Failed to create folder:', errorData)
+            logger.error('[Dropbox Upload] Failed to create folder:', errorData)
             // Continue with upload anyway - folder might exist but we can't access metadata
           } else {
-            console.log('[Dropbox Upload] Folder created successfully')
+            logger.debug('[Dropbox Upload] Folder created successfully')
           }
         }
       } catch (error) {
-        console.warn('[Dropbox Upload] Error checking/creating folder, continuing with upload:', error)
+        logger.warn('[Dropbox Upload] Error checking/creating folder, continuing with upload:', error)
       }
     }
 
@@ -245,7 +247,7 @@ export async function uploadDropboxFile(
 
     const uploadResult = await uploadResponse.json()
 
-    console.log('[Dropbox Upload] File uploaded successfully:', uploadResult)
+    logger.debug('[Dropbox Upload] File uploaded successfully:', uploadResult)
 
     return {
       success: true,
@@ -263,7 +265,7 @@ export async function uploadDropboxFile(
       }
     }
   } catch (error: any) {
-    console.error('[Dropbox Upload] Error:', error)
+    logger.error('[Dropbox Upload] Error:', error)
     return {
       success: false,
       error: error.message || 'Failed to upload file to Dropbox'

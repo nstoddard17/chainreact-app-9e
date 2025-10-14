@@ -5,6 +5,8 @@
 import { AirtableApiError } from './types'
 import { fetchAirtableWithRetry } from '@/lib/integrations/airtableRateLimiter'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create Airtable API error with proper context
  */
@@ -83,7 +85,7 @@ export function getAirtableApiHeaders(accessToken: string): Record<string, strin
 export async function parseAirtableApiResponse<T>(response: Response): Promise<T[]> {
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`❌ Airtable API error: ${response.status} ${errorText}`)
+    logger.error(`❌ Airtable API error: ${response.status} ${errorText}`)
     
     throw createAirtableApiError(
       `Airtable API error: ${response.status}`,

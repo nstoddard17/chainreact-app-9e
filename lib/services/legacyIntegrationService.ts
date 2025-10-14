@@ -1,14 +1,16 @@
-import { executeAction } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { executeAction } from "@/lib/workflows/executeNode"
 import { ExecutionContext } from "./workflowExecutionService"
+
+import { logger } from '@/lib/utils/logger'
 
 export class LegacyIntegrationService {
   async executeFallbackAction(node: any, context: ExecutionContext): Promise<any> {
-    console.log(`🔄 Fallback to legacy action execution for: ${node.data.type}`)
-    console.log(`📌 Context userId: ${context.userId}, workflowId: ${context.workflowId}`)
+    logger.debug(`🔄 Fallback to legacy action execution for: ${node.data.type}`)
+    logger.debug(`📌 Context userId: ${context.userId}, workflowId: ${context.workflowId}`)
     
     if (!context.userId) {
-      console.error('❌ ERROR: userId is undefined in ExecutionContext!')
-      console.error('Full context:', JSON.stringify({
+      logger.error('❌ ERROR: userId is undefined in ExecutionContext!')
+      logger.error('Full context:', JSON.stringify({
         hasData: !!context.data,
         hasVariables: !!context.variables,
         hasResults: !!context.results,
@@ -28,7 +30,7 @@ export class LegacyIntegrationService {
   }
 
   async executeOneDriveUpload(node: any, context: ExecutionContext): Promise<any> {
-    console.log("☁️ Executing OneDrive upload (legacy)")
+    logger.debug("☁️ Executing OneDrive upload (legacy)")
     
     if (context.testMode) {
       return {
@@ -43,7 +45,7 @@ export class LegacyIntegrationService {
   }
 
   async executeDropboxUpload(node: any, context: ExecutionContext): Promise<any> {
-    console.log("📦 Executing Dropbox upload (legacy)")
+    logger.debug("📦 Executing Dropbox upload (legacy)")
     
     if (context.testMode) {
       return {

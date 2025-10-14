@@ -1,6 +1,7 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 export async function GET() {
   const cookieStore = await cookies()
@@ -13,7 +14,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Filter by user_id to work with RLS policies
@@ -24,12 +25,12 @@ export async function GET() {
       .order("updated_at", { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
-    return NextResponse.json(data)
+    return jsonResponse(data)
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     const body = await request.json()
@@ -64,11 +65,11 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return errorResponse(error.message , 500)
     }
 
-    return NextResponse.json(data)
+    return jsonResponse(data)
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

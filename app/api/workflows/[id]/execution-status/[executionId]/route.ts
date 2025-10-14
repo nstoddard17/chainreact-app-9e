@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { backendLogger } from '@/lib/logging/backendLogger'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Get real-time execution status for live mode visualization
@@ -25,7 +28,7 @@ export async function GET(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get execution progress
@@ -40,14 +43,14 @@ export async function GET(
       .maybeSingle()
 
     if (progressError) {
-      console.error('Error fetching execution progress:', progressError)
+      logger.error('Error fetching execution progress:', progressError)
 
       // If table doesn't exist, return a default progress response with error info
       if (progressError.message?.includes('relation') && progressError.message?.includes('does not exist')) {
-        console.log('execution_progress table does not exist yet, returning default progress')
+        logger.debug('execution_progress table does not exist yet, returning default progress')
 
         // Return a simulated progress response
-        return NextResponse.json({
+        return jsonResponse({
           execution: {
             id: executionId,
             workflowId,
@@ -74,17 +77,14 @@ export async function GET(
         })
       }
 
-      return NextResponse.json(
-        { error: 'Failed to fetch execution progress' },
-        { status: 500 }
-      )
+      return errorResponse('Failed to fetch execution progress' , 500)
     }
 
     if (!progress) {
       // No progress record yet, return default
-      console.log('No progress record found yet for execution:', executionId)
+      logger.debug('No progress record found yet for execution:', executionId)
 
-      return NextResponse.json({
+      return jsonResponse({
         execution: {
           id: executionId,
           workflowId,
@@ -136,7 +136,7 @@ export async function GET(
     // Get backend logs for this execution
     const backendLogs = backendLogger.getLogs(executionId, lastLogTimestamp || undefined)
 
-    return NextResponse.json({
+    return jsonResponse({
       execution: {
         id: executionId,
         workflowId,
@@ -163,10 +163,7 @@ export async function GET(
       backendLogs, // Include backend logs for debug modal
     })
   } catch (error: any) {
-    console.error('Error getting execution status:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to get execution status' },
-      { status: 500 }
-    )
+    logger.error('Error getting execution status:', error)
+    return errorResponse(error.message || 'Failed to get execution status' , 500)
   }
 }

@@ -6,6 +6,8 @@
 import { AirtableIntegration, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface TaskOption {
   value: string
   label: string
@@ -62,7 +64,7 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
 ): Promise<TaskOption[]> => {
   const { baseId, tableName } = options
 
-  console.log("🔍 Airtable tasks fetcher called with:", {
+  logger.debug("🔍 Airtable tasks fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -76,16 +78,16 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      console.log('⚠️ Base ID or Table name missing, returning empty list')
+      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    console.log('🔍 Fetching Airtable tasks from API...')
+    logger.debug('🔍 Fetching Airtable tasks from API...')
 
     // Fetch records to extract unique tasks
     const queryParams = new URLSearchParams()
@@ -102,7 +104,7 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        console.log('📊 [Airtable Tasks] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.debug('📊 [Airtable Tasks] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -120,12 +122,12 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
           }
 
           if (taskNameField) {
-            console.log(`📊 [Airtable Tasks] Found matching field '${taskNameField}'`)
+            logger.debug(`📊 [Airtable Tasks] Found matching field '${taskNameField}'`)
             const taskField = record.fields[taskNameField]
 
             // Tasks might be an array or a string
             if (Array.isArray(taskField)) {
-              console.log(`📊 [Airtable Tasks] Field is array:`, taskField)
+              logger.debug(`📊 [Airtable Tasks] Field is array:`, taskField)
               taskField.forEach(task => {
                 if (task && typeof task === 'string') {
                   // If it looks like a full description (contains sentence-like text), try to extract just the name
@@ -149,11 +151,11 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
       label: task
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    console.log(`✅ Airtable tasks fetched successfully: ${options.length} unique tasks`)
+    logger.debug(`✅ Airtable tasks fetched successfully: ${options.length} unique tasks`)
     return options
 
   } catch (error: any) {
-    console.error("Error fetching Airtable tasks:", error)
+    logger.error("Error fetching Airtable tasks:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

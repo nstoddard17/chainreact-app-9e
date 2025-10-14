@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -169,7 +171,7 @@ export async function createHubSpotContact(params: ActionParams): Promise<Action
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("HubSpot create contact failed:", error)
+    logger.error("HubSpot create contact failed:", error)
     return {
       success: false,
       error: error.message || "Failed to create HubSpot contact"

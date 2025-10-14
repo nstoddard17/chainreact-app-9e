@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +18,7 @@ export async function POST() {
     const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
     
     if (!user) {
-      return NextResponse.json({ error: "Not authenticated", userError }, { status: 401 })
+      return errorResponse("Not authenticated", userError , 401)
     }
 
     const currentUserId = user.id
@@ -32,11 +35,9 @@ export async function POST() {
       .neq("user_id", currentUserId)
     
     if (searchError) {
-      console.error("Error searching for orphaned integrations:", searchError)
-      return NextResponse.json({ 
-        error: "Failed to search for orphaned integrations",
-        details: searchError.message 
-      }, { status: 500 })
+      logger.error("Error searching for orphaned integrations:", searchError)
+      return errorResponse("Failed to search for orphaned integrations", 500, { details: searchError.message 
+       })
     }
 
     // Filter integrations that likely belong to this user
@@ -52,7 +53,7 @@ export async function POST() {
     }) || []
 
     if (integrationsToMigrate.length === 0) {
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "No orphaned integrations found",
         migrated: 0
@@ -74,7 +75,7 @@ export async function POST() {
     const successCount = results.filter(r => r.status === "fulfilled").length
     const failureCount = results.filter(r => r.status === "rejected").length
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Migration completed`,
       migrated: successCount,
@@ -87,11 +88,10 @@ export async function POST() {
     })
     
   } catch (error: any) {
-    console.error("Migration error:", error)
-    return NextResponse.json({ 
-      error: "Migration failed",
-      message: error.message,
-      stack: error.stack 
-    }, { status: 500 })
+    logger.error("Migration error:", error)
+    return errorResponse("Migration failed", 500, {
+        message: error.message,
+        stack: error.stack 
+      })
   }
 }

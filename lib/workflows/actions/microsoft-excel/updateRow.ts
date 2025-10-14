@@ -1,5 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Updates a row in a Microsoft Excel worksheet using the Microsoft Graph API
  */
@@ -9,7 +11,7 @@ export async function updateMicrosoftExcelRow(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log('📊 [Excel Update Row] Starting with config:', config);
+    logger.debug('📊 [Excel Update Row] Starting with config:', config);
 
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, { input })
@@ -23,7 +25,7 @@ export async function updateMicrosoftExcelRow(
       updateMultiple = false
     } = resolvedConfig
 
-    console.log('📊 [Excel Update Row] Resolved config:', {
+    logger.debug('📊 [Excel Update Row] Resolved config:', {
       workbookId,
       worksheetName,
       rowNumber,
@@ -136,14 +138,14 @@ export async function updateMicrosoftExcelRow(
         const headers = allRows[0] || []
 
         // Prepare updates for each column
-        console.log('📊 [Excel Update Row] Processing updateMapping:', updateMapping);
-        console.log('📊 [Excel Update Row] Headers found:', headers);
+        logger.debug('📊 [Excel Update Row] Processing updateMapping:', updateMapping);
+        logger.debug('📊 [Excel Update Row] Headers found:', headers);
 
         for (const [column, value] of Object.entries(updateMapping)) {
           const columnIndex = headers.findIndex((h: string) => h === column)
 
           if (columnIndex === -1) {
-            console.warn(`❌ Column "${column}" not found in headers, skipping`)
+            logger.warn(`❌ Column "${column}" not found in headers, skipping`)
             continue
           }
 
@@ -151,7 +153,7 @@ export async function updateMicrosoftExcelRow(
           const columnLetter = String.fromCharCode(65 + columnIndex)
           const cellAddress = `${worksheetName}!${columnLetter}${row}`
 
-          console.log(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
+          logger.debug(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
 
           // Update the cell
           const updateResponse = await fetch(
@@ -170,9 +172,9 @@ export async function updateMicrosoftExcelRow(
 
           if (!updateResponse.ok) {
             const error = await updateResponse.text()
-            console.error(`❌ Failed to update cell ${cellAddress}:`, error)
+            logger.error(`❌ Failed to update cell ${cellAddress}:`, error)
           } else {
-            console.log(`✅ Successfully updated cell ${cellAddress}`);
+            logger.debug(`✅ Successfully updated cell ${cellAddress}`);
             updatedRanges.push(cellAddress)
           }
         }
@@ -193,7 +195,7 @@ export async function updateMicrosoftExcelRow(
     }
 
   } catch (error: any) {
-    console.error('❌ [Microsoft Excel Update Row] Error:', error)
+    logger.error('❌ [Microsoft Excel Update Row] Error:', error)
     return {
       success: false,
       output: {},

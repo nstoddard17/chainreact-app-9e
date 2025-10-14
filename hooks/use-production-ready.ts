@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Hook to handle production cold starts and ensure app is ready
  */
@@ -44,7 +46,7 @@ export function useProductionReady() {
 
     // Force ready after max wait time (2 seconds in production)
     const timeout = setTimeout(() => {
-      console.warn('⚠️ Forcing app ready state after timeout')
+      logger.warn('⚠️ Forcing app ready state after timeout')
       setIsReady(true)
       clearInterval(interval)
     }, 2000) // Faster ready state

@@ -1,6 +1,7 @@
 import { summarizeContent, extractInformation, analyzeSentiment, translateText, generateContent, classifyContent } from "@/lib/workflows/actions/aiDataProcessing"
 import { applyTemplateDefaultsToConfig } from "@/lib/workflows/nodes/providers/ai/actions/templates"
 import { ExecutionContext } from "./workflowExecutionService"
+import { logger } from '@/lib/utils/logger'
 
 export class AIActionsService {
   async executeAIAction(node: any, context: ExecutionContext): Promise<any> {
@@ -9,7 +10,7 @@ export class AIActionsService {
     const configWithTemplates = applyTemplateDefaultsToConfig(nodeType, { ...resolvedConfig })
     const preparedConfig = this.prepareConfig(nodeType, configWithTemplates, context)
 
-    console.log(`🤖 Executing AI action: ${nodeType}`)
+    logger.debug(`🤖 Executing AI action: ${nodeType}`)
 
     if (context.testMode) {
       return this.buildTestResponse(nodeType, preparedConfig, context)
@@ -36,12 +37,12 @@ export class AIActionsService {
   }
 
   async executeAIAgent(node: any, context: ExecutionContext): Promise<any> {
-    console.log("🤖 Executing AI Agent")
+    logger.debug("🤖 Executing AI Agent")
 
     // Resolve variable references in config before executing
     const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
 
-    console.log("🤖 AI Agent executing with resolved config keys:", Object.keys(aiResolvedConfig || {}))
+    logger.debug("🤖 AI Agent executing with resolved config keys:", Object.keys(aiResolvedConfig || {}))
 
     // Call AI agent directly
     const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
@@ -53,12 +54,12 @@ export class AIActionsService {
   }
 
   async executeAIRouter(node: any, context: ExecutionContext): Promise<any> {
-    console.log("🤖 Executing AI Router")
+    logger.debug("🤖 Executing AI Router")
 
     // Resolve variable references in config before executing
     const resolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
 
-    console.log("🤖 AI Router executing with resolved config")
+    logger.debug("🤖 AI Router executing with resolved config")
 
     // Call AI router action
     const { executeAIRouter } = await import('@/lib/workflows/actions/aiRouterAction')
@@ -76,7 +77,7 @@ export class AIActionsService {
       const result = await handler()
       return this.formatActionResult(actionType, result)
     } catch (error: any) {
-      console.error(`❌ AI action ${actionType} failed:`, error)
+      logger.error(`❌ AI action ${actionType} failed:`, error)
       return {
         type: actionType,
         success: false,

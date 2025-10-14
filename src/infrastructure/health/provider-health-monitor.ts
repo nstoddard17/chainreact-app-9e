@@ -1,6 +1,8 @@
 import { providerRegistry } from '../../domains/integrations/use-cases/provider-registry'
 import { ConnectorContract } from '../../domains/integrations/ports/connector-contract'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ProviderHealthStatus {
   providerId: string
   providerName: string
@@ -48,7 +50,7 @@ export class ProviderHealthMonitor {
    * Start automated health monitoring
    */
   startMonitoring(): void {
-    console.log('🏥 Starting provider health monitoring...')
+    logger.debug('🏥 Starting provider health monitoring...')
     
     // Initial health check
     this.performHealthCheck().catch(console.error)
@@ -58,7 +60,7 @@ export class ProviderHealthMonitor {
       this.performHealthCheck().catch(console.error)
     }, this.checkIntervalMs)
     
-    console.log(`✅ Health monitoring started (check interval: ${this.checkIntervalMs / 1000}s)`)
+    logger.debug(`✅ Health monitoring started (check interval: ${this.checkIntervalMs / 1000}s)`)
   }
 
   /**
@@ -68,7 +70,7 @@ export class ProviderHealthMonitor {
     if (this.intervalId) {
       clearInterval(this.intervalId)
       this.intervalId = undefined
-      console.log('🛑 Provider health monitoring stopped')
+      logger.debug('🛑 Provider health monitoring stopped')
     }
   }
 
@@ -77,7 +79,7 @@ export class ProviderHealthMonitor {
    */
   async performHealthCheck(): Promise<SystemHealthReport> {
     const startTime = Date.now()
-    console.log('🔍 Performing system health check...')
+    logger.debug('🔍 Performing system health check...')
     
     const providers = providerRegistry.listProviders()
     const healthChecks = providers.map(async (provider) => {
@@ -133,7 +135,7 @@ export class ProviderHealthMonitor {
       generatedAt: new Date()
     }
     
-    console.log(`✅ Health check completed: ${healthyCount}/${providers.length} providers healthy (${Date.now() - startTime}ms)`)
+    logger.debug(`✅ Health check completed: ${healthyCount}/${providers.length} providers healthy (${Date.now() - startTime}ms)`)
     
     return report
   }
@@ -303,7 +305,7 @@ export class ProviderHealthMonitor {
    */
   clearCache(): void {
     this.healthCache.clear()
-    console.log('🧹 Provider health cache cleared')
+    logger.debug('🧹 Provider health cache cleared')
   }
 }
 

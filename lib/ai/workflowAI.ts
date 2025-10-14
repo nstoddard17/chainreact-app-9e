@@ -1,5 +1,7 @@
 import { OpenAI } from "openai"
 
+import { logger } from '@/lib/utils/logger'
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -658,7 +660,7 @@ export async function generateWorkflow(request: WorkflowGenerationRequest): Prom
 
     return workflow
   } catch (error) {
-    console.error("Error generating workflow:", error)
+    logger.error("Error generating workflow:", error)
     throw new Error("Failed to generate workflow")
   }
 }
@@ -747,7 +749,7 @@ export async function suggestNodeConfigurationWithVariables(nodeType: string, wo
       config: JSON.parse(response),
     }
   } catch (error) {
-    console.error("Error suggesting node configuration with variables:", error);
+    logger.error("Error suggesting node configuration with variables:", error);
     return {
       success: false,
       error: "Failed to suggest configuration"
@@ -782,7 +784,7 @@ export async function chatWithAI(message: string, context?: any): Promise<string
 
     return completion.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response."
   } catch (error) {
-    console.error("Error in AI chat:", error)
+    logger.error("Error in AI chat:", error)
     throw new Error("Failed to get AI response")
   }
 }

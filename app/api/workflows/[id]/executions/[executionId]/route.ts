@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * GET /api/workflows/[id]/executions/[executionId]
@@ -16,7 +19,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Fetch execution details
@@ -29,26 +32,17 @@ export async function GET(
       .single()
 
     if (error) {
-      console.error('Error fetching execution details:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch execution details' },
-        { status: 500 }
-      )
+      logger.error('Error fetching execution details:', error)
+      return errorResponse('Failed to fetch execution details' , 500)
     }
 
     if (!execution) {
-      return NextResponse.json(
-        { error: 'Execution not found' },
-        { status: 404 }
-      )
+      return errorResponse('Execution not found' , 404)
     }
 
-    return NextResponse.json(execution)
+    return jsonResponse(execution)
   } catch (error) {
-    console.error('Error in execution details API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error in execution details API:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

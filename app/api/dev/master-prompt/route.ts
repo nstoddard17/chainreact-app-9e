@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getCurrentMasterSystemPrompt } from '@/lib/ai/dynamicWorkflowAI'
 
 export async function GET() {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+    return errorResponse('Not available in production' , 403)
   }
   const systemPrompt = getCurrentMasterSystemPrompt()
-  return NextResponse.json({ success: true, systemPrompt })
+  return jsonResponse({ success: true, systemPrompt })
 }
 

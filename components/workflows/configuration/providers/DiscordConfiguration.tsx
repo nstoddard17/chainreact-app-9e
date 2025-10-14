@@ -8,6 +8,8 @@ import { FieldRenderer } from '../fields/FieldRenderer';
 import { useDiscordState } from '../hooks/useDiscordState';
 import { cn } from "@/lib/utils";
 
+import { logger } from '@/lib/utils/logger'
+
 // Discord-specific extended configuration
 // This includes Discord-specific UI features like bot status, channel permissions, etc.
 export const DISCORD_EXTENDED_CONFIG = {
@@ -74,7 +76,7 @@ export function DiscordConfiguration({
 
   // Log initial values when component mounts
   useEffect(() => {
-    console.log('🔍 [Discord] Component mounted with initial values:', {
+    logger.debug('🔍 [Discord] Component mounted with initial values:', {
       nodeType: nodeInfo?.type,
       currentNodeId,
       guildId: values.guildId,
@@ -86,12 +88,12 @@ export function DiscordConfiguration({
     });
 
     // Also log if values change
-    console.log('🔄 [Discord] Values received from parent:', JSON.stringify(values, null, 2));
+    logger.debug('🔄 [Discord] Values received from parent:', JSON.stringify(values, null, 2));
   }, []);
 
   // Track when values prop changes
   useEffect(() => {
-    console.log('📝 [Discord] Values prop changed:', {
+    logger.debug('📝 [Discord] Values prop changed:', {
       guildId: values.guildId,
       channelId: values.channelId,
       message: values.message,
@@ -138,7 +140,7 @@ export function DiscordConfiguration({
       return;
     }
 
-    console.log('🚀 [Discord] Submitting configuration with values:', {
+    logger.debug('🚀 [Discord] Submitting configuration with values:', {
       guildId: values.guildId,
       channelId: values.channelId,
       message: values.message,
@@ -168,14 +170,14 @@ export function DiscordConfiguration({
 
   // Ultra-simple field change handler with debouncing and loading state management
   const handleFieldChange = (fieldName: string, value: any) => {
-    console.log(`🔄 [Discord] Field change: ${fieldName} = ${value}`);
+    logger.debug(`🔄 [Discord] Field change: ${fieldName} = ${value}`);
     
     // Store the previous value for comparison
     const previousValue = values[fieldName];
     
     // Check if value actually changed
     if (value === previousValue) {
-      console.log(`✅ [Discord] ${fieldName} value unchanged, skipping processing`);
+      logger.debug(`✅ [Discord] ${fieldName} value unchanged, skipping processing`);
       return;
     }
     
@@ -186,7 +188,7 @@ export function DiscordConfiguration({
     if (fieldName === 'guildId') {
       // Cancel any pending channel loading from previous server
       if (channelLoadAbortController.current) {
-        console.log('🚫 [Discord] Canceling previous channel load');
+        logger.debug('🚫 [Discord] Canceling previous channel load');
         channelLoadAbortController.current.abort();
         channelLoadAbortController.current = null;
         isLoadingChannels.current = false;
@@ -208,7 +210,7 @@ export function DiscordConfiguration({
 
         // For discord_action_assign_role, clear userId and roleId and load them
         if (nodeInfo?.type === 'discord_action_assign_role') {
-          console.log('🎭 [Discord] Server selected for assign role action, clearing and loading users/roles');
+          logger.debug('🎭 [Discord] Server selected for assign role action, clearing and loading users/roles');
           setValue('userId', '');
           setValue('roleId', '');
 
@@ -220,13 +222,13 @@ export function DiscordConfiguration({
           });
 
           setTimeout(() => {
-            console.log('👥 [Discord] Loading members for assign role:', value);
+            logger.debug('👥 [Discord] Loading members for assign role:', value);
             loadOptions('userId', 'guildId', value, true)
               .then(() => {
-                console.log('✅ [Discord] Members loaded for assign role');
+                logger.debug('✅ [Discord] Members loaded for assign role');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading members:', error);
+                logger.error('❌ [Discord] Error loading members:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -245,13 +247,13 @@ export function DiscordConfiguration({
           });
 
           setTimeout(() => {
-            console.log('🎭 [Discord] Loading roles for assign role:', value);
+            logger.debug('🎭 [Discord] Loading roles for assign role:', value);
             loadOptions('roleId', 'guildId', value, true)
               .then(() => {
-                console.log('✅ [Discord] Roles loaded for assign role');
+                logger.debug('✅ [Discord] Roles loaded for assign role');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading roles:', error);
+                logger.error('❌ [Discord] Error loading roles:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -264,7 +266,7 @@ export function DiscordConfiguration({
         }
 
         // Check bot status for the selected guild first, then load channels if bot is connected
-        console.log('🤖 [Discord] Checking bot status before loading channels for guild:', value);
+        logger.debug('🤖 [Discord] Checking bot status before loading channels for guild:', value);
 
         // Create abort controller for this channel load
         channelLoadAbortController.current = new AbortController();
@@ -282,7 +284,7 @@ export function DiscordConfiguration({
         setTimeout(() => {
           // Only proceed if this is still the current guild (not aborted)
           if (currentAbortController.signal.aborted || currentGuildIdRef.current !== value) {
-            console.log('🚫 [Discord] Channel load aborted or guild changed');
+            logger.debug('🚫 [Discord] Channel load aborted or guild changed');
             isLoadingChannels.current = false;
             setLocalLoadingFields(prev => {
               const newSet = new Set(prev);
@@ -292,16 +294,16 @@ export function DiscordConfiguration({
             return;
           }
 
-          console.log('📥 [Discord] Loading channels for guild:', value);
+          logger.debug('📥 [Discord] Loading channels for guild:', value);
           loadOptions('channelId', 'guildId', value, true) // Force reload with true
             .then(() => {
               if (!currentAbortController.signal.aborted && currentGuildIdRef.current === value) {
-                console.log('✅ [Discord] Channels loaded successfully');
+                logger.debug('✅ [Discord] Channels loaded successfully');
               }
             })
             .catch((error) => {
               if (!currentAbortController.signal.aborted && currentGuildIdRef.current === value) {
-                console.error('❌ [Discord] Error loading channels:', error);
+                logger.error('❌ [Discord] Error loading channels:', error);
               }
             })
             .finally(() => {
@@ -335,13 +337,13 @@ export function DiscordConfiguration({
 
           // Load guild members with a delay
           setTimeout(() => {
-            console.log('👥 [Discord] Loading guild members for server:', value);
+            logger.debug('👥 [Discord] Loading guild members for server:', value);
             loadOptions('userIds', 'guildId', value, true)
               .then(() => {
-                console.log('✅ [Discord] Guild members loaded successfully');
+                logger.debug('✅ [Discord] Guild members loaded successfully');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading guild members:', error);
+                logger.error('❌ [Discord] Error loading guild members:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -366,7 +368,7 @@ export function DiscordConfiguration({
       if (value) {
         // For fetch messages action, load members when channel is selected
         if (nodeInfo?.type === 'discord_action_fetch_messages' && values.guildId) {
-          console.log('👥 [Discord] Loading members for fetch messages filter');
+          logger.debug('👥 [Discord] Loading members for fetch messages filter');
           // Set loading state for filterAuthor field
           setLocalLoadingFields(prev => {
             const newSet = new Set(prev);
@@ -378,10 +380,10 @@ export function DiscordConfiguration({
           setTimeout(() => {
             loadOptions('filterAuthor', 'guildId', values.guildId, true)
               .then(() => {
-                console.log('✅ [Discord] Members loaded for filter');
+                logger.debug('✅ [Discord] Members loaded for filter');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading members:', error);
+                logger.error('❌ [Discord] Error loading members:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -420,7 +422,7 @@ export function DiscordConfiguration({
               // Messages loaded successfully
             })
             .catch((error) => {
-              console.error('❌ [Discord] Error loading messages:', error);
+              logger.error('❌ [Discord] Error loading messages:', error);
             })
             .finally(() => {
               setLocalLoadingFields(prev => {
@@ -448,13 +450,13 @@ export function DiscordConfiguration({
           
           // Load messages with a delay
           setTimeout(() => {
-            console.log('📥 [Discord] Loading messages for multi-select:', value);
+            logger.debug('📥 [Discord] Loading messages for multi-select:', value);
             loadOptions('messageIds', 'channelId', value, true)
               .then(() => {
-                console.log('✅ [Discord] Messages loaded for multi-select');
+                logger.debug('✅ [Discord] Messages loaded for multi-select');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading messages:', error);
+                logger.error('❌ [Discord] Error loading messages:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -482,13 +484,13 @@ export function DiscordConfiguration({
           
           // Load channel members with a delay
           setTimeout(() => {
-            console.log('👥 [Discord] Loading channel members for:', value);
+            logger.debug('👥 [Discord] Loading channel members for:', value);
             loadOptions('userId', 'channelId', value, true)
               .then(() => {
-                console.log('✅ [Discord] Channel members loaded successfully');
+                logger.debug('✅ [Discord] Channel members loaded successfully');
               })
               .catch((error) => {
-                console.error('❌ [Discord] Error loading channel members:', error);
+                logger.error('❌ [Discord] Error loading channel members:', error);
               })
               .finally(() => {
                 setLocalLoadingFields(prev => {
@@ -510,7 +512,7 @@ export function DiscordConfiguration({
       // Check if this is an edit message action with a content field
       const hasContentField = nodeInfo?.configSchema?.some((field: any) => field.name === 'content');
       if (hasContentField && nodeInfo?.type === 'discord_action_edit_message') {
-        console.log('📝 [Discord] Message selected for editing:', value);
+        logger.debug('📝 [Discord] Message selected for editing:', value);
         
         // Find the selected message in the dynamic options to get its content
         const messageOptions = dynamicOptions?.messageId || [];
@@ -521,11 +523,11 @@ export function DiscordConfiguration({
         });
         
         if (selectedMessage && selectedMessage.content) {
-          console.log('📄 [Discord] Populating content field with:', selectedMessage.content);
+          logger.debug('📄 [Discord] Populating content field with:', selectedMessage.content);
           // Populate the content field with the selected message's content
           setValue('content', selectedMessage.content);
         } else {
-          console.log('⚠️ [Discord] No content found for selected message');
+          logger.debug('⚠️ [Discord] No content found for selected message');
           // Clear the content field if no content is found
           setValue('content', '');
         }
@@ -542,7 +544,7 @@ export function DiscordConfiguration({
     const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
 
     if (isDiscordNode && serversAlreadyLoaded && !hasInitializedServers.current) {
-      console.log('✅ [Discord] Servers already loaded from loadOnMount');
+      logger.debug('✅ [Discord] Servers already loaded from loadOnMount');
       hasInitializedServers.current = true;
     }
   }, [nodeInfo?.type, dynamicOptions.guildId]);
@@ -555,7 +557,7 @@ export function DiscordConfiguration({
 
     // If we have a saved guildId and channelId but no channel options loaded yet
     if (values.guildId && values.channelId && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
-      console.log('🔄 [Discord] Loading channels for saved guildId:', values.guildId, 'with saved channelId:', values.channelId);
+      logger.debug('🔄 [Discord] Loading channels for saved guildId:', values.guildId, 'with saved channelId:', values.channelId);
 
       // Debounce to avoid multiple calls
       const timeoutId = setTimeout(() => {
@@ -567,13 +569,13 @@ export function DiscordConfiguration({
         });
 
         loadOptions('channelId', 'guildId', values.guildId, false).then(() => {
-          console.log('✅ [Discord] Channels loaded for saved configuration');
+          logger.debug('✅ [Discord] Channels loaded for saved configuration');
         }).catch((error: any) => {
           // Don't log rate limit errors as errors
           if (error?.message?.includes('rate limit')) {
-            console.warn('⚠️ [Discord] Rate limited when loading channels, user can select manually');
+            logger.warn('⚠️ [Discord] Rate limited when loading channels, user can select manually');
           } else {
-            console.error('❌ [Discord] Failed to load channels for saved configuration:', error);
+            logger.error('❌ [Discord] Failed to load channels for saved configuration:', error);
           }
         }).finally(() => {
           setLocalLoadingFields(prev => {
@@ -595,7 +597,7 @@ export function DiscordConfiguration({
 
     // If we have a saved guildId and userId but no user options loaded yet
     if (values.guildId && values.userId && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
-      console.log('🔄 [Discord] Loading users for saved assign role configuration:', {
+      logger.debug('🔄 [Discord] Loading users for saved assign role configuration:', {
         guildId: values.guildId,
         savedUserId: values.userId
       });
@@ -610,12 +612,12 @@ export function DiscordConfiguration({
         });
 
         loadOptions('userId', 'guildId', values.guildId, false).then(() => {
-          console.log('✅ [Discord] Users loaded for saved assign role configuration');
+          logger.debug('✅ [Discord] Users loaded for saved assign role configuration');
         }).catch((error: any) => {
           if (error?.message?.includes('rate limit')) {
-            console.warn('⚠️ [Discord] Rate limited when loading users');
+            logger.warn('⚠️ [Discord] Rate limited when loading users');
           } else {
-            console.error('❌ [Discord] Failed to load users for saved configuration:', error);
+            logger.error('❌ [Discord] Failed to load users for saved configuration:', error);
           }
         }).finally(() => {
           setLocalLoadingFields(prev => {
@@ -631,7 +633,7 @@ export function DiscordConfiguration({
 
     // If we have a saved guildId and roleId but no role options loaded yet
     if (values.guildId && values.roleId && (!dynamicOptions.roleId || dynamicOptions.roleId.length === 0)) {
-      console.log('🔄 [Discord] Loading roles for saved assign role configuration:', {
+      logger.debug('🔄 [Discord] Loading roles for saved assign role configuration:', {
         guildId: values.guildId,
         savedRoleId: values.roleId
       });
@@ -646,12 +648,12 @@ export function DiscordConfiguration({
         });
 
         loadOptions('roleId', 'guildId', values.guildId, false).then(() => {
-          console.log('✅ [Discord] Roles loaded for saved assign role configuration');
+          logger.debug('✅ [Discord] Roles loaded for saved assign role configuration');
         }).catch((error: any) => {
           if (error?.message?.includes('rate limit')) {
-            console.warn('⚠️ [Discord] Rate limited when loading roles');
+            logger.warn('⚠️ [Discord] Rate limited when loading roles');
           } else {
-            console.error('❌ [Discord] Failed to load roles for saved configuration:', error);
+            logger.error('❌ [Discord] Failed to load roles for saved configuration:', error);
           }
         }).finally(() => {
           setLocalLoadingFields(prev => {
@@ -670,7 +672,7 @@ export function DiscordConfiguration({
   useEffect(() => {
     const handleBotConnected = (event: CustomEvent) => {
       if (event.detail?.guildId === values.guildId) {
-        console.log('🤖 [Discord] Bot connected to server, refreshing...');
+        logger.debug('🤖 [Discord] Bot connected to server, refreshing...');
         // Reload channels after bot is connected
         if (values.guildId) {
           setTimeout(() => {

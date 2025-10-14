@@ -1,7 +1,10 @@
 import { type NextRequest } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -12,7 +15,7 @@ export async function GET(request: NextRequest) {
   const provider = 'youtube'
 
   if (error) {
-    console.error(`Error with YouTube OAuth: ${error}`)
+    logger.error(`Error with YouTube OAuth: ${error}`)
     return createPopupResponse('error', provider, `OAuth Error: ${error}`, baseUrl)
   }
 
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.json()
-      console.error('Failed to exchange YouTube code for token:', errorData)
+      logger.error('Failed to exchange YouTube code for token:', errorData)
       return createPopupResponse(
         'error',
         provider,
@@ -75,13 +78,13 @@ export async function GET(request: NextRequest) {
       .upsert(integrationData, { onConflict: 'user_id, provider' })
 
     if (dbError) {
-      console.error('Error saving YouTube integration to DB:', dbError)
+      logger.error('Error saving YouTube integration to DB:', dbError)
       return createPopupResponse('error', provider, `Database Error: ${dbError.message}`, baseUrl)
     }
 
     return createPopupResponse('success', provider, 'YouTube account connected successfully.', baseUrl)
   } catch (error) {
-    console.error('Error during YouTube OAuth callback:', error)
+    logger.error('Error during YouTube OAuth callback:', error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
     return createPopupResponse('error', provider, message, baseUrl)
   }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function DebugAuth() {
   const [debugInfo, setDebugInfo] = useState<any>(null)
 
@@ -26,9 +28,9 @@ export default function DebugAuth() {
         }
         
         setDebugInfo(info)
-        console.log('🔍 Auth Debug Info:', info)
+        logger.debug('🔍 Auth Debug Info:', info)
       } catch (error) {
-        console.error('Debug error:', error)
+        logger.error('Debug error:', error)
         setDebugInfo({ error: error.message })
       }
     }
@@ -37,7 +39,7 @@ export default function DebugAuth() {
     
     // Also check on auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔍 Auth state changed:', event, session?.user?.email || 'no user')
+      logger.debug('🔍 Auth state changed:', event, session?.user?.email || 'no user')
       checkAuth()
     })
 

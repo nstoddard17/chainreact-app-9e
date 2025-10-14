@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -10,15 +13,15 @@ export async function POST(request: NextRequest) {
     const { integrationId, userId, config } = await request.json()
 
     if (!integrationId) {
-      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 })
+      return errorResponse('Integration ID is required' , 400)
     }
 
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+      return errorResponse('User ID is required' , 400)
     }
 
     if (!config) {
-      return NextResponse.json({ error: 'Config is required' }, { status: 400 })
+      return errorResponse('Config is required' , 400)
     }
 
     // Get integration from database
@@ -29,12 +32,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
+      return errorResponse('Integration not found' , 404)
     }
 
     // Check if the integration belongs to the user
     if (integration.user_id !== userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Validate and refresh token
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     
     const secret = await getSecret("encryption_key")
     if (!secret) {
-      return NextResponse.json({ error: 'Encryption secret not configured' }, { status: 500 })
+      return errorResponse('Encryption secret not configured' , 500)
     }
 
     let accessToken = integration.access_token
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
       try {
         accessToken = decrypt(accessToken, secret)
       } catch (decryptError) {
-        return NextResponse.json({ error: 'Token decryption failed' }, { status: 500 })
+        return errorResponse('Token decryption failed' , 500)
       }
     }
 
@@ -61,8 +64,8 @@ export async function POST(request: NextRequest) {
     
     const apiUrl = `https://graph.microsoft.com/v1.0/me/contacts?$top=${maxResults}&$select=id,displayName,givenName,surname,emailAddresses,businessPhones,jobTitle,companyName`
 
-    console.log('Fetching contacts from:', apiUrl)
-    console.log('Access token length:', accessToken?.length || 0)
+    logger.debug('Fetching contacts from:', apiUrl)
+    logger.debug('Access token length:', accessToken?.length || 0)
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -73,15 +76,15 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Microsoft Graph API error:', response.status, errorText)
+      logger.error('Microsoft Graph API error:', response.status, errorText)
       
       // If it's a 401/403 error, try to refresh the token
       if (response.status === 401 || response.status === 403) {
-        console.log('Attempting token refresh due to 401/403 error...')
+        logger.debug('Attempting token refresh due to 401/403 error...')
         
         try {
-          const { LegacyTokenRefreshService: TokenRefreshService } = await import("@/src/infrastructure/workflows/legacy-compatibility")
-          
+          const { refreshTokenForProvider } = await import("@/lib/integrations/tokenRefreshService")
+
           // Decrypt refresh token if needed
           let refreshToken = integration.refresh_token
           if (refreshToken && refreshToken.includes(":")) {
@@ -92,16 +95,16 @@ export async function POST(request: NextRequest) {
               refreshToken = decrypt(refreshToken, secret)
             }
           }
-          
+
           if (refreshToken) {
-            const refreshResult = await TokenRefreshService.refreshTokenForProvider(
+            const refreshResult = await refreshTokenForProvider(
               "microsoft-outlook",
               refreshToken,
               integration
             )
             
             if (refreshResult.success && refreshResult.accessToken) {
-              console.log('Token refresh successful, retrying API call...')
+              logger.debug('Token refresh successful, retrying API call...')
               
               // Retry the API call with the new token
               const retryResponse = await fetch(apiUrl, {
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
                   companyName: contact.companyName
                 }))
 
-                return NextResponse.json({
+                return jsonResponse({
                   data: {
                     contacts,
                     totalCount: data['@odata.count'] || contacts.length
@@ -134,18 +137,18 @@ export async function POST(request: NextRequest) {
                 })
               } 
                 const retryErrorText = await retryResponse.text()
-                console.error('Retry failed:', retryResponse.status, retryErrorText)
+                logger.error('Retry failed:', retryResponse.status, retryErrorText)
               
             } else {
-              console.error('Token refresh failed:', refreshResult.error)
+              logger.error('Token refresh failed:', refreshResult.error)
             }
           }
         } catch (refreshError) {
-          console.error('Error during token refresh:', refreshError)
+          logger.error('Error during token refresh:', refreshError)
         }
       }
       
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `Outlook API error: ${response.status} - ${errorText}` 
       }, { status: response.status })
     }
@@ -164,7 +167,7 @@ export async function POST(request: NextRequest) {
       companyName: contact.companyName
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       data: {
         contacts,
         totalCount: data['@odata.count'] || contacts.length
@@ -172,10 +175,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching contacts preview:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error fetching contacts preview:', error)
+    return errorResponse('Internal server error' , 500)
   }
 } 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,10 +17,10 @@ export async function POST(req: NextRequest) {
     // Verify cron secret for security
     const authHeader = req.headers.get('authorization')
     if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
-    console.log('🔄 Starting Microsoft Graph subscription renewal cron job')
+    logger.debug('🔄 Starting Microsoft Graph subscription renewal cron job')
 
     // Clean up expired subscriptions
     await subscriptionManager.cleanupExpiredSubscriptions()
@@ -26,11 +29,11 @@ export async function POST(req: NextRequest) {
     const subscriptions = await subscriptionManager.getSubscriptionsNeedingRenewal()
     
     if (subscriptions.length === 0) {
-      console.log('✅ No Microsoft Graph subscriptions need renewal')
-      return NextResponse.json({ message: 'No subscriptions need renewal' })
+      logger.debug('✅ No Microsoft Graph subscriptions need renewal')
+      return jsonResponse({ message: 'No subscriptions need renewal' })
     }
 
-    console.log(`🔄 Found ${subscriptions.length} subscriptions that need renewal`)
+    logger.debug(`🔄 Found ${subscriptions.length} subscriptions that need renewal`)
 
     // Group subscriptions by user ID to minimize token fetching
     const userSubscriptions: Record<string, any[]> = {}
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (!integration) {
-        console.log(`❌ No Microsoft integration found for user ${userId}`)
+        logger.debug(`❌ No Microsoft integration found for user ${userId}`)
         results.failed += subs.length
         subs.forEach(sub => {
           results.errors.push(`No Microsoft integration found for user ${userId}, subscription ${sub.id}`)
@@ -72,12 +75,12 @@ export async function POST(req: NextRequest) {
         try {
           await subscriptionManager.renewSubscription(sub.id, integration.access_token)
           results.renewed++
-          console.log(`✅ Renewed subscription ${sub.id} for user ${userId}`)
+          logger.debug(`✅ Renewed subscription ${sub.id} for user ${userId}`)
         } catch (error: any) {
           results.failed++
           const errorMessage = `Failed to renew subscription ${sub.id} for user ${userId}: ${error.message}`
           results.errors.push(errorMessage)
-          console.error(`❌ ${errorMessage}`)
+          logger.error(`❌ ${errorMessage}`)
 
           // Notify user of the issue
           await notifySubscriptionIssue(userId, `Failed to renew Microsoft Graph subscription: ${error.message}`)
@@ -85,15 +88,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`🏁 Microsoft Graph subscription renewal complete: ${results.renewed} renewed, ${results.failed} failed`)
+    logger.debug(`🏁 Microsoft Graph subscription renewal complete: ${results.renewed} renewed, ${results.failed} failed`)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       ...results
     })
   } catch (error: any) {
-    console.error('❌ Microsoft Graph subscription renewal error:', error)
-    return NextResponse.json({ error: error.message || 'Renewal failed' }, { status: 500 })
+    logger.error('❌ Microsoft Graph subscription renewal error:', error)
+    return errorResponse(error.message || 'Renewal failed' , 500)
   }
 }
 
@@ -109,6 +112,6 @@ async function notifySubscriptionIssue(userId: string, message: string): Promise
       created_at: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Failed to create notification:', error)
+    logger.error('Failed to create notification:', error)
   }
 }

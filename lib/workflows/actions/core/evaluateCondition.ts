@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Evaluates a condition between a field and a value using the specified operator
  */
@@ -56,7 +58,7 @@ export function evaluateCondition(field: any, operator: string, value: any): boo
              !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
              !(typeof fieldValue === "object" && Object.keys(fieldValue).length === 0)
     default:
-      console.warn(`Unknown operator: ${operator}`)
+      logger.warn(`Unknown operator: ${operator}`)
       return false
   }
 } 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get OneNote integration for this user
@@ -26,11 +27,11 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError && integrationError.code !== "PGRST116") { // PGRST116 is "no rows returned" error
-      return NextResponse.json({ error: integrationError.message }, { status: 500 })
+      return errorResponse(integrationError.message , 500)
     }
 
     // Return integration status
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       exists: !!integration,
       integration: integration ? {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
   } catch (error: any) {
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch OneNote integration",

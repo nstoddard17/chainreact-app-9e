@@ -2,6 +2,8 @@
 
 import { create } from "zustand"
 
+import { logger } from '@/lib/utils/logger'
+
 interface CollaborationSession {
   id: string
   workflow_id: string
@@ -115,7 +117,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     
     // Prevent multiple join calls for the same workflow
     if (loading || (collaborationSession && collaborationSession.workflow_id === workflowId)) {
-      console.log('🔄 Already joining or joined workflow:', workflowId)
+      logger.debug('🔄 Already joining or joined workflow:', workflowId)
       return
     }
 
@@ -153,12 +155,12 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         }
         
         set({ error: errorMessage, loading: false })
-        console.error('Failed to join collaboration:', response.status, result)
+        logger.error('Failed to join collaboration:', response.status, result)
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Unable to connect to collaboration service'
       set({ error: errorMessage, loading: false })
-      console.error('Collaboration join network error:', error)
+      logger.error('Collaboration join network error:', error)
     }
   },
 
@@ -191,7 +193,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         pollingInterval: null,
       })
     } catch (error) {
-      console.error("Failed to leave collaboration:", error)
+      logger.error("Failed to leave collaboration:", error)
     }
   },
 
@@ -219,7 +221,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         },
       })
     } catch (error) {
-      console.error("Failed to update cursor position:", error)
+      logger.error("Failed to update cursor position:", error)
     }
   },
 
@@ -247,7 +249,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         },
       })
     } catch (error) {
-      console.error("Failed to update selected nodes:", error)
+      logger.error("Failed to update selected nodes:", error)
     }
   },
 
@@ -290,7 +292,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
 
       return result
     } catch (error: any) {
-      console.error("Failed to apply change:", error)
+      logger.error("Failed to apply change:", error)
       return { success: false, error: error.message }
     }
   },
@@ -317,7 +319,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
         }))
       }
     } catch (error) {
-      console.error("Failed to resolve conflict:", error)
+      logger.error("Failed to resolve conflict:", error)
     }
   },
 
@@ -339,13 +341,13 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     // Clean up any existing polling
     const { pollingInterval } = get()
     if (pollingInterval) {
-      console.log('🧹 Cleaning up existing polling interval')
+      logger.debug('🧹 Cleaning up existing polling interval')
       clearInterval(pollingInterval)
     }
 
     // Placeholder for real-time logic
     // e.g., using Supabase real-time
-    console.log(`Setting up real-time subscriptions for workflow ${workflowId}`)
+    logger.debug(`Setting up real-time subscriptions for workflow ${workflowId}`)
 
     // Start polling for collaborator updates with reduced frequency
     const intervalId = setInterval(() => {
@@ -360,7 +362,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
       const response = await fetch(`/api/collaboration/collaborators?workflowId=${workflowId}`)
       
       if (!response.ok) {
-        console.error("Failed to fetch collaborators:", response.status, response.statusText)
+        logger.error("Failed to fetch collaborators:", response.status, response.statusText)
         return
       }
 
@@ -378,10 +380,10 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
           set({ collaborators: result.collaborators })
         }
       } else {
-        console.warn("Unexpected collaborators response format:", result)
+        logger.warn("Unexpected collaborators response format:", result)
       }
     } catch (error) {
-      console.error("Failed to poll collaborator updates:", error)
+      logger.error("Failed to poll collaborator updates:", error)
     }
   },
 

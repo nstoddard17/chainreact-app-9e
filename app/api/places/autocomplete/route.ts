@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -6,7 +9,7 @@ export async function GET(request: NextRequest) {
     const input = searchParams.get("input")
 
     if (!input || input.trim().length < 2) {
-      return NextResponse.json({
+      return jsonResponse({
         predictions: [],
         status: "INVALID_REQUEST"
       })
@@ -14,8 +17,8 @@ export async function GET(request: NextRequest) {
 
     const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!googleMapsApiKey) {
-      console.error("Google Maps API key not configured")
-      return NextResponse.json({
+      logger.error("Google Maps API key not configured")
+      return jsonResponse({
         predictions: [],
         status: "REQUEST_DENIED",
         error: "Google Maps API key not configured"
@@ -38,22 +41,22 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      console.error("Google Places API error:", data)
-      return NextResponse.json({
+      logger.error("Google Places API error:", data)
+      return jsonResponse({
         predictions: [],
         status: data.status,
         error: data.error_message || "Google Places API error"
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       predictions: data.predictions || [],
       status: data.status
     })
 
   } catch (error: any) {
-    console.error("Places autocomplete error:", error)
-    return NextResponse.json({
+    logger.error("Places autocomplete error:", error)
+    return jsonResponse({
       predictions: [],
       status: "REQUEST_DENIED",
       error: error.message || "Internal server error"

@@ -13,6 +13,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class MicrosoftTeamsAdapter implements ChatProvider {
   readonly providerId = 'microsoft-teams'
   readonly capabilities: CapabilityDescriptor = {
@@ -127,7 +129,7 @@ export class MicrosoftTeamsAdapter implements ChatProvider {
         message: 'Message sent successfully to Microsoft Teams'
       }
     } catch (error: any) {
-      console.error('Microsoft Teams send message error:', error)
+      logger.error('Microsoft Teams send message error:', error)
       return {
         success: false,
         error: error.message || 'Failed to send message to Microsoft Teams',
@@ -393,7 +395,7 @@ export class MicrosoftTeamsAdapter implements ChatProvider {
             }
           }
         } catch (error) {
-          console.warn(`Failed to get channels for team ${team.id}:`, error)
+          logger.warn(`Failed to get channels for team ${team.id}:`, error)
         }
       }
       
@@ -404,7 +406,7 @@ export class MicrosoftTeamsAdapter implements ChatProvider {
       
       return channels
     } catch (error: any) {
-      console.error('Microsoft Teams get channels error:', error)
+      logger.error('Microsoft Teams get channels error:', error)
       return []
     }
   }
@@ -440,7 +442,7 @@ export class MicrosoftTeamsAdapter implements ChatProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Microsoft Teams get members error:', error)
+      logger.error('Microsoft Teams get members error:', error)
       return []
     }
   }

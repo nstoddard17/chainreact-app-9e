@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,10 +11,7 @@ export async function GET(request: NextRequest) {
     const propertyName = searchParams.get('property')
 
     if (!propertyName) {
-      return NextResponse.json(
-        { error: "Property name is required" },
-        { status: 400 }
-      )
+      return errorResponse("Property name is required" , 400)
     }
 
     // Get user from session
@@ -19,10 +19,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get HubSpot integration
@@ -35,10 +32,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: "HubSpot integration not found or not connected" },
-        { status: 404 }
-      )
+      return errorResponse("HubSpot integration not found or not connected" , 404)
     }
 
     // Get access token
@@ -57,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      return NextResponse.json(
+      return jsonResponse(
         { 
           error: `HubSpot API error: ${response.status} - ${errorData.message || response.statusText}`,
           status: response.status,
@@ -82,21 +76,17 @@ export async function GET(request: NextRequest) {
     // Convert to sorted array
     const sortedValues = Array.from(uniqueValues).sort()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: sortedValues,
       count: sortedValues.length
     })
 
   } catch (error: any) {
-    console.error("HubSpot property values error:", error)
-    return NextResponse.json(
-      { 
-        error: "Internal server error", 
+    logger.error("HubSpot property values error:", error)
+    return errorResponse("Internal server error", 500, {
         details: error.message,
         stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      },
-      { status: 500 }
-    )
+      })
   }
 } 

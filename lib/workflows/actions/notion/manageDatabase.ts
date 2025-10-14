@@ -1,6 +1,8 @@
 import { ExecutionContext } from '@/types/workflow';
 import { ActionResult } from '@/lib/workflows/actions';
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Build Notion filter from user-friendly filter fields
  */
@@ -385,7 +387,7 @@ export async function executeNotionManageDatabase(
       message: `Successfully executed ${config.operation} operation`
     };
   } catch (error: any) {
-    console.error('Notion Manage Database error:', error);
+    logger.error('Notion Manage Database error:', error);
     return {
       success: false,
       output: {},

@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
 const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
@@ -33,7 +35,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const pendingPromise = pendingPromises.get(requestKey);
       if (pendingPromise) {
-        console.log(`🔄 [GoogleSheets] Reusing pending request for ${fieldName}`);
+        logger.debug(`🔄 [GoogleSheets] Reusing pending request for ${fieldName}`);
         return pendingPromise;
       }
     }
@@ -80,7 +82,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
 
           resolve(result);
         } catch (error) {
-          console.error(`❌ [GoogleSheets] Error loading ${fieldName}:`, error);
+          logger.error(`❌ [GoogleSheets] Error loading ${fieldName}:`, error);
           resolve([]);
         } finally {
           // Clean up the pending promise
@@ -163,7 +165,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
 
       return [];
     } catch (error) {
-      console.error(`❌ [GoogleSheets] API error loading ${dataType}:`, error);
+      logger.error(`❌ [GoogleSheets] API error loading ${dataType}:`, error);
       return [];
     }
   }

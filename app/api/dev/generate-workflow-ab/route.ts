@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { generateDynamicWorkflow } from '@/lib/ai/dynamicWorkflowAI'
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not available in production' }, { status: 403 })
+    return errorResponse('Not available in production' , 403)
   }
   try {
     const { prompt, model, variantBSystemPrefix, variantBUserSuffix } = await request.json()
-    if (!prompt) return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
+    if (!prompt) return errorResponse('Prompt is required' , 400)
 
     const base = await generateDynamicWorkflow({ prompt, userId: 'dev-ab', model: model || 'gpt-4o-mini', debug: true })
     const varB = await generateDynamicWorkflow({
@@ -19,13 +20,13 @@ export async function POST(request: NextRequest) {
       extraUserSuffix: variantBUserSuffix || ''
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       variantA: base,
       variantB: varB,
     })
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Internal error' }, { status: 500 })
+    return errorResponse(e?.message || 'Internal error' , 500)
   }
 }
 

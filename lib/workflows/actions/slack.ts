@@ -7,6 +7,8 @@ import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 import { sendSlackMessage as sendSlackMessageNew } from './slack/sendMessage'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Wrapper for the new Slack send message implementation
  * This creates an ExecutionContext and calls the new handler
@@ -65,7 +67,7 @@ export async function slackActionSendMessage(
     // Call the new handler with ExecutionContext
     return await sendSlackMessageNew(context)
   } catch (error: any) {
-    console.error('Slack send message error:', error)
+    logger.error('Slack send message error:', error)
     throw error
   }
 }
@@ -80,7 +82,7 @@ export async function slackActionSendMessageLegacy(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log('💬 [Slack] Starting message send with config:', {
+    logger.debug('💬 [Slack] Starting message send with config:', {
       channel: config.channel,
       hasMessage: !!config.message
     })
@@ -133,7 +135,7 @@ export async function slackActionSendMessageLegacy(
       throw new Error('Failed to get Slack access token')
     }
 
-    console.log('📤 [Slack] Sending message to channel:', channel, {
+    logger.debug('📤 [Slack] Sending message to channel:', channel, {
       customizeBot,
       hasUsername: !!username,
       hasIcon: !!icon,
@@ -146,7 +148,7 @@ export async function slackActionSendMessageLegacy(
     const attachmentArray = attachments ? (Array.isArray(attachments) ? attachments : [attachments]) : []
 
     if (attachmentArray.length > 0) {
-      console.log('📎 [Slack] Processing attachments:', attachmentArray.length)
+      logger.debug('📎 [Slack] Processing attachments:', attachmentArray.length)
 
       for (const attachment of attachmentArray) {
         try {
@@ -169,7 +171,7 @@ export async function slackActionSendMessageLegacy(
           } else if (attachment && typeof attachment === 'object') {
             if (attachment.type === 'base64' && attachment.data) {
               // Base64 encoded file
-              console.log('📎 [Slack] Processing base64 attachment:', attachment.name)
+              logger.debug('📎 [Slack] Processing base64 attachment:', attachment.name)
 
               // Convert base64 to buffer
               const base64Data = attachment.data.split(',')[1] // Remove data:mime;base64, prefix
@@ -185,7 +187,7 @@ export async function slackActionSendMessageLegacy(
                 })
 
               if (uploadError) {
-                console.error('❌ [Slack] Failed to upload file to temp storage:', uploadError)
+                logger.error('❌ [Slack] Failed to upload file to temp storage:', uploadError)
                 continue
               }
 
@@ -195,16 +197,16 @@ export async function slackActionSendMessageLegacy(
                 .getPublicUrl(fileName)
 
               fileUrl = publicUrl
-              console.log('✅ [Slack] Uploaded file to temp storage:', fileName)
+              logger.debug('✅ [Slack] Uploaded file to temp storage:', fileName)
 
             } else if (attachment.type === 'file' && attachment.file) {
               // Large file that needs to be uploaded to permanent storage first
-              console.log('📎 [Slack] Processing large file:', attachment.name)
+              logger.debug('📎 [Slack] Processing large file:', attachment.name)
 
               // This would need to be handled differently - files can't be passed directly
               // from client to server action. The file should be uploaded to storage first
               // and then the storage path should be passed here
-              console.warn('⚠️ [Slack] Large file uploads need to be handled via storage first')
+              logger.warn('⚠️ [Slack] Large file uploads need to be handled via storage first')
               continue
 
             } else if (attachment.filePath) {
@@ -239,7 +241,7 @@ export async function slackActionSendMessageLegacy(
             fileUrls.push(fileUrl)
           }
         } catch (error) {
-          console.error('❌ [Slack] Error processing attachment:', error)
+          logger.error('❌ [Slack] Error processing attachment:', error)
         }
       }
     }
@@ -257,7 +259,7 @@ export async function slackActionSendMessageLegacy(
           })
 
         if (error) {
-          console.error('❌ [Slack] Upload to temp storage failed:', error)
+          logger.error('❌ [Slack] Upload to temp storage failed:', error)
           return null
         }
 
@@ -267,7 +269,7 @@ export async function slackActionSendMessageLegacy(
 
         return publicUrl
       } catch (error) {
-        console.error('❌ [Slack] Error uploading to temp storage:', error)
+        logger.error('❌ [Slack] Error uploading to temp storage:', error)
         return null
       }
     }
@@ -315,16 +317,16 @@ export async function slackActionSendMessageLegacy(
     // If we have file URLs, upload them to Slack using the new API
     const uploadedFileIds: string[] = []
     if (fileUrls.length > 0) {
-      console.log('📤 [Slack] Uploading files to Slack:', fileUrls.length)
+      logger.debug('📤 [Slack] Uploading files to Slack:', fileUrls.length)
 
       for (const fileUrl of fileUrls) {
         try {
           // For each file URL, we need to use Slack's new file upload API
           // Since we have URLs (not actual file content), we'll include them in the message
           // Slack will unfurl the URLs if they are publicly accessible
-          console.log('📎 [Slack] File URL to share:', fileUrl)
+          logger.debug('📎 [Slack] File URL to share:', fileUrl)
         } catch (error) {
-          console.error('❌ [Slack] Error uploading file to Slack:', error)
+          logger.error('❌ [Slack] Error uploading file to Slack:', error)
         }
       }
 
@@ -348,7 +350,7 @@ export async function slackActionSendMessageLegacy(
     const result = await response.json()
 
     if (!result.ok) {
-      console.error('❌ [Slack] Message send failed:', result)
+      logger.error('❌ [Slack] Message send failed:', result)
 
       if (result.error === 'invalid_auth') {
         throw new Error('Slack authentication expired. Please reconnect your account.')
@@ -363,7 +365,7 @@ export async function slackActionSendMessageLegacy(
       }
     }
 
-    console.log('✅ [Slack] Message sent successfully:', {
+    logger.debug('✅ [Slack] Message sent successfully:', {
       channel: result.channel,
       ts: result.ts
     })
@@ -381,7 +383,7 @@ export async function slackActionSendMessageLegacy(
       message: `Message sent successfully to ${channel}`
     }
   } catch (error: any) {
-    console.error('❌ [Slack] Send message error:', error)
+    logger.error('❌ [Slack] Send message error:', error)
     return {
       success: false,
       output: {},
@@ -399,7 +401,7 @@ export async function createSlackChannel(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log('🆕 [Slack] Starting channel creation with config:', {
+    logger.debug('🆕 [Slack] Starting channel creation with config:', {
       channelName: config.channelName,
       visibility: config.visibility,
       template: config.template
@@ -448,7 +450,7 @@ export async function createSlackChannel(
       throw new Error('Failed to get Slack access token')
     }
 
-    console.log('📤 [Slack] Creating channel:', channelName)
+    logger.debug('📤 [Slack] Creating channel:', channelName)
 
     // Create the channel
     const createResponse = await fetch('https://slack.com/api/conversations.create', {
@@ -466,7 +468,7 @@ export async function createSlackChannel(
     const createResult = await createResponse.json()
 
     if (!createResult.ok) {
-      console.error('❌ [Slack] Channel creation failed:', createResult)
+      logger.error('❌ [Slack] Channel creation failed:', createResult)
 
       if (createResult.error === 'invalid_auth') {
         throw new Error('Slack authentication expired. Please reconnect your account.')
@@ -480,7 +482,7 @@ export async function createSlackChannel(
     }
 
     const channelId = createResult.channel.id
-    console.log('✅ [Slack] Channel created successfully:', channelId)
+    logger.debug('✅ [Slack] Channel created successfully:', channelId)
 
     // Set channel topic if provided
     if (channelTopic) {
@@ -598,7 +600,7 @@ export async function createSlackChannel(
       message: `Channel "${channelName}" created successfully`
     }
   } catch (error: any) {
-    console.error('❌ [Slack] Create channel error:', error)
+    logger.error('❌ [Slack] Create channel error:', error)
     return {
       success: false,
       output: {},

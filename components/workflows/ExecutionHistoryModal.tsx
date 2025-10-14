@@ -43,6 +43,8 @@ import { format } from 'date-fns'
 import { integrationIcons } from '@/lib/integrations/integration-icons'
 import Image from 'next/image'
 
+import { logger } from '@/lib/utils/logger'
+
 interface ExecutionHistoryEntry {
   id: string
   workflow_id: string
@@ -114,7 +116,7 @@ export function ExecutionHistoryModal({
       const data = await response.json()
       setHistory(data.history || [])
     } catch (error) {
-      console.error('Error loading history:', error)
+      logger.error('Error loading history:', error)
       toast({
         title: "Error",
         description: "Failed to load execution history",
@@ -134,7 +136,7 @@ export function ExecutionHistoryModal({
       const data = await response.json()
       setExecutionSteps(data.steps || [])
     } catch (error) {
-      console.error('Error loading execution steps:', error)
+      logger.error('Error loading execution steps:', error)
       toast({
         title: "Error",
         description: "Failed to load execution steps",
@@ -167,7 +169,7 @@ export function ExecutionHistoryModal({
         description: "Execution history has been cleared"
       })
     } catch (error) {
-      console.error('Error clearing history:', error)
+      logger.error('Error clearing history:', error)
       toast({
         title: "Error",
         description: "Failed to clear execution history",

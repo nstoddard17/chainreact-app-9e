@@ -5,6 +5,8 @@
 
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 
+import { logger } from '@/lib/utils/logger'
+
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
 const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
@@ -41,7 +43,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const pendingPromise = pendingPromises.get(requestKey);
       if (pendingPromise) {
-        console.log(`🔄 [MicrosoftExcel] Reusing pending request for ${fieldName}`);
+        logger.debug(`🔄 [MicrosoftExcel] Reusing pending request for ${fieldName}`);
         return pendingPromise;
       }
     }
@@ -102,7 +104,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
 
           resolve(result);
         } catch (error) {
-          console.error(`❌ [MicrosoftExcel] Error loading ${fieldName}:`, error);
+          logger.error(`❌ [MicrosoftExcel] Error loading ${fieldName}:`, error);
           resolve([]);
         } finally {
           // Clean up the pending promise
@@ -171,7 +173,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         if (allValues.deleteColumn) requestBody.options.columnName = allValues.deleteColumn;
       }
 
-      console.log(`📊 [MicrosoftExcel] Loading ${dataType}:`, requestBody);
+      logger.debug(`📊 [MicrosoftExcel] Loading ${dataType}:`, requestBody);
 
       const response = await fetch('/api/integrations/microsoft-excel/data', {
         method: 'POST',
@@ -183,7 +185,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ [MicrosoftExcel] API error:`, errorText);
+        logger.error(`❌ [MicrosoftExcel] API error:`, errorText);
         throw new Error(`Failed to load data: ${response.statusText}`);
       }
 
@@ -208,7 +210,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
 
       return [];
     } catch (error) {
-      console.error(`❌ [MicrosoftExcel] API error loading ${dataType}:`, error);
+      logger.error(`❌ [MicrosoftExcel] API error loading ${dataType}:`, error);
       return [];
     }
   }

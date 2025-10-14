@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -17,7 +20,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Fetch all dashboard data in parallel
@@ -71,7 +74,7 @@ export async function GET() {
     const activities = activitiesResult.status === 'fulfilled' ? activitiesResult.value.data || [] : []
 
     // Calculate metrics
-    const activeWorkflows = workflows.filter((w: any) => w.status !== 'draft').length
+    const activeWorkflows = workflows.filter((w: any) => w.status === 'active').length
     const successfulExecutions = executions.filter((e: any) => e.status === 'success').length
     const totalExecutionTime = executions.reduce((sum: number, e: any) => sum + (e.execution_time_ms || 0), 0)
     const hoursSaved = Math.round(totalExecutionTime / (1000 * 60 * 60) * 10) / 10 // Rough estimate
@@ -97,7 +100,7 @@ export async function GET() {
       }
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: {
         metrics: {
@@ -119,8 +122,8 @@ export async function GET() {
       }
     })
   } catch (error: any) {
-    console.error("Dashboard API error:", error)
-    return NextResponse.json(
+    logger.error("Dashboard API error:", error)
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch dashboard data",

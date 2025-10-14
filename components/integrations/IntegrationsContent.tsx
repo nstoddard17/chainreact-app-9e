@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { INTEGRATION_CONFIGS, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface IntegrationsContentProps {
   configuredClients: Record<string, boolean>
 }
@@ -72,7 +74,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       lastFetchTimeRef.current = now
       return fetchIntegrations(false)
     } 
-      console.log(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
+      logger.debug(`⏭️ Skipping duplicate fetchIntegrations call (${timeSinceLastFetch}ms since last fetch)`)
       return Promise.resolve()
     
   }, [fetchIntegrations])
@@ -95,7 +97,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       
       if (!response.ok) {
         // Don't throw error, just log it
-        console.warn("Failed to fetch integration metrics:", response.status)
+        logger.warn("Failed to fetch integration metrics:", response.status)
         return
       }
       
@@ -106,9 +108,9 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
     } catch (error: any) {
       clearTimeout(timeoutId)
       if (error.name === 'AbortError') {
-        console.warn("Integration metrics request timeout")
+        logger.warn("Integration metrics request timeout")
       } else {
-        console.error("Error fetching integration metrics:", error)
+        logger.error("Error fetching integration metrics:", error)
       }
       // Don't show error to user - metrics are non-critical
     } finally {
@@ -138,7 +140,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // Refresh immediately if user was away for less than 30 seconds (likely OAuth flow)
         // OR if user was away for more than 5 minutes (stale data)
         if (timeAway < thirtySeconds || timeAway > fiveMinutes) {
-          console.log(`🔄 Refreshing integrations after ${timeAway < thirtySeconds ? 'OAuth flow' : 'extended absence'}`);
+          logger.debug(`🔄 Refreshing integrations after ${timeAway < thirtySeconds ? 'OAuth flow' : 'extended absence'}`);
           debouncedFetchIntegrations(true);
           fetchMetrics();
         }
@@ -163,7 +165,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
 
     const handleOAuthComplete = (event: MessageEvent) => {
       if (event.data?.type === 'oauth-complete' && event.data?.success) {
-        console.log(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
+        logger.debug(`✅ OAuth completed for ${event.data.provider}, refreshing integrations...`);
         debouncedFetchIntegrations(true);
         fetchMetrics();
       }
@@ -178,13 +180,13 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       broadcastChannel = new BroadcastChannel('oauth_channel');
       broadcastChannel.onmessage = (event) => {
         if (event.data?.type === 'oauth-complete' && event.data?.success) {
-          console.log(`✅ OAuth completed via BroadcastChannel for ${event.data.provider}, refreshing integrations...`);
+          logger.debug(`✅ OAuth completed via BroadcastChannel for ${event.data.provider}, refreshing integrations...`);
           debouncedFetchIntegrations(true);
           fetchMetrics();
         }
       };
     } catch (e) {
-      console.log('BroadcastChannel not available');
+      logger.debug('BroadcastChannel not available');
     }
 
     return () => {
@@ -210,7 +212,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // This ensures providers are available before rendering cards
         if (providers.length === 0) {
           await initializeProviders().catch(error => {
-            console.warn("Provider initialization failed:", error)
+            logger.warn("Provider initialization failed:", error)
             // Still continue - will show empty state
           })
         }
@@ -219,10 +221,10 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         // These can be non-blocking since cards will show "Connect" state
         Promise.all([
           debouncedFetchIntegrations(true).catch(error => {
-            console.warn("Integration fetch failed (non-critical):", error)
+            logger.warn("Integration fetch failed (non-critical):", error)
           }),
           fetchMetrics().catch(error => {
-            console.warn("Metrics fetch failed (non-critical):", error)
+            logger.warn("Metrics fetch failed (non-critical):", error)
           })
         ]).finally(() => {
           setInitialFetchSettled(true)
@@ -232,7 +234,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
         setIsInitializing(false)
 
       } catch (error) {
-        console.error("Error during integration initialization:", error)
+        logger.error("Error during integration initialization:", error)
         setIsInitializing(false)
         setInitialFetchSettled(true)
       }
@@ -270,7 +272,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           .map(([key, _]) => key)
 
         if (stuckLoadingStates.length > 0) {
-          console.warn(`⚠️ Clearing stuck loading states: ${stuckLoadingStates.join(', ')}`)
+          logger.warn(`⚠️ Clearing stuck loading states: ${stuckLoadingStates.join(', ')}`)
 
           // Reset all stuck states
           stuckLoadingStates.forEach(key => {
@@ -440,7 +442,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
             }
           }
         } catch (error) {
-          console.error("Error checking Teams access:", error)
+          logger.error("Error checking Teams access:", error)
           toast({
             title: "Connection Error",
             description: "Unable to verify Teams access. Please try again.",
@@ -538,7 +540,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
           })
         }
       } catch (error) {
-        console.error("Connection error:", error)
+        logger.error("Connection error:", error)
         toast({
           title: "Error",
           description: "An unexpected error occurred. Please try again.",
@@ -596,7 +598,7 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
       setLoading(`connect-${providerId}`, true)
       await connectApiKeyIntegration(providerId, apiKey)
     } catch (error: any) {
-      console.error(`Failed to connect ${providerId}:`, error)
+      logger.error(`Failed to connect ${providerId}:`, error)
       toast({
         title: "Connection Failed",
         description: error.message,

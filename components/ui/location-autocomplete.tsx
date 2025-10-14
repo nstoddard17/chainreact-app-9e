@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input"
 import { MapPin, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+import { logger } from '@/lib/utils/logger'
+
 interface LocationSuggestion {
   place_id: string
   description: string
@@ -67,11 +69,11 @@ export function LocationAutocomplete({
               const data = await response.json()
               setSuggestions(data.predictions || [])
             } else {
-              console.error('Failed to fetch place suggestions')
+              logger.error('Failed to fetch place suggestions')
               setSuggestions([])
             }
           } catch (error) {
-            console.error('Error fetching place suggestions:', error)
+            logger.error('Error fetching place suggestions:', error)
             setSuggestions([])
           } finally {
             setIsLoading(false)

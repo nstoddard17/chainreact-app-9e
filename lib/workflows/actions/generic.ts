@@ -1,6 +1,8 @@
 import { ActionResult } from './core/executeWait'
 import { resolveValue } from './core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Generic action handler for actions that don't have specific implementations yet
  * Provides mock responses for testing and development
@@ -26,7 +28,7 @@ export async function executeGenericAction(
     }
 
   } catch (error: any) {
-    console.error("Generic action error:", error)
+    logger.error("Generic action error:", error)
     return {
       success: false,
       output: {},
@@ -421,7 +423,7 @@ export async function executeDelayAction(
     const maxDelayMs = 30 * 24 * 60 * 60 * 1000
     if (delayMs > maxDelayMs) {
       delayMs = maxDelayMs
-      console.warn(`Delay capped at maximum of 30 days (requested: ${duration} ${unit})`)
+      logger.warn(`Delay capped at maximum of 30 days (requested: ${duration} ${unit})`)
     }
     
     // Wait for the specified duration
@@ -441,7 +443,7 @@ export async function executeDelayAction(
     }
     
   } catch (error: any) {
-    console.error("Delay action error:", error)
+    logger.error("Delay action error:", error)
     return {
       success: false,
       output: {},

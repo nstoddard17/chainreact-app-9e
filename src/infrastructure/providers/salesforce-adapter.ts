@@ -9,6 +9,8 @@ import {
 import { CapabilityDescriptor, ErrorClassification } from '../../domains/integrations/ports/connector-contract'
 import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/getDecryptedAccessToken'
 
+import { logger } from '@/lib/utils/logger'
+
 export class SalesforceAdapter implements CRMProvider {
   readonly providerId = 'salesforce'
   readonly capabilities: CapabilityDescriptor = {
@@ -109,7 +111,7 @@ export class SalesforceAdapter implements CRMProvider {
         message: 'Contact created successfully in Salesforce'
       }
     } catch (error: any) {
-      console.error('Salesforce create contact error:', error)
+      logger.error('Salesforce create contact error:', error)
       return {
         success: false,
         error: error.message || 'Failed to create contact in Salesforce',
@@ -241,7 +243,7 @@ export class SalesforceAdapter implements CRMProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Salesforce get contacts error:', error)
+      logger.error('Salesforce get contacts error:', error)
       return []
     }
   }
@@ -452,7 +454,7 @@ export class SalesforceAdapter implements CRMProvider {
         }
       }))
     } catch (error: any) {
-      console.error('Salesforce get opportunities error:', error)
+      logger.error('Salesforce get opportunities error:', error)
       return []
     }
   }

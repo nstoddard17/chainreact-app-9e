@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { healthMonitor } from "../../../src/infrastructure/health/provider-health-monitor"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
@@ -25,13 +28,13 @@ export async function GET(request: NextRequest) {
       const providerHealth = healthMonitor.getProviderHealth(providerId)
       
       if (!providerHealth) {
-        return NextResponse.json(
+        return jsonResponse(
           { error: `Provider '${providerId}' not found` },
           { status: 404 }
         )
       }
       
-      return NextResponse.json(providerHealth)
+      return jsonResponse(providerHealth)
     }
     
     const baseResponse = {
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
           // Perform fresh health check on all providers
           const providerReport = await healthMonitor.performHealthCheck()
           
-          return NextResponse.json({
+          return jsonResponse({
             ...baseResponse,
             status: dbHealthy && providerReport.overall !== 'unhealthy' ? 
               (providerReport.overall === 'healthy' ? 'healthy' : 'degraded') : 'unhealthy',
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
           // Return cached provider health summary
           const providerSummary = healthMonitor.getSystemHealthSummary()
           
-          return NextResponse.json({
+          return jsonResponse({
             ...baseResponse,
             status: dbHealthy && providerSummary.overall !== 'unhealthy' ? 
               (providerSummary.overall === 'healthy' ? 'healthy' : 'degraded') : 'unhealthy',
@@ -88,9 +91,9 @@ export async function GET(request: NextRequest) {
         
       } catch (providerError) {
         // If provider health check fails, still return basic health
-        console.error('Provider health check failed:', providerError)
+        logger.error('Provider health check failed:', providerError)
         
-        return NextResponse.json({
+        return jsonResponse({
           ...baseResponse,
           providers: {
             status: 'unknown',
@@ -100,10 +103,10 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(baseResponse)
+    return jsonResponse(baseResponse)
     
   } catch (error) {
-    return NextResponse.json({
+    return jsonResponse({
       status: "unhealthy",
       timestamp: new Date().toISOString(),
       error: "Health check failed",
@@ -128,7 +131,7 @@ export async function POST(request: NextRequest) {
           // Check specific provider
           const provider = healthMonitor.getProviderHealth(providerId)
           if (!provider) {
-            return NextResponse.json(
+            return jsonResponse(
               { error: `Provider '${providerId}' not found` },
               { status: 404 }
             )
@@ -138,51 +141,43 @@ export async function POST(request: NextRequest) {
           const report = await healthMonitor.performHealthCheck()
           const updatedProvider = report.providers.find(p => p.providerId === providerId)
 
-          return NextResponse.json(updatedProvider)
+          return jsonResponse(updatedProvider)
         }
         // Check all providers
         const report = await healthMonitor.performHealthCheck()
-        return NextResponse.json(report)
+        return jsonResponse(report)
       }
         
         
       case 'start_monitoring':
         healthMonitor.startMonitoring()
-        return NextResponse.json({ 
+        return jsonResponse({ 
           message: 'Health monitoring started',
           status: 'monitoring'
         })
         
       case 'stop_monitoring':
         healthMonitor.stopMonitoring()
-        return NextResponse.json({ 
+        return jsonResponse({ 
           message: 'Health monitoring stopped',
           status: 'stopped'
         })
         
       case 'clear_cache':
         healthMonitor.clearCache()
-        return NextResponse.json({ 
+        return jsonResponse({ 
           message: 'Health cache cleared',
           status: 'cleared'
         })
         
       default:
-        return NextResponse.json(
-          { error: 'Invalid action. Supported actions: check, start_monitoring, stop_monitoring, clear_cache' },
-          { status: 400 }
-        )
+        return errorResponse('Invalid action. Supported actions: check, start_monitoring, stop_monitoring, clear_cache' , 400)
     }
     
   } catch (error: any) {
-    console.error('Health check API POST error:', error)
+    logger.error('Health check API POST error:', error)
     
-    return NextResponse.json(
-      { 
-        error: 'Health check operation failed',
-        message: error.message 
-      },
-      { status: 500 }
-    )
+    return errorResponse('Health check operation failed', 500, { message: error.message 
+       })
   }
 } 

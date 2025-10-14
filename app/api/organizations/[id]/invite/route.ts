@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { Resend } from 'resend'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(
   request: NextRequest,
@@ -14,14 +17,14 @@ export async function POST(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { email, role = "viewer" } = body
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 })
+      return errorResponse("Email is required" , 400)
     }
 
     // Check if user is admin of the organization
@@ -33,7 +36,7 @@ export async function POST(
       .single()
 
     if (membershipError || !membership || membership.role !== 'admin') {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     // Get organization details
@@ -44,7 +47,7 @@ export async function POST(
       .single()
 
     if (orgError || !organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+      return errorResponse("Organization not found" , 404)
     }
 
     // Check if user is already a member
@@ -56,7 +59,7 @@ export async function POST(
       .single()
 
     if (existingMember) {
-      return NextResponse.json({ error: "User is already a member" }, { status: 409 })
+      return errorResponse("User is already a member" , 409)
     }
 
     // Create invitation token
@@ -79,8 +82,8 @@ export async function POST(
       .single()
 
     if (inviteError) {
-      console.error("Error creating invitation:", inviteError)
-      return NextResponse.json({ error: "Failed to create invitation" }, { status: 500 })
+      logger.error("Error creating invitation:", inviteError)
+      return errorResponse("Failed to create invitation" , 500)
     }
 
     // Send invitation email
@@ -120,23 +123,23 @@ export async function POST(
         `
       })
 
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "Invitation sent successfully",
         invitation 
       })
     } catch (emailError) {
-      console.error("Error sending email:", emailError)
+      logger.error("Error sending email:", emailError)
       // Delete the invitation if email fails
       await serviceClient
         .from("organization_invitations")
         .delete()
         .eq("id", invitation.id)
       
-      return NextResponse.json({ error: "Failed to send invitation email" }, { status: 500 })
+      return errorResponse("Failed to send invitation email" , 500)
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

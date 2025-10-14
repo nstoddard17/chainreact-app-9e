@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
+
+import { logger } from '@/lib/utils/logger'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -17,19 +20,19 @@ export async function POST(request: NextRequest) {
                          request.cookies.get('sb-refresh-token')?.value
     
     if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(sessionCookie)
     
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
     
     // Check AI usage limits
     const usageCheck = await checkUsageLimit(user.id, "ai_subject")
     if (!usageCheck.allowed) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI subject generations this month. Please upgrade your plan for more AI usage.`
       }, { status: 429 })
     }
@@ -76,14 +79,13 @@ Respond with ONLY the subject line, no additional text.`
       context_length: contextInfo.length
     })
     
-    return NextResponse.json({ 
+    return jsonResponse({ 
       subject: subject
     })
     
   } catch (error: any) {
-    console.error("AI subject generation error:", error)
-    return NextResponse.json({ 
-      error: "Failed to generate subject line" 
-    }, { status: 500 })
+    logger.error("AI subject generation error:", error)
+    return errorResponse("Failed to generate subject line" 
+    , 500)
   }
 }

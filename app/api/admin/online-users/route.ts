@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
     const supabase = await createSupabaseServerClient();
@@ -7,7 +10,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return errorResponse("Unauthorized" , 401);
     }
 
     // Check if user is admin
@@ -18,7 +21,7 @@ export async function GET() {
         .single();
 
     if (!userProfile || userProfile.role !== 'admin') {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        return errorResponse("Admin access required" , 403);
     }
 
     try {
@@ -32,16 +35,16 @@ export async function GET() {
             .order('last_seen', { ascending: false });
 
         if (error) {
-            console.error("Error fetching online users:", error);
-            return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
+            logger.error("Error fetching online users:", error);
+            return errorResponse("Failed to fetch online users" , 500);
         }
 
-        return NextResponse.json({ 
+        return jsonResponse({ 
             success: true, 
             users: onlineUsers || [] 
         });
     } catch (error) {
-        console.error("Error fetching online users:", error);
-        return NextResponse.json({ error: "Failed to fetch online users" }, { status: 500 });
+        logger.error("Error fetching online users:", error);
+        return errorResponse("Failed to fetch online users" , 500);
     }
 } 

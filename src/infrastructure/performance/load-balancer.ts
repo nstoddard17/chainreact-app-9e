@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { performanceMonitor } from './performance-monitor'
 import { circuitBreakerRegistry } from './circuit-breaker'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Load balancing strategies
  */
@@ -142,7 +144,7 @@ export class LoadBalancer extends EventEmitter {
 
     this.startHealthChecks()
     
-    console.log(`⚖️ Load balancer initialized: ${name} (strategy: ${this.config.strategy})`)
+    logger.debug(`⚖️ Load balancer initialized: ${name} (strategy: ${this.config.strategy})`)
   }
 
   /**
@@ -173,7 +175,7 @@ export class LoadBalancer extends EventEmitter {
       weight: server.weight
     })
 
-    console.log(`➕ Server added: ${server.id} (weight: ${server.weight})`)
+    logger.debug(`➕ Server added: ${server.id} (weight: ${server.weight})`)
     this.emit('serverAdded', server)
   }
 
@@ -197,7 +199,7 @@ export class LoadBalancer extends EventEmitter {
       }
     }
 
-    console.log(`➖ Server removed: ${serverId}`)
+    logger.debug(`➖ Server removed: ${serverId}`)
     this.emit('serverRemoved', server)
     return true
   }
@@ -209,7 +211,7 @@ export class LoadBalancer extends EventEmitter {
     const availableServers = this.getHealthyServers(context)
     
     if (availableServers.length === 0) {
-      console.warn(`⚠️ No healthy servers available in load balancer: ${this.name}`)
+      logger.warn(`⚠️ No healthy servers available in load balancer: ${this.name}`)
       return null
     }
 
@@ -347,7 +349,7 @@ export class LoadBalancer extends EventEmitter {
 
         // Check if we should retry
         if (attempt < this.config.maxRetries - 1 && this.shouldRetry(error)) {
-          console.log(`🔄 Retrying request (attempt ${attempt + 2}/${this.config.maxRetries})`)
+          logger.debug(`🔄 Retrying request (attempt ${attempt + 2}/${this.config.maxRetries})`)
           await this.delay(this.config.retryDelay * Math.pow(2, attempt)) // Exponential backoff
         }
         
@@ -670,7 +672,7 @@ export class LoadBalancer extends EventEmitter {
     // Mark as unhealthy after consecutive failures
     if (health.consecutiveFailures >= 3) {
       health.healthy = false
-      console.warn(`⚠️ Server marked unhealthy: ${serverId} (${health.consecutiveFailures} failures)`)
+      logger.warn(`⚠️ Server marked unhealthy: ${serverId} (${health.consecutiveFailures} failures)`)
       this.emit('serverUnhealthy', serverId, health)
     }
     
@@ -745,7 +747,7 @@ export class LoadBalancer extends EventEmitter {
       
       // Mark as healthy
       if (!health.healthy) {
-        console.log(`✅ Server recovered: ${server.id}`)
+        logger.debug(`✅ Server recovered: ${server.id}`)
         this.emit('serverRecovered', server.id, health)
       }
       
@@ -761,7 +763,7 @@ export class LoadBalancer extends EventEmitter {
       
       if (health.consecutiveFailures >= 3) {
         health.healthy = false
-        console.warn(`❌ Health check failed: ${server.id} (${error.message})`)
+        logger.warn(`❌ Health check failed: ${server.id} (${error.message})`)
         this.emit('serverUnhealthy', server.id, health)
       }
     }
@@ -831,7 +833,7 @@ export class LoadBalancer extends EventEmitter {
     this.performanceHistory.clear()
     
     this.removeAllListeners()
-    console.log(`🛑 Load balancer shutdown: ${this.name}`)
+    logger.debug(`🛑 Load balancer shutdown: ${this.name}`)
   }
 }
 
@@ -877,7 +879,7 @@ export class LoadBalancerPool extends EventEmitter {
     })
 
     this.loadBalancers.set(name, loadBalancer)
-    console.log(`🏗️ Load balancer created: ${name}`)
+    logger.debug(`🏗️ Load balancer created: ${name}`)
     
     return loadBalancer
   }
@@ -897,7 +899,7 @@ export class LoadBalancerPool extends EventEmitter {
     if (loadBalancer) {
       loadBalancer.shutdown()
       this.loadBalancers.delete(name)
-      console.log(`🗑️ Load balancer removed: ${name}`)
+      logger.debug(`🗑️ Load balancer removed: ${name}`)
       return true
     }
     return false
@@ -973,7 +975,7 @@ export class LoadBalancerPool extends EventEmitter {
     
     this.loadBalancers.clear()
     this.removeAllListeners()
-    console.log('🛑 Load balancer pool shutdown')
+    logger.debug('🛑 Load balancer pool shutdown')
   }
 }
 

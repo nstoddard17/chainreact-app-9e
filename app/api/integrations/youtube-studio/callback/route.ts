@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPopupResponse } from '@/lib/utils/createPopupResponse'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error(`YouTube Studio OAuth error: ${error} - ${errorDescription}`)
+    logger.error(`YouTube Studio OAuth error: ${error} - ${errorDescription}`)
     return createPopupResponse('error', provider, errorDescription || 'Authorization failed', baseUrl)
   }
 
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = `${baseUrl}/api/integrations/youtube-studio/callback`
 
     if (!clientId || !clientSecret) {
-      console.error('Google OAuth credentials not configured')
+      logger.error('Google OAuth credentials not configured')
       return createPopupResponse('error', provider, 'Integration configuration error', baseUrl)
     }
 
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error('YouTube Studio token exchange failed:', tokenResponse.status, errorText)
+      logger.error('YouTube Studio token exchange failed:', tokenResponse.status, errorText)
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
@@ -100,10 +103,10 @@ export async function GET(request: NextRequest) {
             }
           }
         } else {
-          console.warn('Failed to fetch YouTube channel:', await youtubeResponse.text())
+          logger.warn('Failed to fetch YouTube channel:', await youtubeResponse.text())
         }
       } catch (profileError) {
-        console.warn('Error fetching YouTube channel:', profileError)
+        logger.warn('Error fetching YouTube channel:', profileError)
       }
     }
 
@@ -135,13 +138,13 @@ export async function GET(request: NextRequest) {
     })
 
     if (upsertError) {
-      console.error('Failed to save YouTube Studio integration:', upsertError)
+      logger.error('Failed to save YouTube Studio integration:', upsertError)
       return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
     }
 
     return createPopupResponse('success', provider, 'YouTube Studio connected successfully!', baseUrl)
   } catch (error) {
-    console.error('YouTube Studio callback error:', error)
+    logger.error('YouTube Studio callback error:', error)
     return createPopupResponse('error', provider, 'An unexpected error occurred', baseUrl)
   }
 }

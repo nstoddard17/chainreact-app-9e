@@ -5,10 +5,12 @@
 import { HubSpotIntegration, HubSpotDealStage, HubSpotDataHandler, HubSpotHandlerOptions } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, parseHubSpotApiResponse, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async (integration: HubSpotIntegration, options: HubSpotHandlerOptions = {}): Promise<HubSpotDealStage[]> => {
   const { pipeline } = options
   
-  console.log("🔍 HubSpot deal stages fetcher called with:", {
+  logger.debug("🔍 HubSpot deal stages fetcher called with:", {
     integrationId: integration.id,
     pipeline,
     hasToken: !!integration.access_token
@@ -18,11 +20,11 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    console.log(`🔍 Validating HubSpot token...`)
+    logger.debug(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -30,7 +32,7 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
       throw new Error('Pipeline ID is required for fetching deal stages')
     }
     
-    console.log('🔍 Fetching HubSpot deal stages from API...')
+    logger.debug('🔍 Fetching HubSpot deal stages from API...')
     const apiUrl = buildHubSpotApiUrl(`/crm/v3/pipelines/deals/${pipeline}`)
     
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -38,18 +40,18 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
     const data = await response.json()
     
     if (!response.ok) {
-      console.error(`❌ HubSpot deal stages API error: ${response.status} ${JSON.stringify(data)}`)
+      logger.error(`❌ HubSpot deal stages API error: ${response.status} ${JSON.stringify(data)}`)
       throw new Error(`HubSpot API error: ${response.status}`)
     }
     
     // Return the stages from the pipeline
     const stages = data.stages || []
     
-    console.log(`✅ HubSpot deal stages fetched successfully: ${stages.length} stages`)
+    logger.debug(`✅ HubSpot deal stages fetched successfully: ${stages.length} stages`)
     return stages
     
   } catch (error: any) {
-    console.error("Error fetching HubSpot deal stages:", error)
+    logger.error("Error fetching HubSpot deal stages:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('HubSpot authentication expired. Please reconnect your account.')

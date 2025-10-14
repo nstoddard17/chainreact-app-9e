@@ -7,6 +7,8 @@
 import { useCallback } from 'react';
 import { useIntegrationStore } from '@/stores/integrationStore';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseFieldChangeHandlersProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -62,7 +64,7 @@ export function useFieldChangeHandlers({
    * Handle Discord-specific field changes
    */
   const handleDiscordFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 Discord field change:', { fieldName, value });
+    logger.debug('🔍 Discord field change:', { fieldName, value });
 
     if (fieldName === 'guildId') {
       // Clear dependent fields when server changes
@@ -143,7 +145,7 @@ export function useFieldChangeHandlers({
    * Handle Airtable-specific field changes
    */
   const handleAirtableFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 Airtable field change:', { fieldName, value });
+    logger.debug('🔍 Airtable field change:', { fieldName, value });
 
     // Handle baseId change - RESET EVERYTHING
     if (fieldName === 'baseId') {
@@ -258,7 +260,7 @@ export function useFieldChangeHandlers({
    * Handle Google Sheets-specific field changes
    */
   const handleGoogleSheetsFieldChange = useCallback(async (fieldName: string, value: any) => {
-    console.log('🔍 Google Sheets field change:', { fieldName, value });
+    logger.debug('🔍 Google Sheets field change:', { fieldName, value });
 
     // Handle spreadsheetId change
     if (fieldName === 'spreadsheetId') {
@@ -306,7 +308,7 @@ export function useFieldChangeHandlers({
    * Handle generic dependent field changes
    */
   const handleDependentFieldChange = useCallback(async (fieldName: string, value: any, field: any) => {
-    console.log('🔍 Dependent field change:', { fieldName, value, dependsOn: field.dependsOn });
+    logger.debug('🔍 Dependent field change:', { fieldName, value, dependsOn: field.dependsOn });
 
     // Find all fields that depend on this field
     const dependentFields = nodeInfo?.configSchema?.filter(f => f.dependsOn === fieldName) || [];
@@ -357,7 +359,7 @@ export function useFieldChangeHandlers({
    * Main field change handler that routes to appropriate provider handler
    */
   const handleFieldChange = useCallback(async (fieldName: string, value: any, skipBubbleCreation: boolean = false) => {
-    console.log('🔍 handleFieldChange called:', { fieldName, value, provider: nodeInfo?.providerId });
+    logger.debug('🔍 handleFieldChange called:', { fieldName, value, provider: nodeInfo?.providerId });
 
     // Check if this is a file/attachment field first
     const field = nodeInfo?.configSchema?.find(f => f.name === fieldName);

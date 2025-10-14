@@ -7,6 +7,8 @@ import {
 } from "./integrationScopes"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 
+import { logger } from '@/lib/utils/logger'
+
 function getOAuthRedirectUri(provider: string): string {
   const baseUrl = getBaseUrl()
   return `${baseUrl}/api/integrations/${provider}/callback`
@@ -64,7 +66,7 @@ export async function validateIntegrationScopes(
       .eq("user_id", userId)
       .eq("provider", provider)
   } catch (error) {
-    console.error("Failed to update integration scope validation:", error)
+    logger.error("Failed to update integration scope validation:", error)
   }
 
   return {
@@ -254,7 +256,7 @@ export async function checkIntegrationHealth(
       issues,
     }
   } catch (error) {
-    console.error("Failed to check integration health:", error)
+    logger.error("Failed to check integration health:", error)
     return {
       connected: false,
       scopesValid: false,

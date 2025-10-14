@@ -1,5 +1,7 @@
 import fetch from 'node-fetch';
 
+import { logger } from '@/lib/utils/logger'
+
 export async function getTwitterMentionsForDropdown(integration: any, params: any) {
   const accessToken = integration.access_token;
   if (!accessToken) throw new Error('No access token');
@@ -12,20 +14,20 @@ export async function getTwitterMentionsForDropdown(integration: any, params: an
     
     if (!userResponse.ok) {
       const errorText = await userResponse.text();
-      console.error('Twitter user info error:', userResponse.status, errorText);
+      logger.error('Twitter user info error:', userResponse.status, errorText);
       throw new Error(`Failed to get user info: ${userResponse.status} - ${errorText}`);
     }
     
     const userData = await userResponse.json();
     const userId = userData.data.id;
-    console.log('Twitter user ID:', userId);
+    logger.debug('Twitter user ID:', userId);
 
     // Fetch recent mentions
     const url = new URL(`https://api.twitter.com/2/users/${userId}/mentions`);
     url.searchParams.set('max_results', '20');
     url.searchParams.set('tweet.fields', 'created_at,text');
     
-    console.log('Fetching mentions from:', url.toString());
+    logger.debug('Fetching mentions from:', url.toString());
     
     const response = await fetch(url.toString(), {
       headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -33,7 +35,7 @@ export async function getTwitterMentionsForDropdown(integration: any, params: an
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Twitter mentions error:', response.status, errorText);
+      logger.error('Twitter mentions error:', response.status, errorText);
       
       // Handle specific error cases
       if (response.status === 403) {
@@ -46,14 +48,14 @@ export async function getTwitterMentionsForDropdown(integration: any, params: an
     }
     
     const data = await response.json();
-    console.log('Twitter mentions response:', data);
+    logger.debug('Twitter mentions response:', data);
     
     const mentions = data.data || [];
-    console.log('Found mentions:', mentions.length);
+    logger.debug('Found mentions:', mentions.length);
     
     // If no mentions found, return empty array (will show "No mentions found" in dropdown)
     if (mentions.length === 0) {
-      console.log('No mentions found, returning empty array');
+      logger.debug('No mentions found, returning empty array');
       return [];
     }
     
@@ -63,7 +65,7 @@ export async function getTwitterMentionsForDropdown(integration: any, params: an
       label: `${tweet.text.slice(0, 60)}${tweet.text.length > 60 ? '…' : ''} (${tweet.id})`
     }));
   } catch (error) {
-    console.error('Twitter mentions dropdown error:', error);
+    logger.error('Twitter mentions dropdown error:', error);
     throw error;
   }
 } 

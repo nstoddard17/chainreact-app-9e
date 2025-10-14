@@ -3,8 +3,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +20,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId')
 
     if (!userId) {
-      return NextResponse.json({ error: 'userId required' }, { status: 400 })
+      return errorResponse('userId required' , 400)
     }
 
     // Get Microsoft integration
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
     const integration = integrations?.find(i => i.access_token)
 
     if (!integration) {
-      return NextResponse.json({ error: 'No Microsoft integration found' }, { status: 404 })
+      return errorResponse('No Microsoft integration found' , 404)
     }
 
     const accessToken = typeof integration.access_token === 'string'
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
       : null
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to decrypt token' }, { status: 500 })
+      return errorResponse('Failed to decrypt token' , 500)
     }
 
     // Test 1: Get user profile (basic test)
@@ -79,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     const createData = await createResponse.json()
 
-    return NextResponse.json({
+    return jsonResponse({
       integration: {
         provider: integration.provider,
         status: integration.status,
@@ -107,10 +110,8 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Error testing token:', error)
-    return NextResponse.json({
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 })
+    logger.error('Error testing token:', error)
+    return errorResponse('Internal server error', 500, { details: error.message
+     })
   }
 }

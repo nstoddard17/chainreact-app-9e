@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 import { saveNodeConfig, clearNodeConfig, loadNodeConfig } from '@/lib/workflows/configPersistence'
+
+import { logger } from '@/lib/utils/logger'
 import type { NodeComponent } from '@/lib/workflows/nodes'
 import type { Node } from '@xyflow/react'
 
@@ -46,7 +48,7 @@ export function useNodeConfiguration(
 
   // Wrapper to log pending node changes
   const setPendingNode = useCallback((node: PendingNode | null) => {
-    console.log('🔷 [useNodeConfiguration] Setting pendingNode:', {
+    logger.debug('🔷 [useNodeConfiguration] Setting pendingNode:', {
       node,
       sourceNodeInfo: node?.sourceNodeInfo,
       sourceNodeInfoKeys: node?.sourceNodeInfo ? Object.keys(node.sourceNodeInfo) : []
@@ -84,10 +86,10 @@ export function useNodeConfiguration(
         try {
           if (onSave) {
             await onSave()
-            console.log('New trigger saved to database automatically')
+            logger.debug('New trigger saved to database automatically')
           }
         } catch (error) {
-          console.error(' Failed to save new trigger to database:', error)
+          logger.error(' Failed to save new trigger to database:', error)
           toast({ 
             title: "Save Warning", 
             description: "Trigger added but failed to save to database. Please save manually.", 
@@ -101,18 +103,18 @@ export function useNodeConfiguration(
       toast({ title: "Trigger Added", description: "Your trigger has been configured and added to the workflow." })
     } else if (context.id === 'pending-action' && pendingNode?.type === 'action' && pendingNode.sourceNodeInfo) {
       // Add action to workflow with configuration
-      console.log('🔵 [useNodeConfiguration] Processing pending action with sourceNodeInfo:', pendingNode.sourceNodeInfo)
+      logger.debug('🔵 [useNodeConfiguration] Processing pending action with sourceNodeInfo:', pendingNode.sourceNodeInfo)
       let newNodeId: string | undefined
       if (onActionAdd) {
-        console.log('🔵 [useNodeConfiguration] Calling onActionAdd with:', {
+        logger.debug('🔵 [useNodeConfiguration] Calling onActionAdd with:', {
           integration: pendingNode.integration?.name,
           nodeComponent: pendingNode.nodeComponent?.type,
           sourceNodeInfo: pendingNode.sourceNodeInfo
         })
         newNodeId = onActionAdd(pendingNode.integration, pendingNode.nodeComponent, newConfig, pendingNode.sourceNodeInfo)
-        console.log('🔵 [useNodeConfiguration] onActionAdd returned newNodeId:', newNodeId)
+        logger.debug('🔵 [useNodeConfiguration] onActionAdd returned newNodeId:', newNodeId)
       } else {
-        console.warn('🔵 [useNodeConfiguration] onActionAdd is not defined!')
+        logger.warn('🔵 [useNodeConfiguration] onActionAdd is not defined!')
       }
       
       // Auto-save the workflow after adding any node (regular or inserted)
@@ -124,21 +126,21 @@ export function useNodeConfiguration(
         try {
           if (onSave) {
             await onSave()
-            console.log(isInsertedNode ? ' Inserted action saved to database automatically' : ' New action saved to database automatically')
+            logger.debug(isInsertedNode ? ' Inserted action saved to database automatically' : ' New action saved to database automatically')
 
             // Save node configuration to persistence
             if (newNodeId && currentWorkflowId) {
               try {
                 const nodeType = pendingNode.nodeComponent.type || 'unknown'
                 await saveNodeConfig(currentWorkflowId, newNodeId, nodeType, newConfig)
-                console.log(' Node configuration saved to persistence layer')
+                logger.debug(' Node configuration saved to persistence layer')
               } catch (persistenceError) {
-                console.error(' Failed to save node configuration:', persistenceError)
+                logger.error(' Failed to save node configuration:', persistenceError)
               }
             }
           }
         } catch (error) {
-          console.error(' Failed to save action to database:', error)
+          logger.error(' Failed to save action to database:', error)
           toast({
             title: "Save Warning",
             description: "Action added but failed to save to database. Please save manually.",
@@ -152,7 +154,7 @@ export function useNodeConfiguration(
       toast({ title: "Action Added", description: "Your action has been configured and added to the workflow." })
     } else {
       // Handle existing node configuration updates
-      console.log(' Updating existing node configuration')
+      logger.debug(' Updating existing node configuration')
 
       // Update the node configuration without handling chains here
       // Chains will be handled in the CollaborativeWorkflowBuilder
@@ -177,7 +179,7 @@ export function useNodeConfiguration(
             updatedDataAny.hasChains = hasChains;
             updatedDataAny.chainCount = chainsArray.length;
             // Keep onAddChain so users can add multiple chains
-            console.log('AI Agent has', chainsArray.length, 'chains, keeping onAddChain button');
+            logger.debug('AI Agent has', chainsArray.length, 'chains, keeping onAddChain button');
           }
 
           return { ...node, data: updatedData }
@@ -201,9 +203,9 @@ export function useNodeConfiguration(
           const nodeType = currentNode?.data?.type || 'unknown'
           
           await saveNodeConfig(currentWorkflowId, context.id, nodeType as string, newConfig)
-          console.log(' Node configuration saved to persistence layer')
+          logger.debug(' Node configuration saved to persistence layer')
         } catch (persistenceError) {
-          console.error(' Failed to save node configuration:', persistenceError)
+          logger.error(' Failed to save node configuration:', persistenceError)
         }
       }
       
@@ -212,10 +214,10 @@ export function useNodeConfiguration(
         try {
           if (onSave) {
             await onSave()
-            console.log(' Updated workflow saved to database')
+            logger.debug(' Updated workflow saved to database')
           }
         } catch (error) {
-          console.error(' Failed to save updated workflow:', error)
+          logger.error(' Failed to save updated workflow:', error)
         }
       }, 100)
       
@@ -232,7 +234,7 @@ export function useNodeConfiguration(
       const config = await loadNodeConfig(currentWorkflowId, nodeId, nodeType as string)
       return config
     } catch (error) {
-      console.error('Failed to load node configuration:', error)
+      logger.error('Failed to load node configuration:', error)
       return null
     }
   }, [currentWorkflowId, nodes])
@@ -245,7 +247,7 @@ export function useNodeConfiguration(
       const nodeType = node?.data?.type || 'unknown'
       await clearNodeConfig(currentWorkflowId, nodeId, nodeType as string)
     } catch (error) {
-      console.error('Failed to clear node configuration:', error)
+      logger.error('Failed to clear node configuration:', error)
     }
   }, [currentWorkflowId, nodes])
 

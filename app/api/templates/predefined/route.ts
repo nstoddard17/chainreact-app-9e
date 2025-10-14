@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request) {
   try {
@@ -19,7 +22,7 @@ export async function GET(request: Request) {
 
     if (checkError && checkError.code === '42P01') {
       // Table doesn't exist
-      return NextResponse.json({
+      return jsonResponse({
         templates: [],
         count: 0,
         message: "Templates table not yet created. Please run the migration."
@@ -49,11 +52,8 @@ export async function GET(request: Request) {
     const { data: templates, error } = await query
 
     if (error) {
-      console.error("Error fetching templates from database:", error)
-      return NextResponse.json(
-        { error: "Failed to fetch templates" },
-        { status: 500 }
-      )
+      logger.error("Error fetching templates from database:", error)
+      return errorResponse("Failed to fetch templates" , 500)
     }
 
     // Transform templates to match the expected format
@@ -135,15 +135,12 @@ export async function GET(request: Request) {
       return result
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       templates: formattedTemplates,
       count: formattedTemplates.length
     })
   } catch (error) {
-    console.error("Error fetching predefined templates:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch templates" },
-      { status: 500 }
-    )
+    logger.error("Error fetching predefined templates:", error)
+    return errorResponse("Failed to fetch templates" , 500)
   }
 }

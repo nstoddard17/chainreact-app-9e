@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     })
   } catch {}
 
-  return NextResponse.json({ ok: true })
+  return jsonResponse({ ok: true })
 }
 
 

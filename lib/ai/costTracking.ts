@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * AI Cost Tracking Utilities
  * 
@@ -139,7 +141,7 @@ export async function trackAICost(
     }
 
   } catch (error) {
-    console.error("Failed to track AI cost:", error)
+    logger.error("Failed to track AI cost:", error)
     // Don't throw error to avoid breaking the main functionality
   }
 }
@@ -210,7 +212,7 @@ export async function getUserAICosts(
     }
 
   } catch (error) {
-    console.error("Failed to get user AI costs:", error)
+    logger.error("Failed to get user AI costs:", error)
     return {
       totalCost: 0,
       totalTokens: 0,
@@ -290,7 +292,7 @@ export async function getAllUsersAICosts(days: number = 30): Promise<{
     }
 
   } catch (error) {
-    console.error("Failed to get all users AI costs:", error)
+    logger.error("Failed to get all users AI costs:", error)
     return {
       totalCost: 0,
       totalTokens: 0,

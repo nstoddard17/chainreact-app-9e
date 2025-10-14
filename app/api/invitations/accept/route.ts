@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,14 +12,14 @@ export async function POST(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "You must be logged in to accept an invitation" }, { status: 401 })
+      return errorResponse("You must be logged in to accept an invitation" , 401)
     }
 
     const body = await request.json()
     const { token } = body
 
     if (!token) {
-      return NextResponse.json({ error: "Token is required" }, { status: 400 })
+      return errorResponse("Token is required" , 400)
     }
 
     // Get invitation details
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (inviteError || !invitation) {
-      return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 404 })
+      return errorResponse("Invalid or expired invitation" , 404)
     }
 
     // Check if invitation has expired
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     
     if (now > expiresAt) {
-      return NextResponse.json({ error: "Invitation has expired" }, { status: 410 })
+      return errorResponse("Invitation has expired" , 410)
     }
 
     // Check if user is already a member of this organization
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingMember) {
-      return NextResponse.json({ error: "You are already a member of this organization" }, { status: 409 })
+      return errorResponse("You are already a member of this organization" , 409)
     }
 
     // Add user to organization
@@ -66,8 +69,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (addError) {
-      console.error("Error adding member:", addError)
-      return NextResponse.json({ error: "Failed to add you to the organization" }, { status: 500 })
+      logger.error("Error adding member:", addError)
+      return errorResponse("Failed to add you to the organization" , 500)
     }
 
     // Mark invitation as accepted
@@ -80,17 +83,17 @@ export async function POST(request: NextRequest) {
       .eq("id", invitation.id)
 
     if (updateError) {
-      console.error("Error updating invitation:", updateError)
+      logger.error("Error updating invitation:", updateError)
       // Don't fail the whole request if this fails
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true,
       message: `Successfully joined ${invitation.organization.name}`,
       organization: invitation.organization
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

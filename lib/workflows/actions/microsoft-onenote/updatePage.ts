@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteUpdatePage(
   params: {
     pageId: string
@@ -14,7 +16,7 @@ export async function onenoteUpdatePage(
   const { pageId, updateMode = "append", content, target, position = "after" } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would update OneNote page:", { pageId, updateMode, target })
+    logger.debug("[TEST MODE] Would update OneNote page:", { pageId, updateMode, target })
     return {
       success: true,
       data: {
@@ -107,7 +109,7 @@ export async function onenoteUpdatePage(
       }
     }
   } catch (error: any) {
-    console.error("Error updating OneNote page:", error)
+    logger.error("Error updating OneNote page:", error)
     return {
       success: false,
       error: error.message || "Failed to update OneNote page"

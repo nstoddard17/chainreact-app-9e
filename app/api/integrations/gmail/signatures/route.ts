@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { getDecryptedAccessToken } from '@/lib/integrations/getDecryptedAccessToken'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 [GMAIL SIGNATURES] API endpoint called')
+    logger.debug('🔍 [GMAIL SIGNATURES] API endpoint called')
     const searchParams = request.nextUrl.searchParams
     const requestedUserId = searchParams.get('userId')
 
-    console.log('🔍 [GMAIL SIGNATURES] Request params:', { requestedUserId })
+    logger.debug('🔍 [GMAIL SIGNATURES] Request params:', { requestedUserId })
 
     if (!requestedUserId) {
-      console.log('❌ [SIGNATURES] No userId provided')
-      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 })
+      logger.debug('❌ [SIGNATURES] No userId provided')
+      return errorResponse('Missing userId parameter' , 400)
     }
     
     // Use admin client to verify user exists
@@ -24,38 +27,36 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      console.log('❌ [SIGNATURES] User not found:', userError)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      return errorResponse('User not found' , 404)
     }
 
     const userId = requestedUserId
 
     // Get Gmail access token
-    console.log('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
+    logger.debug('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
     let accessToken
     try {
       accessToken = await getDecryptedAccessToken(userId, 'gmail')
-      console.log('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
+      logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
-      console.log('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
-      return NextResponse.json({ 
-        error: 'Gmail integration not connected',
+      logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
+      return errorResponse('Gmail integration not connected', 200, {
         signatures: [],
         needsConnection: true
-      }, { status: 200 })
+      })
     }
     
     if (!accessToken) {
-      console.log('❌ [GMAIL SIGNATURES] Gmail access token missing')
-      return NextResponse.json({ 
-        error: 'Gmail access token missing',
+      logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
+      return errorResponse('Gmail access token missing', 200, {
         signatures: [],
         needsConnection: true
-      }, { status: 200 })
+      })
     }
 
     // Fetch Gmail sendAs settings to get signatures
-    console.log('🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...')
+    logger.debug('🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...')
     const settingsResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -64,23 +65,22 @@ export async function GET(request: NextRequest) {
 
     if (!settingsResponse.ok) {
       const errorText = await settingsResponse.text()
-      console.error('❌ [GMAIL SIGNATURES] Gmail sendAs API failed:', settingsResponse.status, errorText)
-      return NextResponse.json({ 
-        error: 'Failed to fetch Gmail signatures',
+      logger.error('❌ [GMAIL SIGNATURES] Gmail sendAs API failed:', settingsResponse.status, errorText)
+      return errorResponse('Failed to fetch Gmail signatures', 200, {
         signatures: [],
         needsReconnection: settingsResponse.status === 401
-      }, { status: 200 })
+      })
     }
 
     const settingsData = await settingsResponse.json()
-    console.log(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
-    console.log(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
+    logger.debug(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
+    logger.debug(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
     
     const signatures = []
     
     if (settingsData.sendAs && Array.isArray(settingsData.sendAs)) {
       settingsData.sendAs.forEach((sendAsSettings: any, index: number) => {
-        console.log(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
+        logger.debug(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
           sendAsEmail: sendAsSettings.sendAsEmail,
           displayName: sendAsSettings.displayName,
           hasSignature: !!sendAsSettings.signature,
@@ -102,15 +102,15 @@ export async function GET(request: NextRequest) {
         })
         
         if (sendAsSettings.signature) {
-          console.log(`✅ [GMAIL SIGNATURES] Found signature for: ${sendAsSettings.displayName || sendAsSettings.sendAsEmail}`)
+          logger.debug(`✅ [GMAIL SIGNATURES] Found signature for: ${sendAsSettings.displayName || sendAsSettings.sendAsEmail}`)
         } else {
-          console.log(`⚠️ [GMAIL SIGNATURES] No signature set for: ${sendAsSettings.sendAsEmail}`)
+          logger.debug(`⚠️ [GMAIL SIGNATURES] No signature set for: ${sendAsSettings.sendAsEmail}`)
         }
       })
     }
 
     const signaturesWithSignatures = signatures.filter(sig => sig.hasSignature)
-    console.log(`✅ [GMAIL SIGNATURES] Returning ${signatures.length} signature(s):`, 
+    logger.debug(`✅ [GMAIL SIGNATURES] Returning ${signatures.length} signature(s):`, 
       signatures.map(sig => ({ id: sig.id, name: sig.name, hasSignature: sig.hasSignature })))
 
     const response = {
@@ -120,13 +120,11 @@ export async function GET(request: NextRequest) {
       signaturesCount: signaturesWithSignatures.length
     }
 
-    return NextResponse.json(response)
+    return jsonResponse(response)
 
   } catch (error) {
-    console.error('Error fetching Gmail signatures:', error)
-    return NextResponse.json({ 
-      error: 'Internal server error',
-      signatures: []
-    }, { status: 500 })
+    logger.error('Error fetching Gmail signatures:', error)
+    return errorResponse('Internal server error', 500, { signatures: []
+     })
   }
 }

@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteDeletePage(
   params: {
     pageId: string
@@ -18,7 +20,7 @@ export async function onenoteDeletePage(
   }
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would delete OneNote page:", { pageId })
+    logger.debug("[TEST MODE] Would delete OneNote page:", { pageId })
     return {
       success: true,
       data: {
@@ -49,7 +51,7 @@ export async function onenoteDeletePage(
       }
     }
   } catch (error: any) {
-    console.error("Error deleting OneNote page:", error)
+    logger.error("Error deleting OneNote page:", error)
     return {
       success: false,
       error: error.message || "Failed to delete OneNote page"

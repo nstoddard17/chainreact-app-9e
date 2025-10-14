@@ -1,6 +1,8 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs'
 import { join } from 'path'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface ProviderTemplate {
   providerId: string
   name: string
@@ -43,7 +45,7 @@ export class ProviderGenerator {
    * Generate a complete provider from template
    */
   generateProvider(template: ProviderTemplate): void {
-    console.log(`🏗️  Generating provider: ${template.name}`)
+    logger.debug(`🏗️  Generating provider: ${template.name}`)
 
     // Ensure output directory exists
     if (!existsSync(this.outputDir)) {
@@ -54,14 +56,14 @@ export class ProviderGenerator {
     const providerCode = this.generateProviderClass(template)
     const providerFile = join(this.outputDir, `${template.providerId}-adapter.ts`)
     writeFileSync(providerFile, providerCode)
-    console.log(`  ✅ Generated: ${providerFile}`)
+    logger.debug(`  ✅ Generated: ${providerFile}`)
 
     // Generate types file if needed
     const typesCode = this.generateTypesFile(template)
     if (typesCode) {
       const typesFile = join(this.outputDir, `${template.providerId}-types.ts`)
       writeFileSync(typesFile, typesCode)
-      console.log(`  ✅ Generated: ${typesFile}`)
+      logger.debug(`  ✅ Generated: ${typesFile}`)
     }
 
     // Generate test file
@@ -72,20 +74,20 @@ export class ProviderGenerator {
       mkdirSync(testDir, { recursive: true })
     }
     writeFileSync(testFile, testCode)
-    console.log(`  ✅ Generated: ${testFile}`)
+    logger.debug(`  ✅ Generated: ${testFile}`)
 
     // Generate registration code
     const registrationCode = this.generateRegistrationCode(template)
     const registrationFile = join(this.outputDir, `${template.providerId}-registration.ts`)
     writeFileSync(registrationFile, registrationCode)
-    console.log(`  ✅ Generated: ${registrationFile}`)
+    logger.debug(`  ✅ Generated: ${registrationFile}`)
 
-    console.log(`🎉 Provider ${template.name} generated successfully!`)
-    console.log(`📝 Next steps:`)
-    console.log(`   1. Review generated files`)
-    console.log(`   2. Implement custom logic in the provider class`)
-    console.log(`   3. Add the provider to bootstrap system`)
-    console.log(`   4. Test the integration`)
+    logger.debug(`🎉 Provider ${template.name} generated successfully!`)
+    logger.debug(`📝 Next steps:`)
+    logger.debug(`   1. Review generated files`)
+    logger.debug(`   2. Implement custom logic in the provider class`)
+    logger.debug(`   3. Add the provider to bootstrap system`)
+    logger.debug(`   4. Test the integration`)
   }
 
   /**
@@ -253,7 +255,7 @@ import { getDecryptedAccessToken } from '../../../lib/workflows/actions/core/get
         message: '${method.description} completed successfully'
       }
     } catch (error: any) {
-      console.error('${template.name} ${method.name} error:', error)
+      logger.error('${template.name} ${method.name} error:', error)
       return {
         success: false,
         error: error.message || 'Failed to ${method.description.toLowerCase()}',
@@ -372,7 +374,7 @@ export function register${className}(): void {
     }
   ])
 
-  console.log('✅ ${template.name} provider registered')
+  logger.debug('✅ ${template.name} provider registered')
 }
 `
   }
@@ -532,19 +534,19 @@ export function register${className}(): void {
  */
 export class InteractiveProviderGenerator {
   async generateProvider(): Promise<void> {
-    console.log('🚀 Welcome to the ChainReact Provider Generator!')
+    logger.debug('🚀 Welcome to the ChainReact Provider Generator!')
     
     // In a real implementation, this would use a CLI library like inquirer
     // to interactively collect information from the developer
     
-    console.log('This would interactively collect:')
-    console.log('- Provider name and ID')
-    console.log('- API base URL')
-    console.log('- Authentication type')
-    console.log('- Capabilities and features')
-    console.log('- API endpoints to implement')
-    console.log('- Rate limiting configuration')
-    console.log('- Webhook support')
+    logger.debug('This would interactively collect:')
+    logger.debug('- Provider name and ID')
+    logger.debug('- API base URL')
+    logger.debug('- Authentication type')
+    logger.debug('- Capabilities and features')
+    logger.debug('- API endpoints to implement')
+    logger.debug('- Rate limiting configuration')
+    logger.debug('- Webhook support')
     
     // For now, just show how it would work
     const template: ProviderTemplate = {

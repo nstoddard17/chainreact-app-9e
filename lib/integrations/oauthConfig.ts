@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Central configuration for OAuth providers
  * This file contains the configuration for all OAuth providers
@@ -347,7 +349,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     sendScopeWithRefresh: true,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/teams/callback",
-    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Channel.ReadBasic.All",
+    scope: "offline_access https://graph.microsoft.com/User.Read https://graph.microsoft.com/Team.ReadBasic.All https://graph.microsoft.com/Team.Create https://graph.microsoft.com/TeamMember.Read.All https://graph.microsoft.com/Channel.ReadBasic.All https://graph.microsoft.com/Channel.Create https://graph.microsoft.com/ChannelMessage.Read.All https://graph.microsoft.com/ChannelMessage.Send https://graph.microsoft.com/Chat.Read https://graph.microsoft.com/Chat.Create https://graph.microsoft.com/ChatMessage.Send",
   },
   hubspot: {
     id: "hubspot",
@@ -555,7 +557,7 @@ export function getOAuthConfig(provider: string): OAuthProviderConfig | null {
     return OAUTH_PROVIDERS["google"];
   }
   
-  console.error(`No OAuth config found for provider: ${provider}`);
+  logger.error(`No OAuth config found for provider: ${provider}`);
   return null;
 }
 

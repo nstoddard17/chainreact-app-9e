@@ -6,6 +6,8 @@
 import { AirtableIntegration, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface LinkedRecordOption {
   value: string
   label: string
@@ -75,7 +77,7 @@ export const getLinkedTableRecords = async (
 ): Promise<LinkedRecordOption[]> => {
   const { baseId, linkedTableName } = options
 
-  console.log("🔍 Airtable linked records fetcher called with:", {
+  logger.debug("🔍 Airtable linked records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     linkedTableName,
@@ -89,16 +91,16 @@ export const getLinkedTableRecords = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !linkedTableName) {
-      console.log('⚠️ Base ID or Linked table name missing, returning empty list')
+      logger.debug('⚠️ Base ID or Linked table name missing, returning empty list')
       return []
     }
 
-    console.log(`🔍 Fetching records from linked table: ${linkedTableName}`)
+    logger.debug(`🔍 Fetching records from linked table: ${linkedTableName}`)
 
     // Fetch all records from the linked table
     const queryParams = new URLSearchParams()
@@ -114,7 +116,7 @@ export const getLinkedTableRecords = async (
       // If we get a 403 or 404, the table likely doesn't exist in this base
       // Return test data instead of failing
       if (apiError.message?.includes('403') || apiError.message?.includes('404')) {
-        console.log(`⚠️ Table "${linkedTableName}" not accessible (${apiError.message}), returning test data`)
+        logger.debug(`⚠️ Table "${linkedTableName}" not accessible (${apiError.message}), returning test data`)
 
         const testDataMap: Record<string, LinkedRecordOption[]> = {
           'Projects': [
@@ -211,11 +213,11 @@ export const getLinkedTableRecords = async (
       })
     }
 
-    console.log(`✅ Fetched ${options.length} records from linked table ${linkedTableName}`)
+    logger.debug(`✅ Fetched ${options.length} records from linked table ${linkedTableName}`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      console.log(`⚠️ No records found in linked table ${linkedTableName}, returning test data`);
+      logger.debug(`⚠️ No records found in linked table ${linkedTableName}, returning test data`);
 
       const testDataMap: Record<string, LinkedRecordOption[]> = {
         'Projects': [
@@ -244,7 +246,7 @@ export const getLinkedTableRecords = async (
     return options.sort((a, b) => a.label.localeCompare(b.label))
 
   } catch (error: any) {
-    console.error("Error fetching linked table records:", error)
+    logger.error("Error fetching linked table records:", error)
 
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   try {
     const clientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const botToken = process.env.DISCORD_BOT_TOKEN;
     
-    console.log('🔍 Discord config check:', {
+    logger.debug('🔍 Discord config check:', {
       clientId: clientId ? 'Present' : 'Missing',
       botToken: botToken ? 'Present' : 'Missing',
       env_DISCORD_CLIENT_ID: !!process.env.DISCORD_CLIENT_ID,
@@ -14,7 +17,7 @@ export async function GET() {
     });
     
     if (!clientId) {
-      return NextResponse.json(
+      return jsonResponse(
         { 
           configured: false,
           error: 'Discord client ID not configured',
@@ -28,7 +31,7 @@ export async function GET() {
     }
 
     if (!botToken) {
-      return NextResponse.json(
+      return jsonResponse(
         { 
           configured: false,
           error: 'Discord bot token not configured',
@@ -41,14 +44,14 @@ export async function GET() {
     }
 
     // Return the client ID (it's safe to expose since it's public)
-    return NextResponse.json({
+    return jsonResponse({
       configured: true,
       clientId: clientId,
       hasBotToken: true
     })
   } catch (error) {
-    console.error('Error checking Discord config:', error)
-    return NextResponse.json(
+    logger.error('Error checking Discord config:', error)
+    return jsonResponse(
       { 
         configured: false,
         error: 'Internal server error' 

@@ -5,6 +5,8 @@ import { useWorkflowStore } from '@/stores/workflowStore'
 import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 import { useWorkflowErrorStore } from '@/stores/workflowErrorStore'
 import { supabase } from '@/utils/supabaseClient'
+
+import { logger } from '@/lib/utils/logger'
 import type { Node, Edge } from '@xyflow/react'
 import type { WorkflowNode } from '@/stores/workflowStore'
 
@@ -99,7 +101,7 @@ export function useWorkflowExecution() {
 
       return result
     } catch (error) {
-      console.error('Error executing workflow:', error)
+      logger.error('Error executing workflow:', error)
       throw error
     }
   }, [])
@@ -107,7 +109,7 @@ export function useWorkflowExecution() {
   const handleExecute = useCallback(async (nodes: Node[], edges: Edge[]) => {
     // Prevent duplicate executions
     if (isExecuting) {
-      console.log('⚠️ [Workflow Execution] Already executing, ignoring duplicate request');
+      logger.debug('⚠️ [Workflow Execution] Already executing, ignoring duplicate request');
       return
     }
 
@@ -155,7 +157,7 @@ export function useWorkflowExecution() {
 
     try {
       setIsExecuting(true)
-      console.log('🚀 [Workflow Execution] Starting execution for workflow:', currentWorkflow.id);
+      logger.debug('🚀 [Workflow Execution] Starting execution for workflow:', currentWorkflow.id);
       clearErrorsForWorkflow(currentWorkflow.id)
       
       const resetResults: Record<string, ExecutionResult> = {}
@@ -171,7 +173,7 @@ export function useWorkflowExecution() {
 
       // Note: Workflow is already saved when user clicks Save button
       // No need to save again before execution - just execute with current workflow state
-      console.log('🚀 [Workflow Execution] Starting execution (using saved workflow from database)...');
+      logger.debug('🚀 [Workflow Execution] Starting execution (using saved workflow from database)...');
 
       const executionResults = await executeWorkflow(currentWorkflow.id, {
         executionMode: 'live',
@@ -234,7 +236,7 @@ export function useWorkflowExecution() {
         })
       }
     } catch (error) {
-      console.error('Error executing workflow:', error)
+      logger.error('Error executing workflow:', error)
       toast({
         title: "Error",
         description: "Failed to execute workflow",
@@ -266,7 +268,7 @@ export function useWorkflowExecution() {
   const handleTestSandbox = useCallback(async (nodes: Node[], edges: Edge[]) => {
     // Prevent duplicate executions
     if (isExecuting) {
-      console.log('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
+      logger.debug('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
       return
     }
 
@@ -296,7 +298,7 @@ export function useWorkflowExecution() {
     addDebugLog('info', 'Starting Sandbox Mode execution')
 
     try {
-      console.log('🧪 [Sandbox Mode] Starting execution with intercepted actions...')
+      logger.debug('🧪 [Sandbox Mode] Starting execution with intercepted actions...')
 
       // Execute workflow in sandbox mode - this will intercept all external actions
       const response = await fetch('/api/workflows/execute', {
@@ -350,7 +352,7 @@ export function useWorkflowExecution() {
       }
 
     } catch (error: any) {
-      console.error('❌ [Sandbox Mode] Execution error:', error)
+      logger.error('❌ [Sandbox Mode] Execution error:', error)
       addDebugLog('error', 'Sandbox execution failed', { error: error.message })
 
       toast({
@@ -478,9 +480,9 @@ export function useWorkflowExecution() {
               await fetch(`/api/workflows/${currentWorkflow.id}/test-session`, {
                 method: 'DELETE',
               })
-              console.log('✅ Webhook unregistered after execution completed')
+              logger.debug('✅ Webhook unregistered after execution completed')
             } catch (error) {
-              console.error('Failed to unregister webhook after execution:', error)
+              logger.error('Failed to unregister webhook after execution:', error)
               // Don't show error to user - best effort cleanup
             }
           }
@@ -499,7 +501,7 @@ export function useWorkflowExecution() {
           }, 5000)
         }
       } catch (error) {
-        console.error('Error monitoring execution:', error)
+        logger.error('Error monitoring execution:', error)
       }
     }, 1000)
 
@@ -605,7 +607,7 @@ export function useWorkflowExecution() {
 
           // Handle 401 Unauthorized - session expired
           if (statusResponse.status === 401) {
-            console.log('Session expired, stopping webhook listener')
+            logger.debug('Session expired, stopping webhook listener')
             clearInterval(pollInterval)
             setPollIntervalId(null)
             setIsListeningForWebhook(false)
@@ -621,7 +623,7 @@ export function useWorkflowExecution() {
           }
 
           if (!statusResponse.ok) {
-            console.warn('Failed to fetch test session status')
+            logger.warn('Failed to fetch test session status')
             return
           }
 
@@ -662,14 +664,14 @@ export function useWorkflowExecution() {
             })
           }
         } catch (error) {
-          console.error('Error polling test session:', error)
+          logger.error('Error polling test session:', error)
         }
       }, 2000) // Poll every 2 seconds
 
       setPollIntervalId(pollInterval)
 
     } catch (error: any) {
-      console.error('Failed to start webhook listening:', error)
+      logger.error('Failed to start webhook listening:', error)
       toast({
         title: "Error",
         description: error.message || "Failed to start webhook listener",
@@ -692,9 +694,9 @@ export function useWorkflowExecution() {
         await fetch(`/api/workflows/${currentWorkflow.id}/test-session`, {
           method: 'DELETE',
         })
-        console.log('✅ Webhook unregistered successfully')
+        logger.debug('✅ Webhook unregistered successfully')
       } catch (error) {
-        console.error('Failed to unregister webhook:', error)
+        logger.error('Failed to unregister webhook:', error)
         // Don't show error to user - best effort cleanup
       }
     }
@@ -852,7 +854,7 @@ export function useWorkflowExecution() {
   const handleExecuteLive = useCallback(async (nodes: Node[], edges: Edge[]) => {
     // Execute workflow with live data and parallel processing
     if (isExecuting) {
-      console.log('⚠️ [Live Mode] Already executing, ignoring duplicate request');
+      logger.debug('⚠️ [Live Mode] Already executing, ignoring duplicate request');
       return
     }
 
@@ -871,7 +873,7 @@ export function useWorkflowExecution() {
     addDebugLog('info', 'Starting Live Mode with parallel execution')
 
     try {
-      console.log('🚀 [Live Mode] Starting parallel execution...')
+      logger.debug('🚀 [Live Mode] Starting parallel execution...')
 
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
@@ -921,7 +923,7 @@ export function useWorkflowExecution() {
       }
 
     } catch (error: any) {
-      console.error('❌ [Live Mode] Execution error:', error)
+      logger.error('❌ [Live Mode] Execution error:', error)
       addDebugLog('error', 'Live execution failed', { error: error.message })
 
       toast({
@@ -943,7 +945,7 @@ export function useWorkflowExecution() {
   const handleExecuteLiveSequential = useCallback(async (nodes: Node[], edges: Edge[]) => {
     // Execute workflow with live data but sequential processing (for debugging)
     if (isExecuting) {
-      console.log('⚠️ [Live Sequential] Already executing, ignoring duplicate request');
+      logger.debug('⚠️ [Live Sequential] Already executing, ignoring duplicate request');
       return
     }
 
@@ -962,7 +964,7 @@ export function useWorkflowExecution() {
     addDebugLog('info', 'Starting Live Mode Sequential (Debug) execution')
 
     try {
-      console.log('🔍 [Live Sequential] Starting sequential execution for debugging...')
+      logger.debug('🔍 [Live Sequential] Starting sequential execution for debugging...')
 
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
@@ -1012,7 +1014,7 @@ export function useWorkflowExecution() {
       }
 
     } catch (error: any) {
-      console.error('❌ [Live Sequential] Execution error:', error)
+      logger.error('❌ [Live Sequential] Execution error:', error)
       addDebugLog('error', 'Sequential execution failed', { error: error.message })
 
       toast({
@@ -1056,7 +1058,7 @@ export function useWorkflowExecution() {
     const cleanup = () => {
       // Only cleanup if there's an active session with user ID
       if (currentWorkflow?.id && sessionId && sessionUserId && isListeningForWebhook) {
-        console.log('🧹 Page unload detected - cleaning up test session')
+        logger.debug('🧹 Page unload detected - cleaning up test session')
 
         // Use the cleanup endpoint which works with sendBeacon
         const cleanupUrl = `/api/workflows/${currentWorkflow.id}/test-session/cleanup`

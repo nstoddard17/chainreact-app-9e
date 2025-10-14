@@ -10,6 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Search, Plus, X, Info } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
 
+import { logger } from '@/lib/utils/logger'
+
 interface DynamicFieldSelectorProps {
   value?: string[]
   onChange?: (value: string[]) => void
@@ -69,7 +71,7 @@ export default function DynamicFieldSelector({
       const properties = await loadIntegrationData('hubspot_contact_properties', integrationId)
       setAvailableProperties(properties || [])
     } catch (error) {
-      console.error('Failed to load HubSpot properties:', error)
+      logger.error('Failed to load HubSpot properties:', error)
     } finally {
       setLoading(false)
     }

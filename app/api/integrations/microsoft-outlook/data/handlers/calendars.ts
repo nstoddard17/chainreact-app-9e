@@ -5,6 +5,8 @@
 
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface OutlookCalendar {
   value: string
   label: string
@@ -15,7 +17,7 @@ export interface OutlookCalendar {
  */
 export async function getOutlookCalendars(integration: any): Promise<OutlookCalendar[]> {
   try {
-    console.log(" [Outlook API] Fetching calendars")
+    logger.debug(" [Outlook API] Fetching calendars")
 
     // Get decrypted access token
     if (!integration.access_token) {
@@ -36,7 +38,7 @@ export async function getOutlookCalendars(integration: any): Promise<OutlookCale
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('[Outlook API] Failed to fetch calendars:', errorText)
+      logger.error('[Outlook API] Failed to fetch calendars:', errorText)
 
       // Return default calendar as fallback
       return [
@@ -47,7 +49,7 @@ export async function getOutlookCalendars(integration: any): Promise<OutlookCale
     const data = await response.json()
     const calendars = data.value || []
 
-    console.log(` [Outlook API] Found ${calendars.length} calendars`)
+    logger.debug(` [Outlook API] Found ${calendars.length} calendars`)
 
     // Map calendars to the format expected by the UI
     const calendarOptions = calendars.map((calendar: any) => ({
@@ -65,7 +67,7 @@ export async function getOutlookCalendars(integration: any): Promise<OutlookCale
     return calendarOptions
 
   } catch (error: any) {
-    console.error(" [Outlook API] Failed to get calendars:", error)
+    logger.error(" [Outlook API] Failed to get calendars:", error)
 
     // Return default calendar as fallback
     return [

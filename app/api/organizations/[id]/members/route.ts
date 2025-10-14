@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +16,7 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is a member of this organization
@@ -25,7 +28,7 @@ export async function GET(
       .single()
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
     // Get all members of the organization
@@ -36,8 +39,8 @@ export async function GET(
       .order("created_at", { ascending: true })
 
     if (error) {
-      console.error("Error fetching members:", error)
-      return NextResponse.json({ error: "Failed to fetch members" }, { status: 500 })
+      logger.error("Error fetching members:", error)
+      return errorResponse("Failed to fetch members" , 500)
     }
 
     // Get user details for each member
@@ -64,7 +67,7 @@ export async function GET(
             }
           }
         } catch (error) {
-          console.error("Error fetching user data for member:", member.user_id, error)
+          logger.error("Error fetching user data for member:", member.user_id, error)
           return {
             ...member,
             user: {
@@ -77,10 +80,10 @@ export async function GET(
       })
     )
 
-    return NextResponse.json(membersWithUserInfo)
+    return jsonResponse(membersWithUserInfo)
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -96,14 +99,14 @@ export async function POST(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { user_id, role = "viewer" } = body
 
     if (!user_id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+      return errorResponse("User ID is required" , 400)
     }
 
     // Check if user is admin of the organization
@@ -115,7 +118,7 @@ export async function POST(
       .single()
 
     if (membershipError || !membership || membership.role !== 'admin') {
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     // Check if user is already a member
@@ -127,7 +130,7 @@ export async function POST(
       .single()
 
     if (existingMember) {
-      return NextResponse.json({ error: "User is already a member" }, { status: 409 })
+      return errorResponse("User is already a member" , 409)
     }
 
     // Add user to organization
@@ -142,8 +145,8 @@ export async function POST(
       .single()
 
     if (addError) {
-      console.error("Error adding member:", addError)
-      return NextResponse.json({ error: "Failed to add member" }, { status: 500 })
+      logger.error("Error adding member:", addError)
+      return errorResponse("Failed to add member" , 500)
     }
 
     // Get user details for the new member
@@ -157,9 +160,9 @@ export async function POST(
           username: userData?.user?.user_metadata?.username || "unknown"
         }
       }
-      return NextResponse.json(memberWithUserInfo, { status: 201 })
+      return jsonResponse(memberWithUserInfo, { status: 201 })
     } catch (error) {
-      console.error("Error fetching user data for new member:", error)
+      logger.error("Error fetching user data for new member:", error)
       const memberWithUserInfo = {
         ...newMember,
         user: {
@@ -168,10 +171,10 @@ export async function POST(
           username: "error"
         }
       }
-      return NextResponse.json(memberWithUserInfo, { status: 201 })
+      return jsonResponse(memberWithUserInfo, { status: 201 })
     }
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

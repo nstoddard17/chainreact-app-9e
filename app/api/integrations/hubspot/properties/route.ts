@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 import { createSupabaseServerClient } from '@/utils/supabase/server';
 import { decrypt } from '@/lib/security/encryption';
 import type { HubspotFieldDef, HubspotPropertiesResponse } from '@/lib/workflows/nodes/providers/hubspot/types';
 import { hubspotPropertyToFieldDef } from '@/lib/workflows/nodes/providers/hubspot/types';
+
+import { logger } from '@/lib/utils/logger'
 
 // Cache for property schemas (in-memory for now, could be moved to Redis)
 const propertyCache = new Map<string, { data: HubspotFieldDef[], timestamp: number }>();
@@ -15,10 +18,7 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === 'true';
 
     if (!objectType) {
-      return NextResponse.json(
-        { error: 'objectType parameter is required' },
-        { status: 400 }
-      );
+      return errorResponse('objectType parameter is required' , 400);
     }
 
     // Get user from session
@@ -26,10 +26,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return errorResponse('Unauthorized' , 401);
     }
 
     // Get HubSpot integration
@@ -42,10 +39,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json(
-        { error: 'HubSpot integration not found or not connected' },
-        { status: 404 }
-      );
+      return errorResponse('HubSpot integration not found or not connected' , 404);
     }
 
     // Get portal ID from metadata
@@ -56,18 +50,15 @@ export async function GET(request: NextRequest) {
     if (!forceRefresh) {
       const cached = propertyCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        return NextResponse.json(cached.data);
+        return jsonResponse(cached.data);
       }
     }
 
     // Decrypt access token
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      console.error('Encryption key not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      logger.error('Encryption key not configured');
+      return errorResponse('Server configuration error' , 500);
     }
 
     const accessToken = decrypt(integration.access_token, encryptionKey);
@@ -98,8 +89,8 @@ export async function GET(request: NextRequest) {
 
         if (!customPropertiesResponse.ok) {
           const errorText = await propertiesResponse.text();
-          console.error('Failed to fetch properties:', propertiesResponse.status, errorText);
-          return NextResponse.json(
+          logger.error('Failed to fetch properties:', propertiesResponse.status, errorText);
+          return jsonResponse(
             { error: `Failed to fetch properties for object type: ${objectType}` },
             { status: propertiesResponse.status }
           );
@@ -118,7 +109,7 @@ export async function GET(request: NextRequest) {
         );
 
         if (!customPropsResponse.ok) {
-          return NextResponse.json(
+          return jsonResponse(
             { error: `Failed to fetch properties for custom object: ${objectType}` },
             { status: customPropsResponse.status }
           );
@@ -154,12 +145,12 @@ export async function GET(request: NextRequest) {
           timestamp: Date.now(),
         });
 
-        return NextResponse.json(fieldDefs);
+        return jsonResponse(fieldDefs);
       }
 
       const errorText = await propertiesResponse.text();
-      console.error('Failed to fetch properties:', propertiesResponse.status, errorText);
-      return NextResponse.json(
+      logger.error('Failed to fetch properties:', propertiesResponse.status, errorText);
+      return jsonResponse(
         { error: `Failed to fetch properties: ${errorText}` },
         { status: propertiesResponse.status }
       );
@@ -204,13 +195,10 @@ export async function GET(request: NextRequest) {
       timestamp: Date.now(),
     });
 
-    return NextResponse.json(fieldDefs);
+    return jsonResponse(fieldDefs);
   } catch (error) {
-    console.error('Error in HubSpot properties route:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    logger.error('Error in HubSpot properties route:', error);
+    return errorResponse('Internal server error' , 500);
   }
 }
 
@@ -232,12 +220,9 @@ export async function POST(request: NextRequest) {
       propertyCache.clear();
     }
 
-    return NextResponse.json({ success: true, message: 'Cache cleared' });
+    return jsonResponse({ success: true, message: 'Cache cleared' });
   } catch (error) {
-    console.error('Error clearing cache:', error);
-    return NextResponse.json(
-      { error: 'Failed to clear cache' },
-      { status: 500 }
-    );
+    logger.error('Error clearing cache:', error);
+    return errorResponse('Failed to clear cache' , 500);
   }
 }

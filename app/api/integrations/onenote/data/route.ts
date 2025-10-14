@@ -4,9 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { oneNoteHandlers } from './handlers'
 import { OneNoteIntegration } from './types'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -18,12 +21,11 @@ export async function POST(req: NextRequest) {
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
-    console.log(`🔍 [OneNote API] Looking for integration:`, {
+    logger.debug(`🔍 [OneNote API] Looking for integration:`, {
       integrationId,
       dataType,
       options
@@ -38,49 +40,47 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [OneNote API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'OneNote integration not found'
-      }, { status: 404 })
+      logger.error('❌ [OneNote API] Integration not found:', { integrationId, error: integrationError })
+      return errorResponse('OneNote integration not found'
+      , 404)
     }
 
     // Validate it's a OneNote/Microsoft integration
     const validProviders = ['onenote', 'microsoft-onenote', 'microsoft-outlook', 'outlook'];
     if (!validProviders.includes(integration.provider?.toLowerCase())) {
-      console.error('❌ [OneNote API] Invalid provider:', {
+      logger.error('❌ [OneNote API] Invalid provider:', {
         integrationId,
         actualProvider: integration.provider,
         expectedProviders: validProviders
       })
-      return NextResponse.json({
+      return jsonResponse({
         error: `Invalid integration provider. Expected OneNote/Microsoft integration but got: ${integration.provider}`
       }, { status: 400 })
     }
 
-    console.log(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
+    logger.debug(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
 
     // Validate integration status - accept both 'connected' and 'active'
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.error('❌ [OneNote API] Integration not connected:', {
+      logger.error('❌ [OneNote API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'OneNote integration is not connected. Please reconnect your Microsoft account.',
+      return errorResponse('OneNote integration is not connected. Please reconnect your Microsoft account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
     
     // Check for personal account limitation
     if (integration.metadata?.accountType === 'personal') {
-      console.warn('⚠️ [OneNote API] Personal account detected with known limitations:', {
+      logger.warn('⚠️ [OneNote API] Personal account detected with known limitations:', {
         integrationId,
         email: integration.metadata.email
       })
       
       // Return a special response for personal accounts
-      return NextResponse.json({
+      return jsonResponse({
         data: [],
         warning: 'OneNote API does not work with personal Microsoft accounts (outlook.com, hotmail.com, live.com). Please use a work or school account for OneNote integration.',
         accountType: 'personal',
@@ -97,14 +97,14 @@ export async function POST(req: NextRequest) {
     // Get the appropriate handler
     const handler = oneNoteHandlers[dataType]
     if (!handler) {
-      console.error('❌ [OneNote API] Unknown data type:', dataType)
-      return NextResponse.json({
+      logger.error('❌ [OneNote API] Unknown data type:', dataType)
+      return jsonResponse({
         error: `Unknown OneNote data type: ${dataType}`,
         availableTypes: Object.keys(oneNoteHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [OneNote API] Processing request:`, {
+    logger.debug(`🔍 [OneNote API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -114,13 +114,13 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const result = await handler(integration as OneNoteIntegration, options)
 
-    console.log(`✅ [OneNote API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [OneNote API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: result.data?.length || 0,
       hasError: !!result.error
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data: result.data,
       error: result.error,
       success: !result.error,
@@ -129,30 +129,24 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [OneNote API] Unexpected error:', {
+    logger.error('❌ [OneNote API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'Microsoft Graph API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('Microsoft Graph API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

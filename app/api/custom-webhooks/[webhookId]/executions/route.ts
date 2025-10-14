@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: Request,
@@ -11,7 +14,7 @@ export async function GET(
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Verify the webhook belongs to the user
@@ -23,7 +26,7 @@ export async function GET(
       .single()
 
     if (webhookError || !webhook) {
-      return NextResponse.json({ error: "Webhook not found or unauthorized" }, { status: 404 })
+      return errorResponse("Webhook not found or unauthorized" , 404)
     }
 
     // Get executions for this webhook
@@ -35,14 +38,14 @@ export async function GET(
       .limit(50)
 
     if (error) {
-      console.error(`Error fetching executions for webhook ${webhookId}:`, error)
-      return NextResponse.json({ error: "Failed to fetch executions" }, { status: 500 })
+      logger.error(`Error fetching executions for webhook ${webhookId}:`, error)
+      return errorResponse("Failed to fetch executions" , 500)
     }
 
-    return NextResponse.json({ executions: executions || [] })
+    return jsonResponse({ executions: executions || [] })
 
   } catch (error: any) {
-    console.error(`Error in GET /api/custom-webhooks/${webhookId}/executions:`, error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error(`Error in GET /api/custom-webhooks/${webhookId}/executions:`, error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

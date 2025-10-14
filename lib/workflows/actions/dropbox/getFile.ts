@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get file from Dropbox
  */
@@ -93,7 +95,7 @@ export async function getDropboxFile(
       message: `Successfully retrieved file: ${metadata.name}`
     }
   } catch (error: any) {
-    console.error('Dropbox Get File error:', error)
+    logger.error('Dropbox Get File error:', error)
     return {
       success: false,
       output: {},

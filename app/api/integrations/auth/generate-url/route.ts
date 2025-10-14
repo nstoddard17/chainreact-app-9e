@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import crypto from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+
+import { logger } from '@/lib/utils/logger'
 
 // List of providers that don't support localhost redirect URIs
 const PROVIDERS_WITHOUT_LOCALHOST_SUPPORT = [
@@ -31,18 +34,17 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      console.log('🔐 [GENERATE-URL] Authentication failed:', userError?.message || 'No user found')
-      return NextResponse.json({ 
-        error: "Unauthorized", 
+      logger.debug('🔐 [GENERATE-URL] Authentication failed:', userError?.message || 'No user found')
+      return errorResponse("Unauthorized", 401, {
         message: "Valid authentication required to generate OAuth URLs",
         details: userError?.message || "No authenticated user session found"
-      }, { status: 401 })
+      })
     }
 
     const { provider, reconnect = false, integrationId, forceFresh = false } = await request.json()
 
     if (!provider) {
-      return NextResponse.json({ error: "Provider is required" }, { status: 400 })
+      return errorResponse("Provider is required" , 400)
     }
 
     // Check if we're running on localhost and the provider doesn't support it
@@ -50,8 +52,8 @@ export async function POST(request: NextRequest) {
     const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
     
     if (isLocalhost && PROVIDERS_WITHOUT_LOCALHOST_SUPPORT.includes(provider.toLowerCase())) {
-      console.log(`⚠️ ${provider} doesn't support localhost redirect URIs`)
-      return NextResponse.json({ 
+      logger.debug(`⚠️ ${provider} doesn't support localhost redirect URIs`)
+      return jsonResponse({ 
         error: `${provider} doesn't support localhost redirect URIs`, 
         message: `The ${provider} OAuth provider requires HTTPS and doesn't allow localhost URLs. Please use ngrok or deploy to a staging environment to test ${provider} integration.`,
         details: {
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
         const allowedRoles = ['business', 'enterprise', 'admin']
         
         if (!allowedRoles.includes(userRole)) {
-          return NextResponse.json({ 
+          return jsonResponse({ 
             error: "Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access Teams integration.",
             details: {
               currentRole: userRole,
@@ -88,11 +90,9 @@ export async function POST(request: NextRequest) {
           }, { status: 403 })
         }
       } catch (profileError) {
-        console.error("Error checking user profile for Teams:", profileError)
-        return NextResponse.json({ 
-          error: "Unable to verify account permissions for Teams integration. Please try again or contact support.",
-          details: "Profile lookup failed"
-        }, { status: 500 })
+        logger.error("Error checking user profile for Teams:", profileError)
+        return errorResponse("Unable to verify account permissions for Teams integration. Please try again or contact support.", 500, { details: "Profile lookup failed"
+         })
       }
     }
 
@@ -146,10 +146,10 @@ export async function POST(request: NextRequest) {
         authUrl = generateGoogleAuthUrl("google-docs", finalState)
         break
       case "google-calendar":
-        console.log("🔵 Generating Google Calendar OAuth URL")
-        console.log("🔵 State object:", stateObject)
+        logger.debug("🔵 Generating Google Calendar OAuth URL")
+        logger.debug("🔵 State object:", stateObject)
         authUrl = generateGoogleAuthUrl("google-calendar", finalState)
-        console.log("🔵 Generated Google Calendar auth URL:", authUrl)
+        logger.debug("🔵 Generated Google Calendar auth URL:", authUrl)
         break
       case "youtube":
         authUrl = generateGoogleAuthUrl("youtube", finalState)
@@ -265,17 +265,17 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        return NextResponse.json({ error: `Provider ${provider} not supported` }, { status: 400 })
+        return jsonResponse({ error: `Provider ${provider} not supported` }, { status: 400 })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       authUrl,
       provider,
     })
   } catch (error: any) {
-    console.error("OAuth URL generation error:", error)
-    return NextResponse.json(
+    logger.error("OAuth URL generation error:", error)
+    return jsonResponse(
       { error: "Failed to generate OAuth URL", details: error.message },
       { status: 500 },
     )
@@ -307,17 +307,17 @@ function generateSlackAuthUrl(state: string): string {
   const teamId = process.env.SLACK_TEAM_ID
   if (teamId) {
     params.append('team', teamId)
-    console.log(`🏢 Restricting Slack OAuth to team: ${teamId}`)
+    logger.debug(`🏢 Restricting Slack OAuth to team: ${teamId}`)
   }
 
   const authUrl = `https://slack.com/oauth/v2/authorize?${params.toString()}`
-  console.log(`🔗 Generated Slack auth URL: ${authUrl}`)
-  console.log(`🔑 Using Client ID: ${clientId}`)
-  console.log(`📍 Using base URL: ${baseUrl}`)
+  logger.debug(`🔗 Generated Slack auth URL: ${authUrl}`)
+  logger.debug(`🔑 Using Client ID: ${clientId}`)
+  logger.debug(`📍 Using base URL: ${baseUrl}`)
   if (devWebhookUrl) {
-    console.log(`🌐 Using development webhook HTTPS URL for Slack redirect: ${redirectBase}`)
+    logger.debug(`🌐 Using development webhook HTTPS URL for Slack redirect: ${redirectBase}`)
   }
-  console.log(`📋 Using both bot scopes and user scopes as configured in Slack app`)
+  logger.debug(`📋 Using both bot scopes and user scopes as configured in Slack app`)
   
   return authUrl
 }
@@ -406,7 +406,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 
   // Add debugging for Gmail specifically
   if (service === "gmail") {
-    console.log("🔍 Generated Gmail OAuth URL with params:", Object.fromEntries(params))
+    logger.debug("🔍 Generated Gmail OAuth URL with params:", Object.fromEntries(params))
   }
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
@@ -445,10 +445,10 @@ async function generateNotionAuthUrl(stateObject: any, supabase: any): Promise<s
   })
 
   const authUrl = `https://api.notion.com/v1/oauth/authorize?${params.toString()}`
-  console.log('🔍 Notion OAuth URL Generation:')
-  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-  console.log('  - Redirect URI:', `${baseUrl}/api/integrations/notion/callback`)
-  console.log('  - Owner parameter: user (shows all workspaces)')
+  logger.debug('🔍 Notion OAuth URL Generation:')
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Redirect URI:', `${baseUrl}/api/integrations/notion/callback`)
+  logger.debug('  - Owner parameter: user (shows all workspaces)')
 
   return authUrl
 }
@@ -494,18 +494,18 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
     code_challenge_method: "S256",
   })
 
-  console.log('🐦 Twitter OAuth URL Generation:')
-  console.log('  - Scope from config:', config.scope)
-  console.log('  - Final scope string:', scopeString)
-  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('🐦 Twitter OAuth URL Generation:')
+  logger.debug('  - Scope from config:', config.scope)
+  logger.debug('  - Final scope string:', scopeString)
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
 
   return `https://twitter.com/i/oauth2/authorize?${params.toString()}`
 }
 
 async function generateLinkedInAuthUrl(stateObject: any, supabase: any): Promise<string> {
   const clientId = process.env.LINKEDIN_CLIENT_ID
-  console.log('LinkedIn Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
-  console.log('LinkedIn Client ID length:', clientId ? clientId.length : 0)
+  logger.debug('LinkedIn Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
+  logger.debug('LinkedIn Client ID length:', clientId ? clientId.length : 0)
   
   if (!clientId) throw new Error("LinkedIn client ID not configured")
   const baseUrl = getBaseUrl()
@@ -535,21 +535,21 @@ async function generateLinkedInAuthUrl(stateObject: any, supabase: any): Promise
   })
 
   const authUrl = `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`
-  console.log('Generated LinkedIn auth URL:', authUrl)
+  logger.debug('Generated LinkedIn auth URL:', authUrl)
   
   return authUrl
 }
 
 function generateFacebookAuthUrl(state: string): string {
   const clientId = process.env.FACEBOOK_CLIENT_ID
-  console.log('Facebook Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
-  console.log('Facebook Client ID length:', clientId ? clientId.length : 0)
-  console.log('Facebook Client ID format valid:', clientId ? /^\d{15,16}$/.test(clientId) : false)
+  logger.debug('Facebook Client ID:', clientId ? `${clientId.substring(0, 4)}...` : 'NOT SET')
+  logger.debug('Facebook Client ID length:', clientId ? clientId.length : 0)
+  logger.debug('Facebook Client ID format valid:', clientId ? /^\d{15,16}$/.test(clientId) : false)
   
   if (!clientId) throw new Error("Facebook client ID not configured")
   
   if (!/^\d{15,16}$/.test(clientId)) {
-    console.error('Facebook Client ID format appears invalid. Expected 15-16 digits, got:', clientId)
+    logger.error('Facebook Client ID format appears invalid. Expected 15-16 digits, got:', clientId)
   }
   const baseUrl = getBaseUrl()
 
@@ -562,7 +562,7 @@ function generateFacebookAuthUrl(state: string): string {
   })
 
   const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`
-  console.log('Generated Facebook auth URL:', authUrl)
+  logger.debug('Generated Facebook auth URL:', authUrl)
   
   return authUrl
 }
@@ -575,7 +575,7 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
   
   // Generate the exact redirect URI and log it for debugging
   const redirectUri = `${baseUrl}/api/integrations/instagram/callback`
-  console.log('Instagram redirect URI:', redirectUri)
+  logger.debug('Instagram redirect URI:', redirectUri)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -606,7 +606,7 @@ async function generateInstagramAuthUrl(stateObject: any, supabase: any): Promis
   })
 
   // Use Instagram's OAuth endpoint instead of Facebook's
-  console.log("Using Instagram API with Instagram Login")
+  logger.debug("Using Instagram API with Instagram Login")
   return `https://www.instagram.com/oauth/authorize?${params.toString()}`
 }
 
@@ -619,7 +619,7 @@ async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<s
   const redirectUri = `${baseUrl}/api/integrations/tiktok/callback`
   
   // Log the redirect URI for debugging
-  console.log('TikTok redirect URI:', redirectUri)
+  logger.debug('TikTok redirect URI:', redirectUri)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -652,7 +652,7 @@ async function generateTikTokAuthUrl(stateObject: any, supabase: any): Promise<s
   params.append("force_login", "true")
 
   const authUrl = `https://www.tiktok.com/v2/auth/authorize?${params.toString()}`
-  console.log('Generated TikTok auth URL:', authUrl)
+  logger.debug('Generated TikTok auth URL:', authUrl)
   
   return authUrl
 }
@@ -818,10 +818,10 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
   }
 
   const redirectUri = `${baseUrl}/api/integrations/airtable/callback`
-  console.log('🔍 Airtable OAuth Debug:')
-  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-  console.log('  - Redirect URI:', redirectUri)
-  console.log('  - Base URL:', baseUrl)
+  logger.debug('🔍 Airtable OAuth Debug:')
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Redirect URI:', redirectUri)
+  logger.debug('  - Base URL:', baseUrl)
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -834,7 +834,7 @@ async function generateAirtableAuthUrl(stateObject: any, supabase: any): Promise
   })
 
   const authUrl = `https://airtable.com/oauth2/v1/authorize?${params.toString()}`
-  console.log('  - Final OAuth URL (first 200 chars):', `${authUrl.substring(0, 200) }...`)
+  logger.debug('  - Final OAuth URL (first 200 chars):', `${authUrl.substring(0, 200) }...`)
   
   return authUrl
 }
@@ -903,8 +903,8 @@ async function generatePayPalAuthUrl(stateObject: any): Promise<string> {
   const registeredRedirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
   
   // For debugging
-  console.log("PayPal OAuth URL generation - using redirect URI:", registeredRedirectUri)
-  console.log("PayPal client ID exists:", !!clientId)
+  logger.debug("PayPal OAuth URL generation - using redirect URI:", registeredRedirectUri)
+  logger.debug("PayPal client ID exists:", !!clientId)
 
   // Generate PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("hex")
@@ -956,32 +956,32 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("teams")
   if (!config) throw new Error("Teams OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("Teams client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
   // Debug logging
-  console.log('🔍 Teams OAuth URL Generation Debug:')
-  console.log('  - Config scope:', config.scope)
-  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-  console.log('  - Redirect URI:', redirectUri)
-  console.log('  - Auth endpoint:', config.authEndpoint)
+  logger.debug('🔍 Teams OAuth URL Generation Debug:')
+  logger.debug('  - Config scope:', config.scope)
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Redirect URI:', redirectUri)
+  logger.debug('  - Auth endpoint:', config.authEndpoint)
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 
   const finalUrl = `${config.authEndpoint}?${params.toString()}`
-  console.log('  - Final OAuth URL (first 300 chars):', `${finalUrl.substring(0, 300) }...`)
+  logger.debug('  - Final OAuth URL (first 300 chars):', `${finalUrl.substring(0, 300) }...`)
   
   return finalUrl
 }
@@ -990,11 +990,11 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("onedrive")
   if (!config) throw new Error("OneDrive OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("OneDrive client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
@@ -1005,7 +1005,7 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 
@@ -1124,31 +1124,31 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("microsoft-onenote")
   if (!config) throw new Error("OneNote OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("OneNote client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
-  
+
   // Debug logging to see what scopes we're requesting
-  console.log('🔍 OneNote OAuth URL Generation:')
-  console.log('  - Config scope:', config.scope)
-  console.log('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-  console.log('  - Redirect URI:', redirectUri)
+  logger.debug('🔍 OneNote OAuth URL Generation:')
+  logger.debug('  - Config scope:', config.scope)
+  logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+  logger.debug('  - Redirect URI:', redirectUri)
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
   
   const finalUrl = `${config.authEndpoint}?${params.toString()}`
-  console.log('  - Final OAuth URL (scope part):', finalUrl.includes('Notes.ReadWrite') ? '✅ Contains Notes.ReadWrite' : '❌ Missing Notes.ReadWrite')
+  logger.debug('  - Final OAuth URL (scope part):', finalUrl.includes('Notes.ReadWrite') ? '✅ Contains Notes.ReadWrite' : '❌ Missing Notes.ReadWrite')
 
   return finalUrl
 }

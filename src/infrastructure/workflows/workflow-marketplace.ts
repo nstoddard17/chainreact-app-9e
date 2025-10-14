@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { WorkflowDefinition } from './workflow-engine'
 import { auditLogger, AuditEventType } from '../security/audit-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Template categories
  */
@@ -310,7 +312,7 @@ export class WorkflowMarketplace extends EventEmitter {
     super()
     this.initializeDefaultTemplates()
     this.startTrendingCalculation()
-    console.log('🏪 Workflow marketplace initialized')
+    logger.debug('🏪 Workflow marketplace initialized')
   }
 
   /**
@@ -370,7 +372,7 @@ export class WorkflowMarketplace extends EventEmitter {
     })
     
     this.emit('templateCreated', fullTemplate)
-    console.log(`📄 Template created: ${fullTemplate.name}`)
+    logger.debug(`📄 Template created: ${fullTemplate.name}`)
     
     return templateId
   }
@@ -411,7 +413,7 @@ export class WorkflowMarketplace extends EventEmitter {
     })
     
     this.emit('templatePublished', template)
-    console.log(`🚀 Template published: ${template.name}`)
+    logger.debug(`🚀 Template published: ${template.name}`)
     
     return true
   }
@@ -490,7 +492,7 @@ export class WorkflowMarketplace extends EventEmitter {
     })
     
     this.emit('templateInstalled', template, installation, workflowDefinition)
-    console.log(`⬇️ Template installed: ${template.name} for user ${userId}`)
+    logger.debug(`⬇️ Template installed: ${template.name} for user ${userId}`)
     
     return workflowId
   }
@@ -729,7 +731,7 @@ export class WorkflowMarketplace extends EventEmitter {
     })
     
     this.emit('templateReviewed', template, templateReview)
-    console.log(`⭐ Template reviewed: ${template.name} (${review.rating}/5)`)
+    logger.debug(`⭐ Template reviewed: ${template.name} (${review.rating}/5)`)
     
     return reviewId
   }
@@ -753,7 +755,7 @@ export class WorkflowMarketplace extends EventEmitter {
     this.collections.set(collectionId, fullCollection)
     
     this.emit('collectionCreated', fullCollection)
-    console.log(`📚 Collection created: ${fullCollection.name}`)
+    logger.debug(`📚 Collection created: ${fullCollection.name}`)
     
     return collectionId
   }
@@ -906,7 +908,7 @@ export class WorkflowMarketplace extends EventEmitter {
     })
     
     this.emit('templateModerated', template, decision, comment)
-    console.log(`✅ Template ${decision}d: ${template.name}`)
+    logger.debug(`✅ Template ${decision}d: ${template.name}`)
     
     return true
   }
@@ -1277,7 +1279,7 @@ export class WorkflowMarketplace extends EventEmitter {
       template.trending = this.trendingTemplates.includes(template.id)
     }
     
-    console.log(`📈 Updated trending templates: ${this.trendingTemplates.length}`)
+    logger.debug(`📈 Updated trending templates: ${this.trendingTemplates.length}`)
   }
 
   /**
@@ -1327,7 +1329,7 @@ export class WorkflowMarketplace extends EventEmitter {
     this.moderationQueue.length = 0
     
     this.removeAllListeners()
-    console.log('🛑 Workflow marketplace shutdown')
+    logger.debug('🛑 Workflow marketplace shutdown')
   }
 }
 

@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface UseAirtableFieldHandlerProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -62,14 +64,14 @@ export function useAirtableFieldHandler({
    * Handle baseId changes - clear everything
    */
   const handleBaseIdChange = useCallback(async (value: any) => {
-    console.log('🔍 Airtable baseId changed:', value);
+    logger.debug('🔍 Airtable baseId changed:', value);
 
     // Mark dependent fields as manually cleared to prevent restoration from initialData
     const fieldsToMark = ['tableName', 'recordId', 'filterField', 'filterValue'];
     fieldsToMark.forEach(field => {
       clearedFieldsRef?.current.add(field);
     });
-    console.log('🚫 [Airtable] Marked fields as cleared:', fieldsToMark);
+    logger.debug('🚫 [Airtable] Marked fields as cleared:', fieldsToMark);
 
     // Clear ALL dependent fields - set to empty string to override any saved values
     setValue('tableName', '', { shouldValidate: false });
@@ -109,7 +111,7 @@ export function useAirtableFieldHandler({
    * Handle tableName changes - clear everything except baseId
    */
   const handleTableNameChange = useCallback(async (value: any) => {
-    console.log('🔍 Airtable tableName changed:', value);
+    logger.debug('🔍 Airtable tableName changed:', value);
     
     // Clear dependent fields (everything except baseId)
     setValue('recordId', '');
@@ -149,7 +151,7 @@ export function useAirtableFieldHandler({
   const handleFilterFieldChange = useCallback(async (value: any) => {
     if (nodeInfo?.type !== 'airtable_action_list_records') return;
     
-    console.log('🔍 Airtable filterField changed:', value);
+    logger.debug('🔍 Airtable filterField changed:', value);
     
     // Clear filterValue
     setValue('filterValue', '');
@@ -182,7 +184,7 @@ export function useAirtableFieldHandler({
    */
   const handleRecordIdChange = useCallback((value: any) => {
     if (value && selectedRecord?.fields) {
-      console.log('🔍 Airtable recordId changed, populating dynamic fields');
+      logger.debug('🔍 Airtable recordId changed, populating dynamic fields');
       
       // Populate dynamic fields from selected record
       Object.entries(selectedRecord.fields).forEach(([fieldName, fieldValue]) => {

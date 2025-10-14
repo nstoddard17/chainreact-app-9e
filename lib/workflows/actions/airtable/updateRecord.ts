@@ -9,6 +9,8 @@ import {
 } from './createRecord'
 import { deleteTempAttachments, scheduleTempAttachmentCleanup } from './supabaseAttachment'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Updates an existing record in an Airtable table
  */
@@ -41,7 +43,7 @@ export async function updateAirtableRecord(
         }
       }
     } catch (err) {
-      console.error('Error extracting update fields from config:', err)
+      logger.error('Error extracting update fields from config:', err)
     }
 
     const directFields = config.fields || {}
@@ -56,7 +58,7 @@ export async function updateAirtableRecord(
       if (!recordId) missingFields.push("Record ID")
 
       const message = `Missing required fields for updating record: ${missingFields.join(", ")}`
-      console.error(message)
+      logger.error(message)
       return { success: false, message }
     }
 
@@ -113,7 +115,7 @@ export async function updateAirtableRecord(
           } catch (attachmentError) {
             hadAttachmentIssue = true
             attachmentErrors.push(fieldName)
-            console.error(`❌ [Airtable] Error processing attachment for field "${fieldName}":`, attachmentError)
+            logger.error(`❌ [Airtable] Error processing attachment for field "${fieldName}":`, attachmentError)
           }
         }
 
@@ -141,15 +143,15 @@ export async function updateAirtableRecord(
     }
 
     if (Object.keys(resolvedFields).length === 0) {
-      console.log('📊 [Airtable] No fields to update for record', recordId)
+      logger.debug('📊 [Airtable] No fields to update for record', recordId)
     }
 
     if (attachmentErrors.length > 0) {
-      console.log(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
+      logger.debug(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
 
     if (skippedFields.length > 0) {
-      console.log(`📊 [Airtable] Skipped fields during update: ${skippedFields.join(', ')}`)
+      logger.debug(`📊 [Airtable] Skipped fields during update: ${skippedFields.join(', ')}`)
     }
 
     const response = await fetch(
@@ -188,7 +190,7 @@ export async function updateAirtableRecord(
     }
 
   } catch (error: any) {
-    console.error("Airtable update record error:", error)
+    logger.error("Airtable update record error:", error)
     return {
       success: false,
       error: error.message || "An unexpected error occurred while updating the record"
@@ -201,7 +203,7 @@ export async function updateAirtableRecord(
         try {
           await deleteTempAttachments(cleanupPaths)
         } catch (cleanupError) {
-          console.error('❌ [Airtable] Failed to remove temporary attachments after update failure:', cleanupError)
+          logger.error('❌ [Airtable] Failed to remove temporary attachments after update failure:', cleanupError)
         }
       }
     }

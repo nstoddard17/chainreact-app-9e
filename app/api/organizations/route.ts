@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Use service client to bypass RLS and handle security manually
@@ -22,8 +25,8 @@ export async function GET(request: NextRequest) {
       .eq("organization_members.user_id", user.id)
 
     if (error) {
-      console.error("Error fetching organizations:", error)
-      return NextResponse.json({ error: "Failed to fetch organizations" }, { status: 500 })
+      logger.error("Error fetching organizations:", error)
+      return errorResponse("Failed to fetch organizations" , 500)
     }
 
     // Transform the data to match the expected format
@@ -43,10 +46,10 @@ export async function GET(request: NextRequest) {
       member_count: org.organization_members?.length || 1
     }))
 
-    return NextResponse.json(transformedOrganizations)
+    return jsonResponse(transformedOrganizations)
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!name || !slug) {
-      return NextResponse.json({ error: "Name and slug are required" }, { status: 400 })
+      return errorResponse("Name and slug are required" , 400)
     }
 
     // Check if slug already exists using service client
@@ -77,7 +80,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingOrg) {
-      return NextResponse.json({ error: "Organization slug already exists" }, { status: 409 })
+      return errorResponse("Organization slug already exists" , 409)
     }
 
     // Create organization using service client
@@ -95,8 +98,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (createError) {
-      console.error("Error creating organization:", createError)
-      return NextResponse.json({ error: "Failed to create organization" }, { status: 500 })
+      logger.error("Error creating organization:", createError)
+      return errorResponse("Failed to create organization" , 500)
     }
 
     // Add creator as admin member using service client
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (memberError) {
-      console.error("Error creating member:", memberError)
+      logger.error("Error creating member:", memberError)
       // Don't fail the request, organization was created successfully
     }
 
@@ -120,9 +123,9 @@ export async function POST(request: NextRequest) {
       member_count: 1
     }
 
-    return NextResponse.json(result, { status: 201 })
+    return jsonResponse(result, { status: 201 })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

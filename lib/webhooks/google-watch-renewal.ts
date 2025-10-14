@@ -4,6 +4,8 @@ import { setupGoogleDriveWatch, stopGoogleDriveWatch } from './google-drive-watc
 import { setupGoogleCalendarWatch, stopGoogleCalendarWatch } from './google-calendar-watch-setup'
 import { setupGoogleSheetsWatch, stopGoogleSheetsWatch } from './google-sheets-watch-setup'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Renew Google watches that are about to expire
  * Google watches expire after 7 days maximum, so we need to renew them before expiration
@@ -28,21 +30,21 @@ export async function renewExpiringGoogleWatches(): Promise<void> {
       .order('expiration', { ascending: true })
 
     if (error) {
-      console.error('Failed to fetch expiring subscriptions:', error)
+      logger.error('Failed to fetch expiring subscriptions:', error)
       return
     }
 
     if (!expiringSubscriptions || expiringSubscriptions.length === 0) {
-      console.log('No Google watches expiring soon')
+      logger.debug('No Google watches expiring soon')
       return
     }
 
-    console.log(`Found ${expiringSubscriptions.length} Google watches expiring soon`)
+    logger.debug(`Found ${expiringSubscriptions.length} Google watches expiring soon`)
 
     // Process each expiring subscription
     for (const subscription of expiringSubscriptions) {
       try {
-        console.log(`Renewing ${subscription.provider} watch for user ${subscription.user_id}`)
+        logger.debug(`Renewing ${subscription.provider} watch for user ${subscription.user_id}`)
 
         switch (subscription.provider) {
           case 'gmail':
@@ -59,9 +61,9 @@ export async function renewExpiringGoogleWatches(): Promise<void> {
             break
         }
 
-        console.log(`✅ Successfully renewed ${subscription.provider} watch`)
+        logger.debug(`✅ Successfully renewed ${subscription.provider} watch`)
       } catch (error) {
-        console.error(`Failed to renew ${subscription.provider} watch:`, error)
+        logger.error(`Failed to renew ${subscription.provider} watch:`, error)
 
         // Log the failure
         await supabase
@@ -76,7 +78,7 @@ export async function renewExpiringGoogleWatches(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Failed to renew expiring Google watches:', error)
+    logger.error('Failed to renew expiring Google watches:', error)
   }
 }
 
@@ -88,7 +90,7 @@ async function renewGmailWatch(subscription: any): Promise<void> {
   try {
     await stopGmailWatch(subscription.user_id, subscription.integration_id)
   } catch (error) {
-    console.log('Could not stop old Gmail watch (may already be expired):', error)
+    logger.debug('Could not stop old Gmail watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -140,7 +142,7 @@ async function renewGoogleDriveWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    console.log('Could not stop old Drive watch (may already be expired):', error)
+    logger.debug('Could not stop old Drive watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -155,7 +157,7 @@ async function renewGoogleDriveWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleDriveWatch
   // Just log the renewal
-  console.log(`Google Drive watch renewed with new channel ID: ${result.channelId}`)
+  logger.debug(`Google Drive watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -171,7 +173,7 @@ async function renewGoogleCalendarWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    console.log('Could not stop old Calendar watch (may already be expired):', error)
+    logger.debug('Could not stop old Calendar watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -186,7 +188,7 @@ async function renewGoogleCalendarWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleCalendarWatch
   // Just log the renewal
-  console.log(`Google Calendar watch renewed with new channel ID: ${result.channelId}`)
+  logger.debug(`Google Calendar watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -202,7 +204,7 @@ async function renewGoogleSheetsWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    console.log('Could not stop old Sheets watch (may already be expired):', error)
+    logger.debug('Could not stop old Sheets watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -217,7 +219,7 @@ async function renewGoogleSheetsWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleSheetsWatch
   // Just log the renewal
-  console.log(`Google Sheets watch renewed with new channel ID: ${result.channelId}`)
+  logger.debug(`Google Sheets watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -241,14 +243,14 @@ export async function cleanupExpiredSubscriptions(): Promise<void> {
       .select()
 
     if (error) {
-      console.error('Failed to cleanup expired subscriptions:', error)
+      logger.error('Failed to cleanup expired subscriptions:', error)
       return
     }
 
     if (deleted && deleted.length > 0) {
-      console.log(`Cleaned up ${deleted.length} expired webhook subscriptions`)
+      logger.debug(`Cleaned up ${deleted.length} expired webhook subscriptions`)
     }
   } catch (error) {
-    console.error('Failed to cleanup expired subscriptions:', error)
+    logger.error('Failed to cleanup expired subscriptions:', error)
   }
 }

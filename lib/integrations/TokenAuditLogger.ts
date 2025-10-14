@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export class TokenAuditLogger {
   /**
    * Logs a token event to the audit log
@@ -14,7 +16,7 @@ export class TokenAuditLogger {
     try {
       const supabase = createAdminClient()
       if (!supabase) {
-        console.error("Failed to create database client for audit logging")
+        logger.error("Failed to create database client for audit logging")
         return null
       }
 
@@ -27,13 +29,13 @@ export class TokenAuditLogger {
       })
 
       if (error) {
-        console.error("Error logging token event:", error)
+        logger.error("Error logging token event:", error)
         return null
       }
 
       return data
     } catch (error) {
-      console.error("Error in token audit logger:", error)
+      logger.error("Error in token audit logger:", error)
       return null
     }
   }
@@ -45,7 +47,7 @@ export class TokenAuditLogger {
     try {
       const supabase = createAdminClient()
       if (!supabase) {
-        console.error("Failed to create database client for audit logging")
+        logger.error("Failed to create database client for audit logging")
         return []
       }
 
@@ -57,13 +59,13 @@ export class TokenAuditLogger {
         .limit(limit)
 
       if (error) {
-        console.error("Error fetching token events:", error)
+        logger.error("Error fetching token events:", error)
         return []
       }
 
       return data || []
     } catch (error) {
-      console.error("Error in token audit logger:", error)
+      logger.error("Error in token audit logger:", error)
       return []
     }
   }
@@ -75,7 +77,7 @@ export class TokenAuditLogger {
     try {
       const supabase = createAdminClient()
       if (!supabase) {
-        console.error("Failed to create database client for audit logging")
+        logger.error("Failed to create database client for audit logging")
         return []
       }
 
@@ -87,13 +89,13 @@ export class TokenAuditLogger {
         .limit(limit)
 
       if (error) {
-        console.error("Error fetching integration events:", error)
+        logger.error("Error fetching integration events:", error)
         return []
       }
 
       return data || []
     } catch (error) {
-      console.error("Error in token audit logger:", error)
+      logger.error("Error in token audit logger:", error)
       return []
     }
   }

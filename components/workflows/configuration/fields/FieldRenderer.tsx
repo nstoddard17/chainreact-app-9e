@@ -48,6 +48,8 @@ import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
 
+import { logger } from '@/lib/utils/logger'
+
 // Helper function to get contextual empty message for combobox
 function getComboboxEmptyMessage(field: any): string {
   const fieldName = field.name?.toLowerCase() || '';
@@ -319,7 +321,7 @@ export function FieldRenderer({
               let fileValue;
               if (integrationProvider === 'trello' && field.name === 'attachment') {
                 // Log the value structure for debugging
-                console.log('[FieldRenderer] Trello attachment value:', {
+                logger.debug('[FieldRenderer] Trello attachment value:', {
                   value,
                   valueType: typeof value,
                   hasFile: !!value?.file,
@@ -839,7 +841,7 @@ export function FieldRenderer({
         
         // Debug logging for board field
         if (field.name === 'boardId') {
-          console.log('[FieldRenderer] Board field select options:', {
+          logger.debug('[FieldRenderer] Board field select options:', {
             fieldName: field.name,
             hasStaticOptions: !!field.options,
             staticOptionsCount: field.options?.length || 0,
@@ -987,7 +989,7 @@ export function FieldRenderer({
 
                       // Check if we're already loading this specific combination
                       if (window[loadKey]) {
-                        console.log('🔄 [FieldRenderer] Already loading options for:', field.name);
+                        logger.debug('🔄 [FieldRenderer] Already loading options for:', field.name);
                         return;
                       }
 
@@ -996,7 +998,7 @@ export function FieldRenderer({
                         const lastRefresh = window[lastRefreshKey] || 0;
                         const timeSinceRefresh = Date.now() - lastRefresh;
                         if (timeSinceRefresh < 5000) {
-                          console.log('⏱️ [FieldRenderer] Skipping refresh, too soon since last refresh:', field.name);
+                          logger.debug('⏱️ [FieldRenderer] Skipping refresh, too soon since last refresh:', field.name);
                           return;
                         }
                       }
@@ -1009,7 +1011,7 @@ export function FieldRenderer({
                       // Determine if this is a refresh (has options) or initial load
                       const isRefresh = comboboxOptions.length > 0;
 
-                      console.log(`🔄 [FieldRenderer] ${ isRefresh ? 'Refreshing' : 'Loading' } options for combobox:`, field.name);
+                      logger.debug(`🔄 [FieldRenderer] ${ isRefresh ? 'Refreshing' : 'Loading' } options for combobox:`, field.name);
                       window[loadKey] = true;
 
                       // Track refresh time

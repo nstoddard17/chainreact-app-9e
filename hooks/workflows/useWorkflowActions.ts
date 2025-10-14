@@ -3,6 +3,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabaseClient'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowStore } from '@/stores/workflowStore'
+
+import { logger } from '@/lib/utils/logger'
 import type { WorkflowNode, WorkflowConnection } from '@/stores/workflowStore'
 
 export function useWorkflowActions() {
@@ -77,7 +79,7 @@ export function useWorkflowActions() {
 
       // Refresh in the background to keep things in sync
       void fetchWorkflows().catch((err) => {
-        console.warn("Background workflow refresh after duplicate failed:", err)
+        logger.warn("Background workflow refresh after duplicate failed:", err)
       })
 
       toast({
@@ -89,7 +91,7 @@ export function useWorkflowActions() {
       router.push(`/workflows/builder?id=${duplicated.id}`)
 
     } catch (error) {
-      console.error('Error duplicating workflow:', error)
+      logger.error('Error duplicating workflow:', error)
       toast({
         title: "Error",
         description: "Failed to duplicate workflow",
@@ -141,7 +143,7 @@ export function useWorkflowActions() {
       router.push('/workflows')
 
     } catch (error) {
-      console.error('Error deleting workflow:', error)
+      logger.error('Error deleting workflow:', error)
       toast({
         title: "Error",
         description: "Failed to delete workflow",
@@ -181,7 +183,7 @@ export function useWorkflowActions() {
       // - Share to template library
 
     } catch (error) {
-      console.error('Error sharing workflow:', error)
+      logger.error('Error sharing workflow:', error)
       toast({
         title: "Error",
         description: "Failed to copy workflow link",

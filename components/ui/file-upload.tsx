@@ -4,6 +4,8 @@ import { Progress } from '@/components/ui/progress'
 import { X, Upload, File, AlertCircle, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface FileUploadProps {
   value?: FileList | File[]
   onChange: (files: FileList | File[]) => void
@@ -54,7 +56,7 @@ export function FileUpload({
 
   // Initialize uploaded files from value prop
   useEffect(() => {
-    console.log('📸 [FileUpload] Value prop changed:', {
+    logger.debug('📸 [FileUpload] Value prop changed:', {
       value,
       hasValue: !!value,
       length: value?.length,
@@ -64,7 +66,7 @@ export function FileUpload({
     // Check if value has changed (new file or modal reopened)
     const valueChanged = JSON.stringify(value) !== JSON.stringify(prevValueRef.current)
     if (valueChanged) {
-      console.log('📸 [FileUpload] Value changed, clearing preview cache')
+      logger.debug('📸 [FileUpload] Value changed, clearing preview cache')
       // Clear preview tracking when value changes to allow reloading
       loadedPreviewsRef.current.clear()
       loadingPreviewsRef.current.clear()
@@ -94,7 +96,7 @@ export function FileUpload({
         // Check if it's our special format with base64 URL (for saved attachments)
         if (file && typeof file === 'object' && file.url && typeof file.url === 'string' && file.url.startsWith('data:')) {
           // This is a saved file with base64 data URL
-          console.log('📸 [FileUpload] Processing saved file with base64 URL:', {
+          logger.debug('📸 [FileUpload] Processing saved file with base64 URL:', {
             name: file.name,
             size: file.size,
             type: file.type,
@@ -118,7 +120,7 @@ export function FileUpload({
             writable: false
           });
 
-          console.log('📸 [FileUpload] Loaded saved file with base64 URL:', {
+          logger.debug('📸 [FileUpload] Loaded saved file with base64 URL:', {
             name: uploadedFile.actualName,
             size: uploadedFile.actualSize,
             type: uploadedFile.actualType,
@@ -151,7 +153,7 @@ export function FileUpload({
             actualType: file.fileType || file.type
           }
 
-          console.log('📸 [FileUpload] Processing saved file:', {
+          logger.debug('📸 [FileUpload] Processing saved file:', {
             fileName: uploadedFile.actualName,
             fileType: uploadedFile.actualType,
             filePath: file.filePath,
@@ -185,16 +187,16 @@ export function FileUpload({
 
                   if (response.ok) {
                     const result = await response.json();
-                    console.log('📸 [FileUpload] Preview API response:', {
+                    logger.debug('📸 [FileUpload] Preview API response:', {
                       hasPreviewUrl: !!result.previewUrl,
                       previewUrl: result.previewUrl?.substring(0, 100)
                     });
                     if (result.previewUrl) {
                       uploadedFile.previewUrl = result.previewUrl;
-                      console.log('📸 [FileUpload] Set preview URL for file:', uploadedFile.actualName);
+                      logger.debug('📸 [FileUpload] Set preview URL for file:', uploadedFile.actualName);
                     }
                   } else {
-                    console.log('📸 [FileUpload] Preview API failed:', response.status);
+                    logger.debug('📸 [FileUpload] Preview API failed:', response.status);
                   }
                 }
               } catch (error) {
@@ -204,7 +206,7 @@ export function FileUpload({
                 loadingPreviewsRef.current.delete(file.filePath);
               }
             } else {
-              console.log('📸 [FileUpload] Already loading preview for:', file.filePath);
+              logger.debug('📸 [FileUpload] Already loading preview for:', file.filePath);
             }
           }
 
@@ -231,7 +233,7 @@ export function FileUpload({
           index === self.findIndex(f => f.id === file.id)
         );
 
-        console.log('📸 [FileUpload] Setting uploaded files:', {
+        logger.debug('📸 [FileUpload] Setting uploaded files:', {
           count: uniqueFiles.length,
           files: uniqueFiles.map(f => ({
             id: f.id,
@@ -245,7 +247,7 @@ export function FileUpload({
       };
 
       loadFilesWithPreviews().then(() => {
-        console.log('📸 [FileUpload] Finished loading file previews');
+        logger.debug('📸 [FileUpload] Finished loading file previews');
       });
     } else if (!value || value.length === 0) {
       // Clear previews tracking when value is cleared
@@ -362,7 +364,7 @@ export function FileUpload({
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('FileUpload: Input change event triggered', { filesCount: e.target.files?.length });
+    logger.debug('FileUpload: Input change event triggered', { filesCount: e.target.files?.length });
     if (e.target.files && e.target.files[0]) {
       handleFiles(e.target.files)
       // Reset the input to allow selecting the same file again if needed

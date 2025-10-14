@@ -2,6 +2,8 @@ import { SlackDataHandler, SlackIntegration } from '../types'
 import { validateSlackIntegration, makeSlackApiRequest } from '../utils'
 import allEmojisData from '@/lib/discord/allEmojis.json'
 
+import { logger } from '@/lib/utils/logger'
+
 type StandardEmojiEntry = [string, { slug: string; name: string }]
 
 interface SlackEmojiCatalogItem {
@@ -36,7 +38,7 @@ export const getSlackEmojiCatalog: SlackDataHandler<SlackEmojiCatalogItem> = asy
   const standardEmojis = buildStandardEmojiCatalog()
 
   try {
-    console.log('😄 [Slack Emoji] Fetching emoji catalog')
+    logger.debug('😄 [Slack Emoji] Fetching emoji catalog')
 
     const response = await makeSlackApiRequest(
       'https://slack.com/api/emoji.list',
@@ -84,11 +86,11 @@ export const getSlackEmojiCatalog: SlackDataHandler<SlackEmojiCatalogItem> = asy
 
     const allEmojis = [...standardEmojis, ...customEmojis].sort((a, b) => a.name.localeCompare(b.name))
 
-    console.log(`✅ [Slack Emoji] Retrieved ${allEmojis.length} emoji`)
+    logger.debug(`✅ [Slack Emoji] Retrieved ${allEmojis.length} emoji`)
 
     return allEmojis
   } catch (error: any) {
-    console.error('❌ [Slack Emoji] Failed to load emoji catalog', error)
+    logger.error('❌ [Slack Emoji] Failed to load emoji catalog', error)
     if (error instanceof Error && error.message?.includes('authentication')) {
       throw error
     }

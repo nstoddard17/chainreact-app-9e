@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { logger } from '@/lib/utils/logger'
+
 interface BubbleSuggestion {
   value: any;
   label: string;
@@ -51,7 +53,7 @@ export function useBubbleManagement({
 
     // Check if bubble already exists
     if (bubbleExists(fieldName, value)) {
-      console.log(`Bubble already exists for value ${label} in field ${fieldName}`);
+      logger.debug(`Bubble already exists for value ${label} in field ${fieldName}`);
       return false;
     }
 
@@ -68,7 +70,7 @@ export function useBubbleManagement({
         [fieldName]: 0
       }));
       
-      console.log(`Replaced bubble for single-value field ${fieldName}`);
+      logger.debug(`Replaced bubble for single-value field ${fieldName}`);
     } else if (hasActiveBubble(fieldName)) {
       // Multi-value field with active bubble - replace the active bubble
       const activeBubbleIndices = activeBubbles[fieldName];
@@ -93,7 +95,7 @@ export function useBubbleManagement({
         };
       });
       
-      console.log(`Replaced active bubble with ${label}`);
+      logger.debug(`Replaced active bubble with ${label}`);
     } else {
       // Multi-value field with no active bubble - add new bubble
       setFieldSuggestions(prev => ({
@@ -101,7 +103,7 @@ export function useBubbleManagement({
         [fieldName]: [...(prev[fieldName] || []), newSuggestion]
       }));
       
-      console.log(`Added new bubble for ${label}`);
+      logger.debug(`Added new bubble for ${label}`);
     }
 
     return true;

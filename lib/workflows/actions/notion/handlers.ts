@@ -2,6 +2,8 @@ import { ActionResult } from '../core/executeWait'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 const NOTION_API_VERSION = "2022-06-28"
 
 /**
@@ -106,7 +108,7 @@ export async function notionCreatePage(
       }
     }
   } catch (error: any) {
-    console.error("Notion create page error:", error)
+    logger.error("Notion create page error:", error)
     return {
       success: false,
       output: {},
@@ -190,13 +192,13 @@ export async function notionUpdatePage(
 
       // Skip block content fields - these should be handled through blocks API
       if (blockContentKeys.some(blockKey => key.includes(blockKey))) {
-        console.log(`Skipping block content field: ${key}`)
+        logger.debug(`Skipping block content field: ${key}`)
         continue
       }
 
       // Skip properties that contain '-content' suffix as they're usually block content
       if (key.includes('-content')) {
-        console.log(`Skipping content field: ${key}`)
+        logger.debug(`Skipping content field: ${key}`)
         continue
       }
 
@@ -213,7 +215,7 @@ export async function notionUpdatePage(
           processedProperties[key] = value
         } else if (value.items || value.blocks || value.children) {
           // This looks like block content, skip it
-          console.log(`Skipping property ${key} - appears to be block content`)
+          logger.debug(`Skipping property ${key} - appears to be block content`)
           continue
         } else {
           // For other objects, add them as-is and let Notion API validate
@@ -228,7 +230,7 @@ export async function notionUpdatePage(
     properties = processedProperties
 
     // Debug logging
-    console.log('Processed properties for Notion update:', JSON.stringify(properties, null, 2))
+    logger.debug('Processed properties for Notion update:', JSON.stringify(properties, null, 2))
 
     // Only include properties in payload if we have any to update
     const payload: any = {}
@@ -258,7 +260,7 @@ export async function notionUpdatePage(
 
     // Check if we have anything to update
     if (Object.keys(payload).length === 0) {
-      console.log('No fields to update for Notion page')
+      logger.debug('No fields to update for Notion page')
       return {
         success: true,
         output: {
@@ -268,7 +270,7 @@ export async function notionUpdatePage(
       }
     }
 
-    console.log('Final payload for Notion update:', JSON.stringify(payload, null, 2))
+    logger.debug('Final payload for Notion update:', JSON.stringify(payload, null, 2))
 
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
 
@@ -281,7 +283,7 @@ export async function notionUpdatePage(
       }
     }
   } catch (error: any) {
-    console.error("Notion update page error:", error)
+    logger.error("Notion update page error:", error)
     return {
       success: false,
       output: {},
@@ -316,7 +318,7 @@ export async function notionRetrievePage(
       }
     }
   } catch (error: any) {
-    console.error("Notion retrieve page error:", error)
+    logger.error("Notion retrieve page error:", error)
     return {
       success: false,
       output: {},
@@ -347,7 +349,7 @@ export async function notionArchivePage(
       }
     }
   } catch (error: any) {
-    console.error("Notion archive page error:", error)
+    logger.error("Notion archive page error:", error)
     return {
       success: false,
       output: {},
@@ -402,7 +404,7 @@ export async function notionCreateDatabase(
       }
     }
   } catch (error: any) {
-    console.error("Notion create database error:", error)
+    logger.error("Notion create database error:", error)
     return {
       success: false,
       output: {},
@@ -456,7 +458,7 @@ export async function notionQueryDatabase(
       }
     }
   } catch (error: any) {
-    console.error("Notion query database error:", error)
+    logger.error("Notion query database error:", error)
     return {
       success: false,
       output: {},
@@ -510,7 +512,7 @@ export async function notionUpdateDatabase(
       }
     }
   } catch (error: any) {
-    console.error("Notion update database error:", error)
+    logger.error("Notion update database error:", error)
     return {
       success: false,
       output: {},
@@ -533,15 +535,15 @@ export async function notionAppendBlocks(
     const blocks = context.dataFlowManager.resolveVariable(config.blocks)
     const after = context.dataFlowManager.resolveVariable(config.after)
 
-    console.log('📝 notionAppendBlocks - config:', config)
-    console.log('📝 notionAppendBlocks - resolved blocks:', blocks)
+    logger.debug('📝 notionAppendBlocks - config:', config)
+    logger.debug('📝 notionAppendBlocks - resolved blocks:', blocks)
 
     // Ensure blocks is an array
     const blocksArray = Array.isArray(blocks) ? blocks : []
 
     // Don't make API call if there are no blocks to append
     if (blocksArray.length === 0) {
-      console.log('📝 notionAppendBlocks - No blocks to append, skipping')
+      logger.debug('📝 notionAppendBlocks - No blocks to append, skipping')
       return {
         success: true,
         output: {
@@ -569,7 +571,7 @@ export async function notionAppendBlocks(
       }
     }
   } catch (error: any) {
-    console.error("Notion append blocks error:", error)
+    logger.error("Notion append blocks error:", error)
     return {
       success: false,
       output: {},
@@ -592,7 +594,7 @@ export async function notionUpdateBlock(
     const blockContent = context.dataFlowManager.resolveVariable(config.block_content)
     const archived = config.archived
 
-    console.log('📝 notionUpdateBlock - Updating block:', {
+    logger.debug('📝 notionUpdateBlock - Updating block:', {
       blockId,
       blockContent
     })
@@ -614,7 +616,7 @@ export async function notionUpdateBlock(
       }
     }
   } catch (error: any) {
-    console.error("Notion update block error:", error)
+    logger.error("Notion update block error:", error)
     return {
       success: false,
       output: {},
@@ -644,7 +646,7 @@ export async function notionDeleteBlock(
       }
     }
   } catch (error: any) {
-    console.error("Notion delete block error:", error)
+    logger.error("Notion delete block error:", error)
     return {
       success: false,
       output: {},
@@ -678,7 +680,7 @@ export async function notionRetrieveBlockChildren(
       }
     }
   } catch (error: any) {
-    console.error("Notion retrieve block children error:", error)
+    logger.error("Notion retrieve block children error:", error)
     return {
       success: false,
       output: {},
@@ -710,7 +712,7 @@ export async function notionListUsers(
       }
     }
   } catch (error: any) {
-    console.error("Notion list users error:", error)
+    logger.error("Notion list users error:", error)
     return {
       success: false,
       output: {},
@@ -743,7 +745,7 @@ export async function notionRetrieveUser(
       }
     }
   } catch (error: any) {
-    console.error("Notion retrieve user error:", error)
+    logger.error("Notion retrieve user error:", error)
     return {
       success: false,
       output: {},
@@ -790,7 +792,7 @@ export async function notionCreateComment(
       }
     }
   } catch (error: any) {
-    console.error("Notion create comment error:", error)
+    logger.error("Notion create comment error:", error)
     return {
       success: false,
       output: {},
@@ -828,7 +830,7 @@ export async function notionRetrieveComments(
       }
     }
   } catch (error: any) {
-    console.error("Notion retrieve comments error:", error)
+    logger.error("Notion retrieve comments error:", error)
     return {
       success: false,
       output: {},
@@ -881,7 +883,7 @@ export async function notionSearch(
       }
     }
   } catch (error: any) {
-    console.error("Notion search error:", error)
+    logger.error("Notion search error:", error)
     return {
       success: false,
       output: {},
@@ -974,7 +976,7 @@ export async function notionDuplicatePage(
       }
     }
   } catch (error: any) {
-    console.error("Notion duplicate page error:", error)
+    logger.error("Notion duplicate page error:", error)
     return {
       success: false,
       output: {},
@@ -1042,7 +1044,7 @@ export async function notionSyncDatabaseEntries(
       }
     }
   } catch (error: any) {
-    console.error("Notion sync database entries error:", error)
+    logger.error("Notion sync database entries error:", error)
     return {
       success: false,
       output: {},

@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
 
     if (!userId) {
-      return NextResponse.json({ error: "userId parameter required" }, { status: 400 })
+      return errorResponse("userId parameter required" , 400)
     }
 
     // Get all integrations for this user
@@ -31,8 +34,8 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (allError) {
-      console.error("Error fetching all integrations:", allError)
-      return NextResponse.json({ error: allError.message }, { status: 500 })
+      logger.error("Error fetching all integrations:", allError)
+      return errorResponse(allError.message , 500)
     }
 
     // Get specifically YouTube integrations
@@ -44,11 +47,11 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
 
     if (youtubeError) {
-      console.error("Error fetching YouTube integrations:", youtubeError)
-      return NextResponse.json({ error: youtubeError.message }, { status: 500 })
+      logger.error("Error fetching YouTube integrations:", youtubeError)
+      return errorResponse(youtubeError.message , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       userId,
       totalIntegrations: allIntegrations?.length || 0,
       youtubeIntegrations: youtubeIntegrations?.length || 0,
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
       })),
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error("Debug endpoint error:", error)
+    return errorResponse(error.message , 500)
   }
 }

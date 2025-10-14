@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Test endpoint for event-driven workflow execution
  */
 export async function GET() {
   try {
-    console.log("🧪 Testing event-driven workflow execution...")
+    logger.debug("🧪 Testing event-driven workflow execution...")
 
     // Import event system
     const { eventDrivenExecutor } = await import("@/src/domains/workflows/use-cases/event-driven-execution")
@@ -61,7 +64,7 @@ export async function GET() {
     // Get subscription info
     const subscriptions = eventBus.getSubscriptions()
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       eventDriven: {
         workflowResult: result,
@@ -82,9 +85,9 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Event-driven test failed:", error)
+    logger.error("❌ Event-driven test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -100,7 +103,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { nodeType, providerId, config } = body
 
-    console.log(`🧪 Testing async node execution: ${nodeType}`)
+    logger.debug(`🧪 Testing async node execution: ${nodeType}`)
 
     const { eventDrivenExecutor } = await import("@/src/domains/workflows/use-cases/event-driven-execution")
     const { eventBus } = await import("@/src/shared/events/event-bus")
@@ -128,7 +131,7 @@ export async function POST(request: Request) {
     await eventDrivenExecutor.executeNodeAsync(workflowId, node, context)
 
     // Return immediately (execution continues in background)
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       async: {
         workflowId,
@@ -139,9 +142,9 @@ export async function POST(request: Request) {
     })
 
   } catch (error: any) {
-    console.error("❌ Async execution test failed:", error)
+    logger.error("❌ Async execution test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack

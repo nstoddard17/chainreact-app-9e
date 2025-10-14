@@ -2,6 +2,8 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Searches for emails in Gmail using the Gmail API
  * Supports Gmail search query syntax
@@ -50,7 +52,7 @@ export async function searchGmailEmails(
       }
     }
     
-    console.log(`Searching Gmail with query: "${query}"`)
+    logger.debug(`Searching Gmail with query: "${query}"`)
     
     // First, search for message IDs
     const searchParams = new URLSearchParams({
@@ -143,7 +145,7 @@ export async function searchGmailEmails(
         })
         
         if (!messageResponse.ok) {
-          console.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
+          logger.error(`Failed to fetch message ${messageId}: ${messageResponse.status}`)
           continue
         }
         
@@ -234,7 +236,7 @@ export async function searchGmailEmails(
         
         emails.push(email)
       } catch (error) {
-        console.error(`Error fetching message ${messageId}:`, error)
+        logger.error(`Error fetching message ${messageId}:`, error)
         // Continue with other messages
       }
     }
@@ -273,7 +275,7 @@ export async function searchGmailEmails(
     
     return result
   } catch (error: any) {
-    console.error("Gmail search error:", error)
+    logger.error("Gmail search error:", error)
     return {
       success: false,
       message: `Failed to search emails: ${error.message}`,

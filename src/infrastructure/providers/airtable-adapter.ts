@@ -28,6 +28,8 @@ import {
 } from '../../domains/integrations/ports/connector-contract'
 import { IntegrationError, ErrorType } from '../../domains/integrations/entities/integration-error'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Airtable adapter implementing DatabaseProvider interface
  */
@@ -266,7 +268,7 @@ export class AirtableAdapter implements DatabaseProvider {
           throw new Error(`Airtable method ${method} not implemented`)
       }
     } catch (error) {
-      console.error(`Airtable API call failed for method ${method}:`, error)
+      logger.error(`Airtable API call failed for method ${method}:`, error)
       throw error
     }
   }

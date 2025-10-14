@@ -1,5 +1,7 @@
 import { parseVariableReference, normalizeVariableReference } from "../workflows/variableReferences"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Variable Resolution Utility
  *
@@ -28,21 +30,21 @@ export function mapWorkflowData(data: any, mapping: Record<string, string>): any
 export function replaceTemplateVariables(template: string, data: any): any {
   if (typeof template !== 'string') return template
 
-  console.log(`🔧 Replacing variables in template length: ${template.length}`)
-  console.log(`🔧 Available data keys:`, Object.keys(data || {}))
+  logger.debug(`🔧 Replacing variables in template length: ${template.length}`)
+  logger.debug(`🔧 Available data keys:`, Object.keys(data || {}))
 
   // Special debug for message content
   if (template.includes('Message Content')) {
-    console.log(`🔧 🚨 MESSAGE CONTENT DEBUG:`)
-    console.log(`🔧   - template length: ${template.length}`)
-    console.log(`🔧   - data.message exists: ${!!data?.message}`)
-    console.log(`🔧   - data.message.content length: ${data?.message?.content?.length || 0}`)
+    logger.debug(`🔧 🚨 MESSAGE CONTENT DEBUG:`)
+    logger.debug(`🔧   - template length: ${template.length}`)
+    logger.debug(`🔧   - data.message exists: ${!!data?.message}`)
+    logger.debug(`🔧   - data.message.content length: ${data?.message?.content?.length || 0}`)
   }
 
   // Handle template syntax like {{New Message in Channel.Message Content}}
   return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
     const trimmedPath = path.trim()
-    console.log(`🔧 Processing variable path: "${trimmedPath}"`)
+    logger.debug(`🔧 Processing variable path: "${trimmedPath}"`)
 
     const normalizedPath = normalizeVariableReference(`{{${trimmedPath}}}`)
     const parsed = parseVariableReference(normalizedPath)
@@ -62,7 +64,7 @@ export function replaceTemplateVariables(template: string, data: any): any {
       const nodeName = parts[0].trim()
       const fieldName = parts.slice(1).join('.').trim()
 
-      console.log(`🔧 Node: "${nodeName}", Field: "${fieldName}"`)
+      logger.debug(`🔧 Node: "${nodeName}", Field: "${fieldName}"`)
 
       // Map Discord trigger fields to actual data paths
       if (nodeName === 'New Message in Channel') {
@@ -85,7 +87,7 @@ export function replaceTemplateVariables(template: string, data: any): any {
 
     // Fallback to direct path resolution
     const value = getNestedValue(data, trimmedPath)
-    console.log(`🔧 Direct path result: "${value}"`)
+    logger.debug(`🔧 Direct path result: "${value}"`)
     return value !== undefined ? value : match
   })
 }
@@ -97,30 +99,30 @@ function resolveDiscordMessageField(fieldName: string, data: any): any {
   switch (fieldName) {
     case 'Message Content':
       const content = data?.message?.content || ''
-      console.log(`🔧 Found Message Content length: ${content.length}`)
+      logger.debug(`🔧 Found Message Content length: ${content.length}`)
       return content
     case 'Channel Name':
       const channelName = data?.message?.channelName || data?.message?.channelId || ''
-      console.log(`🔧 Found Channel Name length: ${channelName.length}`)
+      logger.debug(`🔧 Found Channel Name length: ${channelName.length}`)
       return channelName
     case 'Author Name':
       const authorName = data?.message?.authorName || data?.message?.authorDisplayName || data?.message?.authorId || ''
-      console.log(`🔧 Found Author Name length: ${authorName.length}`)
+      logger.debug(`🔧 Found Author Name length: ${authorName.length}`)
       return authorName
     case 'Guild Name':
       const guildName = data?.message?.guildName || data?.message?.guildId || ''
-      console.log(`🔧 Found Guild Name: "${guildName}"`)
+      logger.debug(`🔧 Found Guild Name: "${guildName}"`)
       return guildName
     case 'Message ID':
       const messageId = data?.message?.messageId || ''
-      console.log(`🔧 Found Message ID: "${messageId}"`)
+      logger.debug(`🔧 Found Message ID: "${messageId}"`)
       return messageId
     case 'Timestamp':
       const timestamp = data?.message?.timestamp || ''
-      console.log(`🔧 Found Timestamp: "${timestamp}"`)
+      logger.debug(`🔧 Found Timestamp: "${timestamp}"`)
       return timestamp
     default:
-      console.log(`🔧 Unknown Discord message field: "${fieldName}"`)
+      logger.debug(`🔧 Unknown Discord message field: "${fieldName}"`)
       return undefined
   }
 }
@@ -163,13 +165,13 @@ function resolveDiscordJoinField(fieldName: string, data: any): any {
     for (const candidate of candidatePaths) {
       const resolved = getNestedValue(data, candidate)
       if (resolved !== undefined && resolved !== null) {
-        console.log(`🔧 Found User Joined Server field "${fieldName}": "${resolved}"`)
+        logger.debug(`🔧 Found User Joined Server field "${fieldName}": "${resolved}"`)
         return resolved
       }
     }
   }
 
-  console.log(`🔧 User Joined Server output not found for field: "${fieldName}"`)
+  logger.debug(`🔧 User Joined Server output not found for field: "${fieldName}"`)
   return undefined
 }
 
@@ -177,34 +179,34 @@ function resolveDiscordJoinField(fieldName: string, data: any): any {
  * Resolve AI Agent output fields
  */
 function resolveAIAgentField(fieldName: string, data: any): any {
-  console.log(`🔧 Looking for AI Agent output in data:`, Object.keys(data))
+  logger.debug(`🔧 Looking for AI Agent output in data:`, Object.keys(data))
 
   // Look for any node result that might be an AI agent
   for (const [key, value] of Object.entries(data)) {
     if (value && typeof value === 'object' && (value as any).output) {
       const nodeResult = value as any
-      console.log(`🔧 Checking node result ${key}:`, JSON.stringify(nodeResult, null, 2))
+      logger.debug(`🔧 Checking node result ${key}:`, JSON.stringify(nodeResult, null, 2))
 
       // Check if this looks like an AI agent result
       if (nodeResult.output) {
         // Handle specific field requests
         if (fieldName === 'Email Subject' && nodeResult.output.subject) {
-          console.log(`🔧 Found AI Agent subject: "${nodeResult.output.subject}"`)
+          logger.debug(`🔧 Found AI Agent subject: "${nodeResult.output.subject}"`)
           return nodeResult.output.subject
         }
         if (fieldName === 'Email Body' && nodeResult.output.body) {
-          console.log(`🔧 Found AI Agent body: "${nodeResult.output.body}"`)
+          logger.debug(`🔧 Found AI Agent body: "${nodeResult.output.body}"`)
           return nodeResult.output.body
         }
         if ((fieldName === 'AI Agent Output' || fieldName === 'output') && nodeResult.output.output) {
-          console.log(`🔧 Found AI Agent output: "${nodeResult.output.output}"`)
+          logger.debug(`🔧 Found AI Agent output: "${nodeResult.output.output}"`)
           return nodeResult.output.output
         }
       }
     }
   }
 
-  console.log(`🔧 AI Agent output not found for field: "${fieldName}"`)
+  logger.debug(`🔧 AI Agent output not found for field: "${fieldName}"`)
   return undefined
 }
 

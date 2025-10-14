@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import crypto from "crypto"
+
+import { logger } from '@/lib/utils/logger'
 
 // Encryption key from environment (should be 32 bytes for AES-256)
 const ENCRYPTION_KEY = process.env.API_KEY_ENCRYPTION_SECRET || "default-key-please-change-in-production-32b"
@@ -52,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user) {
       // User not authenticated - this is expected, return 401 silently
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Fetch user's profile with API keys
@@ -63,11 +66,8 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (profileError) {
-      console.error("Error fetching profile:", profileError)
-      return NextResponse.json(
-        { error: "Failed to fetch API keys" },
-        { status: 500 }
-      )
+      logger.error("Error fetching profile:", profileError)
+      return errorResponse("Failed to fetch API keys" , 500)
     }
 
     // Return keys without decrypted values (only previews)
@@ -78,16 +78,13 @@ export async function GET(request: NextRequest) {
       created_at: key.created_at,
     }))
 
-    return NextResponse.json({
+    return jsonResponse({
       keys,
       defaultModel: profile?.default_openai_model || "gpt-4o-mini",
     })
   } catch (error) {
-    console.error("Error in GET /api/user/ai-api-keys:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in GET /api/user/ai-api-keys:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -105,25 +102,19 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { name, key } = body
 
     if (!name || !key) {
-      return NextResponse.json(
-        { error: "Name and key are required" },
-        { status: 400 }
-      )
+      return errorResponse("Name and key are required" , 400)
     }
 
     // Validate OpenAI key format
     if (!key.startsWith("sk-")) {
-      return NextResponse.json(
-        { error: "Invalid OpenAI API key format" },
-        { status: 400 }
-      )
+      return errorResponse("Invalid OpenAI API key format" , 400)
     }
 
     // Encrypt the key
@@ -138,11 +129,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fetchError) {
-      console.error("Error fetching profile:", fetchError)
-      return NextResponse.json(
-        { error: "Failed to fetch profile" },
-        { status: 500 }
-      )
+      logger.error("Error fetching profile:", fetchError)
+      return errorResponse("Failed to fetch profile" , 500)
     }
 
     // Add new key
@@ -164,23 +152,17 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating profile:", updateError)
-      return NextResponse.json(
-        { error: "Failed to save API key" },
-        { status: 500 }
-      )
+      logger.error("Error updating profile:", updateError)
+      return errorResponse("Failed to save API key" , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       keyId: newKey.id,
     })
   } catch (error) {
-    console.error("Error in POST /api/user/ai-api-keys:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in POST /api/user/ai-api-keys:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -198,17 +180,14 @@ export async function PATCH(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { defaultModel } = body
 
     if (!defaultModel) {
-      return NextResponse.json(
-        { error: "defaultModel is required" },
-        { status: 400 }
-      )
+      return errorResponse("defaultModel is required" , 400)
     }
 
     // Update default model
@@ -218,20 +197,14 @@ export async function PATCH(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating default model:", updateError)
-      return NextResponse.json(
-        { error: "Failed to update default model" },
-        { status: 500 }
-      )
+      logger.error("Error updating default model:", updateError)
+      return errorResponse("Failed to update default model" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    console.error("Error in PATCH /api/user/ai-api-keys:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in PATCH /api/user/ai-api-keys:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -249,17 +222,14 @@ export async function DELETE(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { searchParams } = new URL(request.url)
     const keyId = searchParams.get("keyId")
 
     if (!keyId) {
-      return NextResponse.json(
-        { error: "keyId is required" },
-        { status: 400 }
-      )
+      return errorResponse("keyId is required" , 400)
     }
 
     // Fetch current keys
@@ -270,11 +240,8 @@ export async function DELETE(request: NextRequest) {
       .single()
 
     if (fetchError) {
-      console.error("Error fetching profile:", fetchError)
-      return NextResponse.json(
-        { error: "Failed to fetch profile" },
-        { status: 500 }
-      )
+      logger.error("Error fetching profile:", fetchError)
+      return errorResponse("Failed to fetch profile" , 500)
     }
 
     // Remove the key
@@ -288,20 +255,14 @@ export async function DELETE(request: NextRequest) {
       .eq("id", user.id)
 
     if (updateError) {
-      console.error("Error updating profile:", updateError)
-      return NextResponse.json(
-        { error: "Failed to delete API key" },
-        { status: 500 }
-      )
+      logger.error("Error updating profile:", updateError)
+      return errorResponse("Failed to delete API key" , 500)
     }
 
-    return NextResponse.json({ success: true })
+    return jsonResponse({ success: true })
   } catch (error) {
-    console.error("Error in DELETE /api/user/ai-api-keys:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    logger.error("Error in DELETE /api/user/ai-api-keys:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -335,7 +296,7 @@ export async function getUserAPIKey(userId: string, keyId?: string): Promise<str
 
     return decryptKey(key.key_encrypted)
   } catch (error) {
-    console.error("Error getting user API key:", error)
+    logger.error("Error getting user API key:", error)
     return null
   }
 }

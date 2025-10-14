@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteCopyPage(
   params: {
     sourcePageId: string
@@ -12,7 +14,7 @@ export async function onenoteCopyPage(
   const { sourcePageId, targetNotebookId, targetSectionId } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
+    logger.debug("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
     return {
       success: true,
       data: {
@@ -53,7 +55,7 @@ export async function onenoteCopyPage(
       }
     }
   } catch (error: any) {
-    console.error("Error copying OneNote page:", error)
+    logger.error("Error copying OneNote page:", error)
     return {
       success: false,
       error: error.message || "Failed to copy OneNote page"

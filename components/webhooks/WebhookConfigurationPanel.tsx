@@ -10,6 +10,8 @@ import { getWebhookUrl, getEnvironmentName, isDevelopment, isProduction } from '
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 
+import { logger } from '@/lib/utils/logger'
+
 interface WebhookConfigurationPanelProps {
   className?: string
 }
@@ -41,7 +43,7 @@ export default function WebhookConfigurationPanel({ className }: WebhookConfigur
       setCopiedUrl(url)
       setTimeout(() => setCopiedUrl(null), 2000)
     } catch (err) {
-      console.error('Failed to copy:', err)
+      logger.error('Failed to copy:', err)
     }
   }
 

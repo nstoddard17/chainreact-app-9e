@@ -2,6 +2,8 @@
 
 import React from "react";
 
+import { logger } from '@/lib/utils/logger'
+
 interface MicrosoftExcelUpdateFieldsProps {
   values: Record<string, any>;
   setValue: (key: string, value: any) => void;
@@ -31,7 +33,7 @@ export function MicrosoftExcelUpdateFields({
     const hasColumnValues = Object.keys(values).some(key => key.startsWith('column_'));
     if (hasColumnValues && !hasExistingValuesRef.current) {
       hasExistingValuesRef.current = true;
-      console.log('📊 [Excel Update] Detected existing column_ values, will not overwrite');
+      logger.debug('📊 [Excel Update] Detected existing column_ values, will not overwrite');
     }
   }, []); // Run only once on mount
 
@@ -45,11 +47,11 @@ export function MicrosoftExcelUpdateFields({
 
       // If we have existing saved values, don't overwrite them
       if (hasExistingValuesRef.current) {
-        console.log('📊 [Excel Update] Skipping initialization, using saved values');
+        logger.debug('📊 [Excel Update] Skipping initialization, using saved values');
         return;
       }
 
-      console.log('📊 [Excel Update] Initializing with current Excel values');
+      logger.debug('📊 [Excel Update] Initializing with current Excel values');
       Object.entries(selectedRow.fields).forEach(([columnName, currentValue]) => {
         const fieldKey = `column_${columnName}`;
         setValue(fieldKey, String(currentValue ?? ''));

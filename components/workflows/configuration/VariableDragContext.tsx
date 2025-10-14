@@ -8,6 +8,8 @@ import React, {
   useState
 } from "react"
 
+import { logger } from '@/lib/utils/logger'
+
 interface ActiveField {
   id: string
   label?: string
@@ -53,14 +55,14 @@ export function VariableDragProvider({ children }: { children: React.ReactNode }
       try {
         targetElement.focus()
       } catch (error) {
-        console.warn("[VariableDragContext] Failed to focus active field element", error)
+        logger.warn("[VariableDragContext] Failed to focus active field element", error)
       }
     }
     try {
       activeField.insert(variable)
       return true
     } catch (error) {
-      console.error("[VariableDragContext] Failed to insert variable into active field", {
+      logger.error("[VariableDragContext] Failed to insert variable into active field", {
         error,
         fieldId: activeField.id,
         variable

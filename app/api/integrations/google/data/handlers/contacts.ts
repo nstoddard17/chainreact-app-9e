@@ -5,6 +5,8 @@
 import { GoogleIntegration, GoogleContact, GoogleDataHandler } from '../types'
 import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Google contacts using People API
  */
@@ -47,7 +49,7 @@ export const getGoogleContacts: GoogleDataHandler<GoogleContact> = async (integr
     return contacts
 
   } catch (error: any) {
-    console.error("❌ [Google Contacts] Error fetching contacts:", error)
+    logger.error("❌ [Google Contacts] Error fetching contacts:", error)
     throw new Error(`Failed to fetch Google contacts: ${error.message}`)
   }
 }

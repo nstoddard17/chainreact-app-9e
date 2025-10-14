@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { AIAssistantService } from "@/lib/services/ai/aiAssistantService"
+
+import { logger } from '@/lib/utils/logger'
 
 // Simple test endpoint
 export async function GET() {
   const aiAssistantService = new AIAssistantService()
   const status = await aiAssistantService.getStatus()
-  return NextResponse.json(status)
+  return jsonResponse(status)
 }
 
 export async function POST(request: NextRequest) {
@@ -15,13 +18,13 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true
-    console.log("Client connection aborted")
+    logger.debug("Client connection aborted")
   })
 
   try {
     // Early exit if connection closed
     if (connectionClosed) {
-      console.log("Connection closed early, aborting processing")
+      logger.debug("Connection closed early, aborting processing")
       return new Response(null, { status: 499 }) // Client Closed Request
     }
 
@@ -39,23 +42,22 @@ export async function POST(request: NextRequest) {
         statusCode = 400
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         error: result.error,
         content: result.content
       }, { status: statusCode })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       content: result.content,
       metadata: result.metadata
     })
 
   } catch (error: any) {
-    console.error("❌ AI Assistant route error:", error)
-    
-    return NextResponse.json({
-      error: "Internal server error",
+    logger.error("❌ AI Assistant route error:", error)
+
+    return errorResponse("Internal server error", 500, {
       content: "I encountered an unexpected error. Please try again."
-    }, { status: 500 })
+    })
   }
 }

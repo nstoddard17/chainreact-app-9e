@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Logging Utility Functions
  *
@@ -131,14 +133,14 @@ export function safeLog(level: 'info' | 'warn' | 'error', message: string, data?
   const logPrefix = `${timestamp} [${level}]`;
 
   if (!data) {
-    console.log(`${logPrefix} ${message}`);
+    logger.debug(`${logPrefix} ${message}`);
     return;
   }
 
   // Automatically redact configuration
   const safeData = redactConfig(data);
 
-  console.log(`${logPrefix} ${message}`, safeData);
+  logger.debug(`${logPrefix} ${message}`, safeData);
 }
 
 /**

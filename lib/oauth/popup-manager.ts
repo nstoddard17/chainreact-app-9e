@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * OAuthPopupManager handles OAuth popup window management
  * Extracted from integrationStore.ts for better separation of concerns
@@ -65,7 +67,7 @@ export class OAuthPopupManager {
         }
       } catch (e) {
         // COOP might block access, just log warning
-        console.warn("Failed to close existing popup:", e)
+        logger.warn("Failed to close existing popup:", e)
       }
       this.currentPopup = null
     }
@@ -93,14 +95,14 @@ export class OAuthPopupManager {
     
     // Check if document has focus (required for popup opening)
     if (!document.hasFocus()) {
-      console.warn(`⚠️ Document doesn't have focus, popup might be blocked for ${provider}`)
+      logger.warn(`⚠️ Document doesn't have focus, popup might be blocked for ${provider}`)
     }
     
     let popup = window.open(authUrl, popupName, popupFeatures)
     
     // Retry popup opening if it failed (sometimes helps with timing issues)
     if (!popup) {
-      console.warn(`⚠️ First popup attempt failed for ${provider}, retrying...`)
+      logger.warn(`⚠️ First popup attempt failed for ${provider}, retrying...`)
       // Wait a bit and try again
       setTimeout(() => {
         popup = window.open(authUrl, popupName, popupFeatures)
@@ -115,7 +117,7 @@ export class OAuthPopupManager {
     setTimeout(() => {
       try {
         if (popup && popup.closed) {
-          console.error(`❌ Popup was immediately closed for ${provider}`)
+          logger.error(`❌ Popup was immediately closed for ${provider}`)
           throw new Error("Popup was immediately closed. Please check popup blocker settings.")
         }
       } catch (e) {
@@ -187,7 +189,7 @@ export class OAuthPopupManager {
         try {
           popup.close()
         } catch (error) {
-          console.warn("Failed to close popup:", error)
+          logger.warn("Failed to close popup:", error)
         }
         onSuccess(data)
       } else if (data && data.type === "oauth-success") {
@@ -196,7 +198,7 @@ export class OAuthPopupManager {
         try {
           popup.close()
         } catch (error) {
-          console.warn("Failed to close popup:", error)
+          logger.warn("Failed to close popup:", error)
         }
         onSuccess(data)
       } else if (data && data.type === "oauth-info") {
@@ -230,14 +232,14 @@ export class OAuthPopupManager {
     try {
       broadcastChannel = new BroadcastChannel('oauth_channel')
       broadcastChannel.onmessage = (event) => {
-        console.log(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
+        logger.debug(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
         // Check if this response is for our provider
         if (event.data?.provider?.toLowerCase() === provider.toLowerCase()) {
           handleOAuthResponse(event.data)
         }
       }
     } catch (e) {
-      console.log('BroadcastChannel not available, falling back to postMessage and localStorage')
+      logger.debug('BroadcastChannel not available, falling back to postMessage and localStorage')
     }
 
     // Add popup close detection (manual close by user)
@@ -320,11 +322,11 @@ export class OAuthPopupManager {
               }
             }
           } catch (parseError) {
-            console.error(`Error parsing localStorage data for key ${key}:`, parseError)
+            logger.error(`Error parsing localStorage data for key ${key}:`, parseError)
           }
         }
       } catch (error) {
-        console.error("Error checking localStorage for OAuth response:", error)
+        logger.error("Error checking localStorage for OAuth response:", error)
       }
     }, storageCheckInterval) // Check more frequently for HubSpot
 
@@ -335,7 +337,7 @@ export class OAuthPopupManager {
         try {
           popup.close()
         } catch (e) {
-          console.warn("Failed to close popup on timeout:", e)
+          logger.warn("Failed to close popup on timeout:", e)
         }
         onError("Connection timed out. Please try again.")
       }
@@ -426,28 +428,28 @@ export class OAuthPopupManager {
         ]
         
         if (!allowedOrigins.includes(event.origin)) {
-          console.log('[PopupManager] Ignoring message from unexpected origin:', event.origin)
+          logger.debug('[PopupManager] Ignoring message from unexpected origin:', event.origin)
           return
         }
         
-        console.log('[PopupManager] Processing message from:', event.origin)
+        logger.debug('[PopupManager] Processing message from:', event.origin)
         messageReceived = true
         
         if (event.data.type === "oauth-success") {
           try {
             popup.close()
           } catch (e) {
-            console.warn("Failed to close popup:", e)
+            logger.warn("Failed to close popup:", e)
           }
           window.removeEventListener("message", handleMessage)
           this.currentPopup = null
           resolve()
         } else if (event.data.type === "oauth-error") {
-          console.error("❌ OAuth reconnection failed:", event.data.message)
+          logger.error("❌ OAuth reconnection failed:", event.data.message)
           try {
             popup.close()
           } catch (e) {
-            console.warn("Failed to close popup:", e)
+            logger.warn("Failed to close popup:", e)
           }
           window.removeEventListener("message", handleMessage)
           this.currentPopup = null
@@ -456,7 +458,7 @@ export class OAuthPopupManager {
           try {
             popup.close()
           } catch (e) {
-            console.warn("Failed to close popup:", e)
+            logger.warn("Failed to close popup:", e)
           }
           window.removeEventListener("message", handleMessage)
           this.currentPopup = null
@@ -479,10 +481,10 @@ export class OAuthPopupManager {
             this.currentPopup = null
             // For HubSpot, don't log warnings - handled silently by integration store
             if (provider !== 'hubspot') {
-              console.warn('🚫 [OAuth Popup] Popup closed without receiving success message. This could mean:')
-              console.warn('  1. User manually closed the popup')
-              console.warn('  2. Authorization was cancelled')
-              console.warn('  3. Success message was blocked or delayed')
+              logger.warn('🚫 [OAuth Popup] Popup closed without receiving success message. This could mean:')
+              logger.warn('  1. User manually closed the popup')
+              logger.warn('  2. Authorization was cancelled')
+              logger.warn('  3. Success message was blocked or delayed')
             }
             // Resolve gracefully on cancellation instead of rejecting with error
             resolve()
@@ -539,11 +541,11 @@ export class OAuthPopupManager {
                 }
               }
             } catch (parseError) {
-              console.error(`Error parsing localStorage data for key ${key}:`, parseError)
+              logger.error(`Error parsing localStorage data for key ${key}:`, parseError)
             }
           }
         } catch (error) {
-          console.error("Error checking localStorage for OAuth response:", error)
+          logger.error("Error checking localStorage for OAuth response:", error)
         }
       }, 1000)
 
@@ -554,7 +556,7 @@ export class OAuthPopupManager {
         try {
           popup.close()
         } catch (e) {
-          console.warn("Failed to close popup on timeout:", e)
+          logger.warn("Failed to close popup on timeout:", e)
         }
         window.removeEventListener("message", handleMessage)
         this.currentPopup = null

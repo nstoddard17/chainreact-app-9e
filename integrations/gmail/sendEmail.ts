@@ -7,6 +7,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -94,9 +96,9 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
   try {
     const { userId, config, input } = params
     
-    console.log(`📧 Gmail sendEmail called with:`)
-    console.log(`📧 Config:`, JSON.stringify(config, null, 2))
-    console.log(`📧 Input:`, JSON.stringify(input, null, 2))
+    logger.debug(`📧 Gmail sendEmail called with:`)
+    logger.debug(`📧 Config:`, JSON.stringify(config, null, 2))
+    logger.debug(`📧 Input:`, JSON.stringify(input, null, 2))
     
     // 1. Get Gmail OAuth token
     const credentials = await getIntegrationCredentials(userId, "gmail")
@@ -106,16 +108,16 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
     
     // If we don't have a DataFlowManager, create a simple fallback
     if (!dataFlowManager && input?.nodeOutputs) {
-      console.log(`📧 Creating fallback DataFlowManager`)
+      logger.debug(`📧 Creating fallback DataFlowManager`)
       dataFlowManager = {
         resolveVariable: (ref: string) => {
-          console.log(`📧 Fallback resolver trying to resolve: ${ref}`)
+          logger.debug(`📧 Fallback resolver trying to resolve: ${ref}`)
           if (typeof ref === 'string') {
             const match = ref.match(/\{\{([^.]+)\.([^}]+)\}\}/)
             if (match) {
               const [, nodeTitle, fieldName] = match
-              console.log(`📧 Looking for nodeTitle: ${nodeTitle}, fieldName: ${fieldName}`)
-              console.log(`📧 Available nodeOutputs:`, Object.keys(input.nodeOutputs))
+              logger.debug(`📧 Looking for nodeTitle: ${nodeTitle}, fieldName: ${fieldName}`)
+              logger.debug(`📧 Available nodeOutputs:`, Object.keys(input.nodeOutputs))
               
               // Find node by title in the stored outputs
               for (const [nodeId, output] of Object.entries(input.nodeOutputs)) {
@@ -123,31 +125,31 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
                   const data = (output as any).data
                   // Check for exact field match
                   if (data[fieldName] !== undefined) {
-                    console.log(`📧 Found field "${fieldName}" in node ${nodeId}:`, data[fieldName])
+                    logger.debug(`📧 Found field "${fieldName}" in node ${nodeId}:`, data[fieldName])
                     return data[fieldName]
                   }
                   // Special handling for AI Agent outputs
                   if (data.output !== undefined && (fieldName === "AI Agent Output" || fieldName === "output")) {
-                    console.log(`📧 Found AI output in node ${nodeId}:`, data.output)
+                    logger.debug(`📧 Found AI output in node ${nodeId}:`, data.output)
                     return data.output
                   }
                 }
               }
             }
           }
-          console.log(`📧 Could not resolve variable: ${ref}`)
+          logger.debug(`📧 Could not resolve variable: ${ref}`)
           return ref // Return unchanged if not found
         }
       }
     }
     
-    console.log(`📧 Using DataFlowManager:`, dataFlowManager ? 'Available' : 'Not available')
+    logger.debug(`📧 Using DataFlowManager:`, dataFlowManager ? 'Available' : 'Not available')
     
     const resolvedConfig = resolveValue(config, {
       input,
     }, dataFlowManager)
     
-    console.log(`📧 Resolved config:`, JSON.stringify(resolvedConfig, null, 2))
+    logger.debug(`📧 Resolved config:`, JSON.stringify(resolvedConfig, null, 2))
     
     // 3. Extract required parameters
     const { 
@@ -160,12 +162,12 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       isHtml = false
     } = resolvedConfig
     
-    console.log(`📧 EXTRACTED PARAMETERS:`)
-    console.log(`📧 to: "${to}"`)
-    console.log(`📧 subject: "${subject}"`) 
-    console.log(`📧 body: "${body}"`)
-    console.log(`📧 body type: ${typeof body}`)
-    console.log(`📧 body length: ${body ? body.length : 'N/A'}`)
+    logger.debug(`📧 EXTRACTED PARAMETERS:`)
+    logger.debug(`📧 to: "${to}"`)
+    logger.debug(`📧 subject: "${subject}"`) 
+    logger.debug(`📧 body: "${body}"`)
+    logger.debug(`📧 body type: ${typeof body}`)
+    logger.debug(`📧 body length: ${body ? body.length : 'N/A'}`)
     
     // 4. Validate required parameters
     if (!to) {
@@ -203,16 +205,16 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
       formattedBody
     ]
     
-    console.log(`📧 EMAIL LINES:`, emailLines)
+    logger.debug(`📧 EMAIL LINES:`, emailLines)
     
     // Join lines and encode the email
     const emailContent = emailLines.filter(Boolean).join('\r\n')
-    console.log(`📧 FINAL EMAIL CONTENT:`)
-    console.log(emailContent)
-    console.log(`📧 EMAIL CONTENT LENGTH: ${emailContent.length}`)
+    logger.debug(`📧 FINAL EMAIL CONTENT:`)
+    logger.debug(emailContent)
+    logger.debug(`📧 EMAIL CONTENT LENGTH: ${emailContent.length}`)
     
     const encodedEmail = encodeBase64(emailContent)
-    console.log(`📧 ENCODED EMAIL LENGTH: ${encodedEmail.length}`)
+    logger.debug(`📧 ENCODED EMAIL LENGTH: ${encodedEmail.length}`)
     
     // 6. Make Gmail API request
     const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
@@ -247,7 +249,7 @@ export async function sendGmail(params: ActionParams): Promise<ActionResult> {
     
   } catch (error: any) {
     // 9. Handle errors and return failure result
-    console.error("Gmail send email failed:", error)
+    logger.error("Gmail send email failed:", error)
     return {
       success: false,
       error: error.message || "Failed to send email"

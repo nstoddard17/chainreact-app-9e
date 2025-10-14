@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import type { Integration } from "@/types/integration"
 import { detectAvailableIntegrations } from "@/lib/integrations/availableIntegrations"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   try {
@@ -16,7 +19,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Get all integrations for this user with timeout
@@ -33,7 +36,7 @@ export async function GET() {
       clearTimeout(timeoutId)
 
       if (integrationsError) {
-        return NextResponse.json({ error: integrationsError.message }, { status: 500 })
+        return errorResponse(integrationsError.message , 500)
       }
 
     const availableIntegrations = detectAvailableIntegrations()
@@ -45,7 +48,7 @@ export async function GET() {
       !internalIntegrationIds.includes(integration.id)
     )
 
-    console.log(`🔍 Integration Metrics Debug:
+    logger.debug(`🔍 Integration Metrics Debug:
       - Total available integrations: ${availableIntegrations.length}
       - External integrations (excluding internal): ${externalIntegrations.length}
       - Internal integrations filtered out: ${internalIntegrationIds.join(', ')}
@@ -124,7 +127,7 @@ export async function GET() {
       !configuredProviderIds.includes(providerId)
     ).length
     
-    console.log(`🔍 Disconnected Count Debug:
+    logger.debug(`🔍 Disconnected Count Debug:
       - Available external provider IDs: ${availableProviderIds.join(', ')}
       - Configured provider IDs: ${configuredProviderIds.join(', ')}
       - Disconnected count: ${disconnectedCount}
@@ -143,13 +146,13 @@ export async function GET() {
     });
 
     if (expiringForDebug.length > 0) {
-      console.log(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
+      logger.debug(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
     }
 
     // Update expired integrations in the database
     let updatedCount = 0
     if (integrationsToUpdate.length > 0) {
-      console.log(
+      logger.debug(
         `Found ${integrationsToUpdate.length} integrations with outdated status that need updating`,
       )
 
@@ -163,15 +166,15 @@ export async function GET() {
           .eq("id", item.id)
 
         if (updateError) {
-          console.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
+          logger.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
         } else {
           updatedCount++
-          console.log(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
+          logger.debug(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
         }
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       data: metrics,
       statusUpdates: updatedCount > 0 ? {
@@ -182,8 +185,8 @@ export async function GET() {
     } catch (timeoutError: any) {
       clearTimeout(timeoutId)
       if (timeoutError.name === 'AbortError') {
-        console.error("Integration metrics request timeout")
-        return NextResponse.json(
+        logger.error("Integration metrics request timeout")
+        return jsonResponse(
           {
             success: false,
             error: "Request timeout - please try again",
@@ -194,8 +197,8 @@ export async function GET() {
       throw timeoutError
     }
   } catch (error: any) {
-    console.error("Failed to fetch integration metrics:", error)
-    return NextResponse.json(
+    logger.error("Failed to fetch integration metrics:", error)
+    return jsonResponse(
       {
         success: false,
         error: error.message || "Failed to fetch integration metrics",

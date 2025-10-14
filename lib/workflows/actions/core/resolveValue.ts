@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Resolves a value from input data using template syntax
  * Supports {{data.field}}, {{trigger.field}}, {{NodeTitle.output}}, and {{variableName}} syntax for accessing nested properties
@@ -87,7 +89,7 @@ export function resolveValue(
             return resolvedValue
           }
         } catch (error) {
-          console.warn('DataFlowManager resolution failed:', error)
+          logger.warn('DataFlowManager resolution failed:', error)
         }
       }
       

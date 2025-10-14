@@ -62,6 +62,8 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Custom DialogContent without built-in close button
  */
@@ -79,7 +81,7 @@ const CustomDialogContent = React.forwardRef<
       )}
       onDragOver={(e) => {
         e.preventDefault();
-        console.log('🔵 [Dialog] Allowing drag over in dialog');
+        logger.debug('🔵 [Dialog] Allowing drag over in dialog');
       }}
       {...props}
     >
@@ -176,7 +178,7 @@ export function ConfigurationModal({
   // Debug: Log initialData when modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log('🎯 [ConfigModal] Modal opened with initialData:', {
+      logger.debug('🎯 [ConfigModal] Modal opened with initialData:', {
         currentNodeId,
         nodeType: nodeInfo?.type,
         initialData,
@@ -213,7 +215,7 @@ export function ConfigurationModal({
     // Also check if this node has parentAIAgentId in its data (for AI-generated workflows)
     const currentNode = workflowData.nodes.find((node: any) => node.id === currentNodeId);
     if (currentNode?.data?.parentAIAgentId) {
-      console.log('🤖 [ConfigModal] Node has parentAIAgentId:', currentNode.data.parentAIAgentId);
+      logger.debug('🤖 [ConfigModal] Node has parentAIAgentId:', currentNode.data.parentAIAgentId);
       return true;
     }
     
@@ -253,7 +255,7 @@ export function ConfigurationModal({
   
   // For Trello-specific debugging (can be removed when Trello integration is stable)
   if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
-    console.log("🔍 TRELLO CONFIG MODAL DEBUG:", {
+    logger.debug("🔍 TRELLO CONFIG MODAL DEBUG:", {
       nodeType: nodeInfo.type,
       providerId: nodeInfo.providerId,
       configSchemaLength: nodeInfo.configSchema?.length || 0,
@@ -272,7 +274,7 @@ export function ConfigurationModal({
       
       // Log attachment fields for Gmail send email
       if (nodeInfo?.type === 'gmail_action_send_email') {
-        console.log('📎 [ConfigurationModal] Gmail send email config being saved:', {
+        logger.debug('📎 [ConfigurationModal] Gmail send email config being saved:', {
           sourceType: config.sourceType,
           hasUploadedFiles: !!config.uploadedFiles,
           hasFileUrl: !!config.fileUrl,
@@ -306,7 +308,7 @@ export function ConfigurationModal({
       }
       onClose(true);
     } catch (error) {
-      console.error('Failed to save configuration:', error);
+      logger.error('Failed to save configuration:', error);
       // Don't close the modal if save failed - let the user see the error and retry
     }
   };

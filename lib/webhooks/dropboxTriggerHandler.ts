@@ -2,6 +2,8 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -49,7 +51,7 @@ export async function handleDropboxWebhookEvent(
 ): Promise<DropboxWebhookResult[]> {
   const logPrefix = requestId ? `[${requestId}]` : '[dropbox]'
   try {
-    console.log(`${logPrefix} Dropbox webhook payload keys:`, {
+    logger.debug(`${logPrefix} Dropbox webhook payload keys:`, {
       hasListFolder: !!payload?.list_folder,
       accounts: payload?.list_folder?.accounts || payload?.list_folder?.account_ids || null,
       deltaPresent: !!payload?.delta,
@@ -61,7 +63,7 @@ export async function handleDropboxWebhookEvent(
   const workflows = await findDropboxWorkflows(payload)
 
   if (workflows.length === 0) {
-    console.log(`${logPrefix} No Dropbox workflows matched incoming payload.`)
+    logger.debug(`${logPrefix} No Dropbox workflows matched incoming payload.`)
     return []
   }
 
@@ -83,7 +85,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     : []
 
   if (accounts.length === 0) {
-    console.log('🛑 Dropbox webhook payload missing accounts array, skipping workflow lookup')
+    logger.debug('🛑 Dropbox webhook payload missing accounts array, skipping workflow lookup')
     return []
   }
 
@@ -95,7 +97,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     .eq('provider_id', 'dropbox')
 
   if (configError) {
-    console.error('❌ Failed to fetch Dropbox webhook configs:', configError)
+    logger.error('❌ Failed to fetch Dropbox webhook configs:', configError)
     return []
   }
 
@@ -109,7 +111,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
       try {
         configJson = JSON.parse(configJson)
       } catch (parseErr) {
-        console.warn('⚠️ Failed to parse Dropbox webhook config JSON:', parseErr)
+        logger.warn('⚠️ Failed to parse Dropbox webhook config JSON:', parseErr)
         configJson = {}
       }
     }
@@ -131,7 +133,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
   }
 
   if (dropboxConfigMap.size === 0) {
-    console.log('ℹ️ No Dropbox webhook configs matched the incoming account IDs')
+    logger.debug('ℹ️ No Dropbox webhook configs matched the incoming account IDs')
     return []
   }
 
@@ -144,7 +146,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     .in('id', workflowIds)
 
   if (workflowError) {
-    console.error('Error fetching Dropbox workflows:', workflowError)
+    logger.error('Error fetching Dropbox workflows:', workflowError)
     return []
   }
 
@@ -160,7 +162,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
       try {
         nodes = JSON.parse(rawNodes)
       } catch (parseErr) {
-        console.warn('⚠️ Failed to parse workflow nodes while filtering:', {
+        logger.warn('⚠️ Failed to parse workflow nodes while filtering:', {
           workflowId: workflow.id,
           error: parseErr
         })
@@ -181,7 +183,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     matching.push(workflow)
   }
 
-  console.log(`🎯 Dropbox workflows matched: ${matching.length}`)
+  logger.debug(`🎯 Dropbox workflows matched: ${matching.length}`)
   return matching
 }
 
@@ -192,12 +194,12 @@ async function processDropboxWorkflow(
   requestId?: string
 ): Promise<DropboxWebhookResult | null> {
   const logPrefix = requestId ? `[${requestId}]` : ''
-  console.log(`${logPrefix} Processing Dropbox workflow ${workflow.id} (${workflow.name})`)
+  logger.debug(`${logPrefix} Processing Dropbox workflow ${workflow.id} (${workflow.name})`)
 
   const triggerPayload = await buildDropboxTriggerPayload(workflow, payload, requestId)
 
   if (!triggerPayload) {
-    console.log(`${logPrefix} Dropbox payload unavailable, skipping workflow ${workflow.id}`)
+    logger.debug(`${logPrefix} Dropbox payload unavailable, skipping workflow ${workflow.id}`)
     return {
       workflowId: workflow.id,
       success: true,
@@ -207,7 +209,7 @@ async function processDropboxWorkflow(
   }
 
   if (!triggerPayload.files || triggerPayload.files.length === 0) {
-    console.log(`${logPrefix} No Dropbox files matched filters for workflow ${workflow.id}, skipping execution`, {
+    logger.debug(`${logPrefix} No Dropbox files matched filters for workflow ${workflow.id}, skipping execution`, {
       dropbox: {
         skipReason: triggerPayload.skipReason,
         folderPath: triggerPayload.folderPath,
@@ -232,7 +234,7 @@ async function processDropboxWorkflow(
     }
   }
 
-  console.log(`${logPrefix} Dropbox payload prepared for workflow ${workflow.id}`, {
+  logger.debug(`${logPrefix} Dropbox payload prepared for workflow ${workflow.id}`, {
     fileCount: triggerPayload.files.length,
     firstFile: triggerPayload.files[0]?.pathLower || null
   })
@@ -244,7 +246,7 @@ async function processDropboxWorkflow(
     try {
       workflowNodes = JSON.parse(workflow.nodes)
     } catch (parseError) {
-      console.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
+      logger.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
       workflowNodes = []
     }
   }
@@ -254,7 +256,7 @@ async function processDropboxWorkflow(
   )
 
   if (!triggerNode) {
-    console.warn(`${logPrefix} No Dropbox trigger node found for workflow ${workflow.id}`)
+    logger.warn(`${logPrefix} No Dropbox trigger node found for workflow ${workflow.id}`)
     return {
       workflowId: workflow.id,
       success: true,
@@ -283,10 +285,10 @@ async function processDropboxWorkflow(
     }
   )
 
-  console.log(`${logPrefix} Created execution session: ${session.id}`)
+  logger.debug(`${logPrefix} Created execution session: ${session.id}`)
 
   await executionEngine.executeWorkflowAdvanced(session.id, triggerPayload)
-  console.log(`${logPrefix} Dropbox workflow execution completed`)
+  logger.debug(`${logPrefix} Dropbox workflow execution completed`)
 
   return {
     workflowId: workflow.id,
@@ -320,7 +322,7 @@ async function buildDropboxTriggerPayload(
       .maybeSingle()
 
     if (configError || !configRecord) {
-      console.warn(`${logPrefix} No active Dropbox webhook config found for workflow ${workflow.id}`, configError)
+      logger.warn(`${logPrefix} No active Dropbox webhook config found for workflow ${workflow.id}`, configError)
       return null
     }
 
@@ -329,7 +331,7 @@ async function buildDropboxTriggerPayload(
       try {
         configJson = JSON.parse(configJson)
       } catch (parseErr) {
-        console.warn(`${logPrefix} Failed to parse Dropbox config JSON for workflow ${workflow.id}:`, parseErr)
+        logger.warn(`${logPrefix} Failed to parse Dropbox config JSON for workflow ${workflow.id}:`, parseErr)
         configJson = {}
       }
     }
@@ -369,7 +371,7 @@ async function buildDropboxTriggerPayload(
     .maybeSingle()
 
   if (integrationError || !integration) {
-    console.error(`${logPrefix} Dropbox integration not found for workflow ${workflow.id}:`, integrationError)
+    logger.error(`${logPrefix} Dropbox integration not found for workflow ${workflow.id}:`, integrationError)
     return {
       files: [],
       folderPath: folderPathLower,
@@ -381,7 +383,7 @@ async function buildDropboxTriggerPayload(
 
   const accessToken = safeDecrypt(integration.access_token)
   if (!accessToken) {
-    console.error(`${logPrefix} Dropbox integration missing access token for workflow ${workflow.id}`)
+    logger.error(`${logPrefix} Dropbox integration missing access token for workflow ${workflow.id}`)
     return {
       files: [],
       folderPath: folderPathLower,
@@ -396,11 +398,11 @@ async function buildDropboxTriggerPayload(
   }
 
   if (!cursor) {
-    console.log(`${logPrefix} No Dropbox cursor stored for workflow ${workflow.id}, fetching latest...`)
+    logger.debug(`${logPrefix} No Dropbox cursor stored for workflow ${workflow.id}, fetching latest...`)
     cursor = await getLatestDropboxCursor(accessToken, rawFolderPath, includeSubfolders)
 
     if (!cursor) {
-      console.warn(`${logPrefix} Failed to obtain Dropbox cursor for workflow ${workflow.id}`)
+      logger.warn(`${logPrefix} Failed to obtain Dropbox cursor for workflow ${workflow.id}`)
       return {
         files: [],
         folderPath: folderPathLower,
@@ -415,7 +417,7 @@ async function buildDropboxTriggerPayload(
   const entriesResult = await fetchDropboxEntries(accessToken, cursor)
 
   if (entriesResult.cursorInvalid) {
-    console.warn(`${logPrefix} Dropbox cursor invalid for workflow ${workflow.id}, resetting`)
+    logger.warn(`${logPrefix} Dropbox cursor invalid for workflow ${workflow.id}, resetting`)
     const latestCursor = await getLatestDropboxCursor(accessToken, rawFolderPath, includeSubfolders)
 
     if (latestCursor) {
@@ -451,7 +453,7 @@ async function buildDropboxTriggerPayload(
   const entries = entriesResult.entries
   const nextCursor = entriesResult.cursor || cursor
 
-  console.log(`${logPrefix} Dropbox entries fetched`, {
+  logger.debug(`${logPrefix} Dropbox entries fetched`, {
     workflowId: workflow.id,
     accountId,
     folderPath: rawFolderPath,
@@ -478,7 +480,7 @@ async function buildDropboxTriggerPayload(
       serverModified: entry.server_modified
     }))
 
-  console.log(`${logPrefix} Dropbox filtered files`, {
+  logger.debug(`${logPrefix} Dropbox filtered files`, {
     workflowId: workflow.id,
     filteredCount: filteredFiles.length,
     firstFile: filteredFiles[0]?.pathLower || null
@@ -577,7 +579,7 @@ async function getLatestDropboxCursor(accessToken: string, path: string, recursi
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    console.error('❌ Failed to fetch Dropbox latest cursor:', response.status, errorText)
+    logger.error('❌ Failed to fetch Dropbox latest cursor:', response.status, errorText)
     return null
   }
 
@@ -602,7 +604,7 @@ async function fetchDropboxAccountId(accessToken: string): Promise<string | null
     const json = await response.json().catch(() => null)
     return json?.account_id || null
   } catch (error) {
-    console.warn('⚠️ Failed to fetch Dropbox account info:', error)
+    logger.warn('⚠️ Failed to fetch Dropbox account info:', error)
     return null
   }
 }
@@ -632,7 +634,7 @@ async function updateDropboxWebhookState(
       .update({ config: updatedConfig })
       .eq('id', webhookConfigId)
   } catch (error) {
-    console.error('❌ Failed to update Dropbox webhook config:', error)
+    logger.error('❌ Failed to update Dropbox webhook config:', error)
   }
 }
 

@@ -5,6 +5,8 @@
 import { GoogleSheetsIntegration, GoogleSheetsSheet, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
 import { createGoogleSheetsClient } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getGoogleSheetsSheets: GoogleSheetsDataHandler<GoogleSheetsSheet[]> = async (
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
@@ -31,7 +33,7 @@ export const getGoogleSheetsSheets: GoogleSheetsDataHandler<GoogleSheetsSheet[]>
       columnCount: sheet.properties?.gridProperties?.columnCount || 0
     }))
   } catch (error: any) {
-    console.error("Error fetching sheets:", error)
+    logger.error("Error fetching sheets:", error)
     throw new Error(error.message || "Error fetching sheets")
   }
 }

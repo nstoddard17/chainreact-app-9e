@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast'
 import { resolveVariableValue } from '@/lib/workflows/variableResolution'
 import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
+import { logger } from '@/lib/utils/logger'
+
 interface VariablePickerProps {
   value?: string
   onChange?: (value: string) => void
@@ -80,7 +82,7 @@ export function VariablePicker({
             outputs = nodeDefinition.outputSchema
           }
         } catch (error) {
-          console.warn('Failed to load node definitions:', error)
+          logger.warn('Failed to load node definitions:', error)
         }
       }
 
@@ -171,7 +173,7 @@ export function VariablePicker({
     // Context-aware filtering for AI agent nodes
     if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
       const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
-      console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in VariablePicker for ${currentNodeType}:`, {
+      logger.debug(`🎯 [CONTEXT-AWARE] AI Agent filtering in VariablePicker for ${currentNodeType}:`, {
         currentNodeType,
         relevantOutputs,
         availableOutputs: node.outputs.map((o: any) => o.name),
@@ -183,7 +185,7 @@ export function VariablePicker({
         relevantOutputs.includes(output.name)
       );
       
-      console.log(`🎯 [CONTEXT-AWARE] After filtering:`, {
+      logger.debug(`🎯 [CONTEXT-AWARE] After filtering:`, {
         filteredOutputsCount: aiNodeOutputs.length,
         filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
       });
@@ -204,7 +206,7 @@ export function VariablePicker({
     if (handleChange) {
       // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
       // Do NOT try to resolve it at design time - that should happen during workflow execution
-      console.log(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
+      logger.debug(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
       handleChange(variable)
     }
     // Keep the popover open after selecting a variable
@@ -234,7 +236,7 @@ export function VariablePicker({
     // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
     // Do NOT try to resolve it at design time - that should happen during workflow execution
     
-    console.log(`🎯 VariablePicker inserting template variable: ${variable}`)
+    logger.debug(`🎯 VariablePicker inserting template variable: ${variable}`)
     
     // If there's already text, insert the variable at cursor position or append
     if (value && handleChange) {

@@ -7,6 +7,8 @@
 
 import { OpenAI } from 'openai'
 
+import { logger } from '@/lib/utils/logger'
+
 // Dynamic import for Anthropic SDK (optional dependency)
 let Anthropic: any
 try {
@@ -35,11 +37,11 @@ export async function generateAIFieldValue(
   // Check cache first
   const cacheKey = `${fieldName}-${JSON.stringify(context.triggerData || {}).substring(0, 100)}`
   if (fieldValueCache.has(cacheKey)) {
-    console.log(`📦 Using cached value for field: ${fieldName}`)
+    logger.debug(`📦 Using cached value for field: ${fieldName}`)
     return fieldValueCache.get(cacheKey)
   }
 
-  console.log(`🤖 Generating AI value for field: ${fieldName}`)
+  logger.debug(`🤖 Generating AI value for field: ${fieldName}`)
 
   try {
     // Determine field type and requirements
@@ -59,7 +61,7 @@ export async function generateAIFieldValue(
 
     return formattedValue
   } catch (error) {
-    console.error(`❌ Failed to generate AI value for field ${fieldName}:`, error)
+    logger.error(`❌ Failed to generate AI value for field ${fieldName}:`, error)
     return getDefaultValue(fieldName)
   }
 }
@@ -268,7 +270,7 @@ For the field type "${fieldInfo.type}", provide only the requested value without
     } else if (aiConfig.model.includes('claude')) {
       // Use Claude if available, otherwise fallback to OpenAI
       if (!Anthropic) {
-        console.warn('Anthropic SDK not installed, falling back to OpenAI for field generation')
+        logger.warn('Anthropic SDK not installed, falling back to OpenAI for field generation')
         const openai = new OpenAI({
           apiKey: aiConfig.apiKey || process.env.OPENAI_API_KEY
         })
@@ -323,7 +325,7 @@ For the field type "${fieldInfo.type}", provide only the requested value without
       return data.value || ''
     
   } catch (error) {
-    console.error('AI generation failed:', error)
+    logger.error('AI generation failed:', error)
     throw error
   }
 }
@@ -409,5 +411,5 @@ function getDefaultValue(fieldName: string): any {
  */
 export function clearFieldValueCache(): void {
   fieldValueCache.clear()
-  console.log('🧹 Field value cache cleared')
+  logger.debug('🧹 Field value cache cleared')
 }

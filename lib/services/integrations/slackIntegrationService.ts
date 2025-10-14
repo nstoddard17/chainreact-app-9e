@@ -1,6 +1,8 @@
 import { ExecutionContext } from "../workflowExecutionService"
 import { LegacyIntegrationService } from "../legacyIntegrationService"
 
+import { logger } from '@/lib/utils/logger'
+
 export class SlackIntegrationService {
   private legacyService: LegacyIntegrationService
 
@@ -30,7 +32,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSendMessage(node: any, context: ExecutionContext) {
-    console.log("💬 Executing Slack send message")
+    logger.debug("💬 Executing Slack send message")
     
     const config = node.data.config || {}
     const channel = this.resolveValue(config.channel, context)
@@ -59,7 +61,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSendDirectMessage(node: any, context: ExecutionContext) {
-    console.log("💬 Executing Slack send direct message")
+    logger.debug("💬 Executing Slack send direct message")
     
     const config = node.data.config || {}
     const user = this.resolveValue(config.user || config.userId, context)
@@ -84,7 +86,7 @@ export class SlackIntegrationService {
   }
 
   private async executeCreateChannel(node: any, context: ExecutionContext) {
-    console.log("🆕 Executing Slack create channel")
+    logger.debug("🆕 Executing Slack create channel")
     
     const config = node.data.config || {}
     const name = this.resolveValue(config.name, context)
@@ -113,7 +115,7 @@ export class SlackIntegrationService {
   }
 
   private async executeInviteUser(node: any, context: ExecutionContext) {
-    console.log("➕ Executing Slack invite user")
+    logger.debug("➕ Executing Slack invite user")
     
     const config = node.data.config || {}
     const channel = this.resolveValue(config.channel, context)
@@ -137,7 +139,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSetStatus(node: any, context: ExecutionContext) {
-    console.log("📊 Executing Slack set status")
+    logger.debug("📊 Executing Slack set status")
     
     const config = node.data.config || {}
     const statusText = this.resolveValue(config.status_text || config.text, context)

@@ -1,6 +1,9 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +16,7 @@ export async function GET(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized", details: authError?.message }, { status: 401 })
+      return errorResponse("Unauthorized", 401, { details: authError?.message  })
     }
 
     // Check environment variables
@@ -38,7 +41,7 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .limit(5)
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       user: { id: user.id, email: user.email },
       environment: envCheck,
@@ -52,15 +55,11 @@ export async function GET(request: Request) {
       integrations: integrations || [],
     })
   } catch (error: any) {
-    console.error("Debug endpoint error:", error)
-    return NextResponse.json(
-      { 
-        error: "Debug check failed", 
+    logger.error("Debug endpoint error:", error)
+    return errorResponse("Debug check failed", 500, {
         details: error.message,
         stack: error.stack
-      }, 
-      { status: 500 }
-    )
+      })
   }
 }
 
@@ -75,7 +74,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { workflowId } = await request.json()
@@ -89,7 +88,7 @@ export async function POST(request: Request) {
       .single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found", details: workflowError?.message }, { status: 404 })
+      return errorResponse("Workflow not found", 404, { details: workflowError?.message  })
     }
 
     // Test execution context setup
@@ -122,7 +121,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       workflow: {
         id: workflow.id,
@@ -136,14 +135,10 @@ export async function POST(request: Request) {
       nodes: workflow.nodes || [],
     })
   } catch (error: any) {
-    console.error("Debug workflow check error:", error)
-    return NextResponse.json(
-      { 
-        error: "Debug workflow check failed", 
+    logger.error("Debug workflow check error:", error)
+    return errorResponse("Debug workflow check failed", 500, {
         details: error.message,
         stack: error.stack
-      }, 
-      { status: 500 }
-    )
+      })
   }
 } 

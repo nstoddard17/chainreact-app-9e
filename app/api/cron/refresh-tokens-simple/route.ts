@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
-import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
     const expectedSecret = process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+      return errorResponse("CRON_SECRET not configured" , 500)
     }
 
     // Allow either Vercel cron header OR secret authentication
@@ -27,10 +30,10 @@ export async function GET(request: NextRequest) {
     const isVercelCron = cronHeader === "1"
 
     if (!isVercelCron && (!providedSecret || providedSecret !== expectedSecret)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
-    console.log(`🚀 [${jobId}] Token refresh job started`)
+    logger.debug(`🚀 [${jobId}] Token refresh job started`)
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams
@@ -48,12 +51,12 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Pre-processing step: Reactivate problematic integrations
     if (reactivateProblemProviders) {
-      console.log(`🔧 [${jobId}] Pre-processing: Reactivating problematic integrations...`)
+      logger.debug(`🔧 [${jobId}] Pre-processing: Reactivating problematic integrations...`)
       
       const providerFilter = provider ? [provider].filter(p => problemProviders.includes(p)) : problemProviders
       
@@ -69,9 +72,9 @@ export async function GET(request: NextRequest) {
             .limit(10) // Limit to 10 integrations at a time to avoid timeouts
             
           if (findError) {
-            console.error(`❌ [${jobId}] Error finding problematic integrations:`, findError)
+            logger.error(`❌ [${jobId}] Error finding problematic integrations:`, findError)
           } else if (problemIntegrations && problemIntegrations.length > 0) {
-            console.log(`🔄 [${jobId}] Found ${problemIntegrations.length} problematic integrations to reactivate`)
+            logger.debug(`🔄 [${jobId}] Found ${problemIntegrations.length} problematic integrations to reactivate`)
             
             // Process in smaller batches to avoid timeouts
             const batchSize = 3;
@@ -93,25 +96,25 @@ export async function GET(request: NextRequest) {
                 .in("id", batch.map(i => i.id))
                 
               if (updateError) {
-                console.error(`❌ [${jobId}] Error reactivating batch of problematic integrations:`, updateError)
+                logger.error(`❌ [${jobId}] Error reactivating batch of problematic integrations:`, updateError)
               } else {
-                console.log(`✅ [${jobId}] Successfully reactivated ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+                logger.debug(`✅ [${jobId}] Successfully reactivated ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
               }
               
               // Small delay between batches to avoid rate limiting
               await new Promise(resolve => setTimeout(resolve, 100));
             }
           } else {
-            console.log(`ℹ️ [${jobId}] No problematic integrations found that need reactivation`)
+            logger.debug(`ℹ️ [${jobId}] No problematic integrations found that need reactivation`)
           }
         } catch (reactivationError) {
-          console.error(`❌ [${jobId}] Error during reactivation process:`, reactivationError)
+          logger.error(`❌ [${jobId}] Error during reactivation process:`, reactivationError)
           // Continue with the rest of the job even if reactivation fails
         }
       }
     }
 
-    console.log(`📊 [${jobId}] Getting integrations that need token refresh...`)
+    logger.debug(`📊 [${jobId}] Getting integrations that need token refresh...`)
 
     const now = new Date()
     const accessExpiryThreshold = new Date(now.getTime() + accessTokenExpiryThreshold * 60 * 1000)
@@ -146,29 +149,29 @@ export async function GET(request: NextRequest) {
     // Execute the query
     let integrations: any[] = []
     try {
-      console.log(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
+      logger.debug(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
       
       const { data, error: fetchError } = await query
       
       if (fetchError) {
-        console.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
+        logger.error(`❌ [${jobId}] Error fetching integrations:`, fetchError)
         throw new Error(`Error fetching integrations: ${fetchError.message}`)
       }
       
       integrations = data || []
-      console.log(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
+      logger.debug(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
     } catch (queryError: any) {
-      console.error(`💥 [${jobId}] Database query error:`, queryError)
+      logger.error(`💥 [${jobId}] Database query error:`, queryError)
       throw new Error(`Database query error: ${queryError.message}`)
     }
 
     if (!integrations || integrations.length === 0) {
-      console.log(`ℹ️ [${jobId}] No integrations to process`)
+      logger.debug(`ℹ️ [${jobId}] No integrations to process`)
 
       const endTime = Date.now()
       const durationMs = endTime - startTime
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "Token refresh job completed - no integrations to process",
         jobId,
@@ -184,7 +187,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process integrations
-    console.log(`🔄 [${jobId}] Processing ${integrations.length} integrations...`)
+    logger.debug(`🔄 [${jobId}] Processing ${integrations.length} integrations...`)
 
     let successful = 0
     let failed = 0
@@ -205,13 +208,13 @@ export async function GET(request: NextRequest) {
 
         providerStats[integration.provider].processed++
 
-        console.log(
+        logger.debug(
           `🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id} (status: ${integration.status})`,
         )
 
         // Check if integration has no refresh token
         if (!integration.refresh_token) {
-          console.log(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
+          logger.debug(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
           skipped++
           continue
         }
@@ -223,15 +226,15 @@ export async function GET(request: NextRequest) {
         })
 
         if (!needsRefresh.shouldRefresh) {
-          console.log(`⏭️ [${jobId}] Skipping ${integration.provider}: ${needsRefresh.reason}`)
+          logger.debug(`⏭️ [${jobId}] Skipping ${integration.provider}: ${needsRefresh.reason}`)
           skipped++
           continue
         }
 
-        console.log(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
+        logger.debug(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
 
         // Refresh the token
-        const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
+        const refreshResult = await refreshTokenForProvider(
           integration.provider,
           integration.refresh_token,
           integration,
@@ -243,7 +246,7 @@ export async function GET(request: NextRequest) {
 
           // Update the token in the database
           await updateIntegrationWithRefreshResult(supabase, integration.id, refreshResult)
-          console.log(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
+          logger.debug(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
         } else {
           failed++
           providerStats[integration.provider].failed++
@@ -280,9 +283,9 @@ export async function GET(request: NextRequest) {
           )
 
           if (shouldDisconnect) {
-            console.warn(`🔒 [${jobId}] ${integration.provider} requires re-authorization - refresh token is invalid`)
+            logger.warn(`🔒 [${jobId}] ${integration.provider} requires re-authorization - refresh token is invalid`)
           } else {
-            console.warn(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+            logger.warn(`⚠️ [${jobId}] Failed to refresh ${integration.provider}: ${refreshResult.error}`)
           }
         }
       } catch (error: any) {
@@ -295,7 +298,7 @@ export async function GET(request: NextRequest) {
           userId: integration.user_id,
           error: error.message,
         })
-        console.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
+        logger.error(`💥 [${jobId}] Error processing ${integration.provider}:`, error)
 
         // Update integration with error details
         await updateIntegrationWithError(supabase, integration.id, `Unexpected error: ${error.message}`, {})
@@ -306,14 +309,14 @@ export async function GET(request: NextRequest) {
     const durationMs = endTime - startTime
     const duration = durationMs / 1000
 
-    console.log(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
-    console.log(`   - Successful refreshes: ${successful}`)
-    console.log(`   - Failed: ${failed}`)
-    console.log(`   - Skipped: ${skipped}`)
+    logger.debug(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
+    logger.debug(`   - Successful refreshes: ${successful}`)
+    logger.debug(`   - Failed: ${failed}`)
+    logger.debug(`   - Skipped: ${skipped}`)
 
     const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${successful} succeeded, ${failed} failed.`
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: responseMessage,
       jobId,
@@ -329,12 +332,12 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error(`💥 [${jobId}] Critical error in token refresh job:`, error)
+    logger.error(`💥 [${jobId}] Critical error in token refresh job:`, error)
 
     const endTime = Date.now()
     const durationMs = endTime - startTime
 
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: "Failed to complete token refresh job",
@@ -457,9 +460,9 @@ async function updateIntegrationWithRefreshResult(
       throw error
     }
 
-    console.log(`✅ Updated tokens for integration ID: ${integrationId}`)
+    logger.debug(`✅ Updated tokens for integration ID: ${integrationId}`)
   } catch (error: any) {
-    console.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error)
+    logger.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error)
     throw error
   }
 }
@@ -479,7 +482,7 @@ async function updateIntegrationWithError(
       .single()
 
     if (fetchError) {
-      console.error(`Error fetching integration ${integrationId}:`, fetchError.message)
+      logger.error(`Error fetching integration ${integrationId}:`, fetchError.message)
     }
 
     // Increment the failure counter
@@ -526,21 +529,21 @@ async function updateIntegrationWithError(
         }
       }
     } catch (metadataError) {
-      console.log(`Note: metadata column not available for integration ${integrationId}`)
+      logger.debug(`Note: metadata column not available for integration ${integrationId}`)
     }
 
     // Update the database
     const { error: updateError } = await supabase.from("integrations").update(updateData).eq("id", integrationId)
 
     if (updateError) {
-      console.error(`Error updating integration ${integrationId} with error:`, updateError.message)
+      logger.error(`Error updating integration ${integrationId} with error:`, updateError.message)
     } else {
       const statusMsg = additionalData.shouldDisconnect
         ? `deactivated (requires re-auth)`
         : `error status (${consecutiveFailures} consecutive failures)`
-      console.log(`✅ Updated integration ${integrationId} with ${statusMsg}`)
+      logger.debug(`✅ Updated integration ${integrationId} with ${statusMsg}`)
     }
   } catch (error) {
-    console.error(`Unexpected error updating integration ${integrationId} with error:`, error)
+    logger.error(`Unexpected error updating integration ${integrationId} with error:`, error)
   }
 }

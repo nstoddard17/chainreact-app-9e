@@ -2,6 +2,8 @@ import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Create a new GitHub issue
  */
@@ -96,7 +98,7 @@ export async function createGitHubIssue(
     }
 
   } catch (error: any) {
-    console.error("GitHub create issue error:", error)
+    logger.error("GitHub create issue error:", error)
     return {
       success: false,
       output: {},
@@ -196,7 +198,7 @@ export async function createGitHubRepository(
     }
 
   } catch (error: any) {
-    console.error("GitHub create repository error:", error)
+    logger.error("GitHub create repository error:", error)
     return {
       success: false,
       output: {},
@@ -299,7 +301,7 @@ export async function createGitHubPullRequest(
     }
 
   } catch (error: any) {
-    console.error("GitHub create pull request error:", error)
+    logger.error("GitHub create pull request error:", error)
     return {
       success: false,
       output: {},

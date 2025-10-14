@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
-import { LegacyTokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -25,7 +28,7 @@ export async function GET(request: NextRequest) {
     const expectedSecret = process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 })
+      return errorResponse("CRON_SECRET not configured" , 500)
     }
 
     // Allow either Vercel cron header OR secret authentication
@@ -33,14 +36,14 @@ export async function GET(request: NextRequest) {
     const isVercelCron = cronHeader === "1"
 
     if (!isVercelCron && (!providedSecret || providedSecret !== expectedSecret)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
-    console.log(`New token refresh job started`)
+    logger.debug(`New token refresh job started`)
     
     // Log development environment warning
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Running in DEVELOPMENT environment`)
+      logger.debug(`Running in DEVELOPMENT environment`)
     }
 
     // Get query parameters
@@ -53,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Calculate the threshold for token expiration (30 minutes from now)
@@ -81,19 +84,19 @@ export async function GET(request: NextRequest) {
     // Execute the query
     let integrations: any[] = []
     try {
-      if (verbose) console.log(`Executing database query to find integrations needing refresh...`)
+      if (verbose) logger.debug(`Executing database query to find integrations needing refresh...`)
       
       const { data, error: fetchError } = await query
       
       if (fetchError) {
-        console.error(`Error fetching integrations:`, fetchError)
+        logger.error(`Error fetching integrations:`, fetchError)
         throw new Error(`Error fetching integrations: ${fetchError.message}`)
       }
       
       integrations = data || []
-      console.log(`Found ${integrations.length} integrations that need token refresh`)
+      logger.debug(`Found ${integrations.length} integrations that need token refresh`)
     } catch (queryError: any) {
-      console.error(`Database query error:`, queryError)
+      logger.error(`Database query error:`, queryError)
       throw new Error(`Database query error: ${queryError.message}`)
     }
 
@@ -101,7 +104,7 @@ export async function GET(request: NextRequest) {
       const endTime = Date.now()
       const durationMs = endTime - startTime
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: "Token refresh job completed - no integrations to process",
         jobId,
@@ -111,7 +114,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process integrations
-    console.log(`Processing ${integrations.length} integrations...`)
+    logger.debug(`Processing ${integrations.length} integrations...`)
 
     let successful = 0
     let failed = 0
@@ -124,17 +127,17 @@ export async function GET(request: NextRequest) {
       batches.push(integrations.slice(i, i + batchSize))
     }
 
-    console.log(`Processing in ${batches.length} batches of up to ${batchSize} integrations each`)
+    logger.debug(`Processing in ${batches.length} batches of up to ${batchSize} integrations each`)
 
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       const batch = batches[batchIndex]
-      console.log(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
+      logger.debug(`Processing batch ${batchIndex + 1} of ${batches.length} (${batch.length} integrations)`)
       
       // Process each integration in the batch
       for (const integration of batch) {
         try {
           if (verbose) {
-            console.log(
+            logger.debug(
               `Processing ${integration.provider} for user ${integration.user_id}`
             )
           }
@@ -147,11 +150,11 @@ export async function GET(request: NextRequest) {
 
           // Skip if no refresh token
           if (!integration.refresh_token) {
-            if (verbose) console.log(`Skipping ${integration.provider} - no refresh token`)
+            if (verbose) logger.debug(`Skipping ${integration.provider} - no refresh token`)
             
             // Check if the token is expired and update status if needed
             if (integration.expires_at && new Date(integration.expires_at) <= now) {
-              if (verbose) console.log(`${integration.provider} has expired without refresh token - marking as needs_reauthorization`)
+              if (verbose) logger.debug(`${integration.provider} has expired without refresh token - marking as needs_reauthorization`)
               
               await supabase
                 .from("integrations")
@@ -166,7 +169,7 @@ export async function GET(request: NextRequest) {
           }
 
           // Refresh the token
-          const refreshResult = await LegacyTokenRefreshService.refreshTokenForProvider(
+          const refreshResult = await refreshTokenForProvider(
             integration.provider,
             integration.refresh_token,
             integration,
@@ -203,9 +206,9 @@ export async function GET(request: NextRequest) {
               .eq("id", integration.id)
 
             if (updateError) {
-              console.error(`Error updating integration after successful refresh:`, updateError)
+              logger.error(`Error updating integration after successful refresh:`, updateError)
             } else if (verbose) {
-              console.log(`Successfully refreshed ${integration.provider}`)
+              logger.debug(`Successfully refreshed ${integration.provider}`)
             }
 
             results.push({
@@ -245,9 +248,9 @@ export async function GET(request: NextRequest) {
               .eq("id", integration.id)
 
             if (updateError) {
-              console.error(`Error updating integration after failed refresh:`, updateError)
+              logger.error(`Error updating integration after failed refresh:`, updateError)
             } else if (verbose) {
-              console.log(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+              logger.debug(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
             }
 
             results.push({
@@ -259,7 +262,7 @@ export async function GET(request: NextRequest) {
           }
         } catch (error: any) {
           failed++
-          console.error(`Error processing ${integration.provider}:`, error)
+          logger.error(`Error processing ${integration.provider}:`, error)
 
           // Track failure reasons
           const reason = `Unexpected error: ${error.message}`
@@ -278,7 +281,7 @@ export async function GET(request: NextRequest) {
             .eq("id", integration.id)
 
           if (updateError) {
-            console.error(`❌ Error updating integration after exception:`, updateError)
+            logger.error(`❌ Error updating integration after exception:`, updateError)
           }
 
           results.push({
@@ -292,7 +295,7 @@ export async function GET(request: NextRequest) {
       
       // Add a small delay between batches to avoid overwhelming external APIs
       if (batchIndex < batches.length - 1) {
-        if (verbose) console.log(`Pausing briefly between batches...`)
+        if (verbose) logger.debug(`Pausing briefly between batches...`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay between batches
       }
     }
@@ -302,15 +305,15 @@ export async function GET(request: NextRequest) {
     const duration = durationMs / 1000
 
     // Log summary of results
-    console.log(`Token refresh job completed in ${duration.toFixed(2)}s`)
-    console.log(`   - Successful refreshes: ${successful}`)
-    console.log(`   - Failed: ${failed}`)
+    logger.debug(`Token refresh job completed in ${duration.toFixed(2)}s`)
+    logger.debug(`   - Successful refreshes: ${successful}`)
+    logger.debug(`   - Failed: ${failed}`)
     
     // Log failure reasons if any
     if (failed > 0) {
-      console.log(`   - Failure reasons:`)
+      logger.debug(`   - Failure reasons:`)
       Object.entries(failureReasons).forEach(([reason, count]) => {
-        console.log(`     - ${reason}: ${count}`)
+        logger.debug(`     - ${reason}: ${count}`)
       })
     }
     
@@ -322,13 +325,13 @@ export async function GET(request: NextRequest) {
       
       const fixedCount = statusFixResult?.count || 0;
       if (fixedCount > 0) {
-        console.log(`Fixed statuses for ${fixedCount} integrations with recent successful refreshes`)
+        logger.debug(`Fixed statuses for ${fixedCount} integrations with recent successful refreshes`)
       }
     } catch (error) {
-      console.error(`Could not run status fix procedure:`, error)
+      logger.error(`Could not run status fix procedure:`, error)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Token refresh finished in ${duration.toFixed(2)}s. ${successful} succeeded, ${failed} failed.`,
       jobId,
@@ -342,12 +345,12 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
-    console.error(`Critical error in token refresh job:`, error)
+    logger.error(`Critical error in token refresh job:`, error)
 
     const endTime = Date.now()
     const durationMs = endTime - startTime
 
-    return NextResponse.json(
+    return jsonResponse(
       {
         success: false,
         error: "Failed to complete token refresh job",

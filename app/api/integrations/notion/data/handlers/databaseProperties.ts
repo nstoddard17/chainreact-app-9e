@@ -6,9 +6,11 @@ import { NotionIntegration, NotionDatabaseProperty, NotionDataHandler } from '..
 import { validateNotionIntegration, makeNotionApiRequest } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProperty> = async (integration: any, context?: any): Promise<NotionDatabaseProperty[]> => {
-  console.log("🔍 Notion database properties fetcher called")
-  console.log("🔍 Context:", context)
+  logger.debug("🔍 Notion database properties fetcher called")
+  logger.debug("🔍 Context:", context)
   
   try {
     // Get the Notion integration - handle both integrationId and userId cases
@@ -18,7 +20,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
     
     if (integration.id) {
       // If we have a specific integration ID, use that
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -28,7 +30,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
       integrationError = result.error
     } else if (integration.userId) {
       // If we have a user ID, find the Notion integration for that user
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -43,11 +45,11 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
     }
     
     if (integrationError || !notionIntegration) {
-      console.error('🔍 Integration lookup failed:', integrationError)
+      logger.error('🔍 Integration lookup failed:', integrationError)
       throw new Error("Notion integration not found")
     }
     
-    console.log(`🔍 Found integration: ${notionIntegration.id}`)
+    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
     
     // Get the database ID from context
     const databaseId = context?.databaseId || context?.database_id
@@ -55,7 +57,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
       throw new Error("Database ID is required to fetch properties")
     }
     
-    console.log(`🔍 Fetching properties for database: ${databaseId}`)
+    logger.debug(`🔍 Fetching properties for database: ${databaseId}`)
     
     // Make API request to get database details
     const response = await makeNotionApiRequest(
@@ -68,14 +70,14 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ Failed to get database properties: ${response.status}`, errorData)
+      logger.error(`❌ Failed to get database properties: ${response.status}`, errorData)
       throw new Error(`Failed to get database properties: ${response.status}`)
     }
     
     const database = await response.json()
     const properties = database.properties || {}
     
-    console.log(`✅ Found ${Object.keys(properties).length} properties`)
+    logger.debug(`✅ Found ${Object.keys(properties).length} properties`)
     
     // Transform properties to expected format
     const transformedProperties = Object.entries(properties).map(([name, property]: [string, any]) => ({
@@ -92,7 +94,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
     return transformedProperties
     
   } catch (error: any) {
-    console.error("Error fetching Notion database properties:", error)
+    logger.error("Error fetching Notion database properties:", error)
     throw new Error(error.message || "Error fetching Notion database properties")
   }
 }

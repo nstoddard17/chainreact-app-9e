@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   const supabase = await createSupabaseRouteHandlerClient()
@@ -7,7 +10,7 @@ export async function GET() {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const { data: webhooks, error } = await supabase
@@ -17,15 +20,15 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching custom webhooks:', error)
-      return NextResponse.json({ error: "Failed to fetch webhooks" }, { status: 500 })
+      logger.error('Error fetching custom webhooks:', error)
+      return errorResponse("Failed to fetch webhooks" , 500)
     }
 
-    return NextResponse.json({ webhooks: webhooks || [] })
+    return jsonResponse({ webhooks: webhooks || [] })
 
   } catch (error: any) {
-    console.error("Error in GET /api/custom-webhooks:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in GET /api/custom-webhooks:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -35,14 +38,14 @@ export async function POST(request: Request) {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
     const { name, description, webhook_url, method, headers, body_template } = body
 
     if (!name || !webhook_url) {
-      return NextResponse.json({ error: "Name and webhook URL are required" }, { status: 400 })
+      return errorResponse("Name and webhook URL are required" , 400)
     }
 
     const { data: webhook, error } = await supabase
@@ -63,14 +66,14 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
-      console.error('Error creating custom webhook:', error)
-      return NextResponse.json({ error: "Failed to create webhook" }, { status: 500 })
+      logger.error('Error creating custom webhook:', error)
+      return errorResponse("Failed to create webhook" , 500)
     }
 
-    return NextResponse.json({ webhook })
+    return jsonResponse({ webhook })
 
   } catch (error: any) {
-    console.error("Error in POST /api/custom-webhooks:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error in POST /api/custom-webhooks:", error)
+    return errorResponse("Internal server error" , 500)
   }
 } 

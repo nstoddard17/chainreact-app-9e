@@ -14,6 +14,8 @@ import {
   TriggerHealthStatus
 } from './types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,7 +29,7 @@ export class TriggerLifecycleManager {
    */
   registerProvider(entry: TriggerProviderEntry): void {
     this.providers.set(entry.providerId, entry)
-    console.log(`📝 Registered trigger provider: ${entry.providerId}`)
+    logger.debug(`📝 Registered trigger provider: ${entry.providerId}`)
   }
 
   /**
@@ -36,7 +38,7 @@ export class TriggerLifecycleManager {
   private getLifecycle(providerId: string): TriggerLifecycle | null {
     const entry = this.providers.get(providerId)
     if (!entry) {
-      console.warn(`⚠️ No lifecycle registered for provider: ${providerId}`)
+      logger.warn(`⚠️ No lifecycle registered for provider: ${providerId}`)
       return null
     }
     return entry.lifecycle
@@ -57,7 +59,7 @@ export class TriggerLifecycleManager {
     // Filter to only trigger nodes
     const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
 
-    console.log(`🚀 Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
+    logger.debug(`🚀 Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
 
     for (const node of triggerNodes) {
       const providerId = node.data?.providerId
@@ -65,14 +67,14 @@ export class TriggerLifecycleManager {
       const config = node.data?.config || {}
 
       if (!providerId || !triggerType) {
-        console.warn(`⚠️ Skipping node ${node.id}: missing providerId or triggerType`)
+        logger.warn(`⚠️ Skipping node ${node.id}: missing providerId or triggerType`)
         continue
       }
 
       const lifecycle = this.getLifecycle(providerId)
       if (!lifecycle) {
         // No lifecycle registered = no external resources needed (e.g., schedule, manual)
-        console.log(`ℹ️ No lifecycle for ${providerId}, skipping (no external resources needed)`)
+        logger.debug(`ℹ️ No lifecycle for ${providerId}, skipping (no external resources needed)`)
         continue
       }
 
@@ -87,11 +89,11 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onActivate(context)
-        console.log(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}`)
+        logger.debug(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}`)
 
       } catch (error) {
         const errorMsg = `Failed to activate ${providerId}/${triggerType}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        console.error(`❌ ${errorMsg}`)
+        logger.error(`❌ ${errorMsg}`)
         errors.push(errorMsg)
       }
     }
@@ -120,16 +122,16 @@ export class TriggerLifecycleManager {
       .eq('workflow_id', workflowId)
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No trigger resources found for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}`)
       return { success: true, errors: [] }
     }
 
-    console.log(`🛑 Deactivating ${resources.length} trigger resources for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating ${resources.length} trigger resources for workflow ${workflowId}`)
 
     for (const resource of resources) {
       const lifecycle = this.getLifecycle(resource.provider_id)
       if (!lifecycle) {
-        console.warn(`⚠️ No lifecycle for ${resource.provider_id}, skipping cleanup`)
+        logger.warn(`⚠️ No lifecycle for ${resource.provider_id}, skipping cleanup`)
         continue
       }
 
@@ -141,11 +143,11 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onDeactivate(context)
-        console.log(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}`)
+        logger.debug(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}`)
 
       } catch (error) {
         const errorMsg = `Failed to deactivate ${resource.provider_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        console.error(`❌ ${errorMsg}`)
+        logger.error(`❌ ${errorMsg}`)
         errors.push(errorMsg)
       }
     }
@@ -174,16 +176,16 @@ export class TriggerLifecycleManager {
       .eq('workflow_id', workflowId)
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No trigger resources found for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}`)
       return { success: true, errors: [] }
     }
 
-    console.log(`🗑️ Deleting ${resources.length} trigger resources for workflow ${workflowId}`)
+    logger.debug(`🗑️ Deleting ${resources.length} trigger resources for workflow ${workflowId}`)
 
     for (const resource of resources) {
       const lifecycle = this.getLifecycle(resource.provider_id)
       if (!lifecycle) {
-        console.warn(`⚠️ No lifecycle for ${resource.provider_id}, skipping cleanup`)
+        logger.warn(`⚠️ No lifecycle for ${resource.provider_id}, skipping cleanup`)
         continue
       }
 
@@ -195,11 +197,11 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onDelete(context)
-        console.log(`✅ Deleted trigger: ${resource.provider_id} for workflow ${workflowId}`)
+        logger.debug(`✅ Deleted trigger: ${resource.provider_id} for workflow ${workflowId}`)
 
       } catch (error) {
         const errorMsg = `Failed to delete ${resource.provider_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
-        console.error(`❌ ${errorMsg}`)
+        logger.error(`❌ ${errorMsg}`)
         errors.push(errorMsg)
       }
     }

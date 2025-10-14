@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * AI Field Generation Templates and Service
  * 
@@ -287,7 +289,7 @@ Generate ONLY the content, no explanations or metadata.`;
 
       return completion.choices[0]?.message?.content?.trim() || '';
     } catch (error: any) {
-      console.error("AI generation failed:", error);
+      logger.error("AI generation failed:", error);
       return this.getFallbackContent(template);
     }
   }

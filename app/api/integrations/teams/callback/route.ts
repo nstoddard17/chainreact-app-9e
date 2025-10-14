@@ -1,9 +1,12 @@
 import type { NextRequest } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createPopupResponse } from "@/lib/utils/createPopupResponse"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
 import { prepareIntegrationData } from "@/lib/integrations/tokenUtils"
 import { getAllScopes } from "@/lib/integrations/integrationScopes"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -17,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     const message = errorDescription || error
-    console.error(`Error with Teams OAuth: ${message}`)
+    logger.error(`Error with Teams OAuth: ${message}`)
     return createPopupResponse("error", provider, `OAuth Error: ${message}`, baseUrl)
   }
 
@@ -37,11 +40,11 @@ export async function GET(request: NextRequest) {
     const clientSecret = process.env.TEAMS_CLIENT_SECRET
     
     // Debug logging to see which client ID is being used
-    console.log('🔍 Teams OAuth Debug:')
-    console.log('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
-    console.log('  - TEAMS_CLIENT_SECRET set:', !!process.env.TEAMS_CLIENT_SECRET)
-    console.log('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-    console.log('  - Using client ID type: TEAMS_SPECIFIC')
+    logger.debug('🔍 Teams OAuth Debug:')
+    logger.debug('  - TEAMS_CLIENT_ID set:', !!process.env.TEAMS_CLIENT_ID)
+    logger.debug('  - TEAMS_CLIENT_SECRET set:', !!process.env.TEAMS_CLIENT_SECRET)
+    logger.debug('  - Using client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+    logger.debug('  - Using client ID type: TEAMS_SPECIFIC')
     
     const redirectUri = `${baseUrl}/api/integrations/teams/callback`
 
@@ -56,10 +59,10 @@ export async function GET(request: NextRequest) {
     
     const scopeString = config.scope || ""
     
-    console.log('🔍 Teams Token Request Debug:')
-    console.log('  - Scope string being sent:', scopeString)
-    console.log('  - Client ID being used:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
-    console.log('  - Redirect URI:', redirectUri)
+    logger.debug('🔍 Teams Token Request Debug:')
+    logger.debug('  - Scope string being sent:', scopeString)
+    logger.debug('  - Client ID being used:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
+    logger.debug('  - Redirect URI:', redirectUri)
 
     const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
         method: "POST",
@@ -84,18 +87,18 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     // Debug logging for token response
-    console.log('🔍 Teams Token Response Debug:')
-    console.log('  - Response status:', tokenResponse.status)
-    console.log('  - Access token received:', !!tokenData.access_token)
-    console.log('  - Refresh token received:', !!tokenData.refresh_token)
-    console.log('  - Scopes returned by Microsoft:', tokenData.scope)
-    console.log('  - Scopes we requested:', scopeString)
-    console.log('  - Token type:', tokenData.token_type)
-    console.log('  - Expires in:', tokenData.expires_in)
-    console.log('  - Full token response:', JSON.stringify(tokenData, null, 2))
+    logger.debug('🔍 Teams Token Response Debug:')
+    logger.debug('  - Response status:', tokenResponse.status)
+    logger.debug('  - Access token received:', !!tokenData.access_token)
+    logger.debug('  - Refresh token received:', !!tokenData.refresh_token)
+    logger.debug('  - Scopes returned by Microsoft:', tokenData.scope)
+    logger.debug('  - Scopes we requested:', scopeString)
+    logger.debug('  - Token type:', tokenData.token_type)
+    logger.debug('  - Expires in:', tokenData.expires_in)
+    logger.debug('  - Full token response:', JSON.stringify(tokenData, null, 2))
 
     // Validate Teams account access
-    console.log('🔍 Validating Teams account access...')
+    logger.debug('🔍 Validating Teams account access...')
     const validationResponse = await fetch(`${baseUrl}/api/integrations/validate-teams-account`, {
       method: 'POST',
       headers: {
@@ -107,7 +110,7 @@ export async function GET(request: NextRequest) {
     })
 
     const validationData = await validationResponse.json()
-    console.log('🔍 Teams account validation result:', validationData)
+    logger.debug('🔍 Teams account validation result:', validationData)
 
     if (!validationData.success) {
       if (validationData.error === 'TEAMS_PERSONAL_ACCOUNT') {
@@ -159,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     return createPopupResponse("success", provider, "You can now close this window.", baseUrl)
   } catch (e: any) {
-    console.error("Teams callback error:", e)
+    logger.error("Teams callback error:", e)
     return createPopupResponse("error", provider, e.message || "An unexpected error occurred.", baseUrl)
   }
 }

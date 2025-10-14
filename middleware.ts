@@ -1,5 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
+
+import { logger } from '@/lib/utils/logger'
 import type { NextRequest } from 'next/server'
 
 // Define page access rules
@@ -99,7 +101,7 @@ export async function middleware(req: NextRequest) {
     const accountAge = new Date().getTime() - new Date(user.created_at).getTime()
     const isNewBetaUser = isBetaTester && accountAge < 60000 // Less than 1 minute old
 
-    console.log('[Middleware] Username check:', {
+    logger.debug('[Middleware] Username check:', {
       path: pathname,
       userId: user.id,
       provider: profile?.provider,
@@ -116,7 +118,7 @@ export async function middleware(req: NextRequest) {
     if (profileError && profileError.code === 'PGRST116') {
       // Give new beta users a grace period for profile creation
       if (isNewBetaUser) {
-        console.log('[Middleware] New beta user, profile still being created, allowing access')
+        logger.debug('[Middleware] New beta user, profile still being created, allowing access')
         return res
       }
 
@@ -125,13 +127,13 @@ export async function middleware(req: NextRequest) {
                           user.identities?.some(id => id.provider === 'google')
 
       if (isGoogleUser && !pathname.startsWith('/auth/setup-username')) {
-        console.log('[Middleware] Google user without profile, redirecting to setup')
+        logger.debug('[Middleware] Google user without profile, redirecting to setup')
         return NextResponse.redirect(new URL('/auth/setup-username', req.url))
       }
 
       // For other users without profiles after grace period
       if (!pathname.startsWith('/auth/setup-username')) {
-        console.log('[Middleware] User without profile, redirecting to setup')
+        logger.debug('[Middleware] User without profile, redirecting to setup')
         return NextResponse.redirect(new URL('/auth/setup-username', req.url))
       }
     }
@@ -143,16 +145,16 @@ export async function middleware(req: NextRequest) {
 
       // Give new beta users a grace period
       if (isNewBetaUser) {
-        console.log('[Middleware] New beta user without username yet, allowing temporary access')
+        logger.debug('[Middleware] New beta user without username yet, allowing temporary access')
         // Set a temporary redirect after grace period
         if (accountAge > 30000) { // After 30 seconds
-          console.log('[Middleware] Beta user grace period expired, redirecting to setup')
+          logger.debug('[Middleware] Beta user grace period expired, redirecting to setup')
           return NextResponse.redirect(new URL('/auth/setup-username', req.url))
         }
         return res
       }
 
-      console.log('[Middleware] User without username, redirecting to setup', {
+      logger.debug('[Middleware] User without username, redirecting to setup', {
         username: profile?.username,
         provider: profile?.provider
       })
@@ -203,7 +205,7 @@ async function trackUsage(supabase: any, userId: string, resourceType: string, a
       })
     }
   } catch (error) {
-    console.error("Usage tracking error:", error)
+    logger.error("Usage tracking error:", error)
   }
 }
 

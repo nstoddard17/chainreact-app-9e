@@ -5,6 +5,8 @@
 import { DiscordIntegration, DiscordChannel, DiscordDataHandler } from '../types'
 import { makeDiscordApiRequest, validateDiscordToken } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 // Discord permission flags
 const Permissions = {
   VIEW_CHANNEL: 1024n, // 0x400
@@ -102,14 +104,14 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
     } = options
     
     if (!guildId) {
-      console.warn("No guildId provided for discord_channels, returning empty channels list")
+      logger.warn("No guildId provided for discord_channels, returning empty channels list")
       return []
     }
 
     // Use bot token for channel listing (bot must be in the guild)
     const botToken = process.env.DISCORD_BOT_TOKEN
     if (!botToken) {
-      console.warn("Discord bot token not configured - returning empty channels list")
+      logger.warn("Discord bot token not configured - returning empty channels list")
       return []
     }
 
@@ -137,7 +139,7 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           )
         }
       } catch (memberError) {
-        console.log("Could not fetch bot member info, will show all channels:", memberError)
+        logger.debug("Could not fetch bot member info, will show all channels:", memberError)
       }
 
       // Use makeDiscordApiRequest with caching for faster subsequent loads
@@ -149,24 +151,24 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
       )
     } catch (fetchError: any) {
       // Handle fetchDiscordWithRateLimit errors specifically
-      console.log(`Discord API fetch error for guild ${guildId}:`, fetchError.message)
+      logger.debug(`Discord API fetch error for guild ${guildId}:`, fetchError.message)
       
       if (fetchError.status === 401) {
         throw new Error("Discord bot authentication failed. Please check bot configuration.")
       }
       if (fetchError.status === 403) {
         // Bot doesn't have permission or isn't in the server - return empty array
-        console.log(`Bot missing permissions or not in server ${guildId} - returning empty channels list`)
+        logger.debug(`Bot missing permissions or not in server ${guildId} - returning empty channels list`)
         return []
       }
       if (fetchError.status === 404) {
         // Bot is not in the server - return empty array
-        console.log(`Bot is not a member of server ${guildId} - returning empty channels list`)
+        logger.debug(`Bot is not a member of server ${guildId} - returning empty channels list`)
         return []
       }
       
       // For other API errors, return empty array so UI can show bot connection prompt
-      console.error(`Discord API error for guild ${guildId}:`, fetchError.message)
+      logger.error(`Discord API error for guild ${guildId}:`, fetchError.message)
       return []
     }
     
@@ -179,7 +181,7 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           // First, check if bot can access the channel
           const canAccess = botCanAccessChannel(channel, botMember)
           if (!canAccess) {
-            console.log(`Bot cannot access channel: ${channel.name} (${channel.id})`)
+            logger.debug(`Bot cannot access channel: ${channel.name} (${channel.id})`)
             return false
           }
           accessibleChannels++
@@ -195,14 +197,14 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           // Exclude categories (4), voice channels without text capability
           const textCapableTypes = [0, 2, 5, 10, 11, 12, 15]; // All channel types that can have text messages
           if (textCapableTypes.includes(channel.type)) {
-            console.log(`Including channel: ${channel.name} (${channel.id}) - Type: ${channel.type}`)
+            logger.debug(`Including channel: ${channel.name} (${channel.id}) - Type: ${channel.type}`)
             return true
           }
           
           return false
         })
       
-      console.log(`Discord channel access summary for guild ${guildId}: ${accessibleChannels}/${totalChannels} channels accessible to bot`)
+      logger.debug(`Discord channel access summary for guild ${guildId}: ${accessibleChannels}/${totalChannels} channels accessible to bot`)
 
       // Apply additional filters
       if (channelTypes && Array.isArray(channelTypes) && channelTypes.length > 0) {
@@ -260,11 +262,11 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
       }))
     } catch (processingError: any) {
       // Handle errors in data processing (filtering, sorting, etc.)
-      console.error('Error processing channel data:', processingError)
+      logger.error('Error processing channel data:', processingError)
       return []
     }
   } catch (error: any) {
-    console.error("Error fetching Discord channels:", error)
+    logger.error("Error fetching Discord channels:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Discord authentication expired. Please reconnect your account.')

@@ -8,6 +8,8 @@
 import { getIntegrationCredentials } from "@/lib/integrations/getDecryptedAccessToken"
 import { resolveValue } from "@/lib/integrations/resolveValue"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Action metadata for UI display and reference
  */
@@ -100,7 +102,7 @@ export async function actionName(params: ActionParams): Promise<ActionResult> {
     
   } catch (error: any) {
     // 8. Handle errors and return failure result
-    console.error("Action failed:", error)
+    logger.error("Action failed:", error)
     return {
       success: false,
       error: error.message || "Unknown error occurred"

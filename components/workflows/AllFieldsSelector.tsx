@@ -17,6 +17,8 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import VariablePicker from './VariablePicker'
 
+import { logger } from '@/lib/utils/logger'
+
 interface FieldProperty {
   name: string
   label: string
@@ -89,15 +91,15 @@ export default function AllFieldsSelector({
       setLoading(true)
       const result = await loadIntegrationData('hubspot_all_contact_properties', integrationId)
       
-      console.log('🔍 AllFieldsSelector received result:', result)
+      logger.debug('🔍 AllFieldsSelector received result:', result)
       
-      console.log('🔍 AllFieldsSelector received result:', result)
-      console.log('🔍 Result type:', typeof result)
-      console.log('🔍 Result keys:', result ? Object.keys(result) : 'null')
+      logger.debug('🔍 AllFieldsSelector received result:', result)
+      logger.debug('🔍 Result type:', typeof result)
+      logger.debug('🔍 Result keys:', result ? Object.keys(result) : 'null')
       
       if (result && result.properties) {
-        console.log('✅ Found properties:', result.properties.length)
-        console.log('✅ Found grouped properties:', Object.keys(result.groupedProperties))
+        logger.debug('✅ Found properties:', result.properties.length)
+        logger.debug('✅ Found grouped properties:', Object.keys(result.groupedProperties))
         setProperties(result.properties)
         setGroupedProperties(result.groupedProperties)
         
@@ -108,8 +110,8 @@ export default function AllFieldsSelector({
         }
       } else if (result && result.data && result.data.properties) {
         // Handle case where data is nested
-        console.log('✅ Found nested properties:', result.data.properties.length)
-        console.log('✅ Found nested grouped properties:', Object.keys(result.data.groupedProperties))
+        logger.debug('✅ Found nested properties:', result.data.properties.length)
+        logger.debug('✅ Found nested grouped properties:', Object.keys(result.data.groupedProperties))
         setProperties(result.data.properties)
         setGroupedProperties(result.data.groupedProperties)
         
@@ -119,11 +121,11 @@ export default function AllFieldsSelector({
           setActiveTab(firstGroup)
         }
       } else {
-        console.error('❌ No valid data structure found:', result)
+        logger.error('❌ No valid data structure found:', result)
         throw new Error('No data received from HubSpot API')
       }
     } catch (err: any) {
-      console.error('❌ AllFieldsSelector error:', err)
+      logger.error('❌ AllFieldsSelector error:', err)
       setError(err.message)
     } finally {
       setLoading(false)

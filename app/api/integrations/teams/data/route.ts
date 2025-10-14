@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getOAuthConfig, getOAuthClientCredentials } from '@/lib/integrations/oauthConfig';
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,11 +11,11 @@ export async function GET(request: NextRequest) {
     const teamId = searchParams.get('teamId');
 
     if (!integrationId) {
-      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 });
+      return errorResponse('Integration ID is required', 400);
     }
 
     if (!type) {
-      return NextResponse.json({ error: 'Type is required' }, { status: 400 });
+      return errorResponse('Type is required', 400);
     }
 
     const supabase = createAdminClient();
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
+      return errorResponse('Integration not found', 404);
     }
 
     // Decrypt access token
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
     const accessToken = integration.access_token ? await decrypt(integration.access_token) : null;
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'No access token available' }, { status: 401 });
+      return errorResponse('No access token available', 401);
     }
 
     let responseData: any[] = [];
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
       case 'teams_channels':
         // Fetch channels for a specific team
         if (!teamId) {
-          return NextResponse.json({ error: 'Team ID is required for fetching channels' }, { status: 400 });
+          return errorResponse('Team ID is required for fetching channels', 400);
         }
 
         const channelsResponse = await fetch(`https://graph.microsoft.com/v1.0/teams/${teamId}/channels`, {
@@ -109,24 +110,32 @@ export async function GET(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({ error: `Unknown data type: ${type}` }, { status: 400 });
+        return errorResponse(`Unknown data type: ${type}`, 400);
     }
 
-    return NextResponse.json(responseData);
+    return jsonResponse(responseData);
   } catch (error: any) {
-    return NextResponse.json({
-      error: error.message || 'Failed to load Teams data',
-      details: error.toString()
-    }, { status: 500 });
+    return errorResponse(
+      error.message || 'Failed to load Teams data',
+      500,
+      { details: error.toString() }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { integrationId, dataType, params = {} } = await request.json();
+    const body = await request.json();
+    const { integrationId, dataType, params = {} } = body;
+
+    console.log('[Teams Data API] POST request received:', { integrationId, dataType, params, fullBody: body });
 
     if (!integrationId) {
-      return NextResponse.json({ error: 'Integration ID is required' }, { status: 400 });
+      return errorResponse('Integration ID is required', 400);
+    }
+
+    if (!dataType) {
+      return errorResponse('Data type is required', 400);
     }
 
     const supabase = createAdminClient();
@@ -139,7 +148,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (integrationError || !integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
+      return errorResponse('Integration not found', 404);
     }
 
     // Decrypt access token
@@ -147,7 +156,7 @@ export async function POST(request: NextRequest) {
     const accessToken = integration.access_token ? await decrypt(integration.access_token) : null;
 
     if (!accessToken) {
-      return NextResponse.json({ error: 'No access token available' }, { status: 401 });
+      return errorResponse('No access token available', 401);
     }
 
     let responseData: any[] = [];
@@ -178,7 +187,7 @@ export async function POST(request: NextRequest) {
         // Fetch channels for a specific team
         const { teamId } = params;
         if (!teamId) {
-          return NextResponse.json({ error: 'Team ID is required for fetching channels' }, { status: 400 });
+          return errorResponse('Team ID is required for fetching channels', 400);
         }
 
         const channelsResponse = await fetch(`https://graph.microsoft.com/v1.0/teams/${teamId}/channels`, {
@@ -225,7 +234,7 @@ export async function POST(request: NextRequest) {
         // Fetch members of a specific team
         const { teamId: memberTeamId } = params;
         if (!memberTeamId) {
-          return NextResponse.json({ error: 'Team ID is required for fetching members' }, { status: 400 });
+          return errorResponse('Team ID is required for fetching members', 400);
         }
 
         const membersResponse = await fetch(`https://graph.microsoft.com/v1.0/teams/${memberTeamId}/members`, {
@@ -269,12 +278,18 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        return NextResponse.json({ error: `Unknown data type: ${dataType}` }, { status: 400 });
+        console.error('[Teams Data API] Unknown data type:', dataType);
+        return errorResponse(
+          `Unknown data type: ${dataType}`,
+          400,
+          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users'] }
+        );
     }
 
-    return NextResponse.json({ data: responseData });
+    return jsonResponse({ data: responseData });
   } catch (error: any) {
-    return NextResponse.json({ 
+    console.error('[Teams Data API] Error:', error);
+    return NextResponse.json({
       error: error.message || 'Failed to load Teams data',
       details: error.toString()
     }, { status: 500 });

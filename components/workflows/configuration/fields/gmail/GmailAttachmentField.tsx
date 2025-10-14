@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/utils/supabaseClient";
 import VariablePicker from "../../../VariablePicker";
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailAttachmentFieldProps {
   field: any;
   value: any;
@@ -190,7 +192,7 @@ export function GmailAttachmentField({
       setFileInputKey(prev => prev + 1);
 
     } catch (error: any) {
-      console.error('File upload error:', error);
+      logger.error('File upload error:', error);
       alert(error.message || 'Failed to upload file');
     } finally {
       setUploading(false);
@@ -239,7 +241,7 @@ export function GmailAttachmentField({
       setFileInputKey(prev => prev + 1);
 
     } catch (error) {
-      console.error('Failed to remove file:', error);
+      logger.error('Failed to remove file:', error);
     }
   };
 

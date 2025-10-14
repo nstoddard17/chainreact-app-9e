@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(req: Request) {
   cookies()
@@ -11,13 +14,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return errorResponse("Unauthorized" , 401)
   }
 
   const { integrationId } = await req.json()
 
   if (!integrationId) {
-    return NextResponse.json({ error: "Integration ID is required" }, { status: 400 })
+    return errorResponse("Integration ID is required" , 400)
   }
 
   try {
@@ -29,14 +32,14 @@ export async function POST(req: Request) {
       .single()
 
     if (error || !integration) {
-      return NextResponse.json({ error: "Integration not found" }, { status: 404 })
+      return errorResponse("Integration not found" , 404)
     }
 
     const contactGroups = await getGmailContactGroups(integration.access_token)
-    return NextResponse.json(contactGroups)
+    return jsonResponse(contactGroups)
   } catch (error) {
-    console.error("Failed to load contact groups:", error)
-    return NextResponse.json({ error: "Failed to load contact groups" }, { status: 500 })
+    logger.error("Failed to load contact groups:", error)
+    return errorResponse("Failed to load contact groups" , 500)
   }
 }
 
@@ -83,7 +86,7 @@ async function getGmailContactGroups(accessToken: string) {
           )
 
           if (!membersResponse.ok) {
-            console.warn(`Failed to fetch members for group ${group.name}`)
+            logger.warn(`Failed to fetch members for group ${group.name}`)
             return null
           }
 
@@ -108,7 +111,7 @@ async function getGmailContactGroups(accessToken: string) {
           )
 
           if (!contactsResponse.ok) {
-            console.warn(`Failed to fetch contact details for group ${group.name}`)
+            logger.warn(`Failed to fetch contact details for group ${group.name}`)
             return null
           }
 
@@ -145,7 +148,7 @@ async function getGmailContactGroups(accessToken: string) {
           }
 
         } catch (error) {
-          console.warn(`Error processing group ${group.name}:`, error)
+          logger.warn(`Error processing group ${group.name}:`, error)
           return null
         }
       })
@@ -154,7 +157,7 @@ async function getGmailContactGroups(accessToken: string) {
     return groupsWithMembers.filter(group => group !== null)
 
   } catch (error) {
-    console.error("Failed to get Gmail contact groups:", error)
+    logger.error("Failed to get Gmail contact groups:", error)
     throw new Error("Failed to get Gmail contact groups")
   }
 }

@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
+import { logger } from '@/lib/utils/logger'
+
 export interface CollaborationSession {
   id: string
   workflow_id: string
@@ -341,7 +343,7 @@ export class RealTimeCollaboration {
 
       return !error
     } catch (error) {
-      console.error("Failed to acquire lock:", error)
+      logger.error("Failed to acquire lock:", error)
       return false
     }
   }
@@ -480,7 +482,7 @@ export class RealTimeCollaboration {
     position: { x: number; y: number },
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    console.log("Broadcasting cursor update:", { workflowId, sessionToken, position })
+    logger.debug("Broadcasting cursor update:", { workflowId, sessionToken, position })
   }
 
   private async broadcastSelectionUpdate(
@@ -489,7 +491,7 @@ export class RealTimeCollaboration {
     selectedNodes: string[],
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    console.log("Broadcasting selection update:", { workflowId, sessionToken, selectedNodes })
+    logger.debug("Broadcasting selection update:", { workflowId, sessionToken, selectedNodes })
   }
 
   private async broadcastWorkflowChange(
@@ -498,22 +500,22 @@ export class RealTimeCollaboration {
     change: WorkflowChange,
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    console.log("Broadcasting workflow change:", { workflowId, sessionToken, change })
+    logger.debug("Broadcasting workflow change:", { workflowId, sessionToken, change })
   }
 
   private handleCursorUpdate(session: CollaborationSession): void {
     // Handle incoming cursor updates from other users
-    console.log("Received cursor update:", session)
+    logger.debug("Received cursor update:", session)
   }
 
   private handleWorkflowChange(change: WorkflowChange, currentSessionToken: string): void {
     // Handle incoming workflow changes from other users
-    console.log("Received workflow change:", change)
+    logger.debug("Received workflow change:", change)
   }
 
   private handleExecutionEvent(event: any): void {
     // Handle live execution events
-    console.log("Received execution event:", event)
+    logger.debug("Received execution event:", event)
   }
 }
 

@@ -25,12 +25,14 @@ import { ZoomAdapter } from '../providers/zoom-adapter'
 import { SalesforceAdapter } from '../providers/salesforce-adapter'
 import { healthMonitor } from '../health/provider-health-monitor'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Bootstrap all integration providers and actions
  * This should be called at application startup
  */
 export function bootstrapProviders(): void {
-  console.log('🚀 Bootstrapping integration providers...')
+  logger.debug('🚀 Bootstrapping integration providers...')
 
   // Register Gmail provider
   registerGmailProvider()
@@ -104,15 +106,15 @@ export function bootstrapProviders(): void {
   // Register other providers here
   // etc.
 
-  console.log(`✅ Registered ${providerRegistry.listProviders().length} providers`)
-  console.log(`✅ Registered ${actionRegistry.listActions().length} actions`)
+  logger.debug(`✅ Registered ${providerRegistry.listProviders().length} providers`)
+  logger.debug(`✅ Registered ${actionRegistry.listActions().length} actions`)
   
   // Start health monitoring (5 minute intervals)
   if (process.env.NODE_ENV === 'production') {
-    console.log('🏥 Starting provider health monitoring...')
+    logger.debug('🏥 Starting provider health monitoring...')
     healthMonitor.startMonitoring()
   } else {
-    console.log('🏥 Health monitoring disabled in development mode')
+    logger.debug('🏥 Health monitoring disabled in development mode')
   }
 }
 
@@ -193,7 +195,7 @@ function registerGmailProvider(): void {
     }
   ])
 
-  console.log('✅ Gmail provider registered with email capabilities')
+  logger.debug('✅ Gmail provider registered with email capabilities')
 }
 
 // Template for registering other providers
@@ -274,7 +276,7 @@ function registerSlackProvider(): void {
     }
   ])
 
-  console.log('✅ Slack provider registered with chat capabilities')
+  logger.debug('✅ Slack provider registered with chat capabilities')
 }
 
 function registerDiscordProvider(): void {
@@ -358,7 +360,7 @@ function registerDiscordProvider(): void {
     }
   ])
 
-  console.log('✅ Discord provider registered with chat capabilities')
+  logger.debug('✅ Discord provider registered with chat capabilities')
 }
 
 function registerAirtableProvider(): void {
@@ -437,7 +439,7 @@ function registerAirtableProvider(): void {
     }
   ])
 
-  console.log('✅ Airtable provider registered with database capabilities')
+  logger.debug('✅ Airtable provider registered with database capabilities')
 }
 
 function registerHubSpotProvider(): void {
@@ -496,7 +498,7 @@ function registerHubSpotProvider(): void {
     }
   ])
 
-  console.log('✅ HubSpot provider registered with CRM capabilities')
+  logger.debug('✅ HubSpot provider registered with CRM capabilities')
 }
 
 function registerTrelloProvider(): void {
@@ -552,7 +554,7 @@ function registerTrelloProvider(): void {
     }
   ])
 
-  console.log('✅ Trello provider registered with project capabilities')
+  logger.debug('✅ Trello provider registered with project capabilities')
 }
 
 function registerNotionProvider(): void {
@@ -608,7 +610,7 @@ function registerNotionProvider(): void {
     }
   ])
 
-  console.log('✅ Notion provider registered with database capabilities')
+  logger.debug('✅ Notion provider registered with database capabilities')
 }
 
 function registerTwitterProvider(): void {
@@ -662,7 +664,7 @@ function registerTwitterProvider(): void {
     }
   ])
 
-  console.log('✅ Twitter provider registered with social capabilities')
+  logger.debug('✅ Twitter provider registered with social capabilities')
 }
 
 function registerFacebookProvider(): void {
@@ -744,7 +746,7 @@ function registerFacebookProvider(): void {
     }
   ])
 
-  console.log('✅ Facebook provider registered with social capabilities')
+  logger.debug('✅ Facebook provider registered with social capabilities')
 }
 
 function registerGoogleCalendarProvider(): void {
@@ -818,7 +820,7 @@ function registerGoogleCalendarProvider(): void {
     }
   ])
 
-  console.log('✅ Google Calendar provider registered with calendar capabilities')
+  logger.debug('✅ Google Calendar provider registered with calendar capabilities')
 }
 
 function registerGitHubProvider(): void {
@@ -937,7 +939,7 @@ function registerGitHubProvider(): void {
     }
   ])
 
-  console.log('✅ GitHub provider registered with DevOps capabilities')
+  logger.debug('✅ GitHub provider registered with DevOps capabilities')
 }
 
 function registerGoogleDriveProvider(): void {
@@ -1069,7 +1071,7 @@ function registerGoogleDriveProvider(): void {
     }
   ])
 
-  console.log('✅ Google Drive provider registered with file capabilities')
+  logger.debug('✅ Google Drive provider registered with file capabilities')
 }
 
 function registerGoogleSheetsProvider(): void {
@@ -1204,7 +1206,7 @@ function registerGoogleSheetsProvider(): void {
     }
   ])
 
-  console.log('✅ Google Sheets provider registered with database capabilities')
+  logger.debug('✅ Google Sheets provider registered with database capabilities')
 }
 
 function registerGoogleDocsProvider(): void {
@@ -1372,7 +1374,7 @@ function registerGoogleDocsProvider(): void {
     }
   ])
 
-  console.log('✅ Google Docs provider registered with document capabilities')
+  logger.debug('✅ Google Docs provider registered with document capabilities')
 }
 
 function registerMicrosoftTeamsProvider(): void {
@@ -1485,7 +1487,7 @@ function registerMicrosoftTeamsProvider(): void {
     }
   ])
 
-  console.log('✅ Microsoft Teams provider registered with chat capabilities')
+  logger.debug('✅ Microsoft Teams provider registered with chat capabilities')
 }
 
 function registerMicrosoftOneDriveProvider(): void {
@@ -1654,7 +1656,7 @@ function registerMicrosoftOneDriveProvider(): void {
     }
   ])
 
-  console.log('✅ Microsoft OneDrive provider registered with file capabilities')
+  logger.debug('✅ Microsoft OneDrive provider registered with file capabilities')
 }
 
 function registerMicrosoftOutlookProvider(): void {
@@ -1776,7 +1778,7 @@ function registerMicrosoftOutlookProvider(): void {
     }
   ])
 
-  console.log('✅ Microsoft Outlook provider registered with email capabilities')
+  logger.debug('✅ Microsoft Outlook provider registered with email capabilities')
 }
 
 function registerStripeProvider(): void {
@@ -2035,7 +2037,7 @@ function registerStripeProvider(): void {
     }
   ])
 
-  console.log('✅ Stripe provider registered with payment capabilities')
+  logger.debug('✅ Stripe provider registered with payment capabilities')
 }
 
 function registerDropboxProvider(): void {
@@ -2167,7 +2169,7 @@ function registerDropboxProvider(): void {
     }
   ])
 
-  console.log('✅ Dropbox provider registered with file capabilities')
+  logger.debug('✅ Dropbox provider registered with file capabilities')
 }
 
 function registerMailchimpProvider(): void {
@@ -2266,7 +2268,7 @@ function registerMailchimpProvider(): void {
     }
   ])
 
-  console.log('✅ Mailchimp provider registered with email capabilities')
+  logger.debug('✅ Mailchimp provider registered with email capabilities')
 }
 
 function registerMicrosoftCalendarProvider(): void {
@@ -2434,7 +2436,7 @@ function registerMicrosoftCalendarProvider(): void {
     }
   ])
 
-  console.log('✅ Microsoft Calendar provider registered with calendar capabilities')
+  logger.debug('✅ Microsoft Calendar provider registered with calendar capabilities')
 }
 
 function registerZoomProvider(): void {
@@ -2623,7 +2625,7 @@ function registerZoomProvider(): void {
     }
   ])
 
-  console.log('✅ Zoom provider registered with chat capabilities')
+  logger.debug('✅ Zoom provider registered with chat capabilities')
 }
 
 function registerSalesforceProvider(): void {
@@ -2850,7 +2852,7 @@ function registerSalesforceProvider(): void {
     }
   ])
 
-  console.log('✅ Salesforce provider registered with CRM capabilities')
+  logger.debug('✅ Salesforce provider registered with CRM capabilities')
 }
 
 /**

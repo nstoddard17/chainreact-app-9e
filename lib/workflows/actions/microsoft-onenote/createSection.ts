@@ -1,6 +1,8 @@
 import { ExecutionContext } from "@/lib/workflows/types/execution"
 import { getOneNoteAccessToken, makeGraphRequest } from "./utils"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function onenoteCreateSection(
   params: {
     notebookId: string
@@ -11,7 +13,7 @@ export async function onenoteCreateSection(
   const { notebookId, displayName } = params
 
   if (context.testMode) {
-    console.log("[TEST MODE] Would create OneNote section:", { notebookId, displayName })
+    logger.debug("[TEST MODE] Would create OneNote section:", { notebookId, displayName })
     return {
       success: true,
       data: {
@@ -48,7 +50,7 @@ export async function onenoteCreateSection(
       }
     }
   } catch (error: any) {
-    console.error("Error creating OneNote section:", error)
+    logger.error("Error creating OneNote section:", error)
     return {
       success: false,
       error: error.message || "Failed to create OneNote section"

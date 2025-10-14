@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 
 export async function GET() {
@@ -6,7 +7,7 @@ export async function GET() {
   const logicNodes = ALL_NODE_COMPONENTS.filter(n => n.providerId === 'logic')
   const coreNodes = ALL_NODE_COMPONENTS.filter(n => !n.providerId && ['webhook', 'schedule', 'manual'].includes(n.type))
   
-  return NextResponse.json({
+  return jsonResponse({
     total: ALL_NODE_COMPONENTS.length,
     ai: {
       count: aiNodes.length,

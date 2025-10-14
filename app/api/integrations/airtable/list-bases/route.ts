@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { decrypt } from "@/lib/security/encryption"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
   try {
@@ -9,7 +12,7 @@ export async function GET() {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get Airtable integration
@@ -22,16 +25,15 @@ export async function GET() {
       .single()
 
     if (integError || !integration) {
-      return NextResponse.json({
-        error: "Airtable integration not found. Please connect Airtable first."
-      }, { status: 404 })
+      return errorResponse("Airtable integration not found. Please connect Airtable first."
+      , 404)
     }
 
     // Decrypt token
     const encryptionKey = process.env.ENCRYPTION_KEY
     if (!encryptionKey) {
-      console.error("ENCRYPTION_KEY not configured")
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+      logger.error("ENCRYPTION_KEY not configured")
+      return errorResponse("Server configuration error" , 500)
     }
 
     const token = decrypt(integration.access_token, encryptionKey)
@@ -45,10 +47,9 @@ export async function GET() {
 
     if (!userInfoRes.ok) {
       const error = await userInfoRes.text()
-      console.error("Failed to get Airtable user info:", error)
-      return NextResponse.json({
-        error: "Invalid Airtable token. Please reconnect your Airtable integration."
-      }, { status: 401 })
+      logger.error("Failed to get Airtable user info:", error)
+      return errorResponse("Invalid Airtable token. Please reconnect your Airtable integration."
+      , 401)
     }
 
     const userInfo = await userInfoRes.json()
@@ -63,10 +64,9 @@ export async function GET() {
 
     if (!basesRes.ok) {
       const error = await basesRes.text()
-      console.error("Failed to list Airtable bases:", error)
-      return NextResponse.json({
-        error: "Failed to fetch Airtable bases"
-      }, { status: 500 })
+      logger.error("Failed to list Airtable bases:", error)
+      return errorResponse("Failed to fetch Airtable bases"
+      , 500)
     }
 
     const basesData = await basesRes.json()
@@ -89,12 +89,11 @@ export async function GET() {
         : null
     }
 
-    return NextResponse.json(response)
+    return jsonResponse(response)
 
   } catch (error: any) {
-    console.error("Error listing Airtable bases:", error)
-    return NextResponse.json({
-      error: error.message || "Failed to list Airtable bases"
-    }, { status: 500 })
+    logger.error("Error listing Airtable bases:", error)
+    return errorResponse(error.message || "Failed to list Airtable bases"
+    , 500)
   }
 }

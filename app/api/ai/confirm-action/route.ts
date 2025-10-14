@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   // Create a flag to check if connection was closed
@@ -8,7 +11,7 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true;
-    console.log("Client connection aborted for confirm action");
+    logger.debug("Client connection aborted for confirm action");
   });
 
   try {
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // Early exit if connection closed
     if (connectionClosed) {
-      console.log("Connection closed early, aborting confirmation");
+      logger.debug("Connection closed early, aborting confirmation");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
@@ -25,36 +28,33 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get("authorization")
     
     if (!authHeader) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const token = authHeader.replace("Bearer ", "")
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check again if connection closed before executing action
     if (connectionClosed) {
-      console.log("Connection closed before action execution");
+      logger.debug("Connection closed before action execution");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
     // Execute the confirmed action
     const result = await executeConfirmedAction(action, data, user.id, supabaseAdmin)
 
-    return NextResponse.json(result)
+    return jsonResponse(result)
   } catch (error) {
-    console.error("Confirm action error:", error)
+    logger.error("Confirm action error:", error)
     // Don't send error response if connection was closed
     if (connectionClosed) {
       return new Response(null, { status: 499 });
     }
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -94,7 +94,7 @@ async function cancelCalendarEvent(data: any, userId: string, supabaseAdmin: any
       }
     }
   } catch (error) {
-    console.error("Cancel calendar event error:", error)
+    logger.error("Cancel calendar event error:", error)
     return {
       message: "Sorry, I couldn't cancel the event. Please try again.",
       result: { success: false, error: error instanceof Error ? error.message : "Unknown error" }

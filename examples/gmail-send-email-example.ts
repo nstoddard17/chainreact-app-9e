@@ -1,11 +1,13 @@
 import { executeAction } from "@/actions"
 import { ACTION_METADATA as SEND_GMAIL_METADATA } from "@/integrations/gmail/sendEmail"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Example of sending an email using the Gmail action system
  */
 async function sendEmailExample() {
-  console.log("Starting Gmail send email example...")
+  logger.debug("Starting Gmail send email example...")
   
   // User ID from your authentication system
   const userId = "user_123456" 
@@ -31,11 +33,11 @@ async function sendEmailExample() {
   
   // Check the result
   if (result.success) {
-    console.log("Email sent successfully!")
-    console.log("Message ID:", result.output?.messageId)
-    console.log("Thread ID:", result.output?.threadId)
+    logger.debug("Email sent successfully!")
+    logger.debug("Message ID:", result.output?.messageId)
+    logger.debug("Thread ID:", result.output?.threadId)
   } else {
-    console.error("Failed to send email:", result.error)
+    logger.error("Failed to send email:", result.error)
   }
 }
 

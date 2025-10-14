@@ -2,6 +2,8 @@ import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { logWebhookEvent } from './event-logger'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface WebhookEvent {
   id: string
   provider: string
@@ -34,7 +36,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
           .maybeSingle()
 
         if (!dedupeError && existingEvent) {
-          console.log(`🧊 Duplicate webhook event ignored`, {
+          logger.debug(`🧊 Duplicate webhook event ignored`, {
             provider: event.provider,
             dedupeKey
           })
@@ -46,7 +48,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
           }
         }
       } catch (dedupeCheckError) {
-        console.warn('⚠️ Failed to perform webhook dedupe check:', dedupeCheckError)
+        logger.warn('⚠️ Failed to perform webhook dedupe check:', dedupeCheckError)
       }
     }
 
@@ -123,18 +125,18 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     .eq('status', 'active')
   
   if (error) {
-    console.error('Error finding matching workflows:', error)
+    logger.error('Error finding matching workflows:', error)
     return []
   }
   
-  console.log(`🔍 Found ${workflows?.length || 0} active workflows`)
+  logger.debug(`🔍 Found ${workflows?.length || 0} active workflows`)
   
   // Filter workflows based on trigger conditions
   const matchingWorkflows = workflows?.filter(workflow => {
-    console.log(`🔍 Checking workflow: "${workflow.name}"`)
+    logger.debug(`🔍 Checking workflow: "${workflow.name}"`)
     
     if (!workflow.nodes || workflow.nodes.length === 0) {
-      console.log(`   ❌ No nodes found`)
+      logger.debug(`   ❌ No nodes found`)
       return false
     }
     
@@ -146,16 +148,16 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       const isTrigger = Boolean(nodeData.isTrigger || node.isTrigger)
 
       // Enhanced debugging to see exact node structure
-      console.log(`   🔍 Checking node: ${node.type} (ReactFlow type)`)
-      console.log(`      Full node.data keys:`, Object.keys(nodeData))
-      console.log(`      data.type: ${nodeData.type}`)
-      console.log(`      data.isTrigger: ${nodeData.isTrigger}`)
-      console.log(`      data.providerId: ${nodeData.providerId}`)
-      console.log(`      eventType (computed): ${nodeEventType}`)
+      logger.debug(`   🔍 Checking node: ${node.type} (ReactFlow type)`)
+      logger.debug(`      Full node.data keys:`, Object.keys(nodeData))
+      logger.debug(`      data.type: ${nodeData.type}`)
+      logger.debug(`      data.isTrigger: ${nodeData.isTrigger}`)
+      logger.debug(`      data.providerId: ${nodeData.providerId}`)
+      logger.debug(`      eventType (computed): ${nodeEventType}`)
 
       // If this is a trigger node but missing type, log full data
       if (isTrigger && !nodeData.type) {
-        console.log(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
+        logger.debug(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
       }
 
       if (!isTrigger) {
@@ -184,17 +186,17 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     })
     
     if (!triggerNode) {
-      console.log(`   ❌ No matching trigger found`)
+      logger.debug(`   ❌ No matching trigger found`)
       return false
     }
     
-    console.log(`   ✅ Found matching trigger!`)
+    logger.debug(`   ✅ Found matching trigger!`)
     
     // Apply custom filters if configured
     return applyTriggerFilters(triggerNode, event)
   }) || []
   
-  console.log(`🎯 Found ${matchingWorkflows.length} matching workflows`)
+  logger.debug(`🎯 Found ${matchingWorkflows.length} matching workflows`)
   return matchingWorkflows
 }
 
@@ -304,11 +306,11 @@ async function executeWorkflowInstantly(workflow: any, event: WebhookEvent): Pro
       }
     )
     
-    console.log(`✅ Workflow "${workflow.name}" executed successfully with webhook data`)
+    logger.debug(`✅ Workflow "${workflow.name}" executed successfully with webhook data`)
     return result
     
   } catch (error) {
-    console.error(`❌ Failed to execute workflow "${workflow.name}":`, error)
+    logger.error(`❌ Failed to execute workflow "${workflow.name}":`, error)
     throw error
   }
 }
@@ -342,28 +344,28 @@ async function storeWebhookEvent(event: WebhookEvent, dedupeKey?: string | null,
         timestamp: event.timestamp
       })
   } catch (error) {
-    console.error('Failed to store webhook event:', error)
+    logger.error('Failed to store webhook event:', error)
     // Don't throw - this shouldn't block execution
   }
 }
 
 // Provider-specific processors
 export async function processDiscordEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing Discord message with length:', event.eventData.content?.length || 0)
+  logger.debug('Processing Discord message with length:', event.eventData.content?.length || 0)
   return await processWebhookEvent(event)
 }
 
 export async function processSlackEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing Slack message with length:', event.eventData.text?.length || 0)
+  logger.debug('Processing Slack message with length:', event.eventData.text?.length || 0)
   return await processWebhookEvent(event)
 }
 
 export async function processGitHubEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing GitHub event:', event.eventType)
+  logger.debug('Processing GitHub event:', event.eventType)
   return await processWebhookEvent(event)
 }
 
 export async function processNotionEvent(event: WebhookEvent): Promise<any> {
-  console.log('Processing Notion event:', event.eventType)
+  logger.debug('Processing Notion event:', event.eventType)
   return await processWebhookEvent(event)
 } 

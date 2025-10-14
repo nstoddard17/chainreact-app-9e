@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Node Registry System
  * Manages registration and retrieval of workflow nodes from all providers
@@ -16,7 +18,7 @@ class NodeRegistry {
   registerNode(node: NodeComponent): void {
     // Avoid duplicates
     if (this.nodesByType.has(node.type)) {
-      console.warn(`Node type ${node.type} already registered, skipping...`)
+      logger.warn(`Node type ${node.type} already registered, skipping...`)
       return
     }
 

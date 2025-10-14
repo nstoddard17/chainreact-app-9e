@@ -8,6 +8,8 @@ import { ConfigurationContainer } from '../components/ConfigurationContainer';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 
+import { logger } from '@/lib/utils/logger'
+
 interface TwitterConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -63,7 +65,7 @@ export function TwitterConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    console.log('🔍 [TwitterConfig] handleDynamicLoad called:', { 
+    logger.debug('🔍 [TwitterConfig] handleDynamicLoad called:', { 
       fieldName, 
       dependsOn, 
       dependsOnValue,
@@ -72,7 +74,7 @@ export function TwitterConfiguration({
     
     const field = nodeInfo?.configSchema?.find((f: any) => f.name === fieldName);
     if (!field) {
-      console.warn('Field not found in schema:', fieldName);
+      logger.warn('Field not found in schema:', fieldName);
       return;
     }
     
@@ -85,7 +87,7 @@ export function TwitterConfiguration({
         await loadOptions(fieldName, undefined, undefined, forceReload);
       }
     } catch (error) {
-      console.error('❌ [TwitterConfig] Error loading dynamic options:', error);
+      logger.error('❌ [TwitterConfig] Error loading dynamic options:', error);
     }
   }, [nodeInfo, values, loadOptions]);
 
@@ -193,7 +195,7 @@ export function TwitterConfiguration({
     try {
       await onSubmit(values);
     } catch (error) {
-      console.error('Error submitting form:', error);
+      logger.error('Error submitting form:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -6,6 +6,8 @@
 import { AirtableIntegration, AirtableDataHandler, AirtableHandlerOptions } from '../types'
 import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequest, parseAirtableApiResponse, buildAirtableApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export interface AirtableFieldValue {
   value: string
   label: string
@@ -15,7 +17,7 @@ export interface AirtableFieldValue {
 export const getAirtableFieldValues: AirtableDataHandler<AirtableFieldValue> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFieldValue[]> => {
   const { baseId, tableName, filterField } = options
   
-  console.log("🔍 Airtable field values fetcher called with:", {
+  logger.debug("🔍 Airtable field values fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -27,11 +29,11 @@ export const getAirtableFieldValues: AirtableDataHandler<AirtableFieldValue> = a
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    console.log(`🔍 Validating Airtable token...`)
+    logger.debug(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -39,7 +41,7 @@ export const getAirtableFieldValues: AirtableDataHandler<AirtableFieldValue> = a
       throw new Error('Base ID, table name, and filter field are required for fetching field values')
     }
     
-    console.log('🔍 Fetching Airtable records to extract field values...')
+    logger.debug('🔍 Fetching Airtable records to extract field values...')
     
     // Build the URL for getting records from the table
     const url = new URL(buildAirtableApiUrl(`/v0/${baseId}/${encodeURIComponent(tableName)}`))
@@ -91,11 +93,11 @@ export const getAirtableFieldValues: AirtableDataHandler<AirtableFieldValue> = a
       .sort((a, b) => (b.count || 0) - (a.count || 0))
       .slice(0, 100) // Limit to top 100 values for UI performance
     
-    console.log(`✅ Airtable field values fetched successfully: ${fieldValues.length} unique values from field "${filterField}" in table "${tableName}"`)
+    logger.debug(`✅ Airtable field values fetched successfully: ${fieldValues.length} unique values from field "${filterField}" in table "${tableName}"`)
     return fieldValues
     
   } catch (error: any) {
-    console.error("Error fetching Airtable field values:", error)
+    logger.error("Error fetching Airtable field values:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Airtable authentication expired. Please reconnect your account.')

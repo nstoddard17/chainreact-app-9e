@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/server"
 import { z } from "zod"
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     const keyData = await authenticateApiKey(request)
     if (!keyData) {
       await logApiUsage(null, null, null, "/api/v1/workflows", "GET", 401, Date.now() - startTime, request)
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
+      return errorResponse("Invalid API key" , 401)
     }
 
     if (!keyData.scopes.includes("workflows:read")) {
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
         Date.now() - startTime,
         request,
       )
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     const supabase = await createSupabaseRouteHandlerClient()
@@ -116,7 +117,7 @@ export async function GET(request: NextRequest) {
         Date.now() - startTime,
         request,
       )
-      return NextResponse.json({ error: "Failed to fetch workflows" }, { status: 500 })
+      return errorResponse("Failed to fetch workflows" , 500)
     }
 
     await logApiUsage(
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
       request,
     )
 
-    return NextResponse.json({
+    return jsonResponse({
       data: workflows,
       pagination: {
         page,
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     await logApiUsage(null, null, null, "/api/v1/workflows", "GET", 500, Date.now() - startTime, request)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
     const keyData = await authenticateApiKey(request)
     if (!keyData) {
       await logApiUsage(null, null, null, "/api/v1/workflows", "POST", 401, Date.now() - startTime, request)
-      return NextResponse.json({ error: "Invalid API key" }, { status: 401 })
+      return errorResponse("Invalid API key" , 401)
     }
 
     if (!keyData.scopes.includes("workflows:write")) {
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
         Date.now() - startTime,
         request,
       )
-      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
+      return errorResponse("Insufficient permissions" , 403)
     }
 
     const body = await request.json()
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
         Date.now() - startTime,
         request,
       )
-      return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 })
+      return errorResponse("Failed to create workflow" , 500)
     }
 
     await logApiUsage(
@@ -208,14 +209,14 @@ export async function POST(request: NextRequest) {
       request,
     )
 
-    return NextResponse.json({ data: workflow }, { status: 201 })
+    return jsonResponse({ data: workflow }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       await logApiUsage(null, null, null, "/api/v1/workflows", "POST", 400, Date.now() - startTime, request)
-      return NextResponse.json({ error: "Invalid request data", details: error.errors }, { status: 400 })
+      return errorResponse("Invalid request data", 400, { details: error.errors  })
     }
 
     await logApiUsage(null, null, null, "/api/v1/workflows", "POST", 500, Date.now() - startTime, request)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return errorResponse("Internal server error" , 500)
   }
 }

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
 import { executeAction } from '@/lib/workflows/executeNode'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const body = await request.json()
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     // Validate request
     if (!workflowId || !nodeId || !nodeData) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      return errorResponse('Missing required fields' , 400)
     }
 
     // Create a mock execution context for single node execution
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
       // Simulate a small delay to show the running state
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         nodeId,
         output: simulatedResult.output.data,
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
         executionMode
       })
 
-      return NextResponse.json({
+      return jsonResponse({
         success: result.success,
         nodeId,
         output: result.output || result.data,
@@ -109,8 +112,8 @@ export async function POST(request: NextRequest) {
         error: result.error
       })
     } catch (execError: any) {
-      console.error('Node execution error:', execError)
-      return NextResponse.json({
+      logger.error('Node execution error:', execError)
+      return jsonResponse({
         success: false,
         nodeId,
         error: execError.message || 'Failed to execute node'
@@ -118,10 +121,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    console.error('Error executing node:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to execute node' },
-      { status: 500 }
-    )
+    logger.error('Error executing node:', error)
+    return errorResponse(error.message || 'Failed to execute node' , 500)
   }
 }

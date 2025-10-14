@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Test endpoint to validate the new architecture
  */
 export async function GET() {
   try {
-    console.log("🧪 Testing new architecture...")
+    logger.debug("🧪 Testing new architecture...")
 
     // Test bootstrap initialization
     const { getInitializationStatus } = await import("@/src/bootstrap")
@@ -18,12 +21,12 @@ export async function GET() {
     const providers = providerRegistry.listProviders()
     const actions = actionRegistry.listActions()
 
-    console.log(`✅ Found ${providers.length} providers, ${actions.length} actions`)
+    logger.debug(`✅ Found ${providers.length} providers, ${actions.length} actions`)
 
     // Test Gmail provider specifically
     const gmailProvider = providerRegistry.getEmailProvider('gmail')
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       architecture: {
         initialized,
@@ -53,9 +56,9 @@ export async function GET() {
     })
 
   } catch (error: any) {
-    console.error("❌ Architecture test failed:", error)
+    logger.error("❌ Architecture test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { nodeType, providerId, config } = body
 
-    console.log(`🧪 Testing workflow execution: ${nodeType}`)
+    logger.debug(`🧪 Testing workflow execution: ${nodeType}`)
 
     const { executeWorkflowUseCase } = await import("@/src/domains/workflows/use-cases/execute-workflow")
 
@@ -97,7 +100,7 @@ export async function POST(request: Request) {
     try {
       const result = await executeWorkflowUseCase.execute(mockNode, mockContext)
       
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         execution: {
           nodeType,
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
       })
     } catch (executionError: any) {
       // Expected to fail due to missing auth/integration, but we can see if the flow works
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         execution: {
           nodeType,
@@ -121,9 +124,9 @@ export async function POST(request: Request) {
     }
 
   } catch (error: any) {
-    console.error("❌ Workflow execution test failed:", error)
+    logger.error("❌ Workflow execution test failed:", error)
     
-    return NextResponse.json({
+    return jsonResponse({
       success: false,
       error: error.message,
       stack: error.stack

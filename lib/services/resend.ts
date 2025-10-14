@@ -4,6 +4,8 @@ import WelcomeEmail from '../../emails/welcome'
 import PasswordResetEmail from '../../emails/password-reset'
 import BetaInvitationEmail from '../../emails/beta-invitation'
 
+import { logger } from '@/lib/utils/logger'
+
 if (!process.env.RESEND_API_KEY) {
   throw new Error('Missing RESEND_API_KEY environment variable')
 }
@@ -51,10 +53,10 @@ export async function sendWelcomeEmail(
       },
     })
 
-    console.log('Welcome email sent successfully:', result.data?.id)
+    logger.debug('Welcome email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
-    console.error('Error sending welcome email:', error)
+    logger.error('Error sending welcome email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -76,10 +78,10 @@ export async function sendPasswordResetEmail(
       html: emailHtml,
     })
 
-    console.log('Password reset email sent successfully:', result.data?.id)
+    logger.debug('Password reset email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
-    console.error('Error sending password reset email:', error)
+    logger.error('Error sending password reset email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -108,10 +110,10 @@ export async function sendCustomEmail(
       attachments: options.attachments,
     })
 
-    console.log('Custom email sent successfully:', result.data?.id)
+    logger.debug('Custom email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
-    console.error('Error sending custom email:', error)
+    logger.error('Error sending custom email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -123,10 +125,10 @@ export async function getEmailAnalytics(emailId: string) {
   try {
     // Note: Resend analytics API is still in development
     // This is a placeholder for when it becomes available
-    console.log('Fetching analytics for email:', emailId)
+    logger.debug('Fetching analytics for email:', emailId)
     return { success: true, data: null }
   } catch (error) {
-    console.error('Error fetching email analytics:', error)
+    logger.error('Error fetching email analytics:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -167,10 +169,10 @@ export async function sendBulkEmails(
     const successful = results.filter(result => result.status === 'fulfilled').length
     const failed = results.filter(result => result.status === 'rejected').length
 
-    console.log(`Bulk email results: ${successful} successful, ${failed} failed`)
+    logger.debug(`Bulk email results: ${successful} successful, ${failed} failed`)
     return { success: true, successful, failed, results }
   } catch (error) {
-    console.error('Error sending bulk emails:', error)
+    logger.error('Error sending bulk emails:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -209,10 +211,10 @@ export async function sendBetaInvitationEmail(
       },
     })
 
-    console.log('Beta invitation email sent successfully:', result.data?.id)
+    logger.debug('Beta invitation email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
-    console.error('Error sending beta invitation email:', error)
+    logger.error('Error sending beta invitation email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

@@ -21,6 +21,8 @@ import { MicrosoftExcelUpdateFields } from '../components/microsoft-excel/Micros
 import { MicrosoftExcelDeleteConfirmation } from '../components/microsoft-excel/MicrosoftExcelDeleteConfirmation';
 import { MicrosoftExcelAddRowFields } from '../components/microsoft-excel/MicrosoftExcelAddRowFields';
 
+import { logger } from '@/lib/utils/logger'
+
 interface MicrosoftExcelConfigurationProps {
   nodeInfo: any;
   values: Record<string, any>;
@@ -83,7 +85,7 @@ export function MicrosoftExcelConfiguration({
 
   // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
-    console.log(`🔧 [Excel] Setting value: ${key} = ${value}`);
+    logger.debug(`🔧 [Excel] Setting value: ${key} = ${value}`);
 
     // Always set in the main values
     setValue(key, value);
@@ -94,12 +96,12 @@ export function MicrosoftExcelConfiguration({
         ...prev,
         [key]: value
       }));
-      console.log(`🔧 [Excel] Tracked column field: ${key} = ${value}`);
+      logger.debug(`🔧 [Excel] Tracked column field: ${key} = ${value}`);
     }
 
     // For newRow_ fields, just ensure they're set in main values (no separate tracking needed)
     if (key.startsWith('newRow_')) {
-      console.log(`🔧 [Excel] Set newRow field: ${key} = ${value}`);
+      logger.debug(`🔧 [Excel] Set newRow field: ${key} = ${value}`);
     }
   }, [setValue]);
 
@@ -136,7 +138,7 @@ export function MicrosoftExcelConfiguration({
       const excelIntegration = getIntegrationByProvider('microsoft-excel') || getIntegrationByProvider('onedrive');
 
       if (!excelIntegration) {
-        console.error('Microsoft Excel/OneDrive integration not found');
+        logger.error('Microsoft Excel/OneDrive integration not found');
         setPreviewData([]);
         setLoadingPreview(false);
         return;
@@ -158,7 +160,7 @@ export function MicrosoftExcelConfiguration({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('Failed to fetch Excel data preview:', errorData);
+        logger.error('Failed to fetch Excel data preview:', errorData);
         setPreviewData([]);
         setLoadingPreview(false);
         return;
@@ -176,7 +178,7 @@ export function MicrosoftExcelConfiguration({
 
           // Store the column order
           setColumnOrder(columns);
-          console.log('📊 [Excel] Stored column order:', columns);
+          logger.debug('📊 [Excel] Stored column order:', columns);
 
           columns.forEach(col => {
             if (!values[`newRow_${col}`]) {
@@ -190,12 +192,12 @@ export function MicrosoftExcelConfiguration({
           const rowToSelect = data.find((row: any) => row.rowNumber === values.updateRowNumber);
           if (rowToSelect) {
             setSelectedRow(rowToSelect);
-            console.log('📊 [Excel] Restored selected row:', rowToSelect);
+            logger.debug('📊 [Excel] Restored selected row:', rowToSelect);
           }
         }
       }
     } catch (error) {
-      console.error('Failed to load worksheet data:', error);
+      logger.error('Failed to load worksheet data:', error);
     } finally {
       setLoadingPreview(false);
     }
@@ -217,7 +219,7 @@ export function MicrosoftExcelConfiguration({
       e.preventDefault();
     }
 
-    console.log('🔧 [Excel] handleSubmit called with values:', values);
+    logger.debug('🔧 [Excel] handleSubmit called with values:', values);
 
     // Validate required fields
     const validationErrors: Record<string, string> = {};
@@ -292,7 +294,7 @@ export function MicrosoftExcelConfiguration({
         finalValues.updateRowNumber = values.updateRowNumber; // Keep both for compatibility
       }
 
-      console.log('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
+      logger.debug('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
     }
 
     // Add new row values for add action
@@ -306,7 +308,7 @@ export function MicrosoftExcelConfiguration({
           const value = values[fieldKey];
           newRowValues[columnName] = value !== undefined ? value : '';
         });
-        console.log('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
+        logger.debug('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
       } else {
         // Fallback: iterate over values (may not preserve order)
         Object.entries(values).forEach(([key, value]) => {
@@ -315,13 +317,13 @@ export function MicrosoftExcelConfiguration({
             newRowValues[columnName] = value;
           }
         });
-        console.log('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
+        logger.debug('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
       }
 
       finalValues.columnMapping = newRowValues;
     }
 
-    console.log('🔧 [Excel] Final values to submit:', finalValues);
+    logger.debug('🔧 [Excel] Final values to submit:', finalValues);
     await onSubmit(finalValues);
   }, [values, columnUpdateValues, onSubmit, columnOrder]);
 
@@ -342,7 +344,7 @@ export function MicrosoftExcelConfiguration({
       rowNumber: values.deleteRowNumber
     };
 
-    console.log('🗑️ [Excel] Delete confirmation - mapped values:', {
+    logger.debug('🗑️ [Excel] Delete confirmation - mapped values:', {
       deleteBy: confirmedValues.deleteBy,
       rowNumber: confirmedValues.rowNumber,
       startRow: confirmedValues.startRow,

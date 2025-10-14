@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { sendPasswordResetEmail } from '@/lib/services/resend'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,10 +11,7 @@ export async function POST(request: NextRequest) {
     const { email } = body
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Missing email' },
-        { status: 400 }
-      )
+      return errorResponse('Missing email' , 400)
     }
 
     const supabase = await createSupabaseServiceClient()
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     if (!existingUser.user) {
       // Don't reveal if user exists for security, but still return success
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'If an account with that email exists, we sent a password reset link'
       })
@@ -44,11 +44,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Error generating reset link:', error)
-      return NextResponse.json(
-        { error: 'Failed to generate reset link' },
-        { status: 500 }
-      )
+      logger.error('Error generating reset link:', error)
+      return errorResponse('Failed to generate reset link' , 500)
     }
 
     // Send password reset email
@@ -64,22 +61,16 @@ export async function POST(request: NextRequest) {
     )
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 500 }
-      )
+      return errorResponse(result.error , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Password reset email sent successfully'
     })
 
   } catch (error) {
-    console.error('Error sending password reset email:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error sending password reset email:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

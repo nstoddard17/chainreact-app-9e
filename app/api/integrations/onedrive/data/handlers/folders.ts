@@ -5,8 +5,10 @@
 import { OneDriveIntegration, OneDriveFolder, OneDriveDataHandler } from '../types'
 import { validateOneDriveIntegration, validateOneDriveToken, makeOneDriveApiRequest, parseOneDriveApiResponse, buildOneDriveApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (integration: OneDriveIntegration, options: any = {}): Promise<OneDriveFolder[]> => {
-  console.log("🔍 OneDrive folders fetcher called with integration:", {
+  logger.debug("🔍 OneDrive folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
     // Validate integration status
     validateOneDriveIntegration(integration)
     
-    console.log(`🔍 Validating OneDrive token...`)
+    logger.debug(`🔍 Validating OneDrive token...`)
     const tokenResult = await validateOneDriveToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ OneDrive token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ OneDrive token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Testing OneDrive drive access...')
+    logger.debug('🔍 Testing OneDrive drive access...')
 
     // First, test if we can access the drive at all
     // Note: buildOneDriveApiUrl automatically adds /v1.0
@@ -34,7 +36,7 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
     
     if (!driveResponse.ok) {
       const errorData = await driveResponse.json().catch(() => ({}))
-      console.error(`❌ OneDrive drive access failed: ${driveResponse.status}`, errorData)
+      logger.error(`❌ OneDrive drive access failed: ${driveResponse.status}`, errorData)
       
       if (driveResponse.status === 401) {
         throw new Error('Microsoft authentication expired. Please reconnect your account.')
@@ -45,10 +47,10 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
       }
     }
     
-    console.log('✅ OneDrive drive access successful')
+    logger.debug('✅ OneDrive drive access successful')
     
     // Now fetch the root folder items, filtering for folders only
-    console.log('🔍 Fetching OneDrive folders from root directory...')
+    logger.debug('🔍 Fetching OneDrive folders from root directory...')
     const foldersApiUrl = buildOneDriveApiUrl("/me/drive/root/children?$filter=folder ne null&$select=id,name,webUrl,size,createdDateTime,lastModifiedDateTime,folder,parentReference")
     
     const foldersResponse = await makeOneDriveApiRequest(foldersApiUrl, tokenResult.token!)
@@ -69,11 +71,11 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
       parentReference: folder.parentReference
     }))
     
-    console.log(`✅ OneDrive folders fetched successfully: ${transformedFolders.length} folders`)
+    logger.debug(`✅ OneDrive folders fetched successfully: ${transformedFolders.length} folders`)
     return transformedFolders
     
   } catch (error: any) {
-    console.error("Error fetching OneDrive folders:", error)
+    logger.error("Error fetching OneDrive folders:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Microsoft authentication expired. Please reconnect your account.')

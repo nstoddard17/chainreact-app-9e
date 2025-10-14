@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { supabase } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function EmailConfirmPage() {
   const [countdown, setCountdown] = useState(5)
   const [processing, setProcessing] = useState(true)
@@ -58,7 +60,7 @@ export default function EmailConfirmPage() {
             }
             return
           } catch (confirmError) {
-            console.error('Manual confirmation failed:', confirmError)
+            logger.error('Manual confirmation failed:', confirmError)
             setProcessing(false)
             // Still show success message for UX
             return
@@ -69,7 +71,7 @@ export default function EmailConfirmPage() {
         const { data: { user }, error } = await supabase.auth.getUser()
         
         if (error || !user) {
-          console.error('Error getting user:', error)
+          logger.error('Error getting user:', error)
           router.push('/auth/login')
           return
         }
@@ -121,7 +123,7 @@ export default function EmailConfirmPage() {
         }, 2000)
         
       } catch (error) {
-        console.error('Error handling email confirmation:', error)
+        logger.error('Error handling email confirmation:', error)
         setProcessing(false)
         router.push('/auth/login')
       }

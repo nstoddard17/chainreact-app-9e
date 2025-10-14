@@ -29,6 +29,8 @@ import {
   Loader2,
 } from "lucide-react"
 
+import { logger } from '@/lib/utils/logger'
+
 export function SupportContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
@@ -110,7 +112,7 @@ export function SupportContent() {
   const handleTicketSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     // Handle ticket submission
-    console.log("Support ticket submitted:", ticketForm)
+    logger.debug("Support ticket submitted:", ticketForm)
     alert("Support ticket submitted successfully! We'll get back to you within 24 hours.")
     setTicketForm({
       name: "",

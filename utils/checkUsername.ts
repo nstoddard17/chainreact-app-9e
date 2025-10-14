@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function requireUsername() {
   const supabase = await createSupabaseServerClient()
 
@@ -14,8 +16,8 @@ export async function requireUsername() {
   try {
     userResult = await Promise.race([userPromise, timeoutPromise])
   } catch (error) {
-    console.error('[Username Check] Auth check timed out after 10 seconds:', error)
-    console.error('[Username Check] This may indicate Supabase connection issues')
+    logger.error('[Username Check] Auth check timed out after 10 seconds:', error)
+    logger.error('[Username Check] This may indicate Supabase connection issues')
     // On timeout, redirect to login
     redirect("/auth/login")
   }
@@ -44,12 +46,12 @@ export async function requireUsername() {
     profile = result.data
     profileError = result.error
   } catch (error) {
-    console.error('[Username Check] Profile fetch timed out:', error)
+    logger.error('[Username Check] Profile fetch timed out:', error)
     // On timeout, assume profile doesn't exist and continue with the flow
     profileError = { code: 'TIMEOUT', message: 'Profile fetch timed out' }
   }
   
-  console.log('[Username Check]', {
+  logger.debug('[Username Check]', {
     userId: user.id,
     hasEmail: !!user.email,
     provider: profile?.provider,
@@ -91,16 +93,16 @@ export async function requireUsername() {
   
   // Check if username is missing (for any user, but especially Google users)
   if (!profile?.username || profile.username.trim() === '') {
-    console.log('[Username Check] No username found, checking if Google user...')
+    logger.debug('[Username Check] No username found, checking if Google user...')
     
     // For Google users, always redirect to setup
     if (profile?.provider === 'google') {
-      console.log('[Username Check] Google user without username, redirecting to setup')
+      logger.debug('[Username Check] Google user without username, redirecting to setup')
       redirect("/auth/setup-username")
     }
     
     // For other providers, this shouldn't happen, but handle it
-    console.log('[Username Check] Non-Google user without username, redirecting to setup')
+    logger.debug('[Username Check] Non-Google user without username, redirecting to setup')
     redirect("/auth/setup-username")
   }
   

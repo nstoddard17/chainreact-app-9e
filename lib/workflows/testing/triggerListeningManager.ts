@@ -9,6 +9,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 
+import { logger } from '@/lib/utils/logger'
+
 export type ListeningMode = 'sandbox' | 'live'
 export type ListenerStatus = 'idle' | 'listening' | 'triggered' | 'executing' | 'error' | 'stopped'
 
@@ -79,7 +81,7 @@ export class TriggerListeningManager {
     if (success) {
       this.listeners.set(listenerId, listener)
       this.notifyStatusChange(triggerNode.id, 'listening')
-      console.log(`🎧 Started listening for trigger: ${listener.triggerType}`)
+      logger.debug(`🎧 Started listening for trigger: ${listener.triggerType}`)
       return true
     }
 
@@ -100,7 +102,7 @@ export class TriggerListeningManager {
     this.notifyStatusChange(listener.triggerNodeId, 'stopped')
     this.listeners.delete(listenerId)
 
-    console.log(`🛑 Stopped listening for trigger: ${listener.triggerType}`)
+    logger.debug(`🛑 Stopped listening for trigger: ${listener.triggerType}`)
   }
 
   /**
@@ -154,7 +156,7 @@ export class TriggerListeningManager {
           return await this.setupPollingListener(listener)
       }
     } catch (error) {
-      console.error(`Failed to setup listener for ${triggerType}:`, error)
+      logger.error(`Failed to setup listener for ${triggerType}:`, error)
       listener.status = 'error'
       return false
     }
@@ -196,7 +198,7 @@ export class TriggerListeningManager {
           }
         }
       } catch (error) {
-        console.error('Gmail polling error:', error)
+        logger.error('Gmail polling error:', error)
       }
     }, 10000) // Poll every 10 seconds
 
@@ -229,7 +231,7 @@ export class TriggerListeningManager {
         return true
       }
     } catch (error) {
-      console.error('Discord listener setup error:', error)
+      logger.error('Discord listener setup error:', error)
     }
     return false
   }
@@ -245,7 +247,7 @@ export class TriggerListeningManager {
     // Register the webhook endpoint
     await this.registerTestWebhook(listener)
 
-    console.log(`🔗 Test webhook URL: ${webhookUrl}`)
+    logger.debug(`🔗 Test webhook URL: ${webhookUrl}`)
     return true
   }
 
@@ -298,7 +300,7 @@ export class TriggerListeningManager {
         return true
       }
     } catch (error) {
-      console.error('Slack listener setup error:', error)
+      logger.error('Slack listener setup error:', error)
     }
     return false
   }
@@ -327,7 +329,7 @@ export class TriggerListeningManager {
         return true
       }
     } catch (error) {
-      console.error('Airtable listener setup error:', error)
+      logger.error('Airtable listener setup error:', error)
     }
     return false
   }
@@ -364,7 +366,7 @@ export class TriggerListeningManager {
           }
         }
       } catch (error) {
-        console.error('Calendar polling error:', error)
+        logger.error('Calendar polling error:', error)
       }
     }, 10000)
 
@@ -394,7 +396,7 @@ export class TriggerListeningManager {
         return true
       }
     } catch (error) {
-      console.error('Trello listener setup error:', error)
+      logger.error('Trello listener setup error:', error)
     }
     return false
   }
@@ -403,7 +405,7 @@ export class TriggerListeningManager {
    * Generic polling listener for unsupported triggers
    */
   private async setupPollingListener(listener: TriggerListener): Promise<boolean> {
-    console.log(`⚠️ Using polling fallback for ${listener.triggerType}`)
+    logger.debug(`⚠️ Using polling fallback for ${listener.triggerType}`)
 
     // Poll every 15 seconds
     listener.pollInterval = setInterval(async () => {
@@ -443,7 +445,7 @@ export class TriggerListeningManager {
     }
 
     eventSource.onerror = () => {
-      console.error('Discord event stream error')
+      logger.error('Discord event stream error')
       eventSource.close()
     }
   }
@@ -481,7 +483,7 @@ export class TriggerListeningManager {
         }
       }
     } catch (error) {
-      console.error('Slack event check error:', error)
+      logger.error('Slack event check error:', error)
     }
   }
 
@@ -547,7 +549,7 @@ export class TriggerListeningManager {
       this.onTriggerCallback(event)
     }
 
-    console.log(`⚡ Trigger fired: ${event.eventType}`, event.data)
+    logger.debug(`⚡ Trigger fired: ${event.eventType}`, event.data)
   }
 
   /**

@@ -30,6 +30,8 @@ import { createClient } from '@supabase/supabase-js'
 import { GmailService } from '@/lib/integrations/gmail'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface GmailWatchConfig {
   userId: string
   integrationId: string
@@ -49,7 +51,7 @@ export interface GmailWatchResult {
  * Gmail watches expire after 7 days and need to be renewed
  */
 export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWatchResult> {
-  console.warn('⚠️ DEPRECATED: setupGmailWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
+  logger.warn('⚠️ DEPRECATED: setupGmailWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,7 +79,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
     // Check if token needs refresh
     let accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      console.log('Access token expired, refreshing...')
+      logger.debug('Access token expired, refreshing...')
       const newToken = await GmailService.refreshToken(config.userId, config.integrationId)
       if (!newToken) {
         throw new Error('Failed to refresh Gmail access token')
@@ -117,7 +119,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
 
     const expirationIso = new Date(parseInt(response.data.expiration)).toISOString()
 
-    console.log('✅ Gmail watch created successfully:', {
+    logger.debug('✅ Gmail watch created successfully:', {
       historyId: response.data.historyId,
       expiration: expirationIso,
       emailAddress: profile.data.emailAddress
@@ -151,7 +153,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
       expiration: expirationIso
     }
   } catch (error) {
-    console.error('Failed to set up Gmail watch:', error)
+    logger.error('Failed to set up Gmail watch:', error)
     throw error
   }
 }
@@ -175,7 +177,7 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
       .single()
 
     if (error || !integration) {
-      console.log('Gmail integration not found - watch may already be stopped')
+      logger.debug('Gmail integration not found - watch may already be stopped')
       return
     }
 
@@ -188,7 +190,7 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      console.log('Failed to decrypt Gmail access token - watch may already be stopped')
+      logger.debug('Failed to decrypt Gmail access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -208,9 +210,9 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
       .eq('integration_id', integrationId)
       .eq('provider', 'gmail')
 
-    console.log('✅ Gmail watch stopped successfully')
+    logger.debug('✅ Gmail watch stopped successfully')
   } catch (error) {
-    console.error('Failed to stop Gmail watch:', error)
+    logger.error('Failed to stop Gmail watch:', error)
     // Don't throw - watch might already be stopped
   }
 }

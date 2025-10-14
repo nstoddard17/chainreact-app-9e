@@ -5,20 +5,22 @@
 import { TrelloIntegration, TrelloCardTemplate, TrelloDataHandler, TrelloHandlerOptions } from '../types'
 import { validateTrelloIntegration, validateTrelloToken, makeTrelloApiRequest, parseTrelloApiResponse, buildTrelloApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloCardTemplate[]> => {
   const { boardId, listId } = options
   
-  console.log(`🔍 Fetching trello-card-templates with options:`, options)
+  logger.debug(`🔍 Fetching trello-card-templates with options:`, options)
   
   try {
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    console.log(`🔍 Validating Trello token...`)
+    logger.debug(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -26,13 +28,13 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
     
     if (boardId) {
       // Fetch cards from specific board
-      console.log('🔍 Fetching cards from specific board...')
+      logger.debug('🔍 Fetching cards from specific board...')
       const cardsApiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,idBoard,labels,closed`)
       const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
     } else {
       // Fetch cards from all boards
-      console.log('🔍 Fetching cards from all boards...')
+      logger.debug('🔍 Fetching cards from all boards...')
       const cardsApiUrl = buildTrelloApiUrl('/1/members/me/cards?fields=id,name,desc,idList,idBoard,labels,closed')
       const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
@@ -67,16 +69,16 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
           closed: card.closed || false
         })
       } catch (error) {
-        console.warn(`Failed to fetch metadata for card ${card.id}:`, error)
+        logger.warn(`Failed to fetch metadata for card ${card.id}:`, error)
         continue
       }
     }
     
-    console.log(`✅ Trello card templates fetched successfully: ${cardTemplates.length} cards`)
+    logger.debug(`✅ Trello card templates fetched successfully: ${cardTemplates.length} cards`)
     return cardTemplates
     
   } catch (error: any) {
-    console.error("Error fetching Trello card templates:", error)
+    logger.error("Error fetching Trello card templates:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Trello authentication expired. Please reconnect your account.')

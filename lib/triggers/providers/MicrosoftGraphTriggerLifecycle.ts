@@ -16,6 +16,8 @@ import {
   TriggerHealthStatus
 } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,7 +34,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    console.log(`🔔 Activating Microsoft Graph trigger for workflow ${workflowId}`, {
+    logger.debug(`🔔 Activating Microsoft Graph trigger for workflow ${workflowId}`, {
       triggerType,
       configKeys: Object.keys(config || {})
     })
@@ -44,51 +46,56 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await this.graphAuth.getValidAccessToken(userId, provider)
-      console.log(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
+      logger.debug(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
     } catch (error) {
-      console.error('❌ Failed to get valid Microsoft Graph token:', error)
+      logger.error('❌ Failed to get valid Microsoft Graph token:', error)
       throw new Error(`Microsoft ${provider} integration not connected or token expired. Please reconnect your Microsoft ${provider} account.`)
     }
 
     // Determine resource based on trigger type
-    const resource = this.getResourceForTrigger(triggerType)
+    const resource = this.getResourceForTrigger(triggerType, config)
     const changeType = this.getChangeTypeForTrigger(triggerType)
 
     if (!resource) {
       throw new Error(`Unknown Microsoft Graph trigger type: ${triggerType}`)
     }
 
-    // Test the token by calling /me and /me/messages to verify permissions
-    console.log('🧪 Testing token permissions...')
+    // Test the token by calling appropriate endpoint to verify permissions
+    logger.debug('🧪 Testing token permissions...')
     try {
       const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       })
 
       if (!meResponse.ok) {
-        console.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
+        logger.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
       } else {
-        console.log('✅ /me call succeeded')
+        logger.debug('✅ /me call succeeded')
       }
 
-      const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      })
+      // Test provider-specific permissions
+      if (provider === 'microsoft-outlook') {
+        const messagesResponse = await fetch('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
 
-      if (!messagesResponse.ok) {
-        const errorText = await messagesResponse.text()
-        console.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
-        console.error('   Error details:', errorText)
-        throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
-      } else {
-        console.log('✅ /me/messages call succeeded - token has mail read permission')
+        if (!messagesResponse.ok) {
+          const errorText = await messagesResponse.text()
+          logger.error('❌ /me/messages call failed:', messagesResponse.status, messagesResponse.statusText)
+          logger.error('   Error details:', errorText)
+          throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
+        } else {
+          logger.debug('✅ /me/messages call succeeded - token has mail read permission')
+        }
       }
+      // OneNote removed - doesn't support webhooks (API deprecated May 2023)
+      // Add other providers (Teams, OneDrive) here as needed
     } catch (testError) {
-      console.error('❌ Token permission test failed:', testError)
+      logger.error('❌ Token permission test failed:', testError)
       throw testError
     }
 
-    console.log(`📤 Creating Microsoft Graph subscription`, {
+    logger.debug(`📤 Creating Microsoft Graph subscription`, {
       resource,
       changeType,
       workflowId
@@ -122,7 +129,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       expires_at: subscription.expirationDateTime
     })
 
-    console.log(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
+    logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
   }
 
   /**
@@ -132,7 +139,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    console.log(`🛑 Deactivating Microsoft Graph triggers for workflow ${workflowId}`)
+    logger.debug(`🛑 Deactivating Microsoft Graph triggers for workflow ${workflowId}`)
 
     // Get all Microsoft Graph subscriptions for this workflow
     const { data: resources } = await supabase
@@ -143,7 +150,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      console.log(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}`)
       return
     }
 
@@ -151,9 +158,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await this.graphAuth.getValidAccessToken(userId)
-      console.log('✅ Retrieved valid Microsoft Graph access token for deactivation')
+      logger.debug('✅ Retrieved valid Microsoft Graph access token for deactivation')
     } catch (error) {
-      console.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
+      logger.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in Microsoft Graph
       await supabase
         .from('trigger_resources')
@@ -172,9 +179,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           resource.external_id,
           accessToken
         )
-        console.log(`✅ Deleted Microsoft Graph subscription from API: ${resource.external_id}`)
+        logger.debug(`✅ Deleted Microsoft Graph subscription from API: ${resource.external_id}`)
       } catch (error) {
-        console.warn(`⚠️ Failed to delete subscription from Microsoft Graph API (will delete from DB anyway): ${resource.external_id}`, error)
+        logger.warn(`⚠️ Failed to delete subscription from Microsoft Graph API (will delete from DB anyway): ${resource.external_id}`, error)
         // Continue to delete from database even if API call fails
       }
 
@@ -186,9 +193,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        console.log(`✅ Deleted trigger resource from database: ${resource.id}`)
+        logger.debug(`✅ Deleted trigger resource from database: ${resource.id}`)
       } catch (dbError) {
-        console.error(`❌ Failed to delete from database: ${resource.id}`, dbError)
+        logger.error(`❌ Failed to delete from database: ${resource.id}`, dbError)
         // If we can't delete from DB, mark as error as last resort
         await supabase
           .from('trigger_resources')
@@ -255,9 +262,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
   private getProviderFromTriggerType(triggerType: string): string {
     // Extract provider prefix from trigger type
     if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
-    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
     if (triggerType.startsWith('teams_')) return 'teams'
     if (triggerType.startsWith('onedrive_')) return 'onedrive'
+    // OneNote removed - doesn't support webhooks
 
     // Default to microsoft-outlook for generic microsoft triggers
     return 'microsoft-outlook'
@@ -267,11 +274,11 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Map trigger type to Microsoft Graph resource
    * Handles both formats: "microsoft-outlook_trigger_new_email" and "trigger_new_email"
    */
-  private getResourceForTrigger(triggerType: string): string | null {
+  private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft-onenote|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|teams|onedrive)_/, '')
 
-    const resourceMap: Record<string, string> = {
+    const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
       'trigger_new_email': '/me/messages',
       'trigger_email_received': '/me/messages',
@@ -283,29 +290,46 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_event_updated': '/me/events',
 
       // Teams triggers
+      'trigger_new_message': (config?: Record<string, any>) => {
+        if (config?.teamId && config?.channelId) {
+          return `/teams/${config.teamId}/channels/${config.channelId}/messages`
+        }
+        return '/me/chats/getAllMessages'
+      },
       'trigger_message_sent': '/me/chats/getAllMessages',
       'trigger_channel_message': '/teams/{teamId}/channels/{channelId}/messages',
+      'trigger_user_joins_team': (config?: Record<string, any>) => {
+        if (config?.teamId) {
+          return `/teams/${config.teamId}/members`
+        }
+        throw new Error('teamId is required for user joins team trigger')
+      },
 
       // OneDrive triggers
       'trigger_file_created': '/me/drive/root',
       'trigger_file_modified': '/me/drive/root',
-      'trigger_file_shared': '/me/drive/root',
+      'trigger_file_shared': '/me/drive/root'
 
-      // OneNote triggers
-      'trigger_note_created': '/me/onenote/notebooks',
-      'trigger_note_updated': '/me/onenote/notebooks'
+      // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
     }
 
-    return resourceMap[simplifiedType] || null
+    const resource = resourceMap[simplifiedType]
+
+    // If resource is a function, call it with config
+    if (typeof resource === 'function') {
+      return resource(config)
+    }
+
+    return resource || null
   }
 
   /**
    * Map trigger type to change type
    */
   private getChangeTypeForTrigger(triggerType: string): string {
-    // For new/created triggers, only watch 'created' to avoid duplicate notifications
+    // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
-    if (triggerType.includes('new') || triggerType.includes('created')) {
+    if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {
       return 'created'
     }
 

@@ -20,6 +20,8 @@ import { GoogleCalendarOptionsLoader } from './google-calendar/GoogleCalendarOpt
 import { MicrosoftExcelOptionsLoader } from './microsoft-excel/MicrosoftExcelOptionsLoader';
 import { AIOptionsLoader } from './ai/AIOptionsLoader';
 
+import { logger } from '@/lib/utils/logger'
+
 class ProviderRegistryImpl implements IProviderRegistry {
   private loaders: Map<string, ProviderOptionsLoader[]>;
 
@@ -100,7 +102,7 @@ class ProviderRegistryImpl implements IProviderRegistry {
     
     if (!exists) {
       providerLoaders.push(loader);
-      console.log(`✅ [Registry] Registered loader for ${providerId}: ${loader.constructor.name}`);
+      logger.debug(`✅ [Registry] Registered loader for ${providerId}: ${loader.constructor.name}`);
     }
   }
 

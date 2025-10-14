@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get organization with service client
@@ -24,14 +27,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .single()
 
     if (error) {
-      console.error("Error fetching organization:", error)
-      return NextResponse.json({ error: "Failed to fetch organization" }, { status: 500 })
+      logger.error("Error fetching organization:", error)
+      return errorResponse("Failed to fetch organization" , 500)
     }
 
     // Check if user has access to this organization
     const userMember = organization.organization_members?.find((member: any) => member.user_id === user.id)
     if (!userMember) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 })
+      return errorResponse("Access denied" , 403)
     }
 
     // Return organization with user's role
@@ -41,10 +44,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       member_count: organization.organization_members?.length || 1
     }
 
-    return NextResponse.json(result)
+    return jsonResponse(result)
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -57,7 +60,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     const body = await request.json()
@@ -71,11 +74,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .single()
 
     if (checkError || !organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+      return errorResponse("Organization not found" , 404)
     }
 
     if (organization.owner_id !== user.id) {
-      return NextResponse.json({ error: "Only organization owners can update settings" }, { status: 403 })
+      return errorResponse("Only organization owners can update settings" , 403)
     }
 
     // Update organization
@@ -92,14 +95,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       .single()
 
     if (updateError) {
-      console.error("Error updating organization:", updateError)
-      return NextResponse.json({ error: "Failed to update organization" }, { status: 500 })
+      logger.error("Error updating organization:", updateError)
+      return errorResponse("Failed to update organization" , 500)
     }
 
-    return NextResponse.json(updatedOrg)
+    return jsonResponse(updatedOrg)
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }
 
@@ -112,7 +115,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Check if user is organization owner
@@ -123,11 +126,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       .single()
 
     if (checkError || !organization) {
-      return NextResponse.json({ error: "Organization not found" }, { status: 404 })
+      return errorResponse("Organization not found" , 404)
     }
 
     if (organization.owner_id !== user.id) {
-      return NextResponse.json({ error: "Only organization owners can delete organizations" }, { status: 403 })
+      return errorResponse("Only organization owners can delete organizations" , 403)
     }
 
     // Delete all related data in the correct order (due to foreign key constraints)
@@ -139,7 +142,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       .eq("organization_id", id)
 
     if (invitationsError) {
-      console.error("Error deleting invitations:", invitationsError)
+      logger.error("Error deleting invitations:", invitationsError)
     }
 
     // 2. Delete organization members
@@ -149,7 +152,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       .eq("organization_id", id)
 
     if (membersError) {
-      console.error("Error deleting members:", membersError)
+      logger.error("Error deleting members:", membersError)
     }
 
     // 3. Delete audit logs (if they exist)
@@ -160,11 +163,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         .eq("organization_id", id)
 
       if (auditError) {
-        console.error("Error deleting audit logs:", auditError)
+        logger.error("Error deleting audit logs:", auditError)
       }
     } catch (error) {
       // Table might not exist, ignore error
-      console.log("Audit logs table not found, skipping deletion")
+      logger.debug("Audit logs table not found, skipping deletion")
     }
 
     // 4. Finally, delete the organization
@@ -174,16 +177,16 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       .eq("id", id)
 
     if (deleteError) {
-      console.error("Error deleting organization:", deleteError)
-      return NextResponse.json({ error: "Failed to delete organization" }, { status: 500 })
+      logger.error("Error deleting organization:", deleteError)
+      return errorResponse("Failed to delete organization" , 500)
     }
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       message: `Organization "${organization.name}" has been permanently deleted`,
       organizationId: id 
     })
   } catch (error) {
-    console.error("Unexpected error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Unexpected error:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

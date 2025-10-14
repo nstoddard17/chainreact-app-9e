@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 // Initialize Supabase with service role for admin access
 const supabase = createClient(
@@ -15,7 +18,7 @@ export async function POST(request: NextRequest) {
     const { user_id, action, amount } = body
 
     if (!user_id || !action) {
-      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
+      return errorResponse("Missing required parameters" , 400)
     }
 
     // Get current month dates
@@ -33,11 +36,11 @@ export async function POST(request: NextRequest) {
         .lte('created_at', endOfMonth.toISOString())
 
       if (deleteError) {
-        console.error('Error resetting balance:', deleteError)
-        return NextResponse.json({ error: 'Failed to reset balance' }, { status: 500 })
+        logger.error('Error resetting balance:', deleteError)
+        return errorResponse('Failed to reset balance' , 500)
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: 'Balance reset to $0.00',
         new_balance: 0
@@ -53,8 +56,8 @@ export async function POST(request: NextRequest) {
         .lte('created_at', endOfMonth.toISOString())
 
       if (fetchError) {
-        console.error('Error fetching current balance:', fetchError)
-        return NextResponse.json({ error: 'Failed to fetch current balance' }, { status: 500 })
+        logger.error('Error fetching current balance:', fetchError)
+        return errorResponse('Failed to fetch current balance' , 500)
       }
 
       const currentBalance = currentRecords?.reduce((sum, record) => sum + (parseFloat(record.cost) || 0), 0) || 0
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest) {
 
       if (Math.abs(difference) < 0.000001) {
         // Balance is already at the target amount
-        return NextResponse.json({
+        return jsonResponse({
           success: true,
           message: 'Balance already at target amount',
           new_balance: amount
@@ -90,11 +93,11 @@ export async function POST(request: NextRequest) {
         })
 
       if (insertError) {
-        console.error('Error adjusting balance:', insertError)
-        return NextResponse.json({ error: 'Failed to adjust balance' }, { status: 500 })
+        logger.error('Error adjusting balance:', insertError)
+        return errorResponse('Failed to adjust balance' , 500)
       }
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         message: `Balance adjusted to $${amount.toFixed(2)}`,
         new_balance: amount,
@@ -102,11 +105,11 @@ export async function POST(request: NextRequest) {
       })
 
     } 
-      return NextResponse.json({ error: "Invalid action or missing amount" }, { status: 400 })
+      return errorResponse("Invalid action or missing amount" , 400)
     
 
   } catch (error) {
-    console.error("Error managing AI usage balance:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    logger.error("Error managing AI usage balance:", error)
+    return errorResponse("Internal server error" , 500)
   }
 }

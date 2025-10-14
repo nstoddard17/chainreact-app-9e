@@ -1,5 +1,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export const notionOptionsLoader: ProviderOptionsLoader = {
   canHandle(fieldName: string, providerId: string): boolean {
     // Handle all Notion provider fields
@@ -93,7 +95,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           // Response might not be JSON
         }
 
-        console.error('Failed to fetch Notion options:', {
+        logger.error('Failed to fetch Notion options:', {
           status: response.status,
           statusText: response.statusText,
           errorMessage,
@@ -110,14 +112,14 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       const result = await response.json()
       const data = result.data || result
       
-      console.log('🔍 [Notion Options] Raw response for', dataType, ':', result)
-      console.log('🔍 [Notion Options] Extracted data:', data)
+      logger.debug('🔍 [Notion Options] Raw response for', dataType, ':', result)
+      logger.debug('🔍 [Notion Options] Extracted data:', data)
       
       // Format the response based on data type
       switch (dataType) {
         case 'workspaces':
           const workspaceData = Array.isArray(data) ? data : (data.workspaces || data)
-          console.log('🔍 [Notion Options] Workspace data before mapping:', workspaceData)
+          logger.debug('🔍 [Notion Options] Workspace data before mapping:', workspaceData)
           
           const mappedWorkspaces = workspaceData?.map((workspace: any) => {
             // The workspace already has label from the handler, use it directly
@@ -125,11 +127,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
               value: workspace.value || workspace.id,
               label: workspace.label || workspace.name || 'Unnamed Workspace'
             }
-            console.log('🔍 [Notion Options] Mapped workspace:', option)
+            logger.debug('🔍 [Notion Options] Mapped workspace:', option)
             return option
           }) || []
           
-          console.log('🔍 [Notion Options] Final workspace options:', mappedWorkspaces)
+          logger.debug('🔍 [Notion Options] Final workspace options:', mappedWorkspaces)
           return mappedWorkspaces
           
         case 'databases':
@@ -216,7 +218,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           return []
       }
     } catch (error) {
-      console.error('Error loading Notion options:', error)
+      logger.error('Error loading Notion options:', error)
       return []
     }
   },

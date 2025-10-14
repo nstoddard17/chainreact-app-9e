@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
     const supabase = await createSupabaseServerClient();
@@ -7,7 +10,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return errorResponse("Unauthorized" , 401);
     }
 
     // Check if user is admin
@@ -18,7 +21,7 @@ export async function GET() {
         .single();
 
     if (!userProfile || userProfile.role !== 'admin') {
-        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+        return errorResponse("Admin access required" , 403);
     }
 
     try {
@@ -28,8 +31,8 @@ export async function GET() {
             .select('*', { count: 'exact', head: true });
 
         if (totalError) {
-            console.error("Error fetching total users:", totalError);
-            return NextResponse.json({ error: "Failed to fetch total users" }, { status: 500 });
+            logger.error("Error fetching total users:", totalError);
+            return errorResponse("Failed to fetch total users" , 500);
         }
 
         // Get role breakdown
@@ -38,8 +41,8 @@ export async function GET() {
             .select('role');
 
         if (roleError) {
-            console.error("Error fetching role data:", roleError);
-            return NextResponse.json({ error: "Failed to fetch role data" }, { status: 500 });
+            logger.error("Error fetching role data:", roleError);
+            return errorResponse("Failed to fetch role data" , 500);
         }
 
         // Count users by role
@@ -69,9 +72,9 @@ export async function GET() {
             adminUsers: roleCounts.admin
         };
 
-        return NextResponse.json({ success: true, data: userStats });
+        return jsonResponse({ success: true, data: userStats });
     } catch (error) {
-        console.error("Error fetching user stats:", error);
-        return NextResponse.json({ error: "Failed to fetch user statistics" }, { status: 500 });
+        logger.error("Error fetching user stats:", error);
+        return errorResponse("Failed to fetch user statistics" , 500);
     }
 } 

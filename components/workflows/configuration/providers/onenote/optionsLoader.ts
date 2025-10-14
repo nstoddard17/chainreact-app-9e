@@ -1,5 +1,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
 
+import { logger } from '@/lib/utils/logger'
+
 export const onenoteOptionsLoader: ProviderOptionsLoader = {
   canHandle(fieldName: string, providerId: string): boolean {
     // Handle microsoft-onenote and onenote provider IDs
@@ -20,10 +22,10 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue } = params
     
-    console.log('[OneNote Options Loader] Loading options for field:', fieldName, 'with params:', params)
+    logger.debug('[OneNote Options Loader] Loading options for field:', fieldName, 'with params:', params)
     
     if (!integrationId) {
-      console.log('[OneNote Options Loader] No integration ID provided')
+      logger.debug('[OneNote Options Loader] No integration ID provided')
       return []
     }
     
@@ -38,7 +40,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
       case 'sourceSectionId': {
         const notebookId = dependsOnValue
         if (!notebookId) {
-          console.log('[OneNote Options Loader] No notebook selected for sections')
+          logger.debug('[OneNote Options Loader] No notebook selected for sections')
           return []
         }
         return loadSections(integrationId, notebookId)
@@ -48,14 +50,14 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
       case 'sourcePageId': {
         const sectionId = dependsOnValue
         if (!sectionId) {
-          console.log('[OneNote Options Loader] No section selected for pages')
+          logger.debug('[OneNote Options Loader] No section selected for pages')
           return []
         }
         return loadPages(integrationId, sectionId)
       }
         
       default:
-        console.log('[OneNote Options Loader] Unknown field:', fieldName)
+        logger.debug('[OneNote Options Loader] Unknown field:', fieldName)
         return []
     }
   },
@@ -75,7 +77,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
 
 async function loadNotebooks(integrationId: string) {
   try {
-    console.log('[OneNote Options Loader] Loading notebooks for integration:', integrationId)
+    logger.debug('[OneNote Options Loader] Loading notebooks for integration:', integrationId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -91,11 +93,11 @@ async function loadNotebooks(integrationId: string) {
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[OneNote Options Loader] API error:', response.status, response.statusText)
+      logger.error('[OneNote Options Loader] API error:', response.status, response.statusText)
       
       // Check if it's an authentication error
       if (response.status === 401 || result.needsReconnection) {
-        console.log('[OneNote Options Loader] Authentication error - token may be expired')
+        logger.debug('[OneNote Options Loader] Authentication error - token may be expired')
         // Return a special option to indicate reconnection is needed
         return [{
           value: '__reconnect__',
@@ -109,7 +111,7 @@ async function loadNotebooks(integrationId: string) {
     
     // Check for personal account warning
     if (result.knownLimitation && result.accountType === 'personal') {
-      console.warn('[OneNote Options Loader] Personal account detected with known limitations')
+      logger.warn('[OneNote Options Loader] Personal account detected with known limitations')
       return [{
         value: '__personal_account__',
         label: '⚠️ Personal Microsoft accounts not supported',
@@ -124,9 +126,9 @@ async function loadNotebooks(integrationId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      console.log('[OneNote Options Loader] No notebooks data received')
+      logger.debug('[OneNote Options Loader] No notebooks data received')
       if (result.error) {
-        console.log('[OneNote Options Loader] Error message:', result.error)
+        logger.debug('[OneNote Options Loader] Error message:', result.error)
         // Check if the error indicates authentication issues
         if (result.error.includes('authentication') || result.error.includes('expired')) {
           return [{
@@ -147,7 +149,7 @@ async function loadNotebooks(integrationId: string) {
       icon: '📓'
     }))
     
-    console.log('[OneNote Options Loader] Loaded notebooks:', options.length)
+    logger.debug('[OneNote Options Loader] Loaded notebooks:', options.length)
     
     // If no notebooks found, provide a helpful message
     if (options.length === 0) {
@@ -161,14 +163,14 @@ async function loadNotebooks(integrationId: string) {
     
     return options
   } catch (error) {
-    console.error('[OneNote Options Loader] Error loading notebooks:', error)
+    logger.error('[OneNote Options Loader] Error loading notebooks:', error)
     return []
   }
 }
 
 async function loadSections(integrationId: string, notebookId: string) {
   try {
-    console.log('[OneNote Options Loader] Loading sections for notebook:', notebookId)
+    logger.debug('[OneNote Options Loader] Loading sections for notebook:', notebookId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -185,13 +187,13 @@ async function loadSections(integrationId: string, notebookId: string) {
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[OneNote Options Loader] API error:', response.status, response.statusText)
+      logger.error('[OneNote Options Loader] API error:', response.status, response.statusText)
       return []
     }
     
     // Check for personal account warning
     if (result.knownLimitation && result.accountType === 'personal') {
-      console.warn('[OneNote Options Loader] Personal account detected - sections not available')
+      logger.warn('[OneNote Options Loader] Personal account detected - sections not available')
       return [{
         value: '__personal_account__',
         label: '⚠️ Personal accounts cannot access sections',
@@ -201,7 +203,7 @@ async function loadSections(integrationId: string, notebookId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      console.log('[OneNote Options Loader] No sections data received')
+      logger.debug('[OneNote Options Loader] No sections data received')
       return []
     }
     
@@ -212,17 +214,17 @@ async function loadSections(integrationId: string, notebookId: string) {
       icon: '📁'
     }))
     
-    console.log('[OneNote Options Loader] Loaded sections:', options.length)
+    logger.debug('[OneNote Options Loader] Loaded sections:', options.length)
     return options
   } catch (error) {
-    console.error('[OneNote Options Loader] Error loading sections:', error)
+    logger.error('[OneNote Options Loader] Error loading sections:', error)
     return []
   }
 }
 
 async function loadPages(integrationId: string, sectionId: string) {
   try {
-    console.log('[OneNote Options Loader] Loading pages for section:', sectionId)
+    logger.debug('[OneNote Options Loader] Loading pages for section:', sectionId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -239,13 +241,13 @@ async function loadPages(integrationId: string, sectionId: string) {
     const result = await response.json()
     
     if (!response.ok) {
-      console.error('[OneNote Options Loader] API error:', response.status, response.statusText)
+      logger.error('[OneNote Options Loader] API error:', response.status, response.statusText)
       return []
     }
     
     // Check for personal account warning
     if (result.knownLimitation && result.accountType === 'personal') {
-      console.warn('[OneNote Options Loader] Personal account detected - pages not available')
+      logger.warn('[OneNote Options Loader] Personal account detected - pages not available')
       return [{
         value: '__personal_account__',
         label: '⚠️ Personal accounts cannot access pages',
@@ -255,7 +257,7 @@ async function loadPages(integrationId: string, sectionId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      console.log('[OneNote Options Loader] No pages data received')
+      logger.debug('[OneNote Options Loader] No pages data received')
       return []
     }
     
@@ -269,10 +271,10 @@ async function loadPages(integrationId: string, sectionId: string) {
         undefined
     }))
     
-    console.log('[OneNote Options Loader] Loaded pages:', options.length)
+    logger.debug('[OneNote Options Loader] Loaded pages:', options.length)
     return options
   } catch (error) {
-    console.error('[OneNote Options Loader] Error loading pages:', error)
+    logger.error('[OneNote Options Loader] Error loading pages:', error)
     return []
   }
 }

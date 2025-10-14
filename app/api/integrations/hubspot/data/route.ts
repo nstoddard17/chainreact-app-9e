@@ -4,15 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { hubspotHandlers } from './handlers'
 import { HubSpotIntegration } from './types'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ [HubSpot API] Missing Supabase environment variables')
+  logger.error('❌ [HubSpot API] Missing Supabase environment variables')
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey)
@@ -27,24 +30,21 @@ export async function POST(req: NextRequest) {
       dataType = body.dataType
       options = body.options || {}
       
-      console.log('📥 [HubSpot API] Received request:', {
+      logger.debug('📥 [HubSpot API] Received request:', {
         integrationId,
         dataType,
         options
       })
     } catch (parseError) {
-      console.error('❌ [HubSpot API] Failed to parse request body:', parseError)
-      return NextResponse.json({
-        error: 'Invalid JSON in request body',
-        details: parseError.message
-      }, { status: 400 })
+      logger.error('❌ [HubSpot API] Failed to parse request body:', parseError)
+      return errorResponse('Invalid JSON in request body', 400, { details: parseError.message
+       })
     }
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      return NextResponse.json({
-        error: 'Missing required parameters: integrationId and dataType'
-      }, { status: 400 })
+      return errorResponse('Missing required parameters: integrationId and dataType'
+      , 400)
     }
 
     // Fetch integration from database
@@ -56,36 +56,34 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [HubSpot API] Integration not found:', { integrationId, error: integrationError })
-      return NextResponse.json({
-        error: 'HubSpot integration not found'
-      }, { status: 404 })
+      logger.error('❌ [HubSpot API] Integration not found:', { integrationId, error: integrationError })
+      return errorResponse('HubSpot integration not found'
+      , 404)
     }
 
     // Validate integration status
     if (integration.status !== 'connected') {
-      console.error('❌ [HubSpot API] Integration not connected:', {
+      logger.error('❌ [HubSpot API] Integration not connected:', {
         integrationId,
         status: integration.status
       })
-      return NextResponse.json({
-        error: 'HubSpot integration is not connected. Please reconnect your account.',
+      return errorResponse('HubSpot integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = hubspotHandlers[dataType]
     if (!handler) {
-      console.error('❌ [HubSpot API] Unknown data type:', dataType)
-      return NextResponse.json({
+      logger.error('❌ [HubSpot API] Unknown data type:', dataType)
+      return jsonResponse({
         error: `Unknown HubSpot data type: ${dataType}`,
         availableTypes: Object.keys(hubspotHandlers)
       }, { status: 400 })
     }
 
-    console.log(`🔍 [HubSpot API] Processing request:`, {
+    logger.debug(`🔍 [HubSpot API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest) {
     try {
       data = await handler(integration as HubSpotIntegration, options)
     } catch (handlerError: any) {
-      console.error('❌ [HubSpot API] Handler execution failed:', {
+      logger.error('❌ [HubSpot API] Handler execution failed:', {
         dataType,
         error: handlerError.message,
         stack: handlerError.stack,
@@ -105,19 +103,18 @@ export async function POST(req: NextRequest) {
       })
       
       // Return a proper error response
-      return NextResponse.json({
-        error: handlerError.message || 'Failed to fetch HubSpot data',
+      return errorResponse(handlerError.message || 'Failed to fetch HubSpot data', 500, {
         details: process.env.NODE_ENV === 'development' ? handlerError.stack : undefined,
         needsReconnection: handlerError.message?.includes('authentication')
-      }, { status: 500 })
+      })
     }
 
-    console.log(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
+    logger.debug(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })
 
-    return NextResponse.json({
+    return jsonResponse({
       data,
       success: true,
       integrationId,
@@ -125,30 +122,24 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [HubSpot API] Unexpected error:', {
+    logger.error('❌ [HubSpot API] Unexpected error:', {
       error: error.message,
       stack: error.stack
     })
 
     // Handle authentication errors
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return NextResponse.json({
-        error: error.message,
-        needsReconnection: true
-      }, { status: 401 })
+      return errorResponse(error.message, 401, { needsReconnection: true
+       })
     }
 
     // Handle rate limit errors
     if (error.message?.includes('rate limit')) {
-      return NextResponse.json({
-        error: 'HubSpot API rate limit exceeded. Please try again later.',
-        retryAfter: 60
-      }, { status: 429 })
+      return errorResponse('HubSpot API rate limit exceeded. Please try again later.', 429, { retryAfter: 60
+       })
     }
 
-    return NextResponse.json({
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }

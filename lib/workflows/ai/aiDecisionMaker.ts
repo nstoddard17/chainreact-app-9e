@@ -14,11 +14,13 @@ import {
   ExecutionPlan
 } from './chainExecutionEngine'
 
+import { logger } from '@/lib/utils/logger'
+
 // AI Agent logging utility - always enabled for AI agent workflows
 const AI_LOGGING_ENABLED = true
 const aiLog = (...args: any[]) => {
   if (AI_LOGGING_ENABLED) {
-    console.log(...args)
+    logger.debug(...args)
   }
 }
 
@@ -87,7 +89,7 @@ export class AIDecisionMaker {
       const aiResponse = await this.getAIDecision()
       return this.parseAIResponse(aiResponse)
     } catch (error) {
-      console.error('❌ AI decision making failed, falling back to default', error)
+      logger.error('❌ AI decision making failed, falling back to default', error)
       return this.getDefaultSelection()
     }
   }
@@ -224,10 +226,10 @@ export class AIDecisionMaker {
       return aiResponse
     } catch (error) {
       if (AI_LOGGING_ENABLED) {
-        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        console.error('❌ AI DECISION REQUEST FAILED')
-        console.error('Error:', error)
-        console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        logger.error('❌ AI DECISION REQUEST FAILED')
+        logger.error('Error:', error)
+        logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       }
       throw error
     }
@@ -259,7 +261,7 @@ export class AIDecisionMaker {
    */
   private async getClaudeDecision(systemPrompt: string, userPrompt: string): Promise<string> {
     if (!Anthropic) {
-      console.warn('Anthropic SDK not installed, falling back to OpenAI')
+      logger.warn('Anthropic SDK not installed, falling back to OpenAI')
       return this.getOpenAIDecision(systemPrompt, userPrompt)
     }
 
@@ -450,12 +452,12 @@ Provide your routing decision in the specified JSON format.`
       return result
 
     } catch (error) {
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.error('❌ FAILED TO PARSE AI RESPONSE')
-      console.error('Error:', error)
-      console.error('Raw Response:', response)
-      console.error('Falling back to default selection...')
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      logger.error('❌ FAILED TO PARSE AI RESPONSE')
+      logger.error('Error:', error)
+      logger.error('Raw Response:', response)
+      logger.error('Falling back to default selection...')
+      logger.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       return this.getDefaultSelection()
     }
   }

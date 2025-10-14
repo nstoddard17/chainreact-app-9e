@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/server"
 
 export async function GET() {
@@ -10,7 +11,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return errorResponse("Not authenticated" , 401)
     }
 
     // Check which environment variables are available
@@ -37,7 +38,7 @@ export async function GET() {
       actualClientSecret: !!(process.env.YOUTUBE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET),
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       message: "Environment variable check",
       ...envCheck,
       recommendation:
@@ -48,7 +49,7 @@ export async function GET() {
             : "Missing required credentials",
     })
   } catch (error: any) {
-    return NextResponse.json(
+    return jsonResponse(
       { error: "Failed to check environment variables", details: error.message },
       { status: 500 },
     )

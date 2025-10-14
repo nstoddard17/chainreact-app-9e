@@ -6,15 +6,17 @@ import { NotionIntegration, NotionUser, NotionDataHandler } from '../types'
 import { validateNotionIntegration } from '../utils'
 import { createAdminClient } from "@/lib/supabase/admin"
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch all users in the Notion workspace
  * Uses the Notion API to get actual workspace users
  */
 export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration: any, context?: any) => {
   try {
-    console.log("👥 [Notion Users] Fetching workspace users")
-    console.log("🔍 Integration data:", integration)
-    console.log("🔍 Context:", context)
+    logger.debug("👥 [Notion Users] Fetching workspace users")
+    logger.debug("🔍 Integration data:", integration)
+    logger.debug("🔍 Context:", context)
 
     // Import decrypt function
     const { decrypt } = await import("@/lib/security/encryption")
@@ -27,7 +29,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
 
     if (integration.id) {
       // If we have a specific integration ID, use that
-      console.log(`🔍 Looking up integration by ID: ${integration.id}`)
+      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -37,7 +39,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
       integrationError = result.error
     } else if (integration.userId) {
       // If we have a user ID, find the Notion integration for that user
-      console.log(`🔍 Looking up Notion integration for user: ${integration.userId}`)
+      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
       const result = await supabase
         .from('integrations')
         .select('*')
@@ -50,7 +52,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
     }
 
     if (integrationError || !notionIntegration) {
-      console.error("❌ [Notion Users] Integration not found:", integrationError)
+      logger.error("❌ [Notion Users] Integration not found:", integrationError)
       throw new Error('Notion integration not found or not connected')
     }
 
@@ -69,12 +71,12 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
 
     if (!response.ok) {
       const error = await response.json()
-      console.error("❌ [Notion Users] API error:", error)
+      logger.error("❌ [Notion Users] API error:", error)
       throw new Error(error.message || 'Failed to fetch users')
     }
 
     const data = await response.json()
-    console.log("📥 [Notion Users] Raw API response:", {
+    logger.debug("📥 [Notion Users] Raw API response:", {
       totalUsers: data.results?.length || 0,
       hasMore: data.has_more,
       nextCursor: data.next_cursor
@@ -82,7 +84,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
 
     // Log each user for debugging
     data.results?.forEach((user: any, index: number) => {
-      console.log(`👤 [User ${index + 1}]:`, {
+      logger.debug(`👤 [User ${index + 1}]:`, {
         id: user.id,
         type: user.type,
         name: user.name,
@@ -121,7 +123,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
         }
       }
 
-      console.log(`✨ [Processed User]:`, {
+      logger.debug(`✨ [Processed User]:`, {
         original_name: user.name,
         final_name: displayName,
         type: user.type,
@@ -155,9 +157,9 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
     // Log any duplicate names
     Object.entries(nameGroups).forEach(([name, userList]) => {
       if (userList.length > 1) {
-        console.warn(`⚠️ [Notion Users] Found ${userList.length} users with name "${name}":`)
+        logger.warn(`⚠️ [Notion Users] Found ${userList.length} users with name "${name}":`)
         userList.forEach(user => {
-          console.warn(`  - ID: ${user.id}, Type: ${user.type}, Email: ${user.email || 'N/A'}`)
+          logger.warn(`  - ID: ${user.id}, Type: ${user.type}, Email: ${user.email || 'N/A'}`)
         })
       }
     })
@@ -193,11 +195,11 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (integration:
     // Sort users by name
     finalUsers.sort((a, b) => a.name.localeCompare(b.name))
 
-    console.log(`✅ [Notion Users] Retrieved ${finalUsers.length} unique workspace users (from ${users.length} total)`)
+    logger.debug(`✅ [Notion Users] Retrieved ${finalUsers.length} unique workspace users (from ${users.length} total)`)
     return finalUsers
 
   } catch (error: any) {
-    console.error("❌ [Notion Users] Error fetching users:", error)
+    logger.error("❌ [Notion Users] Error fetching users:", error)
     throw error
   }
 }

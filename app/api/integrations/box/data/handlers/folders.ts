@@ -5,8 +5,10 @@
 import { BoxIntegration, BoxFolder, BoxDataHandler, BoxEntry } from '../types'
 import { validateBoxIntegration, validateBoxToken, makeBoxApiRequest, parseBoxApiResponse, buildBoxApiUrl, createFolderItemsQueryParams } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxIntegration, options: any = {}): Promise<BoxFolder[]> => {
-  console.log("🔍 Box folders fetcher called with integration:", {
+  logger.debug("🔍 Box folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
     // Validate integration status
     validateBoxIntegration(integration)
     
-    console.log(`🔍 Validating Box token...`)
+    logger.debug(`🔍 Validating Box token...`)
     const tokenResult = await validateBoxToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Box token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Box token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Box folders...')
+    logger.debug('🔍 Fetching Box folders...')
     
     const { folderId = '0' } = options
     const queryParams = createFolderItemsQueryParams(options)
@@ -35,7 +37,7 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ Box API error: ${response.status}`, errorData)
+      logger.error(`❌ Box API error: ${response.status}`, errorData)
       
       if (response.status === 401) {
         throw new Error('Box authentication expired. Please reconnect your account.')
@@ -72,11 +74,11 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
       })
     }
     
-    console.log(`✅ Box folders fetched successfully: ${folders.length} folders`)
+    logger.debug(`✅ Box folders fetched successfully: ${folders.length} folders`)
     return folders
     
   } catch (error: any) {
-    console.error("Error fetching Box folders:", error)
+    logger.error("Error fetching Box folders:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Box authentication expired. Please reconnect your account.')
@@ -87,7 +89,7 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
     }
     
     // Return just the root folder as a fallback
-    console.log('🔄 Returning root folder as fallback...')
+    logger.debug('🔄 Returning root folder as fallback...')
     return [
       {
         id: "0",

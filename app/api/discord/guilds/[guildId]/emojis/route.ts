@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -9,10 +12,7 @@ export async function GET(
     const botToken = process.env.DISCORD_BOT_TOKEN;
 
     if (!botToken) {
-      return NextResponse.json(
-        { error: "Discord bot token not configured" },
-        { status: 500 }
-      );
+      return errorResponse("Discord bot token not configured" , 500);
     }
 
     // Fetch guild emojis from Discord API
@@ -27,8 +27,8 @@ export async function GET(
     );
 
     if (!response.ok) {
-      console.error("Discord API error:", response.status, response.statusText);
-      return NextResponse.json(
+      logger.error("Discord API error:", response.status, response.statusText);
+      return jsonResponse(
         { error: "Failed to fetch guild emojis" },
         { status: response.status }
       );
@@ -45,12 +45,9 @@ export async function GET(
       custom: true,
     }));
 
-    return NextResponse.json(transformedEmojis);
+    return jsonResponse(transformedEmojis);
   } catch (error) {
-    console.error("Error fetching guild emojis:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    logger.error("Error fetching guild emojis:", error);
+    return errorResponse("Internal server error" , 500);
   }
 } 

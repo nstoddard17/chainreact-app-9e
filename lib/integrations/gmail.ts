@@ -2,6 +2,8 @@ import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 import { decryptToken, encryptTokens } from '@/lib/integrations/tokenUtils';
 
+import { logger } from '@/lib/utils/logger'
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -28,14 +30,14 @@ export class GmailService {
       .single();
 
     if (error || !integration || !integration.refresh_token) {
-      console.error('No refresh token found for this integration.');
+      logger.error('No refresh token found for this integration.');
       return null;
     }
 
     // Decrypt the refresh token
     const decryptedRefreshToken = await decryptToken(integration.refresh_token);
     if (!decryptedRefreshToken) {
-      console.error('Failed to decrypt refresh token');
+      logger.error('Failed to decrypt refresh token');
       return null;
     }
 
@@ -61,7 +63,7 @@ export class GmailService {
       }
       return null;
     } catch (refreshError) {
-      console.error('Failed to refresh access token:', refreshError);
+      logger.error('Failed to refresh access token:', refreshError);
       
       // Mark integration as needing re-authorization
       try {
@@ -75,9 +77,9 @@ export class GmailService {
           })
           .eq('id', integrationId);
         
-        console.log(`Marked Gmail integration ${integrationId} for reauthorization due to refresh failure`);
+        logger.debug(`Marked Gmail integration ${integrationId} for reauthorization due to refresh failure`);
       } catch (updateError) {
-        console.error('Failed to update integration status:', updateError);
+        logger.error('Failed to update integration status:', updateError);
       }
       
       return null;
@@ -107,7 +109,7 @@ export class GmailService {
       });
       return response.data;
     } catch (error) {
-      console.error('Failed to send email:', error);
+      logger.error('Failed to send email:', error);
       throw new Error('Could not send email via Gmail.');
     }
   }
@@ -148,7 +150,7 @@ export async function getGoogleContacts(accessToken: string) {
 
     return contacts
   } catch (error) {
-    console.error("Failed to get Google contacts:", error)
+    logger.error("Failed to get Google contacts:", error)
     throw new Error("Failed to get Google contacts")
   }
 }
@@ -205,7 +207,7 @@ export async function getEnhancedGoogleContacts(accessToken: string) {
 
     return contacts
   } catch (error) {
-    console.error("Failed to get enhanced Google contacts:", error)
+    logger.error("Failed to get enhanced Google contacts:", error)
     throw new Error("Failed to get enhanced Google contacts")
   }
 }

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { verifyGoogleWebhook } from '@/lib/webhooks/google-verification'
 import { processGoogleEvent } from '@/lib/webhooks/google-processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,8 +26,8 @@ export async function POST(request: NextRequest) {
     // Verify Google webhook signature
     const isValid = await verifyGoogleWebhook(request)
     if (!isValid) {
-      console.error(`[${requestId}] Invalid Google webhook signature`)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      logger.error(`[${requestId}] Invalid Google webhook signature`)
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Parse the request body (may be empty for some Google services)
@@ -52,7 +55,7 @@ export async function POST(request: NextRequest) {
           const decodedBody = Buffer.from(rawBody, 'base64').toString('utf-8')
           eventData = JSON.parse(decodedBody)
         } catch (base64Error) {
-          console.warn(`[${requestId}] Unable to parse Google webhook body; falling back to header metadata`, {
+          logger.warn(`[${requestId}] Unable to parse Google webhook body; falling back to header metadata`, {
             base64Error: (base64Error as Error).message,
             jsonError: (jsonError as Error).message
           })
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
         try {
           tokenMetadata = JSON.parse(channelToken)
         } catch (tokenError) {
-          console.warn(`[${requestId}] Failed to parse channel token metadata:`, tokenError)
+          logger.warn(`[${requestId}] Failed to parse channel token metadata:`, tokenError)
         }
       }
 
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ 
+    return jsonResponse({ 
       success: true, 
       service: sourceService,
       requestId,
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Google webhook error:', error)
+    logger.error('Google webhook error:', error)
     
     // Log error
     await logWebhookEvent({
@@ -137,7 +140,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return errorResponse('Internal server error' , 500)
   }
 }
 
@@ -174,7 +177,7 @@ function determineGoogleService(eventData: any): string {
 
 export async function GET(request: NextRequest) {
   // Health check endpoint
-  return NextResponse.json({
+  return jsonResponse({
     status: 'healthy',
     provider: 'google',
     services: ['gmail', 'drive', 'calendar', 'docs', 'sheets'],

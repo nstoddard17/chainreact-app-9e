@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -123,7 +126,7 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.totalUsage - a.totalUsage)
     .slice(0, 10)
 
-    return NextResponse.json({
+    return jsonResponse({
       totalUsers,
       activeUsers,
       totalUsage,
@@ -137,10 +140,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("Error fetching AI usage stats:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch AI usage statistics" },
-      { status: 500 }
-    )
+    logger.error("Error fetching AI usage stats:", error)
+    return errorResponse("Failed to fetch AI usage statistics" , 500)
   }
 } 

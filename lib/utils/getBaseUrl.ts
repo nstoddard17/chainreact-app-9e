@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 export function getBaseUrl(): string {
   // Priority order: localhost detection > NEXT_PUBLIC_BASE_URL > NEXT_PUBLIC_APP_URL > fallback
   
@@ -117,7 +119,7 @@ export function getWebhookUrl(provider: string): string {
       return `${explicitHttps.replace(/\/$/, '')}/api/workflow/${provider}`
     }
 
-    console.warn('⚠️ Airtable webhooks require HTTPS URLs. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL to an HTTPS tunnel (e.g., ngrok) or deploy to staging.')
+    logger.warn('⚠️ Airtable webhooks require HTTPS URLs. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL to an HTTPS tunnel (e.g., ngrok) or deploy to staging.')
 
     if (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.startsWith('https://')) {
       return `${process.env.NEXT_PUBLIC_APP_URL}/api/workflow/${provider}`

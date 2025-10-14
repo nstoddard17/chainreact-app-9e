@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error }, { status: 500 })
+      return jsonResponse({ error }, { status: 500 })
     }
 
     // Analyze each workflow
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
       activeWorkflowUserIds: [...new Set(activeWorkflows?.map(w => w.user_id))]
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       summary,
       workflows: workflowAnalysis,
       recommendation: workflowAnalysis.filter(w => w.oneDriveTriggerCount > 0).length === 0
@@ -117,7 +120,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error checking workflows:', error)
-    return NextResponse.json({ error }, { status: 500 })
+    logger.error('Error checking workflows:', error)
+    return jsonResponse({ error }, { status: 500 })
   }
 }

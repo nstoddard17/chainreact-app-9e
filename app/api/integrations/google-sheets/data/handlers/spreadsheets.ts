@@ -5,6 +5,8 @@
 import { GoogleSheetsIntegration, GoogleSheetsSpreadsheet, GoogleSheetsDataHandler } from '../types'
 import { createGoogleDriveClient } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getGoogleSheetsSpreadsheets: GoogleSheetsDataHandler<GoogleSheetsSpreadsheet[]> = async (
   integration: GoogleSheetsIntegration
 ): Promise<GoogleSheetsSpreadsheet[]> => {
@@ -26,7 +28,7 @@ export const getGoogleSheetsSpreadsheets: GoogleSheetsDataHandler<GoogleSheetsSp
       webViewLink: file.webViewLink || undefined
     }))
   } catch (error: any) {
-    console.error("Error fetching spreadsheets:", error)
+    logger.error("Error fetching spreadsheets:", error)
     throw new Error(error.message || "Error fetching spreadsheets")
   }
 }

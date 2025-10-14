@@ -1,5 +1,7 @@
 import { ActionResult } from '../index'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Convert a file chunk to base64
  */
@@ -101,7 +103,7 @@ export async function uploadTwitterMedia(accessToken: string, mediaFile: any, al
     })
     
     if (!altTextResponse.ok) {
-      console.warn(`Failed to add alt text: ${await altTextResponse.text()}`)
+      logger.warn(`Failed to add alt text: ${await altTextResponse.text()}`)
     }
   }
   
@@ -159,7 +161,7 @@ export async function postTwitterTweet(accessToken: string, config: any, input: 
           const mediaId = await uploadTwitterMedia(accessToken, mediaFile, altText)
           mediaIds.push(mediaId)
         } catch (error) {
-          console.error(`Failed to upload media file ${i + 1}:`, error)
+          logger.error(`Failed to upload media file ${i + 1}:`, error)
           return {
             success: false,
             error: `Failed to upload media file ${i + 1}: ${error}`
@@ -244,7 +246,7 @@ export async function postTwitterTweet(accessToken: string, config: any, input: 
     }
     
   } catch (error: any) {
-    console.error("Twitter post tweet error:", error)
+    logger.error("Twitter post tweet error:", error)
     return {
       success: false,
       error: error.message || "Failed to post tweet"
@@ -322,7 +324,7 @@ export async function replyTwitterTweet(accessToken: string, config: any, input:
     }
     
   } catch (error: any) {
-    console.error("Twitter reply tweet error:", error)
+    logger.error("Twitter reply tweet error:", error)
     return { success: false, error: error.message || "Failed to reply to tweet" }
   }
 }
@@ -364,7 +366,7 @@ export async function retweetTwitterTweet(accessToken: string, config: any, inpu
     }
     
   } catch (error: any) {
-    console.error("Twitter retweet error:", error)
+    logger.error("Twitter retweet error:", error)
     return { success: false, error: error.message || "Failed to retweet" }
   }
 }
@@ -399,7 +401,7 @@ export async function unretweetTwitterTweet(accessToken: string, config: any, in
     }
     
   } catch (error: any) {
-    console.error("Twitter unretweet error:", error)
+    logger.error("Twitter unretweet error:", error)
     return { success: false, error: error.message || "Failed to remove retweet" }
   }
 }
@@ -441,7 +443,7 @@ export async function likeTwitterTweet(accessToken: string, config: any, input: 
     }
     
   } catch (error: any) {
-    console.error("Twitter like tweet error:", error)
+    logger.error("Twitter like tweet error:", error)
     return { success: false, error: error.message || "Failed to like tweet" }
   }
 }
@@ -476,7 +478,7 @@ export async function unlikeTwitterTweet(accessToken: string, config: any, input
     }
     
   } catch (error: any) {
-    console.error("Twitter unlike tweet error:", error)
+    logger.error("Twitter unlike tweet error:", error)
     return { success: false, error: error.message || "Failed to unlike tweet" }
   }
 }
@@ -554,7 +556,7 @@ export async function sendTwitterDM(accessToken: string, config: any, input: any
     }
     
   } catch (error: any) {
-    console.error("Twitter send DM error:", error)
+    logger.error("Twitter send DM error:", error)
     return { success: false, error: error.message || "Failed to send direct message" }
   }
 }
@@ -596,7 +598,7 @@ export async function followTwitterUser(accessToken: string, config: any, input:
     }
     
   } catch (error: any) {
-    console.error("Twitter follow user error:", error)
+    logger.error("Twitter follow user error:", error)
     return { success: false, error: error.message || "Failed to follow user" }
   }
 }
@@ -631,7 +633,7 @@ export async function unfollowTwitterUser(accessToken: string, config: any, inpu
     }
     
   } catch (error: any) {
-    console.error("Twitter unfollow user error:", error)
+    logger.error("Twitter unfollow user error:", error)
     return { success: false, error: error.message || "Failed to unfollow user" }
   }
 }
@@ -666,7 +668,7 @@ export async function deleteTwitterTweet(accessToken: string, config: any, input
     }
     
   } catch (error: any) {
-    console.error("Twitter delete tweet error:", error)
+    logger.error("Twitter delete tweet error:", error)
     return { success: false, error: error.message || "Failed to delete tweet" }
   }
 }
@@ -727,7 +729,7 @@ export async function searchTwitterTweets(accessToken: string, config: any, inpu
     }
     
   } catch (error: any) {
-    console.error("Twitter search tweets error:", error)
+    logger.error("Twitter search tweets error:", error)
     return { success: false, error: error.message || "Failed to search tweets" }
   }
 }
@@ -782,7 +784,7 @@ export async function getTwitterUserTimeline(accessToken: string, config: any, i
     }
     
   } catch (error: any) {
-    console.error("Twitter get user timeline error:", error)
+    logger.error("Twitter get user timeline error:", error)
     return { success: false, error: error.message || "Failed to get user timeline" }
   }
 }
@@ -847,7 +849,7 @@ export async function getTwitterMentions(accessToken: string, config: any, input
     }
     
   } catch (error: any) {
-    console.error("Twitter get mentions error:", error)
+    logger.error("Twitter get mentions error:", error)
     return { success: false, error: error.message || "Failed to get mentions" }
   }
 }

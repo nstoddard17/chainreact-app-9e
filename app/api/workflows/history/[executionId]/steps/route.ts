@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +15,7 @@ export async function GET(
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return errorResponse('Unauthorized' , 401)
     }
 
     const { executionId } = await params
@@ -25,25 +28,22 @@ export async function GET(
       .single()
 
     if (executionError || !execution) {
-      return NextResponse.json({ error: 'Execution not found' }, { status: 404 })
+      return errorResponse('Execution not found' , 404)
     }
 
     if (execution.user_id !== user.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return errorResponse('Unauthorized' , 403)
     }
 
     // Get execution steps
     const steps = await executionHistoryService.getExecutionSteps(executionId)
 
-    return NextResponse.json({
+    return jsonResponse({
       execution,
       steps
     })
   } catch (error) {
-    console.error('Error fetching execution steps:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch execution steps' },
-      { status: 500 }
-    )
+    logger.error('Error fetching execution steps:', error)
+    return errorResponse('Failed to fetch execution steps' , 500)
   }
 }

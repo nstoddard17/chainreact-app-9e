@@ -3,6 +3,8 @@ import { IntentAnalysisResult, Integration } from "../aiIntentAnalysisService"
 import { ActionExecutionResult } from "../aiActionExecutionService"
 import { runWorkflowAction } from "../utils/runWorkflowAction"
 
+import { logger } from '@/lib/utils/logger'
+
 export class SocialActionHandler extends BaseActionHandler {
   constructor(private readonly executeAction = runWorkflowAction) {
     super()
@@ -54,7 +56,7 @@ export class SocialActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Social query "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Social query error:", error)
+      logger.error("❌ Social query error:", error)
       return this.getErrorResponse("Failed to fetch social data.")
     }
   }
@@ -105,7 +107,7 @@ export class SocialActionHandler extends BaseActionHandler {
           return this.getErrorResponse(`Social action "${action}" is not supported yet.`)
       }
     } catch (error: any) {
-      console.error("❌ Social action error:", error)
+      logger.error("❌ Social action error:", error)
       return this.getErrorResponse("Failed to complete the social action.")
     }
   }

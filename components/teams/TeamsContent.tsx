@@ -24,6 +24,8 @@ import { RoleGuard } from "@/components/ui/role-guard"
 import { useAuthStore } from "@/stores/authStore"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 export default function TeamsContent() {
   const { organizations, loading, fetchOrganizations } = useOrganizationStore()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -52,7 +54,7 @@ export default function TeamsContent() {
       // Refresh the organizations list
       await fetchOrganizations()
     } catch (error) {
-      console.error('Error deleting organization:', error)
+      logger.error('Error deleting organization:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to delete organization')
     } finally {
       setDeletingOrg(null)

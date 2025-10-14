@@ -2,6 +2,8 @@ import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Microsoft Outlook create calendar event handler with timezone auto-detection
  */
@@ -158,7 +160,7 @@ export async function createOutlookCalendarEvent(
     if (timeZone === 'user-timezone' || !timeZone) {
       // Use Intl API to get the user's timezone
       eventTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      console.log(`[Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
+      logger.debug(`[Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
     }
 
     // Parse dates and times with proper validation
@@ -355,7 +357,7 @@ export async function createOutlookCalendarEvent(
       }
     }
   } catch (error: any) {
-    console.error('[Outlook Calendar] Error creating event:', error)
+    logger.error('[Outlook Calendar] Error creating event:', error)
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Unauthorized')) {

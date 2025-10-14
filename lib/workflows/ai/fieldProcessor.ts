@@ -9,6 +9,8 @@ import { buildMasterPrompt, buildFieldPrompt, buildActionDiscoveryPrompt } from 
 import { TRIGGER_VARIABLES } from '../variables/triggerVariables'
 import { createClient } from '@supabase/supabase-js'
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -447,7 +449,7 @@ function getFieldMetadata(nodeType: string, fieldName: string): any {
       constraints
     }
   } catch (error) {
-    console.error(`Error getting field metadata for ${nodeType}.${fieldName}:`, error)
+    logger.error(`Error getting field metadata for ${nodeType}.${fieldName}:`, error)
     // Fallback to basic metadata
     const fieldTypes: Record<string, any> = {
       'to': { type: 'email', constraints: { required: true } },
@@ -520,7 +522,7 @@ async function callAIModel(
       tokens: usage.total_tokens
     }
   } catch (error) {
-    console.error('AI model call failed:', error)
+    logger.error('AI model call failed:', error)
     
     // Return fallback
     return {
@@ -568,7 +570,7 @@ async function logAIUsage(
       })
     }
   } catch (error) {
-    console.error('Failed to log AI usage:', error)
+    logger.error('Failed to log AI usage:', error)
   }
 }
 
@@ -620,12 +622,12 @@ async function logFieldResolutions(
       .insert(insertData)
     
     if (error) {
-      console.error('Failed to log field resolutions:', error)
+      logger.error('Failed to log field resolutions:', error)
     } else {
-      console.log(`Logged ${resolutions.length} AI field resolutions for node ${context.nodeId}`)
+      logger.debug(`Logged ${resolutions.length} AI field resolutions for node ${context.nodeId}`)
     }
   } catch (error) {
-    console.error('Error logging field resolutions:', error)
+    logger.error('Error logging field resolutions:', error)
   }
 }
 

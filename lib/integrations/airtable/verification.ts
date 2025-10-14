@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { logger } from '@/lib/utils/logger'
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -28,7 +30,7 @@ async function resolveAirtableTableName(
     })
 
     if (!response.ok) {
-      console.warn(`⚠️ Failed to resolve Airtable table name (${response.status}) for table ${tableId}`)
+      logger.warn(`⚠️ Failed to resolve Airtable table name (${response.status}) for table ${tableId}`)
       return null
     }
 
@@ -40,7 +42,7 @@ async function resolveAirtableTableName(
       return table.name
     }
   } catch (error) {
-    console.error('❌ Error resolving Airtable table name:', error)
+    logger.error('❌ Error resolving Airtable table name:', error)
   }
 
   return null
@@ -73,7 +75,7 @@ export async function verifyAirtableRecord(
       .single();
 
     if (integrationError || !integration) {
-      console.error('❌ Failed to get Airtable integration:', integrationError);
+      logger.error('❌ Failed to get Airtable integration:', integrationError);
       return false; // Can't verify, assume doesn't exist
     }
 
@@ -82,7 +84,7 @@ export async function verifyAirtableRecord(
     const accessToken = await decryptToken(integration.access_token);
 
     if (!accessToken) {
-      console.error('❌ Failed to decrypt Airtable access token');
+      logger.error('❌ Failed to decrypt Airtable access token');
       return false;
     }
 
@@ -96,7 +98,7 @@ export async function verifyAirtableRecord(
     const queue: string[] = [...new Set(initialCandidates)]
 
     if (queue.length === 0) {
-      console.warn('⚠️ No table identifier provided for Airtable record verification');
+      logger.warn('⚠️ No table identifier provided for Airtable record verification');
       return true;
     }
 
@@ -109,7 +111,7 @@ export async function verifyAirtableRecord(
           const resolvedName = await resolveAirtableTableName(accessToken, baseId, tableIdOrName)
 
           if (resolvedName && !tried.has(resolvedName)) {
-            console.log(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
+            logger.debug(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
             queue.push(resolvedName)
             continue
           }
@@ -140,48 +142,48 @@ export async function verifyAirtableRecord(
       );
 
       if (response.status === 200) {
-        console.log(`✅ Record ${recordId} still exists (path: ${candidate})`);
+        logger.debug(`✅ Record ${recordId} still exists (path: ${candidate})`);
         return true;
       }
 
       if (response.status === 404) {
-        console.log(`🗑️ Record ${recordId} not found via path ${candidate}`);
+        logger.debug(`🗑️ Record ${recordId} not found via path ${candidate}`);
         // Try next candidate (e.g., table ID vs table name)
         continue;
       }
 
       if (response.status === 401 || response.status === 403) {
-        console.warn(`🚫 Record ${recordId} not accessible (status ${response.status}) using path ${candidate}.`);
+        logger.warn(`🚫 Record ${recordId} not accessible (status ${response.status}) using path ${candidate}.`);
 
         if (!metadataLookupAttempted && tableIdOrName?.startsWith('tbl')) {
           metadataLookupAttempted = true
           const resolvedName = await resolveAirtableTableName(accessToken, baseId, tableIdOrName)
 
           if (resolvedName && !tried.has(resolvedName)) {
-            console.log(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
+            logger.debug(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
             queue.push(resolvedName)
             continue
           }
         }
 
-        console.warn('   Assuming record is deleted or permissions revoked. Skipping execution.')
+        logger.warn('   Assuming record is deleted or permissions revoked. Skipping execution.')
         return false;
       }
 
       if (response.status >= 500) {
-        console.error(`❌ Airtable server error (${response.status}) while verifying record ${recordId}. Proceeding to avoid dropping valid data.`);
+        logger.error(`❌ Airtable server error (${response.status}) while verifying record ${recordId}. Proceeding to avoid dropping valid data.`);
         return true;
       }
 
-      console.warn(`⚠️ Unexpected status (${response.status}) verifying record ${recordId} via path ${candidate}. Proceeding cautiously.`);
+      logger.warn(`⚠️ Unexpected status (${response.status}) verifying record ${recordId} via path ${candidate}. Proceeding cautiously.`);
       return true;
     }
 
     // If all candidates return 404 (and any metadata lookup failed), treat as deleted
-    console.log(`🗑️ Record ${recordId} missing across all table paths, skipping execution.`);
+    logger.debug(`🗑️ Record ${recordId} missing across all table paths, skipping execution.`);
     return false;
   } catch (error) {
-    console.error('❌ Error verifying Airtable record:', error);
+    logger.error('❌ Error verifying Airtable record:', error);
     // On error, process anyway to avoid losing legitimate records
     return true;
   }

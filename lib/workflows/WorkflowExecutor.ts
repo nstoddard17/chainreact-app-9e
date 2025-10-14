@@ -1,9 +1,11 @@
-import { LegacyTokenRefreshService as TokenRefreshService } from "@/src/infrastructure/workflows/legacy-compatibility"
+import { TokenRefreshService } from "@/lib/integrations/tokenRefreshService"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { TokenAuditLogger } from "../integrations/TokenAuditLogger"
 import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 import { executeAction } from "./executeNode"
+
+import { logger } from '@/lib/utils/logger'
 
 interface WorkflowContext {
   workflowId: string
@@ -125,7 +127,7 @@ export class WorkflowExecutor {
 
       return result
     } catch (error: any) {
-      console.error("Error executing workflow:", error)
+      logger.error("Error executing workflow:", error)
       if (executionId) {
         await this.updateExecutionRecord(executionId, "failed", {
           error: error.message,

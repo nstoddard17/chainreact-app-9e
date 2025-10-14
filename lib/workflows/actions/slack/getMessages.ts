@@ -2,6 +2,8 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Get messages from a Slack channel
  */
@@ -70,7 +72,7 @@ export async function getSlackMessages(
       message: `Successfully retrieved ${messages.length} messages from channel`
     }
   } catch (error: any) {
-    console.error('Slack Get Messages error:', error)
+    logger.error('Slack Get Messages error:', error)
     return {
       success: false,
       output: {},

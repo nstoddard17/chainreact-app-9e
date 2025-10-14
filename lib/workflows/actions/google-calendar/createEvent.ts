@@ -3,6 +3,8 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { google } from 'googleapis'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Google Calendar create event handler with timezone auto-detection
  */
@@ -163,7 +165,7 @@ export async function createGoogleCalendarEvent(
     if (timeZone === 'user-timezone' || !timeZone) {
       // Use Intl API to get the user's timezone
       eventTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      console.log(`🌍 [Google Calendar] Auto-detected user timezone: ${eventTimeZone}`)
+      logger.debug(`🌍 [Google Calendar] Auto-detected user timezone: ${eventTimeZone}`)
     }
 
     // Create OAuth2 client
@@ -333,7 +335,7 @@ export async function createGoogleCalendarEvent(
       }
     }
   } catch (error: any) {
-    console.error('❌ [Google Calendar] Error creating event:', error)
+    logger.error('❌ [Google Calendar] Error creating event:', error)
 
     // Check if it's a token error
     if (error.message?.includes('401') || error.message?.includes('Unauthorized') || error.code === 401) {

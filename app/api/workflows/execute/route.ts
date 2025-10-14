@@ -1,21 +1,24 @@
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 
+import { logger } from '@/lib/utils/logger'
+
 export async function POST(request: Request) {
   try {
-    console.log("=== Workflow Execution Started (Refactored) ===")
+    logger.debug("=== Workflow Execution Started (Refactored) ===")
 
     // Check if request has a body
     const contentLength = request.headers.get('content-length')
-    console.log(`📊 [Execute Route] Request content-length: ${contentLength}`)
+    logger.debug(`📊 [Execute Route] Request content-length: ${contentLength}`)
 
     // Try to parse the JSON body with better error handling
     let body
     try {
       const text = await request.text()
-      console.log(`📊 [Execute Route] Request body text length: ${text.length}`)
+      logger.debug(`📊 [Execute Route] Request body text length: ${text.length}`)
 
       if (!text || text.length === 0) {
         throw new Error("Empty request body received")
@@ -23,21 +26,17 @@ export async function POST(request: Request) {
 
       body = JSON.parse(text)
     } catch (parseError: any) {
-      console.error("❌ [Execute Route] Failed to parse request body:", parseError)
-      return NextResponse.json(
-        {
-          error: "Invalid request body",
-          details: parseError.message,
-          received: typeof text !== 'undefined' ? text.substring(0, 100) : 'undefined'
-        },
-        { status: 400 }
-      )
+      logger.error("❌ [Execute Route] Failed to parse request body:", parseError)
+      return errorResponse("Invalid request body", 400, {
+        details: parseError.message,
+        received: typeof text !== 'undefined' ? text.substring(0, 100) : 'undefined'
+      })
     }
 
     const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
 
     // Log the workflow data to see what nodes we're getting
-    console.log("📊 [Execute Route] Workflow data received:", {
+    logger.debug("📊 [Execute Route] Workflow data received:", {
       workflowId,
       hasWorkflowData: !!workflowData,
       nodesCount: workflowData?.nodes?.length || 0,
@@ -52,7 +51,7 @@ export async function POST(request: Request) {
                              executionMode === 'live' ? false :
                              testMode
 
-    console.log("Execution parameters:", {
+    logger.debug("Execution parameters:", {
       workflowId,
       testMode,
       executionMode,
@@ -63,8 +62,8 @@ export async function POST(request: Request) {
     })
 
     if (!workflowId) {
-      console.error("No workflowId provided")
-      return NextResponse.json({ error: "workflowId is required" }, { status: 400 })
+      logger.error("No workflowId provided")
+      return errorResponse("workflowId is required" , 400)
     }
 
     // Determine if this is a webhook request (has x-user-id header)
@@ -81,11 +80,11 @@ export async function POST(request: Request) {
       .single()
 
     if (workflowError || !workflow) {
-      console.error("Error fetching workflow:", workflowError)
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      logger.error("Error fetching workflow:", workflowError)
+      return errorResponse("Workflow not found" , 404)
     }
 
-    console.log("Workflow found:", {
+    logger.debug("Workflow found:", {
       id: workflow.id,
       name: workflow.name,
       nodesCount: workflow.nodes?.length || 0
@@ -97,25 +96,25 @@ export async function POST(request: Request) {
 
     if (userIdFromHeader) {
       // Webhook-triggered execution - use user ID from header
-      console.log("Using user ID from x-user-id header:", userIdFromHeader)
+      logger.debug("Using user ID from x-user-id header:", userIdFromHeader)
       userId = userIdFromHeader
 
       // Verify the user exists and owns the workflow
       if (workflow.user_id !== userId) {
-        console.error("User ID mismatch:", { headerUserId: userId, workflowUserId: workflow.user_id })
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+        logger.error("User ID mismatch:", { headerUserId: userId, workflowUserId: workflow.user_id })
+        return errorResponse("Unauthorized" , 403)
       }
     } else {
       // Normal authenticated execution
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError || !user) {
-        console.error("User authentication error:", userError)
-        return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+        logger.error("User authentication error:", userError)
+        return errorResponse("Not authenticated" , 401)
       }
       userId = user.id
     }
 
-    console.log("User authenticated:", userId)
+    logger.debug("User authenticated:", userId)
 
     // Parse workflow data
     const allNodes = workflowData?.nodes || workflow.nodes || []
@@ -124,7 +123,7 @@ export async function POST(request: Request) {
     // Log Google Calendar node config if present
     const calendarNode = allNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
     if (calendarNode) {
-      console.log('📅 [Execute Route] Google Calendar node config received:', {
+      logger.debug('📅 [Execute Route] Google Calendar node config received:', {
         nodeId: calendarNode.id,
         hasConfig: !!calendarNode.data?.config,
         configKeys: Object.keys(calendarNode.data?.config || {}),
@@ -137,7 +136,7 @@ export async function POST(request: Request) {
     // Log Google Sheets node config if present
     const sheetsNode = allNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
     if (sheetsNode) {
-      console.log('📊 [Execute Route] Google Sheets node config received:', {
+      logger.debug('📊 [Execute Route] Google Sheets node config received:', {
         nodeId: sheetsNode.id,
         hasConfig: !!sheetsNode.data?.config,
         configKeys: Object.keys(sheetsNode.data?.config || {}),
@@ -165,7 +164,7 @@ export async function POST(request: Request) {
       }
       // Skip trigger nodes if requested (for Run Once Live mode)
       if (skipTriggers && node.data?.isTrigger) {
-        console.log(`Skipping trigger node: ${node.id} (${node.data?.type})`)
+        logger.debug(`Skipping trigger node: ${node.id} (${node.data?.type})`)
         return false
       }
       return true
@@ -178,7 +177,7 @@ export async function POST(request: Request) {
       return sourceNode && targetNode
     })
     
-    console.log("Workflow structure:", {
+    logger.debug("Workflow structure:", {
       originalNodesCount: allNodes.length,
       filteredNodesCount: nodes.length,
       skippedUINodes: allNodes.length - nodes.length,
@@ -187,32 +186,32 @@ export async function POST(request: Request) {
     })
 
     if (nodes.length === 0) {
-      console.error("No nodes found in workflow")
-      return NextResponse.json({ error: "No nodes found in workflow" }, { status: 400 })
+      logger.error("No nodes found in workflow")
+      return errorResponse("No nodes found in workflow" , 400)
     }
 
     // Find trigger nodes (unless we're skipping them)
     if (!skipTriggers) {
       const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
-      console.log("Trigger nodes found:", triggerNodes.length)
+      logger.debug("Trigger nodes found:", triggerNodes.length)
 
       if (triggerNodes.length === 0) {
-        console.error("No trigger nodes found")
-        return NextResponse.json({ error: "No trigger nodes found" }, { status: 400 })
+        logger.error("No trigger nodes found")
+        return errorResponse("No trigger nodes found" , 400)
       }
     } else {
       // When skipping triggers, ensure we have at least one action node
       const actionNodes = nodes.filter((node: any) => !node.data?.isTrigger)
-      console.log("Action nodes found (triggers skipped):", actionNodes.length)
+      logger.debug("Action nodes found (triggers skipped):", actionNodes.length)
 
       if (actionNodes.length === 0) {
-        console.error("No action nodes found")
-        return NextResponse.json({ error: "No action nodes found" }, { status: 400 })
+        logger.error("No action nodes found")
+        return errorResponse("No action nodes found" , 400)
       }
     }
 
     // Execute the workflow using the new service or advanced engine based on mode
-    console.log("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
+    logger.debug("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
 
     // Use advanced execution engine for live mode to enable parallel processing
     if (executionMode === 'live' || executionMode === 'sequential') {
@@ -243,9 +242,9 @@ export async function POST(request: Request) {
         }
       )
 
-      console.log("Advanced workflow execution completed")
+      logger.debug("Advanced workflow execution completed")
 
-      return NextResponse.json({
+      return jsonResponse({
         success: true,
         results: executionResult,
         executionTime: new Date().toISOString(),
@@ -274,7 +273,7 @@ export async function POST(request: Request) {
       skipTriggers
     )
     
-    console.log("Workflow execution completed successfully")
+    logger.debug("Workflow execution completed successfully")
 
     // Track beta tester activity
     await trackBetaTesterActivity({
@@ -290,8 +289,8 @@ export async function POST(request: Request) {
 
     // Check if we have intercepted actions (sandbox mode)
     if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {
-      console.log(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
-      return NextResponse.json({
+      logger.debug(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
+      return jsonResponse({
         success: true,
         results: executionResult.results,
         interceptedActions: executionResult.interceptedActions,
@@ -299,24 +298,23 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       results: executionResult,
       executionTime: new Date().toISOString()
     })
 
   } catch (error: any) {
-    console.error("Workflow execution error:", {
+    logger.error("Workflow execution error:", {
       message: error.message,
       stack: error.stack,
       name: error.name
     })
     
     // Return more detailed error information
-    return NextResponse.json({ 
-      error: error.message || "Workflow execution failed", 
-      details: error.stack,
-      message: error.message 
-    }, { status: 500 })
+    return errorResponse(error.message || "Workflow execution failed", 500, {
+        details: error.stack,
+        message: error.message 
+      })
   }
 }

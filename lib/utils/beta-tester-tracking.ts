@@ -1,5 +1,7 @@
 import { createClient } from "@/utils/supabaseClient"
 
+import { logger } from '@/lib/utils/logger'
+
 interface TrackingOptions {
   userId: string
   activityType: 'workflow_created' | 'workflow_executed' | 'workflow_deleted' | 'integration_connected' | 'integration_disconnected' | 'login' | 'feedback_submitted' | 'setting_changed'
@@ -45,7 +47,7 @@ export async function trackBetaTesterActivity(options: TrackingOptions) {
         .single()
 
       if (createError) {
-        console.error('Error creating beta tester record:', createError)
+        logger.error('Error creating beta tester record:', createError)
         return
       }
 
@@ -94,7 +96,7 @@ export async function trackBetaTesterActivity(options: TrackingOptions) {
     }
   } catch (error) {
     // Fail silently - we don't want tracking errors to break the app
-    console.error('Beta tester activity tracking error:', error)
+    logger.error('Beta tester activity tracking error:', error)
   }
 }
 
@@ -171,7 +173,7 @@ export async function submitBetaTesterFeedback({
 
     return { success: true }
   } catch (error: any) {
-    console.error('Error submitting beta tester feedback:', error)
+    logger.error('Error submitting beta tester feedback:', error)
     return { error: error.message }
   }
 }

@@ -5,8 +5,10 @@
 import { BlackbaudIntegration, BlackbaudConstituent, BlackbaudDataHandler } from '../types'
 import { validateBlackbaudIntegration, validateBlackbaudToken, makeBlackbaudApiRequest, parseBlackbaudApiResponse, buildBlackbaudApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent> = async (integration: BlackbaudIntegration, options: any = {}): Promise<BlackbaudConstituent[]> => {
-  console.log("🔍 Blackbaud constituents fetcher called with integration:", {
+  logger.debug("🔍 Blackbaud constituents fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -17,15 +19,15 @@ export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent
     // Validate integration status
     validateBlackbaudIntegration(integration)
     
-    console.log(`🔍 Validating Blackbaud subscription key...`)
+    logger.debug(`🔍 Validating Blackbaud subscription key...`)
     const tokenResult = await validateBlackbaudToken(integration)
     
     if (!tokenResult.success) {
-      console.log(`❌ Blackbaud token validation failed: ${tokenResult.error}`)
+      logger.debug(`❌ Blackbaud token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    console.log('🔍 Fetching Blackbaud constituents...')
+    logger.debug('🔍 Fetching Blackbaud constituents...')
     
     const { limit = 100, offset = 0 } = options
     const apiUrl = buildBlackbaudApiUrl('/constituent/v1/constituents')
@@ -41,7 +43,7 @@ export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error(`❌ Blackbaud API error: ${response.status}`, errorData)
+      logger.error(`❌ Blackbaud API error: ${response.status}`, errorData)
       
       if (response.status === 401) {
         throw new Error('Blackbaud authentication expired. Please reconnect your account.')
@@ -69,11 +71,11 @@ export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent
       gender: constituent.gender
     }))
     
-    console.log(`✅ Blackbaud constituents fetched successfully: ${constituents.length} constituents`)
+    logger.debug(`✅ Blackbaud constituents fetched successfully: ${constituents.length} constituents`)
     return constituents
     
   } catch (error: any) {
-    console.error("Error fetching Blackbaud constituents:", error)
+    logger.error("Error fetching Blackbaud constituents:", error)
     
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
       throw new Error('Blackbaud authentication expired. Please reconnect your account.')

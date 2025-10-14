@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Loader2, Save, Building2, Users, Shield } from "lucide-react"
 import { toast } from "sonner"
 
+import { logger } from '@/lib/utils/logger'
+
 interface Props {
   organization: any
   onUpdate?: (updatedOrg: any) => void
@@ -49,7 +51,7 @@ export default function OrganizationSettings({ organization, onUpdate }: Props) 
         onUpdate(updatedOrg)
       }
     } catch (error) {
-      console.error('Error updating organization:', error)
+      logger.error('Error updating organization:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to update organization')
     } finally {
       setLoading(false)

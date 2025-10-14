@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 // Implementation for shell command execution and result parsing
 export async function POST(request: Request, { params }: { params: { id: string; suiteId: string } }) {
@@ -15,7 +18,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const { data: workflow, error: workflowError } = await supabase.from("workflows").select("*").eq("id", id).single()
 
     if (workflowError || !workflow) {
-      return NextResponse.json({ error: "Workflow not found" }, { status: 404 })
+      return errorResponse("Workflow not found" , 404)
     }
 
     const { data: testSuite, error: testSuiteError } = await supabase
@@ -26,7 +29,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
       .single()
 
     if (testSuiteError || !testSuite) {
-      return NextResponse.json({ error: "Test suite not found" }, { status: 404 })
+      return errorResponse("Test suite not found" , 404)
     }
 
     // Process the commands and generate test cases
@@ -54,15 +57,15 @@ export async function POST(request: Request, { params }: { params: { id: string;
       .single()
 
     if (testResultsError) {
-      return NextResponse.json({ error: "Failed to store test results" }, { status: 500 })
+      return errorResponse("Failed to store test results" , 500)
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       testResults,
     })
   } catch (error) {
-    console.error("Error generating tests:", error)
-    return NextResponse.json({ error: "Failed to generate tests" }, { status: 500 })
+    logger.error("Error generating tests:", error)
+    return errorResponse("Failed to generate tests" , 500)
   }
 }

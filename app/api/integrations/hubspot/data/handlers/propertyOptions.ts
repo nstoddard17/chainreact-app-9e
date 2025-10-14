@@ -6,6 +6,8 @@
 import { HubSpotIntegration, HubSpotDataHandler } from '../types'
 import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest, buildHubSpotApiUrl } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 interface PropertyOption {
   label: string
   value: string
@@ -28,18 +30,18 @@ async function getContactPropertyOptions(
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    console.log(`🔍 Fetching options for property: ${propertyName}`)
+    logger.debug(`🔍 Fetching options for property: ${propertyName}`)
     const apiUrl = buildHubSpotApiUrl(`/crm/v3/properties/contacts/${propertyName}`)
 
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error(`❌ Failed to fetch property ${propertyName}: ${response.status}`)
+      logger.error(`❌ Failed to fetch property ${propertyName}: ${response.status}`)
 
       // Return empty array if property doesn't exist
       if (response.status === 404) {
-        console.log(`⚠️ Property ${propertyName} not found, returning empty options`)
+        logger.debug(`⚠️ Property ${propertyName} not found, returning empty options`)
         return []
       }
 
@@ -55,15 +57,15 @@ async function getContactPropertyOptions(
         value: opt.value
       }))
 
-      console.log(`✅ Found ${options.length} options for ${propertyName}`)
+      logger.debug(`✅ Found ${options.length} options for ${propertyName}`)
       return options
     }
 
-    console.log(`⚠️ Property ${propertyName} is not an enumeration, returning empty options`)
+    logger.debug(`⚠️ Property ${propertyName} is not an enumeration, returning empty options`)
     return []
 
   } catch (error: any) {
-    console.error(`Error fetching options for ${propertyName}:`, error)
+    logger.error(`Error fetching options for ${propertyName}:`, error)
     // Return empty array on error to allow form to still function
     return []
   }
@@ -76,7 +78,7 @@ export const getHubSpotLeadStatusOptions: HubSpotDataHandler<PropertyOption> = a
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  console.log("🔍 HubSpot lead status options fetcher called")
+  logger.debug("🔍 HubSpot lead status options fetcher called")
 
   const statusOptions = await getContactPropertyOptions(integration, 'hs_lead_status')
 
@@ -104,7 +106,7 @@ export const getHubSpotContentTopicsOptions: HubSpotDataHandler<PropertyOption> 
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  console.log("🔍 HubSpot content topics options fetcher called")
+  logger.debug("🔍 HubSpot content topics options fetcher called")
 
   const topicsOptions = await getContactPropertyOptions(integration, 'favorite_content_topics')
 
@@ -132,7 +134,7 @@ export const getHubSpotPreferredChannelsOptions: HubSpotDataHandler<PropertyOpti
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  console.log("🔍 HubSpot preferred channels options fetcher called")
+  logger.debug("🔍 HubSpot preferred channels options fetcher called")
 
   const channelsOptions = await getContactPropertyOptions(integration, 'preferred_channels')
 

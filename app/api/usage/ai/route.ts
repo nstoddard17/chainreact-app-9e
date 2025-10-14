@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +11,7 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get current subscription and plan
@@ -50,16 +53,13 @@ export async function GET(request: NextRequest) {
       ai_agent_executions: usage?.ai_agent_executions || 0
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       ...currentUsage,
       ...limits
     })
 
   } catch (error) {
-    console.error("Error fetching AI usage:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch AI usage" },
-      { status: 500 }
-    )
+    logger.error("Error fetching AI usage:", error)
+    return errorResponse("Failed to fetch AI usage" , 500)
   }
 } 

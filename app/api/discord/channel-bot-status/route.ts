@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { validateDiscordToken, makeDiscordApiRequest } from '../../integrations/discord/data/utils'
+
+import { logger } from '@/lib/utils/logger'
 
 interface ChannelBotStatus {
   isInChannel: boolean
@@ -85,12 +88,12 @@ async function checkChannelBotStatus(
             botHasChannelPerms = true
           }
         } catch (channelError) {
-          console.log('Bot cannot access channel:', channelError)
+          logger.debug('Bot cannot access channel:', channelError)
           botHasChannelPerms = false
         }
       }
     } catch (guildError) {
-      console.log('Bot not in guild:', guildError)
+      logger.debug('Bot not in guild:', guildError)
       botInGuild = false
     }
 
@@ -115,7 +118,7 @@ async function checkChannelBotStatus(
         }
       }
     } catch (userError) {
-      console.log('Error checking user permissions:', userError)
+      logger.debug('Error checking user permissions:', userError)
     }
 
     return {
@@ -125,7 +128,7 @@ async function checkChannelBotStatus(
       userCanInviteBot: userCanInvite
     }
   } catch (error) {
-    console.error('Error checking channel bot status:', error)
+    logger.error('Error checking channel bot status:', error)
     return {
       isInChannel: false,
       canSendMessages: false,
@@ -143,10 +146,7 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guildId')
 
     if (!channelId || !guildId) {
-      return NextResponse.json(
-        { error: 'Channel ID and Guild ID are required' },
-        { status: 400 }
-      )
+      return errorResponse('Channel ID and Guild ID are required' , 400)
     }
 
     // Verify user is authenticated
@@ -154,10 +154,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return errorResponse('Unauthorized' , 401)
     }
 
     // Get Discord integration
@@ -170,23 +167,17 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!integration) {
-      return NextResponse.json(
-        { error: 'Discord integration not connected' },
-        { status: 400 }
-      )
+      return errorResponse('Discord integration not connected' , 400)
     }
 
     // Check channel bot status
     const status = await checkChannelBotStatus(channelId, guildId, integration)
     
-    console.log(`🤖 Channel bot status for ${channelId}:`, status)
+    logger.debug(`🤖 Channel bot status for ${channelId}:`, status)
 
-    return NextResponse.json(status)
+    return jsonResponse(status)
   } catch (error) {
-    console.error('Error in channel bot status API:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    logger.error('Error in channel bot status API:', error)
+    return errorResponse('Internal server error' , 500)
   }
 }

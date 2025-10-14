@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,8 +11,8 @@ const supabase = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('\n🧪 TESTING MAIL WEBHOOK PROCESSING')
-    console.log('=====================================\n')
+    logger.debug('\n🧪 TESTING MAIL WEBHOOK PROCESSING')
+    logger.debug('=====================================\n')
 
     // Get the active subscription
     const { data: subscriptions } = await supabase
@@ -21,11 +24,11 @@ export async function POST(request: NextRequest) {
 
     const subscription = subscriptions?.[0]
     if (!subscription) {
-      return NextResponse.json({ error: 'No active subscription found' }, { status: 400 })
+      return errorResponse('No active subscription found' , 400)
     }
 
-    console.log(`Using subscription: ${subscription.id.substring(0, 8)}...`)
-    console.log(`User ID: ${subscription.user_id.substring(0, 8)}...`)
+    logger.debug(`Using subscription: ${subscription.id.substring(0, 8)}...`)
+    logger.debug(`User ID: ${subscription.user_id.substring(0, 8)}...`)
 
     // Create a test mail notification that mimics Microsoft's format
     const testNotification = {
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('📧 Test mail notification:', testNotification)
+    logger.debug('📧 Test mail notification:', testNotification)
 
     // Insert directly into the webhook queue (bypass the webhook receiver)
     const { data: queueItem, error: queueError } = await supabase
@@ -57,11 +60,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (queueError) {
-      console.error('❌ Failed to insert test notification:', queueError)
-      return NextResponse.json({ error: 'Failed to create test notification' }, { status: 500 })
+      logger.error('❌ Failed to insert test notification:', queueError)
+      return errorResponse('Failed to create test notification' , 500)
     }
 
-    console.log('✅ Test notification queued:', queueItem.id)
+    logger.debug('✅ Test notification queued:', queueItem.id)
 
     // Trigger the worker to process the queue
     const base = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -71,12 +74,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (!workerResponse.ok) {
-      console.error('❌ Worker failed:', workerResponse.status, workerResponse.statusText)
-      return NextResponse.json({ error: 'Worker failed' }, { status: 500 })
+      logger.error('❌ Worker failed:', workerResponse.status, workerResponse.statusText)
+      return errorResponse('Worker failed' , 500)
     }
 
     const workerResult = await workerResponse.json()
-    console.log('✅ Worker result:', workerResult)
+    logger.debug('✅ Worker result:', workerResult)
 
     // Check if events were created
     const { data: events } = await supabase
@@ -86,16 +89,16 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(5)
 
-    console.log('📊 Recent events:', events?.length || 0)
+    logger.debug('📊 Recent events:', events?.length || 0)
     if (events && events.length > 0) {
-      console.log('📧 Latest event:', {
+      logger.debug('📧 Latest event:', {
         type: events[0].event_type,
         action: events[0].event_action,
         subject: events[0].payload?.subject
       })
     }
 
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: 'Mail webhook test completed',
       queueItem: queueItem.id,
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ Mail webhook test error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    logger.error('❌ Mail webhook test error:', error)
+    return errorResponse(error.message , 500)
   }
 }

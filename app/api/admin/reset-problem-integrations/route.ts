@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+
+import { logger } from '@/lib/utils/logger'
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -14,13 +17,13 @@ export async function POST(request: NextRequest) {
     const expectedSecret = process.env.ADMIN_SECRET || process.env.CRON_SECRET
 
     if (!expectedSecret) {
-      return NextResponse.json({ error: "ADMIN_SECRET not configured" }, { status: 500 })
+      return errorResponse("ADMIN_SECRET not configured" , 500)
     }
 
     // Allow secret authentication
     const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
     if (!providedSecret || providedSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized" , 401)
     }
 
     // Get the request body
@@ -37,11 +40,11 @@ export async function POST(request: NextRequest) {
     const integrationId = body.integrationId // Optional: target a specific integration
     const limit = body.limit || 20 // Limit the number of integrations to process
     
-    console.log(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
+    logger.debug(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
-      return NextResponse.json({ error: "Failed to create database client" }, { status: 500 })
+      return errorResponse("Failed to create database client" , 500)
     }
 
     // Build the query to find problematic integrations
@@ -67,18 +70,18 @@ export async function POST(request: NextRequest) {
     const { data: integrations, error: findError } = await query
     
     if (findError) {
-      console.error(`❌ Error finding problematic integrations:`, findError)
-      return NextResponse.json({ error: `Failed to find integrations: ${findError.message}` }, { status: 500 })
+      logger.error(`❌ Error finding problematic integrations:`, findError)
+      return jsonResponse({ error: `Failed to find integrations: ${findError.message}` }, { status: 500 })
     }
     
     if (!integrations || integrations.length === 0) {
-      return NextResponse.json({ 
+      return jsonResponse({ 
         success: true, 
         message: "No problematic integrations found to reset" 
       })
     }
     
-    console.log(`🔄 Found ${integrations.length} problematic integrations to reset`)
+    logger.debug(`🔄 Found ${integrations.length} problematic integrations to reset`)
     
     // Process in smaller batches to avoid timeouts
     const batchSize = 5
@@ -102,14 +105,14 @@ export async function POST(request: NextRequest) {
         .in("id", batch.map(i => i.id))
         
       if (updateError) {
-        console.error(`❌ Error resetting batch of problematic integrations:`, updateError)
+        logger.error(`❌ Error resetting batch of problematic integrations:`, updateError)
         results.push({
           batch: i / batchSize + 1,
           success: false,
           error: updateError.message
         })
       } else {
-        console.log(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+        logger.debug(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
         results.push({
           batch: i / batchSize + 1,
           success: true,
@@ -121,15 +124,15 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     
-    return NextResponse.json({
+    return jsonResponse({
       success: true,
       message: `Reset ${integrations.length} problematic integrations`,
       integrations: integrations.map(i => ({ id: i.id, provider: i.provider, user_id: i.user_id, status: i.status })),
       results
     })
   } catch (error: any) {
-    console.error(`💥 Error in reset-problem-integrations:`, error)
-    return NextResponse.json({
+    logger.error(`💥 Error in reset-problem-integrations:`, error)
+    return jsonResponse({
       success: false,
       error: `Failed to reset problematic integrations: ${error.message}`,
     }, { status: 500 })

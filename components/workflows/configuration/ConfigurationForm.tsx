@@ -47,6 +47,8 @@ import { GenericConfiguration } from './providers/GenericConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
 
+import { logger } from '@/lib/utils/logger'
+
 interface ConfigurationFormProps {
   nodeInfo: any;
   initialData?: Record<string, any>;
@@ -90,7 +92,7 @@ function ConfigurationForm({
   const [values, setValues] = useState<Record<string, any>>(() => {
     // Extract real config values, excluding the reserved keys
     const { __dynamicOptions, __validationState, ...configValues } = initialData || {};
-    console.log('🔄 [ConfigForm] Initializing values with initialData:', {
+    logger.debug('🔄 [ConfigForm] Initializing values with initialData:', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
       currentNodeId,
@@ -164,7 +166,7 @@ function ConfigurationForm({
 
   // Debug logging for HubSpot
   if (provider === 'hubspot') {
-    console.log('🎯 [ConfigForm] HubSpot integration check:', {
+    logger.debug('🎯 [ConfigForm] HubSpot integration check:', {
       provider,
       integration,
       status: integration?.status,
@@ -202,38 +204,38 @@ function ConfigurationForm({
     onOptionsUpdated: useCallback((updatedOptions: Record<string, any>) => {
       // Update the form values with the latest dynamic options
       // This ensures they persist between modal opens
-      console.log('📝 [ConfigForm] Dynamic options updated, saving to form values:', Object.keys(updatedOptions));
+      logger.debug('📝 [ConfigForm] Dynamic options updated, saving to form values:', Object.keys(updatedOptions));
       setValues(prev => ({
         ...prev,
         __dynamicOptions: updatedOptions
       }));
     }, []),
     onLoadingChange: (fieldName: string, isLoading: boolean) => {
-      console.log(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
+      logger.debug(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
 
       setLoadingFields(prev => {
         const newSet = new Set(prev);
         if (isLoading) {
-          console.log(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
+          logger.debug(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
           newSet.add(fieldName);
 
           // Set a timeout to clear loading state after 10 seconds to prevent infinite loading
           setTimeout(() => {
-            console.log(`⏱️ [ConfigForm] Timeout reached for ${fieldName}, clearing loading state`);
+            logger.debug(`⏱️ [ConfigForm] Timeout reached for ${fieldName}, clearing loading state`);
             setLoadingFields(prevFields => {
               const updatedSet = new Set(prevFields);
               if (updatedSet.has(fieldName)) {
-                console.log(`🧹 [ConfigForm] Force clearing ${fieldName} from loadingFields due to timeout`);
+                logger.debug(`🧹 [ConfigForm] Force clearing ${fieldName} from loadingFields due to timeout`);
                 updatedSet.delete(fieldName);
               }
               return updatedSet;
             });
           }, 10000);
         } else {
-          console.log(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
+          logger.debug(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
           newSet.delete(fieldName);
         }
-        console.log(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
+        logger.debug(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
         return newSet;
       });
 
@@ -298,7 +300,7 @@ function ConfigurationForm({
 
   // NOW we can do the conditional return (after all hooks)
   if (!nodeInfo) {
-    console.log('⚠️ [ConfigForm] No nodeInfo provided');
+    logger.debug('⚠️ [ConfigForm] No nodeInfo provided');
     return (
       <div className="flex items-center justify-center h-32 text-slate-500">
         <div className="text-center">
@@ -309,7 +311,7 @@ function ConfigurationForm({
     );
   }
 
-  console.log('🔍 [ConfigForm] Provider routing:', {
+  logger.debug('🔍 [ConfigForm] Provider routing:', {
     provider,
     nodeType,
     hasConfigSchema: !!nodeInfo.configSchema,
@@ -320,7 +322,7 @@ function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
-    console.log('🔄 [ConfigForm] Initializing form values:', {
+    logger.debug('🔄 [ConfigForm] Initializing form values:', {
       nodeType: nodeInfo?.type,
       initialData,
       hasInitialData: !!initialData && Object.keys(initialData).length > 0,
@@ -340,7 +342,7 @@ function ConfigurationForm({
         if (value !== undefined) {
           // Check if this field was manually cleared by a provider handler
           if (clearedFieldsRef.current.has(key)) {
-            console.log(`🚫 [ConfigForm] Skipping restore of ${key} because it was manually cleared by provider handler`);
+            logger.debug(`🚫 [ConfigForm] Skipping restore of ${key} because it was manually cleared by provider handler`);
             return;
           }
 
@@ -355,12 +357,12 @@ function ConfigurationForm({
           const hasAIPlaceholder = typeof value === 'string' && value.startsWith('{{AI_FIELD:');
 
           if ((isSlackSelectorField || isNotionDatabaseField) && hasAIPlaceholder) {
-            console.log(`🚫 [ConfigForm] Clearing AI placeholder from selector field: ${key}`);
+            logger.debug(`🚫 [ConfigForm] Clearing AI placeholder from selector field: ${key}`);
             initialValues[key] = ''; // Clear the AI placeholder
 
             // Mark as manually cleared to prevent any restoration
             clearedFieldsRef.current.add(key);
-            console.log(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
+            logger.debug(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
 
             // Also ensure this field is not marked as an AI field
             if (aiFields[key]) {
@@ -383,20 +385,20 @@ function ConfigurationForm({
       if (nodeInfo?.type === 'slack_action_send_message') {
         clearedFieldsRef.current.add('channel');
         clearedFieldsRef.current.add('asUser');
-        console.log('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared to prevent AI mode');
+        logger.debug('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared to prevent AI mode');
       }
 
       // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
       if (nodeInfo?.type === 'notion_action_create_page') {
         clearedFieldsRef.current.add('database');
         clearedFieldsRef.current.add('databaseId');
-        console.log('🚫 [ConfigForm] Pre-marked Notion database fields as cleared to prevent AI mode');
+        logger.debug('🚫 [ConfigForm] Pre-marked Notion database fields as cleared to prevent AI mode');
       }
 
       // If connected to AI Agent and _allFieldsAI not explicitly set, add it
       if (isConnectedToAIAgent && initialData._allFieldsAI === undefined) {
         initialValues._allFieldsAI = true;
-        console.log('🤖 [ConfigForm] Auto-enabling _allFieldsAI for AI Agent chain');
+        logger.debug('🤖 [ConfigForm] Auto-enabling _allFieldsAI for AI Agent chain');
       }
 
       // If _allFieldsAI is set, initialize all fields with AI placeholders
@@ -452,11 +454,11 @@ function ConfigurationForm({
               initialValues[field.name] = `{{AI_FIELD:${field.name}}}`;
             }
           } else if (isSlackSelectorField) {
-            console.log(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
           } else if (isNotionDatabaseField) {
-            console.log(`🚫 [ConfigForm] Skipping AI mode for Notion database field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for Notion database field: ${field.name}`);
           } else if (clearedFieldsRef.current.has(field.name)) {
-            console.log(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
           }
         });
       }
@@ -464,21 +466,21 @@ function ConfigurationForm({
       // No initial data - if connected to AI Agent, auto-enable AI mode
       if (isConnectedToAIAgent) {
         initialValues._allFieldsAI = true;
-        console.log('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
+        logger.debug('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
       }
 
       // For Slack send message, ALWAYS mark channel and asUser as cleared to prevent AI mode
       if (nodeInfo?.type === 'slack_action_send_message') {
         clearedFieldsRef.current.add('channel');
         clearedFieldsRef.current.add('asUser');
-        console.log('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared (no initial data)');
+        logger.debug('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared (no initial data)');
       }
 
       // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
       if (nodeInfo?.type === 'notion_action_create_page') {
         clearedFieldsRef.current.add('database');
         clearedFieldsRef.current.add('databaseId');
-        console.log('🚫 [ConfigForm] Pre-marked Notion database fields as cleared (no initial data)');
+        logger.debug('🚫 [ConfigForm] Pre-marked Notion database fields as cleared (no initial data)');
       }
     }
 
@@ -492,10 +494,10 @@ function ConfigurationForm({
     }
 
     const normalizedInitialValues = normalizeAllVariablesInObject(initialValues);
-    console.log('🔄 [ConfigForm] Setting form values to:', normalizedInitialValues);
-    console.log('🔍 [ConfigForm] _allFieldsAI in initialValues:', normalizedInitialValues._allFieldsAI);
-    console.log('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
-    console.log('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
+    logger.debug('🔄 [ConfigForm] Setting form values to:', normalizedInitialValues);
+    logger.debug('🔍 [ConfigForm] _allFieldsAI in initialValues:', normalizedInitialValues._allFieldsAI);
+    logger.debug('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
+    logger.debug('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
     setValues(normalizedInitialValues);
     setIsInitialLoading(false);
   }, [nodeInfo, initialData, isConnectedToAIAgent]);
@@ -593,7 +595,7 @@ function ConfigurationForm({
     );
 
     if (hasChanges && Object.keys(newAiFields).length > 0) {
-      console.log('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
+      logger.debug('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
       setAiFields(newAiFields);
     }
   }, [values, initialData, nodeInfo, aiFields, isConnectedToAIAgent]);
@@ -605,7 +607,7 @@ function ConfigurationForm({
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
-    console.log('🚨 [ConfigForm] MOUNT EFFECT RUNNING', {
+    logger.debug('🚨 [ConfigForm] MOUNT EFFECT RUNNING', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
       timestamp: new Date().toISOString(),
@@ -620,14 +622,14 @@ function ConfigurationForm({
 
     // Clear options for Dropbox path field on mount to ensure fresh load
     if (nodeInfo?.providerId === 'dropbox' && resetOptions) {
-      console.log('🧹 [ConfigForm] Clearing Dropbox path options on mount');
+      logger.debug('🧹 [ConfigForm] Clearing Dropbox path options on mount');
       resetOptions('path');
     }
 
     // Clear options for Trello board field on mount to ensure fresh load
     // This is critical after workflow execution that may have created new boards
     if (nodeInfo?.providerId === 'trello' && resetOptions) {
-      console.log('🧹 [ConfigForm] Clearing Trello board options on mount to ensure fresh data');
+      logger.debug('🧹 [ConfigForm] Clearing Trello board options on mount to ensure fresh data');
       resetOptions('boardId');
     }
 
@@ -644,7 +646,7 @@ function ConfigurationForm({
                                  (existingIntegration && existingIntegration.status === 'connected');
 
     if (skipIntegrationFetch) {
-      console.log('⏭️ [ConfigForm] Skipping integration fetch', {
+      logger.debug('⏭️ [ConfigForm] Skipping integration fetch', {
         provider: nodeInfo?.providerId,
         providerToCheck,
         hasExistingIntegration: !!existingIntegration,
@@ -658,10 +660,10 @@ function ConfigurationForm({
       // Wait a bit to see if component stays mounted
       timeoutId = setTimeout(async () => {
         if (mounted) {
-          console.log('🔄 [ConfigForm] Component stayed mounted, loading integrations', { componentId });
+          logger.debug('🔄 [ConfigForm] Component stayed mounted, loading integrations', { componentId });
           await fetchIntegrations(); // Regular fetch - concurrent calls are now handled properly
         } else {
-          console.log('⏭️ [ConfigForm] Component unmounted quickly, skipping integration fetch', { componentId });
+          logger.debug('⏭️ [ConfigForm] Component unmounted quickly, skipping integration fetch', { componentId });
         }
       }, 500); // Wait 500ms before fetching
     };
@@ -671,7 +673,7 @@ function ConfigurationForm({
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      console.log('🚨 [ConfigForm] UNMOUNT EFFECT CLEANUP', {
+      logger.debug('🚨 [ConfigForm] UNMOUNT EFFECT CLEANUP', {
         nodeType: nodeInfo?.type,
         timestamp: new Date().toISOString(),
         componentId
@@ -689,7 +691,7 @@ function ConfigurationForm({
     const prevNodeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
     const isNewNode = prevNodeKey !== previousNodeKeyRef.current;
 
-    console.log('🔄 [ConfigForm] Reset hasLoadedOnMount for FRESH data load', {
+    logger.debug('🔄 [ConfigForm] Reset hasLoadedOnMount for FRESH data load', {
       nodeId: nodeInfo?.id,
       nodeType: nodeInfo?.type,
       currentNodeId,
@@ -702,26 +704,26 @@ function ConfigurationForm({
     // Only clear specific fields that need fresh data on each modal open
     // For Trello, always clear boards to get fresh data
     if (nodeInfo?.providerId === 'trello' && isNewNode) {
-      console.log('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
+      logger.debug('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
       resetOptions('boardId');
     }
 
     // For Microsoft Excel, always clear workbooks to get fresh data
     if (nodeInfo?.providerId === 'microsoft-excel' && isNewNode) {
-      console.log('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on modal reopen');
+      logger.debug('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on modal reopen');
       resetOptions('workbookId');
     }
 
     // For Airtable, don't reset bases as they rarely change
     // Only reset if it's a completely different node
     if (nodeInfo?.providerId === 'airtable') {
-      console.log('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
+      logger.debug('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
       // Don't reset baseId - let it use cached values
     } else if (nodeInfo?.configSchema) {
       // For other providers, ALWAYS reset loadOnMount fields for fresh data
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.loadOnMount && field.dynamic) {
-          console.log(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
+          logger.debug(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
           resetOptions(field.name);
         }
       });
@@ -736,7 +738,7 @@ function ConfigurationForm({
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
     const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
 
-    console.log('🚀 [ConfigForm] Checking for loadOnMount fields...', {
+    logger.debug('🚀 [ConfigForm] Checking for loadOnMount fields...', {
       nodeInstanceKey,
       hasLoadedOnMount: hasLoadedOnMount.current,
       isInitialLoading,
@@ -754,7 +756,7 @@ function ConfigurationForm({
         // Don't check dynamicOptions or values here as it causes dependency issues
         const shouldLoad = !hasLoadedOnMount.current;
 
-        console.log(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
+        logger.debug(`🔄 [ConfigForm] Field ${field.name} has loadOnMount, shouldLoad: ${shouldLoad}`, {
           fieldType: field.type,
           dynamic: field.dynamic,
           loadOnMount: field.loadOnMount
@@ -764,134 +766,134 @@ function ConfigurationForm({
       return false;
     });
 
-    console.log(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
+    logger.debug(`📋 [ConfigForm] Fields to load on mount:`, fieldsToLoad.map((f: any) => ({ name: f.name, type: f.type, dynamic: f.dynamic })));
 
     if (fieldsToLoad.length > 0) {
-      console.log('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
+      logger.debug('🚀 [ConfigForm] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name));
       hasLoadedOnMount.current = true; // Mark that we've loaded
 
       // Load immediately for boardId if it has a saved value (no delay)
       const boardIdField = fieldsToLoad.find((f: any) => f.name === 'boardId');
       if (boardIdField && values.boardId) {
-        console.log(`🚀 [ConfigForm] Loading boardId immediately since it has a saved value`);
+        logger.debug(`🚀 [ConfigForm] Loading boardId immediately since it has a saved value`);
         loadOptions('boardId', undefined, undefined, true); // Force refresh immediately
       }
 
       // Load immediately for Airtable baseId (no delay, use cache)
       const baseIdField = fieldsToLoad.find((f: any) => f.name === 'baseId');
       if (baseIdField && nodeInfo?.providerId === 'airtable') {
-        console.log(`🚀 [ConfigForm] Loading Airtable baseId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Airtable baseId immediately with cache`);
         loadOptions('baseId', undefined, undefined, false); // Don't force refresh - use cache
       }
 
       // Load immediately for Google Calendar fields
       const calendarIdField = fieldsToLoad.find((f: any) => f.name === 'calendarId');
       if (calendarIdField && nodeInfo?.providerId === 'google-calendar') {
-        console.log(`🚀 [ConfigForm] Loading Google Calendar calendarId immediately`);
+        logger.debug(`🚀 [ConfigForm] Loading Google Calendar calendarId immediately`);
         loadOptions('calendarId', undefined, undefined, false); // Use cache for better performance
       }
 
       const calendarsField = fieldsToLoad.find((f: any) => f.name === 'calendars');
       if (calendarsField && nodeInfo?.providerId === 'google-calendar') {
-        console.log(`🚀 [ConfigForm] Loading Google Calendar calendars immediately`);
+        logger.debug(`🚀 [ConfigForm] Loading Google Calendar calendars immediately`);
         loadOptions('calendars', undefined, undefined, false);
       }
 
       // Load immediately for Google Sheets spreadsheetId
       const spreadsheetIdField = fieldsToLoad.find((f: any) => f.name === 'spreadsheetId');
       if (spreadsheetIdField && nodeInfo?.providerId === 'google-sheets') {
-        console.log(`🚀 [ConfigForm] Loading Google Sheets spreadsheetId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Google Sheets spreadsheetId immediately with cache`);
         loadOptions('spreadsheetId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Microsoft Excel workbookId
       const workbookIdField = fieldsToLoad.find((f: any) => f.name === 'workbookId');
       if (workbookIdField && nodeInfo?.providerId === 'microsoft-excel') {
-        console.log(`🚀 [ConfigForm] Loading Microsoft Excel workbookId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Microsoft Excel workbookId immediately with cache`);
         loadOptions('workbookId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Dropbox path field
       const dropboxPathField = fieldsToLoad.find((f: any) => f.name === 'path');
       if (dropboxPathField && nodeInfo?.providerId === 'dropbox') {
-        console.log(`🚀 [ConfigForm] Loading Dropbox path (folders) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Dropbox path (folders) immediately with cache`);
         loadOptions('path', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Dropbox filePath field (loads files from root)
       const dropboxFilePathField = fieldsToLoad.find((f: any) => f.name === 'filePath');
       if (dropboxFilePathField && nodeInfo?.providerId === 'dropbox') {
-        console.log(`🚀 [ConfigForm] Loading Dropbox filePath (files from root) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Dropbox filePath (files from root) immediately with cache`);
         loadOptions('filePath', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Box folderId
       const boxFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
       if (boxFolderIdField && nodeInfo?.providerId === 'box') {
-        console.log(`🚀 [ConfigForm] Loading Box folderId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Box folderId immediately with cache`);
         loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Box fileId field (loads files from root)
       const boxFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
       if (boxFileIdField && nodeInfo?.providerId === 'box') {
-        console.log(`🚀 [ConfigForm] Loading Box fileId (files from root) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Box fileId (files from root) immediately with cache`);
         loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for OneDrive folderId
       const onedriveFolderIdField = fieldsToLoad.find((f: any) => f.name === 'folderId');
       if (onedriveFolderIdField && nodeInfo?.providerId === 'onedrive') {
-        console.log(`🚀 [ConfigForm] Loading OneDrive folderId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading OneDrive folderId immediately with cache`);
         loadOptions('folderId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for OneDrive fileId field (loads files from root)
       const onedriveFileIdField = fieldsToLoad.find((f: any) => f.name === 'fileId');
       if (onedriveFileIdField && nodeInfo?.providerId === 'onedrive') {
-        console.log(`🚀 [ConfigForm] Loading OneDrive fileId (files from root) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading OneDrive fileId (files from root) immediately with cache`);
         loadOptions('fileId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Notion databaseId
       const notionDatabaseIdField = fieldsToLoad.find((f: any) => f.name === 'databaseId');
       if (notionDatabaseIdField && nodeInfo?.providerId === 'notion') {
-        console.log(`🚀 [ConfigForm] Loading Notion databaseId immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Notion databaseId immediately with cache`);
         loadOptions('databaseId', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Slack channel
       const slackChannelField = fieldsToLoad.find((f: any) => f.name === 'channel');
       if (slackChannelField && nodeInfo?.providerId === 'slack') {
-        console.log(`🚀 [ConfigForm] Loading Slack channel immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Slack channel immediately with cache`);
         loadOptions('channel', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Gmail "from" field (recent recipients)
       const gmailFromField = fieldsToLoad.find((f: any) => f.name === 'from');
       if (gmailFromField && nodeInfo?.providerId === 'gmail') {
-        console.log(`🚀 [ConfigForm] Loading Gmail "from" field (recent recipients) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "from" field (recent recipients) immediately with cache`);
         loadOptions('from', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Gmail "labelIds" field (labels/folders)
       const gmailLabelIdsField = fieldsToLoad.find((f: any) => f.name === 'labelIds');
       if (gmailLabelIdsField && nodeInfo?.providerId === 'gmail') {
-        console.log(`🚀 [ConfigForm] Loading Gmail "labelIds" field (labels) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Gmail "labelIds" field (labels) immediately with cache`);
         loadOptions('labelIds', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Outlook "from" field (recent recipients)
       const outlookFromField = fieldsToLoad.find((f: any) => f.name === 'from');
       if (outlookFromField && nodeInfo?.providerId === 'microsoft-outlook') {
-        console.log(`🚀 [ConfigForm] Loading Outlook "from" field (recent recipients) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Outlook "from" field (recent recipients) immediately with cache`);
         loadOptions('from', undefined, undefined, false); // Use cache for better performance
       }
 
       // Load immediately for Outlook "folder" field (folders)
       const outlookFolderField = fieldsToLoad.find((f: any) => f.name === 'folder');
       if (outlookFolderField && nodeInfo?.providerId === 'microsoft-outlook') {
-        console.log(`🚀 [ConfigForm] Loading Outlook "folder" field (folders) immediately with cache`);
+        logger.debug(`🚀 [ConfigForm] Loading Outlook "folder" field (folders) immediately with cache`);
         loadOptions('folder', undefined, undefined, false); // Use cache for better performance
       }
 
@@ -963,7 +965,7 @@ function ConfigurationForm({
             // Already loaded above
             return;
           }
-          console.log(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
+          logger.debug(`🔄 [ConfigForm] Auto-loading field: ${field.name}`);
           // Ensure Google Drive folders force-load on mount to avoid stale cache
           // BUT only if we don't have saved options for it already
           if (nodeInfo?.providerId === 'google-drive' && field.name === 'folderId') {
@@ -981,7 +983,7 @@ function ConfigurationForm({
 
             // Only force refresh if no saved options exist OR if saved value is not in options
             const shouldForceRefresh = !hasSavedOptions || (savedValue && !valueExistsInOptions);
-            console.log(`🔍 [ConfigForm] Google Drive folderId check:`, {
+            logger.debug(`🔍 [ConfigForm] Google Drive folderId check:`, {
               hasSavedOptions,
               savedValue,
               valueExistsInOptions,
@@ -994,7 +996,7 @@ function ConfigurationForm({
           // The 5-second cache in useDynamicOptions will prevent API spam
           const forceRefresh = true;
 
-          console.log(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`, {
+          logger.debug(`🔄 [ConfigForm] Loading ${field.name} on mount with forceRefresh to ensure fresh data`, {
             fieldType: field.type,
             dynamic: field.dynamic,
             provider: nodeInfo?.providerId
@@ -1011,7 +1013,7 @@ function ConfigurationForm({
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;
 
-    console.log('🔍 [ConfigForm] Checking for dynamic fields with saved values...', {
+    logger.debug('🔍 [ConfigForm] Checking for dynamic fields with saved values...', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
       hasValues: Object.keys(values).length > 0
@@ -1036,7 +1038,7 @@ function ConfigurationForm({
       if (field.dependsOn) {
         const parentValue = values[field.dependsOn];
         if (parentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
-          console.log(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
+          logger.debug(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
           return true;
         }
       }
@@ -1050,7 +1052,7 @@ function ConfigurationForm({
 
       // Skip if field is currently loading
       if (loadingFields.has(field.name)) {
-        console.log(`⏭️ [ConfigForm] Skipping ${field.name} - already loading`);
+        logger.debug(`⏭️ [ConfigForm] Skipping ${field.name} - already loading`);
         return false;
       }
 
@@ -1062,7 +1064,7 @@ function ConfigurationForm({
       if (nodeInfo?.type === 'trello_action_move_card' && values.boardId) {
         if (field.name === 'cardId' || field.name === 'listId') {
           // Always load these fields if we have a boardId and a saved value
-          console.log(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+          logger.debug(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
           // Load if no options or if saved value not in options
           if (!hasOptions) {
             return true;
@@ -1072,7 +1074,7 @@ function ConfigurationForm({
             (opt.value === savedValue) || (opt.id === savedValue)
           );
           if (!valueExists) {
-            console.log(`🎯 [ConfigForm] Saved value ${savedValue} not found in options for ${field.name}, need to reload`);
+            logger.debug(`🎯 [ConfigForm] Saved value ${savedValue} not found in options for ${field.name}, need to reload`);
             return true;
           }
         }
@@ -1080,7 +1082,7 @@ function ConfigurationForm({
 
       // Special handling for Notion page field
       if (nodeInfo?.providerId === 'notion' && field.name === 'page' && values.workspace) {
-        console.log(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+        logger.debug(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
         // Always load pages if we have a workspace and a saved page value
         if (!hasOptions) {
           return true;
@@ -1090,7 +1092,7 @@ function ConfigurationForm({
           (opt.value === savedValue) || (opt.id === savedValue)
         );
         if (!valueExists) {
-          console.log(`🎯 [ConfigForm] Saved page ${savedValue} not found in options, need to reload`);
+          logger.debug(`🎯 [ConfigForm] Saved page ${savedValue} not found in options, need to reload`);
           return true;
         }
         return false; // Page is already in options
@@ -1140,7 +1142,7 @@ function ConfigurationForm({
     });
 
     if (fieldsWithValues.length > 0) {
-      console.log('🚀 [ConfigForm] Loading options for fields with saved values:',
+      logger.debug('🚀 [ConfigForm] Loading options for fields with saved values:',
         fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name], dependsOn: f.dependsOn }))
       );
 
@@ -1149,14 +1151,14 @@ function ConfigurationForm({
         // Mark this field as loaded to prevent duplicate loads
         loadedFieldsWithValues.current.add(field.name);
 
-        console.log(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
+        logger.debug(`🔄 [ConfigForm] Background loading options for field: ${field.name} (saved value: ${values[field.name]})`);
 
         try {
           // Check if field has dependencies
           if (field.dependsOn) {
             const dependsOnValue = values[field.dependsOn];
             if (dependsOnValue) {
-              console.log(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
+              logger.debug(`  -> Loading with dependency: ${field.dependsOn} = ${dependsOnValue}`);
               await loadOptions(field.name, field.dependsOn, dependsOnValue);
             }
           } else {
@@ -1164,7 +1166,7 @@ function ConfigurationForm({
             await loadOptions(field.name);
           }
         } catch (error) {
-          console.error(`❌ [ConfigForm] Error loading options for ${field.name}:`, error);
+          logger.error(`❌ [ConfigForm] Error loading options for ${field.name}:`, error);
           // Make sure to clear loading state even on error
           setLoadingFields(prev => {
             const newSet = new Set(prev);
@@ -1182,7 +1184,7 @@ function ConfigurationForm({
     
     // Special handling for Facebook shareToGroups field
     if (nodeInfo.type === 'facebook_action_create_post' && values.pageId && !dynamicOptions.shareToGroups) {
-      console.log('🔄 [ConfigForm] Loading Facebook groups for sharing...');
+      logger.debug('🔄 [ConfigForm] Loading Facebook groups for sharing...');
       loadOptions('shareToGroups');
     }
     
@@ -1225,18 +1227,18 @@ function ConfigurationForm({
     
     if (fieldsToLoad.length > 0) {
       fieldsToLoad.forEach((field: any) => {
-        console.log(`🔄 [ConfigForm] Auto-loading field that became visible: ${field.name}`);
+        logger.debug(`🔄 [ConfigForm] Auto-loading field that became visible: ${field.name}`);
 
         // Check if the field has dependencies
         if (field.dependsOn) {
           const dependencyValue = values[field.dependsOn];
           if (dependencyValue) {
             // Load with the dependency value
-            console.log(`📦 [ConfigForm] Loading ${field.name} with dependency ${field.dependsOn}: ${dependencyValue}`);
+            logger.debug(`📦 [ConfigForm] Loading ${field.name} with dependency ${field.dependsOn}: ${dependencyValue}`);
             // Avoid forcing reloads for dependent fields; prevents sheetName thrash
             loadOptions(field.name, field.dependsOn, dependencyValue, false);
           } else {
-            console.log(`⚠️ [ConfigForm] Skipping auto-load for ${field.name} - missing dependency value for ${field.dependsOn}`);
+            logger.debug(`⚠️ [ConfigForm] Skipping auto-load for ${field.name} - missing dependency value for ${field.dependsOn}`);
           }
         } else {
           // No dependencies, load normally
@@ -1249,11 +1251,11 @@ function ConfigurationForm({
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {
     const handleReconnection = (event: CustomEvent) => {
-      console.log('🔄 [ConfigForm] Integration reconnection event received:', event.detail);
+      logger.debug('🔄 [ConfigForm] Integration reconnection event received:', event.detail);
       
       // Refresh integrations list to get updated status
       if (event.detail?.provider) {
-        console.log('✅ [ConfigForm] Refreshing integrations after reconnection...');
+        logger.debug('✅ [ConfigForm] Refreshing integrations after reconnection...');
         fetchIntegrations(true); // Force refresh
       }
     };
@@ -1269,7 +1271,7 @@ function ConfigurationForm({
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
     const normalizedSubmissionValues = normalizeAllVariablesInObject({ ...submissionValues });
-    console.log('🎯 [ConfigForm] handleSubmit called with values:', {
+    logger.debug('🎯 [ConfigForm] handleSubmit called with values:', {
       allValues: normalizedSubmissionValues,
       pageFieldsValue: normalizedSubmissionValues.pageFields,
       hasPageFields: 'pageFields' in normalizedSubmissionValues
@@ -1296,10 +1298,10 @@ function ConfigurationForm({
             dynamicOptions,
             timestamp: Date.now()
           }));
-          console.log('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
+          logger.debug('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
         } catch (e) {
           // localStorage might be full or disabled, ignore
-          console.warn('Could not cache configuration locally:', e);
+          logger.warn('Could not cache configuration locally:', e);
         }
       }
       
@@ -1329,7 +1331,7 @@ function ConfigurationForm({
         });
       }
     } catch (error) {
-      console.error('Error saving configuration:', error);
+      logger.error('Error saving configuration:', error);
     } finally {
       setIsLoading(false);
     }
@@ -1351,7 +1353,7 @@ function ConfigurationForm({
         }
       }
     } catch (error) {
-      console.error('Error connecting integration:', error);
+      logger.error('Error connecting integration:', error);
     }
   };
 
@@ -1433,13 +1435,13 @@ function ConfigurationForm({
   // THIRD THING: Route to the correct provider component
   // Check for specific node types that need custom configuration
   if (nodeInfo?.type === 'schedule') {
-    console.log('⏰ [ConfigForm] Routing to Schedule configuration');
+    logger.debug('⏰ [ConfigForm] Routing to Schedule configuration');
     return <ScheduleConfiguration {...commonProps} />;
   }
 
   // Check for if/then condition node
   if (nodeInfo?.type === 'if_then_condition') {
-    console.log('🔀 [ConfigForm] Routing to If/Then configuration');
+    logger.debug('🔀 [ConfigForm] Routing to If/Then configuration');
     return <IfThenConfiguration {...commonProps} />;
   }
 
@@ -1449,22 +1451,22 @@ function ConfigurationForm({
   switch (provider) {
     // Communication
     case 'discord':
-      console.log('📘 [ConfigForm] Routing to Discord configuration');
+      logger.debug('📘 [ConfigForm] Routing to Discord configuration');
       // Pass the base setValue for Discord to avoid complex field change logic
       // Also pass loadingFields so Discord can check if fields are loading
       return <DiscordConfiguration {...commonProps} setValue={setValueBase} loadingFields={loadingFields} />;
     
     case 'slack':
-      console.log('💬 [ConfigForm] Routing to Slack configuration');
+      logger.debug('💬 [ConfigForm] Routing to Slack configuration');
       return <SlackConfiguration {...commonProps} />;
     
     case 'teams':
-      console.log('👥 [ConfigForm] Routing to Teams configuration');
+      logger.debug('👥 [ConfigForm] Routing to Teams configuration');
       return <TeamsConfiguration {...commonProps} />;
     
     // Email
     case 'gmail':
-      console.log('📧 [ConfigForm] Routing to Gmail configuration');
+      logger.debug('📧 [ConfigForm] Routing to Gmail configuration');
       return <GmailConfiguration {...commonProps} />;
     
     case 'microsoft-outlook':
@@ -1475,7 +1477,7 @@ function ConfigurationForm({
     case 'notion':
       // NOTION WORKSPACE DEBUG: Log when Notion configuration is loaded
       if (commonProps.dynamicOptions?.workspace) {
-        console.log('🔍 [NOTION DEBUG] Notion workspace options:', {
+        logger.debug('🔍 [NOTION DEBUG] Notion workspace options:', {
           workspaceOptions: commonProps.dynamicOptions.workspace,
           currentValue: commonProps.values?.workspace
         });
@@ -1517,58 +1519,58 @@ function ConfigurationForm({
       return <HubSpotConfiguration {...commonProps} />;
     
     case 'stripe':
-      console.log('💳 [ConfigForm] Routing to Stripe configuration');
+      logger.debug('💳 [ConfigForm] Routing to Stripe configuration');
       return <StripeConfiguration {...commonProps} />;
     
     case 'shopify':
-      console.log('🛍️ [ConfigForm] Routing to Shopify configuration');
+      logger.debug('🛍️ [ConfigForm] Routing to Shopify configuration');
       return <ShopifyConfiguration {...commonProps} />;
     
     case 'paypal':
-      console.log('💰 [ConfigForm] Routing to PayPal configuration');
+      logger.debug('💰 [ConfigForm] Routing to PayPal configuration');
       return <PayPalConfiguration {...commonProps} />;
     
     // Social Media
     case 'twitter':
-      console.log('🐦 [ConfigForm] Routing to Twitter configuration');
+      logger.debug('🐦 [ConfigForm] Routing to Twitter configuration');
       return <TwitterConfiguration {...commonProps} />;
     
     case 'facebook':
-      console.log('👤 [ConfigForm] Routing to Facebook configuration');
+      logger.debug('👤 [ConfigForm] Routing to Facebook configuration');
       return <FacebookConfiguration {...commonProps} />;
     
     case 'linkedin':
-      console.log('💼 [ConfigForm] Routing to LinkedIn configuration');
+      logger.debug('💼 [ConfigForm] Routing to LinkedIn configuration');
       return <LinkedInConfiguration {...commonProps} />;
     
     case 'instagram':
-      console.log('📸 [ConfigForm] Routing to Instagram configuration');
+      logger.debug('📸 [ConfigForm] Routing to Instagram configuration');
       return <InstagramConfiguration {...commonProps} />;
     
     case 'youtube':
-      console.log('📺 [ConfigForm] Routing to YouTube configuration');
+      logger.debug('📺 [ConfigForm] Routing to YouTube configuration');
       return <YouTubeConfiguration {...commonProps} />;
     
     case 'youtube-studio':
-      console.log('🎬 [ConfigForm] Routing to YouTube Studio configuration');
+      logger.debug('🎬 [ConfigForm] Routing to YouTube Studio configuration');
       return <YouTubeStudioConfiguration {...commonProps} />;
 
     // File Storage
     case 'dropbox':
-      console.log('📦 [ConfigForm] Routing to Dropbox configuration');
+      logger.debug('📦 [ConfigForm] Routing to Dropbox configuration');
       return <DropboxConfiguration {...commonProps} />;
     
     case 'box':
-      console.log('📦 [ConfigForm] Routing to Box configuration');
+      logger.debug('📦 [ConfigForm] Routing to Box configuration');
       return <BoxConfiguration {...commonProps} />;
     
     // Development
     case 'github':
-      console.log('🐙 [ConfigForm] Routing to GitHub configuration');
+      logger.debug('🐙 [ConfigForm] Routing to GitHub configuration');
       return <GitHubConfiguration {...commonProps} />;
     
     default:
-      console.log('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
+      logger.debug('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
       return <GenericConfiguration {...commonProps} />;
   }
 }

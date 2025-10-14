@@ -5,6 +5,8 @@
 
 import { ExecutionContext } from '../../executeNode';
 
+import { logger } from '@/lib/utils/logger'
+
 export async function sendSlackMessage(context: ExecutionContext): Promise<any> {
   const {
     channel,
@@ -33,7 +35,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     legacyAttachments
   } = context.config;
 
-  console.log('[Slack] Preparing to send message:', {
+  logger.debug('[Slack] Preparing to send message:', {
     channel,
     messageLength: message?.length,
     messageType,
@@ -58,7 +60,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
   // Check test mode
   if (context.testMode) {
-    console.log('[Slack] Test mode - simulating message send');
+    logger.debug('[Slack] Test mode - simulating message send');
     return {
       success: true,
       messageId: `test_slack_${Date.now()}`,
@@ -86,18 +88,18 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       : (typeof integration.scopes === 'string' ? integration.scopes.split(',') : []);
 
     const hasCustomizeScope = scopes.includes('chat:write.customize');
-    console.log('[Slack] 🔑 OAuth Scopes Available:', {
+    logger.debug('[Slack] 🔑 OAuth Scopes Available:', {
       totalScopes: scopes.length,
       hasCustomizeScope,
       scopes: scopes.length > 0 ? scopes.join(', ') : 'none'
     });
 
     if ((username || icon) && !hasCustomizeScope) {
-      console.warn('[Slack] ⚠️ Bot customization requested but chat:write.customize scope is missing!');
-      console.warn('[Slack] ℹ️ To enable customization: Disconnect and reconnect your Slack integration');
+      logger.warn('[Slack] ⚠️ Bot customization requested but chat:write.customize scope is missing!');
+      logger.warn('[Slack] ℹ️ To enable customization: Disconnect and reconnect your Slack integration');
     }
   } else {
-    console.log('[Slack] ⚠️ No scope information available for this integration');
+    logger.debug('[Slack] ⚠️ No scope information available for this integration');
   }
 
   // Import decryptToken function for token handling
@@ -107,12 +109,12 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
   let tokenToUse: string;
   let isActuallyUsingUserToken = false;
 
-  console.log('[Slack] Token selection - asUser:', asUser, 'has_user_token:', integration.metadata?.has_user_token);
+  logger.debug('[Slack] Token selection - asUser:', asUser, 'has_user_token:', integration.metadata?.has_user_token);
 
   if (asUser) {
     // User wants to send as themselves
     if (integration.metadata?.has_user_token && integration.metadata?.user_token) {
-      console.log('[Slack] Attempting to decrypt and use USER token to send as actual user');
+      logger.debug('[Slack] Attempting to decrypt and use USER token to send as actual user');
 
       // Decrypt the user token from metadata
       const userToken = await decryptToken(integration.metadata.user_token);
@@ -120,27 +122,27 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
       if (userToken && userToken.startsWith('xoxp-')) {
         tokenToUse = userToken;
         isActuallyUsingUserToken = true;
-        console.log('[Slack] ✅ Successfully using USER token (xoxp-) - message will appear as sent by the user');
+        logger.debug('[Slack] ✅ Successfully using USER token (xoxp-) - message will appear as sent by the user');
       } else if (userToken) {
         // Token exists but might not be the right format
-        console.warn('[Slack] User token exists but may not be valid format');
+        logger.warn('[Slack] User token exists but may not be valid format');
         tokenToUse = userToken;
         isActuallyUsingUserToken = true;
       } else {
         // Failed to decrypt user token, fall back to bot token
-        console.warn('[Slack] ⚠️ Failed to decrypt user token, falling back to BOT token with customization');
+        logger.warn('[Slack] ⚠️ Failed to decrypt user token, falling back to BOT token with customization');
         tokenToUse = await decryptToken(integration.access_token);
         isActuallyUsingUserToken = false;
       }
     } else {
       // No user token available
-      console.log('[Slack] ⚠️ User requested to send as user, but user token not available. Using BOT token.');
+      logger.debug('[Slack] ⚠️ User requested to send as user, but user token not available. Using BOT token.');
       tokenToUse = await decryptToken(integration.access_token);
       isActuallyUsingUserToken = false;
     }
   } else {
     // User wants to send as bot
-    console.log('[Slack] Using BOT token (xoxb-) to send as bot/app');
+    logger.debug('[Slack] Using BOT token (xoxb-) to send as bot/app');
     tokenToUse = await decryptToken(integration.access_token);
     isActuallyUsingUserToken = false;
   }
@@ -152,8 +154,8 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
   // Log token type for debugging (without exposing token data)
   const tokenType = tokenToUse.startsWith('xoxp-') ? 'USER' : tokenToUse.startsWith('xoxb-') ? 'BOT' : 'UNKNOWN';
-  console.log(`[Slack] Using ${tokenType} token`);
-  console.log('[Slack] Will message appear as user?', isActuallyUsingUserToken);
+  logger.debug(`[Slack] Using ${tokenType} token`);
+  logger.debug('[Slack] Will message appear as user?', isActuallyUsingUserToken);
 
   try {
     // Prepare the message payload
@@ -173,28 +175,28 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     if (isActuallyUsingUserToken) {
       // When using user token, the message is automatically sent as the user
       // Username/icon customization is ignored by Slack when using user token
-      console.log('[Slack] 👤 Using USER token - Message will appear as sent by the actual user');
-      console.log('[Slack] Note: Username/icon customization is ignored when using user token');
+      logger.debug('[Slack] 👤 Using USER token - Message will appear as sent by the actual user');
+      logger.debug('[Slack] Note: Username/icon customization is ignored when using user token');
       // Don't add any customization fields - the user's actual profile is used
     } else {
       // Using bot token - customization is allowed
-      console.log('[Slack] 🤖 Using BOT token - customization available');
+      logger.debug('[Slack] 🤖 Using BOT token - customization available');
 
       // Add custom username if provided
       // This overrides the bot's default name for this message only
       if (username) {
         messagePayload.username = username;
-        console.log('[Slack] Setting custom bot username:', username);
+        logger.debug('[Slack] Setting custom bot username:', username);
       }
 
       // Handle icon field - upload to Supabase if needed and get public URL
       if (icon) {
-        console.log('[Slack] Processing icon field, type:', typeof icon, 'length:', typeof icon === 'string' ? icon.length : 'N/A');
+        logger.debug('[Slack] Processing icon field, type:', typeof icon, 'length:', typeof icon === 'string' ? icon.length : 'N/A');
 
         // CRITICAL: If icon is just raw base64 (very long string), don't send it to Slack
         // Slack has a limit and will reject large payloads
         if (typeof icon === 'string' && icon.length > 10000 && !icon.startsWith('http') && !icon.startsWith('data:')) {
-          console.warn('[Slack] ⚠️ Icon appears to be raw base64 data (length:', icon.length, '). Will attempt to upload to Supabase.');
+          logger.warn('[Slack] ⚠️ Icon appears to be raw base64 data (length:', icon.length, '). Will attempt to upload to Supabase.');
           // Force processing as raw base64
         }
 
@@ -202,10 +204,10 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
           // Check if it's a URL
           if (icon.startsWith('http://') || icon.startsWith('https://')) {
             iconUrl = icon;
-            console.log('[Slack] Icon is already a URL');
+            logger.debug('[Slack] Icon is already a URL');
           } else if (icon.startsWith('data:')) {
             // It's a base64 data URL - need to upload to Supabase
-            console.log('[Slack] Converting base64 data URL icon to public URL...');
+            logger.debug('[Slack] Converting base64 data URL icon to public URL...');
             try {
               // Import Supabase client
               const { createClient } = await import('@supabase/supabase-js');
@@ -249,15 +251,15 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   iconUrl = publicUrl;
-                  console.log('[Slack] Icon uploaded to public storage:', fileName);
+                  logger.debug('[Slack] Icon uploaded to public storage:', fileName);
                 }
               }
             } catch (error) {
-              console.error('[Slack] Error uploading icon:', error);
+              logger.error('[Slack] Error uploading icon:', error);
             }
           } else {
             // Raw base64 data without data URL prefix - common from file uploads
-            console.log('[Slack] Detected raw base64 data (no data: prefix), attempting to convert...');
+            logger.debug('[Slack] Detected raw base64 data (no data: prefix), attempting to convert...');
             try {
               // Import Supabase client
               const { createClient } = await import('@supabase/supabase-js');
@@ -308,13 +310,13 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                   .getPublicUrl(fileName);
 
                 iconUrl = publicUrl;
-                console.log('[Slack] Raw base64 icon uploaded to public storage:', fileName);
+                logger.debug('[Slack] Raw base64 icon uploaded to public storage:', fileName);
               } else if (uploadError) {
-                console.error('[Slack] Error uploading raw base64 icon:', uploadError);
+                logger.error('[Slack] Error uploading raw base64 icon:', uploadError);
               }
             } catch (error) {
-              console.error('[Slack] Error processing raw base64 icon:', error);
-              console.warn('[Slack] Icon must be a valid URL (http:// or https://) or base64 data');
+              logger.error('[Slack] Error processing raw base64 icon:', error);
+              logger.warn('[Slack] Icon must be a valid URL (http:// or https://) or base64 data');
             }
           }
         } else if (icon && typeof icon === 'object') {
@@ -323,7 +325,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
             iconUrl = icon.url;
           } else if (icon.filePath) {
             // Upload file from storage to public URL
-            console.log('[Slack] Converting uploaded icon to public URL...');
+            logger.debug('[Slack] Converting uploaded icon to public URL...');
             try {
               const { createClient } = await import('@supabase/supabase-js');
               const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -366,17 +368,17 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   iconUrl = publicUrl;
-                  console.log('[Slack] Icon uploaded from storage:', fileName);
+                  logger.debug('[Slack] Icon uploaded from storage:', fileName);
                 }
               }
             } catch (error) {
-              console.error('[Slack] Error uploading icon from storage:', error);
+              logger.error('[Slack] Error uploading icon from storage:', error);
             }
           } else if (icon.data || icon.content) {
             // Handle base64 data in object format
             const base64Data = icon.data || icon.content;
             if (base64Data && typeof base64Data === 'string') {
-              console.log('[Slack] Converting icon data to public URL (object format, length:', base64Data.length, ')...');
+              logger.debug('[Slack] Converting icon data to public URL (object format, length:', base64Data.length, ')...');
               try {
                 const { createClient } = await import('@supabase/supabase-js');
                 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -437,12 +439,12 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   iconUrl = publicUrl;
-                  console.log('[Slack] Icon data uploaded to public storage:', fileName);
+                  logger.debug('[Slack] Icon data uploaded to public storage:', fileName);
                 } else if (uploadError) {
-                  console.error('[Slack] Error uploading icon data:', uploadError);
+                  logger.error('[Slack] Error uploading icon data:', uploadError);
                 }
               } catch (error) {
-                console.error('[Slack] Error uploading icon data:', error);
+                logger.error('[Slack] Error uploading icon data:', error);
               }
             }
           }
@@ -450,25 +452,25 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
         if (iconUrl) {
           messagePayload.icon_url = iconUrl;
-          console.log('[Slack] Setting bot icon_url:', iconUrl);
+          logger.debug('[Slack] Setting bot icon_url:', iconUrl);
         } else if (icon && typeof icon === 'string' && icon.length > 1000) {
           // If we couldn't process the icon and it's very long (likely base64), don't include it
-          console.warn('[Slack] ⚠️ Icon could not be processed and appears to be raw data. Skipping icon to avoid API error.');
+          logger.warn('[Slack] ⚠️ Icon could not be processed and appears to be raw data. Skipping icon to avoid API error.');
           // Don't set any icon field - better to have no icon than to fail the entire message
         }
       }
 
       if (!username && !icon) {
-        console.log('[Slack] No customization provided - using bot defaults');
+        logger.debug('[Slack] No customization provided - using bot defaults');
       } else {
-        console.log('[Slack] Note: Customization may be ignored if workspace has "Lock bot name & icon" enabled');
+        logger.debug('[Slack] Note: Customization may be ignored if workspace has "Lock bot name & icon" enabled');
       }
     }
 
     // Handle file attachments from the schema's attachments field
     // Upload files to Supabase storage and get public URLs for Slack
     if (attachments) {
-      console.log('[Slack] Processing file attachments...');
+      logger.debug('[Slack] Processing file attachments...');
       const attachmentUrls: string[] = [];
 
       // Import Supabase client
@@ -493,7 +495,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
             // Check if it's a file object with content or path
             if (attachment.filePath) {
               // File already uploaded to workflow-files storage
-              console.log('[Slack] Processing uploaded file:', attachment.fileName || 'attachment');
+              logger.debug('[Slack] Processing uploaded file:', attachment.fileName || 'attachment');
 
               // Download the file from workflow storage
               const { data: storageFile, error } = await supabase.storage
@@ -533,7 +535,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   fileUrl = publicUrl;
-                  console.log('[Slack] File uploaded to public storage:', fileName);
+                  logger.debug('[Slack] File uploaded to public storage:', fileName);
 
                   // Schedule cleanup after 24 hours (optional)
                   // This would need a separate cleanup job
@@ -575,7 +577,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
                     .getPublicUrl(fileName);
 
                   fileUrl = publicUrl;
-                  console.log('[Slack] File uploaded from storage service:', fileName);
+                  logger.debug('[Slack] File uploaded from storage service:', fileName);
                 }
               }
             } else if (attachment.url) {
@@ -588,7 +590,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
             attachmentUrls.push(fileUrl);
           }
         } catch (error) {
-          console.error('[Slack] Error processing attachment:', error);
+          logger.error('[Slack] Error processing attachment:', error);
         }
       }
 
@@ -605,7 +607,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
           ? `${messagePayload.text}\n\n${attachmentText}`
           : attachmentText;
 
-        console.log(`[Slack] Added ${attachmentUrls.length} attachment(s) to message`);
+        logger.debug(`[Slack] Added ${attachmentUrls.length} attachment(s) to message`);
       }
     }
 
@@ -831,7 +833,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
               messagePayload.blocks = parsedBlocks;
               blocks.length = 0; // Clear our blocks array since we're using custom
             } catch (error) {
-              console.warn('[Slack] Failed to parse custom blocks JSON:', error);
+              logger.warn('[Slack] Failed to parse custom blocks JSON:', error);
               throw new Error('Invalid custom blocks JSON format. Please check your Block Kit configuration.');
             }
           }
@@ -856,12 +858,12 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
           messagePayload.attachments = parsedAttachments;
         }
       } catch (error) {
-        console.warn('[Slack] Failed to parse legacy attachments JSON:', error);
+        logger.warn('[Slack] Failed to parse legacy attachments JSON:', error);
         throw new Error('Invalid legacy attachments JSON format.');
       }
     }
 
-    console.log('[Slack] Sending message with payload:', {
+    logger.debug('[Slack] Sending message with payload:', {
       channel: messagePayload.channel,
       hasText: !!messagePayload.text,
       hasBlocks: !!messagePayload.blocks,
@@ -876,15 +878,15 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     // Safeguard: Check payload size and warn if it's too large
     const payloadString = JSON.stringify(messagePayload);
     if (payloadString.length > 100000) {
-      console.warn('[Slack] ⚠️ Payload is very large:', payloadString.length, 'characters. This might cause issues.');
+      logger.warn('[Slack] ⚠️ Payload is very large:', payloadString.length, 'characters. This might cause issues.');
 
       // Check if any field contains what looks like base64 data
       for (const [key, value] of Object.entries(messagePayload)) {
         if (typeof value === 'string' && value.length > 10000 && !value.startsWith('http')) {
-          console.error(`[Slack] ❌ Field '${key}' contains very long data (${value.length} chars) that might be base64. This will likely fail.`);
+          logger.error(`[Slack] ❌ Field '${key}' contains very long data (${value.length} chars) that might be base64. This will likely fail.`);
           // Remove the problematic field to prevent API failure
           delete messagePayload[key];
-          console.warn(`[Slack] Removed field '${key}' to prevent API failure`);
+          logger.warn(`[Slack] Removed field '${key}' to prevent API failure`);
         }
       }
     }
@@ -893,7 +895,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     const payloadForLogging = payloadString.length > 5000
       ? `${payloadString.substring(0, 5000) }... (truncated)`
       : payloadString;
-    console.log('[Slack] Full API payload:', payloadForLogging);
+    logger.debug('[Slack] Full API payload:', payloadForLogging);
 
     // Send the message using Slack Web API with the appropriate token
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -908,11 +910,11 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     const result = await response.json();
 
     if (!result.ok) {
-      console.error('[Slack] API error:', result);
+      logger.error('[Slack] API error:', result);
       throw new Error(`Slack API error: ${result.error || 'Unknown error'}`);
     }
 
-    console.log('[Slack] Message sent successfully:', {
+    logger.debug('[Slack] Message sent successfully:', {
       channel: result.channel,
       timestamp: result.ts,
       messageId: result.message?.ts
@@ -920,33 +922,33 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
 
     // Enhanced diagnostic logging for customization issues
     if (username || icon) {
-      console.log('[Slack] 🔍 Bot Customization Diagnostic:');
-      console.log('  - Requested username:', username || 'none');
-      console.log('  - Requested icon:', iconUrl ? 'URL provided' : 'none');
-      console.log('  - Token type used:', tokenToUse.startsWith('xoxp-') ? 'USER TOKEN (xoxp-)' : tokenToUse.startsWith('xoxb-') ? 'BOT TOKEN (xoxb-)' : 'UNKNOWN');
-      console.log('  - Send as user enabled:', asUser);
+      logger.debug('[Slack] 🔍 Bot Customization Diagnostic:');
+      logger.debug('  - Requested username:', username || 'none');
+      logger.debug('  - Requested icon:', iconUrl ? 'URL provided' : 'none');
+      logger.debug('  - Token type used:', tokenToUse.startsWith('xoxp-') ? 'USER TOKEN (xoxp-)' : tokenToUse.startsWith('xoxb-') ? 'BOT TOKEN (xoxb-)' : 'UNKNOWN');
+      logger.debug('  - Send as user enabled:', asUser);
 
       // Check what was actually sent in the message
       if (result.message) {
-        console.log('  - Actual bot name in response:', result.message.username || result.message.bot_profile?.name || 'default bot name');
-        console.log('  - Actual bot icon in response:', result.message.icons?.image_48 || result.message.bot_profile?.icons?.image_48 || 'default icon');
+        logger.debug('  - Actual bot name in response:', result.message.username || result.message.bot_profile?.name || 'default bot name');
+        logger.debug('  - Actual bot icon in response:', result.message.icons?.image_48 || result.message.bot_profile?.icons?.image_48 || 'default icon');
       }
 
       // Log potential reasons for customization failure
       if (!username && !icon) {
-        console.log('  ℹ️ No customization was requested');
+        logger.debug('  ℹ️ No customization was requested');
       } else if (asUser) {
-        console.log('  ⚠️ Customization ignored: Send as User is enabled (messages appear as the authenticated user)');
+        logger.debug('  ⚠️ Customization ignored: Send as User is enabled (messages appear as the authenticated user)');
       } else if (tokenToUse.startsWith('xoxp-')) {
-        console.log('  ⚠️ Using user token but Send as User is disabled - customization may not work');
+        logger.debug('  ⚠️ Using user token but Send as User is disabled - customization may not work');
       } else if (!result.message?.username || result.message?.username === 'bot') {
-        console.log('  ⚠️ Customization may have been ignored. Possible reasons:');
-        console.log('    1. Missing OAuth scope: chat:write.customize (requires reconnection)');
-        console.log('    2. Workspace setting: "Lock bot name & icon" is enabled');
-        console.log('    3. Using legacy integration that doesn\'t support customization');
-        console.log('  ℹ️ To fix scope issues: Disconnect and reconnect Slack integration');
+        logger.debug('  ⚠️ Customization may have been ignored. Possible reasons:');
+        logger.debug('    1. Missing OAuth scope: chat:write.customize (requires reconnection)');
+        logger.debug('    2. Workspace setting: "Lock bot name & icon" is enabled');
+        logger.debug('    3. Using legacy integration that doesn\'t support customization');
+        logger.debug('  ℹ️ To fix scope issues: Disconnect and reconnect Slack integration');
       } else {
-        console.log('  ✅ Customization appears to have been applied');
+        logger.debug('  ✅ Customization appears to have been applied');
       }
     }
 
@@ -960,7 +962,7 @@ export async function sendSlackMessage(context: ExecutionContext): Promise<any> 
     };
 
   } catch (error: any) {
-    console.error('[Slack] Error sending message:', error);
+    logger.error('[Slack] Error sending message:', error);
     throw new Error(`Failed to send Slack message: ${error.message}`);
   }
 }

@@ -1,3 +1,5 @@
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Field to Resource Type Mappings
  * Maps field names to their corresponding resource types for dynamic data loading
@@ -797,7 +799,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
 export function getResourceTypeForField(fieldName: string, nodeType: string): string | null {
   // Debug logging for Trello template field
   if (fieldName === 'template' && nodeType?.includes('trello')) {
-    console.log('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
+    logger.debug('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
   }
 
   // First check node-specific mapping
@@ -805,7 +807,7 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
   if (nodeMapping && nodeMapping[fieldName]) {
     const resourceType = nodeMapping[fieldName];
     if (fieldName === 'template') {
-      console.log('[FieldMapping] Found resource type for template:', resourceType);
+      logger.debug('[FieldMapping] Found resource type for template:', resourceType);
     }
     return resourceType;
   }
@@ -817,7 +819,7 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
 
   // No mapping found
   if (fieldName === 'template') {
-    console.log('[FieldMapping] No resource type found for template field in:', nodeType);
+    logger.debug('[FieldMapping] No resource type found for template field in:', nodeType);
   }
   return null;
 }

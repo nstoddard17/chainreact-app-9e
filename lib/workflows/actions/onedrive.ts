@@ -6,6 +6,8 @@ import { ActionResult } from './core/executeWait'
 import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Upload a file to OneDrive
  */
@@ -15,7 +17,7 @@ export async function uploadFileToOneDrive(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    console.log('📤 [OneDrive] Starting file upload with config:', {
+    logger.debug('📤 [OneDrive] Starting file upload with config:', {
       fileName: config.fileName,
       sourceType: config.sourceType,
       folderId: config.folderId
@@ -46,7 +48,7 @@ export async function uploadFileToOneDrive(
             // Check if it's a temporary file object with filePath
             if (file.filePath && file.isTemporary) {
               // For temporary files, fetch directly from Supabase storage
-              console.log('📂 [OneDrive] Fetching temporary file from storage:', {
+              logger.debug('📂 [OneDrive] Fetching temporary file from storage:', {
                 nodeId: file.nodeId || file.id,
                 filePath: file.filePath,
                 fileName: file.fileName,
@@ -75,7 +77,7 @@ export async function uploadFileToOneDrive(
             // If it's a file ID string or object with ID, use FileStorageService
             else if (typeof file === 'string' || file.id) {
               const fileId = typeof file === 'string' ? file : file.id
-              console.log('📁 [OneDrive] Fetching permanent file using FileStorageService:', fileId)
+              logger.debug('📁 [OneDrive] Fetching permanent file using FileStorageService:', fileId)
 
               const { FileStorageService } = await import('@/lib/storage/fileStorage')
               const fileStorage = new FileStorageService()
@@ -113,7 +115,7 @@ export async function uploadFileToOneDrive(
           throw new Error('File URL is required')
         }
 
-        console.log('📥 [OneDrive] Downloading file from URL:', fileUrl)
+        logger.debug('📥 [OneDrive] Downloading file from URL:', fileUrl)
         const urlResponse = await fetch(fileUrl)
         if (!urlResponse.ok) {
           throw new Error(`Failed to download file from URL: ${urlResponse.statusText}`)
@@ -209,7 +211,7 @@ export async function uploadFileToOneDrive(
     const fileSizeInBytes = fileContent.length
     const fileSizeInMB = fileSizeInBytes / (1024 * 1024)
 
-    console.log('📊 [OneDrive] File info:', {
+    logger.debug('📊 [OneDrive] File info:', {
       name: actualFileName,
       originalName: originalFileName,
       userProvidedName: userProvidedFileName,
@@ -256,7 +258,7 @@ export async function uploadFileToOneDrive(
       uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(actualFileName)}:/content`
     }
 
-    console.log('🚀 [OneDrive] Uploading file to:', uploadUrl)
+    logger.debug('🚀 [OneDrive] Uploading file to:', uploadUrl)
 
     // Upload file to OneDrive
     const uploadResponse = await fetch(uploadUrl, {
@@ -271,7 +273,7 @@ export async function uploadFileToOneDrive(
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text()
-      console.error('❌ [OneDrive] Upload failed:', {
+      logger.error('❌ [OneDrive] Upload failed:', {
         status: uploadResponse.status,
         error: errorText
       })
@@ -289,7 +291,7 @@ export async function uploadFileToOneDrive(
 
     const uploadResult = await uploadResponse.json()
 
-    console.log('✅ [OneDrive] File uploaded successfully:', {
+    logger.debug('✅ [OneDrive] File uploaded successfully:', {
       id: uploadResult.id,
       name: uploadResult.name,
       size: uploadResult.size,
@@ -314,7 +316,7 @@ export async function uploadFileToOneDrive(
       message: `File "${uploadResult.name}" uploaded successfully to OneDrive`
     }
   } catch (error: any) {
-    console.error('❌ [OneDrive] Upload error:', error)
+    logger.error('❌ [OneDrive] Upload error:', error)
     return {
       success: false,
       output: {},

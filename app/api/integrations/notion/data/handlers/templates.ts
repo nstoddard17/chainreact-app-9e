@@ -5,13 +5,15 @@
 import { NotionIntegration, NotionTemplate, NotionDataHandler } from '../types'
 import { validateNotionIntegration, validateNotionToken, makeNotionApiRequest, getPageTitle } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Notion templates (pages with "template" in the title)
  */
 export const getNotionTemplates: NotionDataHandler<NotionTemplate> = async (integration: NotionIntegration) => {
   try {
     validateNotionIntegration(integration)
-    console.log("📄 [Notion Templates] Fetching templates")
+    logger.debug("📄 [Notion Templates] Fetching templates")
 
     // Validate and get token
     const tokenResult = await validateNotionToken(integration)
@@ -59,11 +61,11 @@ export const getNotionTemplates: NotionDataHandler<NotionTemplate> = async (inte
       properties: template.properties
     }))
 
-    console.log(`✅ [Notion Templates] Retrieved ${templates.length} templates`)
+    logger.debug(`✅ [Notion Templates] Retrieved ${templates.length} templates`)
     return templates
 
   } catch (error: any) {
-    console.error("❌ [Notion Templates] Error fetching templates:", error)
+    logger.error("❌ [Notion Templates] Error fetching templates:", error)
     throw error
   }
 }

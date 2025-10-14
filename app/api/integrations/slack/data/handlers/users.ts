@@ -5,13 +5,15 @@
 import { SlackIntegration, SlackUser, SlackDataHandler } from '../types'
 import { validateSlackIntegration, makeSlackApiRequest } from '../utils'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Fetch Slack users in the workspace
  */
 export const getSlackUsers: SlackDataHandler<SlackUser> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    console.log("👥 [Slack Users] Fetching users")
+    logger.debug("👥 [Slack Users] Fetching users")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/users.list",
@@ -47,11 +49,11 @@ export const getSlackUsers: SlackDataHandler<SlackUser> = async (integration: Sl
         }
       }))
 
-    console.log(`✅ [Slack Users] Retrieved ${users.length} users`)
+    logger.debug(`✅ [Slack Users] Retrieved ${users.length} users`)
     return users
 
   } catch (error: any) {
-    console.error("❌ [Slack Users] Error fetching users:", error)
+    logger.error("❌ [Slack Users] Error fetching users:", error)
     throw error
   }
 }

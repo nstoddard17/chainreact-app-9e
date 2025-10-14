@@ -2,6 +2,8 @@ import { EventEmitter } from 'events'
 import { auditLogger, AuditEventType } from '../security/audit-logger'
 import { performanceMonitor, MetricType } from '../performance/performance-monitor'
 
+import { logger } from '@/lib/utils/logger'
+
 /**
  * Workflow execution status
  */
@@ -275,7 +277,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
     super()
     this.maxConcurrentExecutions = maxConcurrentExecutions
     this.initializeBuiltInHandlers()
-    console.log('🚀 Advanced workflow engine initialized')
+    logger.debug('🚀 Advanced workflow engine initialized')
   }
 
   /**
@@ -304,7 +306,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
     })
 
     this.emit('workflowRegistered', workflow)
-    console.log(`📋 Workflow registered: ${workflow.name} (v${workflow.version})`)
+    logger.debug(`📋 Workflow registered: ${workflow.name} (v${workflow.version})`)
   }
 
   /**
@@ -488,7 +490,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
       })
 
       this.emit('executionFailed', execution, error)
-      console.error(`❌ Workflow execution failed: ${executionId}`, error)
+      logger.error(`❌ Workflow execution failed: ${executionId}`, error)
     }
   }
 
@@ -557,7 +559,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
         if (workflow.settings.errorHandling.strategy === 'fail_fast') {
           throw error
         } else if (workflow.settings.errorHandling.strategy === 'continue') {
-          console.warn(`⚠️ Node failed but continuing: ${nodeId}`, error)
+          logger.warn(`⚠️ Node failed but continuing: ${nodeId}`, error)
           continue
         }
       }
@@ -815,7 +817,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
    */
   registerNodeHandler(type: string, handler: Function): void {
     this.nodeHandlers.set(type, handler)
-    console.log(`🔧 Node handler registered: ${type}`)
+    logger.debug(`🔧 Node handler registered: ${type}`)
   }
 
   /**
@@ -927,7 +929,7 @@ export class AdvancedWorkflowEngine extends EventEmitter {
     this.executionQueue.length = 0
 
     this.removeAllListeners()
-    console.log('🛑 Advanced workflow engine shutdown')
+    logger.debug('🛑 Advanced workflow engine shutdown')
   }
 }
 

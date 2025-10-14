@@ -30,6 +30,8 @@ import { createClient } from '@supabase/supabase-js'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
 import crypto from 'crypto'
 
+import { logger } from '@/lib/utils/logger'
+
 function getGoogleWebhookCallbackUrl(): string {
   const isProduction = process.env.NODE_ENV === 'production'
   const baseUrl = isProduction
@@ -45,7 +47,7 @@ function getGoogleWebhookCallbackUrl(): string {
     const usedVar = isProduction
       ? 'NEXT_PUBLIC_APP_URL'
       : (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ? 'NEXT_PUBLIC_WEBHOOK_HTTPS_URL' : 'NEXT_PUBLIC_APP_URL')
-    console.log('🪝 Resolved Google webhook callback URL', {
+    logger.debug('🪝 Resolved Google webhook callback URL', {
       env: isProduction ? 'production' : 'development',
       usedVar,
       baseUrl,
@@ -69,7 +71,7 @@ interface GoogleCalendarWatchConfig {
  * Calendar watches expire after a maximum of 1 week
  */
 export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig): Promise<{ channelId: string; resourceId: string; expiration: string; syncToken?: string }> {
-  console.warn('⚠️ DEPRECATED: setupGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
+  logger.warn('⚠️ DEPRECATED: setupGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -98,7 +100,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
     // Check if token needs refresh
     const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      console.log('Access token expired, refreshing...')
+      logger.debug('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Calendar
       // For now, throw an error
       throw new Error('Google Calendar token expired - please reconnect the integration')
@@ -130,7 +132,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
     const registrationTimestamp = new Date().toISOString()
 
     const callbackUrl = getGoogleWebhookCallbackUrl()
-    console.log('🔗 Setting up Google Calendar watch with callback URL:', callbackUrl)
+    logger.debug('🔗 Setting up Google Calendar watch with callback URL:', callbackUrl)
 
     const watchResponse = await calendar.events.watch({
       calendarId,
@@ -165,11 +167,11 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
         })
         syncToken = eventsResponse.data.nextSyncToken
       } catch (err) {
-        console.warn('Could not get initial sync token:', err)
+        logger.warn('Could not get initial sync token:', err)
       }
     }
 
-    console.log('✅ Google Calendar watch created successfully:', {
+    logger.debug('✅ Google Calendar watch created successfully:', {
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
@@ -203,7 +205,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       startTime: registrationTimestamp
     }
   } catch (error) {
-    console.error('Failed to set up Google Calendar watch:', error)
+    logger.error('Failed to set up Google Calendar watch:', error)
     throw error
   }
 }
@@ -213,7 +215,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
  * Stop Google Calendar watch
  */
 export async function stopGoogleCalendarWatch(userId: string, integrationId: string, channelId: string, resourceId: string): Promise<void> {
-  console.warn('⚠️ DEPRECATED: stopGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
+  logger.warn('⚠️ DEPRECATED: stopGoogleCalendarWatch() is deprecated. Use GoogleApisTriggerLifecycle instead.')
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -230,7 +232,7 @@ export async function stopGoogleCalendarWatch(userId: string, integrationId: str
       .single()
 
     if (error || !integration) {
-      console.log('Google Calendar integration not found - watch may already be stopped')
+      logger.debug('Google Calendar integration not found - watch may already be stopped')
       return
     }
 
@@ -244,7 +246,7 @@ export async function stopGoogleCalendarWatch(userId: string, integrationId: str
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      console.log('Failed to decrypt Google Calendar access token - watch may already be stopped')
+      logger.debug('Failed to decrypt Google Calendar access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -267,9 +269,9 @@ export async function stopGoogleCalendarWatch(userId: string, integrationId: str
       .eq('channel_id', channelId)
       .eq('user_id', userId)
 
-    console.log('✅ Google Calendar watch stopped successfully')
+    logger.debug('✅ Google Calendar watch stopped successfully')
   } catch (error) {
-    console.error('Failed to stop Google Calendar watch:', error)
+    logger.error('Failed to stop Google Calendar watch:', error)
     // Don't throw - watch might already be stopped
   }
 }
@@ -365,7 +367,7 @@ export async function getGoogleCalendarChanges(
       nextPageToken: undefined
     }
   } catch (error) {
-    console.error('Failed to get Google Calendar changes:', error)
+    logger.error('Failed to get Google Calendar changes:', error)
     throw error
   }
 }

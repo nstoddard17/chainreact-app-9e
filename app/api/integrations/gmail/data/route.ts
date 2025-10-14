@@ -4,9 +4,12 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server"
+import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import { gmailHandlers, isGmailDataTypeSupported, getAvailableGmailDataTypes } from './handlers'
 import { GmailIntegration } from './types'
+
+import { logger } from '@/lib/utils/logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
@@ -20,18 +23,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    console.log('🔍 [Gmail Data API] Request:', { integrationId, dataType, options })
+    logger.debug('🔍 [Gmail Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      console.log('❌ [Gmail Data API] Missing required parameters')
-      return NextResponse.json({ error: 'Missing required parameters: integrationId and dataType' }, { status: 400 })
+      logger.debug('❌ [Gmail Data API] Missing required parameters')
+      return errorResponse('Missing required parameters: integrationId and dataType' , 400)
     }
 
     // Check if data type is supported
     if (!isGmailDataTypeSupported(dataType)) {
-      console.log('❌ [Gmail Data API] Unsupported data type:', dataType)
-      return NextResponse.json({ 
+      logger.debug('❌ [Gmail Data API] Unsupported data type:', dataType)
+      return jsonResponse({ 
         error: `Data type '${dataType}' not supported. Available types: ${getAvailableGmailDataTypes().join(', ')}` 
       }, { status: 400 })
     }
@@ -45,37 +48,36 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      console.error('❌ [Gmail Data API] Integration not found:', integrationError)
-      return NextResponse.json({ error: 'Gmail integration not found' }, { status: 404 })
+      logger.error('❌ [Gmail Data API] Integration not found:', integrationError)
+      return errorResponse('Gmail integration not found' , 404)
     }
 
     // Validate integration status - allow 'connected' status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      console.log('⚠️ [Gmail Data API] Integration not connected:', integration.status)
-      return NextResponse.json({ 
-        error: 'Gmail integration is not connected. Please reconnect your account.',
+      logger.debug('⚠️ [Gmail Data API] Integration not connected:', integration.status)
+      return errorResponse('Gmail integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
-      }, { status: 400 })
+      })
     }
 
     // Get the appropriate handler
     const handler = gmailHandlers[dataType]
     if (!handler) {
-      console.error('❌ [Gmail Data API] Handler not found for:', dataType)
-      return NextResponse.json({ error: `Handler not implemented for data type: ${dataType}` }, { status: 500 })
+      logger.error('❌ [Gmail Data API] Handler not found for:', dataType)
+      return jsonResponse({ error: `Handler not implemented for data type: ${dataType}` }, { status: 500 })
     }
 
     // Execute the handler
-    console.log(`🚀 [Gmail Data API] Executing handler for: ${dataType}`)
+    logger.debug(`🚀 [Gmail Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
     
     const result = await handler(integration as GmailIntegration, options)
     
     const duration = Date.now() - startTime
-    console.log(`✅ [Gmail Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
+    logger.debug(`✅ [Gmail Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
 
-    return NextResponse.json({
+    return jsonResponse({
       data: result,
       meta: {
         dataType,
@@ -87,33 +89,26 @@ export async function POST(req: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ [Gmail Data API] Error:', error)
+    logger.error('❌ [Gmail Data API] Error:', error)
     
     // Handle specific Gmail API errors
     if (error.status === 401) {
-      return NextResponse.json({ 
-        error: 'Gmail authentication expired. Please reconnect your account.',
-        needsReconnection: true 
-      }, { status: 401 })
+      return errorResponse('Gmail authentication expired. Please reconnect your account.', 401, { needsReconnection: true 
+       })
     }
     
     if (error.status === 403) {
-      return NextResponse.json({ 
-        error: 'Gmail API access forbidden. Check your permissions.',
-        needsReconnection: true 
-      }, { status: 403 })
+      return errorResponse('Gmail API access forbidden. Check your permissions.', 403, { needsReconnection: true 
+       })
     }
     
     if (error.status === 429) {
-      return NextResponse.json({ 
-        error: 'Gmail API rate limit exceeded. Please try again later.' 
-      }, { status: 429 })
+      return errorResponse('Gmail API rate limit exceeded. Please try again later.' 
+      , 429)
     }
 
-    return NextResponse.json({ 
-      error: error.message || 'Internal server error',
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 })
+    return errorResponse(error.message || 'Internal server error', 500, { details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+     })
   }
 }
 
@@ -121,7 +116,7 @@ export async function POST(req: NextRequest) {
  * Get available Gmail data types
  */
 export async function GET() {
-  return NextResponse.json({
+  return jsonResponse({
     availableDataTypes: getAvailableGmailDataTypes(),
     description: 'Gmail Integration Data API',
     version: '1.0.0'
