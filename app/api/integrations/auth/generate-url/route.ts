@@ -956,11 +956,11 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("teams")
   if (!config) throw new Error("Teams OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("Teams client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
@@ -976,7 +976,7 @@ async function generateTeamsAuthUrl(state: string): Promise<string> {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 
@@ -990,11 +990,11 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("onedrive")
   if (!config) throw new Error("OneDrive OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("OneDrive client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
 
@@ -1005,7 +1005,7 @@ async function generateOneDriveAuthUrl(state: string): Promise<string> {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
 
@@ -1124,14 +1124,14 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
   const { getOAuthConfig } = await import("@/lib/integrations/oauthConfig")
   const config = getOAuthConfig("microsoft-onenote")
   if (!config) throw new Error("OneNote OAuth config not found")
-  
+
   const { getOAuthClientCredentials } = await import("@/lib/integrations/oauthConfig")
   const { clientId } = getOAuthClientCredentials(config)
   if (!clientId) throw new Error("OneNote client ID not configured")
-  
+
   const baseUrl = getBaseUrl()
   const redirectUri = `${baseUrl}${config.redirectUriPath}`
-  
+
   // Debug logging to see what scopes we're requesting
   logger.debug('🔍 OneNote OAuth URL Generation:')
   logger.debug('  - Config scope:', config.scope)
@@ -1143,7 +1143,7 @@ async function generateMicrosoftOneNoteAuthUrl(state: string): Promise<string> {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: config.scope || "",
-    prompt: "consent", // Force consent screen every time
+    prompt: "select_account", // Allow user to choose which account to use
     state,
   })
   
