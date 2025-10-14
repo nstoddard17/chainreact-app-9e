@@ -5,7 +5,7 @@ import { logger } from '@/lib/utils/logger'
  */
 export function createConnectingResponse(provider: string) {
   const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -19,26 +19,26 @@ export function createConnectingResponse(provider: string) {
             padding: 0;
             box-sizing: border-box;
           }
-          
-          body { 
+
+          body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
             margin: 0;
             background: white;
           }
-          
-          .container { 
-            text-align: center; 
+
+          .container {
+            text-align: center;
             padding: 2rem;
             background: #f9fafb;
             border-radius: 12px;
             border: 2px solid #e5e7eb;
             animation: fadeIn 0.3s ease-out;
           }
-          
+
           @keyframes fadeIn {
             from {
               opacity: 0;
@@ -49,7 +49,7 @@ export function createConnectingResponse(provider: string) {
               transform: scale(1);
             }
           }
-          
+
           .spinner {
             width: 48px;
             height: 48px;
@@ -59,21 +59,21 @@ export function createConnectingResponse(provider: string) {
             animation: spin 1s linear infinite;
             margin: 0 auto 1rem;
           }
-          
+
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          
-          h2 { 
-            margin: 0 0 0.5rem; 
+
+          h2 {
+            margin: 0 0 0.5rem;
             color: #111827;
             font-size: 1.5rem;
             font-weight: 600;
           }
-          
-          .message { 
-            margin: 0; 
+
+          .message {
+            margin: 0;
             color: #6b7280;
             font-size: 0.875rem;
           }
@@ -88,10 +88,10 @@ export function createConnectingResponse(provider: string) {
       </body>
     </html>
   `
-  
-  return new Response(html, { 
-    status: 200, 
-    headers: { "Content-Type": "text/html" } 
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html" }
   })
 }
 
@@ -123,40 +123,40 @@ export function createPopupResponse(
   const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
   const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
   const status = type === "success" ? 200 : 400
-  
+
   // Ensure strings are properly escaped for JavaScript
   const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
   const safeMessage = message.replace(/[\\'"]/g, '\\$&');
-  
+
   // Create a unique storage key for this response (sanitize for key safety)
   const storageKey = `oauth_response_${provider.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}`;
-  
+
   // Determine if this is a personal account error that shouldn't auto-close
-  const isPersonalAccountError = type === 'error' && 
-    (message.includes('Personal Microsoft accounts') || 
+  const isPersonalAccountError = type === 'error' &&
+    (message.includes('Personal Microsoft accounts') ||
      message.includes('personal Microsoft accounts') ||
      message.includes('work or school account'));
-  
+
   // Don't auto-close for errors unless explicitly set, especially for personal account errors
-  const shouldAutoClose = options?.autoClose !== undefined 
-    ? options.autoClose 
+  const shouldAutoClose = options?.autoClose !== undefined
+    ? options.autoClose
     : (type === 'success' || !isPersonalAccountError);
-  
+
   const payloadScript = options?.payload
     ? `      const payloadData = JSON.parse('${serializePayloadForScript(options.payload)}');
       Object.assign(responseData, payloadData);
 `
     : ''
-  
+
   const script = `
     <script>
       // Flag to track if we've already sent a response
       window.sentResponse = false;
-      
+
       // Store provider and message as JavaScript variables (properly escaped)
       const providerName = '${safeProvider}';
       const messageText = '${safeMessage}';
-      
+
       // Create response data object using the variables
       const responseData = {
         type: 'oauth-complete', // Use consistent message type
@@ -167,26 +167,26 @@ export function createPopupResponse(
         timestamp: new Date().toISOString()
       };
 ${payloadScript}
-      
+
       // Method 1: Try BroadcastChannel (works across same-origin contexts)
       try {
         const channel = new BroadcastChannel('oauth_channel');
         channel.postMessage(responseData);
-        logger.debug('📡 Sent OAuth response via BroadcastChannel');
+        console.log('📡 Sent OAuth response via BroadcastChannel');
         channel.close();
       } catch (e) {
-        logger.debug('BroadcastChannel not available or failed:', e);
+        console.log('BroadcastChannel not available or failed:', e);
       }
-      
+
       // Method 2: Store in localStorage for parent window to find (COOP-safe)
       try {
         localStorage.setItem('${storageKey}', JSON.stringify(responseData));
-        logger.debug('Response stored in localStorage with key: ${storageKey}');
-        logger.debug('Response data:', responseData);
+        console.log('Response stored in localStorage with key: ${storageKey}');
+        console.log('Response data:', responseData);
       } catch (e) {
-        logger.error('Failed to store in localStorage:', e);
+        console.error('Failed to store in localStorage:', e);
       }
-      
+
       // More robust handling of window closing
       function sendCancelMessage() {
         if (!window.sentResponse) {
@@ -199,55 +199,55 @@ ${payloadScript}
               timestamp: new Date().toISOString()
             };
             localStorage.setItem('${storageKey}_cancel', JSON.stringify(cancelData));
-            
+
             // Also try postMessage if possible
             if (window.opener) {
               window.opener.postMessage(cancelData, '*');
-              logger.debug('Cancel message sent to parent');
+              console.log('Cancel message sent to parent');
             }
             window.sentResponse = true;
           } catch (e) {
-            logger.error('Error sending cancel message:', e);
+            console.error('Error sending cancel message:', e);
           }
         }
       }
-      
+
       // Listen for window close/navigation events
       window.addEventListener('beforeunload', function(e) {
         sendCancelMessage();
       });
-      
+
       try {
         // Set flag to indicate we've sent a response
         window.sentResponse = true;
-        
+
         // Send message with retry logic
         let messageSent = false;
         let retryCount = 0;
         const maxRetries = 3;
-        
+
         const sendMessage = () => {
           try {
             // Try postMessage if opener is available
             if (window.opener) {
-              logger.debug('Sending message to parent window:', JSON.stringify(responseData));
-              logger.debug('Target origin: ${baseUrl}');
-              
+              console.log('Sending message to parent window:', JSON.stringify(responseData));
+              console.log('Target origin: ${baseUrl}');
+
               window.opener.postMessage(responseData, '*');
-              logger.debug('Message sent successfully to parent window');
+              console.log('Message sent successfully to parent window');
             }
             messageSent = true;
           } catch (e) {
-            logger.error('Failed to send message:', e);
+            console.error('Failed to send message:', e);
             retryCount++;
             if (retryCount < maxRetries) {
               setTimeout(sendMessage, 500);
             }
           }
         };
-        
+
         sendMessage();
-        
+
         // Only auto-close if configured to do so
         const shouldAutoClose = ${shouldAutoClose};
         if (shouldAutoClose) {
@@ -257,15 +257,15 @@ ${payloadScript}
           const closeDelay = isMicrosoftProvider ? 3000 : 2000;
           setTimeout(() => {
             if (!messageSent) {
-              logger.warn('Closing window without confirming message was sent');
+              console.warn('Closing window without confirming message was sent');
             }
             window.close();
           }, closeDelay);
         } else {
-          logger.debug('Auto-close disabled for this message');
+          console.log('Auto-close disabled for this message');
         }
       } catch (e) {
-        logger.error('Error in popup window:', e);
+        console.error('Error in popup window:', e);
         // Only force close if auto-close is enabled
         if (${shouldAutoClose}) {
           setTimeout(() => window.close(), 1000);
@@ -286,87 +286,215 @@ ${payloadScript}
             padding: 0;
             box-sizing: border-box;
           }
-          
-          body { 
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            height: 100vh; 
+
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
             margin: 0;
-            background: white;
+            background: ${type === "success"
+              ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
             color: #1a202c;
+            overflow: hidden;
           }
-          
-          .container { 
-            text-align: center; 
-            padding: 2rem;
-            background: ${type === "success" ? "#f3f4f6" : "#fef2f2"};
-            border-radius: 12px;
-            border: 2px solid ${type === "success" ? "#d1d5db" : "#fca5a5"};
-            animation: fadeIn 0.3s ease-out;
+
+          .container {
+            text-align: center;
+            padding: 3rem 2rem;
+            max-width: 500px;
+            width: 90%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
           }
-          
-          @keyframes fadeIn {
+
+          @keyframes slideIn {
             from {
               opacity: 0;
-              transform: scale(0.95);
+              transform: translateY(-30px) scale(0.9);
             }
             to {
               opacity: 1;
-              transform: scale(1);
+              transform: translateY(0) scale(1);
             }
           }
-          
-          .status-icon { 
+
+          .logo {
             width: 48px;
             height: 48px;
-            margin: 0 auto 1rem;
+            margin: 0 auto 1.5rem;
+            display: block;
+          }
+
+          .status-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            font-weight: bold;
+            animation: ${type === "success" ? "successPop" : "errorShake"} 0.6s ease-out;
+            background: ${type === "success"
+              ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+              : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"};
+            color: white;
+            box-shadow: 0 8px 24px ${type === "success"
+              ? "rgba(16, 185, 129, 0.3)"
+              : "rgba(239, 68, 68, 0.3)"};
+          }
+
+          @keyframes successPop {
+            0% {
+              transform: scale(0);
+              opacity: 0;
+            }
+            50% {
+              transform: scale(1.1);
+            }
+            100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+          }
+
+          @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+          }
+
+          h1 {
+            margin: 0 0 0.75rem;
+            color: #1a202c;
+            font-size: 1.875rem;
+            font-weight: 700;
+            line-height: 1.2;
+          }
+
+          .provider-name {
             color: ${type === "success" ? "#10b981" : "#ef4444"};
+            font-weight: 800;
           }
-          
-          h2 { 
-            margin: 0 0 0.5rem; 
-            color: #111827;
-            font-size: 1.5rem;
-            font-weight: 600;
+
+          .message {
+            margin: 0 0 1.5rem;
+            color: #4a5568;
+            font-size: 1.125rem;
+            line-height: 1.6;
           }
-          
-          .message { 
-            margin: 0 0 1rem; 
-            color: #6b7280;
-            font-size: 1rem;
-          }
-          
+
           .subtitle {
-            margin: 0;
-            color: #9ca3af;
+            margin: 0.5rem 0 0;
+            color: #718096;
             font-size: 0.875rem;
+            font-weight: 500;
+          }
+
+          .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 1rem 0;
+          }
+
+          .progress-fill {
+            height: 100%;
+            background: ${type === "success"
+              ? "linear-gradient(90deg, #10b981 0%, #059669 100%)"
+              : "linear-gradient(90deg, #ef4444 0%, #dc2626 100%)"};
+            width: 0%;
+            animation: fillProgress 2s ease-out forwards;
+            border-radius: 2px;
+          }
+
+          @keyframes fillProgress {
+            to { width: 100%; }
+          }
+
+          .close-button {
+            margin-top: 1.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+          }
+
+          .close-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+          }
+
+          .close-button:active {
+            transform: translateY(0);
+          }
+
+          .brand-footer {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.75rem;
+            color: #a0aec0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+          }
+
+          .brand-footer img {
+            width: 16px;
+            height: 16px;
           }
         </style>
       </head>
       <body>
         <div class="container">
-          ${type === "success" 
-            ? `<svg class="status-icon" viewBox="0 0 24 24" fill="none">
-                <path d="M9 11L12 14L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>`
-            : `<svg class="status-icon" viewBox="0 0 24 24" fill="none">
-                <path d="M12 9V13M12 17H12.01M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>`
+          <img src="/logo.svg" alt="ChainReact" class="logo" onerror="this.style.display='none'">
+
+          <div class="status-icon">
+            ${type === "success" ? "✓" : "✗"}
+          </div>
+
+          <h1>
+            ${type === "success"
+              ? `<span class="provider-name">${safeProvider}</span> Connected!`
+              : `<span class="provider-name">${safeProvider}</span> Connection Failed`
+            }
+          </h1>
+
+          <p class="message">${safeMessage}</p>
+
+          ${type === "success"
+            ? `<p class="subtitle">This window will close automatically...</p>
+               <div class="progress-bar">
+                 <div class="progress-fill"></div>
+               </div>`
+            : isPersonalAccountError
+              ? `<p class="subtitle">Please use a work or school Microsoft account instead.</p>
+                 <button class="close-button" onclick="window.close()">Close Window</button>`
+              : `<p class="subtitle">Please try again or contact support if the issue persists.</p>
+                 <button class="close-button" onclick="window.close()">Try Again</button>`
           }
-          
-          <h2>${type === "success" ? "Success!" : "Connection Failed"}</h2>
-          
-          <p class="message">${safeProvider} ${type === "success" ? "has been connected successfully." : "connection failed."}</p>
-          
-          ${type === "success" 
-            ? `<p class="subtitle">This window will close automatically...</p>` 
-            : isPersonalAccountError 
-              ? `<p class="subtitle">Please use a work or school Microsoft account instead.</p>`
-              : `<p class="subtitle">Please try again or contact support if the issue persists.</p>`
-          }
+
+          <div class="brand-footer">
+            <img src="/logo.svg" alt="ChainReact" onerror="this.style.display='none'">
+            <span>Powered by ChainReact</span>
+          </div>
         </div>
         ${script}
       </body>

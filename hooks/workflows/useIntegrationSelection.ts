@@ -161,49 +161,22 @@ export function useIntegrationSelection() {
 
   const isIntegrationConnected = useCallback((integrationId: string): boolean => {
     // Special integrations that don't require connection
-    // Note: webhook is removed from this list so it shows as "coming soon"
     if (['schedule', 'ai', 'core', 'logic', 'manual'].includes(integrationId)) {
       return true
     }
 
-    const connectedProviders = getConnectedProviders()
+    // Get integrations directly from store - check actual database records
     const storeIntegrations = useIntegrationStore.getState().integrations
 
-    // Debug logging (commented out to reduce console noise)
-    // logger.debug(`🔍 [isIntegrationConnected] Checking ${integrationId}:`, {
-    //   connectedProviders,
-    //   storeIntegrationsCount: storeIntegrations.length,
-    //   storeIntegrations: storeIntegrations.map(i => ({ provider: i.provider, status: i.status }))
-    // })
-
-    // If integrations haven't loaded yet, return false
-    if (!connectedProviders || connectedProviders.length === 0) {
-      // But check if we actually have integrations loaded in the store
-      if (storeIntegrations.length === 0) {
-        // logger.debug(`⚠️ [isIntegrationConnected] No integrations loaded yet for ${integrationId}`)
-        return false
-      }
-      // If we have integrations but no connected providers, they must all be disconnected
-      // logger.debug(`⚠️ [isIntegrationConnected] Have ${storeIntegrations.length} integrations but none are connected`)
-      return false
-    }
-
-    // Check if there's a base 'google' integration that covers all Google services
-    if (integrationId.startsWith('google-') || integrationId === 'gmail') {
-      // Check for either the specific service or the base google provider
-      const hasSpecific = connectedProviders.includes(integrationId)
-      const hasBase = connectedProviders.includes('google')
-      // Also check with underscores instead of hyphens
-      const alternateId = integrationId.replace(/-/g, '_')
-      const hasAlternate = connectedProviders.includes(alternateId)
-      return hasSpecific || hasBase || hasAlternate
+    // Helper to check if status means connected
+    const isConnectedStatus = (status?: string) => {
+      const v = (status || '').toLowerCase()
+      return v === 'connected' || v === 'authorized' || v === 'active' || v === 'valid' || v === 'ok' || v === 'ready'
     }
 
     // Check for Microsoft services - each service needs its own connection
-    // Unlike Google services, Microsoft services don't share authentication
     // EXCEPT: Microsoft Excel uses OneDrive's authentication
     if (integrationId.startsWith('microsoft-') || integrationId === 'onedrive') {
-      // Map microsoft-onenote to onenote, microsoft-outlook to outlook, etc.
       let checkIds = [integrationId]
       if (integrationId === 'microsoft-onenote') {
         checkIds.push('onenote')
@@ -215,41 +188,15 @@ export function useIntegrationSelection() {
         // Excel uses OneDrive's authentication
         checkIds.push('onedrive')
       }
-      return checkIds.some(id => connectedProviders.includes(id))
+      return checkIds.some(id =>
+        storeIntegrations.some(i => i.provider === id && isConnectedStatus(i.status))
+      )
     }
 
-    // Handle other specific provider mappings
-    const providerMappings: Record<string, string[]> = {
-      'discord': ['discord'],
-      'slack': ['slack'],
-      'notion': ['notion'],
-      'airtable': ['airtable'],
-      'hubspot': ['hubspot'],
-      'stripe': ['stripe'],
-      'trello': ['trello'],
-      'facebook': ['facebook'],
-      'twitter': ['twitter', 'x'],
-      'dropbox': ['dropbox'],
-      'mailchimp': ['mailchimp'],
-      'blackbaud': ['blackbaud'],
-      'spotify': ['spotify'],
-      'github': ['github']
-    }
-
-    // Check using the mapping
-    const possibleProviders = providerMappings[integrationId] || [integrationId]
-    const isConnected = possibleProviders.some(provider => connectedProviders.includes(provider))
-
-    if (!isConnected) {
-      // Also try with underscores/hyphens swapped as a fallback
-      const alternateId = integrationId.includes('-')
-        ? integrationId.replace(/-/g, '_')
-        : integrationId.replace(/_/g, '-')
-      return connectedProviders.includes(alternateId)
-    }
-
-    return isConnected
-  }, [getConnectedProviders])
+    // For all other integrations (including Google services), check exact database match
+    // Don't use the "all Google services share auth" logic - check actual DB records
+    return storeIntegrations.some(i => i.provider === integrationId && isConnectedStatus(i.status))
+  }, [])
 
   const filterIntegrations = useCallback((
     integrations: IntegrationInfo[],

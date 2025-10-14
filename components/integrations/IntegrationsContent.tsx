@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { INTEGRATION_CONFIGS, type IntegrationConfig } from "@/lib/integrations/availableIntegrations"
 import { Zap, CheckCircle2, AlertTriangle, XCircle } from "lucide-react"
+import { useShallow } from 'zustand/react/shallow'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -42,21 +43,35 @@ function IntegrationsContent({ configuredClients }: IntegrationsContentProps) {
   const lastFetchTimeRef = React.useRef(0)
   const { toast } = useToast()
 
-  // Use selective subscriptions to prevent unnecessary re-renders
-  const integrations = useIntegrationStore(state => state.integrations)
-  const providers = useIntegrationStore(state => state.providers)
-  const loading = useIntegrationStore(state => state.loading)
-  const loadingStates = useIntegrationStore(state => state.loadingStates)
+  // Use selective subscriptions with shallow comparison to prevent unnecessary re-renders
+  const {
+    integrations,
+    providers,
+    loading,
+    loadingStates,
+    initializeProviders,
+    fetchIntegrations,
+    connectIntegration,
+    disconnectIntegration,
+    reconnectIntegration,
+    connectApiKeyIntegration,
+    setLoading
+  } = useIntegrationStore(
+    useShallow(state => ({
+      integrations: state.integrations,
+      providers: state.providers,
+      loading: state.loading,
+      loadingStates: state.loadingStates,
+      initializeProviders: state.initializeProviders,
+      fetchIntegrations: state.fetchIntegrations,
+      connectIntegration: state.connectIntegration,
+      disconnectIntegration: state.disconnectIntegration,
+      reconnectIntegration: state.reconnectIntegration,
+      connectApiKeyIntegration: state.connectApiKeyIntegration,
+      setLoading: state.setLoading
+    }))
+  )
   const [initialFetchSettled, setInitialFetchSettled] = useState(false)
-
-  // These functions don't change, so we can get them once
-  const initializeProviders = useIntegrationStore(state => state.initializeProviders)
-  const fetchIntegrations = useIntegrationStore(state => state.fetchIntegrations)
-  const connectIntegration = useIntegrationStore(state => state.connectIntegration)
-  const disconnectIntegration = useIntegrationStore(state => state.disconnectIntegration)
-  const reconnectIntegration = useIntegrationStore(state => state.reconnectIntegration)
-  const connectApiKeyIntegration = useIntegrationStore(state => state.connectApiKeyIntegration)
-  const setLoading = useIntegrationStore(state => state.setLoading)
   const { user } = useAuthStore()
   const router = useRouter()
 

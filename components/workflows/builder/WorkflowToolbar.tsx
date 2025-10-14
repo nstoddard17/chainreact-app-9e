@@ -162,8 +162,9 @@ export function WorkflowToolbar({
   }
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
-      <div className="flex justify-between items-start p-4 pointer-events-auto">
+    <TooltipProvider>
+      <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
+        <div className="flex justify-between items-start p-4 pointer-events-auto">
         <div className="flex items-center space-x-4 flex-1 min-w-0">
           <Button
             variant="ghost"
@@ -199,60 +200,54 @@ export function WorkflowToolbar({
         <div className="flex items-center space-x-2 flex-shrink-0">
           {/* Undo/Redo Buttons */}
           <div className="flex items-center gap-1 border-r pr-2 mr-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleUndo}
-                    disabled={!canUndo}
-                    className="h-8 w-8"
-                  >
-                    <Undo2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Undo (Ctrl+Z)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRedo}
-                    disabled={!canRedo}
-                    className="h-8 w-8"
-                  >
-                    <Redo2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Redo (Ctrl+Y)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  className="h-8 w-8"
+                >
+                  <Undo2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Undo (Ctrl+Z)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  className="h-8 w-8"
+                >
+                  <Redo2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Redo (Ctrl+Y)</p>
+              </TooltipContent>
+            </Tooltip>
             {selectedEdgeId && deleteSelectedEdge && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={deleteSelectedEdge}
-                      className="h-8 w-8 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Delete Connection (Delete/Backspace)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={deleteSelectedEdge}
+                    className="h-8 w-8 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete Connection (Delete/Backspace)</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           {/* Status badges */}
@@ -269,55 +264,51 @@ export function WorkflowToolbar({
           )}
 
           {/* Save button */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">
-                  {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                  Save
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Save your workflow</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={handleSave} disabled={isSaving || isExecuting} variant="secondary">
+                {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+                Save
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Save your workflow</p>
+            </TooltipContent>
+          </Tooltip>
 
           {/* Activate/Deactivate button */}
           {handleToggleLive && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleToggleLive}
-                    disabled={isUpdatingStatus || isSaving || hasUnsavedChanges}
-                    variant={currentWorkflow?.status === 'active' ? "destructive" : "default"}
-                  >
-                    {isUpdatingStatus ? (
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    ) : currentWorkflow?.status === 'active' ? (
-                      <Pause className="w-5 h-5 mr-2" />
-                    ) : (
-                      <Radio className="w-5 h-5 mr-2" />
-                    )}
-                    {currentWorkflow?.status === 'active' ? 'Deactivate' : 'Activate Workflow'}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-sm">
-                  <p className="font-semibold mb-1">
-                    {currentWorkflow?.status === 'active' ? 'Deactivate Workflow' : 'Activate Workflow'}
-                  </p>
-                  <p className="text-xs">
-                    {hasUnsavedChanges
-                      ? "Save your changes before activating the workflow"
-                      : currentWorkflow?.status === 'active'
-                        ? "Stop the workflow from running automatically on triggers"
-                        : "Enable automatic execution when trigger events occur (e.g., new email, webhook)"
-                    }
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleToggleLive}
+                  disabled={isUpdatingStatus || isSaving || hasUnsavedChanges}
+                  variant={currentWorkflow?.status === 'active' ? "destructive" : "default"}
+                >
+                  {isUpdatingStatus ? (
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  ) : currentWorkflow?.status === 'active' ? (
+                    <Pause className="w-5 h-5 mr-2" />
+                  ) : (
+                    <Radio className="w-5 h-5 mr-2" />
+                  )}
+                  {currentWorkflow?.status === 'active' ? 'Deactivate' : 'Activate Workflow'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                <p className="font-semibold mb-1">
+                  {currentWorkflow?.status === 'active' ? 'Deactivate Workflow' : 'Activate Workflow'}
+                </p>
+                <p className="text-xs">
+                  {hasUnsavedChanges
+                    ? "Save your changes before activating the workflow"
+                    : currentWorkflow?.status === 'active'
+                      ? "Stop the workflow from running automatically on triggers"
+                      : "Enable automatic execution when trigger events occur (e.g., new email, webhook)"
+                  }
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* Combined Test button with dropdown */}
@@ -352,128 +343,120 @@ export function WorkflowToolbar({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-72">
                     {handleTestSandbox && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuItem
-                              onClick={handleTestSandbox}
-                              disabled={(isExecuting && !listeningMode) || isSaving}
-                              className="cursor-pointer"
-                            >
-                              <div className="flex items-start w-full">
-                                <Shield className="w-5 h-5 mr-3 mt-0.5 text-blue-500" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Sandbox Mode</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Safe testing environment - no real actions
-                                  </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuItem
+                            onClick={handleTestSandbox}
+                            disabled={(isExecuting && !listeningMode) || isSaving}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-start w-full">
+                              <Shield className="w-5 h-5 mr-3 mt-0.5 text-blue-500" />
+                              <div className="flex-1">
+                                <div className="font-medium">Sandbox Mode</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Safe testing environment - no real actions
                                 </div>
                               </div>
-                            </DropdownMenuItem>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-sm">
-                            <p className="font-semibold mb-1">Test in Sandbox Mode</p>
-                            <p className="text-xs">
-                              Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                            </div>
+                          </DropdownMenuItem>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-sm">
+                          <p className="font-semibold mb-1">Test in Sandbox Mode</p>
+                          <p className="text-xs">
+                            Run workflow step-by-step with test data. No emails sent, no external actions performed. Perfect for testing your logic safely.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
 
                     {handleRunPreflight && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuItem
-                              onClick={handleRunPreflight}
-                              disabled={isSaving || isExecuting || isRunningPreflight}
-                              className="cursor-pointer"
-                            >
-                              <div className="flex items-start w-full">
-                                <ClipboardCheck className="w-5 h-5 mr-3 mt-0.5 text-emerald-500" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Preflight Check</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Verify integrations and required fields before running
-                                  </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuItem
+                            onClick={handleRunPreflight}
+                            disabled={isSaving || isExecuting || isRunningPreflight}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-start w-full">
+                              <ClipboardCheck className="w-5 h-5 mr-3 mt-0.5 text-emerald-500" />
+                              <div className="flex-1">
+                                <div className="font-medium">Preflight Check</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Verify integrations and required fields before running
                                 </div>
                               </div>
-                              {isRunningPreflight && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-                            </DropdownMenuItem>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-sm">
-                            <p className="font-semibold mb-1">Run Preflight Checklist</p>
-                            <p className="text-xs">
-                              Checks that every integration is connected and each action has the required configuration. Fix issues before sending real data.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                            </div>
+                            {isRunningPreflight && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
+                          </DropdownMenuItem>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-sm">
+                          <p className="font-semibold mb-1">Run Preflight Checklist</p>
+                          <p className="text-xs">
+                            Checks that every integration is connected and each action has the required configuration. Fix issues before sending real data.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
 
                     {(!!handleTestSandbox || !!handleRunPreflight) && handleExecuteLive && <DropdownMenuSeparator />}
 
                     {handleExecuteLive && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuItem
-                              onClick={handleExecuteLive}
-                              disabled={isSaving || isExecuting}
-                              className="cursor-pointer"
-                            >
-                              <div className="flex items-start w-full">
-                                <Rocket className="w-5 h-5 mr-3 mt-0.5 text-orange-500" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Live Mode</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Execute with real data (parallel processing)
-                                  </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuItem
+                            onClick={handleExecuteLive}
+                            disabled={isSaving || isExecuting}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-start w-full">
+                              <Rocket className="w-5 h-5 mr-3 mt-0.5 text-orange-500" />
+                              <div className="flex-1">
+                                <div className="font-medium">Live Mode</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Execute with real data (parallel processing)
                                 </div>
                               </div>
-                            </DropdownMenuItem>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-sm">
-                            <p className="font-semibold mb-1">Run with Live Data (Parallel)</p>
-                            <p className="text-xs">
-                              Execute workflow immediately with real data. Multiple nodes will run simultaneously for faster execution. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                            </div>
+                          </DropdownMenuItem>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-sm">
+                          <p className="font-semibold mb-1">Run with Live Data (Parallel)</p>
+                          <p className="text-xs">
+                            Execute workflow immediately with real data. Multiple nodes will run simultaneously for faster execution. <span className="text-yellow-500 font-semibold">Warning:</span> This will send real emails, post real messages, and perform actual actions in your connected services.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
 
                     {/* Admin-only sequential mode for debugging */}
                     {isAdmin && handleExecuteLiveSequential && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <DropdownMenuItem
-                              onClick={handleExecuteLiveSequential}
-                              disabled={isSaving || isExecuting}
-                              className="cursor-pointer"
-                            >
-                              <div className="flex items-start w-full">
-                                <Activity className="w-5 h-5 mr-3 mt-0.5 text-purple-500" />
-                                <div className="flex-1">
-                                  <div className="font-medium">Live Mode Sequential</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Debug mode - one node at a time
-                                  </div>
-                                  <Badge variant="outline" className="text-xs mt-1">Admin</Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuItem
+                            onClick={handleExecuteLiveSequential}
+                            disabled={isSaving || isExecuting}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-start w-full">
+                              <Activity className="w-5 h-5 mr-3 mt-0.5 text-purple-500" />
+                              <div className="flex-1">
+                                <div className="font-medium">Live Mode Sequential</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Debug mode - one node at a time
                                 </div>
+                                <Badge variant="outline" className="text-xs mt-1">Admin</Badge>
                               </div>
-                            </DropdownMenuItem>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-sm">
-                            <p className="font-semibold mb-1">Sequential Execution (Debug Mode)</p>
-                            <p className="text-xs">
-                              Execute workflow with real data but process nodes one at a time. Easier for debugging and understanding flow. <span className="text-yellow-500 font-semibold">Warning:</span> Still performs real actions.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                            </div>
+                          </DropdownMenuItem>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-sm">
+                          <p className="font-semibold mb-1">Sequential Execution (Debug Mode)</p>
+                          <p className="text-xs">
+                            Execute workflow with real data but process nodes one at a time. Easier for debugging and understanding flow. <span className="text-yellow-500 font-semibold">Warning:</span> Still performs real actions.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -481,33 +464,31 @@ export function WorkflowToolbar({
 
               {/* Show preview button when in sandbox mode */}
               {listeningMode && sandboxInterceptedActions.length > 0 && setShowSandboxPreview && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={showSandboxPreview ? "default" : "outline"}
-                        size="icon"
-                        onClick={() => setShowSandboxPreview(!showSandboxPreview)}
-                        className="relative"
-                      >
-                        <Shield className="w-5 h-5" />
-                        {sandboxInterceptedActions.length > 0 && (
-                          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
-                            {sandboxInterceptedActions.length}
-                          </span>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-semibold">
-                        {showSandboxPreview ? "Hide" : "Show"} Sandbox Preview
-                      </p>
-                      <p className="text-xs">
-                        {sandboxInterceptedActions.length} intercepted action{sandboxInterceptedActions.length !== 1 ? 's' : ''}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={showSandboxPreview ? "default" : "outline"}
+                      size="icon"
+                      onClick={() => setShowSandboxPreview(!showSandboxPreview)}
+                      className="relative"
+                    >
+                      <Shield className="w-5 h-5" />
+                      {sandboxInterceptedActions.length > 0 && (
+                        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
+                          {sandboxInterceptedActions.length}
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-semibold">
+                      {showSandboxPreview ? "Hide" : "Show"} Sandbox Preview
+                    </p>
+                    <p className="text-xs">
+                      {sandboxInterceptedActions.length} intercepted action{sandboxInterceptedActions.length !== 1 ? 's' : ''}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               )}
             </>
           )}
@@ -590,24 +571,22 @@ export function WorkflowToolbar({
 
           {/* Emergency reset button */}
           {(isSaving || isExecuting) && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleResetLoadingStates}
-                    variant="outline"
-                    size="sm"
-                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-1" />
-                    Reset
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Reset stuck loading states</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleResetLoadingStates}
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" />
+                  Reset
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reset stuck loading states</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -809,6 +788,7 @@ export function WorkflowToolbar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
