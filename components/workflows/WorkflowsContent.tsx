@@ -375,6 +375,10 @@ export default function WorkflowsContent() {
           throw new Error(error.message || "Trigger activation failed")
         }
 
+        // Wait for the store to update before clearing loading state
+        // Use a small delay to ensure Zustand state propagates to UI
+        await new Promise(resolve => setTimeout(resolve, 100))
+
         const verifyWorkflow = (workflows || []).find(w => w.id === id)
         logger.debug(`✔️ Verified workflow status:`, {
           id: verifyWorkflow?.id,
@@ -398,6 +402,14 @@ export default function WorkflowsContent() {
         logger.debug('🚀 Starting Gmail webhook registration in background...')
         webhookRegistrationPromise
       }
+
+      // Clear loading state after successful update
+      logger.debug(`🧹 Clearing loading state for workflow ${id} after success`)
+      setUpdatingWorkflows(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(id)
+        return newSet
+      })
     } catch (error) {
       logger.error("Failed to update workflow status:", error)
 
@@ -406,8 +418,9 @@ export default function WorkflowsContent() {
         description: "Failed to update workflow status",
         variant: "destructive",
       })
-    } finally {
-      logger.debug(`🧹 Clearing loading state for workflow ${id}`)
+
+      // Clear loading state after error
+      logger.debug(`🧹 Clearing loading state for workflow ${id} after error`)
       setUpdatingWorkflows(prev => {
         const newSet = new Set(prev)
         newSet.delete(id)

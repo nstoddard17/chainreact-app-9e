@@ -298,6 +298,12 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       },
       'trigger_message_sent': '/me/chats/getAllMessages',
       'trigger_channel_message': '/teams/{teamId}/channels/{channelId}/messages',
+      'trigger_user_joins_team': (config?: Record<string, any>) => {
+        if (config?.teamId) {
+          return `/teams/${config.teamId}/members`
+        }
+        throw new Error('teamId is required for user joins team trigger')
+      },
 
       // OneDrive triggers
       'trigger_file_created': '/me/drive/root',
