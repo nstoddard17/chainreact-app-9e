@@ -138,7 +138,7 @@ export interface Workflow {
   organization_id?: string | null
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
-  status: string
+  status: 'draft' | 'active' | 'inactive'
   created_at: string
   updated_at: string
   visibility?: string

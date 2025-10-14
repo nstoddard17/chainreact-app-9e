@@ -16,6 +16,20 @@ type ValidationField = ConfigField & {
   conditional?: { field: string; value: any }
   visibleWhen?: { field: string; equals: any }
   conditionalVisibility?: { field: string; value: any }
+  visibilityCondition?:
+    | "always"
+    | {
+        field: string
+        operator: "isNotEmpty" | "isEmpty" | "equals" | "notEquals" | "in"
+        value?: any
+      }
+    | {
+        and: Array<{
+          field: string
+          operator: "isNotEmpty" | "isEmpty" | "equals" | "notEquals" | "in"
+          value?: any
+        }>
+      }
 }
 
 const isEmptyValue = (value: unknown): boolean => {
@@ -34,6 +48,67 @@ export const isFieldCurrentlyVisible = (
   nodeInfo?: ValidationNodeInfo,
 ): boolean => {
   if (field.type === "hidden") return false
+
+  // Check visibilityCondition first (newer pattern used in unified Notion actions)
+  if (field.visibilityCondition !== undefined && field.visibilityCondition !== null) {
+    // Always show if condition is "always"
+    if (field.visibilityCondition === "always") {
+      return true
+    }
+
+    // Handle object-based visibility conditions
+    if (typeof field.visibilityCondition === "object") {
+      // Handle 'and' operator for multiple conditions
+      if ("and" in field.visibilityCondition && Array.isArray(field.visibilityCondition.and)) {
+        const allConditionsMet = field.visibilityCondition.and.every((condition) => {
+          const fieldValue = getValue(values, condition.field)
+
+          switch (condition.operator) {
+            case "isNotEmpty":
+              return !isEmptyValue(fieldValue)
+            case "isEmpty":
+              return isEmptyValue(fieldValue)
+            case "equals":
+              if (isEmptyValue(fieldValue) && fieldValue !== 0 && fieldValue !== false) return false
+              return fieldValue === condition.value
+            case "notEquals":
+              return fieldValue !== condition.value
+            case "in":
+              if (isEmptyValue(fieldValue) && fieldValue !== 0 && fieldValue !== false) return false
+              return Array.isArray(condition.value) && condition.value.includes(fieldValue)
+            default:
+              return true
+          }
+        })
+        return allConditionsMet
+      }
+
+      // Handle single condition
+      if ("field" in field.visibilityCondition && "operator" in field.visibilityCondition) {
+        const fieldValue = getValue(values, field.visibilityCondition.field)
+
+        switch (field.visibilityCondition.operator) {
+          case "isNotEmpty":
+            return !isEmptyValue(fieldValue)
+          case "isEmpty":
+            return isEmptyValue(fieldValue)
+          case "equals":
+            if (isEmptyValue(fieldValue) && fieldValue !== 0 && fieldValue !== false) return false
+            return fieldValue === field.visibilityCondition.value
+          case "notEquals":
+            return fieldValue !== field.visibilityCondition.value
+          case "in":
+            if (isEmptyValue(fieldValue) && fieldValue !== 0 && fieldValue !== false) return false
+            return (
+              Array.isArray(field.visibilityCondition.value) &&
+              field.visibilityCondition.value.includes(fieldValue)
+            )
+          default:
+            return true
+        }
+      }
+    }
+  }
 
   if (field.dependsOn) {
     const parentValue = getValue(values, field.dependsOn)

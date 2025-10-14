@@ -77,6 +77,78 @@ export const shouldHideField = (
   field: NodeField | ConfigField,
   config: Record<string, any>
 ): boolean => {
+  // Check visibilityCondition first (newer pattern used in unified Notion actions)
+  const visibilityCondition = (field as any).visibilityCondition;
+  if (visibilityCondition !== undefined && visibilityCondition !== null) {
+    // Always show if condition is "always"
+    if (visibilityCondition === 'always') {
+      return false;
+    }
+
+    // Handle object-based visibility conditions
+    if (typeof visibilityCondition === 'object') {
+      // Handle 'and' operator for multiple conditions
+      if (visibilityCondition.and && Array.isArray(visibilityCondition.and)) {
+        const allConditionsMet = visibilityCondition.and.every((condition: any) => {
+          const { field: condField, operator, value } = condition;
+          const fieldValue = config[condField];
+
+          switch (operator) {
+            case 'isNotEmpty':
+              return fieldValue !== undefined && fieldValue !== '' && fieldValue !== null;
+            case 'isEmpty':
+              return fieldValue === undefined || fieldValue === '' || fieldValue === null;
+            case 'equals':
+              if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
+              return fieldValue === value;
+            case 'notEquals':
+              return fieldValue !== value;
+            case 'in':
+              if (!fieldValue && fieldValue !== 0 && fieldValue !== false) return false;
+              return Array.isArray(value) && value.includes(fieldValue);
+            default:
+              return true;
+          }
+        });
+        return !allConditionsMet; // Hide if not all conditions are met
+      }
+
+      // Handle single condition
+      const { field: condField, operator, value } = visibilityCondition;
+      const fieldValue = config[condField];
+
+      let shouldShow = true;
+      switch (operator) {
+        case 'isNotEmpty':
+          shouldShow = fieldValue !== undefined && fieldValue !== '' && fieldValue !== null;
+          break;
+        case 'isEmpty':
+          shouldShow = fieldValue === undefined || fieldValue === '' || fieldValue === null;
+          break;
+        case 'equals':
+          if (!fieldValue && fieldValue !== 0 && fieldValue !== false) {
+            shouldShow = false;
+          } else {
+            shouldShow = fieldValue === value;
+          }
+          break;
+        case 'notEquals':
+          shouldShow = fieldValue !== value;
+          break;
+        case 'in':
+          if (!fieldValue && fieldValue !== 0 && fieldValue !== false) {
+            shouldShow = false;
+          } else {
+            shouldShow = Array.isArray(value) && value.includes(fieldValue);
+          }
+          break;
+        default:
+          shouldShow = true;
+      }
+      return !shouldShow; // Hide if should not show
+    }
+  }
+
   // Check if the field has explicit hidden property and showIf function
   if (field.hidden && (field as any).showIf) {
     // If there's a showIf function, evaluate it
@@ -85,7 +157,7 @@ export const shouldHideField = (
       return !shouldShow; // Hide if showIf returns false
     }
   }
-  
+
   // Check if the field has explicit hidden property without showIf
   if (field.hidden && !(field as any).showIf) {
     return true;
