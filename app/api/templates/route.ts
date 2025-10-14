@@ -38,7 +38,69 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 })
     }
 
-    return NextResponse.json({ templates })
+    const hydratedTemplates = (templates || []).map((template) => {
+      const airtableSetup =
+        typeof template.airtable_setup === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.airtable_setup)
+              } catch (parseError) {
+                console.error("Failed to parse airtable_setup for template", template.id, parseError)
+                return null
+              }
+            })()
+          : template.airtable_setup || null
+
+      const integrationSetup =
+        typeof template.integration_setup === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.integration_setup)
+              } catch (parseError) {
+                console.error("Failed to parse integration_setup for template", template.id, parseError)
+                return null
+              }
+          })()
+        : template.integration_setup || null
+
+      const setupOverview =
+        typeof template.setup_overview === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.setup_overview)
+              } catch (parseError) {
+                console.error("Failed to parse setup_overview for template", template.id, parseError)
+                return null
+              }
+            })()
+          : template.setup_overview || null
+
+      const defaultFieldValues =
+        typeof template.default_field_values === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.default_field_values)
+              } catch (parseError) {
+                console.error("Failed to parse default_field_values for template", template.id, parseError)
+                return null
+              }
+            })()
+          : template.default_field_values || null
+
+      return {
+        ...template,
+        airtable_setup: airtableSetup,
+        airtableSetup,
+        integration_setup: integrationSetup,
+        integrationSetup,
+        setup_overview: setupOverview,
+        setupOverview,
+        default_field_values: defaultFieldValues,
+        defaultFieldValues,
+      }
+    })
+
+    return NextResponse.json({ templates: hydratedTemplates })
   } catch (error) {
     console.error("Error in GET /api/templates:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -58,7 +120,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const { name, description, workflow_json, category, tags, is_public } = await request.json()
+    const {
+      name,
+      description,
+      workflow_json,
+      category,
+      tags,
+      is_public,
+      airtable_setup,
+      integration_setup,
+      primary_setup_target,
+      setup_overview,
+      default_field_values,
+      status,
+    } = await request.json()
 
     // Filter out UI-only placeholder nodes if workflow_json contains nodes
     let cleanedWorkflowJson = workflow_json
@@ -92,6 +167,12 @@ export async function POST(request: NextRequest) {
         tags,
         is_public: is_public || false,
         created_by: user.id,
+        airtable_setup,
+        integration_setup,
+        primary_setup_target,
+        setup_overview,
+        default_field_values,
+        status: status || 'draft',
       })
       .select()
       .single()
@@ -101,7 +182,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create template" }, { status: 500 })
     }
 
-    return NextResponse.json({ template })
+    const parsedAirtableSetup =
+      typeof template?.airtable_setup === "string"
+        ? (() => {
+            try {
+              return JSON.parse(template.airtable_setup)
+            } catch (parseError) {
+              console.error("Failed to parse airtable_setup after creation", parseError)
+              return null
+            }
+          })()
+        : template?.airtable_setup || null
+
+    const parsedIntegrationSetup =
+      typeof template?.integration_setup === "string"
+        ? (() => {
+            try {
+              return JSON.parse(template.integration_setup)
+            } catch (parseError) {
+              console.error("Failed to parse integration_setup after creation", parseError)
+              return null
+            }
+          })()
+        : template?.integration_setup || null
+
+    const parsedSetupOverview =
+      typeof template?.setup_overview === "string"
+        ? (() => {
+            try {
+              return JSON.parse(template.setup_overview)
+            } catch (parseError) {
+              console.error("Failed to parse setup_overview after creation", parseError)
+              return null
+            }
+          })()
+        : template?.setup_overview || null
+
+    const parsedDefaultFieldValues =
+      typeof template?.default_field_values === "string"
+        ? (() => {
+            try {
+              return JSON.parse(template.default_field_values)
+            } catch (parseError) {
+              console.error("Failed to parse default_field_values after creation", parseError)
+              return null
+            }
+          })()
+        : template?.default_field_values || null
+
+    return NextResponse.json({
+      template: {
+        ...template,
+        airtable_setup: parsedAirtableSetup,
+        airtableSetup: parsedAirtableSetup,
+        integration_setup: parsedIntegrationSetup,
+        integrationSetup: parsedIntegrationSetup,
+        setup_overview: parsedSetupOverview,
+        setupOverview: parsedSetupOverview,
+        default_field_values: parsedDefaultFieldValues,
+        defaultFieldValues: parsedDefaultFieldValues,
+      }
+    })
   } catch (error) {
     console.error("Error in POST /api/templates:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

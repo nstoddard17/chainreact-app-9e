@@ -6368,3 +6368,828 @@ Error: Airtable API error: 403 - Unknown error
 }
 [2025-10-12T14:59:14.778Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
 [2025-10-12T14:59:14.819Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 2.1s (4149 modules)
+[2025-10-12T15:01:05.659Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5s (5721 modules)
+[2025-10-12T15:01:05.691Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:01:05.900Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714578501,
+  profileError: undefined
+}
+[2025-10-12T15:01:05.926Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714578527,
+  profileError: undefined
+}
+[2025-10-12T15:01:06.174Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:06.514Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:08.931Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 429ms (4142 modules)
+[2025-10-12T15:01:09.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 326ms (4144 modules)
+[2025-10-12T15:01:09.903Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4149 modules)
+[2025-10-12T15:01:09.959Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:01:09.959Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:01:10.047Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:01:10.189Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:01:13.738Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 733ms (5730 modules)
+[2025-10-12T15:01:13.766Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:01:14.039Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714586640,
+  profileError: undefined
+}
+[2025-10-12T15:01:14.092Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714586693,
+  profileError: undefined
+}
+[2025-10-12T15:01:14.662Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:14.931Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:15.964Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:01:15.964Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:01:16.040Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:01:16.155Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:01:25.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 844ms (5730 modules)
+[2025-10-12T15:01:25.831Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:01:26.249Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714598849,
+  profileError: undefined
+}
+[2025-10-12T15:01:26.354Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714598955,
+  profileError: undefined
+}
+[2025-10-12T15:01:27.125Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:27.295Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:01:28.368Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:01:28.368Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:01:28.458Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:01:28.576Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:02:07.370Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:02:08.602Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5730 modules)
+[2025-10-12T15:02:09.210Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714641811,
+  profileError: undefined
+}
+[2025-10-12T15:02:09.271Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714641872,
+  profileError: undefined
+}
+[2025-10-12T15:02:09.607Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:09.727Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:11.204Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:02:11.204Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:02:11.288Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:02:11.414Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:02:20.840Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (5730 modules)
+[2025-10-12T15:02:20.877Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:02:21.083Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714653684,
+  profileError: undefined
+}
+[2025-10-12T15:02:21.126Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714653727,
+  profileError: undefined
+}
+[2025-10-12T15:02:21.292Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:21.579Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:23.066Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:02:23.065Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:02:23.162Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:02:23.299Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:02:33.249Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:02:34.035Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5730 modules)
+[2025-10-12T15:02:34.104Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714666705,
+  profileError: undefined
+}
+[2025-10-12T15:02:34.409Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714667010,
+  profileError: undefined
+}
+[2025-10-12T15:02:34.490Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:36.037Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:02:36.037Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:02:36.112Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:02:36.215Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:02:50.555Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5730 modules)
+[2025-10-12T15:02:50.597Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:02:50.779Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714683380,
+  profileError: undefined
+}
+[2025-10-12T15:02:50.848Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714683449,
+  profileError: undefined
+}
+[2025-10-12T15:02:51.009Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:51.285Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:02:52.793Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:02:52.793Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:02:52.874Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:02:53.015Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:03:08.051Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5728 modules)
+[2025-10-12T15:03:08.105Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:03:08.342Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714700943,
+  profileError: undefined
+}
+[2025-10-12T15:03:08.459Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714701055,
+  profileError: undefined
+}
+[2025-10-12T15:03:09.187Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:03:09.360Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:03:10.775Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:03:10.775Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:03:10.863Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:03:10.974Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:03:15.666Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:03:17.417Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5728 modules)
+[2025-10-12T15:03:17.476Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714710077,
+  profileError: undefined
+}
+[2025-10-12T15:03:17.793Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714710394,
+  profileError: undefined
+}
+[2025-10-12T15:03:17.863Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:03:19.398Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:03:19.398Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:03:19.475Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:03:19.589Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:03:50.764Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 469ms (4149 modules)
+[2025-10-12T15:03:59.291Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5730 modules)
+[2025-10-12T15:03:59.334Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:03:59.729Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714752330,
+  profileError: undefined
+}
+[2025-10-12T15:03:59.794Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714752395,
+  profileError: undefined
+}
+[2025-10-12T15:04:00.003Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:04:00.362Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:04:06.268Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:04:06.268Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:04:06.428Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:04:06.581Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:04:09.913Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (5730 modules)
+[2025-10-12T15:04:10.039Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:04:10.132Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714762733,
+  profileError: undefined
+}
+[2025-10-12T15:04:10.321Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:04:10.422Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714763023,
+  profileError: undefined
+}
+[2025-10-12T15:04:10.779Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:04:16.277Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:04:16.276Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:04:16.402Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:04:16.536Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:05:00.140Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5725 modules)
+[2025-10-12T15:05:00.185Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:05:00.485Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714813086,
+  profileError: undefined
+}
+[2025-10-12T15:05:00.544Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714813145,
+  profileError: undefined
+}
+[2025-10-12T15:05:00.765Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:05:01.045Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:05:05.332Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-12T15:05:05.904Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714818505,
+  profileError: undefined
+}
+[2025-10-12T15:05:07.007Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5725 modules)
+[2025-10-12T15:05:07.355Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:05:07.354Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:05:07.431Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:05:07.487Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714820088,
+  profileError: undefined
+}
+[2025-10-12T15:05:07.586Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:05:08.055Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:05:13.263Z] [INFO   ] 📍 [API /api/integrations] GET request received {
+  "timestamp": "2025-10-12T15:05:13.262Z",
+  "headers": {
+    "referer": "check-console"
+  }
+}
+[2025-10-12T15:05:13.386Z] [INFO   ] ✅ [API /api/integrations] User authenticated {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0"
+}
+[2025-10-12T15:05:13.511Z] [INFO   ] 📊 [API /api/integrations] Query result {
+  "count": 19,
+  "error": null,
+  "firstFew": [
+    {
+      "provider": "notion",
+      "status": "connected"
+    },
+    {
+      "provider": "mailchimp",
+      "status": "connected"
+    }
+  ]
+}
+[2025-10-12T15:05:41.919Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.1s (5725 modules)
+[2025-10-12T15:05:42.164Z] [INFO   ] [Middleware] Username check: {
+  path: '/workflows/builder',
+  userId: 'a3e3a51a-175c-4b59-ad03-227ba12a18b0',
+  provider: 'email',
+  role: 'admin',
+  username: 'nstoddard17',
+  hasUsername: true,
+  isBetaTester: false,
+  isNewBetaUser: false,
+  accountAge: 11714854765,
+  profileError: undefined
+}
+[2025-10-12T15:05:42.336Z] [INFO   ] [Username Check] {
+  "userId": "a3e3a51a-175c-4b59-ad03-227ba12a18b0",
+  "hasEmail": true,
+  "provider": "email",
+  "hasUsername": true,
+  "isGoogleUser": false
+}
+[2025-10-12T15:05:43.022Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 379ms (4147 modules)
+[2025-10-12T15:06:07.107Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 663ms (5728 modules)
+[2025-10-12T15:06:07.121Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

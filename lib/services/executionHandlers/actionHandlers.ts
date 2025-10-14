@@ -57,7 +57,9 @@ export class ActionNodeHandlers {
         return await this.aiActionsService.executeAIAction(node, context)
       case "ai_agent":
         return await this.aiActionsService.executeAIAgent(node, context)
-      
+      case "ai_router":
+        return await this.aiActionsService.executeAIRouter(node, context)
+
       default:
         throw new Error(`Unknown action node type: ${nodeType}`)
     }

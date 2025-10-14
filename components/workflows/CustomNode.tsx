@@ -543,14 +543,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
       </div>
 
       {/* Centered Add Action button for chain placeholders - matching AI Agent builder design */}
-      {console.log('Chain placeholder button check:', {
-        type,
-        isChainPlaceholder: type === 'chain_placeholder',
-        hasAddButton,
-        isPlaceholder,
-        onAddAction: !!onAddAction,
-        shouldShowButton: type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction
-      })}
       {type === 'chain_placeholder' && (hasAddButton || isPlaceholder) && onAddAction && (
         <div className="px-4 pb-4 flex justify-center">
           <Button

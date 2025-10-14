@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,7 +25,7 @@ interface SimpleVariablePickerProps {
  * A simplified variable picker that shows available variables from previous nodes
  * and provides a way to test the workflow and view actual values
  */
-export function SimpleVariablePicker({
+function SimpleVariablePickerComponent({
   workflowData,
   currentNodeId,
   onVariableSelect,
@@ -75,95 +75,101 @@ export function SimpleVariablePicker({
   }
 
   // Get nodes to display - previous nodes only when in a node config
-  const allNodes = workflowData?.nodes?.map((node: any) => ({
-    id: node.id,
-    title: node.data?.title || node.data?.type || 'Unknown Node',
-    outputs: node.data?.outputSchema || []
-  })) || []
-  
+  // Memoize allNodes to prevent recreation on every render
+  const allNodes = useMemo(() => {
+    return workflowData?.nodes?.map((node: any) => ({
+      id: node.id,
+      title: node.data?.title || node.data?.type || 'Unknown Node',
+      outputs: node.data?.outputSchema || []
+    })) || []
+  }, [workflowData?.nodes])
+
   const previousNodeIdSet = useMemo(() => {
     if (!workflowData || !currentNodeId) return new Set<string>()
     return new Set(getPreviousNodeIds())
   }, [workflowData, currentNodeId])
 
-  const nodes = currentNodeId
-    ? allNodes.filter(node => {
-        if (node.id === currentNodeId) return false
-        const hasOutputs = node.outputs && node.outputs.length > 0
-        return hasOutputs && previousNodeIdSet.has(node.id)
-      })
-    : allNodes.filter(node => node.outputs && node.outputs.length > 0)
-
-  // Debug: Log which nodes are being included
-  console.log('📊 [SIMPLE VARIABLES] Available nodes:', nodes.map(n => ({
-    id: n.id,
-    title: n.title,
-    type: n.title,
-    hasOutputs: n.outputs.length > 0,
-    outputs: n.outputs.map(o => o.name)
-  })));
+  // Memoize nodes to prevent recreation on every render
+  const nodes = useMemo(() => {
+    return currentNodeId
+      ? allNodes.filter(node => {
+          if (node.id === currentNodeId) return false
+          const hasOutputs = node.outputs && node.outputs.length > 0
+          return hasOutputs && previousNodeIdSet.has(node.id)
+        })
+      : allNodes.filter(node => node.outputs && node.outputs.length > 0)
+  }, [allNodes, currentNodeId, previousNodeIdSet])
 
   // Function to get relevant AI agent outputs based on current node type
-  const getRelevantAIAgentOutputs = (currentNodeType: string): string[] => {
+  // Memoized to prevent recreation on every render
+  const getRelevantAIAgentOutputs = useCallback((currentNodeType: string): string[] => {
     if (!currentNodeType) return ['output']; // Default to generic output
-    
+
     // Email actions should show email-specific fields
     if (currentNodeType.includes('gmail') || currentNodeType.includes('outlook') || currentNodeType.includes('email')) {
       return ['email_subject', 'email_body', 'output'];
     }
-    
+
     // Discord actions should show discord-specific and general output
     if (currentNodeType.includes('discord')) {
       return ['output', 'discord_message'];
     }
-    
+
     // Slack actions should show slack-specific and general output
     if (currentNodeType.includes('slack')) {
       return ['output', 'slack_message'];
     }
-    
+
     // Notion actions should show notion-specific and general output
     if (currentNodeType.includes('notion')) {
       return ['output', 'notion_title', 'notion_content'];
     }
-    
+
     // For other actions, show general output
     return ['output'];
-  };
+  }, []);
 
   // Filter nodes and outputs based on search term and context
-  const filteredNodes = nodes.filter(node => {
-    // Context-aware filtering for AI agent nodes
-    if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
-      const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
-      console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in SimpleVariablePicker for ${currentNodeType}:`, {
-        currentNodeType,
-        relevantOutputs,
-        availableOutputs: node.outputs.map((o: any) => o.name),
-        originalOutputsCount: node.outputs.length
-      });
-      
-      // Filter AI agent outputs to only show relevant ones for the current action type
-      const aiNodeOutputs = node.outputs.filter((output: any) => 
-        relevantOutputs.includes(output.name)
-      );
-      
-      console.log(`🎯 [CONTEXT-AWARE] SimpleVariablePicker After filtering:`, {
-        filteredOutputsCount: aiNodeOutputs.length,
-        filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
-      });
-      
-      // Update the node's outputs
-      node.outputs = aiNodeOutputs;
-    }
+  // Memoize to prevent infinite loops in useEffect dependencies
+  const filteredNodes = useMemo(() => {
+    return nodes.map(node => {
+      // Context-aware filtering for AI agent nodes
+      if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
+        const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
+        console.log(`🎯 [CONTEXT-AWARE] AI Agent filtering in SimpleVariablePicker for ${currentNodeType}:`, {
+          currentNodeType,
+          relevantOutputs,
+          availableOutputs: node.outputs.map((o: any) => o.name),
+          originalOutputsCount: node.outputs.length
+        });
 
-    const nodeMatches = node.title.toLowerCase().includes(searchTerm.toLowerCase())
-    const outputMatches = node.outputs.some((output: any) => 
-      output.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      output.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    return nodeMatches || outputMatches
-  })
+        // Filter AI agent outputs to only show relevant ones for the current action type
+        const aiNodeOutputs = node.outputs.filter((output: any) =>
+          relevantOutputs.includes(output.name)
+        );
+
+        console.log(`🎯 [CONTEXT-AWARE] SimpleVariablePicker After filtering:`, {
+          filteredOutputsCount: aiNodeOutputs.length,
+          filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
+        });
+
+        // Return a new node object with filtered outputs (don't mutate original)
+        return {
+          ...node,
+          outputs: aiNodeOutputs
+        };
+      }
+
+      return node;
+    }).filter(node => {
+      const nodeMatches = node.title.toLowerCase().includes(searchTerm.toLowerCase())
+      const outputMatches = node.outputs.some((output: any) =>
+        output.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        output.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      return nodeMatches || outputMatches
+    })
+  }, [nodes, searchTerm, currentNodeType, getRelevantAIAgentOutputs])
 
   // Handle node expansion toggle
   const toggleNodeExpansion = (nodeId: string) => {
@@ -183,7 +189,7 @@ export function SimpleVariablePicker({
     if (searchTerm) {
       const nodesToExpand = new Set<string>()
       filteredNodes.forEach(node => {
-        const hasMatchingOutputs = node.outputs.some((output: any) => 
+        const hasMatchingOutputs = node.outputs.some((output: any) =>
           output.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           output.name.toLowerCase().includes(searchTerm.toLowerCase())
         )
@@ -191,18 +197,33 @@ export function SimpleVariablePicker({
           nodesToExpand.add(node.id)
         }
       })
-      setExpandedNodes(nodesToExpand)
+      // Only update if the set actually changed
+      setExpandedNodes(prev => {
+        if (prev.size !== nodesToExpand.size) return nodesToExpand
+        for (const id of nodesToExpand) {
+          if (!prev.has(id)) return nodesToExpand
+        }
+        return prev
+      })
     } else if (hasTestResults()) {
       // Expand nodes that were executed in the test
       const nodesToExpand = new Set<string>()
       executionPath.forEach(nodeId => {
         nodesToExpand.add(nodeId)
       })
-      setExpandedNodes(nodesToExpand)
+      // Only update if the set actually changed
+      setExpandedNodes(prev => {
+        if (prev.size !== nodesToExpand.size) return nodesToExpand
+        for (const id of nodesToExpand) {
+          if (!prev.has(id)) return nodesToExpand
+        }
+        return prev
+      })
     } else {
-      setExpandedNodes(new Set())
+      // Only clear if not already empty
+      setExpandedNodes(prev => prev.size === 0 ? prev : new Set())
     }
-  }, [searchTerm, filteredNodes, executionPath, hasTestResults])
+  }, [searchTerm, filteredNodes, executionPath])
 
   const handleVariableSelect = (variable: string) => {
     // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
@@ -539,3 +560,6 @@ export function SimpleVariablePicker({
       </Popover>
   )
 }
+
+// Wrap in React.memo to prevent unnecessary re-renders
+export const SimpleVariablePicker = React.memo(SimpleVariablePickerComponent)

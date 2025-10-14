@@ -12,26 +12,31 @@ export function insertVariableIntoTextInput(
   const start = element.selectionStart ?? safeCurrentValue.length
   const end = element.selectionEnd ?? start
 
-  // Number inputs don't support setRangeText - handle them separately
-  const isNumberInput = 'type' in element && element.type === 'number'
+  // These input types don't support setRangeText or selection APIs
+  const nonSelectableTypes = ['number', 'email', 'date', 'time', 'datetime-local', 'month', 'week', 'color', 'file']
+  const isNonSelectableInput = 'type' in element && nonSelectableTypes.includes(element.type)
 
-  if (!isNumberInput && typeof element.setRangeText === "function") {
-    element.setRangeText(variable, start, end, "end")
-    const updatedValue = element.value
-    updateValue(updatedValue)
-    queueMicrotask(() => {
-      try {
-        element.focus()
-        const cursorPosition = start + variable.length
-        element.setSelectionRange(cursorPosition, cursorPosition)
-      } catch {
-        /* Focus management best-effort */
-      }
-    })
-    return element.value
+  if (!isNonSelectableInput && typeof element.setRangeText === "function") {
+    try {
+      element.setRangeText(variable, start, end, "end")
+      const updatedValue = element.value
+      updateValue(updatedValue)
+      queueMicrotask(() => {
+        try {
+          element.focus()
+          const cursorPosition = start + variable.length
+          element.setSelectionRange(cursorPosition, cursorPosition)
+        } catch {
+          /* Focus management best-effort */
+        }
+      })
+      return element.value
+    } catch {
+      // Fallback to manual construction if setRangeText fails
+    }
   }
 
-  // For number inputs and fallback: construct new value manually
+  // For non-selectable inputs and fallback: construct new value manually
   const newValue =
     safeCurrentValue.slice(0, start) +
     variable +
@@ -42,8 +47,8 @@ export function insertVariableIntoTextInput(
   queueMicrotask(() => {
     try {
       element.focus()
-      // Don't try to set selection range on number inputs
-      if (!isNumberInput) {
+      // Don't try to set selection range on non-selectable inputs
+      if (!isNonSelectableInput) {
         const cursorPosition = start + variable.length
         element.setSelectionRange(cursorPosition, cursorPosition)
       }

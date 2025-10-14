@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { TemplatePreviewWithProvider } from "./TemplatePreview"
+import { AirtableSetupPanel } from "./AirtableSetupPanel"
 
 interface Template {
   id: string
@@ -22,6 +23,10 @@ interface Template {
   difficulty?: string
   estimatedTime?: string
   integrations?: string[]
+  airtable_setup?: any
+  airtableSetup?: any
+  integration_setup?: any
+  integrationSetup?: any
 }
 
 interface TemplatePreviewModalProps {
@@ -129,6 +134,11 @@ export function TemplatePreviewModal({
               className=""
             />
           </div>
+        </div>
+
+        {/* Airtable Setup Panel */}
+        <div className="pt-3">
+          <AirtableSetupPanel templateId={template.id} />
         </div>
 
         {/* Tags */}
