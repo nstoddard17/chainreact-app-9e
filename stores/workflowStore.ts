@@ -4,6 +4,7 @@ import { create } from "zustand"
 import { supabase } from "@/lib/supabase-singleton"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { logger } from "@/lib/utils/logger"
 
 export interface WorkflowNode {
   id: string
