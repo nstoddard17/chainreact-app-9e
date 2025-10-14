@@ -63,7 +63,7 @@ async function getGmailContactGroups(accessToken: string) {
       throw new Error(`Google People API error: ${groupsResponse.status}`)
     }
 
-    const groupsData = await groupsjsonResponse()
+    const groupsData = await groupsResponse.json()
     const contactGroups = groupsData.contactGroups || []
 
     // Filter out system groups and get member details for user-created groups
@@ -90,7 +90,7 @@ async function getGmailContactGroups(accessToken: string) {
             return null
           }
 
-          const membersData = await membersjsonResponse()
+          const membersData = await membersResponse.json()
           const memberResourceNames = membersData.memberResourceNames || []
 
           if (memberResourceNames.length === 0) {
@@ -115,7 +115,7 @@ async function getGmailContactGroups(accessToken: string) {
             return null
           }
 
-          const contactsData = await contactsjsonResponse()
+          const contactsData = await contactsResponse.json()
           const people = contactsData.responses || []
 
           const emails = people

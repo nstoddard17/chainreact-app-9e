@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      const errorData = await propertiesjsonResponse().catch(() => ({}))
+      const errorData = await propertiesResponse.json().catch(() => ({}))
       return jsonResponse(
         { 
           error: `HubSpot API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const propertiesData = await propertiesjsonResponse()
+    const propertiesData = await propertiesResponse.json()
 
     // Analyze properties
     const analysis = {
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     let sampleData = null
     if (contactsResponse.ok) {
-      const contactsData = await contactsjsonResponse()
+      const contactsData = await contactsResponse.json()
       sampleData = contactsData.results
     }
 

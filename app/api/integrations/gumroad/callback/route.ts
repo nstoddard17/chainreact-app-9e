@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     // Gumroad access tokens don't expire by default
     // We'll set a nominal expiration for safety
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (meResponse.ok) {
-          const meData = await mejsonResponse()
+          const meData = await meResponse.json()
           if (meData.success && meData.user) {
             profileData = {
               name: meData.user.name,

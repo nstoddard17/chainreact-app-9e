@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
               })
               
               if (retryResponse.ok) {
-                const data = await retryjsonResponse()
+                const data = await retryResponse.json()
                 
                 // Transform the data to match the expected format
                 const events = data.value.map((event: any) => ({

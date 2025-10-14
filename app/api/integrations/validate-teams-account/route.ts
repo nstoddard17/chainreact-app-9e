@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const userData = await userjsonResponse()
+    const userData = await userResponse.json()
     
     // Check if this is a work/school account
     const isWorkAccount = userData.userPrincipalName && 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const teamsData = await teamsjsonResponse()
+    const teamsData = await teamsResponse.json()
     
     // Check for specific Teams API errors
     const hasTeamsAccess = teamsResponse.ok || 

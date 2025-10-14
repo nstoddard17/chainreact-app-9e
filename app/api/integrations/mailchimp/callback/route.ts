@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     let metadata = {}
     if (metadataResponse.ok) {
-      const metadataData = await metadatajsonResponse()
+      const metadataData = await metadataResponse.json()
       metadata = {
         dc: metadataData.dc, // Data center / server prefix
         accountname: metadataData.accountname,

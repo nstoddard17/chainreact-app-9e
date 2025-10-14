@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
         }
 
         // For custom objects, we need to fetch properties differently
-        const customSchema = await customPropertiesjsonResponse();
+        const customSchema = await customPropertiesResponse.json();
         const customPropsResponse = await fetch(
           `https://api.hubapi.com/crm/v3/properties/${customSchema.objectTypeId}`,
           {
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
           );
         }
 
-        const customPropsData: HubspotPropertiesResponse = await customPropsjsonResponse();
+        const customPropsData: HubspotPropertiesResponse = await customPropsResponse.json();
         const fieldDefs = customPropsData.results
           .map(prop => hubspotPropertyToFieldDef(prop))
           .filter(field => !field.hidden) // Filter out hidden fields
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const propertiesData: HubspotPropertiesResponse = await propertiesjsonResponse();
+    const propertiesData: HubspotPropertiesResponse = await propertiesResponse.json();
 
     // Convert to our field definitions
     const fieldDefs = propertiesData.results

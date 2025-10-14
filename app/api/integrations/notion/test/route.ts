@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (testResponse.ok) {
-      const userData = await testjsonResponse()
+      const userData = await testResponse.json()
       testResult.userData = userData
     } else {
       testResult.apiError = await testResponse.text()

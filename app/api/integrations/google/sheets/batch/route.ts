@@ -115,7 +115,7 @@ async function batchAddRows(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`,
       accessToken
     );
-    const headersData = await headersjsonResponse();
+    const headersData = await headersResponse.json();
     headers = headersData.values?.[0] || [];
   }
 
@@ -212,7 +212,7 @@ async function batchUpdateRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
     accessToken
   );
-  const sheetData = await datajsonResponse();
+  const sheetData = await dataResponse.json();
   const rows = sheetData.values || [];
   
   if (rows.length === 0) {
@@ -344,7 +344,7 @@ async function batchDeleteRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title))`,
     accessToken
   );
-  const metadata = await metadatajsonResponse();
+  const metadata = await metadataResponse.json();
   const sheet = metadata.sheets?.find((s: any) => s.properties.title === sheetName);
   
   if (!sheet) {
@@ -366,7 +366,7 @@ async function batchDeleteRows(
         `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
         accessToken
       );
-      const sheetData = await datajsonResponse();
+      const sheetData = await dataResponse.json();
       const rows = sheetData.values || [];
       
       if (rows.length <= 1) {

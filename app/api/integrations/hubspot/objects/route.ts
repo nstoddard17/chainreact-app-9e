@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       );
 
       if (customObjectsResponse.ok) {
-        const customObjectsData: HubspotObjectsResponse = await customObjectsjsonResponse();
+        const customObjectsData: HubspotObjectsResponse = await customObjectsResponse.json();
 
         // Add custom objects to the list
         const customObjects: HubspotObjectType[] = customObjectsData.results

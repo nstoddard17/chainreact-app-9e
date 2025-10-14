@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           })
 
           if (refreshResponse.ok) {
-            const refreshData = await refreshjsonResponse()
+            const refreshData = await refreshResponse.json()
             userAccessToken = refreshData.access_token
             logger.debug('✅ Token refreshed successfully')
 

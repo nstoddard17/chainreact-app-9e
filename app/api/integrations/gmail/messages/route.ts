@@ -77,7 +77,7 @@ async function fetchGmailMessages(integrationId?: string) {
     throw new Error(`Gmail API error: ${allMailResponse.status}`)
   }
 
-  const allMail = await allMailjsonResponse()
+  const allMail = await allMailResponse.json()
   const messages = []
 
   // Fetch details for each message
@@ -94,7 +94,7 @@ async function fetchGmailMessages(integrationId?: string) {
       )
 
       if (messageResponse.ok) {
-        const messageData = await messagejsonResponse()
+        const messageData = await messageResponse.json()
         const headers = messageData.payload?.headers || []
         
         const subject = headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject'

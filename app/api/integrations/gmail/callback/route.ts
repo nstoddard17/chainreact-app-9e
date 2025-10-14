@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       logger.error('Failed to exchange Gmail code for token:', errorData)
       return createPopupResponse(
         'error',
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     logger.debug('🔍 Gmail token response keys:', Object.keys(tokenData))
     logger.debug('🔍 Gmail token scopes:', tokenData.scope)

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch contact properties from HubSpot" , 500)
     }
 
-    const allPropertiesData = await allPropertiesjsonResponse()
+    const allPropertiesData = await allPropertiesResponse.json()
     logger.debug(`Found ${allPropertiesData.results.length} total contact properties`)
 
     // Try to fetch the views to see configured columns
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Parse views response if available
-    const viewsData = await viewsjsonResponse()
+    const viewsData = await viewsResponse.json()
 
     // Find the default or "All contacts" view
     const defaultView = viewsData.results?.find((view: any) =>
@@ -163,7 +163,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch contact properties" , 500)
     }
 
-    const propertiesData = await propertiesjsonResponse()
+    const propertiesData = await propertiesResponse.json()
 
     // Filter to only the properties that are visible in the view
     const tableProperties = propertiesData.results

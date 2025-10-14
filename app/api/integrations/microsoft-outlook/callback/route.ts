@@ -59,11 +59,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`Microsoft token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     let providerEmail: string | null = null
     let providerAccountName: string | null = null
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
       })
       
       if (userResponse.ok) {
-        const userData = await userjsonResponse()
+        const userData = await userResponse.json()
         const email = userData.mail || userData.userPrincipalName || ""
 
         providerUserId = userData.id || null

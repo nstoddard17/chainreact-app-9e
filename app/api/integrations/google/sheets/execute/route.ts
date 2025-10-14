@@ -134,7 +134,7 @@ async function addRow(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!1:1`,
       accessToken
     );
-    const headersData = await headersjsonResponse();
+    const headersData = await headersResponse.json();
     const headers = headersData.values?.[0] || [];
     
     // Create row data based on column mapping
@@ -183,7 +183,7 @@ async function updateRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
     accessToken
   );
-  const sheetData = await datajsonResponse();
+  const sheetData = await dataResponse.json();
   const rows = sheetData.values || [];
   
   if (rows.length === 0) {
@@ -265,7 +265,7 @@ async function deleteRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetMetadata.title)}!A:Z`,
     accessToken
   );
-  const sheetData = await datajsonResponse();
+  const sheetData = await dataResponse.json();
   const rows = sheetData.values || [];
   
   if (rows.length <= 1) {
@@ -327,7 +327,7 @@ async function clearRows(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A:Z`,
     accessToken
   );
-  const sheetData = await datajsonResponse();
+  const sheetData = await dataResponse.json();
   const rows = sheetData.values || [];
   
   if (rows.length <= 1) {

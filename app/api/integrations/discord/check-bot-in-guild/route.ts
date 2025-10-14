@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (botInfoResponse.status === 200) {
-      const botInfo = await botInfojsonResponse()
+      const botInfo = await botInfoResponse.json()
       
       // Also get the guilds the bot is in
       const guildsResponse = await fetch("https://discord.com/api/v10/users/@me/guilds", {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
       let guilds = []
       if (guildsResponse.status === 200) {
-        guilds = await guildsjsonResponse()
+        guilds = await guildsResponse.json()
       }
 
       return jsonResponse({
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         return errorResponse("Invalid bot credentials" , 500)
       }
 
-      const botInfo = await botInfojsonResponse()
+      const botInfo = await botInfoResponse.json()
       
       if (botInfo.id !== botUserId) {
         return errorResponse("Bot user ID mismatch" , 500)
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (guildResponse.status === 200) {
-        const members = await guildjsonResponse()
+        const members = await guildResponse.json()
         const botMember = members.find((member: any) => member.user?.id === botUserId)
         
         if (botMember) {
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (memberResponse.status === 200) {
-          const memberData = await memberjsonResponse()
+          const memberData = await memberResponse.json()
           if (memberData.user?.id === botUserId) {
             botInGuild = true
             guildPermissions = memberData.permissions
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (channelResponse.status === 200) {
-          const channelData = await channeljsonResponse()
+          const channelData = await channelResponse.json()
           
           // Check if bot has permission to send messages in this channel
           const hasSendMessages = guildPermissions && (BigInt(guildPermissions) & BigInt(0x800)) !== BigInt(0)

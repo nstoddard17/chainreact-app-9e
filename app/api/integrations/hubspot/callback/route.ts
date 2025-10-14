@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     logger.debug('📡 [HubSpot Callback] Token exchange response:', {
       hasAccessToken: !!tokenData.access_token,
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
         })
 
         if (accountResponse.ok) {
-          accountInfo = await accountjsonResponse()
+          accountInfo = await accountResponse.json()
         } else {
           logger.warn('Could not fetch HubSpot account information:', await accountResponse.text())
         }

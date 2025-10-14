@@ -255,7 +255,7 @@ async function processNotifications(
             )
 
             if (messageResponse.ok) {
-              const message = await messagejsonResponse()
+              const message = await messageResponse.json()
 
               logger.debug('✅ Fetched full Teams message data')
 
@@ -309,7 +309,7 @@ async function processNotifications(
             )
 
             if (emailResponse.ok) {
-              const email = await emailjsonResponse()
+              const email = await emailResponse.json()
 
               // Get trigger-specific filter configuration
               const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
@@ -336,7 +336,7 @@ async function processNotifications(
                     )
 
                     if (foldersResponse.ok) {
-                      const folders = await foldersjsonResponse()
+                      const folders = await foldersResponse.json()
                       const inboxFolder = folders.value.find((f: any) =>
                         f.displayName?.toLowerCase() === 'inbox'
                       )
@@ -361,7 +361,7 @@ async function processNotifications(
                     )
 
                     const folderName = folderResponse.ok
-                      ? (await folderjsonResponse()).displayName
+                      ? (await folderResponse.json()).displayName
                       : email.parentFolderId
 
                     logger.debug('⏭️ Skipping email - not in configured folder:', {

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      const errorData = await propertiesjsonResponse().catch(() => ({}))
+      const errorData = await propertiesResponse.json().catch(() => ({}))
       return jsonResponse(
         { 
           error: `HubSpot Properties API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const propertiesData = await propertiesjsonResponse()
+    const propertiesData = await propertiesResponse.json()
 
     // 2. Filter properties to get form fields
     const fieldNames = propertiesData.results
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!contactsResponse.ok) {
-      const errorData = await contactsjsonResponse().catch(() => ({}))
+      const errorData = await contactsResponse.json().catch(() => ({}))
       return jsonResponse(
         { 
           error: `HubSpot Contacts API error: ${contactsResponse.status} - ${errorData.message || contactsResponse.statusText}`,
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const contactsData = await contactsjsonResponse()
+    const contactsData = await contactsResponse.json()
 
     // Analyze the data
     const analysis: {

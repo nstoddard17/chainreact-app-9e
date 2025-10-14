@@ -59,11 +59,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`Google token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     const expiresIn = tokenData.expires_in // Typically 3600 seconds
     const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)

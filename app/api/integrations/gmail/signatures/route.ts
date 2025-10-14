@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const settingsData = await settingsjsonResponse()
+    const settingsData = await settingsResponse.json()
     logger.debug(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
     logger.debug(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
     

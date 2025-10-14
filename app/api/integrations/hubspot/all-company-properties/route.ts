@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
     let sampleData: any[] = []
     if (sampleResponse.ok) {
-      const sampleResult = await samplejsonResponse()
+      const sampleResult = await sampleResponse.json()
       sampleData = sampleResult.results || []
     }
 

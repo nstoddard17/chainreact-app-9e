@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     // The response format according to documentation is:
     // { "access_token": "...", "user_id": "...", "permissions": "..." }
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to obtain long-lived access token', baseUrl)
     }
 
-    const longLivedTokenData = await longLivedTokenjsonResponse()
+    const longLivedTokenData = await longLivedTokenResponse.json()
     const longLivedToken = longLivedTokenData.access_token
     const expiresIn = longLivedTokenData.expires_in || 60 * 24 * 60 * 60 // Default to 60 days
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to fetch account information', baseUrl)
     }
 
-    const userInfo = await userInfojsonResponse()
+    const userInfo = await userInfoResponse.json()
 
     // Verify this is a business or creator account
     if (userInfo.account_type !== 'BUSINESS' && userInfo.account_type !== 'CREATOR') {
