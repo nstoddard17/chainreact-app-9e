@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     // Extract and handle token expiration
     const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         )
 
         if (youtubeResponse.ok) {
-          const youtubeData = await youtubejsonResponse()
+          const youtubeData = await youtubeResponse.json()
           if (youtubeData.items && youtubeData.items.length > 0) {
             const channel = youtubeData.items[0]
             channelInfo = {

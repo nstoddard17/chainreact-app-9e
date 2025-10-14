@@ -108,7 +108,7 @@ async function checkChannelBotStatus(
       })
       
       if (userGuildResponse.ok) {
-        const guilds = await userGuildjsonResponse()
+        const guilds = await userGuildResponse.json()
         const userGuild = guilds.find((g: any) => g.id === guildId)
         
         if (userGuild) {

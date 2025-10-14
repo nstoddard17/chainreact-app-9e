@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     // Extract token expiration time
     // Dropbox access tokens typically expire in 4 hours (14400 seconds)
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (accountResponse.ok) {
-          accountInfo = await accountjsonResponse()
+          accountInfo = await accountResponse.json()
         } else {
           logger.warn('Could not fetch Dropbox account information:', await accountResponse.text())
         }

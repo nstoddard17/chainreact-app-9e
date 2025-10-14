@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       }, { status: graphResponse.status })
     }
 
-    const graphData = await graphjsonResponse()
+    const graphData = await graphResponse.json()
     const graphSubscriptions = graphData.value || []
 
     // Get all subscriptions from our database

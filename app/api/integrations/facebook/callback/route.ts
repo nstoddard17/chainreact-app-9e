@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       logger.error('Failed to exchange Facebook code for token:', errorData)
       return createPopupResponse(
         'error',
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     // Fetch granted scopes using /debug_token
     let grantedScopes: string[] = []
@@ -68,13 +68,13 @@ export async function GET(request: NextRequest) {
       const appTokenResponse = await fetch(
         `https://graph.facebook.com/oauth/access_token?client_id=${clientId}&client_secret=${clientSecret}&grant_type=client_credentials`
       )
-      const appTokenData = await appTokenjsonResponse()
+      const appTokenData = await appTokenResponse.json()
       const appToken = appTokenData.access_token
       if (appToken) {
         const debugTokenResponse = await fetch(
           `https://graph.facebook.com/debug_token?input_token=${tokenData.access_token}&access_token=${appToken}`
         )
-        const debugData = await debugTokenjsonResponse()
+        const debugData = await debugTokenResponse.json()
         if (debugData.data && debugData.data.scopes) {
           grantedScopes = debugData.data.scopes
         }

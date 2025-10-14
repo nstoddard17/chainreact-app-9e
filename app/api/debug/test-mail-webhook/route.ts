@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Worker failed' , 500)
     }
 
-    const workerResult = await workerjsonResponse()
+    const workerResult = await workerResponse.json()
     logger.debug('✅ Worker result:', workerResult)
 
     // Check if events were created

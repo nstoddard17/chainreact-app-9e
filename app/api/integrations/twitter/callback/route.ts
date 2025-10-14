@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
       throw new Error(`Twitter token exchange failed: ${errorText}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     const refreshTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days for refresh token
 
     const integrationData = await prepareIntegrationData(

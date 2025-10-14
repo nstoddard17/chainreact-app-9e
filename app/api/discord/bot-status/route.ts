@@ -38,7 +38,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       logger.debug('🔍 Channels API response status:', channelsStatus);
       
       if (channelsResponse.ok) {
-        const channels = await channelsjsonResponse();
+        const channels = await channelsResponse.json();
         logger.debug('🔍 Successfully fetched channels:', channels.length, 'channels found');
         
         // Bot can access channels, so it's in the guild with proper permissions

@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const metaData = await metajsonResponse();
+    const metaData = await metaResponse.json();
     
     logger.debug('Airtable metadata response received:', {
       hasData: !!metaData,

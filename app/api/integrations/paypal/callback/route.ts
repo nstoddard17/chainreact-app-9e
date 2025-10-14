@@ -97,11 +97,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`PayPal token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     const expiresIn = tokenData.expires_in
     const expiresAt = new Date(new Date().getTime() + expiresIn * 1000)
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       })
 
       if (userInfoResponse.ok) {
-        userInfo = await userInfojsonResponse()
+        userInfo = await userInfoResponse.json()
         logger.debug('PayPal user info:', userInfo)
       } else {
         logger.error('Failed to fetch PayPal user info:', await userInfoResponse.text())
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       })
 
       if (attributesResponse.ok) {
-        paypalAttributes = await attributesjsonResponse()
+        paypalAttributes = await attributesResponse.json()
         logger.debug('PayPal attributes:', paypalAttributes)
       } else {
         logger.error('Failed to fetch PayPal attributes:', await attributesResponse.text())

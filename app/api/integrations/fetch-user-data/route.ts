@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         return jsonResponse({ error: errorText || 'Failed to load Teams data' }, { status: teamsApiResponse.status });
       }
 
-      const teamsData = await teamsApijsonResponse();
+      const teamsData = await teamsApiResponse.json();
       return jsonResponse(teamsData);
     }
 
@@ -136,12 +136,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gmailApiResponse.ok) {
-          const error = await gmailApijsonResponse();
+          const error = await gmailApiResponse.json();
           logger.error(`❌ [SERVER] Gmail API error:`, error);
           return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
-        const gmailResult = await gmailApijsonResponse();
+        const gmailResult = await gmailApiResponse.json();
         logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         return jsonResponse(gmailResult);
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
           throw new Error(`Gmail API error: ${messagesResponse.status} - ${errorText}`)
         }
 
-        const messagesData = await messagesjsonResponse()
+        const messagesData = await messagesResponse.json()
         const messages = messagesData.messages || []
 
         if (messages.length === 0) {
@@ -308,12 +308,12 @@ export async function POST(req: NextRequest) {
           });
 
           if (!googleApiResponse.ok) {
-            const error = await googleApijsonResponse();
+            const error = await googleApiResponse.json();
             logger.error(`❌ [SERVER] Google API error:`, error);
             return jsonResponse(error, { status: googleApiResponse.status });
           }
 
-          const googleResult = await googleApijsonResponse();
+          const googleResult = await googleApiResponse.json();
           logger.debug(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
 
           return jsonResponse(googleResult);
@@ -347,12 +347,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gmailApiResponse.ok) {
-          const error = await gmailApijsonResponse();
+          const error = await gmailApiResponse.json();
           logger.error(`❌ [SERVER] Gmail API error:`, error);
           return jsonResponse(error, { status: gmailApiResponse.status });
         }
 
-        const gmailResult = await gmailApijsonResponse();
+        const gmailResult = await gmailApiResponse.json();
         logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         // Return the Gmail API response directly (it's already in the correct format)
@@ -386,12 +386,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!slackApiResponse.ok) {
-          const error = await slackApijsonResponse();
+          const error = await slackApiResponse.json();
           logger.error(`❌ [SERVER] Slack API error:`, error);
           return jsonResponse(error, { status: slackApiResponse.status });
         }
 
-        const slackResult = await slackApijsonResponse();
+        const slackResult = await slackApiResponse.json();
         logger.debug(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
 
         // Return the Slack API response directly (it's already in the correct format)
@@ -450,7 +450,7 @@ export async function POST(req: NextRequest) {
         if (!googleApiResponse.ok) {
           let error;
           try {
-            error = await googleApijsonResponse();
+            error = await googleApiResponse.json();
           } catch (parseError) {
             const errorText = await googleApiResponse.text().catch(() => 'Unknown error');
             error = { error: `Failed to parse error response: ${errorText}` };
@@ -463,7 +463,7 @@ export async function POST(req: NextRequest) {
           return jsonResponse(error, { status: googleApiResponse.status });
         }
 
-        const googleResult = await googleApijsonResponse();
+        const googleResult = await googleApiResponse.json();
         logger.debug(`✅ [SERVER] Google API completed for ${dataType}:`, {
           resultLength: googleResult.data?.length || 'unknown',
           success: googleResult.success,
@@ -510,12 +510,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!notionApiResponse.ok) {
-          const error = await notionApijsonResponse();
+          const error = await notionApiResponse.json();
           logger.error(`❌ [SERVER] Notion API error:`, error);
           return jsonResponse(error, { status: notionApiResponse.status });
         }
 
-        const notionResult = await notionApijsonResponse();
+        const notionResult = await notionApiResponse.json();
         logger.debug(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
         
         // Return the Notion API response directly (it's already in the correct format)
@@ -556,12 +556,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!discordApiResponse.ok) {
-          const error = await discordApijsonResponse();
+          const error = await discordApiResponse.json();
           logger.error(`❌ [SERVER] Discord API error:`, error);
           return jsonResponse(error, { status: discordApiResponse.status });
         }
 
-        const discordResult = await discordApijsonResponse();
+        const discordResult = await discordApiResponse.json();
         logger.debug(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
         
         // Return the Discord API response directly (it's already in the correct format)
@@ -594,12 +594,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!facebookApiResponse.ok) {
-          const error = await facebookApijsonResponse();
+          const error = await facebookApiResponse.json();
           logger.error(`❌ [SERVER] Facebook API error:`, error);
           return jsonResponse(error, { status: facebookApiResponse.status });
         }
 
-        const facebookResult = await facebookApijsonResponse();
+        const facebookResult = await facebookApiResponse.json();
         logger.debug(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
         
         // Return the Facebook API response directly (it's already in the correct format)
@@ -632,12 +632,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!twitterApiResponse.ok) {
-          const error = await twitterApijsonResponse();
+          const error = await twitterApiResponse.json();
           logger.error(`❌ [SERVER] Twitter API error:`, error);
           return jsonResponse(error, { status: twitterApiResponse.status });
         }
 
-        const twitterResult = await twitterApijsonResponse();
+        const twitterResult = await twitterApiResponse.json();
         logger.debug(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
         
         // Return the Twitter API response directly (it's already in the correct format)
@@ -672,12 +672,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!oneNoteApiResponse.ok) {
-          const error = await oneNoteApijsonResponse();
+          const error = await oneNoteApiResponse.json();
           logger.error(`❌ [SERVER] OneNote API error:`, error);
           return jsonResponse(error, { status: oneNoteApiResponse.status });
         }
 
-        const oneNoteResult = await oneNoteApijsonResponse();
+        const oneNoteResult = await oneNoteApiResponse.json();
         logger.debug(`✅ [SERVER] OneNote API success:`, {
           dataType,
           resultCount: oneNoteResult.data?.length || 0
@@ -718,12 +718,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!outlookApiResponse.ok) {
-          const error = await outlookApijsonResponse();
+          const error = await outlookApiResponse.json();
           logger.error(`❌ [SERVER] Outlook API error:`, error);
           return jsonResponse(error, { status: outlookApiResponse.status });
         }
 
-        const outlookResult = await outlookApijsonResponse();
+        const outlookResult = await outlookApiResponse.json();
         logger.debug(`✅ [SERVER] Outlook API success:`, {
           dataType,
           resultCount: outlookResult.data?.length || 0
@@ -766,12 +766,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!hubspotApiResponse.ok) {
-          const error = await hubspotApijsonResponse();
+          const error = await hubspotApiResponse.json();
           logger.error(`❌ [SERVER] HubSpot API error:`, error);
           return jsonResponse(error, { status: hubspotApiResponse.status });
         }
 
-        const hubspotResult = await hubspotApijsonResponse();
+        const hubspotResult = await hubspotApiResponse.json();
         logger.debug(`✅ [SERVER] HubSpot API success:`, {
           dataType,
           resultCount: hubspotResult.data?.length || 0
@@ -815,12 +815,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!airtableApiResponse.ok) {
-          const error = await airtableApijsonResponse();
+          const error = await airtableApiResponse.json();
           logger.error(`❌ [SERVER] Airtable API error:`, error);
           return jsonResponse(error, { status: airtableApiResponse.status });
         }
 
-        const airtableResult = await airtableApijsonResponse();
+        const airtableResult = await airtableApiResponse.json();
         logger.debug(`✅ [SERVER] Airtable API success:`, {
           dataType,
           resultCount: airtableResult.data?.length || 0
@@ -862,12 +862,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!trelloApiResponse.ok) {
-          const error = await trelloApijsonResponse();
+          const error = await trelloApiResponse.json();
           logger.error(`❌ [SERVER] Trello API error:`, error);
           return jsonResponse(error, { status: trelloApiResponse.status });
         }
 
-        const trelloResult = await trelloApijsonResponse();
+        const trelloResult = await trelloApiResponse.json();
         logger.debug(`✅ [SERVER] Trello API success:`, {
           dataType,
           resultCount: trelloResult.data?.length || 0
@@ -913,12 +913,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!excelApiResponse.ok) {
-          const error = await excelApijsonResponse();
+          const error = await excelApiResponse.json();
           logger.error(`❌ [SERVER] Microsoft Excel API error:`, error);
           return jsonResponse(error, { status: excelApiResponse.status });
         }
 
-        const excelResult = await excelApijsonResponse();
+        const excelResult = await excelApiResponse.json();
         logger.debug(`✅ [SERVER] Microsoft Excel API success:`, {
           dataType,
           resultCount: excelResult.data?.length || 0
@@ -954,12 +954,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!onedriveApiResponse.ok) {
-          const error = await onedriveApijsonResponse();
+          const error = await onedriveApiResponse.json();
           logger.error(`❌ [SERVER] OneDrive API error:`, error);
           return jsonResponse(error, { status: onedriveApiResponse.status });
         }
 
-        const onedriveResult = await onedriveApijsonResponse();
+        const onedriveResult = await onedriveApiResponse.json();
         logger.debug(`✅ [SERVER] OneDrive API success:`, {
           dataType,
           resultCount: onedriveResult.data?.length || 0
@@ -995,12 +995,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!gumroadApiResponse.ok) {
-          const error = await gumroadApijsonResponse();
+          const error = await gumroadApiResponse.json();
           logger.error(`❌ [SERVER] Gumroad API error:`, error);
           return jsonResponse(error, { status: gumroadApiResponse.status });
         }
 
-        const gumroadResult = await gumroadApijsonResponse();
+        const gumroadResult = await gumroadApiResponse.json();
         logger.debug(`✅ [SERVER] Gumroad API success:`, {
           dataType,
           resultCount: gumroadResult.data?.length || 0
@@ -1036,12 +1036,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!blackbaudApiResponse.ok) {
-          const error = await blackbaudApijsonResponse();
+          const error = await blackbaudApiResponse.json();
           logger.error(`❌ [SERVER] Blackbaud API error:`, error);
           return jsonResponse(error, { status: blackbaudApiResponse.status });
         }
 
-        const blackbaudResult = await blackbaudApijsonResponse();
+        const blackbaudResult = await blackbaudApiResponse.json();
         logger.debug(`✅ [SERVER] Blackbaud API success:`, {
           dataType,
           resultCount: blackbaudResult.data?.length || 0
@@ -1077,12 +1077,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!dropboxApiResponse.ok) {
-          const error = await dropboxApijsonResponse();
+          const error = await dropboxApiResponse.json();
           logger.error(`❌ [SERVER] Dropbox API error:`, error);
           return jsonResponse(error, { status: dropboxApiResponse.status });
         }
 
-        const dropboxResult = await dropboxApijsonResponse();
+        const dropboxResult = await dropboxApiResponse.json();
         logger.debug(`✅ [SERVER] Dropbox API success:`, {
           dataType,
           resultCount: dropboxResult.data?.length || 0
@@ -1118,12 +1118,12 @@ export async function POST(req: NextRequest) {
         });
 
         if (!boxApiResponse.ok) {
-          const error = await boxApijsonResponse();
+          const error = await boxApiResponse.json();
           logger.error(`❌ [SERVER] Box API error:`, error);
           return jsonResponse(error, { status: boxApiResponse.status });
         }
 
-        const boxResult = await boxApijsonResponse();
+        const boxResult = await boxApiResponse.json();
         logger.debug(`✅ [SERVER] Box API success:`, {
           dataType,
           resultCount: boxResult.data?.length || 0

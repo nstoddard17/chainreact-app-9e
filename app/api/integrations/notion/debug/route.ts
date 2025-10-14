@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       return jsonResponse({ error: `Notion API error: ${pagesResponse.status}`, details: await pagesResponse.text() }, { status: pagesResponse.status })
     }
 
-    const pagesData = await pagesjsonResponse()
+    const pagesData = await pagesResponse.json()
     const mainPages = []
 
     for (const page of pagesData.results || []) {
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       })
       let subpages = []
       if (childrenResponse.ok) {
-        const childrenData = await childrenjsonResponse()
+        const childrenData = await childrenResponse.json()
         subpages = (childrenData.results || [])
           .filter((block: any) => block.type === 'child_page')
           .map((block: any) => ({

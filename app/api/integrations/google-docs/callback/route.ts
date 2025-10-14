@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       logger.error('Failed to exchange Google Docs code for token:', errorData)
       return createPopupResponse(
         'error',
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     const expiresIn = tokenData.expires_in
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null

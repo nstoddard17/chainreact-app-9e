@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({})
     })
 
-    const workerResult = await workerjsonResponse()
+    const workerResult = await workerResponse.json()
     logger.debug('Worker response:', workerResult)
 
     return jsonResponse({

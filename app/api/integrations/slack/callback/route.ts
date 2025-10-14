@@ -56,11 +56,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-        const errorData = await tokenjsonResponse()
+        const errorData = await tokenResponse.json()
       throw new Error(`Slack token exchange failed: ${errorData.error}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     if(!tokenData.ok) {
         throw new Error(`Slack token exchange failed: ${tokenData.error}`)

@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       return jsonResponse({ error: 'Failed to fetch property details' }, { status: propertyResponse.status })
     }
 
-    const propertyData = await propertyjsonResponse()
+    const propertyData = await propertyResponse.json()
 
     // Extract options if the property has them
     let options: { value: string; label: string }[] = []

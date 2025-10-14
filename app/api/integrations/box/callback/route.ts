@@ -69,12 +69,12 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       logger.error('Box token exchange error response:', errorData)
       throw new Error(`Box token exchange failed: ${errorData.error_description || errorData.error || 'Unknown error'}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     const expiresIn = tokenData.expires_in // Typically in seconds
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null

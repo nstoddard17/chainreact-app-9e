@@ -90,14 +90,14 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       logger.error("Airtable token exchange error:", errorData)
       throw new Error(
         `Airtable token exchange failed: ${errorData.error_description || errorData.error.message}`,
       )
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     const expiresIn = tokenData.expires_in // Typically in seconds
     const expiresAt = expiresIn ? new Date(new Date().getTime() + expiresIn * 1000) : null
@@ -110,11 +110,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userResponse.ok) {
-      const errorData = await userjsonResponse()
+      const errorData = await userResponse.json()
       logger.error("Airtable whoami error:", errorData)
       throw new Error("Failed to get Airtable user info")
     }
-    const userData = await userjsonResponse()
+    const userData = await userResponse.json()
 
     // Log the scopes we received
     logger.debug('🔐 Airtable OAuth callback - User:', userData.email)

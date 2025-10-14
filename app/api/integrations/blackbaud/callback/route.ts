@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, 'Failed to retrieve access token', baseUrl)
     }
 
-    const tokenData: BlackbaudTokenResponse = await tokenjsonResponse()
+    const tokenData: BlackbaudTokenResponse = await tokenResponse.json()
     
     // Extract and handle token expiration
     const expiresIn = tokenData.expires_in || 3600 // Default to 1 hour if not provided
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (meResponse.ok) {
-          accountInfo = await mejsonResponse()
+          accountInfo = await meResponse.json()
         } else {
           logger.warn('Could not fetch Blackbaud user info:', await meResponse.text())
         }

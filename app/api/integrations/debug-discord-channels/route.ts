@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    const allChannels = await channelsjsonResponse()
+    const allChannels = await channelsResponse.json()
     const textChannels = allChannels.filter((channel: any) => channel.type === 0)
     
     logger.debug(`📋 Found ${textChannels.length} text channels`)
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     let guildPermissions = BigInt(0)
     if (memberResponse.status === 200) {
-      const memberData = await memberjsonResponse()
+      const memberData = await memberResponse.json()
       guildPermissions = BigInt(memberData.permissions || 0)
       logger.debug(`🔑 Bot guild permissions: ${guildPermissions.toString()}`)
     }

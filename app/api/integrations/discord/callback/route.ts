@@ -92,11 +92,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`Discord token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     const scopes = tokenData.scope ? tokenData.scope.split(" ") : []
 
     // Check if this is a bot OAuth flow (has bot scope)
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
         throw new Error("Failed to get Discord user info")
       }
 
-      const userData = await userjsonResponse()
+      const userData = await userResponse.json()
 
       const integrationData = await prepareIntegrationData(
         userId,

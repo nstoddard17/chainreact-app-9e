@@ -52,7 +52,7 @@ export async function DELETE(request: NextRequest) {
       }, { status: listResponse.status })
     }
 
-    const listData = await listjsonResponse()
+    const listData = await listResponse.json()
     const subscriptions = listData.value || []
 
     logger.debug(`📊 Found ${subscriptions.length} subscription(s)`)
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
       }, { status: listResponse.status })
     }
 
-    const data = await listjsonResponse()
+    const data = await listResponse.json()
     const subscriptions = data.value || []
 
     // Also get trigger_resources

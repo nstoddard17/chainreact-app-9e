@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch contacts" , 500)
     }
 
-    const contactsData = await contactsjsonResponse()
+    const contactsData = await contactsResponse.json()
     const contacts = contactsData.results || []
 
     // Analyze which fields are actually populated
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    const propertiesData = await propertiesjsonResponse()
+    const propertiesData = await propertiesResponse.json()
     const propertyMap = new Map(
       propertiesData.results.map((p: any) => [p.name, p])
     )

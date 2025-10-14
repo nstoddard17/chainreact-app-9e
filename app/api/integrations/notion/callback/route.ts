@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     
     // Notion tokens don't expire by default
     // We'll set a nominal expiration for safety
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
         })
         
         if (usersResponse.ok) {
-          const usersData = await usersjsonResponse()
+          const usersData = await usersResponse.json()
           if (usersData.results && usersData.results.length > 0) {
             // Find the bot user
             const botUser = usersData.results.find((user: any) => user.type === 'bot' && user.bot?.owner?.type === 'workspace')

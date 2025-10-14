@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (!propertiesResponse.ok) {
-      const errorData = await propertiesjsonResponse().catch(() => ({}))
+      const errorData = await propertiesResponse.json().catch(() => ({}))
       return jsonResponse(
         { 
           error: `HubSpot API error: ${propertiesResponse.status} - ${errorData.message || propertiesResponse.statusText}`,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const propertiesData = await propertiesjsonResponse()
+    const propertiesData = await propertiesResponse.json()
     
     logger.debug('All HubSpot contact properties:', propertiesData.results.map((p: any) => ({
       name: p.name,

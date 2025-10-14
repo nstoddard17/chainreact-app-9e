@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       return createPopupResponse('error', provider, errorMessage, baseUrl)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
     logger.debug('Kit token data:', JSON.stringify(tokenData))
     
     if (!tokenData.access_token) {
@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       })
       
       if (accountResponse.ok) {
-        accountInfo = await accountjsonResponse()
+        accountInfo = await accountResponse.json()
         logger.debug('Kit account info:', JSON.stringify(accountInfo))
       } else {
         logger.warn('Could not fetch Kit account information:', await accountResponse.text())

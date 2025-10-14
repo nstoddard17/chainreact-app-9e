@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         return errorResponse('Failed to refresh Facebook token' , 500)
       }
 
-      const refreshData = await refreshjsonResponse()
+      const refreshData = await refreshResponse.json()
       accessToken = refreshData.access_token
 
       // Update the token in the database
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to get page access token' , 500)
     }
 
-    const pageTokenData = await pageTokenjsonResponse()
+    const pageTokenData = await pageTokenResponse.json()
     const pageAccessToken = pageTokenData.access_token
 
     // Generate appsecret_proof for secure API calls
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to fetch conversations' , 500)
     }
 
-    const conversationsData = await conversationsjsonResponse()
+    const conversationsData = await conversationsResponse.json()
     
     // Process conversations to get sender info and last messages
     const conversations = []
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         )
 
         if (messagesResponse.ok) {
-          const messagesData = await messagesjsonResponse()
+          const messagesData = await messagesResponse.json()
           const lastMessage = messagesData.data?.[0]
 
           if (lastMessage) {

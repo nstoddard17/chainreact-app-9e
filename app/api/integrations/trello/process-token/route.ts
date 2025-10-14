@@ -41,7 +41,7 @@ export const POST = async (request: NextRequest) => {
       return errorResponse("Failed to validate Trello token" , 400)
     }
 
-    const trelloUserData = await trellojsonResponse()
+    const trelloUserData = await trelloResponse.json()
   const trelloUserId = trelloUserData.id
   const trelloUsername = trelloUserData.username
 

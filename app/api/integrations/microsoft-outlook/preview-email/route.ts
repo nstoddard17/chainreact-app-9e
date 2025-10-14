@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data = await graphjsonResponse()
+    const data = await graphResponse.json()
     const messages = Array.isArray(data?.value) ? data.value : []
 
     if (!messages.length) {

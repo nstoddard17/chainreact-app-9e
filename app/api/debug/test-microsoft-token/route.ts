@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const profileData = await profilejsonResponse()
+    const profileData = await profileResponse.json()
 
     // Test 2: List existing subscriptions (requires permissions to read subscriptions)
     const subscriptionsResponse = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const subscriptionsData = await subscriptionsjsonResponse()
+    const subscriptionsData = await subscriptionsResponse.json()
 
     // Test 3: Try to create a minimal subscription (this will likely fail with 403)
     const testSubscription = {
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       body: JSON.stringify(testSubscription)
     })
 
-    const createData = await createjsonResponse()
+    const createData = await createResponse.json()
 
     return jsonResponse({
       integration: {

@@ -50,11 +50,11 @@ export async function GET(request: NextRequest) {
     })
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenjsonResponse()
+      const errorData = await tokenResponse.json()
       throw new Error(`Stripe token exchange failed: ${errorData.error_description}`)
     }
 
-    const tokenData = await tokenjsonResponse()
+    const tokenData = await tokenResponse.json()
 
     // Upsert the integration details
     const integrationData = {
