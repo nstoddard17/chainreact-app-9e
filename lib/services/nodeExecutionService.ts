@@ -268,10 +268,10 @@ export class NodeExecutionService {
 
   private isActionNode(nodeType: string): boolean {
     const actionTypes = [
-      'filter', 'delay', 'conditional', 'custom_script', 'loop', 
+      'filter', 'delay', 'conditional', 'custom_script', 'loop',
       'ai_action_summarize', 'ai_action_extract', 'ai_action_sentiment',
       'ai_action_translate', 'ai_action_generate', 'ai_action_classify',
-      'ai_agent', 'variable_set', 'variable_get', 'if_condition',
+      'ai_agent', 'ai_router', 'variable_set', 'variable_get', 'if_condition',
       'switch_case', 'data_transform', 'template', 'javascript',
       'try_catch', 'retry'
     ]

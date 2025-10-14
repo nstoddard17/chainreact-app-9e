@@ -1,87 +1,6 @@
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
-
-async function requireTemplateAccess(templateId: string) {
-  cookies()
-  const supabase = await createSupabaseServerClient()
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    return {
-      supabase,
-      user: null as any,
-      template: null as any,
-      errorResponse: NextResponse.json({ error: "Not authenticated" }, { status: 401 })
-    }
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  if (profileError) {
-    console.error("Error fetching user profile for template access:", profileError)
-  }
-
-  const serviceClient = await createSupabaseServiceClient()
-
-  const { data: template, error: templateError } = await serviceClient
-    .from("templates")
-    .select("*")
-    .eq("id", templateId)
-    .maybeSingle()
-
-  if (templateError) {
-    console.error("Error fetching template for access check:", templateError)
-  }
-
-  if (!template) {
-    return {
-      supabase,
-      user,
-      template: null as any,
-      errorResponse: NextResponse.json({ error: "Template not found" }, { status: 404 }),
-    }
-  }
-
-  const isAdmin = profile?.role === "admin"
-  const createdBy =
-    (template as any)?.created_by ??
-    (template as any)?.user_id ??
-    (template as any)?.owner_id ??
-    (template as any)?.author_id ??
-    null
-
-  if (!isAdmin && createdBy !== user.id) {
-    return {
-      supabase,
-      user,
-      template: null as any,
-      errorResponse: NextResponse.json({ error: "Only admins or template owners can manage templates" }, { status: 403 }),
-    }
-  }
-
-  return { supabase, user, template, errorResponse: null as any }
-}
-
-function parseJsonField(field: unknown) {
-  if (typeof field === "string") {
-    try {
-      return JSON.parse(field)
-    } catch (error) {
-      console.error("Failed to parse template field", error)
-      return null
-    }
-  }
-  return field
-}
+import { createSupabaseServiceClient } from "@/utils/supabase/server"
+import { parseJsonField, requireTemplateAccess } from "./helpers"
 
 export async function GET(
   request: NextRequest,
@@ -92,12 +11,39 @@ export async function GET(
     const { template, errorResponse } = await requireTemplateAccess(templateId)
     if (errorResponse) return errorResponse
 
-    const nodes = parseJsonField(template.nodes) || []
-    const connections = parseJsonField(template.connections) || []
+    const nodes = parseJsonField<any[]>(template.nodes) || []
+    const connections = parseJsonField<any[]>(template.connections) || []
+    const airtableSetup = parseJsonField(template.airtable_setup) ?? template.airtable_setup ?? null
+    const integrationSetup = parseJsonField(template.integration_setup) ?? template.integration_setup ?? null
+    const defaultFieldValues = parseJsonField<Record<string, any>>(template.default_field_values) || {}
+    const setupOverview = parseJsonField(template.setup_overview)
+    const draftNodes = parseJsonField<any[]>(template.draft_nodes) || []
+    const draftConnections = parseJsonField<any[]>(template.draft_connections) || []
+    const draftDefaultFieldValues = parseJsonField<Record<string, any>>(template.draft_default_field_values) || {}
+    const draftIntegrationSetup = parseJsonField(template.draft_integration_setup)
+    const draftSetupOverview = parseJsonField(template.draft_setup_overview)
     const hydratedTemplate = {
       ...template,
       nodes,
       connections,
+      airtable_setup: airtableSetup,
+      airtableSetup: airtableSetup,
+      integration_setup: integrationSetup,
+      integrationSetup,
+      default_field_values: defaultFieldValues,
+      defaultFieldValues,
+      setup_overview: setupOverview,
+      setupOverview,
+      draft_nodes: draftNodes,
+      draftNodes,
+      draft_connections: draftConnections,
+      draftConnections,
+      draft_default_field_values: draftDefaultFieldValues,
+      draftDefaultFieldValues,
+      draft_integration_setup: draftIntegrationSetup,
+      draftIntegrationSetup,
+      draft_setup_overview: draftSetupOverview,
+      draftSetupOverview,
     }
 
     return NextResponse.json({
@@ -133,7 +79,14 @@ export async function PUT(
       tags,
       is_public,
       thumbnail_url,
-      workflow_json
+      workflow_json,
+      airtable_setup,
+      integration_setup,
+      primary_setup_target,
+      setup_overview,
+      default_field_values,
+      status,
+      published_at
     } = body || {}
 
     const hasNodes = Object.prototype.hasOwnProperty.call(body || {}, 'nodes')
@@ -202,6 +155,37 @@ export async function PUT(
       updatePayload.thumbnail_url = thumbnail_url
     }
 
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'airtable_setup')) {
+      updatePayload.airtable_setup = airtable_setup ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'integration_setup')) {
+      updatePayload.integration_setup = integration_setup ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'primary_setup_target')) {
+      updatePayload.primary_setup_target = primary_setup_target ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'setup_overview')) {
+      updatePayload.setup_overview = setup_overview ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'default_field_values')) {
+      updatePayload.default_field_values = default_field_values ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'status') && typeof status === 'string') {
+      updatePayload.status = status
+      if (status === 'published') {
+        updatePayload.published_at = new Date().toISOString()
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'published_at')) {
+      updatePayload.published_at = published_at
+    }
+
     const { data: updatedTemplate, error } = await serviceClient
       .from("templates")
       .update(updatePayload)
@@ -217,14 +201,26 @@ export async function PUT(
       )
     }
 
-    const parsedNodes = parseJsonField(updatedTemplate.nodes) || filteredNodes
-    const parsedConnections = parseJsonField(updatedTemplate.connections) || connections
+    const parsedNodes = parseJsonField<any[]>(updatedTemplate.nodes) || filteredNodes
+    const parsedConnections = parseJsonField<any[]>(updatedTemplate.connections) || connections
+    const parsedAirtableSetup = parseJsonField(updatedTemplate.airtable_setup) ?? updatePayload.airtable_setup ?? null
+    const parsedIntegrationSetup = parseJsonField(updatedTemplate.integration_setup) ?? updatePayload.integration_setup ?? null
+    const parsedDefaultFieldValues = parseJsonField<Record<string, any>>(updatedTemplate.default_field_values) || updatePayload.default_field_values || {}
+    const parsedSetupOverview = parseJsonField(updatedTemplate.setup_overview) ?? updatePayload.setup_overview ?? null
 
     return NextResponse.json({
       template: {
         ...updatedTemplate,
         nodes: parsedNodes,
         connections: parsedConnections,
+        airtable_setup: parsedAirtableSetup,
+        airtableSetup: parsedAirtableSetup,
+        integration_setup: parsedIntegrationSetup,
+        integrationSetup: parsedIntegrationSetup,
+        default_field_values: parsedDefaultFieldValues,
+        defaultFieldValues: parsedDefaultFieldValues,
+        setup_overview: parsedSetupOverview,
+        setupOverview: parsedSetupOverview,
       },
       message: "Template updated successfully"
     })

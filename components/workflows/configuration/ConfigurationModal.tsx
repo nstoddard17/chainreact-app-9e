@@ -49,7 +49,7 @@
  * </form>
  */
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { ConfigurationModalProps } from "./utils/types"
@@ -60,6 +60,7 @@ import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 /**
  * Custom DialogContent without built-in close button
@@ -218,6 +219,37 @@ export function ConfigurationModal({
     
     return false;
   }, [workflowData, currentNodeId]);
+
+  const { toast } = useToast();
+
+  const getRouterChainHints = useCallback(() => {
+    if (!workflowData || !currentNodeId) return [] as string[];
+
+    const nodes = workflowData.nodes ?? [];
+    const edges = workflowData.edges ?? [];
+    const seen = new Set<string>();
+    const chains: string[] = [];
+
+    edges
+      .filter((edge: any) => edge.source === currentNodeId)
+      .forEach((edge: any) => {
+        if (seen.has(edge.target)) return;
+        seen.add(edge.target);
+
+        const targetNode = nodes.find((n: any) => n.id === edge.target);
+        const label =
+          edge.sourceHandle ||
+          targetNode?.data?.title ||
+          targetNode?.data?.label ||
+          targetNode?.data?.type ||
+          targetNode?.title ||
+          edge.target;
+
+        chains.push(label);
+      });
+
+    return chains;
+  }, [workflowData, currentNodeId]);
   
   // For Trello-specific debugging (can be removed when Trello integration is stable)
   if (nodeInfo?.type === "trello_action_create_card" || nodeInfo?.type === "trello_action_move_card") {
@@ -255,6 +287,23 @@ export function ConfigurationModal({
         __dynamicOptions,
         __validationState
       });
+
+      if (nodeInfo?.type === 'ai_router') {
+        const outputPaths = Array.isArray(config?.outputPaths) ? config.outputPaths : []
+        const unlinkedPaths = outputPaths.filter((path: any) => !path?.chainId)
+
+        if (unlinkedPaths.length > 0) {
+          const chainHints = getRouterChainHints()
+          const pathNames = unlinkedPaths.map((path: any) => path?.name || path?.id || 'Unnamed path')
+
+          toast({
+            title: chainHints.length > 0 ? 'Link router paths to chains' : 'Next: add chains for your router',
+            description: chainHints.length > 0
+              ? `Select a chain for ${pathNames.join(', ')} so the router can execute it automatically.`
+              : 'Use the router\'s output handles in the canvas to add chains, then reopen this modal to link them.',
+          })
+        }
+      }
       onClose(true);
     } catch (error) {
       console.error('Failed to save configuration:', error);

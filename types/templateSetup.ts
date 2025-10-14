@@ -1,0 +1,60 @@
+export interface AirtableFieldSchema {
+  name: string
+  type:
+    | 'singleLineText'
+    | 'longText'
+    | 'singleSelect'
+    | 'multipleSelects'
+    | 'number'
+    | 'email'
+    | 'url'
+    | 'checkbox'
+    | 'date'
+    | 'phoneNumber'
+    | 'multipleAttachments'
+  options?: string[]
+  description?: string
+}
+
+export interface AirtableTableSchema {
+  tableName: string
+  description?: string
+  fields: AirtableFieldSchema[]
+}
+
+export interface TemplateSetupResource {
+  name: string
+  description?: string
+  url: string
+  type?: 'csv' | 'template' | 'documentation' | 'video' | 'link'
+}
+
+export interface TemplateIntegrationSetupBase {
+  type: string
+  title?: string
+  integration?: string
+  instructions?: string[]
+  resources?: TemplateSetupResource[]
+}
+
+export interface AirtableIntegrationSetup extends TemplateIntegrationSetupBase {
+  type: 'airtable'
+  baseName: string
+  tables: AirtableTableSchema[]
+}
+
+export interface GoogleSheetsIntegrationSetup extends TemplateIntegrationSetupBase {
+  type: 'google_sheets'
+  spreadsheetName: string
+  templateUrl?: string
+  sampleSheets?: Array<{
+    sheetName: string
+    description?: string
+    downloadUrl: string
+  }>
+}
+
+export type TemplateIntegrationSetup =
+  | AirtableIntegrationSetup
+  | GoogleSheetsIntegrationSetup
+  | TemplateIntegrationSetupBase

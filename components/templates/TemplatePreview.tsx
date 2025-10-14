@@ -103,6 +103,7 @@ export function TemplatePreview({
         zoomOnDoubleClick={false}
         panOnDrag={interactive}
         panOnScroll={false}
+        preventScrolling={false}
         minZoom={0.1}
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}

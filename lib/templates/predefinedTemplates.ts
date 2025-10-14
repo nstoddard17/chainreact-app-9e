@@ -1,3 +1,9 @@
+import type {
+  AirtableFieldSchema,
+  AirtableTableSchema,
+  TemplateIntegrationSetup,
+} from '@/types/templateSetup'
+
 export interface PredefinedTemplate {
   id: string
   name: string
@@ -11,6 +17,11 @@ export interface PredefinedTemplate {
     nodes: any[]
     edges: any[]
   }
+  airtableSetup?: {
+    baseName: string // Suggested base name
+    tables: AirtableTableSchema[]
+  }
+  integrationSetups?: TemplateIntegrationSetup[]
 }
 
 export const predefinedTemplates: PredefinedTemplate[] = [
@@ -264,7 +275,177 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         { id: "edge-newsletter-3", source: "airtable-newsletter", target: "gmail-newsletter-welcome" },
         { id: "edge-general-1", source: "ai-router-helpdesk", target: "discord-general-log", sourceHandle: "general" }
       ]
-    }
+    },
+    airtableSetup: {
+      baseName: "Customer Service Automation",
+      tables: [
+        {
+          tableName: "Support Tickets",
+          description: "Tracks support requests routed by AI",
+          fields: [
+            {
+              name: "Ticket Summary",
+              type: "longText",
+              description: "AI-generated summary of the support request"
+            },
+            {
+              name: "Priority",
+              type: "singleSelect",
+              options: ["Low", "Medium", "High"],
+              description: "Priority level assigned by AI"
+            },
+            {
+              name: "Status",
+              type: "singleSelect",
+              options: ["Open", "In Progress", "Resolved", "Closed"],
+              description: "Current status of the ticket"
+            },
+            {
+              name: "Channel",
+              type: "singleLineText",
+              description: "Source channel (e.g., Discord channel name)"
+            }
+          ]
+        },
+        {
+          tableName: "Feedback Log",
+          description: "Captures customer feedback messages",
+          fields: [
+            {
+              name: "Feedback Insight",
+              type: "longText",
+              description: "AI-extracted main insight from feedback"
+            },
+            {
+              name: "Sentiment",
+              type: "singleLineText",
+              description: "Sentiment analysis (e.g., Positive, Negative, Neutral)"
+            },
+            {
+              name: "Source",
+              type: "singleLineText",
+              description: "Origin of feedback (e.g., Discord)"
+            }
+          ]
+        },
+        {
+          tableName: "Newsletter Subscribers",
+          description: "Manages newsletter subscription requests",
+          fields: [
+            {
+              name: "Name",
+              type: "singleLineText",
+              description: "Subscriber's name"
+            },
+            {
+              name: "Email",
+              type: "email",
+              description: "Subscriber's email address"
+            },
+            {
+              name: "Source",
+              type: "singleLineText",
+              description: "Where the signup came from (e.g., Discord)"
+            },
+            {
+              name: "Status",
+              type: "singleSelect",
+              options: ["Subscribed", "Unsubscribed", "Pending"],
+              description: "Current subscription status"
+            }
+          ]
+        }
+      ]
+    },
+    integrationSetups: [
+      {
+        type: "airtable",
+        baseName: "Customer Service Automation",
+        instructions: [
+          "Create a base named Customer Service Automation in Airtable",
+          "Add the Support Tickets, Feedback Log, and Newsletter Subscribers tables",
+          "Import the provided CSV files or copy the field structure before running the workflow"
+        ],
+        tables: [
+          {
+            tableName: "Support Tickets",
+            description: "Tracks support requests routed by AI",
+            fields: [
+              {
+                name: "Ticket Summary",
+                type: "longText",
+                description: "AI-generated summary of the support request"
+              },
+              {
+                name: "Priority",
+                type: "singleSelect",
+                options: ["Low", "Medium", "High"],
+                description: "Priority level assigned by AI"
+              },
+              {
+                name: "Status",
+                type: "singleSelect",
+                options: ["Open", "In Progress", "Resolved", "Closed"],
+                description: "Current status of the ticket"
+              },
+              {
+                name: "Channel",
+                type: "singleLineText",
+                description: "Source channel (e.g., Discord channel name)"
+              }
+            ]
+          },
+          {
+            tableName: "Feedback Log",
+            description: "Captures customer feedback messages",
+            fields: [
+              {
+                name: "Feedback Insight",
+                type: "longText",
+                description: "AI-extracted main insight from feedback"
+              },
+              {
+                name: "Sentiment",
+                type: "singleLineText",
+                description: "Sentiment analysis (e.g., Positive, Negative, Neutral)"
+              },
+              {
+                name: "Source",
+                type: "singleLineText",
+                description: "Origin of feedback (e.g., Discord)"
+              }
+            ]
+          },
+          {
+            tableName: "Newsletter Subscribers",
+            description: "Manages newsletter subscription requests",
+            fields: [
+              {
+                name: "Name",
+                type: "singleLineText",
+                description: "Subscriber's name"
+              },
+              {
+                name: "Email",
+                type: "email",
+                description: "Subscriber's email address"
+              },
+              {
+                name: "Source",
+                type: "singleLineText",
+                description: "Where the signup came from (e.g., Discord)"
+              },
+              {
+                name: "Status",
+                type: "singleSelect",
+                options: ["Subscribed", "Unsubscribed", "Pending"],
+                description: "Current subscription status"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
 
   // ============== CUSTOMER SERVICE TEMPLATES ==============
@@ -456,7 +637,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
     description: "Manage support requests in Teams with automatic ticket creation and status updates",
     category: "Customer Service",
     tags: ["teams", "microsoft", "support", "tickets"],
-    integrations: ["teams"],
+    integrations: ["teams", "airtable"],
     difficulty: "intermediate",
     estimatedTime: "12 mins",
     workflow_json: {
@@ -505,7 +686,79 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         { id: "e1", source: "trigger-1", target: "action-1" },
         { id: "e2", source: "action-1", target: "action-2" }
       ]
-    }
+    },
+    airtableSetup: {
+      baseName: "Teams Support Desk",
+      tables: [
+        {
+          tableName: "Support Tickets",
+          description: "Track incoming Microsoft Teams support conversations",
+          fields: [
+            {
+              name: "Customer",
+              type: "singleLineText",
+              description: "Name of the teammate or customer asking for help"
+            },
+            {
+              name: "Issue",
+              type: "longText",
+              description: "Full message content captured from Teams"
+            },
+            {
+              name: "Status",
+              type: "singleSelect",
+              options: ["Open", "In Progress", "Resolved", "Closed"],
+              description: "Ticket progress managed by the support team"
+            },
+            {
+              name: "Created",
+              type: "date",
+              description: "When the ticket was created in Airtable"
+            }
+          ]
+        }
+      ]
+    },
+    integrationSetups: [
+      {
+        type: "airtable",
+        baseName: "Teams Support Desk",
+        instructions: [
+          "Create a base named Teams Support Desk in Airtable",
+          "Add a Support Tickets table with the fields listed below",
+          "Use the workflow to automatically populate tickets from Teams messages"
+        ],
+        tables: [
+          {
+            tableName: "Support Tickets",
+            description: "Track incoming Microsoft Teams support conversations",
+            fields: [
+              {
+                name: "Customer",
+                type: "singleLineText",
+                description: "Name of the teammate or customer asking for help"
+              },
+              {
+                name: "Issue",
+                type: "longText",
+                description: "Full message content captured from Teams"
+              },
+              {
+                name: "Status",
+                type: "singleSelect",
+                options: ["Open", "In Progress", "Resolved", "Closed"],
+                description: "Ticket progress managed by the support team"
+              },
+              {
+                name: "Created",
+                type: "date",
+                description: "When the ticket was created in Airtable"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
 
   // ============== SALES & CRM TEMPLATES ==============
@@ -727,7 +980,33 @@ export const predefinedTemplates: PredefinedTemplate[] = [
         { id: "e3", source: "action-1", target: "action-3" },
         { id: "e4", source: "action-1", target: "action-4" }
       ]
-    }
+    },
+    integrationSetups: [
+      {
+        type: "google_sheets",
+        spreadsheetName: "Social Media Content Calendar",
+        instructions: [
+          "Download the sample CSV file and import it into a new Google Sheet named Social Media Content Calendar.",
+          "Ensure the sheet is titled Posts and the header row remains unchanged so the workflow can map fields correctly.",
+          "Share the sheet with the Google account connected to ChainReact (if required) and paste the sheet ID in the Google Sheets node configuration."
+        ],
+        sampleSheets: [
+          {
+            sheetName: "Posts",
+            description: "Required columns with example social content that the workflow will publish",
+            downloadUrl: "/setup-resources/google-sheets/cross-platform-content.csv"
+          }
+        ],
+        resources: [
+          {
+            name: "Import CSV instructions",
+            description: "Google Sheets guide on importing CSV files",
+            url: "https://support.google.com/docs/answer/40608",
+            type: "documentation"
+          }
+        ]
+      }
+    ]
   },
 
   // Social Media Engagement Monitor

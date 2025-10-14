@@ -143,6 +143,7 @@ export interface Workflow {
   visibility?: string
   executions_count?: number
   created_by?: string
+  source_template_id?: string | null
   validationState?: {
     invalidNodeIds: string[]
     lastValidatedAt?: string
@@ -155,7 +156,11 @@ interface WorkflowState {
   workflows: Workflow[]
   currentWorkflow: Workflow | null
   selectedNode: WorkflowNode | null
-  loading: boolean
+  loadingList: boolean
+  loadingCreate: boolean
+  loadingSave: boolean
+  updatingWorkflowIds: string[]
+  deletingWorkflowIds: string[]
   error: string | null
   lastFetchTime: number | null
   fetchPromise: Promise<void> | null
@@ -199,7 +204,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   workflows: [],
   currentWorkflow: null,
   selectedNode: null,
-  loading: false,
+  loadingList: false,
+  loadingCreate: false,
+  loadingSave: false,
+  updatingWorkflowIds: [],
+  deletingWorkflowIds: [],
   error: null,
   lastFetchTime: null,
   fetchPromise: null,
@@ -207,7 +216,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   fetchWorkflows: async (organizationId?: string) => {
     if (!supabase) {
       console.warn("Supabase not available")
-      set({ workflows: [], loading: false })
+      set({ workflows: [], loadingList: false })
       return
     }
 
@@ -220,14 +229,14 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
 
     // If already fetching, return the existing promise to avoid duplicate requests
-    if (state.fetchPromise && state.loading) {
+    if (state.fetchPromise && state.loadingList) {
       console.log('[WorkflowStore] Already fetching, returning existing promise')
       return state.fetchPromise
     }
 
     // Create the fetch promise
     const fetchPromise = (async () => {
-      set({ loading: true, error: null })
+      set({ loadingList: true, error: null })
 
     try {
       // Add a reasonable timeout for the request
@@ -246,7 +255,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       if (error) {
         if (error.message?.includes('aborted')) {
           console.warn("Workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loading: false, error: null })
+          set({ workflows: [], loadingList: false, error: null })
           return
         }
         throw error
@@ -254,7 +263,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
       set({
         workflows: data || [],
-        loading: false,
+        loadingList: false,
         lastFetchTime: Date.now(),
         fetchPromise: null
       })
@@ -263,7 +272,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       // Prior behavior: set empty workflows but clear loading and suppress user-facing error
       set({
         workflows: [],
-        loading: false,
+        loadingList: false,
         error: null,
         fetchPromise: null
       })
@@ -280,16 +289,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   fetchPersonalWorkflows: async () => {
     if (!supabase) {
       console.warn("Supabase not available")
-      set({ workflows: [], loading: false })
+      set({ workflows: [], loadingList: false })
       return
     }
 
-    set({ loading: true, error: null })
+    set({ loadingList: true, error: null })
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        set({ workflows: [], loading: false })
+        set({ workflows: [], loadingList: false })
         return
       }
 
@@ -308,27 +317,27 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       if (error) {
         if (error.message?.includes('aborted')) {
           console.warn("Personal workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loading: false, error: null })
+          set({ workflows: [], loadingList: false, error: null })
           return
         }
         throw error
       }
 
-      set({ workflows: data || [], loading: false })
+      set({ workflows: data || [], loadingList: false })
     } catch (error: any) {
       console.error("Error fetching personal workflows:", error)
-      set({ workflows: [], loading: false, error: null })
+      set({ workflows: [], loadingList: false, error: null })
     }
   },
 
   fetchOrganizationWorkflows: async (organizationId: string) => {
     if (!supabase) {
       console.warn("Supabase not available")
-      set({ workflows: [], loading: false })
+      set({ workflows: [], loadingList: false })
       return
     }
 
-    set({ loading: true, error: null })
+    set({ loadingList: true, error: null })
 
     try {
       const controller = new AbortController()
@@ -346,16 +355,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       if (error) {
         if (error.message?.includes('aborted')) {
           console.warn("Organization workflows fetch timeout - continuing without blocking")
-          set({ workflows: [], loading: false, error: null })
+          set({ workflows: [], loadingList: false, error: null })
           return
         }
         throw error
       }
 
-      set({ workflows: data || [], loading: false })
+      set({ workflows: data || [], loadingList: false })
     } catch (error: any) {
       console.error("Error fetching organization workflows:", error)
-      set({ workflows: [], loading: false, error: null })
+      set({ workflows: [], loadingList: false, error: null })
     }
   },
 
@@ -363,6 +372,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     if (!supabase) {
       throw new Error("Supabase not available")
     }
+
+    set({ loadingCreate: true, error: null })
 
     try {
       const {
@@ -424,10 +435,18 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     } catch (error: any) {
       console.error("Error creating workflow:", error)
       throw error
+    } finally {
+      set({ loadingCreate: false })
     }
   },
 
   updateWorkflow: async (id: string, updates: Partial<Workflow>) => {
+    set((state) => {
+      const next = new Set(state.updatingWorkflowIds)
+      next.add(id)
+      return { updatingWorkflowIds: Array.from(next) }
+    })
+
     try {
       // Get the current workflow to compare status changes
       const currentWorkflow = get().workflows.find(w => w.id === id)
@@ -508,10 +527,24 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     } catch (error: any) {
       console.error("Error updating workflow:", error)
       throw error
+    } finally {
+      set((state) => {
+        const next = new Set(state.updatingWorkflowIds)
+        next.delete(id)
+        return { updatingWorkflowIds: Array.from(next) }
+      })
     }
   },
 
   deleteWorkflow: async (id: string) => {
+    set((state) => {
+      const next = new Set(state.deletingWorkflowIds)
+      next.add(id)
+      return { deletingWorkflowIds: Array.from(next) }
+    })
+
+    let workflowToDelete: Workflow | undefined
+
     try {
       const response = await fetch(`/api/workflows/${id}`, {
         method: 'DELETE',
@@ -526,7 +559,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       }
 
       // Get workflow details before deletion for audit log
-      const workflowToDelete = get().workflows.find(w => w.id === id)
+      workflowToDelete = get().workflows.find(w => w.id === id)
       
       set((state) => ({
         workflows: state.workflows.filter((w) => w.id !== id),
@@ -552,6 +585,25 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
             })
 
             // Track beta tester activity
+          }
+        } catch (auditError) {
+          console.warn("Failed to log workflow deletion:", auditError)
+        }
+      }
+    } catch (error: any) {
+      console.error("Error deleting workflow:", error)
+      throw error
+    } finally {
+      set((state) => {
+        const next = new Set(state.deletingWorkflowIds)
+        next.delete(id)
+        return { deletingWorkflowIds: Array.from(next) }
+      })
+
+      if (workflowToDelete && supabase) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
             await trackBetaTesterActivity({
               userId: user.id,
               activityType: 'workflow_deleted',
@@ -561,13 +613,10 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
               }
             })
           }
-        } catch (auditError) {
-          console.warn("Failed to log workflow deletion:", auditError)
+        } catch (activityError) {
+          console.warn("Failed to track beta tester activity for deletion:", activityError)
         }
       }
-    } catch (error: any) {
-      console.error("Error deleting workflow:", error)
-      throw error
     }
   },
 
@@ -696,6 +745,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     const { currentWorkflow } = get()
     if (!currentWorkflow || !supabase) return
 
+    set({ loadingSave: true, error: null })
+
     try {
       // Determine the appropriate status based on workflow completeness
       const hasTrigger = currentWorkflow.nodes.some(node => node.data?.isTrigger)
@@ -784,6 +835,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     } catch (error: any) {
       console.error("Error saving workflow:", error)
       throw error
+    } finally {
+      set({ loadingSave: false })
     }
   },
 
@@ -925,7 +978,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       workflows: [],
       currentWorkflow: null,
       selectedNode: null,
-      loading: false,
+      loadingList: false,
+      loadingCreate: false,
+      loadingSave: false,
+      updatingWorkflowIds: [],
+      deletingWorkflowIds: [],
       error: null,
     })
   },
