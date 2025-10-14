@@ -118,7 +118,9 @@
       "Bash(do)",
       "Bash(if grep -q \"from [''\"\"]next/server[''\"\"]\" \"$file\")",
       "Bash(then)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)"
     ],
     "defaultMode": "acceptEdits"
   }
