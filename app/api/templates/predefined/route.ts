@@ -59,10 +59,66 @@ export async function GET(request: Request) {
     // Transform templates to match the expected format
     // Keep the original structure since workflow_json might already exist
     const formattedTemplates = (templates || []).map(template => {
+      const airtableSetup =
+        typeof template.airtable_setup === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.airtable_setup)
+              } catch (error) {
+                console.error("Failed to parse airtable_setup for template", template.id, error)
+                return null
+              }
+            })()
+          : template.airtable_setup || null
+
+      const integrationSetup =
+        typeof template.integration_setup === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.integration_setup)
+              } catch (error) {
+                console.error("Failed to parse integration_setup for template", template.id, error)
+                return null
+              }
+            })()
+          : template.integration_setup || null
+
+      const setupOverview =
+        typeof template.setup_overview === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.setup_overview)
+              } catch (error) {
+                console.error("Failed to parse setup_overview for template", template.id, error)
+                return null
+              }
+            })()
+          : template.setup_overview || null
+
+      const defaultFieldValues =
+        typeof template.default_field_values === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.default_field_values)
+              } catch (error) {
+                console.error("Failed to parse default_field_values for template", template.id, error)
+                return null
+              }
+            })()
+          : template.default_field_values || null
+
       // If template already has workflow_json, use it as-is
       // Otherwise, create it from nodes/connections
       const result = {
         ...template,
+        airtable_setup: airtableSetup,
+        airtableSetup: airtableSetup,
+        integration_setup: integrationSetup,
+        integrationSetup,
+        setup_overview: setupOverview,
+        setupOverview,
+        default_field_values: defaultFieldValues,
+        defaultFieldValues,
         creator: {
           email: "templates@chainreact.com"
         }

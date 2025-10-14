@@ -22,13 +22,20 @@ interface UseWorkflowsReturn {
   updateNode: (nodeId: string, updates: Partial<WorkflowNode>) => void
   removeNode: (nodeId: string) => void
   saveCurrentWorkflow: () => Promise<void>
+  updatingWorkflowIds: string[]
+  deletingWorkflowIds: string[]
+  isSavingWorkflow: boolean
 }
 
 export function useWorkflows(): UseWorkflowsReturn {
   const {
     workflows,
     currentWorkflow,
-    loading: storeLoading,
+    loadingList,
+    loadingCreate,
+    loadingSave,
+    updatingWorkflowIds,
+    deletingWorkflowIds,
     error: storeError,
     fetchWorkflows,
     createWorkflow: storeCreateWorkflow,
@@ -184,6 +191,7 @@ export function useWorkflows(): UseWorkflowsReturn {
   }, [currentWorkflow, saveWorkflow])
   
   // Combine loading states
+  const storeLoading = loadingList || loadingCreate || loadingSave
   const isLoading = loading || storeLoading
   const errorMessage = error || storeError
 
@@ -203,6 +211,9 @@ export function useWorkflows(): UseWorkflowsReturn {
     addNode,
     updateNode,
     removeNode,
-    saveCurrentWorkflow
+    saveCurrentWorkflow,
+    updatingWorkflowIds,
+    deletingWorkflowIds,
+    isSavingWorkflow: loadingSave
   }
 } 

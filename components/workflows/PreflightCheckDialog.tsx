@@ -80,8 +80,8 @@ export function PreflightCheckDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full pr-4">
+        <div className="flex-1 overflow-hidden min-h-0">
+          <ScrollArea className="h-full max-h-[60vh] pr-4">
             {!result && (
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />

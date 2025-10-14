@@ -24,6 +24,8 @@ import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
 import { PreflightCheckDialog } from "./PreflightCheckDialog"
+import { AirtableSetupPanel, type TemplateSetupRequirement } from "@/components/templates/AirtableSetupPanel"
+import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -57,6 +59,7 @@ function WorkflowBuilderContent() {
     setWorkflowDescription,
     currentWorkflow,
     editTemplateId,
+    isTemplateEditing,
 
     // Loading/saving states
     isSaving,
@@ -182,6 +185,43 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
+  const sourceTemplateId = React.useMemo(
+    () => currentWorkflow?.source_template_id || editTemplateId || null,
+    [currentWorkflow?.source_template_id, editTemplateId]
+  )
+
+  const [templateSetupInfo, setTemplateSetupInfo] = React.useState<TemplateSetupRequirement[]>([])
+  const [showTemplateSetupDialog, setShowTemplateSetupDialog] = React.useState(false)
+
+  const templateSetupDialogKey = React.useMemo(() => {
+    const keySource = currentWorkflow?.id || editTemplateId
+    return keySource ? `template-setup-dialog-${keySource}` : null
+  }, [currentWorkflow?.id, editTemplateId])
+
+  const handleAirtableSetupLoaded = React.useCallback(
+    (requirements: TemplateSetupRequirement[]) => {
+      setTemplateSetupInfo(requirements)
+      if (typeof window === "undefined") return
+      if (!templateSetupDialogKey) return
+
+      const dismissed = localStorage.getItem(templateSetupDialogKey)
+      if (!dismissed && requirements.length > 0) {
+        setShowTemplateSetupDialog(true)
+      }
+    },
+    [templateSetupDialogKey]
+  )
+
+  const handleTemplateSetupDialogChange = React.useCallback(
+    (open: boolean) => {
+      setShowTemplateSetupDialog(open)
+      if (!open && templateSetupDialogKey && typeof window !== "undefined") {
+        localStorage.setItem(templateSetupDialogKey, "dismissed")
+      }
+    },
+    [templateSetupDialogKey]
+  )
+
   const activeConfigNode = React.useMemo(() => {
     if (!configuringNode) return null
     return nodes.find((node) => node.id === configuringNode.id) || null
@@ -219,6 +259,7 @@ function WorkflowBuilderContent() {
         currentWorkflow={currentWorkflow}
         workflowId={currentWorkflow?.id}
         editTemplateId={editTemplateId}
+        isTemplateEditing={isTemplateEditing}
         handleTestSandbox={handleTestSandbox}
         handleExecuteLive={handleExecuteLive}
         handleExecuteLiveSequential={handleExecuteLiveSequential}
@@ -296,8 +337,25 @@ function WorkflowBuilderContent() {
             }}
           />
           <CollaboratorCursors collaborators={collaborators || []} />
+
+          {/* Airtable Setup Panel - shows if workflow was created from a template */}
+          {sourceTemplateId && (
+            <Panel position="top-right" style={{ marginTop: '80px', marginRight: '10px', maxWidth: '400px', maxHeight: '60vh', overflow: 'auto' }}>
+              <AirtableSetupPanel
+                templateId={sourceTemplateId}
+                workflowId={currentWorkflow?.id}
+                onSetupLoaded={handleAirtableSetupLoaded}
+              />
+            </Panel>
+          )}
         </ReactFlow>
       )}
+
+      <TemplateSetupDialog
+        open={showTemplateSetupDialog}
+        onOpenChange={handleTemplateSetupDialogChange}
+        requirements={templateSetupInfo}
+      />
 
       {/* Dialogs */}
       <TriggerSelectionDialog

@@ -24,6 +24,18 @@ interface WorkflowTemplate {
   thumbnail_url?: string
   created_at: string
   updated_at: string
+  status?: string
+  published_at?: string | null
+  primary_setup_target?: string | null
+  setup_overview?: any
+  default_field_values?: Record<string, any> | null
+  integration_setup?: any
+  airtable_setup?: any
+  draft_nodes?: any[]
+  draft_connections?: any[]
+  draft_default_field_values?: Record<string, any> | null
+  draft_integration_setup?: any
+  draft_setup_overview?: any
   author?: {
     email: string
     user_metadata?: any
@@ -50,7 +62,7 @@ interface TemplateState {
   featuredTemplates: WorkflowTemplate[]
   reviews: TemplateReview[]
   categories: string[]
-  loading: boolean
+  loadingStates: Record<string, boolean>
   error: string | null
   searchQuery: string
   selectedCategory: string | null
@@ -95,14 +107,17 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
     "HR",
     "Finance",
   ],
-  loading: false,
+  loadingStates: {},
   error: null,
   searchQuery: "",
   selectedCategory: null,
 
   fetchPublicTemplates: async () => {
     const supabase = getSupabaseClient()
-    set({ loading: true, error: null })
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, public: true },
+      error: null
+    }))
 
     try {
       const { data, error } = await supabase
@@ -116,15 +131,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ templates: data || [], loading: false })
+      set((state) => ({
+        templates: data || [],
+        loadingStates: { ...state.loadingStates, public: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, public: false }
+      }))
     }
   },
 
   fetchMyTemplates: async () => {
     const supabase = getSupabaseClient()
-    set({ loading: true })
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, mine: true }
+    }))
 
     try {
       const { data: user } = await supabase.auth.getUser()
@@ -138,14 +161,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ myTemplates: data || [], loading: false })
+      set((state) => ({
+        myTemplates: data || [],
+        loadingStates: { ...state.loadingStates, mine: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, mine: false }
+      }))
     }
   },
 
   fetchFeaturedTemplates: async () => {
     const supabase = getSupabaseClient()
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, featured: true }
+    }))
 
     try {
       const { data, error } = await supabase
@@ -161,15 +193,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ featuredTemplates: data || [] })
+      set((state) => ({
+        featuredTemplates: data || [],
+        loadingStates: { ...state.loadingStates, featured: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, featured: false }
+      }))
     }
   },
 
   fetchTemplatesByCategory: async (category: string) => {
     const supabase = getSupabaseClient()
-    set({ loading: true })
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, category: true }
+    }))
 
     try {
       const { data, error } = await supabase
@@ -184,15 +224,24 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ templates: data || [], loading: false })
+      set((state) => ({
+        templates: data || [],
+        loadingStates: { ...state.loadingStates, category: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, category: false }
+      }))
     }
   },
 
   searchTemplates: async (query: string) => {
     const supabase = getSupabaseClient()
-    set({ loading: true, searchQuery: query })
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, search: true },
+      searchQuery: query
+    }))
 
     try {
       const { data, error } = await supabase
@@ -207,14 +256,24 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ templates: data || [], loading: false })
+      set((state) => ({
+        templates: data || [],
+        loadingStates: { ...state.loadingStates, search: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message, loading: false })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, search: false }
+      }))
     }
   },
 
   createTemplate: async (data: Partial<WorkflowTemplate>) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, create: true }
+    }))
 
     try {
       const { data: user } = await supabase.auth.getUser()
@@ -233,17 +292,25 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       set((state) => ({
         myTemplates: [template, ...state.myTemplates],
+        loadingStates: { ...state.loadingStates, create: false }
       }))
 
       return template
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, create: false }
+      }))
       throw error
     }
   },
 
   updateTemplate: async (id: string, data: Partial<WorkflowTemplate>) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, update: true }
+    }))
 
     try {
       const { error } = await supabase.from("workflow_templates").update(data).eq("id", id)
@@ -253,15 +320,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
       set((state) => ({
         myTemplates: state.myTemplates.map((template) => (template.id === id ? { ...template, ...data } : template)),
         templates: state.templates.map((template) => (template.id === id ? { ...template, ...data } : template)),
+        loadingStates: { ...state.loadingStates, update: false }
       }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, update: false }
+      }))
       throw error
     }
   },
 
   deleteTemplate: async (id: string) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, delete: true }
+    }))
 
     try {
       const { error } = await supabase.from("workflow_templates").delete().eq("id", id)
@@ -271,9 +346,13 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
       set((state) => ({
         myTemplates: state.myTemplates.filter((template) => template.id !== id),
         templates: state.templates.filter((template) => template.id !== id),
+        loadingStates: { ...state.loadingStates, delete: false }
       }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, delete: false }
+      }))
       throw error
     }
   },
@@ -288,6 +367,10 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
   downloadTemplate: async (templateId: string) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, download: true }
+    }))
 
     try {
       const { data: user } = await supabase.auth.getUser()
@@ -310,13 +393,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       return template
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, download: false }
+      }))
       throw error
+    } finally {
+      set((state) => ({
+        loadingStates: { ...state.loadingStates, download: false }
+      }))
     }
   },
 
   fetchTemplateReviews: async (templateId: string) => {
     const supabase = getSupabaseClient()
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, reviews: true }
+    }))
 
     try {
       const { data, error } = await supabase
@@ -330,14 +423,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       if (error) throw error
 
-      set({ reviews: data || [] })
+      set((state) => ({
+        reviews: data || [],
+        loadingStates: { ...state.loadingStates, reviews: false }
+      }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, reviews: false }
+      }))
     }
   },
 
   addReview: async (templateId: string, rating: number, reviewText?: string) => {
     const supabase = getSupabaseClient()
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, reviewMutation: true }
+    }))
 
     try {
       const { data: user } = await supabase.auth.getUser()
@@ -354,13 +456,24 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       await get().fetchTemplateReviews(templateId)
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
+      }))
       throw error
+    } finally {
+      set((state) => ({
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
+      }))
     }
   },
 
   updateReview: async (reviewId: string, rating: number, reviewText?: string) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, reviewMutation: true }
+    }))
 
     try {
       const { error } = await supabase
@@ -374,15 +487,23 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
         reviews: state.reviews.map((review) =>
           review.id === reviewId ? { ...review, rating, review_text: reviewText } : review,
         ),
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
       }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
+      }))
       throw error
     }
   },
 
   deleteReview: async (reviewId: string) => {
     const supabase = getSupabaseClient()
+
+    set((state) => ({
+      loadingStates: { ...state.loadingStates, reviewMutation: true }
+    }))
 
     try {
       const { error } = await supabase.from("template_reviews").delete().eq("id", reviewId)
@@ -391,9 +512,13 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
 
       set((state) => ({
         reviews: state.reviews.filter((review) => review.id !== reviewId),
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
       }))
     } catch (error: any) {
-      set({ error: error.message })
+      set((state) => ({
+        error: error.message,
+        loadingStates: { ...state.loadingStates, reviewMutation: false }
+      }))
       throw error
     }
   },

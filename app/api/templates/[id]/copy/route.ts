@@ -148,16 +148,72 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       aiAgentNodes: processedNodes.filter(n => n.data?.type === 'ai_agent').length
     });
 
+    // Find the next available name by checking for existing copies
+    const baseName = `${template.name} (Copy)`
+    let finalName = baseName
+    let copyNumber = 0
+
+    // Fetch all workflows for this user that might match our naming pattern
+    // We'll filter in JavaScript for more reliable matching
+    const { data: existingWorkflows } = await supabase
+      .from("workflows")
+      .select("name")
+      .eq("user_id", user.id)
+      .ilike("name", `${template.name}%`)
+
+    console.log('Checking for existing copies:', {
+      templateName: template.name,
+      baseName: baseName,
+      existingCount: existingWorkflows?.length || 0,
+      existingNames: existingWorkflows?.map(w => w.name) || []
+    })
+
+    if (existingWorkflows && existingWorkflows.length > 0) {
+      // Extract existing copy numbers (0 = base name, 1+ = numbered copies)
+      const existingNumbers = new Set<number>()
+
+      existingWorkflows.forEach(workflow => {
+        // Check if it's exactly the base name (first copy = 0)
+        if (workflow.name === baseName) {
+          existingNumbers.add(0)
+        }
+        // Check if it matches "Template (Copy) (N)" pattern
+        else if (workflow.name.startsWith(baseName)) {
+          const match = workflow.name.match(/\(Copy\) \((\d+)\)$/)
+          if (match) {
+            existingNumbers.add(parseInt(match[1], 10))
+          }
+        }
+      })
+
+      console.log('Found existing copy numbers:', Array.from(existingNumbers).sort((a, b) => a - b))
+
+      // Find the next available number starting from 0
+      while (existingNumbers.has(copyNumber)) {
+        copyNumber++
+      }
+
+      // Generate the final name
+      if (copyNumber === 0) {
+        finalName = baseName  // "Template (Copy)" - no number suffix
+      } else {
+        finalName = `${baseName} (${copyNumber})`  // "Template (Copy) (1)", "Template (Copy) (2)", etc.
+      }
+    }
+
+    console.log(`Creating workflow with name: ${finalName}`)
+
     // Create a new workflow from the template
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
       .insert({
-        name: `${template.name} (Copy)`,
+        name: finalName,
         description: template.description,
         user_id: user.id,
         nodes: processedNodes,
         connections: connections,
         status: "draft",
+        source_template_id: resolvedParams.id,
       })
       .select()
       .single()

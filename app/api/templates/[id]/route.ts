@@ -1,8 +1,7 @@
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-
+import { cookies } from "next/headers"
+import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 
 async function requireTemplateAccess(templateId: string) {
@@ -19,7 +18,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user: null as any,
       template: null as any,
-      errorResponse: errorResponse("Not authenticated" , 401)
+      errorResponse: errorResponse("Not authenticated", 401)
     }
   }
 
@@ -50,7 +49,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user,
       template: null as any,
-      errorResponse: errorResponse("Template not found" , 404),
+      errorResponse: errorResponse("Template not found", 404),
     }
   }
 
@@ -67,7 +66,7 @@ async function requireTemplateAccess(templateId: string) {
       supabase,
       user,
       template: null as any,
-      errorResponse: errorResponse("Only admins or template owners can manage templates" , 403),
+      errorResponse: errorResponse("Only admins or template owners can manage templates", 403),
     }
   }
 
@@ -95,12 +94,39 @@ export async function GET(
     const { template, errorResponse } = await requireTemplateAccess(templateId)
     if (errorResponse) return errorResponse
 
-    const nodes = parseJsonField(template.nodes) || []
-    const connections = parseJsonField(template.connections) || []
+    const nodes = parseJsonField<any[]>(template.nodes) || []
+    const connections = parseJsonField<any[]>(template.connections) || []
+    const airtableSetup = parseJsonField(template.airtable_setup) ?? template.airtable_setup ?? null
+    const integrationSetup = parseJsonField(template.integration_setup) ?? template.integration_setup ?? null
+    const defaultFieldValues = parseJsonField<Record<string, any>>(template.default_field_values) || {}
+    const setupOverview = parseJsonField(template.setup_overview)
+    const draftNodes = parseJsonField<any[]>(template.draft_nodes) || []
+    const draftConnections = parseJsonField<any[]>(template.draft_connections) || []
+    const draftDefaultFieldValues = parseJsonField<Record<string, any>>(template.draft_default_field_values) || {}
+    const draftIntegrationSetup = parseJsonField(template.draft_integration_setup)
+    const draftSetupOverview = parseJsonField(template.draft_setup_overview)
     const hydratedTemplate = {
       ...template,
       nodes,
       connections,
+      airtable_setup: airtableSetup,
+      airtableSetup: airtableSetup,
+      integration_setup: integrationSetup,
+      integrationSetup,
+      default_field_values: defaultFieldValues,
+      defaultFieldValues,
+      setup_overview: setupOverview,
+      setupOverview,
+      draft_nodes: draftNodes,
+      draftNodes,
+      draft_connections: draftConnections,
+      draftConnections,
+      draft_default_field_values: draftDefaultFieldValues,
+      draftDefaultFieldValues,
+      draft_integration_setup: draftIntegrationSetup,
+      draftIntegrationSetup,
+      draft_setup_overview: draftSetupOverview,
+      draftSetupOverview,
     }
 
     return jsonResponse({
@@ -133,7 +159,14 @@ export async function PUT(
       tags,
       is_public,
       thumbnail_url,
-      workflow_json
+      workflow_json,
+      airtable_setup,
+      integration_setup,
+      primary_setup_target,
+      setup_overview,
+      default_field_values,
+      status,
+      published_at
     } = body || {}
 
     const hasNodes = Object.prototype.hasOwnProperty.call(body || {}, 'nodes')
@@ -202,6 +235,37 @@ export async function PUT(
       updatePayload.thumbnail_url = thumbnail_url
     }
 
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'airtable_setup')) {
+      updatePayload.airtable_setup = airtable_setup ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'integration_setup')) {
+      updatePayload.integration_setup = integration_setup ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'primary_setup_target')) {
+      updatePayload.primary_setup_target = primary_setup_target ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'setup_overview')) {
+      updatePayload.setup_overview = setup_overview ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'default_field_values')) {
+      updatePayload.default_field_values = default_field_values ?? null
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'status') && typeof status === 'string') {
+      updatePayload.status = status
+      if (status === 'published') {
+        updatePayload.published_at = new Date().toISOString()
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body || {}, 'published_at')) {
+      updatePayload.published_at = published_at
+    }
+
     const { data: updatedTemplate, error } = await serviceClient
       .from("templates")
       .update(updatePayload)
@@ -214,14 +278,26 @@ export async function PUT(
       return errorResponse("Failed to update template" , 500)
     }
 
-    const parsedNodes = parseJsonField(updatedTemplate.nodes) || filteredNodes
-    const parsedConnections = parseJsonField(updatedTemplate.connections) || connections
+    const parsedNodes = parseJsonField<any[]>(updatedTemplate.nodes) || filteredNodes
+    const parsedConnections = parseJsonField<any[]>(updatedTemplate.connections) || connections
+    const parsedAirtableSetup = parseJsonField(updatedTemplate.airtable_setup) ?? updatePayload.airtable_setup ?? null
+    const parsedIntegrationSetup = parseJsonField(updatedTemplate.integration_setup) ?? updatePayload.integration_setup ?? null
+    const parsedDefaultFieldValues = parseJsonField<Record<string, any>>(updatedTemplate.default_field_values) || updatePayload.default_field_values || {}
+    const parsedSetupOverview = parseJsonField(updatedTemplate.setup_overview) ?? updatePayload.setup_overview ?? null
 
     return jsonResponse({
       template: {
         ...updatedTemplate,
         nodes: parsedNodes,
         connections: parsedConnections,
+        airtable_setup: parsedAirtableSetup,
+        airtableSetup: parsedAirtableSetup,
+        integration_setup: parsedIntegrationSetup,
+        integrationSetup: parsedIntegrationSetup,
+        default_field_values: parsedDefaultFieldValues,
+        defaultFieldValues: parsedDefaultFieldValues,
+        setup_overview: parsedSetupOverview,
+        setupOverview: parsedSetupOverview,
       },
       message: "Template updated successfully"
     })

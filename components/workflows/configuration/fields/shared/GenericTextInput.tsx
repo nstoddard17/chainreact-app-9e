@@ -518,24 +518,33 @@ export function GenericTextInput({
         </div>
       );
 
-    case "email":
+    case "email": {
+      const rawEmailValue = typeof value === "string" ? value : "";
+      const emailAcceptsVariable =
+        rawEmailValue.startsWith("{{") && rawEmailValue.endsWith("}}");
+
       return (
         <div className="relative">
           <Input
             {...commonProps}
-            type="email"
+            type={emailAcceptsVariable ? "text" : "email"}
             tabIndex={overlayAwareTabIndex}
           />
           {renderPlaceholderOverlay()}
         </div>
       );
+    }
 
-    case "time":
+    case "time": {
+      const rawTimeValue = typeof value === "string" ? value : "";
+      const timeAcceptsVariable =
+        rawTimeValue.startsWith("{{") && rawTimeValue.endsWith("}}");
+
       return (
         <div className="relative">
           <Input
             {...commonProps}
-            type="time"
+            type={timeAcceptsVariable ? "text" : "time"}
             className={cn(
               commonProps.className,
               "w-auto max-w-[150px]",
@@ -546,6 +555,7 @@ export function GenericTextInput({
           {renderPlaceholderOverlay()}
         </div>
       );
+    }
 
     case "file":
       // If field accepts variables, we need to handle both file uploads and variable text
