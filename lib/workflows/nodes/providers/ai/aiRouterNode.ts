@@ -252,7 +252,7 @@ export const aiRouterNode: NodeComponent = {
       label: "System Prompt",
       type: "textarea",
       dependsOn: "template",
-      showWhen: { template: "custom" },
+      visibilityCondition: { field: "template", operator: "equals", value: "custom" },
       placeholder: "Define how the AI should analyze and route incoming data...",
       description: "Custom instructions for the AI router"
     },
@@ -278,7 +278,7 @@ export const aiRouterNode: NodeComponent = {
       label: "Vector Storage",
       type: "select",
       dependsOn: "memory",
-      showWhen: { memory: "vector" },
+      visibilityCondition: { field: "memory", operator: "equals", value: "vector" },
       options: [
         { value: "pinecone", label: "Pinecone" },
         { value: "weaviate", label: "Weaviate" },
@@ -328,7 +328,7 @@ export const aiRouterNode: NodeComponent = {
       label: "API Key",
       type: "password",
       dependsOn: "apiSource",
-      showWhen: { apiSource: "custom" },
+      visibilityCondition: { field: "apiSource", operator: "equals", value: "custom" },
       placeholder: "sk-...",
       description: "Your API key (encrypted and secure)"
     },
@@ -339,7 +339,7 @@ export const aiRouterNode: NodeComponent = {
       label: "API Provider",
       type: "select",
       dependsOn: "apiSource",
-      showWhen: { apiSource: "custom" },
+      visibilityCondition: { field: "apiSource", operator: "equals", value: "custom" },
       required: true,
       options: [
         { value: "openai", label: "OpenAI" },

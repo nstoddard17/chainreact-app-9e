@@ -56,10 +56,10 @@ const facebookActionCreatePost: NodeComponent = {
     
     // Monetization section with clear descriptions
     { name: "enableMonetization", label: "💰 Enable Monetization Features", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", hidden: true, description: "Turn on advanced monetization options to add product links, promo codes, and partnership disclosures to your post" },
-    { name: "productLinkUrl", label: "Product Link", type: "text", required: true, placeholder: "https://example.com/product", dependsOn: "pageId", showWhen: { field: "enableMonetization", value: true }, hidden: true, description: "The URL where users can purchase or learn more about your product" },
-    { name: "productLinkName", label: "Call-to-Action Text", type: "text", required: false, placeholder: "e.g., 'Shop Now' or 'Learn More'", dependsOn: "pageId", showWhen: { field: "enableMonetization", value: true }, hidden: true, description: "Custom text for your product link button (optional)" },
-    { name: "productPromoCode", label: "Discount Code", type: "text", required: false, placeholder: "e.g., SAVE20", dependsOn: "pageId", showWhen: { field: "enableMonetization", value: true }, hidden: true, description: "Share an exclusive promo code with your audience (optional)" },
-    { name: "paidPartnershipLabel", label: "🤝 Paid Partnership Disclosure", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", showWhen: { field: "enableMonetization", value: true }, hidden: true, description: "Add a 'Paid partnership' label to comply with advertising disclosure requirements" }
+    { name: "productLinkUrl", label: "Product Link", type: "text", required: true, placeholder: "https://example.com/product", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "The URL where users can purchase or learn more about your product" },
+    { name: "productLinkName", label: "Call-to-Action Text", type: "text", required: false, placeholder: "e.g., 'Shop Now' or 'Learn More'", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Custom text for your product link button (optional)" },
+    { name: "productPromoCode", label: "Discount Code", type: "text", required: false, placeholder: "e.g., SAVE20", dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Share an exclusive promo code with your audience (optional)" },
+    { name: "paidPartnershipLabel", label: "🤝 Paid Partnership Disclosure", type: "boolean", required: false, defaultValue: false, dependsOn: "pageId", visibilityCondition: { field: "enableMonetization", operator: "equals", value: true }, hidden: true, description: "Add a 'Paid partnership' label to comply with advertising disclosure requirements" }
   ]
 }
 
@@ -169,8 +169,8 @@ const facebookActionGetPageInsights: NodeComponent = {
     ]},
     
     // Custom date range (only shown when dateRange is "custom")
-    { name: "since", label: "Start Date", type: "date", required: false, dependsOn: "pageId", showWhen: { field: "dateRange", value: "custom" }, hidden: true },
-    { name: "until", label: "End Date", type: "date", required: false, dependsOn: "pageId", showWhen: { field: "dateRange", value: "custom" }, hidden: true }
+    { name: "since", label: "Start Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true },
+    { name: "until", label: "End Date", type: "date", required: false, dependsOn: "pageId", visibilityCondition: { field: "dateRange", operator: "equals", value: "custom" }, hidden: true }
   ]
 }
 

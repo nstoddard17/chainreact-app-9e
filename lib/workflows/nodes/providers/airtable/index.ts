@@ -320,7 +320,7 @@ export const airtableNodes: NodeComponent[] = [
         description: "Choose the table to get records from",
         dependsOn: "baseId",
         hidden: true,
-        showWhen: { baseId: "!empty" }
+        visibilityCondition: { field: "baseId", operator: "equals", value: "!empty" }
       },
       {
         name: "keywordSearch",
@@ -330,7 +330,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Search across all text fields...",
         description: "Search for keywords across all text fields in the table",
         hidden: true,
-        showWhen: { tableName: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
       },
       {
         name: "filterField",
@@ -342,7 +342,7 @@ export const airtableNodes: NodeComponent[] = [
         description: "Choose a field to filter records by",
         dependsOn: "tableName",
         hidden: true,
-        showWhen: { tableName: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
       },
       {
         name: "filterValue",
@@ -353,7 +353,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select value...",
         description: "Choose the value to filter by",
         dependsOn: "filterField",
-        showWhen: { filterField: "!empty" }
+        visibilityCondition: { field: "filterField", operator: "equals", value: "!empty" }
       },
       {
         name: "sortOrder",
@@ -370,7 +370,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select sort order...",
         description: "How to sort the returned records",
         hidden: true,
-        showWhen: { tableName: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
       },
       {
         name: "dateFilter",
@@ -390,7 +390,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select date filter...",
         description: "Filter records by creation date",
         hidden: true,
-        showWhen: { tableName: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
       },
       {
         name: "customDateRange",
@@ -400,7 +400,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select date range...",
         description: "Choose a custom date range to filter records",
         dependsOn: "dateFilter",
-        showWhen: { dateFilter: "custom_date_range" }
+        visibilityCondition: { field: "dateFilter", operator: "equals", value: "custom_date_range" }
       },
       {
         name: "recordLimit",
@@ -418,7 +418,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select record limit...",
         description: "Quick limit for most recent records",
         hidden: true,
-        showWhen: { tableName: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
       },
       {
         name: "maxRecords",
@@ -429,7 +429,7 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "100",
         description: "Maximum number of records to return",
         dependsOn: "recordLimit",
-        showWhen: { recordLimit: "custom" }
+        visibilityCondition: { field: "recordLimit", operator: "equals", value: "custom" }
       },
       {
         name: "filterByFormula",

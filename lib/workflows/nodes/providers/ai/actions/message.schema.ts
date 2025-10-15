@@ -44,7 +44,7 @@ export const messageActionSchema: NodeComponent = {
       label: "Custom API Key",
       type: "password",
       dependsOn: "apiSource",
-      showWhen: { apiSource: "custom" },
+      visibilityCondition: { field: "apiSource", operator: "equals", value: "custom" },
       placeholder: "sk-...",
       description: "Your provider API key (encrypted). Required when using a custom source."
     },
