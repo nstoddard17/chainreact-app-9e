@@ -5,6 +5,7 @@ import {
   scheduleTempAttachmentCleanup,
   uploadTempAttachmentToSupabase
 } from './supabaseAttachment'
+import { logger } from '@/lib/utils/logger'
 
 export interface UploadContext {
   accessToken: string
@@ -540,7 +541,21 @@ export async function createAirtableRecord(
             continue
           }
 
-          resolvedFields[fieldName] = finalValue
+          if (typeof finalValue === 'string') {
+            const trimmed = finalValue.trim()
+            if (trimmed && trimmed === trimmed.toLowerCase()) {
+              const normalized = trimmed
+                .split(/[_\s-]+/)
+                .filter(Boolean)
+                .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
+                .join(' ')
+              resolvedFields[fieldName] = normalized
+            } else {
+              resolvedFields[fieldName] = finalValue
+            }
+          } else {
+            resolvedFields[fieldName] = finalValue
+          }
         }
       }
     }

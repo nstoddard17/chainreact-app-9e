@@ -238,7 +238,7 @@ export function TriggerSelectionDialog({
                       }}
                     >
                       {renderLogo(integration.id, integration.name)}
-                      <span className="font-semibold ml-4 flex-grow truncate">
+                      <span className="font-semibold ml-4 flex-grow break-words">
                         {integration.name}
                       </span>
                       {isComingSoon ? (
@@ -376,7 +376,7 @@ export function TriggerSelectionDialog({
                                   e.currentTarget.style.display = 'none'
                                 }}
                               />
-                              <p className="font-medium flex-1 min-w-0 truncate">
+                              <p className="font-medium flex-1 min-w-0 break-words">
                                 {trigger.title}
                               </p>
                               {isTriggerComingSoon && (

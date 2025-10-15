@@ -379,6 +379,7 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/airtable/callback",
+    scope: "data.records:read data.records:write schema.bases:read schema.bases:write webhook:manage",
   },
   "youtube-studio": {
     id: "youtube-studio",

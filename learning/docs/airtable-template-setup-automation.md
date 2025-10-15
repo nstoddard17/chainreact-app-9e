@@ -187,7 +187,10 @@ This template now includes complete Airtable setup for three tables:
 
 ### Table 2: Feedback Log
 - **Feedback Insight** (Long text) - AI-extracted insight
-- **Sentiment** (Single line text) - Sentiment analysis
+- **Feedback Summary** (Long text) - Short summary of the message
+- **Customer** (Single line text) - Name or handle of the customer
+- **Sentiment** (Single select: Positive/Neutral/Negative) - Sentiment analysis
+- **Confidence** (Number) - Additional AI confidence score
 - **Source** (Single line text) - Origin of feedback
 
 ### Table 3: Newsletter Subscribers

@@ -16,15 +16,40 @@ export async function GET(request: NextRequest) {
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "12")
     const offset = (page - 1) * limit
+    const scope = searchParams.get("scope")
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    let isAdmin = false
+    if (user && !userError) {
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      isAdmin = profile?.role === "admin"
+    }
+
+    const requestingAdminScope = scope === "admin"
+    if (requestingAdminScope && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     let query = supabase
       .from("templates")
       .select(`
         *
       `)
-      .eq("is_public", true)
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .range(offset, offset + limit - 1)
+
+    if (!requestingAdminScope) {
+      query = query.eq("is_public", true)
+    }
 
     if (category && category !== "all") {
       query = query.eq("category", category)

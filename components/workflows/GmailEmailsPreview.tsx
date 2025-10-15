@@ -165,7 +165,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
               {email.attachments.map((attachment, index) => (
                 <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                   <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
+                  <span className="text-gray-900 break-words min-w-0 flex-1">{attachment.filename}</span>
                   <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                 </div>
               ))}
@@ -194,7 +194,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
                 {email.attachments.map((attachment, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                     <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
+                    <span className="text-gray-900 break-words min-w-0 flex-1">{attachment.filename}</span>
                     <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                   </div>
                 ))}
@@ -236,7 +236,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
                 {email.attachments.map((attachment, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm w-full min-w-0">
                     <Paperclip className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-900 truncate min-w-0 flex-1">{attachment.filename}</span>
+                    <span className="text-gray-900 break-words min-w-0 flex-1">{attachment.filename}</span>
                     <span className="text-gray-500 text-xs flex-shrink-0">({attachment.mimeType}, {attachment.size} bytes)</span>
                   </div>
                 ))}
@@ -281,7 +281,7 @@ export const GmailEmailsPreview: React.FC<GmailEmailsPreviewProps> = ({ emails, 
 
             {/* Email Content - Single Line Layout */}
             <div className="flex-1 min-w-0 flex items-start gap-3">
-              <span className={`text-sm ${!email.isRead ? 'font-semibold' : 'font-medium'} text-gray-900 flex-shrink-0 max-w-[100px] truncate`}>
+              <span className={`text-sm ${!email.isRead ? 'font-semibold' : 'font-medium'} text-gray-900 flex-shrink-0 max-w-[160px] break-words line-clamp-2`}>
                 {getSenderDisplay(email)}
               </span>
               

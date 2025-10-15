@@ -314,6 +314,44 @@ export function GenericSelectField({
   const basePlaceholder = field.placeholder || (field.label ? `Select ${field.label}...` : 'Select an option...');
   const placeholderText = field.dynamic && isLoading ? loadingPlaceholder : basePlaceholder;
 
+  // Cache key for persisting display labels across modal reopen
+  const labelCacheKey = React.useMemo(() => {
+    const provider = nodeInfo?.providerId || 'generic';
+    const nodeType = nodeInfo?.type || 'unknown';
+    return `workflow-field-label:${provider}:${nodeType}:${field.name}`;
+  }, [nodeInfo?.providerId, nodeInfo?.type, field.name]);
+
+  const loadCachedLabel = React.useCallback(
+    (val: string): string | null => {
+      if (typeof window === 'undefined' || !val) return null;
+      try {
+        const raw = window.localStorage.getItem(labelCacheKey);
+        if (!raw) return null;
+        const cache = JSON.parse(raw) as Record<string, string>;
+        return cache?.[val] ?? null;
+      } catch (error) {
+        logger.warn('[GenericSelectField] Failed to load cached label', error);
+        return null;
+      }
+    },
+    [labelCacheKey]
+  );
+
+  const saveLabelToCache = React.useCallback(
+    (val: string, label: string | null | undefined) => {
+      if (typeof window === 'undefined' || !val || !label) return;
+      try {
+        const raw = window.localStorage.getItem(labelCacheKey);
+        const cache = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+        cache[val] = label;
+        window.localStorage.setItem(labelCacheKey, JSON.stringify(cache));
+      } catch (error) {
+        logger.warn('[GenericSelectField] Failed to cache label', error);
+      }
+    },
+    [labelCacheKey]
+  );
+
   // When value changes, update the display label if we find the option or it's a variable
   React.useEffect(() => {
     // If value is empty, clear the display label
@@ -326,6 +364,9 @@ export function GenericSelectField({
     if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
       const friendlyLabel = getFriendlyVariableLabel(value, workflowNodes)
       setDisplayLabel(friendlyLabel)
+      if (friendlyLabel) {
+        saveLabelToCache(String(value), friendlyLabel);
+      }
     } else if (options?.length > 0) {
       const option = options.find((opt: any) => {
         const optValue = opt.value || opt.id;
@@ -334,12 +375,26 @@ export function GenericSelectField({
       if (option) {
         const label = option.label || option.name || option.value || option.id;
         setDisplayLabel(label);
-      } else {
-        // Value exists but no matching option found - clear display label
-        setDisplayLabel(null);
+        saveLabelToCache(String(value), label);
+      }
+    } else {
+      // Attempt to hydrate from cached label while options load
+      const cached = loadCachedLabel(String(value));
+      if (cached) {
+        setDisplayLabel(cached);
       }
     }
-  }, [value, options, getFriendlyVariableLabel, workflowNodes]);
+  }, [value, options, getFriendlyVariableLabel, workflowNodes, loadCachedLabel, saveLabelToCache]);
+  
+  // If we still don't have a display label yet but a value exists, attempt to load cached label once
+  React.useEffect(() => {
+    if (!displayLabel && value) {
+      const cached = loadCachedLabel(String(value));
+      if (cached) {
+        setDisplayLabel(cached);
+      }
+    }
+  }, [displayLabel, value, loadCachedLabel]);
   
   // Reset load attempt tracking when dependencies change
   React.useEffect(() => {

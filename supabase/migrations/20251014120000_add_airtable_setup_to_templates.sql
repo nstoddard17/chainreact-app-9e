@@ -25,7 +25,10 @@ SET airtable_setup = jsonb_build_object(
       'description', 'Captures customer feedback messages',
       'fields', jsonb_build_array(
         jsonb_build_object('name', 'Feedback Insight', 'type', 'longText', 'description', 'AI-extracted main insight from feedback'),
-        jsonb_build_object('name', 'Sentiment', 'type', 'singleLineText', 'description', 'Sentiment analysis (e.g., Positive, Negative, Neutral)'),
+        jsonb_build_object('name', 'Feedback Summary', 'type', 'longText', 'description', 'Short summary of the feedback message'),
+        jsonb_build_object('name', 'Customer', 'type', 'singleLineText', 'description', 'Name or handle of the customer who shared the feedback'),
+        jsonb_build_object('name', 'Sentiment', 'type', 'singleSelect', 'options', jsonb_build_array('Positive', 'Neutral', 'Negative'), 'description', 'Sentiment analysis (e.g., Positive, Negative, Neutral)'),
+        jsonb_build_object('name', 'Confidence', 'type', 'number', 'description', 'General AI confidence score for this classification'),
         jsonb_build_object('name', 'Source', 'type', 'singleLineText', 'description', 'Origin of feedback (e.g., Discord)')
       )
     ),
@@ -70,7 +73,10 @@ SET integration_setup = jsonb_build_array(
         'description', 'Captures customer feedback messages',
         'fields', jsonb_build_array(
           jsonb_build_object('name', 'Feedback Insight', 'type', 'longText', 'description', 'AI-extracted main insight from feedback'),
-          jsonb_build_object('name', 'Sentiment', 'type', 'singleLineText', 'description', 'Sentiment analysis (e.g., Positive, Negative, Neutral)'),
+          jsonb_build_object('name', 'Feedback Summary', 'type', 'longText', 'description', 'Short summary of the feedback message'),
+          jsonb_build_object('name', 'Customer', 'type', 'singleLineText', 'description', 'Name or handle of the customer who shared the feedback'),
+          jsonb_build_object('name', 'Sentiment', 'type', 'singleSelect', 'options', jsonb_build_array('Positive', 'Neutral', 'Negative'), 'description', 'Sentiment analysis (e.g., Positive, Negative, Neutral)'),
+          jsonb_build_object('name', 'Confidence', 'type', 'number', 'description', 'General AI confidence score for this classification'),
           jsonb_build_object('name', 'Source', 'type', 'singleLineText', 'description', 'Origin of feedback (e.g., Discord)')
         )
       ),

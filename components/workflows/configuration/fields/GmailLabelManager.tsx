@@ -358,7 +358,7 @@ export function GmailLabelManager({ existingLabels = [], onLabelsChange }: Gmail
                                   <div className="w-3 h-3 border border-slate-300 rounded" />
                                 )}
                               </div>
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 truncate">
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 break-all line-clamp-1">
                                 {label.name}
                               </Badge>
                             </div>

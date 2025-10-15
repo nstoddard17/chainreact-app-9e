@@ -6,13 +6,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Copy, Eye, Loader2, Edit, ArrowRight, Play } from "lucide-react"
+import { Search, Copy, Eye, Loader2, Edit, Play, Plus, Rocket, Pause } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthStore } from "@/stores/authStore"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { TemplatePreviewWithProvider } from "./TemplatePreview"
 import { TemplatePreviewModal } from "./TemplatePreviewModal"
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -37,6 +47,10 @@ interface Template {
   airtableSetup?: any
   integration_setup?: any
   integrationSetup?: any
+  status?: string
+  primary_setup_target?: string | null
+  published_at?: string | null
+  is_public?: boolean
 }
 
 const categories = [
@@ -133,6 +147,16 @@ export function TemplateGallery() {
   const [copying, setCopying] = useState<string | null>(null)
   const [showPredefined, setShowPredefined] = useState(true)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [creatingTemplate, setCreatingTemplate] = useState(false)
+  const [publishingTemplateId, setPublishingTemplateId] = useState<string | null>(null)
+  const [newTemplateForm, setNewTemplateForm] = useState({
+    name: "",
+    description: "",
+    category: "AI Automation",
+    tags: "",
+    primarySetupTarget: "airtable",
+  })
   const router = useRouter()
   const { toast } = useToast()
   const { profile } = useAuthStore()
@@ -142,7 +166,7 @@ export function TemplateGallery() {
   useEffect(() => {
     fetchTemplates()
     fetchPredefinedTemplates()
-  }, [selectedCategory, searchQuery])
+  }, [selectedCategory, searchQuery, isAdmin])
 
   const fetchTemplates = async () => {
     try {
@@ -150,6 +174,8 @@ export function TemplateGallery() {
       const params = new URLSearchParams()
       if (selectedCategory !== "all") params.set("category", selectedCategory)
       if (searchQuery) params.set("search", searchQuery)
+
+      if (isAdmin) params.set("scope", "admin")
 
       const response = await fetch(`/api/templates?${params}`)
       const data = await response.json()
@@ -183,6 +209,124 @@ export function TemplateGallery() {
       }
     } catch (error) {
       logger.error("Error fetching predefined templates:", error)
+    }
+  }
+
+  const handleCreateTemplate = async () => {
+    if (!newTemplateForm.name.trim()) {
+      toast({
+        title: "Name required",
+        description: "Enter a template name to continue",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setCreatingTemplate(true)
+      const tags = newTemplateForm.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+
+      const response = await fetch(`/api/templates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: newTemplateForm.name.trim(),
+          description: newTemplateForm.description.trim(),
+          category: newTemplateForm.category || "AI Automation",
+          tags,
+          is_public: false,
+          primary_setup_target: newTemplateForm.primarySetupTarget || null,
+          status: "draft",
+          workflow_json: { nodes: [], connections: [] },
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create template")
+      }
+
+      const createdTemplate = data?.template
+      if (createdTemplate) {
+        setTemplates((prev) => [createdTemplate, ...prev])
+      }
+
+      toast({
+        title: "Template created",
+        description: "Finish configuring the template in the builder.",
+      })
+
+      setShowCreateDialog(false)
+      setNewTemplateForm({
+        name: "",
+        description: "",
+        category: "AI Automation",
+        tags: "",
+        primarySetupTarget: "airtable",
+      })
+
+      if (createdTemplate?.id) {
+        router.push(`/workflows/builder?editTemplate=${createdTemplate.id}`)
+      }
+    } catch (error: any) {
+      logger.error("Error creating template:", error)
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create template",
+        variant: "destructive",
+      })
+    } finally {
+      setCreatingTemplate(false)
+    }
+  }
+
+  const handleUpdateTemplateStatus = async (templateId: string, status: "draft" | "ready" | "published") => {
+    try {
+      setPublishingTemplateId(templateId)
+      const response = await fetch(`/api/templates/${templateId}/draft`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update template")
+      }
+
+      setTemplates((prev) => prev.map((template) => (
+        template.id === templateId
+          ? {
+              ...template,
+              status,
+              published_at: status === "published" ? new Date().toISOString() : null,
+              is_public: status === "published",
+            }
+          : template
+      )))
+
+      toast({
+        title: status === "published" ? "Template published" : "Template updated",
+        description: status === "published"
+          ? "The template is now available to users."
+          : "Template status updated.",
+      })
+    } catch (error: any) {
+      logger.error("Error updating template status:", error)
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update template",
+        variant: "destructive",
+      })
+    } finally {
+      setPublishingTemplateId(null)
     }
   }
 
@@ -268,6 +412,12 @@ export function TemplateGallery() {
           <h2 className="text-2xl font-bold">Workflow Templates</h2>
           <p className="text-gray-600">Get started quickly with pre-built workflows</p>
         </div>
+        {isAdmin && (
+          <Button onClick={() => setShowCreateDialog(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            New Template
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -330,6 +480,33 @@ export function TemplateGallery() {
                   />
                 </div>
 
+                {isAdmin && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Badge
+                      variant={
+                        template.status === "published"
+                          ? "default"
+                          : template.status === "ready"
+                            ? "secondary"
+                            : "outline"
+                      }
+                      className="capitalize"
+                    >
+                      {template.status || "draft"}
+                    </Badge>
+                    {template.primary_setup_target && (
+                      <Badge variant="outline" className="text-xs capitalize">
+                        Setup: {capitalizeTag(template.primary_setup_target.replace(/[_-]/g, " "))}
+                      </Badge>
+                    )}
+                    {template.published_at && (
+                      <span className="text-xs text-gray-500">
+                        Published {new Date(template.published_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 mt-4">
                   <Badge variant="secondary">{template.category}</Badge>
                   {template.difficulty && (
@@ -358,16 +535,39 @@ export function TemplateGallery() {
 
                   <div className="flex gap-2 flex-shrink-0">
                     {isAdmin && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          router.push(`/workflows/builder?editTemplate=${template.id}`)
-                        }}
-                        title="Edit Template"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            router.push(`/workflows/builder?editTemplate=${template.id}`)
+                          }}
+                          title="Edit Template"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant={template.status === "published" ? "outline" : "default"}
+                          size="sm"
+                          onClick={() =>
+                            handleUpdateTemplateStatus(
+                              template.id,
+                              template.status === "published" ? "draft" : "published"
+                            )
+                          }
+                          disabled={publishingTemplateId === template.id}
+                          title={template.status === "published" ? "Unpublish Template" : "Publish Template"}
+                        >
+                          {publishingTemplateId === template.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : template.status === "published" ? (
+                            <Pause className="h-4 w-4 mr-2" />
+                          ) : (
+                            <Rocket className="h-4 w-4 mr-2" />
+                          )}
+                          {template.status === "published" ? "Unpublish" : "Publish"}
+                        </Button>
+                      </>
                     )}
                     <Button
                       variant="outline"
@@ -417,6 +617,93 @@ export function TemplateGallery() {
         open={showPreviewModal}
         onOpenChange={setShowPreviewModal}
       />
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Template</DialogTitle>
+            <DialogDescription>
+              Provide initial details for the template. You can configure the workflow and setup guide in the builder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Name</label>
+              <Input
+                placeholder="Template name"
+                value={newTemplateForm.name}
+                onChange={(e) => setNewTemplateForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Description</label>
+              <Textarea
+                rows={3}
+                placeholder="Describe what this template does"
+                value={newTemplateForm.description}
+                onChange={(e) => setNewTemplateForm((prev) => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Category</label>
+                <Select
+                  value={newTemplateForm.category}
+                  onValueChange={(value) => setNewTemplateForm((prev) => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories
+                      .filter((category) => category !== "all")
+                      .map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Primary setup target</label>
+                <Select
+                  value={newTemplateForm.primarySetupTarget}
+                  onValueChange={(value) => setNewTemplateForm((prev) => ({ ...prev, primarySetupTarget: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="airtable">Airtable</SelectItem>
+                    <SelectItem value="google_sheets">Google Sheets</SelectItem>
+                    <SelectItem value="gmail">Gmail</SelectItem>
+                    <SelectItem value="custom">Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Tags</label>
+              <Input
+                placeholder="crm, sales, support"
+                value={newTemplateForm.tags}
+                onChange={(e) => setNewTemplateForm((prev) => ({ ...prev, tags: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Comma-separated list</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={creatingTemplate}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTemplate} disabled={creatingTemplate}>
+              {creatingTemplate ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Create &amp; Configure
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

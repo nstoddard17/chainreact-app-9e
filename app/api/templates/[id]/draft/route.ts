@@ -1,22 +1,8 @@
 import { NextResponse } from "next/server"
 import { createSupabaseServiceClient } from "@/utils/supabase/server"
 import { parseJsonField, requireTemplateAccess } from "../helpers"
-
-function sanitizeNodes(nodes: any[]): any[] {
-  if (!Array.isArray(nodes)) return []
-  return nodes.filter((node) => {
-    const nodeType = node?.data?.type || node?.type
-    const hasAddButton = node?.data?.hasAddButton
-    const isPlaceholder = node?.data?.isPlaceholder
-    return (
-      nodeType !== "addAction" &&
-      nodeType !== "insertAction" &&
-      nodeType !== "chain_placeholder" &&
-      !hasAddButton &&
-      !isPlaceholder
-    )
-  })
-}
+import { resolveDraftUpdate } from "@/lib/templates/draftState"
+import type { TemplateIntegrationSetup, TemplateSetupOverview } from "@/types/templateSetup"
 
 export async function GET(
   request: Request,
@@ -82,44 +68,35 @@ export async function PUT(
       status,
     } = body || {}
 
+    const existingDraftNodes = parseJsonField<any[]>(template.draft_nodes) || parseJsonField<any[]>(template.nodes) || []
+    const existingDraftConnections = parseJsonField<any[]>(template.draft_connections) || parseJsonField<any[]>(template.connections) || []
+    const existingDraftDefaults = parseJsonField<Record<string, any>>(template.draft_default_field_values) || parseJsonField<Record<string, any>>(template.default_field_values) || {}
+    const existingDraftIntegration = parseJsonField<TemplateIntegrationSetup[]>(template.draft_integration_setup) || parseJsonField<TemplateIntegrationSetup[]>(template.integration_setup) || []
+    const existingDraftOverview = parseJsonField<TemplateSetupOverview>(template.draft_setup_overview) ?? parseJsonField<TemplateSetupOverview>(template.setup_overview) ?? null
+    const existingPrimaryTarget = template.primary_setup_target ?? null
+
+    const { updatePayload } = resolveDraftUpdate(
+      {
+        nodes,
+        connections,
+        default_field_values,
+        integration_setup,
+        setup_overview,
+        primary_setup_target,
+        status,
+      },
+      {
+        existingDraftNodes,
+        existingDraftConnections,
+        existingDraftDefaults,
+        existingDraftIntegration,
+        existingDraftOverview,
+        existingPrimaryTarget,
+        existingStatus: template.status ?? null,
+      }
+    )
+
     const serviceClient = await createSupabaseServiceClient()
-    const updatePayload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    }
-
-    if (Array.isArray(nodes)) {
-      updatePayload.draft_nodes = sanitizeNodes(nodes)
-    }
-
-    if (Array.isArray(connections)) {
-      updatePayload.draft_connections = connections
-    }
-
-    if (typeof default_field_values !== "undefined") {
-      updatePayload.draft_default_field_values = default_field_values ?? null
-    }
-
-    if (typeof integration_setup !== "undefined") {
-      updatePayload.draft_integration_setup = integration_setup ?? null
-    }
-
-    if (typeof setup_overview !== "undefined") {
-      updatePayload.draft_setup_overview = setup_overview ?? null
-    }
-
-    if (typeof primary_setup_target !== "undefined") {
-      updatePayload.primary_setup_target = primary_setup_target ?? null
-    }
-
-    if (typeof status === "string") {
-      updatePayload.status = status
-      if (status === "published" && !template.published_at) {
-        updatePayload.published_at = new Date().toISOString()
-      }
-      if (status !== "published") {
-        updatePayload.published_at = null
-      }
-    }
 
     const { data: updatedTemplate, error } = await serviceClient
       .from("templates")
@@ -145,6 +122,10 @@ export async function PUT(
         setup_overview: parseJsonField(updatedTemplate.draft_setup_overview),
         primary_setup_target: updatedTemplate.primary_setup_target,
         status: updatedTemplate.status,
+        published_default_field_values: parseJsonField<Record<string, any>>(updatedTemplate.default_field_values) || {},
+        published_integration_setup: parseJsonField(updatedTemplate.integration_setup),
+        published_setup_overview: parseJsonField(updatedTemplate.setup_overview),
+        published_at: updatedTemplate.published_at,
       },
       message: "Draft saved",
     })

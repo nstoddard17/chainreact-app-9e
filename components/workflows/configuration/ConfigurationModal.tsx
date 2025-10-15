@@ -76,7 +76,7 @@ const CustomDialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg overflow-hidden",
+        "fixed left-1/2 top-1/2 z-50 w-[98vw] h-[92vh] sm:h-[95vh] max-w-[98vw] md:max-w-[95vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[1600px] max-h-[92vh] sm:max-h-[95vh] translate-x-[-50%] translate-y-[-50%] gap-0 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg overflow-hidden",
         className
       )}
       onDragOver={(e) => {
@@ -149,15 +149,15 @@ const getNodeIcon = (nodeType: string) => {
  */
 const getNodeTypeBadge = (nodeType: string) => {
   if (nodeType.includes('trigger')) {
-    return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">Trigger</Badge>
+    return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-xs sm:text-sm">Trigger</Badge>
   }
   if (nodeType.includes('action')) {
-    return <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">Action</Badge>
+    return <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs sm:text-sm">Action</Badge>
   }
   if (nodeType.includes('ai') || nodeType.includes('agent')) {
-    return <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">AI</Badge>
+    return <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-xs sm:text-sm">AI</Badge>
   }
-  return <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200">Node</Badge>
+  return <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200 text-xs sm:text-sm">Node</Badge>
 }
 
 /**
@@ -375,18 +375,18 @@ export function ConfigurationModal({
           }}>
           {/* Main Configuration Area - Left Column */}
           <div className="modal-main-column config-content-area flex flex-col flex-1 min-w-0 max-w-full overflow-hidden" style={{ isolation: 'isolate' }}>
-            <DialogHeader className="pb-3 border-b border-slate-200 px-6 pt-6 flex-shrink-0">
+            <DialogHeader className="pb-2 sm:pb-3 border-b border-slate-200 px-3 sm:px-4 lg:px-6 pt-3 sm:pt-4 lg:pt-6 flex-shrink-0">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
-                    {getNodeIcon(nodeInfo?.type || '')}
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-1.5 sm:p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white">
+                    {React.cloneElement(getNodeIcon(nodeInfo?.type || ''), { className: 'h-4 w-4 sm:h-5 sm:w-5' })}
                   </div>
                   <div>
-                    <DialogTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                    <DialogTitle className="text-base sm:text-lg lg:text-xl font-semibold text-slate-900 flex items-center gap-1.5 sm:gap-2">
                       {getModalTitle()}
                       {getNodeTypeBadge(nodeInfo?.type || '')}
                     </DialogTitle>
-                    <DialogDescription className="text-sm text-slate-600 mt-1">
+                    <DialogDescription className="text-xs sm:text-sm text-slate-600 mt-0.5 sm:mt-1">
                       {integrationName ? `Configure your ${integrationName} integration settings` : 'Configure your workflow node settings'}
                     </DialogDescription>
                   </div>
@@ -395,9 +395,9 @@ export function ConfigurationModal({
                   variant="ghost"
                   size="sm"
                   onClick={handleClose}
-                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group"
+                  className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-50 hover:text-red-600 rounded-full transition-all duration-200 group flex-shrink-0"
                 >
-                  <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </Button>
@@ -424,7 +424,7 @@ export function ConfigurationModal({
 
           {/* Variable Picker Side Panel - Right Column */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 h-full overflow-hidden" style={{ isolation: 'isolate' }}>
+            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 h-64 lg:h-full overflow-hidden" style={{ isolation: 'isolate' }}>
               <VariablePickerSidePanel
                 workflowData={workflowData}
                 currentNodeId={currentNodeId}

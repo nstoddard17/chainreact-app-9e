@@ -22,7 +22,7 @@ export default function MetricCard({ title, value, icon, color, change }: Metric
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground truncate">{title}</p>
+            <p className="text-sm font-medium text-muted-foreground break-words">{title}</p>
             <p className="text-2xl sm:text-3xl font-bold text-card-foreground mt-1">{value}</p>
             {change && <p className="text-sm text-green-600 dark:text-green-400 mt-1">{change}</p>}
           </div>
