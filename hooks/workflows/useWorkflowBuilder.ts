@@ -99,7 +99,7 @@ export function useWorkflowBuilder() {
   const { toast } = useToast()
 
   // Store hooks
-  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading, fetchWorkflows } = useWorkflowStore()
+  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading, fetchWorkflows, addWorkflowToStore } = useWorkflowStore()
   const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
   const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
   const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
@@ -122,7 +122,16 @@ export function useWorkflowBuilder() {
   const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null)
   const [isPreflightDialogOpen, setIsPreflightDialogOpen] = useState(false)
   const [isRunningPreflight, setIsRunningPreflight] = useState(false)
-  
+  const [directFetchStatus, setDirectFetchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [hasHandledDirectFetchError, setHasHandledDirectFetchError] = useState(false)
+  const directFetchErrorRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    setDirectFetchStatus('idle')
+    setHasHandledDirectFetchError(false)
+    directFetchErrorRef.current = null
+  }, [workflowId])
+
   // Custom setNodes that preserves onClick handlers for AddActionNodes
   const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
     setNodesInternal(currentNodes => {
@@ -214,6 +223,35 @@ export function useWorkflowBuilder() {
       return value
     }
   }, [])
+
+  const loadWorkflowDirect = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle()
+
+      if (error) {
+        logger.error('[WorkflowBuilder] Direct workflow fetch error:', error)
+        directFetchErrorRef.current = error.message || 'Failed to load workflow.'
+        return false
+      }
+
+      if (!data) {
+        directFetchErrorRef.current = 'Workflow not found.'
+        return false
+      }
+
+      directFetchErrorRef.current = null
+      addWorkflowToStore(data as Workflow)
+      return true
+    } catch (error) {
+      logger.error('[WorkflowBuilder] Direct workflow fetch failed:', error)
+      directFetchErrorRef.current = error instanceof Error ? error.message : 'Failed to load workflow.'
+      return false
+    }
+  }, [addWorkflowToStore])
 
   // Wrapper to safely set unsaved changes (ignores changes right after save)
   const markAsUnsaved = useCallback(() => {
@@ -528,6 +566,19 @@ export function useWorkflowBuilder() {
 
     loadInitialData()
   }, [])
+
+  useEffect(() => {
+    if (!workflowId || isTemplateEditing) return
+
+    const hasWorkflow = workflows.some(workflow => workflow.id === workflowId)
+    if (hasWorkflow) return
+    if (directFetchStatus !== 'idle') return
+
+    setDirectFetchStatus('loading')
+    void loadWorkflowDirect(workflowId).then(success => {
+      setDirectFetchStatus(success ? 'success' : 'error')
+    })
+  }, [workflowId, workflows, isTemplateEditing, directFetchStatus, loadWorkflowDirect])
 
   // Track last validated node IDs to prevent infinite loops
   const lastValidatedNodesRef = useRef<string>('')
@@ -1678,17 +1729,21 @@ export function useWorkflowBuilder() {
           // The workflow loading already creates Add Actions correctly
         }, 100)
       } else {
-        // Workflow ID in URL but workflow not found in loaded workflows
-        logger.warn('[WorkflowBuilder] Workflow not found:', workflowId)
-        // Clear current workflow to prevent infinite loading
-        setCurrentWorkflow(null)
-        toast({
-          title: "Workflow not found",
-          description: "The requested workflow could not be loaded. It may have been deleted.",
-          variant: "destructive"
-        })
-        // Redirect to workflows list
-        router.push('/workflows')
+        if (directFetchStatus === 'idle' || directFetchStatus === 'loading' || directFetchStatus === 'success') {
+          return
+        }
+
+        if (directFetchStatus === 'error' && !hasHandledDirectFetchError) {
+          logger.warn('[WorkflowBuilder] Workflow not found after direct fetch attempt:', workflowId)
+          setHasHandledDirectFetchError(true)
+          setCurrentWorkflow(null)
+          toast({
+            title: "Workflow not found",
+            description: directFetchErrorRef.current || "The requested workflow could not be loaded. It may have been deleted.",
+            variant: "destructive"
+          })
+          router.push('/workflows')
+        }
       }
     }
 
@@ -1701,7 +1756,7 @@ export function useWorkflowBuilder() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workflowId, workflows, workflowLoading])
+  }, [workflowId, workflows, workflowLoading, directFetchStatus, hasHandledDirectFetchError])
 
   // Cleanup collaboration on component unmount
   useEffect(() => {

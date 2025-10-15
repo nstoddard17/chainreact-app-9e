@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   Download,
-  FileText,
   Table2,
   CheckCircle2,
   AlertCircle,
@@ -32,7 +31,6 @@ import type {
   GoogleSheetsSetupRequirementResponse,
   TemplateSetupRequirementResponse,
 } from '@/types/templateSetup'
-import { toast } from 'sonner'
 
 type PanelState = 'expanded' | 'minimized' | 'closed'
 
@@ -51,6 +49,7 @@ interface TemplateSetupResponse {
   overview?: TemplateSetupOverview | null
   primarySetupTarget?: string | null
   assets?: TemplateAsset[]
+  copyLink?: string | null
 }
 
 export interface TemplateSetupData extends TemplateSetupResponse {}
@@ -69,21 +68,12 @@ const FALLBACK_AIRTABLE_STEPS = [
   'Import the CSV files to seed the tables before running the workflow',
 ]
 
-const CreateBaseContext = React.createContext<{
-  handleCreateBase: (() => Promise<void> | void) | null
-  isCreatingBase: boolean
-}>({
-  handleCreateBase: null,
-  isCreatingBase: false,
-})
-
 export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: TemplateSetupPanelProps) {
   const [setupData, setSetupData] = useState<TemplateSetupData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [panelState, setPanelState] = useState<PanelState>('expanded')
   const [expandedTable, setExpandedTable] = useState<string | null>(null)
-  const [isCreatingBase, setIsCreatingBase] = useState(false)
   const hasNotifiedRef = useRef(false)
 
   const storageKey = useMemo(
@@ -107,6 +97,7 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
             overview: null,
             primarySetupTarget: null,
             assets: [],
+            copyLink: null,
           }
           setSetupData(emptyData)
           if (!hasNotifiedRef.current) {
@@ -124,6 +115,7 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
         overview: data.overview ?? null,
         primarySetupTarget: data.primarySetupTarget ?? null,
         assets: data.assets ?? [],
+        copyLink: data.copyLink ?? null,
       }
       setSetupData(normalized)
 
@@ -178,56 +170,6 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
     }
   }
 
-  const handleDownloadGuide = async (requirement: AirtableSetupRequirement) => {
-    const slug = requirement.baseName.toLowerCase().replace(/\s+/g, '-')
-    await handleDownloadFile(requirement.guideDownloadUrl, `${slug}-setup-guide.md`)
-  }
-
-  const handleCreateBase = useCallback(async () => {
-    if (isCreatingBase) return
-    setIsCreatingBase(true)
-    try {
-      const response = await fetch(`/api/templates/${templateId}/airtable-setup/create-base`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      })
-
-      const payload = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        const message = payload?.error || 'Failed to create Airtable base'
-        throw new Error(message)
-      }
-
-      const baseName = payload?.base?.name || setupData?.overview?.summary || 'Airtable Base'
-      const baseUrl = payload?.base?.url
-
-      toast.success('Airtable base created', {
-        description: baseUrl ? `Created "${baseName}". Open it to finish configuring.` : `Created "${baseName}" successfully.`,
-        action: baseUrl
-          ? {
-              label: 'Open',
-              onClick: () => {
-                if (typeof window !== 'undefined') {
-                  window.open(baseUrl, '_blank', 'noopener')
-                }
-              },
-            }
-          : undefined,
-      })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create Airtable base'
-      toast.error('Failed to create Airtable base', {
-        description: message,
-      })
-    } finally {
-      setIsCreatingBase(false)
-    }
-  }, [isCreatingBase, setupData?.overview?.summary, templateId])
-
   const handleMinimize = () => {
     setPanelState('minimized')
     localStorage.setItem(storageKey, 'minimized')
@@ -262,6 +204,7 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
     () => resolvePrimaryTargetLabel(setupData?.primarySetupTarget ?? null, requirements as RequirementLike[]),
     [setupData?.primarySetupTarget, requirements]
   )
+  const copyLink = useMemo(() => setupData?.copyLink ?? null, [setupData?.copyLink])
 
   if (loading || error || !setupData || !requirements.length) {
     return null
@@ -394,17 +337,16 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
             </div>
           )}
 
-          <CreateBaseContext.Provider value={{ handleCreateBase, isCreatingBase }}>
-            {airtableRequirement && (
-              <AirtableRequirementCard
-                requirement={airtableRequirement}
-                totalTables={totalTables}
-                expandedTable={expandedTable}
-                onToggleTable={setExpandedTable}
-                onDownloadGuide={handleDownloadGuide}
-              />
-            )}
-          </CreateBaseContext.Provider>
+          {airtableRequirement && (
+            <AirtableRequirementCard
+              requirement={airtableRequirement}
+              totalTables={totalTables}
+              expandedTable={expandedTable}
+              onToggleTable={setExpandedTable}
+              copyLink={copyLink}
+              onDownloadCsv={handleDownloadFile}
+            />
+          )}
 
           {requirements
             .filter((req) => req.type !== 'airtable')
@@ -468,7 +410,8 @@ interface AirtableRequirementCardProps {
   totalTables: number
   expandedTable: string | null
   onToggleTable: (tableName: string | null) => void
-  onDownloadGuide: (requirement: AirtableSetupRequirement) => Promise<void>
+  copyLink?: string | null
+  onDownloadCsv: (downloadUrl: string, filename: string) => Promise<void>
 }
 
 function AirtableRequirementCard({
@@ -476,11 +419,9 @@ function AirtableRequirementCard({
   totalTables,
   expandedTable,
   onToggleTable,
-  onDownloadGuide,
+  copyLink,
+  onDownloadCsv,
 }: AirtableRequirementCardProps) {
-  const { handleCreateBase, isCreatingBase } = React.useContext(CreateBaseContext)
-  const createButtonVisible = Boolean(handleCreateBase)
-
   const instructions = requirement.instructions?.length ? requirement.instructions : FALLBACK_AIRTABLE_STEPS
 
   // Create a map of CSV files by table name for easy lookup
@@ -509,45 +450,31 @@ function AirtableRequirementCard({
         </ol>
 
         <div className="pt-1 sm:pt-2 space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap sm:gap-2 gap-2 mb-2 sm:mb-3">
+            {copyLink && (
+              <Button
+                size="sm"
+                asChild
+                className="font-medium text-xs sm:text-sm h-8 sm:h-9"
+              >
+                <a href={copyLink} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                  Duplicate Template Base
+                </a>
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onDownloadGuide(requirement)}
+              asChild
               className="font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs sm:text-sm h-8 sm:h-9"
             >
-              <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-              Download Setup Guide
+              <a href="https://airtable.com" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                Open Airtable
+              </a>
             </Button>
-            {createButtonVisible && handleCreateBase && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => void handleCreateBase()}
-                  disabled={isCreatingBase}
-                  className="font-medium text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  {isCreatingBase ? 'Creating Airtable Base…' : 'Create Airtable Base'}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 text-xs sm:text-sm h-8 sm:h-9"
-                >
-                  <a href="https://airtable.com/create" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                    Create Manually
-                  </a>
-                </Button>
-              </>
-            )}
           </div>
-          <p className="text-[10px] sm:text-xs text-muted-foreground">
-            {createButtonVisible ?
-              "Create the base automatically, or create it manually in Airtable using the schema below." :
-              "We'll create the base and tables in your connected Airtable account using this schema."}
-          </p>
         </div>
       </div>
 
@@ -559,10 +486,14 @@ function AirtableRequirementCard({
             Required Tables
           </h5>
         </div>
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
+          Download each table’s CSV using the buttons below, then import via “Add or import → CSV file” to match field types.
+        </p>
 
         <div className="space-y-3 sm:space-y-4">
           {requirement.tables.map((table, index) => {
             const isExpanded = expandedTable === table.tableName
+            const csvFile = requirement.csvFiles?.find((file) => file.tableName === table.tableName)
 
             return (
               <div
@@ -590,13 +521,26 @@ function AirtableRequirementCard({
                         </Badge>
                       </div>
                     </button>
+                    {csvFile && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void onDownloadCsv(csvFile.downloadUrl, csvFile.filename)
+                        }}
+                        className="w-full font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 whitespace-nowrap text-xs h-8"
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        Download CSV
+                      </Button>
+                    )}
                   </div>
 
                   {/* Desktop Layout - Single Line */}
-                  <button
-                    type="button"
+                  <div
                     onClick={() => onToggleTable(isExpanded ? null : table.tableName)}
-                    className="hidden sm:flex items-center gap-3 w-full text-left group"
+                    className="hidden sm:flex items-center gap-3 w-full text-left group cursor-pointer"
                   >
                     {/* Table Name */}
                     <p className="font-semibold text-base text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors whitespace-nowrap flex-shrink-0">
@@ -619,7 +563,21 @@ function AirtableRequirementCard({
                     )}
 
                     {/* CSV Download Button */}
-                  </button>
+                    {csvFile && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void onDownloadCsv(csvFile.downloadUrl, csvFile.filename)
+                        }}
+                        className="flex-shrink-0 font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 whitespace-nowrap text-sm h-9"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download CSV
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Expandable Field Schema */}

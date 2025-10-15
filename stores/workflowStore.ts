@@ -1011,7 +1011,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   addWorkflowToStore: (workflow: Workflow) => {
     logger.debug('[WorkflowStore] Adding workflow to store:', workflow.id)
     set((state) => ({
-      workflows: [workflow, ...state.workflows],
+      workflows: [workflow, ...state.workflows.filter(existing => existing.id !== workflow.id)],
     }))
   },
 }))
