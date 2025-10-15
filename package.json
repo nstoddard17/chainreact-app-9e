@@ -103,7 +103,7 @@
     "exceljs": "^4.4.0",
     "expo-sqlite": "latest",
     "form-data": "^4.0.4",
-    "framer-motion": "^12.18.1",
+    "framer-motion": "^12.23.24",
     "fs": "latest",
     "gel": "latest",
     "googleapis": "^152.0.0",

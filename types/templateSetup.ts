@@ -40,6 +40,7 @@ export interface TemplateIntegrationSetupBase {
 export interface AirtableIntegrationSetup extends TemplateIntegrationSetupBase {
   type: 'airtable'
   baseName: string
+  copyUrl?: string
   tables: AirtableTableSchema[]
 }
 

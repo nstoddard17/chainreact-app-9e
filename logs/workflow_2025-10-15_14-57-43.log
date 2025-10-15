@@ -1,0 +1,52 @@
+=== Log Session Started: 2025-10-15T19:57:43.223Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-15T19:57:43.224Z] [INFO   ] File logging initialized
+[2025-10-15T19:57:43.224Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 📁 File logging enabled
+[2025-10-15T19:57:43.224Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.225Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-15T19:57:43.225Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-15T19:57:43.241Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4s
+[2025-10-15T19:57:43.761Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-15T19:57:52.283Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 9s (4715 modules)
+[2025-10-15T19:57:53.737Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-15T19:57:56.057Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 2.9s (5678 modules)
+[2025-10-15T19:57:57.723Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T19:57:57.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 570ms (5697 modules)
+[2025-10-15T19:57:58.647Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T19:57:59.019Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 892ms (5699 modules)
+[2025-10-15T19:58:00.019Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T19:58:00.736Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1246ms (5709 modules)
+[2025-10-15T19:58:01.679Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-15T19:58:05.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 4.2s (7869 modules)
+[2025-10-15T19:58:06.190Z] [ERROR  ] 2025-10-15T19:58:06.190Z [ERROR] ❌ [Workflow API] Update error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'validationState' column of 'workflows' in the schema cache"}
+[2025-10-15T19:58:32.221Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T19:58:33.155Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1789ms (7871 modules)
+[2025-10-15T19:58:40.422Z] [ERROR  ] 2025-10-15T19:58:40.422Z [ERROR] ❌ [Workflow API] Update error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'validationState' column of 'workflows' in the schema cache"}
+[2025-10-15T20:00:19.062Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1402ms (1572 modules)
+[2025-10-15T20:00:20.179Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T20:00:21.282Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:00:21.607Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1929ms (5704 modules)
+[2025-10-15T20:01:59.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5692 modules)
+[2025-10-15T20:02:58.972Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:02:59.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1085ms (4137 modules)
+[2025-10-15T20:06:18.974Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-15T20:06:20.568Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 2.3s (5752 modules)
+[2025-10-15T20:06:20.943Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:07:59.202Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:07:59.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1002ms (4175 modules)
+[2025-10-15T20:08:59.054Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1921ms (5783 modules)
+[2025-10-15T20:08:59.303Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-15T20:21:43.603Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1859ms (5766 modules)
+[2025-10-15T20:21:43.702Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:21:44.502Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:21:44.519Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-15T20:21:44.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 897ms (5757 modules)
+[2025-10-15T20:21:53.858Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 807ms (5771 modules)

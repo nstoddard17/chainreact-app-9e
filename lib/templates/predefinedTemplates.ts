@@ -19,6 +19,7 @@ export interface PredefinedTemplate {
   }
   airtableSetup?: {
     baseName: string // Suggested base name
+    copyUrl?: string
     tables: AirtableTableSchema[]
   }
   integrationSetups?: TemplateIntegrationSetup[]
@@ -278,6 +279,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
     },
     airtableSetup: {
       baseName: "Customer Service Automation",
+      copyUrl: "https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv",
       tables: [
         {
           tableName: "Support Tickets",
@@ -377,10 +379,11 @@ export const predefinedTemplates: PredefinedTemplate[] = [
       {
         type: "airtable",
         baseName: "Customer Service Automation",
+        copyUrl: "https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv",
         instructions: [
-          "Create a base named Customer Service Automation in Airtable",
-          "Add the Support Tickets, Feedback Log, and Newsletter Subscribers tables",
-          "Import the provided CSV files or copy the field structure before running the workflow"
+          "Click \"Duplicate Template Base\" below to open Airtable, then press Copy Base at the top of the page and choose the workspace that should own it.",
+          "Confirm the Support Tickets, Feedback Log, and Newsletter Subscribers tables appear in the copied base.",
+          "Import the CSV files below (or rebuild the fields manually) before you run the workflow."
         ],
         tables: [
           {
@@ -721,6 +724,7 @@ export const predefinedTemplates: PredefinedTemplate[] = [
     },
     airtableSetup: {
       baseName: "Teams Support Desk",
+      copyUrl: "https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv",
       tables: [
         {
           tableName: "Support Tickets",
@@ -755,10 +759,11 @@ export const predefinedTemplates: PredefinedTemplate[] = [
       {
         type: "airtable",
         baseName: "Teams Support Desk",
+        copyUrl: "https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv",
         instructions: [
-          "Create a base named Teams Support Desk in Airtable",
-          "Add a Support Tickets table with the fields listed below",
-          "Use the workflow to automatically populate tickets from Teams messages"
+          "Click \"Duplicate Template Base\" below to open Airtable, then press Copy Base at the top of the page and choose the workspace that should own it.",
+          "Confirm the Support Tickets table is in the copied base with the fields listed below.",
+          "Import the CSV file below (or rebuild the fields manually) before you run the workflow."
         ],
         tables: [
           {

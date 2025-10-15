@@ -125,9 +125,20 @@ function mapField(field: AirtableTableSchema["fields"][number]): AirtableFieldDe
   return base
 }
 
-async function resolveWorkspaceId(accessToken: string, explicit?: string | null): Promise<string | null> {
+async function resolveWorkspaceId(
+  accessToken: string,
+  explicit: string | null | undefined,
+  integrationMetadata?: Record<string, any> | null
+): Promise<string | null> {
   if (explicit?.trim()) {
     return explicit.trim()
+  }
+
+  // Check integration metadata first (we may have stored a preferred workspace at connect time)
+  const metadataWorkspace = integrationMetadata?.workspaceId || integrationMetadata?.workspace_id
+  if (typeof metadataWorkspace === 'string' && metadataWorkspace.trim().length > 0) {
+    logger.info('[CreateAirtableBase] Using workspace from integration metadata')
+    return metadataWorkspace.trim()
   }
 
   const fetchWorkspaces = async () => {
@@ -193,26 +204,48 @@ async function resolveWorkspaceId(accessToken: string, explicit?: string | null)
       // Extract workspace ID from the first base
       const bases = basesData?.bases || []
       if (bases.length > 0) {
-        logger.info('[CreateAirtableBase] First base structure:', JSON.stringify(bases[0]))
-
         // Look for a base where user has create permissions
         const writableBase = bases.find((b: any) =>
           ["create", "edit", "owner"].includes((b.permissionLevel || "").toLowerCase())
         )
         const base = writableBase || bases[0]
-        logger.info('[CreateAirtableBase] Selected base permission level:', base.permissionLevel)
 
-        // Workspace ID is embedded in the base object or can be derived
-        // Check various possible locations
-        const workspaceFromBase = base.workspaceId || base.workspace_id || base.workspace?.id
+        // Try fetching full details of this base to get workspace info
+        logger.info(`[CreateAirtableBase] Fetching full details for base: ${base.id}`)
+        try {
+          const baseDetailsRes = await fetch(`https://api.airtable.com/v0/meta/bases/${base.id}`, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+          })
 
-        if (workspaceFromBase) {
-          logger.info(`[CreateAirtableBase] Extracted workspace from base: ${workspaceFromBase}`)
-          return workspaceFromBase
+          if (baseDetailsRes.ok) {
+            const baseDetails = await baseDetailsRes.json()
+            logger.info('[CreateAirtableBase] Full base details:', JSON.stringify(baseDetails))
+
+            // Check for workspace ID in the detailed response
+            const workspaceFromDetails =
+              baseDetails.workspaceId ||
+              baseDetails.workspace_id ||
+              baseDetails.workspace?.id ||
+              baseDetails.permissionLevel?.workspaceId
+
+            if (workspaceFromDetails) {
+              logger.info(`[CreateAirtableBase] Extracted workspace from base details: ${workspaceFromDetails}`)
+              return workspaceFromDetails
+            }
+
+            logger.info('[CreateAirtableBase] Available base details keys:', Object.keys(baseDetails).join(', '))
+          } else {
+            logger.warn(`[CreateAirtableBase] Failed to fetch base details (${baseDetailsRes.status})`)
+          }
+        } catch (detailsError) {
+          logger.error('[CreateAirtableBase] Error fetching base details:', detailsError)
         }
 
-        logger.warn('[CreateAirtableBase] Base object does not contain workspace ID in expected fields')
-        logger.info('[CreateAirtableBase] Available base keys:', Object.keys(base).join(', '))
+        logger.warn('[CreateAirtableBase] Could not extract workspace ID from any source')
       } else {
         logger.warn('[CreateAirtableBase] User has no bases - cannot extract workspace ID')
       }
@@ -310,8 +343,20 @@ export async function POST(
     }
 
     let accessToken: string
+    let integrationMetadata: Record<string, any> | null = null
     try {
       accessToken = await getDecryptedAccessToken(user.id, "airtable")
+
+      const { data: integrationRow } = await supabase
+        .from('integrations')
+        .select('metadata')
+        .eq('user_id', user.id)
+        .eq('provider', 'airtable')
+        .maybeSingle()
+
+      if (integrationRow?.metadata) {
+        integrationMetadata = integrationRow.metadata as Record<string, any>
+      }
     } catch (tokenError: any) {
       logger.error("[CreateAirtableBase] Failed to load Airtable token:", tokenError)
       return NextResponse.json(
@@ -320,7 +365,7 @@ export async function POST(
       )
     }
 
-    const workspaceId = await resolveWorkspaceId(accessToken, requestedWorkspaceId)
+    const workspaceId = await resolveWorkspaceId(accessToken, requestedWorkspaceId, integrationMetadata)
 
   // Build payload - workspace ID is optional for personal accounts
   const payload: any = {
@@ -332,13 +377,35 @@ export async function POST(
     })),
   }
 
-  // Only include workspaceId if we successfully resolved one
-  // For personal accounts, omitting this will use the default personal workspace
   if (workspaceId) {
     logger.info(`[CreateAirtableBase] Using resolved workspace ID: ${workspaceId}`)
     payload.workspaceId = workspaceId
   } else {
-    logger.info('[CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace')
+    logger.info('[CreateAirtableBase] No workspace ID resolved; attempting to detect personal workspace for schema.bases.write')
+    try {
+      const accountsRes = await fetch('https://api.airtable.com/v0/meta/accounts', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      })
+
+      if (accountsRes.ok) {
+        const accounts = await accountsRes.json()
+        logger.info('[CreateAirtableBase] meta/accounts response:', JSON.stringify(accounts))
+        const personalWorkspaceId = accounts?.personalWorkspaceId || accounts?.personal_workspace_id
+        if (personalWorkspaceId) {
+          logger.info(`[CreateAirtableBase] Using personal workspace from accounts endpoint: ${personalWorkspaceId}`)
+          payload.workspaceId = personalWorkspaceId
+        }
+      } else {
+        const errText = await accountsRes.text().catch(() => accountsRes.statusText)
+        logger.warn(`[CreateAirtableBase] meta/accounts lookup failed (${accountsRes.status}): ${errText}`)
+      }
+    } catch (accountsError) {
+      logger.error('[CreateAirtableBase] accounts endpoint error:', accountsError)
+    }
   }
 
     logger.info('[CreateAirtableBase] Sending payload to Airtable:', JSON.stringify(payload))

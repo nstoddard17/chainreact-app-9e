@@ -9,6 +9,7 @@ ADD COLUMN IF NOT EXISTS integration_setup JSONB;
 UPDATE public.templates
 SET airtable_setup = jsonb_build_object(
   'baseName', 'Customer Service Automation',
+  'copyUrl', 'https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv',
   'tables', jsonb_build_array(
     jsonb_build_object(
       'tableName', 'Support Tickets',
@@ -53,10 +54,11 @@ SET integration_setup = jsonb_build_array(
     'type', 'airtable',
     'baseName', 'Customer Service Automation',
     'instructions', jsonb_build_array(
-      'Create a base named Customer Service Automation in Airtable',
-      'Add the Support Tickets, Feedback Log, and Newsletter Subscribers tables',
-      'Import the provided CSV files or copy the field structure before running the workflow'
+      'Click "Duplicate Template Base" below to open Airtable, then press Copy Base at the top of the page and choose the workspace that should own it.',
+      'Confirm the Support Tickets, Feedback Log, and Newsletter Subscribers tables appear in the copied base.',
+      'Import the CSV files below (or rebuild the fields manually) before you run the workflow.'
     ),
+    'copyUrl', 'https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv',
     'tables', jsonb_build_array(
       jsonb_build_object(
         'tableName', 'Support Tickets',
@@ -100,6 +102,7 @@ WHERE name = 'AI Agent Test Workflow - Customer Service'
 UPDATE public.templates
 SET airtable_setup = jsonb_build_object(
   'baseName', 'Teams Support Desk',
+  'copyUrl', 'https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv',
   'tables', jsonb_build_array(
     jsonb_build_object(
       'tableName', 'Support Tickets',
@@ -121,10 +124,11 @@ SET integration_setup = jsonb_build_array(
   jsonb_build_object(
     'type', 'airtable',
     'baseName', 'Teams Support Desk',
+    'copyUrl', 'https://airtable.com/appGadmc5iofbblAF/shrA0WFxEyMspzon5/tbltP3UGYxaQW5y8b/viw9lF6mS4W38LxFv',
     'instructions', jsonb_build_array(
-      'Create a base named Teams Support Desk in Airtable',
-      'Add a Support Tickets table with the fields listed below',
-      'Use the workflow to automatically populate tickets from Teams messages'
+      'Click "Duplicate Template Base" below to open Airtable, then press Copy Base at the top of the page and choose the workspace that should own it.',
+      'Confirm the Support Tickets table is in the copied base with the fields listed below.',
+      'Import the CSV file below (or rebuild the fields manually) before you run the workflow.'
     ),
     'tables', jsonb_build_array(
       jsonb_build_object(

@@ -1,0 +1,19 @@
+=== Log Session Started: 2025-10-15T19:39:16.830Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-15T19:39:16.831Z] [INFO   ] File logging initialized
+[2025-10-15T19:39:16.831Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-39-16.log
+[2025-10-15T19:39:16.834Z] [INFO   ] Deleted old log file: workflow_2025-10-08_10-45-56.log
+[2025-10-15T19:39:16.834Z] [INFO   ] 📁 File logging enabled
+[2025-10-15T19:39:16.834Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-39-16.log
+[2025-10-15T19:39:16.834Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-39-16.log
+[2025-10-15T19:39:16.834Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-39-16.log
+[2025-10-15T19:39:16.834Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-39-16.log
+[2025-10-15T19:39:16.834Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-15T19:39:16.834Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-15T19:39:16.855Z] [INFO   ]  ✓ Ready in 3.8s
+
+=== Log Session Ended: 2025-10-15T19:51:25.331Z ===

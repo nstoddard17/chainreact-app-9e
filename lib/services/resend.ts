@@ -3,6 +3,7 @@ import { render } from '@react-email/render'
 import WelcomeEmail from '../../emails/welcome'
 import PasswordResetEmail from '../../emails/password-reset'
 import BetaInvitationEmail from '../../emails/beta-invitation'
+import WaitlistWelcomeEmail from '../../emails/waitlist-welcome'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -215,6 +216,35 @@ export async function sendBetaInvitationEmail(
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending beta invitation email:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Send waitlist welcome email
+ */
+export async function sendWaitlistWelcomeEmail(
+  email: string,
+  name: string
+) {
+  try {
+    const emailHtml = await render(WaitlistWelcomeEmail({ name }))
+
+    const result = await resend.emails.send({
+      from: 'ChainReact <noreply@chainreact.app>',
+      to: email,
+      subject: "You're on the ChainReact Waitlist! 🎉",
+      html: emailHtml,
+      headers: {
+        'X-Mailer': 'ChainReact Waitlist',
+        'List-Unsubscribe': '<mailto:unsubscribe@chainreact.app>',
+      },
+    })
+
+    logger.debug('Waitlist welcome email sent successfully:', result.data?.id)
+    return { success: true, id: result.data?.id }
+  } catch (error) {
+    logger.error('Error sending waitlist welcome email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

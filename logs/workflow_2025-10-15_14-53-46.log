@@ -1,0 +1,26 @@
+=== Log Session Started: 2025-10-15T19:53:46.086Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-15T19:53:46.086Z] [INFO   ] File logging initialized
+[2025-10-15T19:53:46.086Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-53-46.log
+[2025-10-15T19:53:46.087Z] [INFO   ] 📁 File logging enabled
+[2025-10-15T19:53:46.087Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-53-46.log
+[2025-10-15T19:53:46.087Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-53-46.log
+[2025-10-15T19:53:46.087Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-53-46.log
+[2025-10-15T19:53:46.087Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-53-46.log
+[2025-10-15T19:53:46.087Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-15T19:53:46.087Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-15T19:53:46.100Z] [INFO   ]  ✓ Ready in 3.7s
+[2025-10-15T19:55:44.198Z] [INFO   ]  ○ Compiling /home ...
+[2025-10-15T19:55:48.680Z] [INFO   ]  ✓ Compiled /home in 5s (4409 modules)
+[2025-10-15T19:55:49.383Z] [INFO   ]  ✓ Compiled in 688ms (1017 modules)
+[2025-10-15T19:57:36.381Z] [INFO   ]  ✓ Compiled in 468ms (1017 modules)
+[2025-10-15T19:57:43.573Z] [INFO   ]  ✓ Compiled in 330ms (1017 modules)
+[2025-10-15T20:00:18.548Z] [INFO   ]  ✓ Compiled in 863ms (1017 modules)
+[2025-10-15T20:01:58.538Z] [INFO   ]  ✓ Compiled in 1502ms (3255 modules)
+[2025-10-15T20:08:58.363Z] [INFO   ]  ✓ Compiled in 1223ms (1018 modules)
+[2025-10-15T20:21:42.583Z] [INFO   ]  ✓ Compiled in 837ms (1018 modules)
+[2025-10-15T20:21:53.489Z] [INFO   ]  ✓ Compiled in 424ms (1018 modules)

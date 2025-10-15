@@ -66,6 +66,7 @@ function buildAirtableRequirement(
     title: setup.title,
     integration: setup.integration ?? 'airtable',
     baseName,
+    copyUrl: setup.copyUrl,
     tables,
     csvFiles: setupPackage.csvFiles.map((file) => ({
       tableName: file.tableName,
@@ -135,7 +136,7 @@ export async function GET(
     const setups = extractIntegrationSetups(template)
 
     if (!setups.length) {
-      return NextResponse.json({ requirements: [], overview: parsedOverview, primarySetupTarget, assets: [] })
+      return NextResponse.json({ requirements: [], overview: parsedOverview, primarySetupTarget, assets: [], copyLink: null })
     }
 
     const requirements = setups
@@ -168,11 +169,23 @@ export async function GET(
       }
     })
 
+    const copyLink = (() => {
+      const rawSetup = template.airtableSetup ?? template.airtable_setup
+      if (!rawSetup) return null
+      const parsed = typeof rawSetup === 'string' ? (() => { try { return JSON.parse(rawSetup) } catch { return null } })() : rawSetup
+      if (parsed && typeof parsed === 'object' && parsed.copyUrl) {
+        return String(parsed.copyUrl)
+      }
+      const airtableRequirement = requirements.find((req) => (req as any).copyUrl) as (AirtableSetupRequirementResponse & { copyUrl?: string }) | undefined
+      return airtableRequirement?.copyUrl ?? null
+    })()
+
     return NextResponse.json({
       requirements,
       overview: parsedOverview,
       primarySetupTarget,
       assets,
+      copyLink,
     })
   } catch (error) {
     console.error('[TemplateSetup] Failed to load integration setup data:', error)
