@@ -17,7 +17,7 @@ import {
   Save, Play, ArrowLeft, Ear, RefreshCw, Radio, Pause, Loader2,
   Shield, FlaskConical, Rocket, History, Eye, EyeOff, ChevronDown,
   MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2,
-  TrendingUp, Clock, CheckCircle, XCircle, Activity, ClipboardCheck, Table2
+  TrendingUp, Clock, CheckCircle, XCircle, Activity, ClipboardCheck, Table2, Settings
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
@@ -43,6 +43,8 @@ interface WorkflowToolbarProps {
   workflowId?: string | null
   editTemplateId?: string | null
   isTemplateEditing?: boolean
+  onOpenTemplateSettings?: () => void
+  templateSettingsLabel?: string
   // New props for missing buttons
   handleTestSandbox?: () => void
   handleExecuteLive?: () => void
@@ -90,6 +92,8 @@ export function WorkflowToolbar({
   workflowId,
   editTemplateId,
   isTemplateEditing = false,
+  onOpenTemplateSettings,
+  templateSettingsLabel,
   handleTestSandbox,
   handleExecuteLive,
   handleExecuteLiveSequential,
@@ -275,6 +279,18 @@ export function WorkflowToolbar({
               <p>Save your workflow</p>
             </TooltipContent>
           </Tooltip>
+
+          {isTemplateEditing && onOpenTemplateSettings && (
+            <Button
+              variant="outline"
+              onClick={onOpenTemplateSettings}
+              disabled={isSaving}
+              className="flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" />
+              {templateSettingsLabel || "Template Settings"}
+            </Button>
+          )}
 
           {/* Activate/Deactivate button */}
           {handleToggleLive && (

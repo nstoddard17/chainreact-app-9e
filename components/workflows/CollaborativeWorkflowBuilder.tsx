@@ -24,8 +24,9 @@ import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
 import { PreflightCheckDialog } from "./PreflightCheckDialog"
-import { AirtableSetupPanel, type TemplateSetupRequirement } from "@/components/templates/AirtableSetupPanel"
+import { AirtableSetupPanel, type TemplateSetupRequirement, type TemplateSetupData } from "@/components/templates/AirtableSetupPanel"
 import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
+import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -105,6 +106,15 @@ function WorkflowBuilderContent() {
     handleAddActionClick,
     handleAddTrigger,
     handleAddAction,
+    templateDraftMetadata,
+    templatePublishedMetadata,
+    updateTemplateDraftMetadata,
+    saveTemplateDraft,
+    isSavingTemplateDraft,
+    templateAssets,
+    uploadTemplateAsset,
+    deleteTemplateAsset,
+    templateSettingsLabel,
 
     // Execution state
     isExecuting,
@@ -185,12 +195,14 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
+  const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
+
   const sourceTemplateId = React.useMemo(
     () => currentWorkflow?.source_template_id || editTemplateId || null,
     [currentWorkflow?.source_template_id, editTemplateId]
   )
 
-  const [templateSetupInfo, setTemplateSetupInfo] = React.useState<TemplateSetupRequirement[]>([])
+  const [templateSetupData, setTemplateSetupData] = React.useState<TemplateSetupData | null>(null)
   const [showTemplateSetupDialog, setShowTemplateSetupDialog] = React.useState(false)
 
   const templateSetupDialogKey = React.useMemo(() => {
@@ -199,13 +211,13 @@ function WorkflowBuilderContent() {
   }, [currentWorkflow?.id, editTemplateId])
 
   const handleAirtableSetupLoaded = React.useCallback(
-    (requirements: TemplateSetupRequirement[]) => {
-      setTemplateSetupInfo(requirements)
+    (data: TemplateSetupData) => {
+      setTemplateSetupData(data)
       if (typeof window === "undefined") return
       if (!templateSetupDialogKey) return
 
       const dismissed = localStorage.getItem(templateSetupDialogKey)
-      if (!dismissed && requirements.length > 0) {
+      if (!dismissed && data.requirements?.length) {
         setShowTemplateSetupDialog(true)
       }
     },
@@ -283,6 +295,8 @@ function WorkflowBuilderContent() {
         canRedo={canRedo}
         selectedEdgeId={selectedEdgeId}
         deleteSelectedEdge={deleteSelectedEdge}
+        onOpenTemplateSettings={isTemplateEditing ? () => setIsTemplateSettingsOpen(true) : undefined}
+        templateSettingsLabel={templateSettingsLabel}
       />
 
       {nodes.length === 0 ? (
@@ -340,12 +354,18 @@ function WorkflowBuilderContent() {
 
           {/* Airtable Setup Panel - shows if workflow was created from a template */}
           {sourceTemplateId && (
-            <Panel position="top-right" style={{ marginTop: '80px', marginRight: '10px', maxWidth: '400px', maxHeight: '60vh', overflow: 'auto' }}>
-              <AirtableSetupPanel
-                templateId={sourceTemplateId}
-                workflowId={currentWorkflow?.id}
-                onSetupLoaded={handleAirtableSetupLoaded}
-              />
+            <Panel
+              position="top-right"
+              style={{ marginTop: '80px', marginRight: '10px' }}
+              className="pointer-events-auto"
+            >
+              <div className="max-h-[70vh] w-[680px] min-w-[640px] overflow-y-auto overflow-x-hidden pr-6">
+                <AirtableSetupPanel
+                  templateId={sourceTemplateId}
+                  workflowId={currentWorkflow?.id}
+                  onSetupLoaded={handleAirtableSetupLoaded}
+                />
+              </div>
             </Panel>
           )}
         </ReactFlow>
@@ -354,8 +374,23 @@ function WorkflowBuilderContent() {
       <TemplateSetupDialog
         open={showTemplateSetupDialog}
         onOpenChange={handleTemplateSetupDialogChange}
-        requirements={templateSetupInfo}
+        data={templateSetupData}
       />
+
+      {isTemplateEditing && templateDraftMetadata && (
+        <TemplateSettingsDrawer
+          open={isTemplateSettingsOpen}
+          onOpenChange={setIsTemplateSettingsOpen}
+          metadata={templateDraftMetadata}
+          publishedMetadata={templatePublishedMetadata}
+          onMetadataChange={updateTemplateDraftMetadata}
+          onSave={() => saveTemplateDraft()}
+          isSaving={isSavingTemplateDraft || isSaving}
+          assets={templateAssets}
+          onAssetUpload={uploadTemplateAsset}
+          onAssetDelete={deleteTemplateAsset}
+        />
+      )}
 
       {/* Dialogs */}
       <TriggerSelectionDialog

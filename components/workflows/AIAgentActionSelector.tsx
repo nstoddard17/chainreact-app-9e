@@ -341,7 +341,7 @@ export function AIAgentActionSelector({
                         }}
                       >
                         {renderLogo(integration.id, integration.name)}
-                        <span className="font-semibold ml-4 flex-grow truncate">
+                        <span className="font-semibold ml-4 flex-grow break-words">
                           {integration.name}
                         </span>
                         {isComingSoon ? (

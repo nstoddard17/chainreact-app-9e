@@ -232,7 +232,8 @@ async function runMigration() {
 
             config: {
               inputText: "{{trigger.message.content}}",
-              analysisType: "detailed"
+              analysisType: "detailed",
+              labels: "Positive, Neutral, Negative"
             }
           }
         },
@@ -271,8 +272,9 @@ async function runMigration() {
               tableName: "",
               fields: {
                 "Feedback Insight": "{{feedback-summarize.summary}}",
+                "Feedback Summary": "{{feedback-summarize.summary}}",
                 "Sentiment": "{{feedback-sentiment.sentiment}}",
-                "Sentiment Confidence": "{{feedback-sentiment.confidence}}",
+                "Confidence": "{{feedback-sentiment.confidence}}",
                 "Customer": "{{trigger.message.author.username}}",
                 "Source": "Discord"
               }

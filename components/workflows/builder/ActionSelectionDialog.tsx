@@ -276,7 +276,7 @@ export function ActionSelectionDialog({
                       }}
                     >
                       {renderLogo(integration.id, integration.name)}
-                      <span className="font-semibold ml-4 flex-grow truncate">
+                      <span className="font-semibold ml-4 flex-grow break-words">
                         {integration.name}
                       </span>
                       {comingSoonIntegrations.has(integration.id) ? (
@@ -414,7 +414,7 @@ export function ActionSelectionDialog({
                                   e.currentTarget.style.display = 'none'
                                 }}
                               />
-                              <p className="font-medium flex-1 min-w-0 truncate">
+                              <p className="font-medium flex-1 min-w-0 break-words">
                                 {action.title}
                               </p>
                               {isActionComingSoon && (

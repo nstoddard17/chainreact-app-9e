@@ -307,27 +307,43 @@ export const predefinedTemplates: PredefinedTemplate[] = [
             }
           ]
         },
-        {
-          tableName: "Feedback Log",
-          description: "Captures customer feedback messages",
-          fields: [
-            {
-              name: "Feedback Insight",
-              type: "longText",
-              description: "AI-extracted main insight from feedback"
-            },
-            {
-              name: "Sentiment",
-              type: "singleLineText",
-              description: "Sentiment analysis (e.g., Positive, Negative, Neutral)"
-            },
-            {
-              name: "Source",
-              type: "singleLineText",
-              description: "Origin of feedback (e.g., Discord)"
-            }
-          ]
-        },
+          {
+            tableName: "Feedback Log",
+            description: "Captures customer feedback messages",
+            fields: [
+              {
+                name: "Feedback Insight",
+                type: "longText",
+                description: "AI-extracted main insight from feedback"
+              },
+              {
+                name: "Feedback Summary",
+                type: "longText",
+                description: "Short summary of the feedback message"
+              },
+              {
+                name: "Customer",
+                type: "singleLineText",
+                description: "Name or handle of the customer who shared the feedback"
+              },
+              {
+                name: "Sentiment",
+                type: "singleSelect",
+                options: ["Positive", "Neutral", "Negative"],
+                description: "Sentiment analysis (e.g., Positive, Negative, Neutral)"
+              },
+              {
+                name: "Confidence",
+                type: "number",
+                description: "General AI confidence score for this classification"
+              },
+              {
+                name: "Source",
+                type: "singleLineText",
+                description: "Origin of feedback (e.g., Discord)"
+              }
+            ]
+          },
         {
           tableName: "Newsletter Subscribers",
           description: "Manages newsletter subscription requests",
@@ -405,9 +421,25 @@ export const predefinedTemplates: PredefinedTemplate[] = [
                 description: "AI-extracted main insight from feedback"
               },
               {
-                name: "Sentiment",
+                name: "Feedback Summary",
+                type: "longText",
+                description: "Short summary of the feedback message"
+              },
+              {
+                name: "Customer",
                 type: "singleLineText",
+                description: "Name or handle of the customer who shared the feedback"
+              },
+              {
+                name: "Sentiment",
+                type: "singleSelect",
+                options: ["Positive", "Neutral", "Negative"],
                 description: "Sentiment analysis (e.g., Positive, Negative, Neutral)"
+              },
+              {
+                name: "Confidence",
+                type: "number",
+                description: "General AI confidence score for this classification"
               },
               {
                 name: "Source",

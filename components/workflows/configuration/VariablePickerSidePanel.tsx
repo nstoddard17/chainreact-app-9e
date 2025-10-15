@@ -663,7 +663,7 @@ export function VariablePickerSidePanel({
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-sm"></div>
               <span
-                className="text-sm text-white font-bold truncate"
+                className="text-sm text-white font-bold break-words line-clamp-2"
                 title={activeField.label || activeField.id}
               >
                 {activeField.label || activeField.id}

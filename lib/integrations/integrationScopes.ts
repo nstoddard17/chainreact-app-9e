@@ -52,7 +52,7 @@ export const INTEGRATION_SCOPES = {
   },
   airtable: {
     required: ["data.records:read", "data.records:write"],
-    optional: ["schema.bases:read"],
+    optional: ["schema.bases:read", "schema.bases:write"],
   },
   dropbox: {
     required: ["files.content.read", "files.content.write"],

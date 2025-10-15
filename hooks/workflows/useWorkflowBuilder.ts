@@ -31,6 +31,7 @@ import { getCenteredAddActionX } from '@/lib/workflows/addActionLayout'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 
 import { logger } from '@/lib/utils/logger'
+import type { TemplateIntegrationSetup, TemplateSetupOverview, TemplateAsset } from '@/types/templateSetup'
 
 interface IntegrationInfo {
   id: string
@@ -40,6 +41,32 @@ interface IntegrationInfo {
   color: string
   triggers: NodeComponent[]
   actions: NodeComponent[]
+}
+
+interface TemplateDraftMetadata {
+  primarySetupTarget: string | null
+  setupOverview: TemplateSetupOverview | null
+  integrationSetup: TemplateIntegrationSetup[]
+  defaultFieldValues: Record<string, any>
+  status: string
+}
+
+interface TemplatePublishedMetadata {
+  primarySetupTarget: string | null
+  setupOverview: TemplateSetupOverview | null
+  integrationSetup: TemplateIntegrationSetup[]
+  defaultFieldValues: Record<string, any>
+  publishedAt?: string | null
+}
+
+interface SaveTemplateDraftOptions {
+  nodes?: WorkflowNode[]
+  connections?: WorkflowConnection[]
+  primarySetupTarget?: string | null
+  setupOverview?: TemplateSetupOverview | null
+  integrationSetup?: TemplateIntegrationSetup[]
+  defaultFieldValues?: Record<string, any>
+  status?: string
 }
 
 type PreflightIssueType = 'integration' | 'configuration' | 'ai'
@@ -150,6 +177,43 @@ export function useWorkflowBuilder() {
   const justSavedRef = useRef(false)
   const isCleaningAddActionsRef = useRef(false)
   const templateLoadStateRef = useRef<{ id: string; status: "pending" | "fulfilled" | "rejected" } | null>(null)
+  const [templateDraftMetadata, setTemplateDraftMetadata] = useState<TemplateDraftMetadata>({
+    primarySetupTarget: null,
+    setupOverview: null,
+    integrationSetup: [],
+    defaultFieldValues: {},
+    status: 'draft',
+  })
+  const [templatePublishedMetadata, setTemplatePublishedMetadata] = useState<TemplatePublishedMetadata | null>(null)
+  const [templateAssets, setTemplateAssets] = useState<TemplateAsset[]>([])
+  const [isSavingTemplateDraft, setIsSavingTemplateDraft] = useState(false)
+
+  const parseJson = useCallback(<T,>(value: any, fallback: T): T => {
+    if (value === undefined || value === null) {
+      return fallback
+    }
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T
+      } catch (error) {
+        logger.warn('[WorkflowBuilder] Failed to parse JSON value', { error, value })
+        return fallback
+      }
+    }
+    return (value as T) ?? fallback
+  }, [])
+
+  const cloneDeep = useCallback(<T,>(value: T): T => {
+    if (value === undefined || value === null) {
+      return value
+    }
+    try {
+      return JSON.parse(JSON.stringify(value)) as T
+    } catch (error) {
+      logger.warn('[WorkflowBuilder] Failed to clone value', { error, value })
+      return value
+    }
+  }, [])
 
   // Wrapper to safely set unsaved changes (ignores changes right after save)
   const markAsUnsaved = useCallback(() => {
@@ -157,6 +221,245 @@ export function useWorkflowBuilder() {
       setHasUnsavedChanges(true)
     }
   }, [])
+
+  const updateTemplateDraftMetadata = useCallback((updates: Partial<TemplateDraftMetadata>) => {
+    setTemplateDraftMetadata(prev => {
+      const base = prev ?? {
+        primarySetupTarget: null,
+        setupOverview: null,
+        integrationSetup: [],
+        defaultFieldValues: {},
+        status: 'draft',
+      }
+
+      return {
+        primarySetupTarget: updates.primarySetupTarget ?? base.primarySetupTarget,
+        setupOverview: updates.setupOverview !== undefined ? updates.setupOverview : base.setupOverview,
+        integrationSetup: updates.integrationSetup
+          ? updates.integrationSetup.map(setup => ({ ...setup }))
+          : base.integrationSetup.map(setup => ({ ...setup })),
+        defaultFieldValues: updates.defaultFieldValues !== undefined
+          ? { ...updates.defaultFieldValues }
+          : { ...base.defaultFieldValues },
+        status: updates.status ?? base.status,
+      }
+    })
+    markAsUnsaved()
+  }, [markAsUnsaved])
+
+  const serializeWorkflowState = useCallback(() => {
+    const currentNodes = getNodes()
+    const currentEdges = getEdges()
+
+    const placeholderNodeIds = new Set(
+      currentNodes
+        .filter(n =>
+          n.type === 'addAction' ||
+          n.type === 'chainPlaceholder' ||
+          (typeof n.id === 'string' && (n.id.startsWith('add-action-') || n.id.startsWith('chain-placeholder-')))
+        )
+        .map(n => n.id)
+    )
+
+    const persistedNodes = currentNodes.filter(n => !placeholderNodeIds.has(n.id))
+    const persistedEdges = currentEdges.filter(e =>
+      !placeholderNodeIds.has(e.source) &&
+      !placeholderNodeIds.has(e.target) &&
+      !e.target.includes('add-action') &&
+      !e.source.includes('add-action')
+    )
+
+    const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
+      id: node.id,
+      type: node.type || 'custom',
+      position: node.position,
+      data: node.data,
+    }))
+
+    const workflowConnections: WorkflowConnection[] = persistedEdges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+    }))
+
+    return { workflowNodes, workflowConnections, persistedNodes, persistedEdges }
+  }, [getNodes, getEdges])
+
+  const saveTemplateDraft = useCallback(async (options: SaveTemplateDraftOptions = {}) => {
+    if (!isTemplateEditing || !editTemplateId) {
+      return null
+    }
+
+    const snapshot = (options.nodes && options.connections)
+      ? { workflowNodes: options.nodes, workflowConnections: options.connections }
+      : serializeWorkflowState()
+
+    const payload = {
+      nodes: snapshot.workflowNodes,
+      connections: snapshot.workflowConnections,
+      default_field_values: cloneDeep(
+        options.defaultFieldValues ?? templateDraftMetadata.defaultFieldValues ?? {}
+      ),
+      integration_setup: cloneDeep(
+        options.integrationSetup ?? templateDraftMetadata.integrationSetup ?? []
+      ),
+      setup_overview: cloneDeep(
+        options.setupOverview ?? templateDraftMetadata.setupOverview ?? null
+      ),
+      primary_setup_target:
+        options.primarySetupTarget ?? templateDraftMetadata.primarySetupTarget ?? null,
+      status: options.status ?? templateDraftMetadata.status ?? 'draft',
+    }
+
+    setIsSavingTemplateDraft(true)
+
+    try {
+      const response = await fetch(`/api/templates/${editTemplateId}/draft`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(body.error || 'Failed to save template draft')
+      }
+
+      const savedDraft = body?.draft || {}
+
+      setTemplateDraftMetadata(prev => {
+        const base = prev ?? templateDraftMetadata
+        return {
+          primarySetupTarget: savedDraft.primary_setup_target ?? base.primarySetupTarget ?? null,
+          setupOverview: savedDraft.setup_overview ?? base.setupOverview ?? null,
+          integrationSetup: Array.isArray(savedDraft.integration_setup)
+            ? cloneDeep(savedDraft.integration_setup)
+            : cloneDeep(base.integrationSetup),
+          defaultFieldValues: cloneDeep(savedDraft.default_field_values ?? base.defaultFieldValues ?? {}),
+          status: savedDraft.status ?? base.status ?? 'draft',
+        }
+      })
+
+      if (
+        savedDraft.published_default_field_values ||
+        savedDraft.published_integration_setup ||
+        savedDraft.published_setup_overview ||
+        typeof savedDraft.published_at !== 'undefined'
+      ) {
+        setTemplatePublishedMetadata({
+          primarySetupTarget: savedDraft.primary_setup_target ?? templatePublishedMetadata?.primarySetupTarget ?? null,
+          setupOverview: cloneDeep(savedDraft.published_setup_overview ?? templatePublishedMetadata?.setupOverview ?? null),
+          integrationSetup: cloneDeep(savedDraft.published_integration_setup ?? templatePublishedMetadata?.integrationSetup ?? []),
+          defaultFieldValues: cloneDeep(savedDraft.published_default_field_values ?? templatePublishedMetadata?.defaultFieldValues ?? {}),
+          publishedAt: savedDraft.published_at ?? templatePublishedMetadata?.publishedAt ?? null,
+        })
+      }
+
+      templateLoadStateRef.current = { id: editTemplateId, status: "fulfilled" }
+      justSavedRef.current = true
+      setHasUnsavedChanges(false)
+      setTimeout(() => {
+        justSavedRef.current = false
+      }, 500)
+
+      return savedDraft
+    } catch (error) {
+      setHasUnsavedChanges(true)
+      throw error
+    } finally {
+      setIsSavingTemplateDraft(false)
+    }
+  }, [
+    isTemplateEditing,
+    editTemplateId,
+    serializeWorkflowState,
+    cloneDeep,
+    templateDraftMetadata,
+    templatePublishedMetadata,
+    setHasUnsavedChanges,
+  ])
+
+  const uploadTemplateAsset = useCallback(async (file: File, options?: { name?: string; assetType?: string }) => {
+    if (!isTemplateEditing || !editTemplateId) {
+      throw new Error('Template asset uploads are only available in template editing mode')
+    }
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (options?.assetType) {
+        formData.append('assetType', options.assetType)
+      }
+      if (options?.name) {
+        formData.append('name', options.name)
+      }
+
+      const response = await fetch(`/api/templates/${editTemplateId}/assets`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(body.error || 'Failed to upload asset')
+      }
+
+      const asset: TemplateAsset | undefined = body?.asset
+      if (asset) {
+        setTemplateAssets(prev => [asset, ...prev.filter(existing => existing.id !== asset.id)])
+      }
+
+      toast({
+        title: 'Asset uploaded',
+        description: `${asset?.name || 'File'} is ready to use in the setup guide.`,
+      })
+
+      markAsUnsaved()
+      return asset || null
+    } catch (error: any) {
+      logger.error('[WorkflowBuilder] Failed to upload template asset', error)
+      toast({
+        title: 'Upload failed',
+        description: error?.message || 'Could not upload template asset',
+        variant: 'destructive',
+      })
+      throw error
+    }
+  }, [isTemplateEditing, editTemplateId, toast, markAsUnsaved])
+
+  const deleteTemplateAsset = useCallback(async (assetId: string) => {
+    if (!isTemplateEditing || !editTemplateId) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/templates/${editTemplateId}/assets?assetId=${encodeURIComponent(assetId)}`, {
+        method: 'DELETE',
+      })
+
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(body.error || 'Failed to delete asset')
+      }
+
+      setTemplateAssets(prev => prev.filter(asset => asset.id !== assetId))
+      toast({
+        title: 'Asset removed',
+        description: 'The asset has been removed from this template.',
+      })
+      markAsUnsaved()
+    } catch (error: any) {
+      logger.error('[WorkflowBuilder] Failed to delete template asset', error)
+      toast({
+        title: 'Delete failed',
+        description: error?.message || 'Could not delete template asset',
+        variant: 'destructive',
+      })
+      throw error
+    }
+  }, [isTemplateEditing, editTemplateId, toast, markAsUnsaved])
 
   // Custom hooks
   const executionHook = useWorkflowExecution()
@@ -1417,6 +1720,15 @@ export function useWorkflowBuilder() {
   useEffect(() => {
     if (!isTemplateEditing || !editTemplateId) {
       templateLoadStateRef.current = null
+      setTemplateDraftMetadata({
+        primarySetupTarget: null,
+        setupOverview: null,
+        integrationSetup: [],
+        defaultFieldValues: {},
+        status: 'draft',
+      })
+      setTemplatePublishedMetadata(null)
+      setTemplateAssets([])
       return
     }
 
@@ -1487,6 +1799,27 @@ export function useWorkflowBuilder() {
           const isTrigger = Boolean(node?.data?.isTrigger)
           return hasType || isTrigger
         }) as WorkflowNode[]
+
+        const publishedDefaultValues = cloneDeep(parseJson<Record<string, any>>(templateRecord.default_field_values, {}))
+        const publishedIntegrationSetup = cloneDeep(parseJson<TemplateIntegrationSetup[]>(templateRecord.integration_setup, []))
+        const publishedOverview = cloneDeep(parseJson<TemplateSetupOverview>(templateRecord.setup_overview, null))
+        const publishedPrimaryTarget = templateRecord.primary_setup_target ?? null
+
+        setTemplatePublishedMetadata({
+          primarySetupTarget: publishedPrimaryTarget,
+          setupOverview: publishedOverview,
+          integrationSetup: publishedIntegrationSetup,
+          defaultFieldValues: publishedDefaultValues,
+          publishedAt: templateRecord.published_at ?? null,
+        })
+
+        let draftMetadata: TemplateDraftMetadata = {
+          primarySetupTarget: publishedPrimaryTarget,
+          setupOverview: publishedOverview,
+          integrationSetup: publishedIntegrationSetup,
+          defaultFieldValues: publishedDefaultValues,
+          status: templateRecord.status ?? 'draft',
+        }
 
         const flowNodes: Node[] = sanitizedNodes.map((node: WorkflowNode) => {
           const safeData = node.data || {}
@@ -1588,6 +1921,67 @@ export function useWorkflowBuilder() {
         setErrorStoreWorkflow(templateWorkflow)
         templateLoadStateRef.current = { id: editTemplateId, status: "fulfilled" }
 
+        if (!abortController.signal.aborted) {
+          try {
+            const draftResponse = await fetch(`/api/templates/${editTemplateId}/draft`, {
+              signal: abortController.signal,
+            })
+            if (draftResponse.ok) {
+              const draftPayload = await draftResponse.json()
+              const draft = draftPayload?.draft || {}
+
+              draftMetadata = {
+                primarySetupTarget: draft.primary_setup_target ?? draftMetadata.primarySetupTarget,
+                setupOverview: draft.setup_overview ?? draftMetadata.setupOverview,
+                integrationSetup: Array.isArray(draft.integration_setup)
+                  ? cloneDeep(draft.integration_setup)
+                  : draftMetadata.integrationSetup,
+                defaultFieldValues: cloneDeep(draft.default_field_values ?? draftMetadata.defaultFieldValues ?? {}),
+                status: draft.status ?? draftMetadata.status,
+              }
+
+              if (
+                draft.published_default_field_values ||
+                draft.published_integration_setup ||
+                draft.published_setup_overview ||
+                typeof draft.published_at !== 'undefined'
+              ) {
+                setTemplatePublishedMetadata({
+                  primarySetupTarget: draft.primary_setup_target ?? draftMetadata.primarySetupTarget,
+                  setupOverview: cloneDeep(draft.published_setup_overview ?? publishedOverview),
+                  integrationSetup: cloneDeep(draft.published_integration_setup ?? publishedIntegrationSetup),
+                  defaultFieldValues: cloneDeep(draft.published_default_field_values ?? publishedDefaultValues),
+                  publishedAt: draft.published_at ?? templateRecord.published_at ?? null,
+                })
+              }
+            }
+          } catch (draftError) {
+            if (!abortController.signal.aborted) {
+              logger.warn('[WorkflowBuilder] Failed to load template draft metadata', draftError)
+            }
+          }
+
+          try {
+            const assetResponse = await fetch(`/api/templates/${editTemplateId}/assets`, {
+              signal: abortController.signal,
+            })
+            if (assetResponse.ok) {
+              const assetPayload = await assetResponse.json()
+              const assets = Array.isArray(assetPayload.assets) ? assetPayload.assets : []
+              setTemplateAssets(assets)
+            } else if (assetResponse.status !== 404) {
+              const assetErrorBody = await assetResponse.json().catch(() => ({}))
+              logger.warn('[WorkflowBuilder] Failed to fetch template assets', assetErrorBody)
+            }
+          } catch (assetError) {
+            if (!abortController.signal.aborted) {
+              logger.warn('[WorkflowBuilder] Failed to load template assets', assetError)
+            }
+          }
+        }
+
+        setTemplateDraftMetadata(draftMetadata)
+
         const safeRun = (fn: () => void, delay: number) => {
           setTimeout(() => {
             if (isCancelled || abortController.signal.aborted) return
@@ -1664,39 +2058,7 @@ export function useWorkflowBuilder() {
 
   // Handle save
   const handleSave = useCallback(async () => {
-    const currentNodes = getNodes()
-    const currentEdges = getEdges()
-
-    const placeholderNodeIds = new Set(
-      currentNodes
-        .filter(n =>
-          n.type === 'addAction' ||
-          n.type === 'chainPlaceholder' ||
-          (typeof n.id === 'string' && (n.id.startsWith('add-action-') || n.id.startsWith('chain-placeholder-')))
-        )
-        .map(n => n.id)
-    )
-
-    const persistedNodes = currentNodes.filter(n => !placeholderNodeIds.has(n.id))
-    const persistedEdges = currentEdges.filter(e =>
-      !placeholderNodeIds.has(e.source) &&
-      !placeholderNodeIds.has(e.target) &&
-      !e.target.includes('add-action') &&
-      !e.source.includes('add-action')
-    )
-
-    const workflowNodes: WorkflowNode[] = persistedNodes.map(node => ({
-      id: node.id,
-      type: node.type || 'custom',
-      position: node.position,
-      data: node.data,
-    }))
-
-    const workflowConnections: WorkflowConnection[] = persistedEdges.map(edge => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-    }))
+    const { workflowNodes, workflowConnections } = serializeWorkflowState()
 
     if (isTemplateEditing) {
       if (!editTemplateId) {
@@ -1711,57 +2073,49 @@ export function useWorkflowBuilder() {
       try {
         setIsSaving(true)
 
-        const response = await fetch(`/api/templates/${editTemplateId}`, {
+        const metaResponse = await fetch(`/api/templates/${editTemplateId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            nodes: workflowNodes,
-            connections: workflowConnections,
             name: workflowName,
             description: workflowDescription,
           }),
         })
 
-        const body = await response.json().catch(() => ({}))
-        if (!response.ok) {
-          throw new Error(body.error || 'Failed to update template')
+        const metaBody = await metaResponse.json().catch(() => ({}))
+        if (!metaResponse.ok) {
+          throw new Error(metaBody.error || 'Failed to update template details')
         }
 
-        const updatedTemplate = body?.template || {}
-        const updatedNodes = Array.isArray(updatedTemplate.nodes) ? (updatedTemplate.nodes as WorkflowNode[]) : workflowNodes
-        const updatedConnections = Array.isArray(updatedTemplate.connections) ? (updatedTemplate.connections as WorkflowConnection[]) : workflowConnections
+        const savedDraft = await saveTemplateDraft({
+          nodes: workflowNodes,
+          connections: workflowConnections,
+        })
 
         if (currentWorkflow) {
           setCurrentWorkflow({
             ...currentWorkflow,
             name: workflowName,
             description: workflowDescription,
-            nodes: updatedNodes,
-            connections: updatedConnections,
+            nodes: workflowNodes,
+            connections: workflowConnections,
+            status: (savedDraft?.status as Workflow['status']) || currentWorkflow.status,
             updated_at: new Date().toISOString(),
           })
         }
 
-        templateLoadStateRef.current = { id: editTemplateId, status: "fulfilled" }
-
-        justSavedRef.current = true
-        setHasUnsavedChanges(false)
-        setTimeout(() => {
-          justSavedRef.current = false
-        }, 500)
-
         toast({
-          title: "Template saved",
-          description: "Template updated successfully",
+          title: "Template draft saved",
+          description: "Your template draft has been updated.",
         })
       } catch (error: any) {
-        logger.error('Error updating template:', error)
+        logger.error('Error updating template draft:', error)
         setHasUnsavedChanges(true)
         toast({
           title: "Error",
-          description: error?.message || "Failed to update template",
+          description: error?.message || "Failed to save template draft",
           variant: "destructive",
         })
       } finally {
@@ -1843,7 +2197,19 @@ export function useWorkflowBuilder() {
     } finally {
       setIsSaving(false)
     }
-  }, [currentWorkflow, getNodes, getEdges, workflowName, workflowDescription, updateWorkflow, toast, editTemplateId, setCurrentWorkflow, setHasUnsavedChanges, isTemplateEditing])
+  }, [
+    serializeWorkflowState,
+    isTemplateEditing,
+    editTemplateId,
+    toast,
+    workflowName,
+    workflowDescription,
+    saveTemplateDraft,
+    currentWorkflow,
+    setCurrentWorkflow,
+    setHasUnsavedChanges,
+    updateWorkflow,
+  ])
 
   // Handle toggling workflow live status
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
@@ -3365,6 +3731,17 @@ export function useWorkflowBuilder() {
     return executionHook.handleExecuteLiveSequential(currentNodes, currentEdges)
   }, [getNodes, getEdges, executionHook, runPreflightCheck, toast])
 
+  const templateSettingsLabel = useMemo(() => {
+    if (!isTemplateEditing) return 'Template Settings'
+    const target = templateDraftMetadata?.primarySetupTarget
+    if (!target) return 'Template Settings'
+    const formatted = target
+      .split(/[_-]/)
+      .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ')
+    return `${formatted} Setup`
+  }, [isTemplateEditing, templateDraftMetadata?.primarySetupTarget])
+
   return {
     // React Flow state
     nodes,
@@ -3391,9 +3768,12 @@ export function useWorkflowBuilder() {
     editTemplateId,
     isTemplateEditing,
     workflows,
+    templateDraftMetadata,
+    templatePublishedMetadata,
     
     // Loading/saving states
     isSaving,
+    isSavingTemplateDraft,
     isLoading,
     workflowLoading,
     integrationsLoading,
@@ -3413,6 +3793,8 @@ export function useWorkflowBuilder() {
     handleAddActionClick,
     handleAddTrigger,
     handleAddAction,
+    updateTemplateDraftMetadata,
+    saveTemplateDraft,
 
     // Collaboration
     collaborators,
@@ -3457,6 +3839,10 @@ export function useWorkflowBuilder() {
     configuringInitialData,
     cachedIntegrationStatus,
     ensureOneAddActionPerChain,
+    templateAssets,
+    uploadTemplateAsset,
+    deleteTemplateAsset,
+    templateSettingsLabel,
     // Undo/redo functionality
     handleUndo,
     handleRedo,
