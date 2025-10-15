@@ -50,3 +50,20 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-15T20:21:44.519Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
 [2025-10-15T20:21:44.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 897ms (5757 modules)
 [2025-10-15T20:21:53.858Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 807ms (5771 modules)
+[2025-10-15T20:22:58.875Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:22:59.912Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1537ms (4175 modules)
+[2025-10-15T20:23:31.647Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:23:32.069Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1912ms (5785 modules)
+[2025-10-15T20:24:58.032Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5768 modules)
+[2025-10-15T20:25:04.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 654ms (5768 modules)
+[2025-10-15T20:25:27.213Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1881ms (5766 modules)
+[2025-10-15T20:26:03.769Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 982ms (5766 modules)
+[2025-10-15T20:27:59.297Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:28:00.226Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1796ms (4175 modules)
+[2025-10-15T20:29:31.796Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:33.069Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:33.960Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:34.280Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5s (5766 modules)
+[2025-10-15T20:31:59.913Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.4s (5766 modules)
+[2025-10-15T20:33:57.336Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:33:59.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 3s (4175 modules)
