@@ -1,5 +1,13 @@
 import { useMemo } from 'react';
 
+interface VisibilityCondition {
+  field?: string;
+  operator?: 'equals' | 'in' | 'isNotEmpty';
+  value?: any;
+  and?: VisibilityCondition[];
+  or?: VisibilityCondition[];
+}
+
 interface Field {
   name: string;
   label?: string;
@@ -13,6 +21,7 @@ interface Field {
     field: string;
     value: any;
   };
+  visibilityCondition?: VisibilityCondition | 'always';
 }
 
 interface UseFieldValidationProps {
@@ -30,9 +39,56 @@ interface UseFieldValidationProps {
 export function useFieldValidation({ nodeInfo, values }: UseFieldValidationProps) {
   
   /**
+   * Evaluates a visibility condition
+   */
+  const evaluateVisibilityCondition = (condition: VisibilityCondition): boolean => {
+    // Handle AND conditions
+    if (condition.and) {
+      return condition.and.every(c => evaluateVisibilityCondition(c));
+    }
+
+    // Handle OR conditions
+    if (condition.or) {
+      return condition.or.some(c => evaluateVisibilityCondition(c));
+    }
+
+    // Handle field-based conditions
+    if (condition.field) {
+      const fieldValue = values[condition.field];
+
+      switch (condition.operator) {
+        case 'equals':
+          return fieldValue === condition.value;
+
+        case 'in':
+          return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+
+        case 'isNotEmpty':
+          return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+
+        default:
+          return true;
+      }
+    }
+
+    return true;
+  };
+
+  /**
    * Determines if a field is currently visible based on its conditions
    */
   const isFieldVisible = (field: Field): boolean => {
+    // Check visibilityCondition first (newer pattern used in unified actions)
+    if (field.visibilityCondition !== undefined) {
+      if (field.visibilityCondition === 'always') {
+        return true;
+      }
+
+      if (typeof field.visibilityCondition === 'object') {
+        return evaluateVisibilityCondition(field.visibilityCondition);
+      }
+    }
+
     // Check if field has a dependsOn condition
     if (field.dependsOn) {
       const parentValue = values[field.dependsOn];
@@ -186,14 +242,19 @@ export function useFieldValidation({ nodeInfo, values }: UseFieldValidationProps
   };
 
   /**
-   * Gets ALL required fields from the schema (regardless of visibility)
+   * Gets ALL visible required fields from the schema
    * Used for displaying complete required fields list
+   * NOTE: Changed from "all required fields regardless of visibility" to only visible ones
+   * to prevent hidden conditional fields from showing in INCOMPLETE validation messages
    */
   const getAllRequiredFields = (): string[] => {
     if (!nodeInfo?.configSchema) return [];
 
     return nodeInfo.configSchema
-      .filter((field: Field) => field.required || field.validation?.required)
+      .filter((field: Field) => {
+        const isRequired = field.required || field.validation?.required;
+        return isRequired && isFieldVisible(field);
+      })
       .map((field: Field) => field.name);
   };
 
