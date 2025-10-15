@@ -111,8 +111,8 @@ export const googleCalendarNodes: NodeComponent[] = [
         { value: "next_weekday", label: "Next specific weekday..." },
         { value: "specific", label: "Pick a specific date..." }
       ]},
-      { name: "customDays", label: "Number of days from now", type: "number", required: false, conditional: { field: "eventDate", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
-      { name: "nextWeekday", label: "Select weekday", type: "select", required: false, conditional: { field: "eventDate", value: "next_weekday" }, options: [
+      { name: "customDays", label: "Number of days from now", type: "number", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
+      { name: "nextWeekday", label: "Select weekday", type: "select", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "next_weekday" }, options: [
         { value: "monday", label: "Next Monday" },
         { value: "tuesday", label: "Next Tuesday" },
         { value: "wednesday", label: "Next Wednesday" },
@@ -121,7 +121,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         { value: "saturday", label: "Next Saturday" },
         { value: "sunday", label: "Next Sunday" }
       ]},
-      { name: "specificDate", label: "Specific Date", type: "date", required: false, conditional: { field: "eventDate", value: "specific" } },
+      { name: "specificDate", label: "Specific Date", type: "date", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "specific" } },
 
       { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
         { value: "current", label: "Current Time" },
@@ -140,7 +140,7 @@ export const googleCalendarNodes: NodeComponent[] = [
         { value: "20:00", label: "8:00 PM" },
         { value: "custom", label: "Custom time..." }
       ]},
-      { name: "customTime", label: "Custom Time", type: "time", required: false, conditional: { field: "eventTime", value: "custom" } },
+      { name: "customTime", label: "Custom Time", type: "time", required: false, visibilityCondition: { field: "eventTime", operator: "equals", value: "custom" } },
 
       { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
         { value: "allday", label: "All Day" },
@@ -153,8 +153,8 @@ export const googleCalendarNodes: NodeComponent[] = [
         { value: "480", label: "All Day (8 hours)" },
         { value: "custom", label: "Custom end time..." }
       ]},
-      { name: "customEndDate", label: "End Date", type: "date", required: false, conditional: { field: "duration", value: "custom" } },
-      { name: "customEndTime", label: "End Time", type: "time", required: false, conditional: { field: "duration", value: "custom" } },
+      { name: "customEndDate", label: "End Date", type: "date", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
+      { name: "customEndTime", label: "End Time", type: "time", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
 
       // Time Zone
       {
@@ -217,8 +217,9 @@ export const googleCalendarNodes: NodeComponent[] = [
           { value: "externalOnly", label: "Send to guests outside your organization" },
           { value: "none", label: "Don't send" }
         ],
-        conditionalVisibility: {
+        visibilityCondition: {
           field: "attendees",
+          operator: "equals",
           value: true // Will show when attendees has any truthy value
         }
       },
@@ -227,8 +228,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Guests can invite others", 
         type: "boolean", 
         defaultValue: true,
-        conditionalVisibility: {
+        visibilityCondition: {
           field: "attendees",
+          operator: "equals",
           value: true // Will show when attendees has any truthy value
         }
       },
@@ -237,8 +239,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Guests can see guest list", 
         type: "boolean", 
         defaultValue: true,
-        conditionalVisibility: {
+        visibilityCondition: {
           field: "attendees",
+          operator: "equals",
           value: true // Will show when attendees has any truthy value
         }
       },
@@ -247,8 +250,9 @@ export const googleCalendarNodes: NodeComponent[] = [
         label: "Guests can modify event", 
         type: "boolean", 
         defaultValue: false,
-        conditionalVisibility: {
+        visibilityCondition: {
           field: "attendees",
+          operator: "equals",
           value: true // Will show when attendees has any truthy value
         }
       },

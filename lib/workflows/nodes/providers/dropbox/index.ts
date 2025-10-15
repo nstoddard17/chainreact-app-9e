@@ -95,7 +95,7 @@ const dropboxActionUploadFile: NodeComponent = {
       accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
       maxSize: 150 * 1024 * 1024, // 150MB limit for Dropbox
       description: "Upload files to create in Dropbox (max 150MB per file). Files will be stored and available for workflow execution.",
-      conditional: { field: "sourceType", value: "file" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "file" }
     },
     {
       name: "fileUrl",
@@ -104,7 +104,7 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "https://example.com/file.pdf",
       description: "Direct URL to a publicly accessible file (e.g., image, PDF, document). The file will be downloaded and uploaded to Dropbox.",
-      conditional: { field: "sourceType", value: "url" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "url" }
     },
     {
       name: "fileContent",
@@ -113,7 +113,7 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "Enter text content for the file",
       description: "Text content to create a text file. The file will be saved with the specified file name.",
-      conditional: { field: "sourceType", value: "text" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "text" }
     },
     {
       name: "fileFromNode",
@@ -122,7 +122,7 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "{{node-id.file}}",
       description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
-      conditional: { field: "sourceType", value: "node" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "node" }
     },
     {
       name: "path",

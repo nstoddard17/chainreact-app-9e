@@ -52,7 +52,7 @@ export const hubspotActionCreateContactDynamic: NodeComponent = {
       name: "basicFields",
       label: "Contact Information",
       type: "field_group",
-      visibleWhen: { field: "fieldMode", equals: "basic" },
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" },
       fields: [
         {
           name: "email",
@@ -127,7 +127,7 @@ export const hubspotActionCreateContactDynamic: NodeComponent = {
       name: "customFields",
       label: "Custom Field Selection",
       type: "field_group",
-      visibleWhen: { field: "fieldMode", equals: "custom" },
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "custom" },
       fields: [
         {
           name: "selectedProperties",
@@ -166,7 +166,7 @@ export const hubspotActionCreateContactDynamic: NodeComponent = {
       name: "allFieldsGroup",
       label: "All Contact Properties",
       type: "field_group",
-      visibleWhen: { field: "fieldMode", equals: "all" },
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "all" },
       fields: [
         {
           name: "allProperties",
@@ -210,7 +210,7 @@ export const hubspotActionCreateContactDynamic: NodeComponent = {
           dynamic: true,
           required: false,
           placeholder: "Search for a company or enter new name",
-          visibleWhen: { field: "associateWithCompany", equals: true }
+          visibilityCondition: { field: "associateWithCompany", operator: "equals", value: true }
         }
       ]
     }

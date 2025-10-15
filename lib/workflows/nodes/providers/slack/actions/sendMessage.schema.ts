@@ -84,8 +84,10 @@ export const sendMessageActionSchema: NodeComponent = {
       type: "text",
       placeholder: "Custom bot username",
       tooltip: "Override the bot's display name for this message only. Works with bot token (when 'Send as User' is OFF). May be ignored if workspace has 'Lock bot name & icon' enabled in Slack admin settings. Leave empty to use default bot name.",
-      showWhen: {
-        "asUser": { "$eq": false }
+      visibilityCondition: {
+        field: "asUser",
+        operator: "equals",
+        value: false
       }
     },
     {
@@ -107,8 +109,10 @@ export const sendMessageActionSchema: NodeComponent = {
         },
         defaultMode: "upload"
       },
-      showWhen: {
-        "asUser": { "$eq": false }
+      visibilityCondition: {
+        field: "asUser",
+        operator: "equals",
+        value: false
       }
     }
   ],

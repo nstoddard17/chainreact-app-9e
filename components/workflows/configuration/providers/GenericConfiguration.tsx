@@ -6,6 +6,7 @@ import { AlertTriangle, ChevronLeft, Mail, Loader2 } from "lucide-react";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -242,158 +243,9 @@ export function GenericConfiguration({
   }, [nodeInfo, isEditMode, values, dynamicOptions, loadOptions]);
 
   // Helper function to check if a field should be shown based on dependencies
+  // Now delegates to centralized FieldVisibilityEngine
   const shouldShowField = (field: any) => {
-    // Never show fields with type: 'hidden'
-    if (field.type === 'hidden') return false;
-    
-    // Check conditional property (used in Google Drive and other nodes)
-    if (field.conditional) {
-      const { field: dependentField, value: expectedValue } = field.conditional;
-      const actualValue = values[dependentField];
-      
-      // Check if the condition is met
-      if (actualValue !== expectedValue) {
-        return false;
-      }
-    }
-    
-    // Check visibleWhen condition (used by HubSpot nodes)
-    if (field.visibleWhen) {
-      const { field: dependentField, equals: expectedValue } = field.visibleWhen;
-      const actualValue = values[dependentField];
-      if (actualValue !== expectedValue) {
-        return false;
-      }
-    }
-
-    // Check showWhen condition (preferred format)
-    if (field.showWhen) {
-      // Support MongoDB-style operators
-      for (const [dependentField, condition] of Object.entries(field.showWhen)) {
-        const actualValue = values[dependentField];
-        
-        // Handle different condition types
-        if (typeof condition === 'object' && condition !== null) {
-          // MongoDB-style operators
-          for (const [operator, expectedValue] of Object.entries(condition)) {
-            switch (operator) {
-              case '$ne': // not equal
-                if (actualValue === expectedValue) return false;
-                break;
-              case '$eq': // equal
-                if (actualValue !== expectedValue) return false;
-                break;
-              case '$exists': // field exists/has value
-                if (expectedValue && (!actualValue || actualValue === '')) return false;
-                if (!expectedValue && actualValue && actualValue !== '') return false;
-                break;
-              case '$gt': // greater than
-                if (!(actualValue > expectedValue)) return false;
-                break;
-              case '$lt': // less than
-                if (!(actualValue < expectedValue)) return false;
-                break;
-              default:
-                // Unknown operator, treat as equality check
-                if (actualValue !== expectedValue) return false;
-            }
-          }
-        } else {
-          // Handle special string conditions
-          if (condition === "!empty") {
-            // Check if field has a value (not empty, null, or undefined)
-            if (!actualValue || (typeof actualValue === 'string' && actualValue.trim() === '')) {
-              return false;
-            }
-          } else if (condition === "empty") {
-            // Check if field is empty
-            if (actualValue && (typeof actualValue !== 'string' || actualValue.trim() !== '')) {
-              return false;
-            }
-          } else {
-            // Simple equality check (legacy format)
-            if (actualValue !== condition) return false;
-          }
-        }
-      }
-    }
-    
-    // Check conditionalVisibility (legacy format)
-    if (field.conditionalVisibility) {
-      const { field: dependentField, value: expectedValue } = field.conditionalVisibility;
-      const actualValue = values[dependentField];
-      
-      // Special handling for boolean true - check for any truthy value
-      if (expectedValue === true && typeof expectedValue === 'boolean') {
-        // Hide if actualValue is empty, null, undefined, or empty string
-        if (!actualValue || (typeof actualValue === 'string' && actualValue.trim() === '')) {
-          return false;
-        }
-      }
-      // Special handling for boolean false - check for falsy value
-      else if (expectedValue === false && typeof expectedValue === 'boolean') {
-        // Hide if actualValue is truthy
-        if (actualValue && !(typeof actualValue === 'string' && actualValue.trim() === '')) {
-          return false;
-        }
-      }
-      // For other values, check exact match
-      else if (actualValue !== expectedValue) {
-        return false;
-      }
-    }
-    
-    // Check hidden property with MongoDB-style operators (used by Trello)
-    if (field.hidden && typeof field.hidden === 'object' && field.hidden.$condition) {
-      const condition = field.hidden.$condition;
-      
-      // Evaluate each condition in the $condition object
-      for (const [dependentField, conditionValue] of Object.entries(condition)) {
-        const actualValue = values[dependentField];
-        
-        // Handle MongoDB-style operators
-        if (typeof conditionValue === 'object' && conditionValue !== null) {
-          for (const [operator, expectedValue] of Object.entries(conditionValue)) {
-            switch (operator) {
-              case '$exists':
-                // $exists: false means "hide when field doesn't exist (no value)"
-                // $exists: true means "hide when field exists (has value)"
-                if (expectedValue === false) {
-                  // Hide when field doesn't exist
-                  if (!actualValue || actualValue === '') {
-                    return false; // Field should be hidden
-                  }
-                } else if (expectedValue === true) {
-                  // Hide when field exists
-                  if (actualValue && actualValue !== '') {
-                    return false; // Field should be hidden
-                  }
-                }
-                break;
-              case '$eq':
-                if (actualValue === expectedValue) return false;
-                break;
-              case '$ne':
-                if (actualValue !== expectedValue) return false;
-                break;
-              default:
-                // For unknown operators, treat as equality
-                if (actualValue === expectedValue) return false;
-            }
-          }
-        } else {
-          // Simple value check - hide if values match
-          if (actualValue === conditionValue) return false;
-        }
-      }
-    }
-    // If field has hidden: true (simple boolean), don't show it
-    else if (field.hidden === true) {
-      return false;
-    }
-    
-    // Otherwise show the field
-    return true;
+    return FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
   };
 
   // Separate fields

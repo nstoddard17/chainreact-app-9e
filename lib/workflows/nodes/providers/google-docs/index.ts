@@ -69,7 +69,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
         { value: "make_public", label: "Make Public (Anyone can find)" }
       ],
       description: "Choose how to share the document",
-      conditional: { field: "enableSharing", value: true },
+      visibilityCondition: { field: "enableSharing", operator: "equals", value: true },
       tabGroup: "Share Document"
     },
     {
@@ -80,7 +80,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       placeholder: "Enter email addresses separated by commas",
       description: "Email addresses of people to share with",
       dynamic: "google-contacts",
-      conditional: { field: "shareType", value: "specific_users" },
+      visibilityCondition: { field: "shareType", operator: "equals", value: "specific_users" },
       showIf: (values: any) => values.enableSharing && values.shareType === "specific_users",
       tabGroup: "Share Document"
     },
@@ -96,7 +96,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
         { value: "editor", label: "Editor (Can Edit)" }
       ],
       description: "Permission level for the shared users",
-      conditional: { field: "enableSharing", value: true },
+      visibilityCondition: { field: "enableSharing", operator: "equals", value: true },
       tabGroup: "Share Document"
     },
     {
@@ -106,7 +106,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Send an email notification to the users being shared with",
-      conditional: { field: "shareType", value: "specific_users" },
+      visibilityCondition: { field: "shareType", operator: "equals", value: "specific_users" },
       showIf: (values: any) => values.enableSharing && values.shareType === "specific_users",
       tabGroup: "Share Document"
     },
@@ -127,7 +127,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
       required: false,
       defaultValue: true,
       description: "Allow viewers and commenters to download, print, or copy the document",
-      conditional: { field: "enableSharing", value: true },
+      visibilityCondition: { field: "enableSharing", operator: "equals", value: true },
       tabGroup: "Share Document"
     },
     {
