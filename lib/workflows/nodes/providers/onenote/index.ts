@@ -225,7 +225,7 @@ const onenoteActionUpdatePage: NodeComponent = {
       required: false,
       placeholder: "CSS selector or data-id (for insert mode)",
       description: "The target element for insert mode (CSS selector or data-id)",
-      conditional: { field: "updateMode", value: "insert" }
+      visibilityCondition: { field: "updateMode", operator: "equals", value: "insert" }
     },
     {
       name: "position",
@@ -239,7 +239,7 @@ const onenoteActionUpdatePage: NodeComponent = {
         { value: "inside", label: "Inside Target" }
       ],
       description: "Where to insert relative to target element",
-      conditional: { field: "updateMode", value: "insert" }
+      visibilityCondition: { field: "updateMode", operator: "equals", value: "insert" }
     }
   ]
 }
@@ -473,7 +473,7 @@ const onenoteActionSearch: NodeComponent = {
       placeholder: "Select notebook to search",
       loadOnMount: true,
       description: "Limit search to this notebook",
-      conditional: { field: "scope", value: "notebook" }
+      visibilityCondition: { field: "scope", operator: "equals", value: "notebook" }
     },
     { 
       name: "sectionId", 
@@ -484,7 +484,7 @@ const onenoteActionSearch: NodeComponent = {
       placeholder: "Select section to search",
       dependsOn: "notebookId",
       description: "Limit search to this section",
-      conditional: { field: "scope", value: "section" }
+      visibilityCondition: { field: "scope", operator: "equals", value: "section" }
     },
     {
       name: "maxResults",

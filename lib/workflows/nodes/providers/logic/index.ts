@@ -86,8 +86,10 @@ export const logicNodes: NodeComponent[] = [
         description: "What to compare against",
         hasVariablePicker: true,
         uiTab: "basic",
-        showWhen: {
-          operator: ["equals", "not_equals", "contains", "not_contains", "greater_than", "less_than"]
+        visibilityCondition: {
+          field: "operator",
+          operator: "in",
+          value: ["equals", "not_equals", "contains", "not_contains", "greater_than", "less_than"]
         }
       },
       {
@@ -124,7 +126,7 @@ export const logicNodes: NodeComponent[] = [
         ],
         description: "How to combine multiple conditions",
         uiTab: "advanced",
-        showWhen: { conditionType: "multiple" }
+        visibilityCondition: { field: "conditionType", operator: "equals", value: "multiple" }
       },
       {
         name: "additionalConditions",
@@ -132,7 +134,7 @@ export const logicNodes: NodeComponent[] = [
         type: "custom",
         description: "Add more conditions for complex logic",
         uiTab: "advanced",
-        showWhen: { conditionType: "multiple" }
+        visibilityCondition: { field: "conditionType", operator: "equals", value: "multiple" }
       },
       {
         name: "advancedExpression",
@@ -141,7 +143,7 @@ export const logicNodes: NodeComponent[] = [
         placeholder: "// Example:\ndata.score > 80 && data.status === 'active'\n\n// Available variables:\n// data, trigger, previous, nodeOutputs",
         description: "Write custom JavaScript for complex conditions",
         uiTab: "advanced",
-        showWhen: { conditionType: "advanced" }
+        visibilityCondition: { field: "conditionType", operator: "equals", value: "advanced" }
       },
       {
         name: "advancedOperatorOptions",
@@ -157,7 +159,7 @@ export const logicNodes: NodeComponent[] = [
         ],
         description: "Additional comparison operators",
         uiTab: "advanced",
-        showWhen: { conditionType: "simple" }
+        visibilityCondition: { field: "conditionType", operator: "equals", value: "simple" }
       }
     ],
   },

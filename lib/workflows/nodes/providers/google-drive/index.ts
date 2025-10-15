@@ -101,7 +101,7 @@ export const googleDriveNodes: NodeComponent[] = [
         accept: ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.zip,.rar,.json,.xml,.html,.css,.js,.py,.java,.cpp,.c,.md,.log",
         maxSize: 25 * 1024 * 1024, // 25MB limit for Google Drive
         description: "Upload files to create in Google Drive (max 25MB per file). Files will be stored and available for workflow execution.",
-        conditional: { field: "sourceType", value: "file" }
+        visibilityCondition: { field: "sourceType", operator: "equals", value: "file" }
       },
       { 
         name: "fileUrl", 
@@ -110,7 +110,7 @@ export const googleDriveNodes: NodeComponent[] = [
         required: false,
         placeholder: "https://example.com/file.pdf",
         description: "Direct URL to a publicly accessible file (e.g., image, PDF, document). The file will be downloaded and uploaded to Google Drive.",
-        conditional: { field: "sourceType", value: "url" }
+        visibilityCondition: { field: "sourceType", operator: "equals", value: "url" }
       },
       { 
         name: "fileFromNode", 
@@ -119,7 +119,7 @@ export const googleDriveNodes: NodeComponent[] = [
         required: false,
         placeholder: "{{node-id.file}}",
         description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
-        conditional: { field: "sourceType", value: "node" }
+        visibilityCondition: { field: "sourceType", operator: "equals", value: "node" }
       },
       {
         name: "folderId",

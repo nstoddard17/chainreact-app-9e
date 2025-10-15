@@ -393,7 +393,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         defaultValue: "equals",
         description: "How to compare the filter value",
         dependsOn: "filterColumn",
-        showWhen: { filterColumn: "!empty" }
+        visibilityCondition: { field: "filterColumn", operator: "equals", value: "!empty" }
       },
       {
         name: "filterValue",
@@ -404,9 +404,11 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "Select or enter value...",
         description: "Choose the value to filter by",
         dependsOn: "filterColumn",
-        showWhen: { 
-          filterColumn: "!empty",
-          filterOperator: ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_equal", "less_equal"]
+        visibilityCondition: {
+          and: [
+            { field: "filterColumn", operator: "isNotEmpty" },
+            { field: "filterOperator", operator: "in", value: ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_equal", "less_equal"] }
+          ]
         }
       },
       {
@@ -440,7 +442,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         defaultValue: "asc",
         description: "Order to sort the results",
         dependsOn: "sortColumn",
-        showWhen: { sortColumn: "!empty" }
+        visibilityCondition: { field: "sortColumn", operator: "equals", value: "!empty" }
       },
       {
         name: "dateFilter",
@@ -473,7 +475,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "Select date column...",
         description: "Column containing dates to filter by",
         dependsOn: "sheetName",
-        showWhen: { dateFilter: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "last_7_days", "last_30_days", "last_90_days", "this_year", "custom_range"] }
+        visibilityCondition: { field: "dateFilter", operator: "in", value: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "last_7_days", "last_30_days", "last_90_days", "this_year", "custom_range"] }
       },
       {
         name: "customDateRange",
@@ -483,7 +485,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "Select date range...",
         description: "Choose a custom date range to filter rows",
         dependsOn: "dateFilter",
-        showWhen: { dateFilter: "custom_range" }
+        visibilityCondition: { field: "dateFilter", operator: "equals", value: "custom_range" }
       },
       {
         name: "recordLimit",
@@ -512,7 +514,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "100",
         description: "Maximum number of rows to return",
         dependsOn: "recordLimit",
-        showWhen: { recordLimit: "custom" },
+        visibilityCondition: { field: "recordLimit", operator: "equals", value: "custom" },
         min: 1,
         max: 10000
       },
