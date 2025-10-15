@@ -84,8 +84,9 @@ export const hubspotActionCreateContactEnhanced: NodeComponent = {
       required: false,
       placeholder: "Select or create a company",
       description: "Choose an existing company or enter a new company name",
-      showWhen: {
+      visibilityCondition: {
         field: "associateWithCompany",
+        operator: "equals",
         value: true
       }
     },
@@ -98,8 +99,9 @@ export const hubspotActionCreateContactEnhanced: NodeComponent = {
       required: false,
       defaultValue: false,
       description: "Create a new company instead of selecting existing",
-      showWhen: {
+      visibilityCondition: {
         field: "associateWithCompany",
+        operator: "equals",
         value: true
       }
     },
@@ -116,8 +118,9 @@ export const hubspotActionCreateContactEnhanced: NodeComponent = {
         objectType: "companies",
         minimalFields: ["name", "domain"]
       },
-      showWhen: {
+      visibilityCondition: {
         field: "createNewCompany",
+        operator: "equals",
         value: true
       }
     }

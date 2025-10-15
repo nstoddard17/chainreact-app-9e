@@ -354,8 +354,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "next_weekday", label: "Next specific weekday..." },
       { value: "specific", label: "Pick a specific date..." }
     ]},
-    { name: "customDays", label: "Number of days from now", type: "number", required: false, conditional: { field: "eventDate", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
-    { name: "nextWeekday", label: "Select weekday", type: "select", required: false, conditional: { field: "eventDate", value: "next_weekday" }, options: [
+    { name: "customDays", label: "Number of days from now", type: "number", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "custom_days" }, placeholder: "Enter number of days (e.g., 5)", min: 1, max: 365 },
+    { name: "nextWeekday", label: "Select weekday", type: "select", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "next_weekday" }, options: [
       { value: "monday", label: "Next Monday" },
       { value: "tuesday", label: "Next Tuesday" },
       { value: "wednesday", label: "Next Wednesday" },
@@ -364,7 +364,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "saturday", label: "Next Saturday" },
       { value: "sunday", label: "Next Sunday" }
     ]},
-    { name: "specificDate", label: "Specific Date", type: "date", required: false, conditional: { field: "eventDate", value: "specific" } },
+    { name: "specificDate", label: "Specific Date", type: "date", required: false, visibilityCondition: { field: "eventDate", operator: "equals", value: "specific" } },
 
     { name: "eventTime", label: "Start Time", type: "select", required: true, defaultValue: "09:00", options: [
       { value: "current", label: "Current Time" },
@@ -383,7 +383,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "20:00", label: "8:00 PM" },
       { value: "custom", label: "Custom time..." }
     ]},
-    { name: "customTime", label: "Custom Time", type: "time", required: false, conditional: { field: "eventTime", value: "custom" } },
+    { name: "customTime", label: "Custom Time", type: "time", required: false, visibilityCondition: { field: "eventTime", operator: "equals", value: "custom" } },
 
     { name: "duration", label: "Duration", type: "select", required: true, defaultValue: "60", options: [
       { value: "allday", label: "All Day" },
@@ -396,8 +396,8 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "480", label: "All Day (8 hours)" },
       { value: "custom", label: "Custom end time..." }
     ]},
-    { name: "customEndDate", label: "End Date", type: "date", required: false, conditional: { field: "duration", value: "custom" } },
-    { name: "customEndTime", label: "End Time", type: "time", required: false, conditional: { field: "duration", value: "custom" } },
+    { name: "customEndDate", label: "End Date", type: "date", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
+    { name: "customEndTime", label: "End Time", type: "time", required: false, visibilityCondition: { field: "duration", operator: "equals", value: "custom" } },
 
     // Time Zone (applies to both modes)
     { name: "timeZone", label: "Time Zone", type: "combobox", required: false, defaultValue: "user-timezone", creatable: true, placeholder: "Select or type timezone", options: [
@@ -436,7 +436,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "RRULE:FREQ=YEARLY", label: "Yearly" },
       { value: "custom", label: "Custom" }
     ]},
-    { name: "customRecurrence", label: "Custom Recurrence", type: "text", required: false, placeholder: "Enter custom RRULE", conditional: { field: "recurrence", value: "custom" } },
+    { name: "customRecurrence", label: "Custom Recurrence", type: "text", required: false, placeholder: "Enter custom RRULE", visibilityCondition: { field: "recurrence", operator: "equals", value: "custom" } },
     { name: "repeatUntil", label: "Repeat Until", type: "date", required: false, placeholder: "End date for recurring events" },
     
     // Meeting Options Section
@@ -445,7 +445,7 @@ const outlookActionCreateCalendarEvent: NodeComponent = {
       { value: "teamsForBusiness", label: "Microsoft Teams" },
       { value: "skypeForBusiness", label: "Skype for Business" },
       { value: "skypeForConsumer", label: "Skype" }
-    ], showWhen: { isOnlineMeeting: true } },
+    ], visibilityCondition: { field: "isOnlineMeeting", operator: "equals", value: true } },
     
     // Reminder Section
     { name: "reminderMinutesBeforeStart", label: "Reminder", type: "select", required: false, defaultValue: "15", options: [

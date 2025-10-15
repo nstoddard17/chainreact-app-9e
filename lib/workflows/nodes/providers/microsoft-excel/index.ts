@@ -490,7 +490,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         defaultValue: "equals",
         description: "How to compare the filter value",
         dependsOn: "filterColumn",
-        showWhen: { filterColumn: "!empty" }
+        visibilityCondition: { field: "filterColumn", operator: "isNotEmpty" }
       },
       {
         name: "filterValue",
@@ -501,9 +501,11 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "Select or enter value...",
         description: "Choose the value to filter by",
         dependsOn: "filterColumn",
-        showWhen: {
-          filterColumn: "!empty",
-          filterOperator: ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_equal", "less_equal"]
+        visibilityCondition: {
+          and: [
+            { field: "filterColumn", operator: "isNotEmpty" },
+            { field: "filterOperator", operator: "in", value: ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_equal", "less_equal"] }
+          ]
         }
       },
       {
@@ -528,7 +530,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         defaultValue: "asc",
         description: "Order to sort the results",
         dependsOn: "sortColumn",
-        showWhen: { sortColumn: "!empty" }
+        visibilityCondition: { field: "sortColumn", operator: "equals", value: "!empty" }
       },
       {
         name: "recordLimit",
@@ -557,7 +559,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "100",
         description: "Maximum number of rows to return",
         dependsOn: "recordLimit",
-        showWhen: { recordLimit: "custom" },
+        visibilityCondition: { field: "recordLimit", operator: "equals", value: "custom" },
         min: 1,
         max: 10000
       },

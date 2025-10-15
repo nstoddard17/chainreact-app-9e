@@ -678,10 +678,7 @@ const hubspotActionCreateContact: NodeComponent = {
       type: "email",
       required: true,
       placeholder: "john.doe@example.com",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "firstname",
@@ -689,10 +686,7 @@ const hubspotActionCreateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "John",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "lastname",
@@ -700,10 +694,7 @@ const hubspotActionCreateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Doe",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "phone",
@@ -711,10 +702,7 @@ const hubspotActionCreateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "+1-555-123-4567",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "company",
@@ -722,10 +710,7 @@ const hubspotActionCreateContact: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Acme Inc.",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "jobtitle",
@@ -735,10 +720,7 @@ const hubspotActionCreateContact: NodeComponent = {
       dynamicDataType: "hubspot_job_titles",
       required: false,
       placeholder: "Select or enter job title",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "lifecyclestage",
@@ -755,10 +737,7 @@ const hubspotActionCreateContact: NodeComponent = {
       ],
       required: false,
       placeholder: "Select lifecycle stage",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
     {
       name: "hs_lead_status",
@@ -768,10 +747,7 @@ const hubspotActionCreateContact: NodeComponent = {
       dynamicDataType: "hubspot_lead_status_options",
       required: false,
       placeholder: "Select lead status",
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "basic"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "basic" }
     },
 
     // Custom selection mode (shown when fieldMode is "custom")
@@ -785,10 +761,7 @@ const hubspotActionCreateContact: NodeComponent = {
       placeholder: "Choose properties to include",
       description: "Select which contact properties you want to set",
       defaultValue: ["email", "firstname", "lastname"],
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "custom"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "custom" }
     },
     {
       name: "customProperties",
@@ -801,10 +774,7 @@ const hubspotActionCreateContact: NodeComponent = {
         objectType: "contacts",
         requiredFields: ["email"]
       },
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "custom"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "custom" }
     },
 
     // All fields mode (shown when fieldMode is "all")
@@ -822,10 +792,7 @@ const hubspotActionCreateContact: NodeComponent = {
         groupByCategory: true,
         collapsibleGroups: true
       },
-      visibleWhen: {
-        field: "fieldMode",
-        equals: "all"
-      }
+      visibilityCondition: { field: "fieldMode", operator: "equals", value: "all" }
     },
 
     // Company association (available in all modes)
