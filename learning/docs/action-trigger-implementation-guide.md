@@ -145,7 +145,63 @@ Resources are automatically tracked in `trigger_resources` table:
 }
 ```
 
-### 2. Create Action Handler Function
+### 2. Add Output Schema to Registry (CRITICAL for Variable Picker)
+**Location:** `/lib/workflows/actions/outputSchemaRegistry.ts`
+
+⚠️ **MANDATORY STEP**: If your action/trigger has an `outputSchema` defined in the node definition, you MUST add it to the output schema registry. Otherwise, **the variable picker won't show the outputs** to users.
+
+**For Actions:**
+```typescript
+// In OUTPUT_SCHEMA_REGISTRY object
+'provider_action_name': [
+  { name: 'outputField1', label: 'Output Field 1', type: 'string' },
+  { name: 'outputField2', label: 'Output Field 2', type: 'number' },
+  // ... match exactly what's in outputSchema from node definition
+],
+```
+
+**For Triggers:**
+```typescript
+// In OUTPUT_SCHEMA_REGISTRY object, under "TRIGGERS" section
+'provider_trigger_name': [
+  { name: 'triggerId', label: 'Trigger ID', type: 'string' },
+  { name: 'timestamp', label: 'Timestamp', type: 'string' },
+  // ... all fields the trigger provides when it fires
+],
+```
+
+**For Triggers Without Webhook Implementation Yet:**
+```typescript
+// Add under "TRIGGERS WITHOUT WEBHOOKS (TODO)" section
+'provider_trigger_name': [], // TODO: Implement webhook handler
+```
+
+**Why This Matters:**
+- The output schema registry is the **single source of truth** for the variable picker
+- Without this step, users won't see your action's outputs in the right-side panel
+- The hybrid architecture uses this registry to show both static and runtime-discovered fields
+- Empty arrays `[]` are fine for triggers awaiting webhook implementation - they signal "coming soon"
+
+**Example - Teams Trigger:**
+```typescript
+// ✅ CORRECT - Matches node definition outputSchema
+'teams_trigger_user_joins_team': [
+  { name: 'userId', label: 'User ID', type: 'string' },
+  { name: 'userName', label: 'User Name', type: 'string' },
+  { name: 'userEmail', label: 'User Email', type: 'string' },
+  { name: 'teamId', label: 'Team ID', type: 'string' },
+  { name: 'teamName', label: 'Team Name', type: 'string' },
+  { name: 'joinTime', label: 'Join Time', type: 'string' },
+  { name: 'role', label: 'User Role', type: 'string' }
+],
+
+// ❌ WRONG - Missing from registry
+// Users won't see any variables in the picker!
+```
+
+**Common Mistake:** Defining `outputSchema` in the node definition but forgetting to add it to the registry. This causes the "Why don't I see any variables?" issue.
+
+### 3. Create Action Handler Function
 **Location:** `/lib/workflows/actions/[provider]/[action].ts` or `/lib/workflows/actions/[provider].ts`
 
 ```typescript

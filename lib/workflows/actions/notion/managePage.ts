@@ -445,10 +445,14 @@ export async function executeNotionManagePage(
           // Process other content blocks
           for (const [key, value] of Object.entries(pageFieldsData)) {
             if (key.includes('-content') && value) {
-              const blockId = key.split('-')[0];
-              if (blockId && blockId.length === 32) { // Notion block IDs are 32 chars
+              // Extract block ID from key like "28c2d09a-d427-81cf-a1cf-e6c3e484bc13-content"
+              // Need to remove the "-content" suffix and any dashes from the UUID
+              const blockIdWithDashes = key.replace('-content', '');
+              const blockId = blockIdWithDashes.replace(/-/g, ''); // Remove all dashes
+
+              if (blockId && blockId.length === 32) { // Notion block IDs are 32 chars without dashes
                 // This is an existing block - update it
-                logger.debug(`🔄 Updating content block ${blockId}`);
+                logger.debug(`🔄 Updating content block ${blockId} (original: ${blockIdWithDashes})`);
                 blockUpdates.push({
                   block_id: blockId,
                   paragraph: {
@@ -532,7 +536,7 @@ export async function executeNotionManagePage(
         const appendConfig = {
           page_id: config.page,
           // Use the helper function to convert content to blocks
-          children: config.content ? convertContentToBlocks(config.content) : [],
+          blocks: config.content ? convertContentToBlocks(config.content) : [],
           after: config.after
         };
         return await notionAppendBlocks(appendConfig, context);

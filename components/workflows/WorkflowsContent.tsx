@@ -681,20 +681,20 @@ export default function WorkflowsContent() {
                           value={aiModel}
                           onValueChange={(value: 'gpt-4o' | 'gpt-4o-mini') => setAiModel(value)}
                         >
-                          <SelectTrigger id="ai-model" className="w-48">
+                          <SelectTrigger id="ai-model" className="w-48 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="gpt-4o-mini">
+                            <SelectItem value="gpt-4o-mini" className="text-sm">
                               <div className="flex flex-col items-start">
-                                <span>GPT-4o Mini</span>
-                                <span className="text-xs text-muted-foreground">Faster & cost-efficient</span>
+                                <span className="text-sm">GPT-4o Mini</span>
+                                <span className="text-xs text-muted-foreground hidden lg:block">Faster & cost-efficient</span>
                               </div>
                             </SelectItem>
-                            <SelectItem value="gpt-4o">
+                            <SelectItem value="gpt-4o" className="text-sm">
                               <div className="flex flex-col items-start">
-                                <span>GPT-4o</span>
-                                <span className="text-xs text-muted-foreground">More capable & accurate</span>
+                                <span className="text-sm">GPT-4o</span>
+                                <span className="text-xs text-muted-foreground hidden lg:block">More capable & accurate</span>
                               </div>
                             </SelectItem>
                           </SelectContent>
