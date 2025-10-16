@@ -96,3 +96,23 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-16T02:41:37.638Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 575ms (4490 modules)
 [2025-10-16T02:45:19.240Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
 [2025-10-16T02:45:19.269Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 620ms (3578 modules)
+[2025-10-16T02:53:06.013Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1320ms (4490 modules)
+[2025-10-16T02:53:31.339Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1658ms (4490 modules)
+[2025-10-16T02:53:31.443Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T02:53:33.155Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T02:53:33.236Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 711ms (3580 modules)
+[2025-10-16T02:53:34.225Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 376ms (3582 modules)
+[2025-10-16T02:53:37.349Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T02:53:37.791Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 941ms (3584 modules)
+[2025-10-16T02:54:27.380Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1266ms (4619 modules)
+[2025-10-16T02:54:27.434Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T02:54:40.022Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1521ms (4619 modules)
+[2025-10-16T02:54:47.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1229ms (4619 modules)
+[2025-10-16T02:54:55.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 672ms (4619 modules)
+[2025-10-16T02:55:45.298Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1413ms (4490 modules)
+[2025-10-16T02:56:22.836Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 409ms (1035 modules)
+[2025-10-16T02:57:10.485Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 614ms (1035 modules)
+[2025-10-16T02:59:16.080Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T02:59:16.116Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 868ms (3580 modules)
+[2025-10-16T02:59:16.936Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 342ms (3582 modules)
+[2025-10-16T02:59:19.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 251ms (3584 modules)
