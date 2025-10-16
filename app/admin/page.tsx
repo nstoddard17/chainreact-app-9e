@@ -53,7 +53,7 @@ export default function AdminPage() {
 
   return (
     <AppLayout title="Admin Panel" subtitle="System administration and user management">
-      <div className="max-w-7xl mx-auto p-6 space-y-8">
+      <div className="w-full mx-auto p-6 space-y-8 max-w-[95vw]">
         {/* Admin Header */}
         <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-200/20 rounded-2xl p-6">
           <div className="flex items-center space-x-3 mb-4">

@@ -115,6 +115,70 @@ export async function GET(request: NextRequest) {
             })()
           : template.default_field_values || null
 
+      const draftNodes =
+        typeof template.draft_nodes === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.draft_nodes)
+              } catch (parseError) {
+                logger.error("Failed to parse draft_nodes for template", template.id, parseError)
+                return []
+              }
+            })()
+          : Array.isArray(template.draft_nodes)
+            ? template.draft_nodes
+            : []
+
+      const draftConnections =
+        typeof template.draft_connections === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.draft_connections)
+              } catch (parseError) {
+                logger.error("Failed to parse draft_connections for template", template.id, parseError)
+                return []
+              }
+            })()
+          : Array.isArray(template.draft_connections)
+            ? template.draft_connections
+            : []
+
+      const draftDefaultFieldValues =
+        typeof template.draft_default_field_values === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.draft_default_field_values)
+              } catch (parseError) {
+                logger.error("Failed to parse draft_default_field_values for template", template.id, parseError)
+                return {}
+              }
+            })()
+          : template.draft_default_field_values || {}
+
+      const draftIntegrationSetup =
+        typeof template.draft_integration_setup === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.draft_integration_setup)
+              } catch (parseError) {
+                logger.error("Failed to parse draft_integration_setup for template", template.id, parseError)
+                return null
+              }
+            })()
+          : template.draft_integration_setup || null
+
+      const draftSetupOverview =
+        typeof template.draft_setup_overview === "string"
+          ? (() => {
+              try {
+                return JSON.parse(template.draft_setup_overview)
+              } catch (parseError) {
+                logger.error("Failed to parse draft_setup_overview for template", template.id, parseError)
+                return null
+              }
+            })()
+          : template.draft_setup_overview || null
+
       return {
         ...template,
         airtable_setup: airtableSetup,
@@ -125,6 +189,16 @@ export async function GET(request: NextRequest) {
         setupOverview,
         default_field_values: defaultFieldValues,
         defaultFieldValues,
+        draft_nodes: draftNodes,
+        draftNodes,
+        draft_connections: draftConnections,
+        draftConnections,
+        draft_default_field_values: draftDefaultFieldValues,
+        draftDefaultFieldValues: draftDefaultFieldValues,
+        draft_integration_setup: draftIntegrationSetup,
+        draftIntegrationSetup,
+        draft_setup_overview: draftSetupOverview,
+        draftSetupOverview,
       }
     })
 

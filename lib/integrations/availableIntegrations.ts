@@ -199,21 +199,6 @@ export const INTEGRATION_CONFIGS: Record<string, IntegrationConfig> = {
   },
 
   // Development & Productivity
-  github: {
-    id: "github",
-    name: "GitHub",
-    description: "Code hosting and version control with Git",
-    category: "developer",
-    capabilities: ["Manage Repositories", "Create Issues", "Pull Requests", "Gists"],
-    scopes: ["repo", "gist"],
-    isAvailable: false,
-    requiresClientId: "GITHUB_CLIENT_ID",
-    requiresClientSecret: "GITHUB_CLIENT_SECRET",
-    color: "#181717",
-    docsUrl: "https://docs.github.com/en/rest",
-    authType: "oauth",
-  },
-
   notion: {
     id: "notion",
     name: "Notion",

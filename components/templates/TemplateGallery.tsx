@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Copy, Eye, Loader2, Edit, Play, Plus, Rocket, Pause } from "lucide-react"
+import { Search, Copy, Eye, Loader2, Edit, Play, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthStore } from "@/stores/authStore"
@@ -35,6 +35,16 @@ interface Template {
   workflow_json?: any
   nodes?: any[]
   connections?: any[]
+  draft_nodes?: any[]
+  draftNodes?: any[]
+  draft_connections?: any[]
+  draftConnections?: any[]
+  draft_default_field_values?: Record<string, any>
+  draftDefaultFieldValues?: Record<string, any>
+  draft_integration_setup?: any
+  draftIntegrationSetup?: any
+  draft_setup_overview?: any
+  draftSetupOverview?: any
   created_at: string
   creator?: {
     email: string
@@ -103,6 +113,9 @@ const capitalizeTag = (tag: string): string => {
     'advanced': 'Advanced',
     'intermediate': 'Intermediate',
     'beginner': 'Beginner',
+    'draft': 'Draft',
+    'ready': 'Ready',
+    'published': 'Published',
   }
 
   const lowerTag = tag.toLowerCase()
@@ -111,8 +124,40 @@ const capitalizeTag = (tag: string): string => {
   ).join(' ')
 }
 
+const formatStatus = (status?: string | null) => {
+  if (!status) return 'Draft'
+  return capitalizeTag(status)
+}
+
+const getStatusBadgeVariant = (status?: string | null) => {
+  switch (status) {
+    case 'published':
+      return 'default' as const
+    case 'ready':
+      return 'secondary' as const
+    default:
+      return 'outline' as const
+  }
+}
+
 // Helper function to get nodes and connections from template (handles both formats)
-const getTemplateWorkflowData = (template: Template) => {
+const getTemplateWorkflowData = (
+  template: Template,
+  options: { preferDraft?: boolean } = {}
+) => {
+  const preferDraft = Boolean(options.preferDraft)
+  const draftNodes = template.draftNodes || template.draft_nodes
+  const draftConnections = template.draftConnections || template.draft_connections
+
+  if (preferDraft && Array.isArray(draftNodes) && draftNodes.length > 0) {
+    const connections = Array.isArray(draftConnections) ? draftConnections : []
+    logger.debug('Using draft nodes/connections:', draftNodes.length, connections.length)
+    return {
+      nodes: draftNodes,
+      connections,
+    }
+  }
+
   // Try direct nodes/connections first
   if (template.nodes && template.connections) {
     logger.debug('Using direct nodes/connections:', template.nodes.length, template.connections.length)
@@ -149,7 +194,6 @@ export function TemplateGallery() {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [creatingTemplate, setCreatingTemplate] = useState(false)
-  const [publishingTemplateId, setPublishingTemplateId] = useState<string | null>(null)
   const [newTemplateForm, setNewTemplateForm] = useState({
     name: "",
     description: "",
@@ -205,7 +249,29 @@ export function TemplateGallery() {
       const data = await response.json()
 
       if (data.templates) {
-        setPredefinedTemplates(data.templates)
+        // Filter out templates that use admin-only or unavailable integrations
+        const unavailableIntegrations = ['twitter', 'x', 'shopify', 'github']
+
+        console.log('Total templates from API:', data.templates.length)
+        console.log('All template names:', data.templates.map((t: Template) => t.name))
+
+        const filteredTemplates = data.templates.filter((template: Template) => {
+          // Hide templates that include twitter, shopify, or other unavailable integrations
+          const hasUnavailableIntegration = template.integrations?.some((integration: string) =>
+            unavailableIntegrations.includes(integration.toLowerCase())
+          )
+
+          if (hasUnavailableIntegration) {
+            console.log(`Filtered out: ${template.name} (integrations: ${template.integrations?.join(', ')})`)
+          }
+
+          return !hasUnavailableIntegration
+        })
+
+        console.log('Templates after filtering:', filteredTemplates.length)
+        console.log('Filtered template names:', filteredTemplates.map((t: Template) => t.name))
+
+        setPredefinedTemplates(filteredTemplates)
       }
     } catch (error) {
       logger.error("Error fetching predefined templates:", error)
@@ -282,51 +348,6 @@ export function TemplateGallery() {
       })
     } finally {
       setCreatingTemplate(false)
-    }
-  }
-
-  const handleUpdateTemplateStatus = async (templateId: string, status: "draft" | "ready" | "published") => {
-    try {
-      setPublishingTemplateId(templateId)
-      const response = await fetch(`/api/templates/${templateId}/draft`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update template")
-      }
-
-      setTemplates((prev) => prev.map((template) => (
-        template.id === templateId
-          ? {
-              ...template,
-              status,
-              published_at: status === "published" ? new Date().toISOString() : null,
-              is_public: status === "published",
-            }
-          : template
-      )))
-
-      toast({
-        title: status === "published" ? "Template published" : "Template updated",
-        description: status === "published"
-          ? "The template is now available to users."
-          : "Template status updated.",
-      })
-    } catch (error: any) {
-      logger.error("Error updating template status:", error)
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to update template",
-        variant: "destructive",
-      })
-    } finally {
-      setPublishingTemplateId(null)
     }
   }
 
@@ -452,8 +473,12 @@ export function TemplateGallery() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {allTemplates.map((template) => (
-            <Card key={template.id} className="hover:shadow-lg transition-shadow flex flex-col">
+          {allTemplates.map((template) => {
+            const preferDraft = isAdmin && template.status !== "published"
+            const workflowData = getTemplateWorkflowData(template, { preferDraft })
+
+            return (
+              <Card key={template.id} className="hover:shadow-lg transition-shadow flex flex-col">
               <CardHeader className="flex-shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -472,8 +497,8 @@ export function TemplateGallery() {
                 {/* Mini workflow preview */}
                 <div className="mt-4 rounded-lg overflow-hidden border bg-gray-50" style={{ height: '200px', width: '100%' }}>
                   <TemplatePreviewWithProvider
-                    nodes={getTemplateWorkflowData(template).nodes}
-                    connections={getTemplateWorkflowData(template).connections}
+                    nodes={workflowData.nodes}
+                    connections={workflowData.connections}
                     interactive={false}
                     showControls={false}
                     className=""
@@ -482,17 +507,8 @@ export function TemplateGallery() {
 
                 {isAdmin && (
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <Badge
-                      variant={
-                        template.status === "published"
-                          ? "default"
-                          : template.status === "ready"
-                            ? "secondary"
-                            : "outline"
-                      }
-                      className="capitalize"
-                    >
-                      {template.status || "draft"}
+                    <Badge variant={getStatusBadgeVariant(template.status)} className="capitalize">
+                      {formatStatus(template.status)}
                     </Badge>
                     {template.primary_setup_target && (
                       <Badge variant="outline" className="text-xs capitalize">
@@ -535,39 +551,16 @@ export function TemplateGallery() {
 
                   <div className="flex gap-2 flex-shrink-0">
                     {isAdmin && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            router.push(`/workflows/builder?editTemplate=${template.id}`)
-                          }}
-                          title="Edit Template"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant={template.status === "published" ? "outline" : "default"}
-                          size="sm"
-                          onClick={() =>
-                            handleUpdateTemplateStatus(
-                              template.id,
-                              template.status === "published" ? "draft" : "published"
-                            )
-                          }
-                          disabled={publishingTemplateId === template.id}
-                          title={template.status === "published" ? "Unpublish Template" : "Publish Template"}
-                        >
-                          {publishingTemplateId === template.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : template.status === "published" ? (
-                            <Pause className="h-4 w-4 mr-2" />
-                          ) : (
-                            <Rocket className="h-4 w-4 mr-2" />
-                          )}
-                          {template.status === "published" ? "Unpublish" : "Publish"}
-                        </Button>
-                      </>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          router.push(`/workflows/builder?editTemplate=${template.id}`)
+                        }}
+                        title="Edit Template"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     )}
                     <Button
                       variant="outline"
@@ -596,8 +589,9 @@ export function TemplateGallery() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
         </div>
       )}
 
@@ -612,7 +606,9 @@ export function TemplateGallery() {
       <TemplatePreviewModal
         template={selectedTemplate ? {
           ...selectedTemplate,
-          ...getTemplateWorkflowData(selectedTemplate)
+          ...getTemplateWorkflowData(selectedTemplate, {
+            preferDraft: isAdmin && selectedTemplate.status !== "published"
+          })
         } : null}
         open={showPreviewModal}
         onOpenChange={setShowPreviewModal}

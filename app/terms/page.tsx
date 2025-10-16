@@ -1,10 +1,11 @@
 import { TermsOfService } from "@/components/legal/TermsOfService"
-import PublicLayout from "@/components/layout/PublicLayout"
+import { StandardHeader } from "@/components/layout/StandardHeader"
 
 export default function TermsPage() {
   return (
-    <PublicLayout>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <StandardHeader />
       <TermsOfService />
-    </PublicLayout>
+    </div>
   )
 }
