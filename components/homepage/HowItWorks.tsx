@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, MousePointer, Play, CheckCircle, ArrowRight, Plus, GitBranch, Zap, Mail, FileText, Users } from 'lucide-react'
+import { Sparkles, MousePointer, Play, CheckCircle, ArrowRight, Plus, GitBranch, Zap, Mail, FileText, Users, MessageSquare, Calendar, Hash, Bell, Database, Image } from 'lucide-react'
 
 const steps = [
   {
@@ -41,12 +41,39 @@ const steps = [
 export function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [oauthStep, setOauthStep] = useState<'initial' | 'clicking' | 'oauth' | 'authorizing' | 'connected'>('initial')
 
   useEffect(() => {
     // Check for theme from document or localStorage
     const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
     setTheme(currentTheme)
   }, [])
+
+  // OAuth flow animation sequence
+  useEffect(() => {
+    if (activeStep !== 0) {
+      setOauthStep('initial')
+      return
+    }
+
+    const sequence = async () => {
+      await new Promise(resolve => setTimeout(resolve, 1500)) // Initial state
+      setOauthStep('clicking')
+      await new Promise(resolve => setTimeout(resolve, 500))
+      setOauthStep('oauth')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      setOauthStep('authorizing')
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setOauthStep('connected')
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      setOauthStep('initial')
+    }
+
+    const interval = setInterval(sequence, 7000)
+    sequence() // Run immediately
+
+    return () => clearInterval(interval)
+  }, [activeStep])
 
   return (
     <section id="how-it-works" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
@@ -126,88 +153,175 @@ export function HowItWorks() {
           >
             {activeStep === 0 && (
               <div className="h-full flex flex-col">
-                {/* Integrations Page Mock Header */}
-                <div className="mb-4 pb-3 border-b border-gray-200 dark:border-white/10">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Available Integrations</h3>
+                {/* Integrations Page Header */}
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-white/10">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Integrations</h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {oauthStep === 'connected' ? '1 Connected' : '0 Connected'}
+                  </span>
                 </div>
 
-                {/* Integration Cards */}
-                <div className="space-y-3 flex-1 overflow-hidden">
-                  {['Gmail', 'Slack', 'Notion'].map((app, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.15 }}
-                      className="relative"
-                    >
-                      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-200 dark:border-white/10">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                            {app === 'Gmail' && <Mail className="w-5 h-5 text-white" />}
-                            {app === 'Slack' && <Users className="w-5 h-5 text-white" />}
-                            {app === 'Notion' && <FileText className="w-5 h-5 text-white" />}
+                {/* Integration Grid */}
+                <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto">
+                  {[
+                    { name: 'Gmail', icon: Mail, color: 'from-red-500 to-red-600', desc: 'Email' },
+                    { name: 'Slack', icon: MessageSquare, color: 'from-purple-500 to-purple-600', desc: 'Chat' },
+                    { name: 'Discord', icon: Hash, color: 'from-indigo-500 to-indigo-600', desc: 'Chat' },
+                    { name: 'Notion', icon: FileText, color: 'from-gray-600 to-gray-700', desc: 'Docs' },
+                    { name: 'Calendar', icon: Calendar, color: 'from-blue-500 to-blue-600', desc: 'Events' },
+                    { name: 'Airtable', icon: Database, color: 'from-teal-500 to-teal-600', desc: 'Database' },
+                  ].map((integration, i) => {
+                    const isSlack = integration.name === 'Slack'
+                    const isConnected = isSlack && oauthStep === 'connected'
+                    const isClicking = isSlack && oauthStep === 'clicking'
+
+                    return (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className={`p-3 rounded-lg border transition-all ${
+                          isClicking ? 'scale-95' : ''
+                        } ${
+                          isConnected
+                            ? 'bg-green-50 dark:bg-green-500/10 border-green-300 dark:border-green-500/30'
+                            : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-8 h-8 bg-gradient-to-br ${integration.color} rounded-lg flex items-center justify-center`}>
+                            {React.createElement(integration.icon, { className: 'w-4 h-4 text-white' })}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">{app}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {app === 'Gmail' && 'Send and receive emails'}
-                              {app === 'Slack' && 'Team communication'}
-                              {app === 'Notion' && 'Notes and databases'}
-                            </p>
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-gray-900 dark:text-white">{integration.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{integration.desc}</p>
                           </div>
                         </div>
 
-                        {/* Connect Button Animation */}
-                        <AnimatePresence mode="wait">
-                          {i === 1 ? (
-                            <motion.div
-                              key="connected"
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              exit={{ scale: 0 }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-500/20 rounded-lg"
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                              <span className="text-xs font-medium text-green-700 dark:text-green-300">Connected</span>
-                            </motion.div>
-                          ) : (
-                            <motion.button
-                              key="connect"
-                              initial={{ scale: 0.9 }}
-                              animate={{ scale: 1 }}
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
-                            >
-                              Connect
-                            </motion.button>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* OAuth popup simulation for Slack */}
-                      {i === 1 && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          transition={{ delay: 0.5, type: "spring" }}
-                          className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-gray-200 dark:border-white/10 z-10"
-                        >
-                          <p className="text-xs font-medium text-gray-900 dark:text-white mb-2">Authorize Slack</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Allow ChainReact to access your workspace</p>
+                        {/* Connect/Connected Button */}
+                        {isConnected ? (
                           <motion.div
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                            className="w-full py-1.5 bg-green-500 text-white text-xs font-medium rounded text-center"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="flex items-center gap-1 justify-center py-1 bg-green-100 dark:bg-green-500/20 rounded text-xs"
                           >
-                            Authorizing...
+                            <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                            <span className="text-green-700 dark:text-green-300 font-medium">Connected</span>
                           </motion.div>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  ))}
+                        ) : (
+                          <button className={`w-full py-1 text-xs font-medium rounded transition-all ${
+                            isClicking
+                              ? 'bg-blue-700 text-white'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}>
+                            Connect
+                          </button>
+                        )}
+
+                        {/* Simulated cursor for Slack */}
+                        {isSlack && oauthStep === 'clicking' && (
+                          <motion.div
+                            initial={{ scale: 0, x: 20, y: 20 }}
+                            animate={{ scale: 1, x: 0, y: 0 }}
+                            className="absolute bottom-2 right-2 pointer-events-none"
+                          >
+                            <MousePointer className="w-4 h-4 text-gray-900 dark:text-white rotate-180" />
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    )
+                  })}
                 </div>
+
+                {/* OAuth Window Overlay */}
+                <AnimatePresence>
+                  {(oauthStep === 'oauth' || oauthStep === 'authorizing') && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/20 dark:bg-black/40 backdrop-blur-sm z-20 flex items-center justify-center"
+                    >
+                      <motion.div
+                        initial={{ scale: 0.8, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0.8, y: 20 }}
+                        transition={{ type: "spring", damping: 20 }}
+                        className="w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden"
+                      >
+                        {/* OAuth Header */}
+                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                              <MessageSquare className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-white font-semibold text-sm">Slack Authorization</p>
+                              <p className="text-white/80 text-xs">Sign in to continue</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* OAuth Body */}
+                        <div className="p-4">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                            ChainReact would like to:
+                          </p>
+                          <ul className="space-y-1 mb-4">
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="w-3 h-3 text-green-500" />
+                              <span className="text-xs text-gray-700 dark:text-gray-300">View workspace info</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="w-3 h-3 text-green-500" />
+                              <span className="text-xs text-gray-700 dark:text-gray-300">Send messages</span>
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <CheckCircle className="w-3 h-3 text-green-500" />
+                              <span className="text-xs text-gray-700 dark:text-gray-300">Read channels</span>
+                            </li>
+                          </ul>
+
+                          {/* Authorize Button */}
+                          <motion.button
+                            animate={oauthStep === 'authorizing' ? { scale: 0.95 } : { scale: 1 }}
+                            className={`w-full py-2 rounded-lg text-white font-medium text-sm transition-all ${
+                              oauthStep === 'authorizing'
+                                ? 'bg-green-600'
+                                : 'bg-purple-600 hover:bg-purple-700'
+                            }`}
+                          >
+                            {oauthStep === 'authorizing' ? (
+                              <span className="flex items-center justify-center gap-2">
+                                <motion.div
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                                />
+                                Authorizing...
+                              </span>
+                            ) : (
+                              'Authorize ChainReact'
+                            )}
+                          </motion.button>
+
+                          {/* Simulated cursor for clicking authorize */}
+                          {oauthStep === 'oauth' && (
+                            <motion.div
+                              initial={{ scale: 0, x: 50, y: 20 }}
+                              animate={{ scale: 1, x: 0, y: -10 }}
+                              transition={{ delay: 0.5 }}
+                              className="absolute bottom-8 right-1/2 translate-x-1/2 pointer-events-none"
+                            >
+                              <MousePointer className="w-4 h-4 text-gray-900 dark:text-white rotate-180" />
+                            </motion.div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 
