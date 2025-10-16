@@ -544,12 +544,12 @@ export function TemplateGallery() {
               </CardHeader>
 
               <CardContent className="mt-auto pt-0">
-                <div className="flex items-center justify-between pt-4 border-t">
+                <div className="flex flex-col gap-3 pt-4 border-t">
                   <div className="text-sm text-gray-500">
                     by ChainReact
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2">
                     {isAdmin && (
                       <Button
                         variant="outline"

@@ -18,70 +18,7 @@ import { useVariableDragContext } from './VariableDragContext'
 import { buildVariableReference } from '@/lib/workflows/variableInsertion'
 
 import { logger } from '@/lib/utils/logger'
-
-// Define relevant outputs for each node type
-const RELEVANT_OUTPUTS: Record<string, string[]> = {
-  // Discord Trigger - NOW PROVIDES FULL DATA
-  'discord_trigger_new_message': ['messageId', 'content', 'authorId', 'authorName', 'channelId', 'channelName', 'guildId', 'guildName', 'timestamp', 'attachments', 'mentions'],
-
-  // Discord Actions
-  'discord_action_send_message': ['messageId', 'content', 'channelName'],
-  'discord_action_add_reaction': ['success', 'messageId'],
-
-  // Gmail Actions
-  'gmail_action_send_email': ['messageId', 'subject'],
-  'gmail_action_reply_email': ['messageId', 'subject'],
-  'gmail_action_search_email': ['emails', 'count', 'from', 'subject', 'body', 'attachments'],
-  
-  // Explicitly hide trigger outputs since they don't provide real data
-  'gmail_trigger_new_email': [],
-  'slack_trigger_new_message': [],
-  'notion_trigger_new_page': [],
-  'github_trigger_new_issue': [],
-  'github_trigger_new_pr': [],
-  'hubspot_trigger_new_contact': [],
-  'google_calendar_trigger_new_event': [],
-  'outlook_trigger_new_email': [],
-  
-  // Slack Actions
-  'slack_action_send_message': ['messageId', 'text', 'channel'],
-  
-  // AI/OpenAI
-  'openai_action_chat_completion': ['response', 'usage'],
-  'ai_agent': ['output'],
-  'ai_message': ['output', 'structured_output'],
-  
-  // Notion Actions
-  'notion_action_create_page': ['pageId', 'title', 'url'],
-  'notion_action_update_page': ['pageId', 'title'],
-  
-  // GitHub Actions
-  'github_action_create_issue': ['issueId', 'title', 'url'],
-  
-  // Trello Actions
-  'trello_action_create_card': ['cardId', 'name', 'url'],
-  'trello_action_move_card': ['cardId', 'listName'],
-  
-  // HubSpot Actions
-  'hubspot_action_create_contact': ['contactId', 'email'],
-  
-  // Webhook (keeping webhook trigger as it DOES provide full data)
-  'webhook_trigger': ['body', 'headers', 'method'],
-  'webhook_action': ['response', 'statusCode'],
-  
-  // Google Sheets Actions
-  'google_sheets_action_add_row': ['rowId', 'values'],
-  'google_sheets_action_read_data': ['data', 'range'],
-  
-  // Google Calendar Actions
-  'google_calendar_action_create_event': ['eventId', 'htmlLink', 'start', 'end', 'meetLink'],
-  
-  // Microsoft/Outlook Actions
-  'outlook_action_send_email': ['messageId', 'subject'],
-  
-  // Default fallback - show first 3 outputs
-  'default': []
-}
+import { getActionOutputSchema, mergeSchemas, type OutputField } from '@/lib/workflows/actions/outputSchemaRegistry'
 
 const formatProviderName = (providerId?: string): string => {
   if (!providerId) return ''
@@ -125,6 +62,18 @@ export function VariablePickerSidePanel({
   const prevSearchTermRef = useRef("")
   const autoExpandedFromTestsRef = useRef(false)
   const { activeField, insertIntoActiveField } = useVariableDragContext()
+
+  // Access test store data FIRST (before callbacks that depend on it)
+  const {
+    testResults,
+    executionPath,
+    testTimestamp,
+    getNodeTestResult,
+    hasTestResults,
+    setTestResults,
+    clearTestResults
+  } = useWorkflowTestStore()
+
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
       return (
@@ -170,57 +119,53 @@ export function VariablePickerSidePanel({
     return ['output'];
   }, []);
 
-  // Function to filter outputs based on node type
-  const getRelevantOutputs = useCallback((nodeType: string, allOutputs: any[]) => {
+  // Function to get outputs based on node type and config using the new schema system
+  const getRelevantOutputs = useCallback((nodeType: string, nodeConfig: any, nodeId?: string) => {
     // Special context-aware filtering for AI agent nodes based on current action type
     if ((nodeType === 'ai_agent' || nodeType === 'ai_message') && currentNodeType) {
       const relevantAIOutputs = getRelevantAIAgentOutputs(currentNodeType);
-      const filteredOutputs = allOutputs.filter(output => relevantAIOutputs.includes(output.name));
-      
+      // Get static schema first
+      const staticSchema = getActionOutputSchema(nodeType, nodeConfig)
+      const filteredOutputs = staticSchema.filter(output => relevantAIOutputs.includes(output.name));
+
       logger.debug(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
         nodeType,
         currentNodeType,
         relevantAIOutputs,
-        originalOutputs: allOutputs.map(o => o.name),
+        originalOutputs: staticSchema.map(o => o.name),
         filteredOutputs: filteredOutputs.map(o => o.name)
       });
-      
+
       return filteredOutputs;
     }
-    
-    // Default filtering logic for other node types
-    const relevantOutputNames = RELEVANT_OUTPUTS[nodeType] || RELEVANT_OUTPUTS['default']
-    
-    if (relevantOutputNames.length === 0) {
-      // For unknown node types, show first 3 outputs
-      logger.debug(`📊 [VARIABLES] No specific outputs defined for ${nodeType}, showing first 3 of ${allOutputs.length}`)
-      return allOutputs.slice(0, 3)
+
+    // Get static schema from registry
+    const staticSchema = getActionOutputSchema(nodeType, nodeConfig)
+
+    // If we have test results for this node, merge runtime data
+    if (nodeId && testResults[nodeId]) {
+      const mergedSchema = mergeSchemas(staticSchema, testResults[nodeId])
+
+      logger.debug(`📊 [VARIABLES] Merged schema for ${nodeType}:`, {
+        nodeType,
+        staticFieldCount: staticSchema.length,
+        runtimeFieldCount: Object.keys(testResults[nodeId] || {}).length,
+        mergedFieldCount: mergedSchema.length,
+        staticFields: staticSchema.map(o => o.name),
+        mergedFields: mergedSchema.map(o => o.name)
+      })
+
+      return mergedSchema
     }
-    
-    // Filter outputs to only include relevant ones, maintaining order
-    const relevantOutputs = relevantOutputNames
-      .map(outputName => allOutputs.find(output => output.name === outputName))
-      .filter(Boolean)
-    
-    logger.debug(`📊 [VARIABLES] Filtered ${nodeType}: ${allOutputs.length} → ${relevantOutputs.length} outputs`, {
+
+    logger.debug(`📊 [VARIABLES] Using static schema for ${nodeType}:`, {
       nodeType,
-      relevantNames: relevantOutputNames,
-      filteredOutputs: relevantOutputs.map(o => o.name)
+      fieldCount: staticSchema.length,
+      fields: staticSchema.map(o => o.name)
     })
-    
-    return relevantOutputs
-  }, [currentNodeType, getRelevantAIAgentOutputs])
-  
-  // Access test store data
-  const { 
-    testResults, 
-    executionPath, 
-    testTimestamp,
-    getNodeTestResult, 
-    hasTestResults, 
-    setTestResults,
-    clearTestResults
-  } = useWorkflowTestStore()
+
+    return staticSchema
+  }, [currentNodeType, getRelevantAIAgentOutputs, testResults])
 
   // Get previous nodes from the workflow data based on edge connections
   const getPreviousNodes = (nodeId: string) => {
@@ -259,14 +204,11 @@ export function VariablePickerSidePanel({
   // Get available nodes from workflow data
   const nodes = useMemo(() => {
     const allNodes = workflowData?.nodes?.map((node: any) => {
-      // Get the node component definition to access outputSchema
+      // Get the node component definition (for providerId, title, etc.)
       const nodeComponent = ALL_NODE_COMPONENTS.find(comp => comp.type === node.data?.type)
-      
-      // Get outputs from the node component's outputSchema
-      const allOutputs = nodeComponent?.outputSchema || []
-      
-      // Filter outputs to show only relevant ones for this node type
-      const relevantOutputs = getRelevantOutputs(node.data?.type || '', allOutputs)
+
+      // Get outputs using the new schema system (which handles dynamic schemas based on config)
+      const relevantOutputs = getRelevantOutputs(node.data?.type || '', node.data?.config, node.id)
       
       const providerId = node.data?.providerId || nodeComponent?.providerId || ''
       const providerName = formatProviderName(providerId)
