@@ -99,28 +99,28 @@ export function IntegrationsShowcase() {
 
         {/* Scrolling Integration Cards */}
         <div className="relative">
-          {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-slate-950 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-slate-950 to-transparent z-10 pointer-events-none" />
+          {/* Stronger fade edges for better blending */}
+          <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent z-10 pointer-events-none" />
 
           {/* First Row - Scrolling Right */}
           <div className="mb-8 overflow-hidden">
             <motion.div
-              animate={{ x: ['0%', '-50%'] }}
+              initial={{ x: 0 }}
+              animate={{ x: "-33.33%" }}
               transition={{
                 x: {
                   repeat: Infinity,
-                  repeatType: 'loop',
-                  duration: 30,
+                  duration: 60,
                   ease: 'linear',
                 },
               }}
               className="flex gap-4"
             >
-              {[...integrations, ...integrations].map((integration, index) => (
+              {[...integrations, ...integrations, ...integrations].map((integration, index) => (
                 <div
                   key={`row1-${index}`}
-                  className="flex-shrink-0 w-48 h-24 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-3 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
+                  className="flex-shrink-0 w-48 h-24 bg-white/60 dark:bg-slate-900/20 backdrop-blur-sm rounded-2xl border border-gray-200/30 dark:border-white/5 flex items-center justify-center gap-3 hover:bg-white/80 dark:hover:bg-slate-900/40 hover:border-gray-300/50 dark:hover:border-white/10 transition-all"
                 >
                   <img
                     src={integration.logo}
@@ -139,21 +139,21 @@ export function IntegrationsShowcase() {
           {/* Second Row - Scrolling Left */}
           <div className="overflow-hidden">
             <motion.div
-              animate={{ x: ['-50%', '0%'] }}
+              initial={{ x: "-33.33%" }}
+              animate={{ x: 0 }}
               transition={{
                 x: {
                   repeat: Infinity,
-                  repeatType: 'loop',
-                  duration: 35,
+                  duration: 65,
                   ease: 'linear',
                 },
               }}
               className="flex gap-4"
             >
-              {[...integrations.slice(10), ...integrations.slice(0, 10), ...integrations.slice(10), ...integrations.slice(0, 10)].map((integration, index) => (
+              {[...integrations.slice(10), ...integrations.slice(0, 10), ...integrations.slice(10), ...integrations.slice(0, 10), ...integrations.slice(10)].map((integration, index) => (
                 <div
                   key={`row2-${index}`}
-                  className="flex-shrink-0 w-48 h-24 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-3 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
+                  className="flex-shrink-0 w-48 h-24 bg-white/60 dark:bg-slate-900/20 backdrop-blur-sm rounded-2xl border border-gray-200/30 dark:border-white/5 flex items-center justify-center gap-3 hover:bg-white/80 dark:hover:bg-slate-900/40 hover:border-gray-300/50 dark:hover:border-white/10 transition-all"
                 >
                   <img
                     src={integration.logo}
