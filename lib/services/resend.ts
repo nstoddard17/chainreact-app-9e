@@ -4,6 +4,7 @@ import WelcomeEmail from '../../emails/welcome'
 import PasswordResetEmail from '../../emails/password-reset'
 import BetaInvitationEmail from '../../emails/beta-invitation'
 import WaitlistWelcomeEmail from '../../emails/waitlist-welcome'
+import WaitlistInvitationEmail from '../../emails/waitlist-invitation'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -245,6 +246,42 @@ export async function sendWaitlistWelcomeEmail(
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending waitlist welcome email:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+/**
+ * Send waitlist member invitation to join the app
+ */
+export async function sendWaitlistInvitationEmail(
+  email: string,
+  name: string,
+  signupUrl: string
+) {
+  try {
+    const emailHtml = await render(WaitlistInvitationEmail({
+      email,
+      name,
+      signupUrl,
+    }))
+
+    const result = await resend.emails.send({
+      from: 'ChainReact <noreply@chainreact.app>',
+      to: email,
+      subject: '🎉 Your ChainReact Access is Ready!',
+      html: emailHtml,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'high',
+        'X-Mailer': 'ChainReact Waitlist',
+      },
+    })
+
+    logger.debug('Waitlist invitation email sent successfully:', result.data?.id)
+    return { success: true, id: result.data?.id }
+  } catch (error) {
+    logger.error('Error sending waitlist invitation email:', error)
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

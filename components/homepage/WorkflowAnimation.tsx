@@ -1,151 +1,201 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useEffect, useState, useRef } from 'react'
+import { motion, AnimatePresence, useAnimation } from 'framer-motion'
 import {
   Mail,
-  FileText,
-  Slack,
+  Sparkles,
   Database,
   Bell,
-  Sparkles,
-  Plus,
-  MousePointer,
-  Check,
-  Zap,
-  Calendar,
   Globe,
+  Zap,
   MessageSquare,
-  Users
+  FileText,
+  Users,
+  Calendar,
+  Shield,
+  Activity
 } from 'lucide-react'
 
-const nodeTypes = [
-  { id: 'trigger', icon: Mail, label: 'Email Trigger', color: 'from-blue-500 to-blue-600', type: 'trigger' },
-  { id: 'action1', icon: Sparkles, label: 'AI Process', color: 'from-purple-500 to-purple-600', type: 'action' },
-  { id: 'action2', icon: Database, label: 'Save Data', color: 'from-green-500 to-green-600', type: 'action' },
-  { id: 'action3', icon: Slack, label: 'Send to Slack', color: 'from-pink-500 to-pink-600', type: 'action' }
-]
-
-const availableNodes = [
-  { icon: Mail, label: 'Email', color: 'from-blue-500 to-blue-600' },
-  { icon: Calendar, label: 'Calendar', color: 'from-orange-500 to-orange-600' },
-  { icon: Globe, label: 'Webhook', color: 'from-cyan-500 to-cyan-600' },
-  { icon: MessageSquare, label: 'Discord', color: 'from-indigo-500 to-indigo-600' },
-  { icon: Users, label: 'Teams', color: 'from-purple-500 to-purple-600' },
-  { icon: FileText, label: 'Notion', color: 'from-gray-500 to-gray-600' },
-]
-
-interface WorkflowNode {
+interface Node {
   id: string
   x: number
   y: number
   icon: any
   label: string
   color: string
-  placed: boolean
+  delay: number
 }
 
+interface Connection {
+  from: string
+  to: string
+  delay: number
+}
+
+interface Particle {
+  id: number
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+}
+
+const nodes: Node[] = [
+  { id: 'trigger', x: 150, y: 200, icon: Mail, label: 'New Email', color: 'from-blue-500 to-cyan-500', delay: 0.5 },
+  { id: 'ai', x: 400, y: 150, icon: Sparkles, label: 'AI Analysis', color: 'from-purple-500 to-pink-500', delay: 1 },
+  { id: 'condition', x: 400, y: 250, icon: Shield, label: 'Filter Spam', color: 'from-orange-500 to-red-500', delay: 1.2 },
+  { id: 'database', x: 650, y: 100, icon: Database, label: 'Store Data', color: 'from-green-500 to-emerald-500', delay: 1.5 },
+  { id: 'slack', x: 650, y: 200, icon: MessageSquare, label: 'Slack Alert', color: 'from-indigo-500 to-purple-500', delay: 1.7 },
+  { id: 'webhook', x: 650, y: 300, icon: Globe, label: 'Webhook', color: 'from-cyan-500 to-blue-500', delay: 1.9 },
+  { id: 'complete', x: 900, y: 200, icon: Activity, label: 'Complete', color: 'from-green-500 to-teal-500', delay: 2.2 }
+]
+
+const connections: Connection[] = [
+  { from: 'trigger', to: 'ai', delay: 0.8 },
+  { from: 'trigger', to: 'condition', delay: 1 },
+  { from: 'ai', to: 'database', delay: 1.3 },
+  { from: 'ai', to: 'slack', delay: 1.5 },
+  { from: 'condition', to: 'webhook', delay: 1.7 },
+  { from: 'database', to: 'complete', delay: 2 },
+  { from: 'slack', to: 'complete', delay: 2.1 },
+  { from: 'webhook', to: 'complete', delay: 2.2 }
+]
+
 export function WorkflowAnimation() {
-  const [currentStep, setCurrentStep] = useState(0)
-  const [nodes, setNodes] = useState<WorkflowNode[]>([])
-  const [connections, setConnections] = useState<Array<{from: number, to: number}>>([])
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [showPulse, setShowPulse] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+  const [particles, setParticles] = useState<Particle[]>([])
+  const [activeConnections, setActiveConnections] = useState<string[]>([])
+  const [showDataFlow, setShowDataFlow] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animationFrameRef = useRef<number>()
 
-  const steps = [
-    { action: 'palette', description: 'Choose from 20+ integrations' },
-    { action: 'drag', description: 'Drag Email trigger to canvas' },
-    { action: 'place', description: 'Place your trigger node' },
-    { action: 'connect1', description: 'Add AI processing action' },
-    { action: 'connect2', description: 'Save processed data' },
-    { action: 'connect3', description: 'Notify your team' },
-    { action: 'flow', description: 'Watch your workflow run!' }
-  ]
-
+  // Generate particles
   useEffect(() => {
-    if (!isPlaying) return
-
-    const executeStep = () => {
-      if (currentStep === 0) {
-        // Show palette
-        setNodes([])
-        setConnections([])
-        setShowPulse(false)
-      } else if (currentStep === 1) {
-        // Start dragging
-        setNodes([{
-          id: 'trigger',
-          x: 100,
-          y: 150,
-          icon: Mail,
-          label: 'Email Trigger',
-          color: 'from-blue-500 to-blue-600',
-          placed: false
-        }])
-      } else if (currentStep === 2) {
-        // Place trigger
-        setNodes([{
-          id: 'trigger',
-          x: 200,
-          y: 150,
-          icon: Mail,
-          label: 'Email Trigger',
-          color: 'from-blue-500 to-blue-600',
-          placed: true
-        }])
-      } else if (currentStep === 3) {
-        // Add AI node
-        setNodes(prev => [...prev, {
-          id: 'ai',
-          x: 400,
-          y: 150,
-          icon: Sparkles,
-          label: 'AI Process',
-          color: 'from-purple-500 to-purple-600',
-          placed: true
-        }])
-        setConnections([{ from: 0, to: 1 }])
-      } else if (currentStep === 4) {
-        // Add Database node
-        setNodes(prev => [...prev, {
-          id: 'db',
-          x: 600,
-          y: 150,
-          icon: Database,
-          label: 'Save Data',
-          color: 'from-green-500 to-green-600',
-          placed: true
-        }])
-        setConnections(prev => [...prev, { from: 1, to: 2 }])
-      } else if (currentStep === 5) {
-        // Add Slack node
-        setNodes(prev => [...prev, {
-          id: 'slack',
-          x: 800,
-          y: 150,
-          icon: Slack,
-          label: 'Send to Slack',
-          color: 'from-pink-500 to-pink-600',
-          placed: true
-        }])
-        setConnections(prev => [...prev, { from: 2, to: 3 }])
-      } else if (currentStep === 6) {
-        // Show data flow
-        setShowPulse(true)
+    const interval = setInterval(() => {
+      if (isVisible) {
+        setParticles(prev => {
+          const newParticles = [...prev]
+          // Add new particles
+          for (let i = 0; i < 2; i++) {
+            newParticles.push({
+              id: Date.now() + i,
+              x: Math.random() * (canvasRef.current?.width || 1000),
+              y: Math.random() * (canvasRef.current?.height || 400),
+              vx: (Math.random() - 0.5) * 0.5,
+              vy: (Math.random() - 0.5) * 0.5,
+              life: 100
+            })
+          }
+          // Update and filter particles
+          return newParticles
+            .map(p => ({
+              ...p,
+              x: p.x + p.vx,
+              y: p.y + p.vy,
+              life: p.life - 1
+            }))
+            .filter(p => p.life > 0)
+            .slice(-50) // Keep max 50 particles
+        })
       }
-    }
+    }, 100)
 
-    executeStep()
+    return () => clearInterval(interval)
+  }, [isVisible])
 
-    const timer = setTimeout(() => {
-      setCurrentStep((prev) => (prev + 1) % steps.length)
+  // Animation sequence
+  useEffect(() => {
+    if (!isVisible) return
+
+    // Reset state
+    setActiveConnections([])
+    setShowDataFlow(false)
+
+    // Animate connections
+    connections.forEach((conn) => {
+      setTimeout(() => {
+        setActiveConnections(prev => [...prev, `${conn.from}-${conn.to}`])
+      }, conn.delay * 1000)
+    })
+
+    // Show data flow
+    setTimeout(() => {
+      setShowDataFlow(true)
     }, 2500)
 
-    return () => clearTimeout(timer)
-  }, [currentStep, isPlaying, steps.length])
+    // Reset animation
+    const resetTimer = setTimeout(() => {
+      setIsVisible(false)
+      setTimeout(() => setIsVisible(true), 100)
+    }, 8000)
+
+    return () => clearTimeout(resetTimer)
+  }, [isVisible])
+
+  // Observer for viewport visibility
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isVisible) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.3 }
+    )
+
+    const element = document.getElementById('workflow-animation')
+    if (element) observer.observe(element)
+
+    return () => {
+      if (element) observer.unobserve(element)
+    }
+  }, [isVisible])
+
+  // Draw particles on canvas
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const render = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // Draw particles
+      particles.forEach(particle => {
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, 1, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(147, 197, 253, ${particle.life / 100})`
+        ctx.fill()
+      })
+
+      animationFrameRef.current = requestAnimationFrame(render)
+    }
+
+    render()
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [particles])
+
+  const getPath = (from: Node, to: Node) => {
+    const dx = to.x - from.x
+    const dy = to.y - from.y
+    const mx = from.x + dx / 2
+    const my = from.y + dy / 2
+
+    // Create a curved path
+    return `M ${from.x + 50} ${from.y} Q ${mx} ${my - 30} ${to.x - 50} ${to.y}`
+  }
 
   return (
-    <section id="workflow-demo" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20">
+    <section id="workflow-animation" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <motion.div
@@ -154,253 +204,210 @@ export function WorkflowAnimation() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Build Workflows Visually
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20 mb-6">
+              <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Intelligent Automation</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+              Watch Your Workflows Come to Life
             </h2>
-            <p className="text-lg text-white/70 max-w-2xl mx-auto">
-              Drag, drop, and connect. No code required. Watch how easy it is to automate your work.
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Complex automations built in seconds. See how ChainReact orchestrates multiple services seamlessly.
             </p>
           </motion.div>
         </div>
 
-        <div className="relative bg-slate-900/50 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden">
-          {/* Top Bar */}
-          <div className="bg-slate-800/50 px-6 py-3 border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              <span className="ml-3 text-white/60 text-sm">Workflow Builder</span>
+        <div className="relative">
+          {/* Main container with glassmorphism */}
+          <div className="relative bg-white/80 dark:bg-slate-900/30 backdrop-blur-2xl rounded-3xl border border-gray-200 dark:border-white/10 p-8 overflow-hidden">
+            {/* Glow effects */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-20 animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500 rounded-full filter blur-[128px] opacity-20 animate-pulse [animation-delay:1s]"></div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsPlaying(!isPlaying)}
-                className="px-3 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-300 hover:bg-blue-500/20 transition-colors text-sm"
-              >
-                {isPlaying ? 'Pause' : 'Play'}
-              </button>
-              <div className="flex gap-1 items-center">
-                {steps.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setCurrentStep(index)
-                      setIsPlaying(false)
-                    }}
-                    className={`w-1.5 h-1.5 rounded-full transition-all ${
-                      currentStep === index
-                        ? 'w-6 bg-blue-500'
-                        : 'bg-white/20 hover:bg-white/30'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {/* Main Canvas Area */}
-          <div className="flex h-96">
-            {/* Sidebar Palette */}
-            <motion.div
-              initial={{ x: -100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              className="w-20 bg-slate-800/30 border-r border-white/10 p-3 space-y-3"
+            {/* Canvas for particles */}
+            <canvas
+              ref={canvasRef}
+              width={1000}
+              height={400}
+              className="absolute inset-0 pointer-events-none"
+            />
+
+            {/* SVG for connections */}
+            <svg
+              className="absolute inset-0 pointer-events-none"
+              width="100%"
+              height="400"
+              style={{ zIndex: 1 }}
             >
-              <div className="text-xs text-white/40 font-semibold mb-2 text-center">Nodes</div>
-              {availableNodes.slice(0, 4).map((node, i) => (
+              <defs>
+                <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                  <stop offset="50%" stopColor="#a855f7" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#ec4899" stopOpacity="0.2" />
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                  <feMerge>
+                    <feMergeNode in="coloredBlur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Draw connections */}
+              {connections.map((conn) => {
+                const from = nodes.find(n => n.id === conn.from)
+                const to = nodes.find(n => n.id === conn.to)
+                if (!from || !to) return null
+
+                const isActive = activeConnections.includes(`${conn.from}-${conn.to}`)
+
+                return (
+                  <g key={`${conn.from}-${conn.to}`}>
+                    {/* Connection line */}
+                    <motion.path
+                      d={getPath(from, to)}
+                      stroke="url(#connectionGradient)"
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={isActive ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
+                      transition={{ duration: 0.5, ease: "easeInOut" }}
+                      filter="url(#glow)"
+                    />
+
+                    {/* Data flow particles */}
+                    {showDataFlow && isActive && (
+                      <circle
+                        r="3"
+                        fill="#fff"
+                        filter="url(#glow)"
+                      >
+                        <animateMotion
+                          dur="2s"
+                          repeatCount="indefinite"
+                          path={getPath(from, to)}
+                        />
+                      </circle>
+                    )}
+                  </g>
+                )
+              })}
+            </svg>
+
+            {/* Nodes */}
+            <div className="relative" style={{ height: '400px', zIndex: 2 }}>
+              {nodes.map((node) => (
                 <motion.div
-                  key={i}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ scale: 1.1 }}
-                  className={`w-14 h-14 rounded-xl bg-gradient-to-br ${node.color} p-3 cursor-pointer shadow-lg hover:shadow-xl transition-all ${
-                    currentStep === 1 && i === 0 ? 'ring-2 ring-white ring-opacity-50' : ''
-                  }`}
+                  key={node.id}
+                  className="absolute"
+                  style={{ left: node.x - 50, top: node.y - 32 }}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={isVisible ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+                  transition={{
+                    duration: 0.5,
+                    delay: node.delay,
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 20
+                  }}
                 >
-                  {React.createElement(node.icon, {
-                    className: 'w-full h-full text-white',
-                  })}
-                </motion.div>
-              ))}
-              <div className="pt-2 border-t border-white/10">
-                <Plus className="w-8 h-8 text-white/20 mx-auto" />
-              </div>
-            </motion.div>
-
-            {/* Canvas */}
-            <div className="flex-1 relative p-8">
-              {/* Grid Background */}
-              <div className="absolute inset-0 opacity-10">
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1"/>
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-
-              {/* Dragging Cursor */}
-              {currentStep === 1 && (
-                <motion.div
-                  initial={{ x: 20, y: 20 }}
-                  animate={{ x: 180, y: 130 }}
-                  transition={{ duration: 1.5, ease: "easeInOut" }}
-                  className="absolute z-50 pointer-events-none"
-                >
-                  <MousePointer className="w-6 h-6 text-white -rotate-12" />
                   <motion.div
-                    className="absolute -top-12 -left-12 w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-3 shadow-2xl"
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity }}
+                    whileHover={{ scale: 1.1 }}
+                    className="relative"
                   >
-                    <Mail className="w-full h-full text-white" />
-                  </motion.div>
-                </motion.div>
-              )}
+                    {/* Node glow effect */}
+                    <motion.div
+                      className={`absolute inset-0 bg-gradient-to-br ${node.color} rounded-2xl blur-xl`}
+                      animate={{
+                        opacity: showDataFlow ? [0.3, 0.6, 0.3] : 0.3
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
 
-              {/* Connections */}
-              <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-                {connections.map((conn, idx) => {
-                  const fromNode = nodes[conn.from]
-                  const toNode = nodes[conn.to]
-                  if (!fromNode || !toNode) return null
-
-                  return (
-                    <g key={idx}>
-                      <motion.path
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.5 }}
-                        d={`M ${fromNode.x + 60} ${fromNode.y + 30} L ${toNode.x} ${toNode.y + 30}`}
-                        stroke="url(#gradient)"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                      {showPulse && (
-                        <motion.circle
-                          r="4"
-                          fill="white"
-                          animate={{
-                            offsetDistance: ['0%', '100%'],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            ease: "linear",
-                            delay: idx * 0.5
-                          }}
-                        >
-                          <animateMotion
-                            dur="1.5s"
-                            repeatCount="indefinite"
-                            path={`M ${fromNode.x + 60} ${fromNode.y + 30} L ${toNode.x} ${toNode.y + 30}`}
-                          />
-                        </motion.circle>
-                      )}
-                    </g>
-                  )
-                })}
-                <defs>
-                  <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#ec4899" />
-                  </linearGradient>
-                </defs>
-              </svg>
-
-              {/* Nodes */}
-              <AnimatePresence>
-                {nodes.map((node, idx) => (
-                  <motion.div
-                    key={node.id}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{
-                      scale: node.placed ? 1 : 0.8,
-                      opacity: 1,
-                      x: node.x,
-                      y: node.y
-                    }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 20
-                    }}
-                    className="absolute"
-                    style={{ zIndex: 2 }}
-                  >
-                    <div className={`relative w-28 h-16 rounded-xl bg-gradient-to-br ${node.color} p-3 shadow-xl ${
-                      showPulse ? 'animate-pulse' : ''
-                    }`}>
-                      {node.placed && (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ delay: 0.2 }}
-                          className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
-                        >
-                          <Check className="w-3 h-3 text-white" />
-                        </motion.div>
-                      )}
-                      <div className="flex flex-col items-center justify-center h-full">
+                    {/* Node content */}
+                    <div className={`relative bg-gradient-to-br ${node.color} rounded-2xl p-4 shadow-2xl border border-white/10`}>
+                      <div className="flex flex-col items-center gap-2">
                         {React.createElement(node.icon, {
-                          className: 'w-6 h-6 text-white mb-1',
+                          className: 'w-6 h-6 text-white'
                         })}
-                        <span className="text-[9px] text-white/90 font-medium text-center leading-tight">
+                        <span className="text-xs text-white font-semibold whitespace-nowrap">
                           {node.label}
                         </span>
                       </div>
+
+                      {/* Success indicator */}
+                      {showDataFlow && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: node.delay + 2 }}
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
+                        >
+                          <Zap className="w-3 h-3 text-white" />
+                        </motion.div>
+                      )}
                     </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Status Bar */}
-          <div className="bg-slate-800/50 px-6 py-4 border-t border-white/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${showPulse ? 'bg-green-400' : 'bg-yellow-400'} animate-pulse`}></div>
-                <span className="text-sm text-white/60">
-                  {steps[currentStep].description}
-                </span>
-              </div>
-              {showPulse && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20"
-                >
-                  <Zap className="w-4 h-4 text-green-400" />
-                  <span className="text-xs text-green-300 font-medium">Workflow Active</span>
                 </motion.div>
-              )}
+              ))}
             </div>
+
+            {/* Status indicator */}
+            <div className="absolute bottom-4 left-4 flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${showDataFlow ? 'bg-green-500 dark:bg-green-400' : 'bg-yellow-500 dark:bg-yellow-400'} animate-pulse`}></div>
+              <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                {showDataFlow ? 'Workflow running...' : 'Building workflow...'}
+              </span>
+            </div>
+
+            {/* Execution counter */}
+            {showDataFlow && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 3 }}
+                className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20"
+              >
+                <Activity className="w-4 h-4 text-green-400" />
+                <span className="text-xs text-green-300 font-medium">
+                  247 executions today
+                </span>
+              </motion.div>
+            )}
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Feature highlights */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-12">
           {[
-            { label: 'Setup Time', value: '< 2 min', desc: 'Average workflow creation' },
-            { label: 'No Code', value: '100%', desc: 'Visual builder only' },
-            { label: 'Templates', value: '50+', desc: 'Pre-built workflows' },
-          ].map((stat, index) => (
+            { icon: Zap, label: 'Lightning Fast', desc: 'Execute in milliseconds' },
+            { icon: Shield, label: 'Reliable', desc: '99.9% uptime guaranteed' },
+            { icon: Globe, label: 'Scalable', desc: 'From 1 to 1M+ events' }
+          ].map((feature, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 text-center"
+              className="bg-white dark:bg-slate-800/40 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/20 p-6 text-center hover:shadow-lg dark:hover:bg-slate-800/60 transition-all"
             >
-              <div className="text-3xl font-bold text-white mb-1">{stat.value}</div>
-              <div className="text-sm text-white/60 font-medium">{stat.label}</div>
-              <div className="text-xs text-white/40 mt-1">{stat.desc}</div>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-500 dark:to-purple-500 p-2.5 border border-blue-200 dark:border-transparent">
+                <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 p-1.5 flex items-center justify-center">
+                  {React.createElement(feature.icon, {
+                    className: 'w-full h-full text-white'
+                  })}
+                </div>
+              </div>
+              <div className="text-gray-900 dark:text-white font-bold mb-1">{feature.label}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">{feature.desc}</div>
             </motion.div>
           ))}
         </div>

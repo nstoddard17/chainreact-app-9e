@@ -3,31 +3,77 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { Link2, Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { useTheme } from 'next-themes'
 
+// Only show integrations that are actually available on the integrations page
 const integrations = [
-  { name: 'Gmail', logo: '📧', color: 'from-red-500 to-red-600' },
-  { name: 'Slack', logo: '💬', color: 'from-purple-500 to-purple-600' },
-  { name: 'Discord', logo: '🎮', color: 'from-indigo-500 to-indigo-600' },
-  { name: 'Notion', logo: '📝', color: 'from-gray-600 to-gray-700' },
-  { name: 'Google Drive', logo: '📁', color: 'from-blue-500 to-blue-600' },
-  { name: 'Trello', logo: '📋', color: 'from-blue-400 to-blue-500' },
-  { name: 'Airtable', logo: '📊', color: 'from-yellow-500 to-yellow-600' },
-  { name: 'Stripe', logo: '💳', color: 'from-purple-600 to-indigo-600' },
-  { name: 'HubSpot', logo: '🎯', color: 'from-orange-500 to-orange-600' },
-  { name: 'Shopify', logo: '🛍️', color: 'from-green-500 to-green-600' },
-  { name: 'Twitter', logo: '🐦', color: 'from-sky-400 to-sky-500' },
-  { name: 'LinkedIn', logo: '💼', color: 'from-blue-700 to-blue-800' },
-  { name: 'Instagram', logo: '📷', color: 'from-pink-500 to-purple-500' },
-  { name: 'Facebook', logo: '👥', color: 'from-blue-600 to-blue-700' },
-  { name: 'Microsoft Teams', logo: '👨‍💼', color: 'from-indigo-600 to-purple-600' },
-  { name: 'OneDrive', logo: '☁️', color: 'from-blue-500 to-sky-500' },
-  { name: 'Outlook', logo: '📮', color: 'from-blue-600 to-cyan-600' },
-  { name: 'Jira', logo: '🎫', color: 'from-blue-500 to-blue-600' },
-  { name: 'GitHub', logo: '🐙', color: 'from-gray-700 to-gray-900' },
-  { name: 'Zoom', logo: '📹', color: 'from-blue-500 to-blue-600' },
+  // Google Services
+  { name: 'Gmail', providerId: 'gmail', logo: '/integrations/gmail.svg' },
+  { name: 'Google Calendar', providerId: 'google-calendar', logo: '/integrations/google-calendar.svg' },
+  { name: 'Google Drive', providerId: 'google-drive', logo: '/integrations/google-drive.svg' },
+  { name: 'Google Sheets', providerId: 'google-sheets', logo: '/integrations/google-sheets.svg' },
+  { name: 'Google Docs', providerId: 'google-docs', logo: '/integrations/google-docs.svg' },
+
+  // Microsoft Services
+  { name: 'Microsoft Teams', providerId: 'teams', logo: '/integrations/teams.svg' },
+  { name: 'OneDrive', providerId: 'onedrive', logo: '/integrations/onedrive.svg' },
+  { name: 'Outlook', providerId: 'microsoft-outlook', logo: '/integrations/microsoft-outlook.svg' },
+  { name: 'OneNote', providerId: 'microsoft-onenote', logo: '/integrations/microsoft-onenote.svg' },
+
+  // Communication
+  { name: 'Slack', providerId: 'slack', logo: '/integrations/slack.svg' },
+  { name: 'Discord', providerId: 'discord', logo: '/integrations/discord.svg' },
+
+  // Social Media
+  { name: 'X (Twitter)', providerId: 'x', logo: '/integrations/x.svg' },
+  { name: 'Facebook', providerId: 'facebook', logo: '/integrations/facebook.svg' },
+
+  // Productivity & Development
+  { name: 'GitHub', providerId: 'github', logo: '/integrations/github.svg' },
+  { name: 'Notion', providerId: 'notion', logo: '/integrations/notion.svg' },
+  { name: 'Trello', providerId: 'trello', logo: '/integrations/trello.svg' },
+
+  // Business & CRM
+  { name: 'HubSpot', providerId: 'hubspot', logo: '/integrations/hubspot.svg' },
+  { name: 'Airtable', providerId: 'airtable', logo: '/integrations/airtable.svg' },
+  { name: 'Mailchimp', providerId: 'mailchimp', logo: '/integrations/mailchimp.svg' },
+
+  // E-commerce & Payments
+  { name: 'Stripe', providerId: 'stripe', logo: '/integrations/stripe.svg' },
+
+  // Storage
+  { name: 'Dropbox', providerId: 'dropbox', logo: '/integrations/dropbox.svg' },
 ]
 
 export function IntegrationsShowcase() {
+  const { theme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const needsInvert = (providerId: string) => {
+    // Only invert truly monochrome white logos
+    // Don't invert: multi-color logos (notion), already colored logos (outlook, onenote), complex logos (google-docs)
+    const whiteLogs = ['airtable', 'github', 'x']
+    return whiteLogs.includes(providerId)
+  }
+
+  const getLogoStyle = (providerId: string) => {
+    if (!mounted) return {}
+
+    if (needsInvert(providerId)) {
+      // In light mode, make white logos black
+      // In dark mode, keep them white
+      return {
+        filter: theme === 'dark' ? undefined : 'brightness(0) saturate(100%)'
+      }
+    }
+    return {}
+  }
+
   return (
     <section id="integrations" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32 overflow-hidden">
       <div className="max-w-7xl mx-auto">
@@ -38,14 +84,14 @@ export function IntegrationsShowcase() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20 mb-6">
-              <Link2 className="w-4 h-4 text-green-400" />
-              <span className="text-sm font-semibold text-green-300">Integrations</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 mb-6">
+              <Link2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm font-semibold text-green-700 dark:text-green-300">Integrations</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Connect All Your Tools
             </h2>
-            <p className="text-lg text-white/70 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Seamlessly integrate with 20+ popular apps and services. More added every month.
             </p>
           </motion.div>
@@ -74,10 +120,15 @@ export function IntegrationsShowcase() {
               {[...integrations, ...integrations].map((integration, index) => (
                 <div
                   key={`row1-${index}`}
-                  className="flex-shrink-0 w-48 h-24 bg-slate-900/50 backdrop-blur-xl rounded-xl border border-white/10 flex items-center justify-center gap-3 hover:border-white/20 transition-colors"
+                  className="flex-shrink-0 w-48 h-24 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-3 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
                 >
-                  <div className={`text-3xl`}>{integration.logo}</div>
-                  <span className="text-white/80 font-medium text-sm">
+                  <img
+                    src={integration.logo}
+                    alt={`${integration.name} logo`}
+                    className="w-8 h-8 object-contain"
+                    style={getLogoStyle(integration.providerId)}
+                  />
+                  <span className="text-gray-900 dark:text-white font-medium text-sm">
                     {integration.name}
                   </span>
                 </div>
@@ -102,10 +153,15 @@ export function IntegrationsShowcase() {
               {[...integrations.slice(10), ...integrations.slice(0, 10), ...integrations.slice(10), ...integrations.slice(0, 10)].map((integration, index) => (
                 <div
                   key={`row2-${index}`}
-                  className="flex-shrink-0 w-48 h-24 bg-slate-900/50 backdrop-blur-xl rounded-xl border border-white/10 flex items-center justify-center gap-3 hover:border-white/20 transition-colors"
+                  className="flex-shrink-0 w-48 h-24 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-xl border border-gray-200 dark:border-white/10 flex items-center justify-center gap-3 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
                 >
-                  <div className={`text-3xl`}>{integration.logo}</div>
-                  <span className="text-white/80 font-medium text-sm">
+                  <img
+                    src={integration.logo}
+                    alt={`${integration.name} logo`}
+                    className="w-8 h-8 object-contain"
+                    style={getLogoStyle(integration.providerId)}
+                  />
+                  <span className="text-gray-900 dark:text-white font-medium text-sm">
                     {integration.name}
                   </span>
                 </div>
@@ -128,13 +184,17 @@ export function IntegrationsShowcase() {
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div className="text-left">
-                <h3 className="text-white font-semibold">Custom Integration?</h3>
-                <p className="text-white/60 text-sm">Use our API or request a new integration</p>
+                <h3 className="text-gray-900 dark:text-white font-semibold">Custom Integration?</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Use our API or request a new integration</p>
               </div>
             </div>
-            <button className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-medium transition-colors">
+            {/* Learn More button - links to API documentation page */}
+            <Link
+              href="/api-docs"
+              className="inline-block px-6 py-2 bg-gray-900/10 dark:bg-white/10 hover:bg-gray-900/20 dark:hover:bg-white/20 rounded-lg text-gray-900 dark:text-white font-medium transition-colors"
+            >
               Learn More
-            </button>
+            </Link>
           </div>
         </motion.div>
       </div>

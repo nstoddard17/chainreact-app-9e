@@ -11,7 +11,7 @@ export function HeroSection() {
 
   return (
     <>
-      <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+      <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32 bg-transparent">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             {/* Badge */}
@@ -19,10 +19,10 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 mb-8"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20 mb-8"
             >
-              <Sparkles className="w-4 h-4 text-blue-400" />
-              <span className="text-sm font-semibold text-blue-300">
+              <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
                 AI-Powered Workflow Automation
               </span>
             </motion.div>
@@ -32,11 +32,11 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white mb-6"
+              className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 text-gray-900 dark:text-white"
             >
               Automate Your Work
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-blue-600 dark:from-blue-400 via-purple-600 dark:via-purple-400 to-pink-600 dark:to-pink-400 bg-clip-text text-transparent">
                 Like Magic
               </span>
             </motion.h1>
@@ -46,7 +46,7 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-xl text-white/70 max-w-3xl mx-auto mb-10"
+              className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-10"
             >
               Connect your favorite apps, design powerful workflows visually, and let AI handle the rest.
               No coding required. Just drag, drop, and watch your productivity soar.
@@ -71,11 +71,11 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl group"
+                className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/10 px-8 py-6 text-lg rounded-xl group"
               >
                 <Play className="w-5 h-5 mr-2" />
                 Watch Demo
-                <span className="ml-2 text-white/60">2 min</span>
+                <span className="ml-2 text-gray-500 dark:text-gray-300">2 min</span>
               </Button>
             </motion.div>
 
@@ -84,7 +84,7 @@ export function HeroSection() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-white/60"
+              className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-gray-600 dark:text-gray-300"
             >
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2">
@@ -103,19 +103,19 @@ export function HeroSection() {
                   ))}
                 </div>
                 <span className="text-sm">
-                  <strong className="text-white">500+</strong> early adopters
+                  <strong className="text-gray-900 dark:text-white">500+</strong> early adopters
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-sm">
-                  <strong className="text-white">20+</strong> integrations ready
+                  <strong className="text-gray-900 dark:text-white">20+</strong> integrations ready
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-yellow-400" />
+                <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
                 <span className="text-sm">
-                  <strong className="text-white">10x</strong> faster workflows
+                  <strong className="text-gray-900 dark:text-white">10x</strong> faster workflows
                 </span>
               </div>
             </motion.div>

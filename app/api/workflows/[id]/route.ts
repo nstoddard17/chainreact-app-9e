@@ -209,20 +209,63 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
-    const { data, error } = await serviceClient
-      .from("workflows")
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString() // Ensure updated_at is set
-      })
-      .eq("id", resolvedParams.id)
-      .select()
-      .single()
-
-    if (error) {
-      logger.error('❌ [Workflow API] Update error:', error)
-      return errorResponse(error.message , 500)
+    const updatedAtIso = new Date().toISOString()
+    const includesValidationState = Object.prototype.hasOwnProperty.call(updateData, 'validationState')
+    const baseUpdatePayload = {
+      ...updateData,
+      updated_at: updatedAtIso
     }
+
+    const performUpdate = async (payload: Record<string, any>) => {
+      return serviceClient
+        .from("workflows")
+        .update(payload)
+        .eq("id", resolvedParams.id)
+        .select()
+        .single()
+    }
+
+    let updateResult = await performUpdate(baseUpdatePayload)
+
+    if (updateResult.error?.code === 'PGRST204' && includesValidationState) {
+      logger.warn('⚠️ [Workflow API] validationState column missing in schema cache - retrying without it')
+      const fallbackPayload = { ...baseUpdatePayload }
+      delete fallbackPayload.validationState
+
+      updateResult = await performUpdate(fallbackPayload)
+
+      if (!updateResult.error && updateResult.data) {
+        updateResult = {
+          ...updateResult,
+          data: {
+            ...updateResult.data,
+            validationState: updateData.validationState
+          }
+        }
+        logger.warn('⚠️ [Workflow API] validationState not persisted to database; returning request value for client state')
+      }
+    } else if (
+      !updateResult.error &&
+      includesValidationState &&
+      updateResult.data &&
+      typeof updateResult.data === 'object' &&
+      !Object.prototype.hasOwnProperty.call(updateResult.data, 'validationState')
+    ) {
+      updateResult = {
+        ...updateResult,
+        data: {
+          ...updateResult.data,
+          validationState: updateData.validationState
+        }
+      }
+    }
+
+    if (updateResult.error) {
+      logger.error('❌ [Workflow API] Update error:', updateResult.error)
+      return errorResponse(updateResult.error.message , 500)
+    }
+
+    const data = updateResult.data
 
     logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
 
@@ -539,7 +582,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const { data: rolledBackWorkflow } = await serviceClient
             .from('workflows')
             .update({
-              status: 'paused',
+              status: 'inactive',
               updated_at: new Date().toISOString()
             })
             .eq('id', data.id)
@@ -563,7 +606,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const { data: rolledBackWorkflow } = await serviceClient
           .from('workflows')
           .update({
-            status: 'paused',
+            status: 'inactive',
             updated_at: new Date().toISOString()
           })
           .eq('id', data.id)
@@ -586,7 +629,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (shouldUnregisterWebhooks) {
-      logger.debug('🔗 Workflow deactivated/paused - unregistering all trigger resources')
+      logger.debug('🔗 Workflow deactivated/inactive - unregistering all trigger resources')
 
       try {
         // Deactivate lifecycle-managed triggers (Microsoft Graph, etc.)

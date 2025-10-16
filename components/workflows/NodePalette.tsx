@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { isComponentAvailable } from "@/lib/integrations/integrationScopes"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search } from "lucide-react"
+import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 const Node = ({ component, available }: { component: NodeComponent; available: boolean }) => {
   const handleDragStart = (e: React.DragEvent, nodeType: string, available: boolean) => {
@@ -46,7 +47,7 @@ const Node = ({ component, available }: { component: NodeComponent; available: b
               <img
                 src={`/integrations/${component.providerId}.svg`}
                 alt={`${component.title} logo`}
-                className="h-6 w-6 object-contain"
+                className={getIntegrationLogoClasses(component.providerId, "h-6 w-6 object-contain")}
               />
             ) : (
               <component.icon className="h-6 w-6" />

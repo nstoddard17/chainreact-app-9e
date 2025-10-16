@@ -41,7 +41,7 @@ const socialLinks = [
 
 export function Footer() {
   return (
-    <footer className="relative z-10 bg-slate-950/50 backdrop-blur-xl border-t border-white/10">
+    <footer className="relative z-10 bg-gray-50 dark:bg-slate-950/50 backdrop-blur-xl border-t border-gray-200 dark:border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
           {/* Brand Column */}
@@ -49,7 +49,7 @@ export function Footer() {
             <div className="mb-4">
               <ChainReactLogo />
             </div>
-            <p className="text-white/60 text-sm mb-6">
+            <p className="text-gray-600 dark:text-white/60 text-sm mb-6">
               Automate your workflows with AI-powered integrations
             </p>
             <div className="flex gap-4">
@@ -57,7 +57,7 @@ export function Footer() {
                 <a
                   key={link.name}
                   href={link.href}
-                  className={`text-white/40 transition-colors ${link.color}`}
+                  className={`text-gray-600 dark:text-white/40 transition-colors ${link.color}`}
                   aria-label={link.name}
                 >
                   {React.createElement(link.icon, { className: 'w-5 h-5' })}
@@ -69,13 +69,13 @@ export function Footer() {
           {/* Links Columns */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-white font-semibold mb-4">{category}</h3>
+              <h3 className="text-gray-900 dark:text-white font-semibold mb-4">{category}</h3>
               <ul className="space-y-2">
                 {links.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
-                      className="text-white/60 text-sm hover:text-white transition-colors"
+                      className="text-gray-600 dark:text-white/60 text-sm hover:text-gray-900 dark:hover:text-white transition-colors"
                     >
                       {link.name}
                     </a>
@@ -87,11 +87,11 @@ export function Footer() {
         </div>
 
         {/* Newsletter Signup */}
-        <div className="mt-12 pt-8 border-t border-white/10">
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-white/10">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
-              <h3 className="text-white font-semibold mb-2">Stay in the loop</h3>
-              <p className="text-white/60 text-sm">
+              <h3 className="text-gray-900 dark:text-white font-semibold mb-2">Stay in the loop</h3>
+              <p className="text-gray-600 dark:text-white/60 text-sm">
                 Get the latest updates, tips, and automation templates delivered to your inbox
               </p>
             </div>
@@ -99,7 +99,7 @@ export function Footer() {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:border-blue-500 transition-colors"
+                className="flex-1 px-4 py-2 bg-white dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 focus:outline-none focus:border-blue-500 transition-colors"
               />
               <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg transition-all duration-300">
                 Subscribe
@@ -109,11 +109,11 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-white/40 text-sm">
+        <div className="mt-8 pt-8 border-t border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-gray-600 dark:text-white/40 text-sm">
             © 2024 ChainReact. All rights reserved.
           </div>
-          <div className="flex items-center gap-2 text-white/40 text-sm">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-white/40 text-sm">
             <span>Built with</span>
             <Heart className="w-4 h-4 text-red-400" />
             <span>for automation enthusiasts</span>

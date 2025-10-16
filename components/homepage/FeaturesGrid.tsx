@@ -85,14 +85,14 @@ export function FeaturesGrid() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6">
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-semibold text-purple-300">Features</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 mb-6">
+              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Features</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Everything You Need to Automate
             </h2>
-            <p className="text-lg text-white/70 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Powerful features that make automation simple, reliable, and scalable for teams of any size
             </p>
           </motion.div>
@@ -108,7 +108,7 @@ export function FeaturesGrid() {
               transition={{ duration: 0.5, delay: index * 0.05 }}
               className="group relative"
             >
-              <div className="h-full bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10">
+              <div className="h-full bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 hover:border-gray-300 dark:hover:border-white/20 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-purple-500/10">
                 {/* Icon */}
                 <div className="mb-4">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} p-2.5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
@@ -119,10 +119,10 @@ export function FeaturesGrid() {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-xl font-semibold text-white mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-white/60 text-sm leading-relaxed">
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                   {feature.description}
                 </p>
 
@@ -141,16 +141,9 @@ export function FeaturesGrid() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="text-center mt-12"
         >
-          <p className="text-white/60 mb-6">
+          <p className="text-gray-600 dark:text-gray-400">
             And that's just the beginning. New features are added every week.
           </p>
-          <a
-            href="#workflow-demo"
-            className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium transition-colors"
-          >
-            <Rocket className="w-5 h-5" />
-            See it in action
-          </a>
         </motion.div>
       </div>
     </section>

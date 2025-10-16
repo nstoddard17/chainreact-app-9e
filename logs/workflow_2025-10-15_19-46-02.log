@@ -1,0 +1,266 @@
+=== Log Session Started: 2025-10-16T00:46:02.523Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-16T00:46:02.524Z] [INFO   ] File logging initialized
+[2025-10-16T00:46:02.524Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-46-02.log
+[2025-10-16T00:46:02.524Z] [INFO   ] 📁 File logging enabled
+[2025-10-16T00:46:02.524Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-46-02.log
+[2025-10-16T00:46:02.524Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-46-02.log
+[2025-10-16T00:46:02.524Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-46-02.log
+[2025-10-16T00:46:02.524Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-46-02.log
+[2025-10-16T00:46:02.524Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-16T00:46:02.525Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-16T00:46:02.541Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.7s
+[2025-10-16T00:46:23.004Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T00:46:24.317Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 2s (2887 modules)
+[2025-10-16T00:46:25.301Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-16T00:46:31.520Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 6.7s (5667 modules)
+[2025-10-16T00:46:32.511Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 956ms (1543 modules)
+[2025-10-16T00:46:34.108Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T00:46:37.033Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 3.8s (5643 modules)
+[2025-10-16T00:46:37.957Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 478ms (5645 modules)
+[2025-10-16T00:46:42.264Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 401ms (1543 modules)
+[2025-10-16T00:46:43.382Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-16T00:46:43.943Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:46:43.947Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1080ms (5647 modules)
+[2025-10-16T00:46:48.926Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 415ms (1543 modules)
+[2025-10-16T00:46:54.969Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 548ms (1543 modules)
+[2025-10-16T00:47:00.839Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:47:01.077Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (5661 modules)
+[2025-10-16T00:47:03.174Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 623ms (1543 modules)
+[2025-10-16T00:47:09.136Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-16T00:47:13.817Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 5.3s (7821 modules)
+[2025-10-16T00:47:18.049Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 636ms (1543 modules)
+[2025-10-16T00:47:18.086Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:47:19.737Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 594ms (1543 modules)
+[2025-10-16T00:47:35.438Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (7819 modules)
+[2025-10-16T00:47:50.377Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1356ms (7819 modules)
+[2025-10-16T00:47:51.730Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:47:52.487Z] [INFO   ]  [37m[1m○[22m[39m Compiling /home ...
+[2025-10-16T00:47:54.744Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /home in 2.8s (7883 modules)
+[2025-10-16T00:47:55.578Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (6310 modules)
+[2025-10-16T00:47:56.062Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (6310 modules)
+[2025-10-16T00:47:56.558Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (6310 modules)
+[2025-10-16T00:47:57.376Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (6310 modules)
+[2025-10-16T00:48:02.331Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 890ms (1573 modules)
+[2025-10-16T00:48:02.791Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Object.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-16T00:48:04.561Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Object.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-16T00:48:10.685Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Object.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-16T00:48:11.376Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 641ms (1573 modules)
+[2025-10-16T00:48:11.420Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:48:23.644Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (1573 modules)
+[2025-10-16T00:50:34.950Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (5721 modules)
+[2025-10-16T00:50:35.886Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 320ms (4150 modules)
+[2025-10-16T00:51:12.681Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T00:51:13.344Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1446ms (4152 modules)
+[2025-10-16T00:51:41.995Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 9.9s (5725 modules)
+[2025-10-16T00:51:57.713Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:51:58.121Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (5722 modules)
+[2025-10-16T00:52:01.022Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 494ms (4152 modules)
+[2025-10-16T00:52:11.382Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.5s (5758 modules)
+[2025-10-16T00:52:18.146Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1552ms (5758 modules)
+[2025-10-16T00:52:18.281Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:55:39.224Z] [INFO   ]  [37m[1m○[22m[39m Compiling /dashboard ...
+[2025-10-16T00:55:42.640Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /dashboard in 4.4s (6612 modules)
+[2025-10-16T00:55:53.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 437ms (4599 modules)
+[2025-10-16T00:55:55.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 388ms (4601 modules)
+[2025-10-16T00:55:56.228Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T00:55:58.444Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/chart-data in 3.1s (6670 modules)
+[2025-10-16T00:56:06.055Z] [INFO   ]  [37m[1m○[22m[39m Compiling /admin ...
+[2025-10-16T00:56:07.138Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /admin in 1893ms (6753 modules)
+[2025-10-16T00:56:08.144Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/admin/user-stats ...
+[2025-10-16T00:56:08.148Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/admin/user-stats in 503ms (6755 modules)
+[2025-10-16T00:56:14.460Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/admin/waitlist/list ...
+[2025-10-16T00:56:14.602Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/admin/waitlist/list in 642ms (6757 modules)
+[2025-10-16T00:56:22.374Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/admin/beta-testers/list ...
+[2025-10-16T00:56:22.513Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/admin/beta-testers/list in 665ms (6759 modules)
+[2025-10-16T00:56:40.485Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.1s (6773 modules)
+[2025-10-16T00:56:40.989Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4704 modules)
+[2025-10-16T00:56:41.441Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4704 modules)
+[2025-10-16T00:56:41.822Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4704 modules)
+[2025-10-16T00:56:42.563Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 0ms (4704 modules)
+[2025-10-16T00:56:45.033Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4711 modules)
+[2025-10-16T00:56:45.453Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4711 modules)
+[2025-10-16T00:56:45.918Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4711 modules)
+[2025-10-16T00:57:00.194Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:57:01.548Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (6774 modules)
+[2025-10-16T00:57:01.952Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4705 modules)
+[2025-10-16T00:57:02.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4705 modules)
+[2025-10-16T00:57:02.844Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4705 modules)
+[2025-10-16T00:57:06.615Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-16T00:57:07.111Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 996ms (4709 modules)
+[2025-10-16T00:57:07.704Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4712 modules)
+[2025-10-16T00:57:08.865Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/admin/ai-usage ...
+[2025-10-16T00:57:10.886Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/admin/ai-usage in 2.6s (6769 modules)
+[2025-10-16T00:57:18.225Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1185ms (6731 modules)
+[2025-10-16T01:00:36.571Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/config ...
+[2025-10-16T01:00:37.837Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/config in 3.4s (6709 modules)
+[2025-10-16T01:00:45.934Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/available ...
+[2025-10-16T01:00:46.730Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/available in 1523ms (6712 modules)
+[2025-10-16T01:00:47.435Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-10-16T01:00:48.537Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 1662ms (6716 modules)
+[2025-10-16T01:00:54.265Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/callback ...
+[2025-10-16T01:00:55.469Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/callback in 1724ms (6723 modules)
+[2025-10-16T01:00:58.732Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-10-16T01:00:59.983Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 1834ms (4670 modules)
+[2025-10-16T01:01:00.661Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 516ms (2055 modules)
+[2025-10-16T01:01:00.909Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:01:00.953Z] [WARN   ] 2025-10-16T01:01:00.953Z [WARN] No channelId provided for channel members
+[2025-10-16T01:01:13.635Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.8s (6755 modules)
+[2025-10-16T01:01:13.678Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:01:46.894Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/bot-status ...
+[2025-10-16T01:01:47.586Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/bot-status in 1349ms (6743 modules)
+[2025-10-16T01:01:51.072Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/channel-bot-status ...
+[2025-10-16T01:01:54.727Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 4.2s (6992 modules)
+[2025-10-16T01:01:56.004Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (6994 modules)
+[2025-10-16T01:02:35.361Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/UnifiedHomepage.tsx#UnifiedHomepage" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Object.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-16T01:02:35.648Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:02:36.758Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (6960 modules)
+[2025-10-16T01:02:38.709Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-16T01:02:38.716Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 529ms (4674 modules)
+[2025-10-16T01:02:40.288Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4679 modules)
+[2025-10-16T01:02:49.360Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:03:04.074Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:03:07.593Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 22.9s (6746 modules)
+[2025-10-16T01:03:08.028Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4677 modules)
+[2025-10-16T01:03:08.543Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4677 modules)
+[2025-10-16T01:03:09.031Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4677 modules)
+[2025-10-16T01:10:15.132Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.3s (6709 modules)
+[2025-10-16T01:10:16.585Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 451ms (4642 modules)
+[2025-10-16T01:10:16.997Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4647 modules)
+[2025-10-16T01:10:26.461Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1003ms (6716 modules)
+[2025-10-16T01:10:28.240Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T01:10:28.246Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:10:31.110Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 4.4s (4650 modules)
+[2025-10-16T01:10:32.351Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4652 modules)
+[2025-10-16T01:10:32.862Z] [ERROR  ] 2025-10-16T01:10:32.862Z [ERROR] Collaboration join error: {"code":"ECONNRESET"}
+[2025-10-16T01:11:22.059Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.2s (6718 modules)
+[2025-10-16T01:11:22.211Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:11:33.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (6716 modules)
+[2025-10-16T01:11:56.232Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T01:11:56.967Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1973ms (6690 modules)
+[2025-10-16T01:11:57.364Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4621 modules)
+[2025-10-16T01:11:57.849Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4621 modules)
+[2025-10-16T01:11:58.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4621 modules)
+[2025-10-16T01:11:59.588Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at readChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:340657)
+    at getComponentNameFromType (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:76927)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194224)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate._onImmediate (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-16T01:12:06.544Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T01:12:07.474Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (6690 modules)
+[2025-10-16T01:12:17.732Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1530ms (6690 modules)
+[2025-10-16T01:13:12.230Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T01:13:13.719Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.6s (4638 modules)
+
+=== Log Session Ended: 2025-10-16T01:14:07.423Z ===

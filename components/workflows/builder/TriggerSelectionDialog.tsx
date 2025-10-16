@@ -14,6 +14,7 @@ import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useShallow } from 'zustand/react/shallow'
+import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
 
 interface IntegrationInfo {
   id: string
@@ -371,7 +372,7 @@ export function TriggerSelectionDialog({
                               <img
                                 src={`/integrations/${selectedIntegration.id}.svg`}
                                 alt={`${selectedIntegration.name} icon`}
-                                className="w-5 h-5 object-contain shrink-0"
+                                className={getIntegrationLogoClasses(selectedIntegration.id, "w-5 h-5 object-contain shrink-0")}
                                 onError={(e: any) => {
                                   e.currentTarget.style.display = 'none'
                                 }}

@@ -1,4 +1,4 @@
-import { NewHomepage } from '@/components/homepage/NewHomepage'
+import { UnifiedHomepage } from '@/components/homepage/UnifiedHomepage'
 
 export const metadata = {
   title: 'ChainReact - Automate Your Workflows with AI',
@@ -6,5 +6,5 @@ export const metadata = {
 }
 
 export default function HomePage() {
-  return <NewHomepage />
+  return <UnifiedHomepage />
 }

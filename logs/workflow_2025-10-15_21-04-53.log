@@ -1,0 +1,36 @@
+=== Log Session Started: 2025-10-16T02:04:53.894Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-16T02:04:53.894Z] [INFO   ] File logging initialized
+[2025-10-16T02:04:53.894Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_21-04-53.log
+[2025-10-16T02:04:53.895Z] [INFO   ] 📁 File logging enabled
+[2025-10-16T02:04:53.895Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_21-04-53.log
+[2025-10-16T02:04:53.895Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_21-04-53.log
+[2025-10-16T02:04:53.895Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_21-04-53.log
+[2025-10-16T02:04:53.895Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_21-04-53.log
+[2025-10-16T02:04:53.895Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-16T02:04:53.895Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-16T02:04:53.904Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-16T02:05:07.384Z] [INFO   ]  [37m[1m○[22m[39m Compiling /home ...
+[2025-10-16T02:05:10.553Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /home in 3.7s (4474 modules)
+[2025-10-16T02:05:11.228Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 656ms (1028 modules)
+[2025-10-16T02:05:11.828Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 200ms (233 modules)
+[2025-10-16T02:05:13.102Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T02:05:13.803Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1202ms (4586 modules)
+[2025-10-16T02:05:14.807Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 343ms (4588 modules)
+[2025-10-16T02:05:17.936Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 470ms (4590 modules)
+[2025-10-16T02:09:54.600Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1572ms (4475 modules)
+[2025-10-16T02:10:14.774Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 200ms (3569 modules)
+[2025-10-16T02:10:22.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 265ms (1029 modules)
+[2025-10-16T02:10:37.255Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 353ms (1029 modules)
+[2025-10-16T02:10:44.045Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 232ms (1029 modules)
+[2025-10-16T02:11:03.114Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 263ms (1029 modules)
+[2025-10-16T02:11:36.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 329ms (1029 modules)
+[2025-10-16T02:13:29.908Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T02:13:29.928Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 583ms (3571 modules)
+[2025-10-16T02:13:30.795Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 257ms (3573 modules)
+[2025-10-16T02:13:34.064Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T02:13:34.075Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 526ms (3575 modules)
