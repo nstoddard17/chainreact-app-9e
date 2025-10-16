@@ -1,18 +1,14 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from 'react'
-import { motion, AnimatePresence, useAnimation } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Mail,
   Sparkles,
   Database,
-  Bell,
   Globe,
   Zap,
   MessageSquare,
-  FileText,
-  Users,
-  Calendar,
   Shield,
   Activity
 } from 'lucide-react'
@@ -63,7 +59,7 @@ const connections: Connection[] = [
   { from: 'webhook', to: 'complete', delay: 2.2 }
 ]
 
-export function WorkflowAnimation() {
+export function LightWorkflowAnimation() {
   const [isVisible, setIsVisible] = useState(false)
   const [particles, setParticles] = useState<Particle[]>([])
   const [activeConnections, setActiveConnections] = useState<string[]>([])
@@ -168,7 +164,7 @@ export function WorkflowAnimation() {
       particles.forEach(particle => {
         ctx.beginPath()
         ctx.arc(particle.x, particle.y, 1, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(147, 197, 253, ${particle.life / 100})`
+        ctx.fillStyle = `rgba(99, 102, 241, ${particle.life / 100 * 0.3})` // Indigo particles with lower opacity
         ctx.fill()
       })
 
@@ -195,7 +191,7 @@ export function WorkflowAnimation() {
   }
 
   return (
-    <section id="workflow-animation" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 overflow-hidden">
+    <section id="workflow-animation" className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 bg-gradient-to-b from-white to-blue-50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <motion.div
@@ -204,26 +200,26 @@ export function WorkflowAnimation() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20 mb-6">
-              <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Intelligent Automation</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 border border-blue-300 mb-6">
+              <Zap className="w-4 h-4 text-blue-700" />
+              <span className="text-sm font-bold text-blue-800">Intelligent Automation</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
               Watch Your Workflows Come to Life
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-700 font-medium max-w-2xl mx-auto">
               Complex automations built in seconds. See how ChainReact orchestrates multiple services seamlessly.
             </p>
           </motion.div>
         </div>
 
         <div className="relative">
-          {/* Main container with glassmorphism */}
-          <div className="relative bg-white/80 dark:bg-slate-900/30 backdrop-blur-2xl rounded-3xl border border-gray-200 dark:border-white/10 p-8 overflow-hidden">
+          {/* Main container with white background */}
+          <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200 shadow-xl p-8 overflow-hidden">
             {/* Glow effects */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-20 animate-pulse"></div>
-              <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500 rounded-full filter blur-[128px] opacity-20 animate-pulse [animation-delay:1s]"></div>
+              <div className="absolute top-20 left-20 w-96 h-96 bg-blue-400 rounded-full filter blur-[128px] opacity-10 animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-400 rounded-full filter blur-[128px] opacity-10 animate-pulse [animation-delay:1s]"></div>
             </div>
 
             {/* Canvas for particles */}
@@ -242,13 +238,13 @@ export function WorkflowAnimation() {
               style={{ zIndex: 1 }}
             >
               <defs>
-                <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                  <stop offset="50%" stopColor="#a855f7" stopOpacity="0.5" />
-                  <stop offset="100%" stopColor="#ec4899" stopOpacity="0.2" />
+                <linearGradient id="connectionGradientLight" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                  <stop offset="50%" stopColor="#a855f7" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#ec4899" stopOpacity="0.3" />
                 </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                <filter id="glowLight">
+                  <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
                   <feMerge>
                     <feMergeNode in="coloredBlur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -269,21 +265,21 @@ export function WorkflowAnimation() {
                     {/* Connection line */}
                     <motion.path
                       d={getPath(from, to)}
-                      stroke="url(#connectionGradient)"
+                      stroke="url(#connectionGradientLight)"
                       strokeWidth="2"
                       fill="none"
                       initial={{ pathLength: 0, opacity: 0 }}
                       animate={isActive ? { pathLength: 1, opacity: 1 } : { pathLength: 0, opacity: 0 }}
                       transition={{ duration: 0.5, ease: "easeInOut" }}
-                      filter="url(#glow)"
+                      filter="url(#glowLight)"
                     />
 
                     {/* Data flow particles */}
                     {showDataFlow && isActive && (
                       <circle
-                        r="3"
-                        fill="#fff"
-                        filter="url(#glow)"
+                        r="4"
+                        fill="#6366f1"
+                        filter="url(#glowLight)"
                       >
                         <animateMotion
                           dur="2s"
@@ -318,26 +314,18 @@ export function WorkflowAnimation() {
                     whileHover={{ scale: 1.1 }}
                     className="relative"
                   >
-                    {/* Node glow effect */}
-                    <motion.div
-                      className={`absolute inset-0 bg-gradient-to-br ${node.color} rounded-2xl blur-xl`}
-                      animate={{
-                        opacity: showDataFlow ? [0.3, 0.6, 0.3] : 0.3
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                    />
+                    {/* Node shadow */}
+                    <div className="absolute inset-0 bg-gray-900/10 rounded-2xl blur-md translate-y-1" />
 
                     {/* Node content */}
-                    <div className={`relative bg-gradient-to-br ${node.color} rounded-2xl p-4 shadow-2xl border border-white/10`}>
+                    <div className="relative bg-white rounded-2xl p-4 shadow-xl border-2 border-gray-200 hover:border-blue-400 transition-colors">
                       <div className="flex flex-col items-center gap-2">
-                        {React.createElement(node.icon, {
-                          className: 'w-6 h-6 text-white'
-                        })}
-                        <span className="text-xs text-white font-semibold whitespace-nowrap">
+                        <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${node.color} p-1.5 flex items-center justify-center`}>
+                          {React.createElement(node.icon, {
+                            className: 'w-full h-full text-white'
+                          })}
+                        </div>
+                        <span className="text-xs text-gray-800 font-semibold whitespace-nowrap">
                           {node.label}
                         </span>
                       </div>
@@ -348,7 +336,7 @@ export function WorkflowAnimation() {
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           transition={{ delay: node.delay + 2 }}
-                          className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white"
                         >
                           <Zap className="w-3 h-3 text-white" />
                         </motion.div>
@@ -361,8 +349,8 @@ export function WorkflowAnimation() {
 
             {/* Status indicator */}
             <div className="absolute bottom-4 left-4 flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${showDataFlow ? 'bg-green-500 dark:bg-green-400' : 'bg-yellow-500 dark:bg-yellow-400'} animate-pulse`}></div>
-              <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              <div className={`w-2 h-2 rounded-full ${showDataFlow ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`}></div>
+              <span className="text-sm text-gray-700 font-medium">
                 {showDataFlow ? 'Workflow running...' : 'Building workflow...'}
               </span>
             </div>
@@ -373,10 +361,10 @@ export function WorkflowAnimation() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 3 }}
-                className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20"
+                className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-green-100 rounded-full border border-green-300"
               >
-                <Activity className="w-4 h-4 text-green-400" />
-                <span className="text-xs text-green-300 font-medium">
+                <Activity className="w-4 h-4 text-green-600" />
+                <span className="text-xs text-green-700 font-medium">
                   247 executions today
                 </span>
               </motion.div>
@@ -397,17 +385,15 @@ export function WorkflowAnimation() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white dark:bg-slate-800/40 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/20 p-6 text-center hover:shadow-lg dark:hover:bg-slate-800/60 transition-all"
+              className="bg-white rounded-2xl border border-gray-200 shadow-lg p-6 text-center hover:shadow-xl transition-shadow"
             >
-              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-500 dark:to-purple-500 p-2.5 border border-blue-200 dark:border-transparent">
-                <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 p-1.5 flex items-center justify-center">
-                  {React.createElement(feature.icon, {
-                    className: 'w-full h-full text-white'
-                  })}
-                </div>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 p-2.5 border border-blue-200">
+                {React.createElement(feature.icon, {
+                  className: 'w-full h-full text-blue-600'
+                })}
               </div>
-              <div className="text-gray-900 dark:text-white font-bold mb-1">{feature.label}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">{feature.desc}</div>
+              <div className="text-gray-900 font-bold mb-1">{feature.label}</div>
+              <div className="text-sm text-gray-600">{feature.desc}</div>
             </motion.div>
           ))}
         </div>

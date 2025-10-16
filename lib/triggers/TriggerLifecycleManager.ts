@@ -107,7 +107,7 @@ export class TriggerLifecycleManager {
   /**
    * Deactivate ALL triggers in a workflow
    *
-   * Called when workflow status changes from 'active' to 'draft' or 'paused'
+   * Called when workflow status changes from 'active' to 'draft' or 'inactive'
    */
   async deactivateWorkflowTriggers(
     workflowId: string,

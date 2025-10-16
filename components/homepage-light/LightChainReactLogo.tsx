@@ -2,9 +2,8 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Zap } from 'lucide-react'
 
-export function ChainReactLogo() {
+export function LightChainReactLogo() {
   return (
     <div className="flex items-center gap-3">
       {/* Animated Logo Icon */}
@@ -12,9 +11,9 @@ export function ChainReactLogo() {
         <motion.div
           animate={{ rotate: [0, 360] }}
           transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-          className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-xl opacity-10 dark:opacity-20 blur-xl"
+          className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-xl opacity-10 blur-xl"
         />
-        <div className="relative w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200 dark:shadow-purple-500/25">
+        <div className="relative w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -50,13 +49,13 @@ export function ChainReactLogo() {
 
       {/* Text Logo */}
       <div className="flex items-baseline">
-        <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 dark:from-white to-gray-700 dark:to-white/90 bg-clip-text text-transparent">
+        <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
           Chain
         </span>
         <motion.span
           animate={{ opacity: [0.7, 1, 0.7] }}
           transition={{ duration: 2, repeat: Infinity }}
-          className="text-2xl font-bold bg-gradient-to-r from-blue-600 dark:from-blue-400 to-purple-600 dark:to-purple-400 bg-clip-text text-transparent"
+          className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
         >
           React
         </motion.span>

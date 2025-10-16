@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +26,7 @@ export interface WaitlistFormData {
 }
 
 export function WaitlistForm() {
+  const router = useRouter()
   const [formData, setFormData] = useState<WaitlistFormData>({
     name: '',
     email: '',
@@ -129,21 +131,12 @@ export function WaitlistForm() {
         throw new Error(data.error || 'Failed to join waitlist')
       }
 
-      toast.success('Successfully joined the waitlist!', {
-        description: "We'll send you a welcome email shortly. Check your inbox!",
-        duration: 6000,
-      })
-
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        selectedIntegrations: [],
-        customIntegrations: [],
-        wantsAiAssistant: true,
-        wantsAiActions: true,
-        aiActionsImportance: 'very-important',
-      })
+      // Redirect to success page with name for personalization
+      const params = new URLSearchParams()
+      if (formData.name) {
+        params.set('name', formData.name)
+      }
+      router.push(`/waitlist/success?${params.toString()}`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to join waitlist'
       toast.error('Failed to join waitlist', {
