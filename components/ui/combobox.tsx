@@ -323,7 +323,7 @@ export function Combobox({
             )}
             disabled={disabled}
           >
-          <span className="flex-1 text-left truncate">
+          <span className="flex-1 text-left break-words line-clamp-2">
             {selectedOption ? selectedOption.label : (displayLabel || value || placeholder || "Select option...")}
           </span>
           <div className="flex items-center gap-0.5">
@@ -341,10 +341,10 @@ export function Combobox({
                   }
                 }}
               >
-                <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
+                <X className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
               </div>
             )}
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
@@ -383,14 +383,14 @@ export function Combobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
                       value === option.value || selectedValues.includes(option.value) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex flex-col">
                     {option.label !== undefined && option.label !== null ? option.label : String(option.value)}
                     {option.description && (
-                      <span className="text-sm text-muted-foreground">{option.description}</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
                     )}
                   </div>
                 </CommandItem>
@@ -597,7 +597,7 @@ export function MultiCombobox({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "w-full justify-between min-h-10",
+              "w-full justify-between min-h-9 sm:min-h-10",
               isDragOver && "ring-2 ring-blue-500 bg-blue-50"
             )}
             disabled={disabled}
@@ -624,15 +624,15 @@ export function MultiCombobox({
                       variant="secondary"
                       className={cn(
                         "flex-shrink-0 text-white",
-                        !showFullEmails && "max-w-32 truncate"
+                        !showFullEmails && "max-w-48"
                       )}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleRemove(option.value)
                       }}
                     >
-                      <span className={!showFullEmails ? "truncate" : ""}>{option.label || option.value}</span>
-                      <X className="ml-1 h-3 w-3 flex-shrink-0" />
+                      <span className={!showFullEmails ? "break-all line-clamp-1" : "break-words"}>{option.label || option.value}</span>
+                      <X className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
                     </Badge>
                   ))
                 ) : (
@@ -644,18 +644,18 @@ export function MultiCombobox({
                         variant="secondary"
                         className={cn(
                           "flex-shrink-0 text-white",
-                          !showFullEmails && "max-w-32 truncate"
+                          !showFullEmails && "max-w-48"
                         )}
                         onClick={(e) => {
                           e.stopPropagation()
                           handleRemove(option.value)
                         }}
                       >
-                        <span className={!showFullEmails ? "truncate" : ""}>{option.label || option.value}</span>
-                        <X className="ml-1 h-3 w-3 flex-shrink-0" />
+                        <span className={!showFullEmails ? "break-all line-clamp-1" : "break-words"}>{option.label || option.value}</span>
+                        <X className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 flex-shrink-0" />
                       </Badge>
                     ))}
-                    <span className="text-muted-foreground text-sm flex-shrink-0">
+                    <span className="text-muted-foreground text-xs sm:text-sm flex-shrink-0">
                       ... +{selectedOptions.length - 2} more
                     </span>
                   </>
@@ -681,10 +681,10 @@ export function MultiCombobox({
                   }
                 }}
               >
-                <X className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
+                <X className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-slate-400 group-hover:text-slate-600 transition-colors pointer-events-none" />
               </div>
             )}
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
@@ -745,7 +745,7 @@ export function MultiCombobox({
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
                       value.includes(option.value) || (Array.isArray(selectedValues) && selectedValues.some(v => {
                         // Handle both direct matches and id::name format
                         if (v === option.value) return true;
@@ -769,7 +769,7 @@ export function MultiCombobox({
                   <div className="flex flex-col">
                     <span>{option.label}</span>
                     {option.description && (
-                      <span className="text-sm text-muted-foreground">{option.description}</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
                     )}
                   </div>
                 </CommandItem>
@@ -885,7 +885,7 @@ export function HierarchicalCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between min-h-10"
+          className="w-full justify-between min-h-9 sm:min-h-10"
           style={{ color: 'white' }}
           disabled={disabled}
         >
@@ -893,13 +893,13 @@ export function HierarchicalCombobox({
             <div className="flex flex-col items-start">
               <span>{selectedOption.label}</span>
               {selectedOption.description && (
-                <span className="text-sm text-muted-foreground">{selectedOption.description}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">{selectedOption.description}</span>
               )}
             </div>
           ) : (
             <span>{placeholder || "Select option..."}</span>
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[9999]" align="start" sideOffset={4}>
@@ -929,16 +929,16 @@ export function HierarchicalCombobox({
                         className="font-medium"
                         key={`groupitem-${ option.value}`}
                       >
-                        <ChevronRight 
+                        <ChevronRight
                           className={cn(
-                            "mr-2 h-4 w-4 transition-transform",
+                            "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform",
                             isExpanded && "rotate-90"
                           )}
                         />
                         <div className="flex flex-col">
                           <span>{option.label}</span>
                           {option.description && (
-                            <span className="text-sm text-muted-foreground">{option.description}</span>
+                            <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
                           )}
                         </div>
                       </CommandItem>
@@ -953,14 +953,14 @@ export function HierarchicalCombobox({
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
                                   value === email.value ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               <div className="flex flex-col">
                                 <span>{email.label}</span>
                                 {email.description && (
-                                  <span className="text-sm text-muted-foreground">{email.description}</span>
+                                  <span className="text-xs sm:text-sm text-muted-foreground">{email.description}</span>
                                 )}
                               </div>
                             </CommandItem>
@@ -978,14 +978,14 @@ export function HierarchicalCombobox({
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4",
                         value === option.value ? "opacity-100" : "opacity-0"
                       )}
                     />
                     <div className="flex flex-col">
                       <span>{option.label}</span>
                       {option.description && (
-                        <span className="text-sm text-muted-foreground">{option.description}</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">{option.description}</span>
                       )}
                     </div>
                   </CommandItem>

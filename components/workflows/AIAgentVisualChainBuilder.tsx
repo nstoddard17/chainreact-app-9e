@@ -49,6 +49,7 @@ import { AddActionNode } from './AddActionNode'
 import { ChainPlaceholderNode } from './ChainPlaceholderNode'
 
 import { logger } from '@/lib/utils/logger'
+import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 // Custom Node Component - Matches CustomNode.tsx exactly
 interface CustomNodeData {
@@ -176,7 +177,7 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
               <img
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
-                className="w-8 h-8 object-contain"
+                className={getIntegrationLogoClasses(providerId, "w-8 h-8 object-contain")}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}
@@ -189,7 +190,7 @@ const AIAgentCustomNode = memo(({ id, data, selected, position, positionAbsolute
               <img
                 src="/integrations/ai.svg"
                 alt="AI Agent"
-                className="w-8 h-8 object-contain"
+                className={getIntegrationLogoClasses('ai', "w-8 h-8 object-contain")}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'
                 }}

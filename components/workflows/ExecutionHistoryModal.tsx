@@ -41,6 +41,7 @@ import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 import { integrationIcons } from '@/lib/integrations/integration-icons'
+import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
 import Image from 'next/image'
 
 import { logger } from '@/lib/utils/logger'
@@ -284,7 +285,7 @@ export function ExecutionHistoryModal({
             alt={provider}
             width={20}
             height={20}
-            className="object-contain"
+            className={getIntegrationLogoClasses(provider, "w-5 h-5 object-contain")}
           />
         </div>
       )

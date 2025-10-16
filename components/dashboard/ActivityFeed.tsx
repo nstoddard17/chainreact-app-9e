@@ -96,7 +96,7 @@ export default function ActivityFeed() {
                   {getActivityIcon(activity.type, activity.status)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-card-foreground truncate">{activity.title}</p>
+                  <p className="text-sm font-medium text-card-foreground break-words">{activity.title}</p>
                   <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
                   <div className="flex items-center text-xs text-muted-foreground mt-1">
                     <Clock className="w-3 h-3 mr-1.5" />

@@ -40,6 +40,7 @@ export interface TemplateIntegrationSetupBase {
 export interface AirtableIntegrationSetup extends TemplateIntegrationSetupBase {
   type: 'airtable'
   baseName: string
+  copyUrl?: string
   tables: AirtableTableSchema[]
 }
 
@@ -58,3 +59,42 @@ export type TemplateIntegrationSetup =
   | AirtableIntegrationSetup
   | GoogleSheetsIntegrationSetup
   | TemplateIntegrationSetupBase
+
+export interface TemplateSetupOverviewSection {
+  title: string
+  description?: string
+  items?: string[]
+}
+
+export interface TemplateSetupOverview {
+  summary?: string
+  sections?: TemplateSetupOverviewSection[]
+  notes?: string | string[]
+}
+
+export interface TemplateAsset {
+  id: string
+  name: string
+  asset_type: string
+  mime_type?: string
+  metadata?: Record<string, any>
+  download_url: string
+  created_at: string
+}
+
+export interface AirtableSetupRequirementResponse extends AirtableIntegrationSetup {
+  csvFiles: Array<{
+    tableName: string
+    filename: string
+    downloadUrl: string
+  }>
+  guideDownloadUrl: string
+  instructions: string[]
+}
+
+export interface GoogleSheetsSetupRequirementResponse extends GoogleSheetsIntegrationSetup {}
+
+export type TemplateSetupRequirementResponse =
+  | AirtableSetupRequirementResponse
+  | GoogleSheetsSetupRequirementResponse
+  | TemplateIntegrationSetup

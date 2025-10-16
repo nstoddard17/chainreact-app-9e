@@ -59,7 +59,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#1e293b" />
       </head>
       <body className={spaceGrotesk.className} suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
             <AuthErrorBoundary>
               <GlobalErrorHandler />

@@ -12,6 +12,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { NodeAIIndicator } from "./nodes/AINodeIndicators"
 
 import { logger } from '@/lib/utils/logger'
+import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 // The data object passed to the node will now contain these callbacks.
 interface CustomNodeData {
@@ -414,7 +415,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <img
                 src={`/integrations/${providerId}.svg`}
                 alt={`${title || ''} logo`}
-                className="w-7 h-7 object-contain flex-shrink-0 mt-0.5"
+                className={getIntegrationLogoClasses(providerId, "w-7 h-7 object-contain flex-shrink-0 mt-0.5")}
                 onError={(e) => {
                   logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                   // Fallback to icon if image fails

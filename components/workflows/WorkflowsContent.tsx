@@ -226,8 +226,8 @@ export default function WorkflowsContent() {
 
     let newStatus: string
     if (status === "active") {
-      newStatus = "paused"
-    } else if (status === "paused") {
+      newStatus = "inactive"
+    } else if (status === "inactive") {
       newStatus = "active"
     } else if (status === "draft") {
       if (workflowToUpdate) {
@@ -373,7 +373,7 @@ export default function WorkflowsContent() {
 
       toast({
         title: "Success",
-        description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "paused" ? "paused" : "updated"}`
+        description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "inactive" ? "deactivated" : "updated"}`
       })
 
       if (webhookRegistrationPromise) {
@@ -928,7 +928,7 @@ export default function WorkflowsContent() {
                             className={`px-2 py-1 rounded-full flex items-center gap-1.5 font-medium ${
                               workflow.status === "active"
                                 ? "bg-green-100 text-green-800 border border-green-200"
-                                : workflow.status === "paused"
+                                : workflow.status === "inactive"
                                 ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
                                 : "bg-slate-100 text-slate-800 border border-slate-200"
                             }`}
@@ -938,10 +938,10 @@ export default function WorkflowsContent() {
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                                 Active
                               </>
-                            ) : workflow.status === "paused" ? (
+                            ) : workflow.status === "inactive" ? (
                               <>
                                 <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                                Paused
+                                Inactive
                               </>
                             ) : (
                               <>

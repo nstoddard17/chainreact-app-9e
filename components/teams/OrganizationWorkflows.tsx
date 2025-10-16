@@ -55,7 +55,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
     switch (status) {
       case "active":
         return "bg-green-100 text-green-700 border-green-200"
-      case "paused":
+      case "inactive":
         return "bg-yellow-100 text-yellow-700 border-yellow-200"
       case "draft":
         return "bg-gray-100 text-gray-700 border-gray-200"
@@ -101,7 +101,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
               </SelectContent>
             </Select>
@@ -175,7 +175,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                     <div className="flex items-center gap-2">
                       <Badge className={getStatusBadgeColor(workflow.status)}>
                         {workflow.status === "active" && <Play className="w-3 h-3 mr-1" />}
-                        {workflow.status === "paused" && <Pause className="w-3 h-3 mr-1" />}
+                        {workflow.status === "inactive" && <Pause className="w-3 h-3 mr-1" />}
                         <span className="capitalize">{workflow.status}</span>
                       </Badge>
                       

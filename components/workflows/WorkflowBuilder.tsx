@@ -370,20 +370,20 @@ export default function WorkflowBuilder() {
                 variant={
                   currentWorkflow.status === "active" 
                     ? "default" 
-                    : currentWorkflow.status === "paused" 
+                    : currentWorkflow.status === "inactive" 
                     ? "secondary" 
                     : "outline"
                 }
                 className={`flex items-center gap-1 ${
                   currentWorkflow.status === "active" 
                     ? "bg-green-100 text-green-800 border-green-200" 
-                    : currentWorkflow.status === "paused" 
+                    : currentWorkflow.status === "inactive" 
                     ? "bg-yellow-100 text-yellow-800 border-yellow-200" 
                     : "bg-gray-100 text-gray-800 border-gray-200"
                 }`}
               >
                 {currentWorkflow.status === "active" && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
-                {currentWorkflow.status === "paused" && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                {currentWorkflow.status === "inactive" && <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
                 {currentWorkflow.status === "draft" && <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />}
                 <span className="capitalize">{currentWorkflow.status}</span>
               </Badge>

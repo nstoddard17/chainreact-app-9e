@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
 import { NodeComponent } from '@/lib/workflows/types'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes/index'
 import { useToast } from '@/hooks/use-toast'
@@ -148,7 +149,7 @@ export function AIAgentActionSelector({
     return <img 
       src={config?.logo || `/integrations/${integrationId}.svg`} 
       alt={`${integrationName} logo`} 
-      className="w-10 h-10 object-contain" 
+      className={getIntegrationLogoClasses(integrationId, "w-10 h-10 object-contain")} 
       style={{ filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.05))" }}
     />
   }
@@ -341,7 +342,7 @@ export function AIAgentActionSelector({
                         }}
                       >
                         {renderLogo(integration.id, integration.name)}
-                        <span className="font-semibold ml-4 flex-grow truncate">
+                        <span className="font-semibold ml-4 flex-grow break-words">
                           {integration.name}
                         </span>
                         {isComingSoon ? (
