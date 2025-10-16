@@ -59,17 +59,17 @@ export function HowItWorks() {
     const sequence = async () => {
       await new Promise(resolve => setTimeout(resolve, 1500)) // Initial state
       setOauthStep('clicking')
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise(resolve => setTimeout(resolve, 700)) // Show click animation
       setOauthStep('oauth')
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise(resolve => setTimeout(resolve, 2500)) // OAuth window with cursor
       setOauthStep('authorizing')
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Authorizing
       setOauthStep('connected')
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise(resolve => setTimeout(resolve, 2000)) // Show connected state
       setOauthStep('initial')
     }
 
-    const interval = setInterval(sequence, 7000)
+    const interval = setInterval(sequence, 8200) // Adjusted total time
     sequence() // Run immediately
 
     return () => clearInterval(interval)
@@ -212,24 +212,39 @@ export function HowItWorks() {
                             <span className="text-green-700 dark:text-green-300 font-medium">Connected</span>
                           </motion.div>
                         ) : (
-                          <button className={`w-full py-1 text-xs font-medium rounded transition-all ${
-                            isClicking
-                              ? 'bg-blue-700 text-white'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white'
-                          }`}>
+                          <motion.button
+                            animate={isClicking ? { scale: 0.95 } : { scale: 1 }}
+                            transition={{ duration: 0.1 }}
+                            className={`w-full py-1 text-xs font-medium rounded transition-all ${
+                              isClicking
+                                ? 'bg-blue-700 text-white'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                            }`}
+                          >
                             Connect
-                          </button>
+                          </motion.button>
                         )}
 
                         {/* Simulated cursor for Slack */}
                         {isSlack && oauthStep === 'clicking' && (
                           <motion.div
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ type: "spring", damping: 15 }}
-                            className="absolute bottom-1 right-8 pointer-events-none z-20"
+                            initial={{ x: 100, y: -50, scale: 0, opacity: 0 }}
+                            animate={{
+                              x: 0,
+                              y: 0,
+                              scale: [0, 1.2, 1, 1, 0.8, 1],
+                              opacity: 1
+                            }}
+                            transition={{
+                              duration: 0.7,
+                              scale: {
+                                times: [0, 0.3, 0.5, 0.7, 0.8, 1],
+                                ease: "easeInOut"
+                              }
+                            }}
+                            className="absolute bottom-[5px] left-1/2 -translate-x-1/2 pointer-events-none z-30"
                           >
-                            <MousePointer className="w-5 h-5 text-gray-900 dark:text-white" />
+                            <MousePointer className="w-5 h-5 text-gray-900 dark:text-white fill-gray-900 dark:fill-white" />
                           </motion.div>
                         )}
                       </motion.div>
@@ -289,7 +304,8 @@ export function HowItWorks() {
                           {/* Authorize Button */}
                           <motion.button
                             animate={oauthStep === 'authorizing' ? { scale: 0.95 } : { scale: 1 }}
-                            className={`w-full py-2 rounded-lg text-white font-medium text-sm transition-all ${
+                            transition={{ duration: 0.1 }}
+                            className={`w-full py-2 rounded-lg text-white font-medium text-sm transition-all relative ${
                               oauthStep === 'authorizing'
                                 ? 'bg-green-600'
                                 : 'bg-purple-600 hover:bg-purple-700'
@@ -307,19 +323,31 @@ export function HowItWorks() {
                             ) : (
                               'Authorize ChainReact'
                             )}
-                          </motion.button>
 
-                          {/* Simulated cursor for clicking authorize */}
-                          {oauthStep === 'oauth' && (
-                            <motion.div
-                              initial={{ scale: 0, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ delay: 0.8, type: "spring", damping: 15 }}
-                              className="absolute bottom-6 right-12 pointer-events-none z-10"
-                            >
-                              <MousePointer className="w-5 h-5 text-gray-900 dark:text-white" />
-                            </motion.div>
-                          )}
+                            {/* Simulated cursor for clicking authorize */}
+                            {oauthStep === 'oauth' && (
+                              <motion.div
+                                initial={{ x: 50, y: -30, scale: 0, opacity: 0 }}
+                                animate={{
+                                  x: 0,
+                                  y: 0,
+                                  scale: [0, 1.2, 1, 1, 0.8, 1],
+                                  opacity: 1
+                                }}
+                                transition={{
+                                  delay: 0.8,
+                                  duration: 0.8,
+                                  scale: {
+                                    times: [0, 0.3, 0.5, 0.8, 0.85, 1],
+                                    ease: "easeInOut"
+                                  }
+                                }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
+                              >
+                                <MousePointer className="w-5 h-5 text-gray-900 dark:text-white fill-gray-900 dark:fill-white" />
+                              </motion.div>
+                            )}
+                          </motion.button>
                         </div>
                       </motion.div>
                     </motion.div>

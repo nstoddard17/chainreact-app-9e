@@ -197,3 +197,22 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-16T03:25:33.023Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
 [2025-10-16T03:25:42.457Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1109ms (5736 modules)
 [2025-10-16T03:26:07.473Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 589ms (1577 modules)
+[2025-10-16T03:29:30.983Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.9s (5703 modules)
+[2025-10-16T03:29:31.230Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T03:29:34.193Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T03:29:34.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 660ms (4145 modules)
+[2025-10-16T03:29:35.165Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 467ms (4147 modules)
+[2025-10-16T03:29:39.080Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 469ms (4149 modules)
+[2025-10-16T03:29:54.433Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1525ms (5726 modules)
+[2025-10-16T03:29:56.454Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-16T03:29:57.500Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 2s (4152 modules)
+[2025-10-16T03:29:58.289Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4157 modules)
+[2025-10-16T03:30:07.214Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1160ms (5734 modules)
+[2025-10-16T03:30:09.028Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-16T03:30:10.206Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 2.1s (4159 modules)
+[2025-10-16T03:30:20.765Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 915ms (5736 modules)
+[2025-10-16T03:30:20.841Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T03:30:35.737Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1169ms (5736 modules)
+[2025-10-16T03:31:03.093Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 847ms (1577 modules)
+[2025-10-16T03:31:17.696Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 666ms (1577 modules)
+[2025-10-16T03:31:17.755Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
