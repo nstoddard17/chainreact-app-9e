@@ -19,6 +19,8 @@ export interface ConfigurationModalProps {
   };
   currentNodeId?: string;
   nodeTitle?: string | null;
+  isTemplateEditing?: boolean;
+  templateDefaults?: Record<string, any>;
 }
 
 /**

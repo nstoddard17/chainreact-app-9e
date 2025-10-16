@@ -174,6 +174,8 @@ export function ConfigurationModal({
   workflowData,
   currentNodeId,
   nodeTitle,
+  isTemplateEditing = false,
+  templateDefaults,
 }: ConfigurationModalProps) {
   // Debug: Log initialData when modal opens
   useEffect(() => {
@@ -417,6 +419,8 @@ export function ConfigurationModal({
                   currentNodeId={currentNodeId}
                   integrationName={integrationName}
                   isConnectedToAIAgent={isConnectedToAIAgent}
+                  isTemplateEditing={isTemplateEditing}
+                  templateDefaults={templateDefaults}
                 />
               </div>
             )}

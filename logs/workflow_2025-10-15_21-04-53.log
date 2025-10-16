@@ -216,3 +216,40 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-16T03:31:03.093Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 847ms (1577 modules)
 [2025-10-16T03:31:17.696Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 666ms (1577 modules)
 [2025-10-16T03:31:17.755Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T03:35:36.801Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/data ...
+[2025-10-16T03:35:38.886Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/data in 3.3s (5740 modules)
+[2025-10-16T03:35:48.594Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/airtable/metadata ...
+[2025-10-16T03:35:49.786Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/airtable/metadata in 1917ms (5743 modules)
+[2025-10-16T03:36:04.218Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T03:36:05.717Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 2.1s (4182 modules)
+[2025-10-16T03:36:20.234Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-16T03:36:27.233Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 7.6s (6341 modules)
+[2025-10-16T03:39:59.127Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 13.5s (5722 modules)
+[2025-10-16T03:40:09.042Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.1s (5722 modules)
+[2025-10-16T03:40:18.841Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T03:40:21.058Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.7s (5724 modules)
+[2025-10-16T03:40:39.755Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.9s (5720 modules)
+[2025-10-16T03:43:12.005Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T03:43:16.411Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 4.9s (4147 modules)
+[2025-10-16T03:44:50.564Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.1s (5703 modules)
+[2025-10-16T03:45:04.164Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (5703 modules)
+[2025-10-16T03:49:16.735Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T03:49:19.271Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 3.1s (4145 modules)
+[2025-10-16T03:49:42.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.7s (5722 modules)
+[2025-10-16T03:49:53.781Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5722 modules)
+[2025-10-16T03:49:55.299Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T03:49:58.391Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 4.6s (4150 modules)
+[2025-10-16T03:50:06.344Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.2s (5727 modules)
+[2025-10-16T03:50:21.586Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5727 modules)
+[2025-10-16T03:50:28.259Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.6s (5722 modules)
+[2025-10-16T03:50:59.566Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 26.6s (5722 modules)
+[2025-10-16T03:51:13.908Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.2s (5722 modules)
+[2025-10-16T03:51:17.791Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1774ms (5722 modules)
+[2025-10-16T03:51:36.089Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5722 modules)
+[2025-10-16T03:51:38.075Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T03:51:39.784Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.6s (4148 modules)
+[2025-10-16T03:51:42.389Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1607ms (5725 modules)
+[2025-10-16T03:52:18.441Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (5720 modules)
+[2025-10-16T03:52:50.428Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-16T03:52:52.161Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 2.5s (4143 modules)
+[2025-10-16T03:52:53.068Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4148 modules)

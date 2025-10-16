@@ -1466,6 +1466,8 @@ function WorkflowBuilderContent() {
             workflowData={{ nodes, edges, id: currentWorkflow?.id, name: workflowName || currentWorkflow?.name }}
             nodeTitle={activeConfigNode?.data?.title || configuringNode.nodeComponent?.title || configuringNode.nodeComponent?.label}
             currentNodeId={configuringNode.id}
+            isTemplateEditing={isTemplateEditing}
+            templateDefaults={templateDraftMetadata?.defaultFieldValues}
             onSave={(config) => {
               // Check if this is a pending action (new node being added)
               const isPendingAction = configuringNode.id === 'pending-action' && pendingNode?.type === 'action'
