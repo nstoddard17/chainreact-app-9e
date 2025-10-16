@@ -929,6 +929,11 @@ export function useWorkflowBuilder() {
     }, 300)
   }, [getNodes, getEdges, setNodes, setEdges, handleAddActionClick])
 
+  // Keep the ref updated
+  useEffect(() => {
+    ensureOneAddActionPerChainRef.current = ensureOneAddActionPerChain
+  }, [ensureOneAddActionPerChain])
+
   // Now we can define the actual undo/redo implementation
   useEffect(() => {
     handleUndoRef.current = () => {
@@ -940,7 +945,7 @@ export function useWorkflowBuilder() {
 
         // Re-add UI nodes after restoring
         setTimeout(() => {
-          ensureOneAddActionPerChain()
+          ensureOneAddActionPerChainRef.current?.()
         }, 50)
 
         setHasUnsavedChanges(true)
@@ -960,7 +965,7 @@ export function useWorkflowBuilder() {
 
         // Re-add UI nodes after restoring
         setTimeout(() => {
-          ensureOneAddActionPerChain()
+          ensureOneAddActionPerChainRef.current?.()
         }, 50)
 
         setHasUnsavedChanges(true)
@@ -970,7 +975,7 @@ export function useWorkflowBuilder() {
         })
       }
     }
-  }, [historyHook, setNodes, setEdges, ensureOneAddActionPerChain, toast, setHasUnsavedChanges])
+  }, [historyHook, setNodes, setEdges, toast, setHasUnsavedChanges])
 
   // Track changes for undo/redo
   const trackChange = useCallback((newNodes?: Node[], newEdges?: Edge[]) => {
@@ -1962,6 +1967,7 @@ export function useWorkflowBuilder() {
   const handleUndoRef = useRef<(() => void) | null>(null)
   const handleRedoRef = useRef<(() => void) | null>(null)
   const trackChangeRef = useRef<((newNodes?: Node[], newEdges?: Edge[]) => void) | null>(null)
+  const ensureOneAddActionPerChainRef = useRef<(() => void) | null>(null)
 
   // Handle node connection
   const onConnect = useCallback((params: Connection) => {

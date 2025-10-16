@@ -7,6 +7,17 @@ import { logger } from '@/lib/utils/logger'
 const NOTION_API_VERSION = "2022-06-28"
 
 /**
+ * Output Schema Type Definition
+ * Defines the structure of outputs from action handlers
+ */
+export interface OutputField {
+  name: string
+  label: string
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array'
+  description?: string
+}
+
+/**
  * Helper function to make Notion API requests
  */
 async function notionApiRequest(
