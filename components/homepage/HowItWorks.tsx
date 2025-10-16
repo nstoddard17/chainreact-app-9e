@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, MousePointer, Play, CheckCircle, ArrowRight, Plus, GitBranch, Zap, Mail, FileText, Users, MessageSquare, Calendar, Hash, Bell, Database, Image, Settings, Trash2, Edit2, Filter, Send, Bot } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const steps = [
   {
@@ -42,6 +43,7 @@ export function HowItWorks() {
   const [activeStep, setActiveStep] = useState(0)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [oauthStep, setOauthStep] = useState<'initial' | 'clicking' | 'oauth' | 'authorizing' | 'connected'>('initial')
+  const router = useRouter()
 
   useEffect(() => {
     // Check for theme from document or localStorage
@@ -379,13 +381,57 @@ export function HowItWorks() {
                        backgroundSize: '12px 12px'
                      }}>
 
+                  {/* All Connection Lines (rendered first so they appear behind nodes) */}
+                  <svg className="absolute inset-0 pointer-events-none z-0" style={{ width: '100%', height: '100%' }}>
+                    {/* Line from Gmail to AI */}
+                    <motion.path
+                      d="M 240 75 L 240 110"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.3, duration: 0.5 }}
+                    />
+                    {/* Line from AI to Slack */}
+                    <motion.path
+                      d="M 220 155 L 100 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    />
+                    {/* Line from AI to Auto Reply */}
+                    <motion.path
+                      d="M 240 155 L 240 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    />
+                    {/* Line from AI to Notion */}
+                    <motion.path
+                      d="M 260 155 L 380 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    />
+                  </svg>
+
                   {/* Gmail Trigger Node - Top Center */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.1, type: "spring" }}
-                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-blue-500 p-2.5 w-[140px]"
-                    style={{ left: '170px', top: '20px' }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-blue-500 p-2.5 w-[140px] z-10"
+                    style={{ left: '170px', top: '30px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <img src="/integrations/gmail.svg" alt="Gmail" className="w-5 h-5" />
@@ -394,26 +440,13 @@ export function HowItWorks() {
                     <p className="text-[10px] text-gray-500 dark:text-gray-400">When email received</p>
                   </motion.div>
 
-                  {/* Connection Line to AI */}
-                  <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
-                    <motion.path
-                      d="M 240 60 L 240 100"
-                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
-                      strokeWidth="2"
-                      fill="none"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ delay: 0.3, duration: 0.5 }}
-                    />
-                  </svg>
-
                   {/* AI Agent Node - Middle */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.4, type: "spring" }}
-                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-purple-500 p-2.5 w-[140px]"
-                    style={{ left: '170px', top: '100px' }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-purple-500 p-2.5 w-[140px] z-10"
+                    style={{ left: '170px', top: '110px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -422,46 +455,12 @@ export function HowItWorks() {
                     <p className="text-[10px] text-gray-500 dark:text-gray-400">Analyze & route</p>
                   </motion.div>
 
-                  {/* Connection Lines from AI to Actions */}
-                  <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
-                    {/* Line to Slack */}
-                    <motion.path
-                      d="M 220 140 L 100 200"
-                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
-                      strokeWidth="2"
-                      fill="none"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ delay: 0.6, duration: 0.5 }}
-                    />
-                    {/* Line to Auto Reply */}
-                    <motion.path
-                      d="M 240 140 L 240 200"
-                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
-                      strokeWidth="2"
-                      fill="none"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ delay: 0.6, duration: 0.5 }}
-                    />
-                    {/* Line to Notion */}
-                    <motion.path
-                      d="M 260 140 L 380 200"
-                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
-                      strokeWidth="2"
-                      fill="none"
-                      initial={{ pathLength: 0 }}
-                      animate={{ pathLength: 1 }}
-                      transition={{ delay: 0.6, duration: 0.5 }}
-                    />
-                  </svg>
-
                   {/* Slack Action Node - Bottom Left */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.8, type: "spring" }}
-                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px]"
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px] z-10"
                     style={{ left: '35px', top: '200px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -476,7 +475,7 @@ export function HowItWorks() {
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.9, type: "spring" }}
-                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[140px]"
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[140px] z-10"
                     style={{ left: '170px', top: '200px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -491,7 +490,7 @@ export function HowItWorks() {
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 1, type: "spring" }}
-                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px]"
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px] z-10"
                     style={{ left: '315px', top: '200px' }}
                   >
                     <div className="flex items-center gap-2 mb-1">
@@ -626,8 +625,11 @@ export function HowItWorks() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="text-center mt-16"
         >
-          <button className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 group">
-            Start Automating Now
+          <button
+            onClick={() => router.push('/waitlist')}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 group"
+          >
+            Join the Waitlist
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </motion.div>

@@ -1,17 +1,16 @@
 "use client"
 
-import React, { useState } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Sparkles, Zap, Play } from 'lucide-react'
-import { WaitlistModal } from './WaitlistModal'
+import { useRouter } from 'next/navigation'
 
 export function HeroSection() {
-  const [showWaitlist, setShowWaitlist] = useState(false)
+  const router = useRouter()
 
   return (
-    <>
-      <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32 bg-transparent">
+    <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32 bg-transparent">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             {/* Badge */}
@@ -61,7 +60,7 @@ export function HeroSection() {
             >
               <Button
                 size="lg"
-                onClick={() => setShowWaitlist(true)}
+                onClick={() => router.push('/waitlist')}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 group"
               >
                 <Zap className="w-5 h-5 mr-2" />
@@ -121,10 +120,6 @@ export function HeroSection() {
             </motion.div>
           </div>
         </div>
-      </section>
-
-      {/* Waitlist Modal */}
-      <WaitlistModal open={showWaitlist} onOpenChange={setShowWaitlist} />
-    </>
+    </section>
   )
 }

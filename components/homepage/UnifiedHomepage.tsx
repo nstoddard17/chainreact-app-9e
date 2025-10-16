@@ -9,7 +9,7 @@ import { FeaturesGrid } from './FeaturesGrid'
 import { IntegrationsShowcase } from './IntegrationsShowcase'
 import { HowItWorks } from './HowItWorks'
 import { Footer } from './Footer'
-import { ChainReactLogo } from './ChainReactLogo'
+import { Header } from '@/components/layout/Header'
 
 export function UnifiedHomepage() {
   const { theme } = useTheme()
@@ -50,32 +50,7 @@ export function UnifiedHomepage() {
       </div>
 
       {/* Navigation */}
-      <nav className={`relative z-40 px-4 sm:px-6 lg:px-8 py-6 backdrop-blur-lg border-b transition-colors duration-500 ${
-        isDark
-          ? 'bg-slate-900/50 border-white/10'
-          : 'bg-white/90 border-gray-200 shadow-sm'
-      }`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <ChainReactLogo />
-          <div className="flex items-center gap-6">
-            <a href="#features" className={`font-semibold transition-colors ${
-              isDark ? 'text-white/80 hover:text-white' : 'text-gray-700 hover:text-blue-600'
-            }`}>
-              Features
-            </a>
-            <a href="#integrations" className={`font-semibold transition-colors ${
-              isDark ? 'text-white/80 hover:text-white' : 'text-gray-700 hover:text-blue-600'
-            }`}>
-              Integrations
-            </a>
-            <a href="#how-it-works" className={`font-semibold transition-colors ${
-              isDark ? 'text-white/80 hover:text-white' : 'text-gray-700 hover:text-blue-600'
-            }`}>
-              How it Works
-            </a>
-          </div>
-        </div>
-      </nav>
+      <Header />
 
       {/* Main Content */}
       <HeroSection />

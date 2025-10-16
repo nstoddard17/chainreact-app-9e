@@ -322,3 +322,104 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-16T04:26:12.276Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4152 modules)
 [2025-10-16T04:29:46.468Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
 [2025-10-16T04:29:46.524Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1759ms (4143 modules)
+[2025-10-16T04:37:55.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.1s (5703 modules)
+[2025-10-16T04:37:56.059Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T04:38:00.140Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T04:38:00.597Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1059ms (4145 modules)
+[2025-10-16T04:38:01.606Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 353ms (4147 modules)
+[2025-10-16T04:38:05.231Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T04:38:05.561Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 954ms (4149 modules)
+[2025-10-16T04:39:03.718Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1536ms (5726 modules)
+[2025-10-16T04:39:05.117Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T04:39:05.128Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 511ms (4152 modules)
+[2025-10-16T04:39:06.168Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4157 modules)
+[2025-10-16T04:39:38.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 434ms (4153 modules)
+[2025-10-16T04:43:02.863Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T04:43:02.915Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1311ms (4147 modules)
+[2025-10-16T12:26:09.929Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T12:26:12.212Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.8s (4147 modules)
+[2025-10-16T12:26:12.973Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 383ms (4149 modules)
+[2025-10-16T12:26:16.832Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T12:26:18.061Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.5s (4151 modules)
+[2025-10-16T12:27:10.052Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4s (5728 modules)
+[2025-10-16T12:27:11.934Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T12:27:12.025Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 745ms (4153 modules)
+[2025-10-16T12:27:15.132Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4158 modules)
+[2025-10-16T12:27:28.820Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1349ms (5729 modules)
+[2025-10-16T12:27:28.889Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:27:43.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1078ms (5729 modules)
+[2025-10-16T12:31:14.528Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T12:31:14.585Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1943ms (4143 modules)
+[2025-10-16T12:32:12.602Z] [INFO   ]  [37m[1m○[22m[39m Compiling /waitlist ...
+[2025-10-16T12:32:19.864Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /waitlist in 8.6s (5716 modules)
+[2025-10-16T12:32:20.368Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:32:21.479Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T12:32:22.865Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.2s (4152 modules)
+[2025-10-16T12:32:23.426Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4156 modules)
+[2025-10-16T12:36:20.960Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.4s (5713 modules)
+[2025-10-16T12:36:23.290Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-16T12:36:24.139Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1800ms (4152 modules)
+[2025-10-16T12:36:25.123Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4157 modules)
+[2025-10-16T12:36:28.827Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 849ms (5737 modules)
+[2025-10-16T12:36:29.937Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 384ms (4159 modules)
+[2025-10-16T12:37:19.221Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T12:37:23.757Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 5s (4162 modules)
+[2025-10-16T12:37:25.046Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T12:37:27.340Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.8s (4164 modules)
+[2025-10-16T12:37:28.087Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T12:37:28.117Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 578ms (4166 modules)
+[2025-10-16T12:38:33.639Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.3s (5732 modules)
+[2025-10-16T12:38:33.777Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:38:37.247Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T12:38:37.352Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 689ms (4156 modules)
+[2025-10-16T12:38:48.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1224ms (5736 modules)
+[2025-10-16T12:38:49.692Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T12:38:50.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1246ms (4159 modules)
+[2025-10-16T12:38:56.612Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4164 modules)
+[2025-10-16T12:39:29.920Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-16T12:39:31.643Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 3.7s (4166 modules)
+[2025-10-16T12:40:58.771Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.4s (5732 modules)
+[2025-10-16T12:40:59.210Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4152 modules)
+[2025-10-16T12:40:59.624Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4152 modules)
+[2025-10-16T12:40:59.959Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4152 modules)
+[2025-10-16T12:41:00.927Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 0ms (4152 modules)
+[2025-10-16T12:41:07.320Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.2s (5739 modules)
+[2025-10-16T12:41:08.194Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4159 modules)
+[2025-10-16T12:41:08.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4159 modules)
+[2025-10-16T12:41:09.000Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:41:09.413Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4159 modules)
+[2025-10-16T12:41:13.935Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1166ms (5739 modules)
+[2025-10-16T12:41:56.623Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:42:07.958Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:42:08.947Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage/HeroSection.tsx
+Error:   [31m×[0m Unterminated regexp literal
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/homepage/HeroSection.tsx[0m:124:1]
+ [2m121[0m │           </div>
+ [2m122[0m │         </div>
+ [2m123[0m │       </section>
+ [2m124[0m │     </>
+     · [35;1m     ──[0m
+ [2m125[0m │   )
+ [2m126[0m │ }
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/homepage/HeroSection.tsx
+./components/homepage/UnifiedHomepage.tsx
+[2025-10-16T12:42:24.423Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-16T12:42:28.916Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T12:42:29.860Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 14.4s (6068 modules)
+[2025-10-16T12:42:33.023Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T12:42:35.781Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T12:42:39.239Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 5.9s (4344 modules)
+[2025-10-16T12:42:42.494Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T12:42:45.033Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 3.3s (4346 modules)
+[2025-10-16T12:42:48.065Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4343 modules)
+[2025-10-16T13:08:38.437Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T13:08:43.856Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 26.6s (5971 modules)
+[2025-10-16T13:08:45.749Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T13:08:45.872Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 860ms (4248 modules)
+[2025-10-16T13:08:46.981Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...
