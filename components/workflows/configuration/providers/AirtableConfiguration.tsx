@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Database, Eye, RefreshCw, ChevronLeft } from "lucide-react";
@@ -45,6 +45,9 @@ interface AirtableConfigurationProps {
   setAirtableRecords?: (records: any[]) => void;
   airtableTableSchema?: any;
   setAirtableTableSchema?: (schema: any) => void;
+  isTemplateEditing?: boolean;
+  templateDefaults?: Record<string, any> | undefined;
+  initialConfig?: Record<string, any>;
 }
 
 export function AirtableConfiguration({
@@ -78,6 +81,9 @@ export function AirtableConfiguration({
   setAirtableRecords: parentSetAirtableRecords,
   airtableTableSchema: parentAirtableTableSchema,
   setAirtableTableSchema: parentSetAirtableTableSchema,
+  isTemplateEditing = false,
+  templateDefaults,
+  initialConfig,
 }: AirtableConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
@@ -126,6 +132,51 @@ export function AirtableConfiguration({
   const setPreviewData = parentSetPreviewData ?? setLocalPreviewData;
   
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const templateFieldHints = useMemo(() => {
+    if (!isTemplateEditing) {
+      return {};
+    }
+
+    const hints: Record<string, string> = {};
+
+    const collectHints = (obj: Record<string, any> | undefined | null) => {
+      if (!obj || typeof obj !== 'object') return;
+      Object.entries(obj).forEach(([rawKey, value]) => {
+        if (typeof value !== 'string') return;
+        if (!value.includes('{{')) return;
+        const normalizedKey = rawKey.startsWith('airtable_field_')
+          ? rawKey.replace('airtable_field_', '').trim()
+          : rawKey.trim();
+        if (!normalizedKey) return;
+        if (!hints[normalizedKey]) {
+          hints[normalizedKey] = value;
+        }
+      });
+    };
+
+    const addHintsFromSource = (source: Record<string, any> | undefined | null) => {
+      if (!source || typeof source !== 'object') return;
+      if (typeof source.fields === 'object' && source.fields !== null) {
+        collectHints(source.fields as Record<string, any>);
+      }
+      collectHints(source as Record<string, any>);
+    };
+
+    if (templateDefaults && currentNodeId) {
+      const nodeDefaults = (templateDefaults as Record<string, any>)[currentNodeId];
+      if (nodeDefaults && typeof nodeDefaults === 'object') {
+        addHintsFromSource(nodeDefaults);
+      }
+    }
+
+    if (initialConfig && typeof initialConfig === 'object') {
+      addHintsFromSource(initialConfig as Record<string, any>);
+    }
+
+    return hints;
+  }, [isTemplateEditing, templateDefaults, currentNodeId, initialConfig]);
+  const shouldShowTemplateHints = isTemplateEditing && Object.keys(templateFieldHints).length > 0;
 
   const { getIntegrationByProvider } = useIntegrationStore();
   const airtableIntegration = getIntegrationByProvider('airtable');
@@ -1532,10 +1583,31 @@ export function AirtableConfiguration({
         }
       }
 
+      let effectiveField = field;
+      if (shouldShowTemplateHints && field.name?.startsWith('airtable_field_')) {
+        const rawKey = field.label || field.name.replace('airtable_field_', '');
+        const normalizedKey = typeof rawKey === 'string' ? rawKey.trim() : rawKey;
+        const fallbackKey = field.name.replace('airtable_field_', '').trim();
+        const templateHint =
+          (normalizedKey ? templateFieldHints[normalizedKey] : undefined) ||
+          templateFieldHints[fallbackKey];
+
+        if (templateHint) {
+          const hintText = `Suggested variable: ${templateHint}`;
+          const combinedTooltip = effectiveField.tooltip
+            ? `${effectiveField.tooltip}\n\n${hintText}`
+            : hintText;
+          effectiveField = {
+            ...effectiveField,
+            tooltip: combinedTooltip,
+          };
+        }
+      }
+
       return (
       <React.Fragment key={`field-${field.name}-${index}`}>
         <FieldRenderer
-          field={field}
+          field={effectiveField}
           value={values[field.name]}
           onChange={(value) => handleFieldChange(field.name, value)}
           error={errors[field.name] || validationErrors[field.name]}

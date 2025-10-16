@@ -59,7 +59,7 @@ export function HowItWorks() {
     const sequence = async () => {
       await new Promise(resolve => setTimeout(resolve, 1500)) // Initial state
       setOauthStep('clicking')
-      await new Promise(resolve => setTimeout(resolve, 700)) // Show click animation
+      await new Promise(resolve => setTimeout(resolve, 900)) // Show click animation
       setOauthStep('oauth')
       await new Promise(resolve => setTimeout(resolve, 2500)) // OAuth window with cursor
       setOauthStep('authorizing')
@@ -69,7 +69,7 @@ export function HowItWorks() {
       setOauthStep('initial')
     }
 
-    const interval = setInterval(sequence, 8200) // Adjusted total time
+    const interval = setInterval(sequence, 8400) // Adjusted total time
     sequence() // Run immediately
 
     return () => clearInterval(interval)
@@ -181,7 +181,7 @@ export function HowItWorks() {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        className={`p-3 rounded-lg border transition-all ${
+                        className={`relative p-3 rounded-lg border transition-all ${
                           isClicking ? 'scale-95' : ''
                         } ${
                           isConnected
@@ -225,24 +225,22 @@ export function HowItWorks() {
                           </motion.button>
                         )}
 
-                        {/* Simulated cursor for Slack */}
+                        {/* Simulated cursor for Slack Connect button */}
                         {isSlack && oauthStep === 'clicking' && (
                           <motion.div
-                            initial={{ x: 100, y: -50, scale: 0, opacity: 0 }}
+                            initial={{ x: -30, y: -40, scale: 0, opacity: 0 }}
                             animate={{
-                              x: 0,
-                              y: 0,
-                              scale: [0, 1.2, 1, 1, 0.8, 1],
+                              x: [-30, 0, 0, 2, 0],
+                              y: [-40, 0, 0, 3, 0],
+                              scale: [0, 1, 1, 0.85, 1],
                               opacity: 1
                             }}
                             transition={{
-                              duration: 0.7,
-                              scale: {
-                                times: [0, 0.3, 0.5, 0.7, 0.8, 1],
-                                ease: "easeInOut"
-                              }
+                              duration: 0.9,
+                              times: [0, 0.4, 0.65, 0.8, 1],
+                              ease: "easeInOut"
                             }}
-                            className="absolute bottom-[5px] left-1/2 -translate-x-1/2 pointer-events-none z-30"
+                            className="absolute bottom-[7px] left-1/2 -translate-x-1/2 pointer-events-none z-30"
                           >
                             <MousePointer className="w-5 h-5 text-gray-900 dark:text-white fill-gray-900 dark:fill-white" />
                           </motion.div>
@@ -329,18 +327,16 @@ export function HowItWorks() {
                               <motion.div
                                 initial={{ x: 50, y: -30, scale: 0, opacity: 0 }}
                                 animate={{
-                                  x: 0,
-                                  y: 0,
-                                  scale: [0, 1.2, 1, 1, 0.8, 1],
+                                  x: [50, 0, 0, 3, 0],
+                                  y: [-30, 0, 0, 2, 0],
+                                  scale: [0, 1, 1, 0.85, 1],
                                   opacity: 1
                                 }}
                                 transition={{
                                   delay: 0.8,
-                                  duration: 0.8,
-                                  scale: {
-                                    times: [0, 0.3, 0.5, 0.8, 0.85, 1],
-                                    ease: "easeInOut"
-                                  }
+                                  duration: 0.9,
+                                  times: [0, 0.4, 0.65, 0.8, 1],
+                                  ease: "easeInOut"
                                 }}
                                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
                               >
