@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, MousePointer, Play, CheckCircle, ArrowRight, Plus, GitBranch, Zap, Mail, FileText, Users, MessageSquare, Calendar, Hash, Bell, Database, Image } from 'lucide-react'
+import { Sparkles, MousePointer, Play, CheckCircle, ArrowRight, Plus, GitBranch, Zap, Mail, FileText, Users, MessageSquare, Calendar, Hash, Bell, Database, Image, Settings, Trash2, Edit2, Filter, Send, Bot } from 'lucide-react'
 
 const steps = [
   {
@@ -361,138 +361,156 @@ export function HowItWorks() {
             {activeStep === 1 && (
               <div className="h-full flex flex-col">
                 {/* Workflow Builder Header */}
-                <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-white/10">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Workflow Builder</h3>
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-white/10">
                   <div className="flex items-center gap-2">
-                    <button className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded font-medium">
-                      Save
-                    </button>
-                    <button className="px-2 py-1 text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 rounded font-medium">
-                      Activate
-                    </button>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Customer Support Automation</h3>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 rounded">Template</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">Save</button>
+                    <button className="px-2 py-0.5 text-xs bg-green-500 text-white rounded">Activate</button>
                   </div>
                 </div>
 
-                {/* Canvas with Grid Background */}
-                <div className="flex-1 relative bg-gray-50 dark:bg-slate-800/30 rounded-lg overflow-hidden"
+                {/* Canvas with Dot Grid Background */}
+                <div className="flex-1 relative bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden"
                      style={{
-                       backgroundImage: `radial-gradient(circle, ${theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} 1px, transparent 1px)`,
-                       backgroundSize: '20px 20px'
+                       backgroundImage: `radial-gradient(circle, ${theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'} 1px, transparent 1px)`,
+                       backgroundSize: '12px 12px'
                      }}>
 
-                  {/* Workflow Nodes */}
+                  {/* Gmail Trigger Node - Top Center */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2, type: "spring" }}
-                    className="absolute left-8 top-1/2 -translate-y-1/2 w-28 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-lg flex items-center justify-center"
+                    transition={{ delay: 0.1, type: "spring" }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-blue-500 p-2.5 w-[140px]"
+                    style={{ left: '170px', top: '20px' }}
                   >
-                    <Zap className="w-4 h-4 text-white mr-1" />
-                    <span className="text-xs font-medium text-white">Trigger</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <img src="/integrations/gmail.svg" alt="Gmail" className="w-5 h-5" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white">New Email</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">When email received</p>
                   </motion.div>
 
-                  {/* Connection Line 1 */}
-                  <motion.svg
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ delay: 0.5, duration: 0.5 }}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{ width: '100%', height: '100%' }}
-                  >
+                  {/* Connection Line to AI */}
+                  <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
                     <motion.path
-                      d="M 136 192 L 200 192"
-                      stroke="url(#gradient1)"
+                      d="M 240 60 L 240 100"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
                       strokeWidth="2"
                       fill="none"
                       initial={{ pathLength: 0 }}
                       animate={{ pathLength: 1 }}
-                      transition={{ delay: 0.5, duration: 0.5 }}
+                      transition={{ delay: 0.3, duration: 0.5 }}
                     />
-                    <defs>
-                      <linearGradient id="gradient1">
-                        <stop offset="0%" stopColor="#10b981" />
-                        <stop offset="100%" stopColor="#8b5cf6" />
-                      </linearGradient>
-                    </defs>
-                  </motion.svg>
+                  </svg>
 
+                  {/* AI Agent Node - Middle */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.7, type: "spring" }}
-                    className="absolute left-52 top-1/2 -translate-y-1/2 w-28 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg flex items-center justify-center"
+                    transition={{ delay: 0.4, type: "spring" }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-purple-500 p-2.5 w-[140px]"
+                    style={{ left: '170px', top: '100px' }}
                   >
-                    <GitBranch className="w-4 h-4 text-white mr-1" />
-                    <span className="text-xs font-medium text-white">Filter</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Bot className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white">AI Classifier</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Analyze & route</p>
                   </motion.div>
 
-                  {/* Connection Line 2 */}
-                  <motion.svg
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ delay: 1, duration: 0.5 }}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{ width: '100%', height: '100%' }}
-                  >
+                  {/* Connection Lines from AI to Actions */}
+                  <svg className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%' }}>
+                    {/* Line to Slack */}
                     <motion.path
-                      d="M 336 192 L 400 192"
-                      stroke="url(#gradient2)"
+                      d="M 220 140 L 100 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
                       strokeWidth="2"
                       fill="none"
                       initial={{ pathLength: 0 }}
                       animate={{ pathLength: 1 }}
-                      transition={{ delay: 1, duration: 0.5 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
                     />
-                    <defs>
-                      <linearGradient id="gradient2">
-                        <stop offset="0%" stopColor="#ec4899" />
-                        <stop offset="100%" stopColor="#3b82f6" />
-                      </linearGradient>
-                    </defs>
-                  </motion.svg>
+                    {/* Line to Auto Reply */}
+                    <motion.path
+                      d="M 240 140 L 240 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    />
+                    {/* Line to Notion */}
+                    <motion.path
+                      d="M 260 140 L 380 200"
+                      stroke={theme === 'dark' ? '#6b7280' : '#9ca3af'}
+                      strokeWidth="2"
+                      fill="none"
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ delay: 0.6, duration: 0.5 }}
+                    />
+                  </svg>
 
+                  {/* Slack Action Node - Bottom Left */}
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1.2, type: "spring" }}
-                    className="absolute right-8 top-1/2 -translate-y-1/2 w-28 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg shadow-lg flex items-center justify-center"
+                    transition={{ delay: 0.8, type: "spring" }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px]"
+                    style={{ left: '35px', top: '200px' }}
                   >
-                    <Mail className="w-4 h-4 text-white mr-1" />
-                    <span className="text-xs font-medium text-white">Send Email</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <img src="/integrations/slack.svg" alt="Slack" className="w-5 h-5" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white">Urgent Alert</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Notify #support</p>
                   </motion.div>
 
-                  {/* Dragging Node Animation */}
+                  {/* Gmail Reply Node - Bottom Center */}
                   <motion.div
-                    initial={{ x: -50, y: 100, opacity: 0 }}
-                    animate={{
-                      x: [null, 100, 100],
-                      y: [null, 100, 50],
-                      opacity: [0, 1, 1]
-                    }}
-                    transition={{
-                      delay: 1.5,
-                      duration: 1.5,
-                      times: [0, 0.5, 1],
-                      repeat: Infinity,
-                      repeatDelay: 2
-                    }}
-                    className="absolute w-24 h-10 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-lg shadow-lg flex items-center justify-center opacity-80"
-                    style={{ left: 20, top: 20 }}
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.9, type: "spring" }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[140px]"
+                    style={{ left: '170px', top: '200px' }}
                   >
-                    <Plus className="w-4 h-4 text-white mr-1" />
-                    <span className="text-xs font-medium text-white">Action</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <img src="/integrations/gmail.svg" alt="Gmail" className="w-5 h-5" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white">Auto Reply</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Send response</p>
                   </motion.div>
 
-                  {/* Plus Button for Adding Nodes */}
+                  {/* Notion Action Node - Bottom Right */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 1, type: "spring" }}
+                    className="absolute bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-300 dark:border-gray-600 p-2.5 w-[130px]"
+                    style={{ left: '315px', top: '200px' }}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <img src="/integrations/notion.svg" alt="Notion" className="w-5 h-5" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white">Create Ticket</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">Add to database</p>
+                  </motion.div>
+
+                  {/* Add Action Button (Plus) */}
                   <motion.button
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
+                    transition={{ delay: 1.2 }}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    className="absolute bottom-4 right-4 w-10 h-10 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg flex items-center justify-center"
+                    className="absolute bottom-4 right-4 w-8 h-8 bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg flex items-center justify-center"
                   >
-                    <Plus className="w-5 h-5 text-white" />
+                    <Plus className="w-4 h-4 text-white" />
                   </motion.button>
                 </div>
               </div>
