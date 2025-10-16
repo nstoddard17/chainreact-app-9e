@@ -162,14 +162,14 @@ export function HowItWorks() {
                 </div>
 
                 {/* Integration Grid */}
-                <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2 flex-1">
                   {[
-                    { name: 'Gmail', icon: Mail, color: 'from-red-500 to-red-600', desc: 'Email' },
-                    { name: 'Slack', icon: MessageSquare, color: 'from-purple-500 to-purple-600', desc: 'Chat' },
-                    { name: 'Discord', icon: Hash, color: 'from-indigo-500 to-indigo-600', desc: 'Chat' },
-                    { name: 'Notion', icon: FileText, color: 'from-gray-600 to-gray-700', desc: 'Docs' },
-                    { name: 'Calendar', icon: Calendar, color: 'from-blue-500 to-blue-600', desc: 'Events' },
-                    { name: 'Airtable', icon: Database, color: 'from-teal-500 to-teal-600', desc: 'Database' },
+                    { name: 'Gmail', logo: '/integrations/gmail.svg', desc: 'Email automation' },
+                    { name: 'Slack', logo: '/integrations/slack.svg', desc: 'Team communication' },
+                    { name: 'Discord', logo: '/integrations/discord.svg', desc: 'Community chat' },
+                    { name: 'Notion', logo: '/integrations/notion.svg', desc: 'Documentation' },
+                    { name: 'Google Calendar', logo: '/integrations/google-calendar.svg', desc: 'Event scheduling' },
+                    { name: 'Airtable', logo: '/integrations/airtable.svg', desc: 'Database' },
                   ].map((integration, i) => {
                     const isSlack = integration.name === 'Slack'
                     const isConnected = isSlack && oauthStep === 'connected'
@@ -190,9 +190,11 @@ export function HowItWorks() {
                         }`}
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-8 h-8 bg-gradient-to-br ${integration.color} rounded-lg flex items-center justify-center`}>
-                            {React.createElement(integration.icon, { className: 'w-4 h-4 text-white' })}
-                          </div>
+                          <img
+                            src={integration.logo}
+                            alt={integration.name}
+                            className="w-8 h-8 object-contain"
+                          />
                           <div className="flex-1">
                             <p className="text-xs font-medium text-gray-900 dark:text-white">{integration.name}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{integration.desc}</p>
@@ -222,11 +224,12 @@ export function HowItWorks() {
                         {/* Simulated cursor for Slack */}
                         {isSlack && oauthStep === 'clicking' && (
                           <motion.div
-                            initial={{ scale: 0, x: 20, y: 20 }}
-                            animate={{ scale: 1, x: 0, y: 0 }}
-                            className="absolute bottom-2 right-2 pointer-events-none"
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", damping: 15 }}
+                            className="absolute bottom-1 right-8 pointer-events-none z-20"
                           >
-                            <MousePointer className="w-4 h-4 text-gray-900 dark:text-white rotate-180" />
+                            <MousePointer className="w-5 h-5 text-gray-900 dark:text-white" />
                           </motion.div>
                         )}
                       </motion.div>
@@ -253,8 +256,8 @@ export function HowItWorks() {
                         {/* OAuth Header */}
                         <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                              <MessageSquare className="w-4 h-4 text-white" />
+                            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1">
+                              <img src="/integrations/slack.svg" alt="Slack" className="w-6 h-6" />
                             </div>
                             <div>
                               <p className="text-white font-semibold text-sm">Slack Authorization</p>
@@ -309,12 +312,12 @@ export function HowItWorks() {
                           {/* Simulated cursor for clicking authorize */}
                           {oauthStep === 'oauth' && (
                             <motion.div
-                              initial={{ scale: 0, x: 50, y: 20 }}
-                              animate={{ scale: 1, x: 0, y: -10 }}
-                              transition={{ delay: 0.5 }}
-                              className="absolute bottom-8 right-1/2 translate-x-1/2 pointer-events-none"
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ delay: 0.8, type: "spring", damping: 15 }}
+                              className="absolute bottom-6 right-12 pointer-events-none z-10"
                             >
-                              <MousePointer className="w-4 h-4 text-gray-900 dark:text-white rotate-180" />
+                              <MousePointer className="w-5 h-5 text-gray-900 dark:text-white" />
                             </motion.div>
                           )}
                         </div>
