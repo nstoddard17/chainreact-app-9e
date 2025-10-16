@@ -91,3 +91,28 @@ Instead of relying on filters, we created properly colored SVG logos:
 - Consider maintaining separate light/dark logo versions for complex brands
 - Use SVGs with CSS variables for theme-aware colors
 - Document which logos need special handling in the codebase
+
+## Additional UI Improvements (Integration Cards)
+
+### Problem
+- Integration cards appeared too blocky and didn't blend well with the page
+- Animation had visible stops/restarts instead of being seamless
+
+### Solution Implemented
+
+1. **Softer Card Appearance**:
+   - Changed from `bg-white dark:bg-slate-900/50` to `bg-white/60 dark:bg-slate-900/20` for more transparency
+   - Reduced border opacity: `border-gray-200/30 dark:border-white/5`
+   - Changed from `rounded-xl` to `rounded-2xl` for softer corners
+   - Removed shadow, using `backdrop-blur-sm` for modern glass effect
+
+2. **Better Edge Blending**:
+   - Increased fade gradient width from `w-32` to `w-40`
+   - Added intermediate opacity steps in gradient for smoother fade
+
+3. **Seamless Animation**:
+   - Changed from percentage-based movement with loop restart to continuous flow
+   - First row: Moves from 0 to -33.33% (exactly 1/3 since we have 3 copies)
+   - Second row: Moves from -33.33% to 0 for opposite direction
+   - Removed `repeatType: 'loop'` to prevent jump on restart
+   - Increased duration for smoother motion (60s and 65s)
