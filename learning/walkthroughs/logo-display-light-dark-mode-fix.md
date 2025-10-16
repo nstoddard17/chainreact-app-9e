@@ -116,3 +116,14 @@ Instead of relying on filters, we created properly colored SVG logos:
    - Second row: Moves from -33.33% to 0 for opposite direction
    - Removed `repeatType: 'loop'` to prevent jump on restart
    - Increased duration for smoother motion (60s and 65s)
+
+4. **Natural Edge Fading (Final Solution)**:
+   - Used CSS `mask-image` property with gradient for edge fading
+   - `linear-gradient(to right, transparent, black 15%, black 85%, transparent)`
+   - Advantages of mask-image approach:
+     - Works perfectly with any background (solid or gradient)
+     - Cleaner implementation than overlay gradients
+     - Consistent fade on both edges
+     - No need to match exact background colors
+   - Removed per-card opacity calculations (didn't work for right edge due to animation loop)
+   - Creates seamless blend on both edges without visible boundaries
