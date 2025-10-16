@@ -98,10 +98,11 @@ export function IntegrationsShowcase() {
         </div>
 
         {/* Scrolling Integration Cards */}
-        <div className="relative">
-          {/* Stronger fade edges for better blending */}
-          <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-white dark:from-slate-950 via-white/80 dark:via-slate-950/80 to-transparent z-10 pointer-events-none" />
+        <div className="relative"
+             style={{
+               maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)',
+               WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)'
+             }}>
 
           {/* First Row - Scrolling Right */}
           <div className="mb-8 overflow-hidden">
