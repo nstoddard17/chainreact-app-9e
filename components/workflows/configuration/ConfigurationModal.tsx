@@ -56,7 +56,7 @@ import { ConfigurationModalProps } from "./utils/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { VariablePickerSidePanel } from "./VariablePickerSidePanel"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -222,7 +222,8 @@ export function ConfigurationModal({
     return false;
   }, [workflowData, currentNodeId]);
 
-  const { toast } = useToast();
+  const { toast} = useToast();
+  const [isVariablePanelOpen, setIsVariablePanelOpen] = useState(false);
 
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
@@ -422,15 +423,50 @@ export function ConfigurationModal({
             )}
           </div>
 
-          {/* Variable Picker Side Panel - Right Column */}
+          {/* Variable Picker Side Panel - Desktop: Right Column, Tablet: Slide-in */}
           {workflowData && !nodeInfo?.isTrigger && (
-            <div className="modal-sidebar-column variable-picker-area w-full lg:w-80 xl:w-96 flex-shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 h-full overflow-hidden" style={{ isolation: 'isolate' }}>
-              <VariablePickerSidePanel
-                workflowData={workflowData}
-                currentNodeId={currentNodeId}
-                currentNodeType={nodeInfo?.type}
-              />
-            </div>
+            <>
+              {/* Desktop view - always visible */}
+              <div className="modal-sidebar-column variable-picker-area hidden lg:flex w-80 xl:w-96 flex-shrink-0 border-l border-slate-200 h-full overflow-hidden" style={{ isolation: 'isolate' }}>
+                <VariablePickerSidePanel
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                />
+              </div>
+
+              {/* Tablet/Mobile: Toggle button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsVariablePanelOpen(!isVariablePanelOpen)}
+                className="lg:hidden fixed right-0 top-1/2 -translate-y-1/2 z-50 bg-blue-500 hover:bg-blue-600 text-white rounded-l-lg rounded-r-none px-2 py-6 shadow-lg"
+              >
+                {isVariablePanelOpen ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+              </Button>
+
+              {/* Tablet/Mobile: Slide-in panel */}
+              <div
+                className={cn(
+                  "lg:hidden fixed right-0 top-0 h-full w-80 bg-white shadow-2xl z-40 transition-transform duration-300 ease-in-out",
+                  isVariablePanelOpen ? "translate-x-0" : "translate-x-full"
+                )}
+              >
+                <VariablePickerSidePanel
+                  workflowData={workflowData}
+                  currentNodeId={currentNodeId}
+                  currentNodeType={nodeInfo?.type}
+                />
+              </div>
+
+              {/* Overlay for tablet/mobile when panel is open */}
+              {isVariablePanelOpen && (
+                <div
+                  className="lg:hidden fixed inset-0 bg-black/50 z-30"
+                  onClick={() => setIsVariablePanelOpen(false)}
+                />
+              )}
+            </>
           )}
         </div>
       </CustomDialogContent>

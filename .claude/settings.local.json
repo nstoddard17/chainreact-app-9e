@@ -120,7 +120,9 @@
       "Bash(then)",
       "Bash(echo:*)",
       "Bash(git checkout:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(do grep -A 20 \"isTrigger: true\" \"$file\")",
+      "Bash(do echo \"=== $trigger ===\")"
     ],
     "defaultMode": "acceptEdits"
   }
