@@ -9,6 +9,7 @@ export function getAirtableFieldType(airtableType: string): string {
   switch (airtableType) {
     case 'singleLineText':
     case 'multilineText':
+    case 'longText':
     case 'richText':
     case 'email':
     case 'phoneNumber':
@@ -77,6 +78,7 @@ export function getAirtableFieldTypeFromSchema(field: any): string {
       }
       return 'text';
     case 'multilineText':
+    case 'longText':
     case 'richText':
       return 'textarea';
     case 'email':

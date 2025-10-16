@@ -56,7 +56,7 @@ export function useWorkflowActions() {
       const newWorkflow = {
         name: `${workflow.name} - Copy`,
         description: workflow.description,
-        status: 'paused', // New workflows start paused
+        status: 'inactive', // New workflows start inactive until re-activated
         is_enabled: false,
         nodes: workflow.nodes,
         connections: workflow.connections,

@@ -1,7 +1,7 @@
 "use client"
 
 import { memo } from 'react'
-import { cn } from '@/lib/utils'
+import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
 
 interface StaticIntegrationLogoProps {
   providerId: string
@@ -19,17 +19,13 @@ export const StaticIntegrationLogo = memo(function StaticIntegrationLogo({
   providerColor
 }: StaticIntegrationLogoProps) {
   const logoPath = `/integrations/${providerId}.svg`
-  const needsInversion = ['github', 'google-docs', 'instagram', 'tiktok', 'x'].includes(providerId)
 
   return (
     <div className="w-6 h-6 relative">
       <img
         src={logoPath}
         alt={`${providerName} logo`}
-        className={cn(
-          "w-6 h-6 object-contain",
-          needsInversion && "dark:invert"
-        )}
+        className={getIntegrationLogoClasses(providerId)}
         loading="eager"
         onError={(e) => {
           // On error, hide the image and show fallback

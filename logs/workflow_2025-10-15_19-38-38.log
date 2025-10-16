@@ -1,0 +1,65 @@
+=== Log Session Started: 2025-10-16T00:38:38.174Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-16T00:38:38.174Z] [INFO   ] File logging initialized
+[2025-10-16T00:38:38.174Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-38-38.log
+[2025-10-16T00:38:38.175Z] [INFO   ] 📁 File logging enabled
+[2025-10-16T00:38:38.175Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-38-38.log
+[2025-10-16T00:38:38.175Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-38-38.log
+[2025-10-16T00:38:38.175Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-38-38.log
+[2025-10-16T00:38:38.175Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_19-38-38.log
+[2025-10-16T00:38:38.175Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-16T00:38:38.175Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-16T00:38:38.190Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3s
+[2025-10-16T00:38:41.607Z] [INFO   ]  [37m[1m○[22m[39m Compiling /home ...
+[2025-10-16T00:38:47.712Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /home in 6.6s (4428 modules)
+[2025-10-16T00:38:48.494Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 757ms (1022 modules)
+[2025-10-16T00:38:49.436Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 409ms (4531 modules)
+[2025-10-16T00:38:49.755Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 152ms (233 modules)
+[2025-10-16T00:38:50.231Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 237ms (4533 modules)
+[2025-10-16T00:38:53.918Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 430ms (4535 modules)
+[2025-10-16T00:40:07.156Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-16T00:40:11.006Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 4.4s (5688 modules)
+[2025-10-16T00:41:03.071Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T00:41:03.113Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 584ms (4133 modules)
+[2025-10-16T00:41:03.646Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 377ms (1558 modules)
+[2025-10-16T00:41:31.458Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 996ms (5714 modules)
+[2025-10-16T00:41:32.659Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-16T00:41:33.156Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1000ms (5702 modules)
+[2025-10-16T00:41:33.195Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:41:35.338Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T00:41:35.690Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 859ms (4147 modules)
+[2025-10-16T00:41:36.648Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 283ms (4149 modules)
+[2025-10-16T00:41:46.092Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1402ms (5721 modules)
+[2025-10-16T00:41:58.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1347ms (5721 modules)
+[2025-10-16T00:41:58.284Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:42:16.886Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1007ms (5721 modules)
+[2025-10-16T00:42:26.940Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 718ms (5721 modules)
+[2025-10-16T00:42:26.970Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:42:41.443Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1018ms (5721 modules)
+[2025-10-16T00:42:59.208Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:43:00.266Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:43:00.505Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1746ms (5721 modules)
+[2025-10-16T00:43:09.988Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 747ms (5721 modules)
+[2025-10-16T00:43:19.855Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 959ms (5721 modules)
+[2025-10-16T00:43:19.925Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:43:34.979Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 843ms (5721 modules)
+[2025-10-16T00:45:00.957Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1466ms (5688 modules)
+[2025-10-16T00:45:00.985Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:45:03.617Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 362ms (4135 modules)
+[2025-10-16T00:45:03.915Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4145 modules)
+[2025-10-16T00:45:04.803Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 321ms (4147 modules)
+[2025-10-16T00:45:06.703Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 621ms (5719 modules)
+[2025-10-16T00:45:08.112Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-16T00:45:09.314Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1877ms (4149 modules)
+[2025-10-16T00:45:12.000Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T00:45:12.552Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1081ms (5721 modules)
+[2025-10-16T00:45:39.310Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-16T00:45:39.384Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T00:45:46.590Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T00:45:47.558Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 10.4s (7869 modules)
+[2025-10-16T00:45:47.700Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T00:45:48.799Z] [ERROR  ] 2025-10-16T00:45:48.799Z [ERROR] ❌ [Workflow API] Error in PUT handler: {}

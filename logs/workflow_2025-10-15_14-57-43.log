@@ -1,0 +1,150 @@
+=== Log Session Started: 2025-10-15T19:57:43.223Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-15T19:57:43.224Z] [INFO   ] File logging initialized
+[2025-10-15T19:57:43.224Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 📁 File logging enabled
+[2025-10-15T19:57:43.224Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.224Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-15_14-57-43.log
+[2025-10-15T19:57:43.225Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-15T19:57:43.225Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-15T19:57:43.241Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 4s
+[2025-10-15T19:57:43.761Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-15T19:57:52.283Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 9s (4715 modules)
+[2025-10-15T19:57:53.737Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-15T19:57:56.057Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 2.9s (5678 modules)
+[2025-10-15T19:57:57.723Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T19:57:57.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 570ms (5697 modules)
+[2025-10-15T19:57:58.647Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T19:57:59.019Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 892ms (5699 modules)
+[2025-10-15T19:58:00.019Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T19:58:00.736Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1246ms (5709 modules)
+[2025-10-15T19:58:01.679Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-15T19:58:05.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 4.2s (7869 modules)
+[2025-10-15T19:58:06.190Z] [ERROR  ] 2025-10-15T19:58:06.190Z [ERROR] ❌ [Workflow API] Update error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'validationState' column of 'workflows' in the schema cache"}
+[2025-10-15T19:58:32.221Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T19:58:33.155Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1789ms (7871 modules)
+[2025-10-15T19:58:40.422Z] [ERROR  ] 2025-10-15T19:58:40.422Z [ERROR] ❌ [Workflow API] Update error: {"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'validationState' column of 'workflows' in the schema cache"}
+[2025-10-15T20:00:19.062Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1402ms (1572 modules)
+[2025-10-15T20:00:20.179Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T20:00:21.282Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:00:21.607Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1929ms (5704 modules)
+[2025-10-15T20:01:59.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5692 modules)
+[2025-10-15T20:02:58.972Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:02:59.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1085ms (4137 modules)
+[2025-10-15T20:06:18.974Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-15T20:06:20.568Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 2.3s (5752 modules)
+[2025-10-15T20:06:20.943Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:07:59.202Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:07:59.250Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1002ms (4175 modules)
+[2025-10-15T20:08:59.054Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1921ms (5783 modules)
+[2025-10-15T20:08:59.303Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-15T20:21:43.603Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1859ms (5766 modules)
+[2025-10-15T20:21:43.702Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:21:44.502Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:21:44.519Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-15T20:21:44.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 897ms (5757 modules)
+[2025-10-15T20:21:53.858Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 807ms (5771 modules)
+[2025-10-15T20:22:58.875Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:22:59.912Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1537ms (4175 modules)
+[2025-10-15T20:23:31.647Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:23:32.069Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1912ms (5785 modules)
+[2025-10-15T20:24:58.032Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5768 modules)
+[2025-10-15T20:25:04.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 654ms (5768 modules)
+[2025-10-15T20:25:27.213Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1881ms (5766 modules)
+[2025-10-15T20:26:03.769Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 982ms (5766 modules)
+[2025-10-15T20:27:59.297Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:28:00.226Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1796ms (4175 modules)
+[2025-10-15T20:29:31.796Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:33.069Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:33.960Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:29:34.280Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5s (5766 modules)
+[2025-10-15T20:31:59.913Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.4s (5766 modules)
+[2025-10-15T20:33:57.336Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:33:59.424Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 3s (4175 modules)
+[2025-10-15T20:35:39.708Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:35:41.018Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.4s (5766 modules)
+[2025-10-15T20:35:41.359Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4158 modules)
+[2025-10-15T20:35:41.868Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4158 modules)
+[2025-10-15T20:35:42.259Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4158 modules)
+[2025-10-15T20:37:59.304Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T20:38:00.147Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1683ms (4175 modules)
+[2025-10-15T20:40:50.117Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T20:40:51.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5985 modules)
+[2025-10-15T20:41:08.233Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 378ms (1608 modules)
+[2025-10-15T20:41:28.056Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 309ms (1608 modules)
+[2025-10-15T20:42:04.878Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 565ms (1608 modules)
+[2025-10-15T20:42:07.935Z] [INFO   ]  [37m[1m○[22m[39m Compiling /home-light ...
+[2025-10-15T20:42:09.109Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:5:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightWorkflowAnimation[39m'
+[0m [90m 3 |[39m [36mimport[39m [33mReact[39m [36mfrom[39m [32m'react'[39m
+ [90m 4 |[39m [36mimport[39m { [33mLightHeroSection[39m } [36mfrom[39m [32m'./LightHeroSection'[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+ [90m 7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m 8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-15T20:42:10.534Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:5:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightWorkflowAnimation[39m'
+[0m [90m 3 |[39m [36mimport[39m [33mReact[39m [36mfrom[39m [32m'react'[39m
+ [90m 4 |[39m [36mimport[39m { [33mLightHeroSection[39m } [36mfrom[39m [32m'./LightHeroSection'[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+ [90m 7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m 8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-15T20:42:12.827Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:5:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightWorkflowAnimation[39m'
+[0m [90m 3 |[39m [36mimport[39m [33mReact[39m [36mfrom[39m [32m'react'[39m
+ [90m 4 |[39m [36mimport[39m { [33mLightHeroSection[39m } [36mfrom[39m [32m'./LightHeroSection'[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+ [90m 7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m 8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-15T20:42:59.956Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:5:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightWorkflowAnimation[39m'
+[0m [90m 3 |[39m [36mimport[39m [33mReact[39m [36mfrom[39m [32m'react'[39m
+ [90m 4 |[39m [36mimport[39m { [33mLightHeroSection[39m } [36mfrom[39m [32m'./LightHeroSection'[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+ [90m 7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m 8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-15T20:43:30.700Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:6:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightFeaturesGrid[39m'
+[0m [90m 4 |[39m [36mimport[39m { [33mLightHeroSection[39m } [36mfrom[39m [32m'./LightHeroSection'[39m
+ [90m 5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+[31m[1m>[22m[39m[90m 6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+ [90m   |[39m [31m[1m^[22m[39m
+ [90m 7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m 8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m
+ [90m 9 |[39m [36mimport[39m { [33mLightFooter[39m } [36mfrom[39m [32m'./LightFooter'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+[2025-10-15T20:44:18.332Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/homepage-light/LightHomepage.tsx:7:1
+[31m[1mModule not found[22m[39m: Can't resolve '[32m./LightIntegrationsShowcase[39m'
+[0m [90m  5 |[39m [36mimport[39m { [33mLightWorkflowAnimation[39m } [36mfrom[39m [32m'./LightWorkflowAnimation'[39m
+ [90m  6 |[39m [36mimport[39m { [33mLightFeaturesGrid[39m } [36mfrom[39m [32m'./LightFeaturesGrid'[39m
+[31m[1m>[22m[39m[90m  7 |[39m [36mimport[39m { [33mLightIntegrationsShowcase[39m } [36mfrom[39m [32m'./LightIntegrationsShowcase'[39m
+ [90m    |[39m [31m[1m^[22m[39m
+ [90m  8 |[39m [36mimport[39m { [33mLightHowItWorks[39m } [36mfrom[39m [32m'./LightHowItWorks'[39m
+ [90m  9 |[39m [36mimport[39m { [33mLightFooter[39m } [36mfrom[39m [32m'./LightFooter'[39m
+ [90m 10 |[39m [36mimport[39m { [33mLightChainReactLogo[39m } [36mfrom[39m [32m'./LightChainReactLogo'[39m[0m
+
+https://nextjs.org/docs/messages/module-not-found
+
+=== Log Session Ended: 2025-10-15T20:44:46.717Z ===

@@ -680,7 +680,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
           const { data: rolledBackWorkflow } = await serviceClient
             .from('workflows')
             .update({
-              status: 'paused',
+              status: 'inactive',
               updated_at: new Date().toISOString()
             })
             .eq('id', data.id)
@@ -704,7 +704,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         const { data: rolledBackWorkflow } = await serviceClient
           .from('workflows')
           .update({
-            status: 'paused',
+            status: 'inactive',
             updated_at: new Date().toISOString()
           })
           .eq('id', data.id)
@@ -727,7 +727,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     if (shouldUnregisterWebhooks) {
-      logger.debug('🔗 Workflow deactivated/paused - unregistering all trigger resources')
+      logger.debug('🔗 Workflow deactivated/inactive - unregistering all trigger resources')
 
       try {
         // Deactivate lifecycle-managed triggers (Microsoft Graph, etc.)

@@ -8,7 +8,8 @@ import AppLayout from "@/components/layout/AppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
 import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
 import BetaTestersContent from "@/components/admin/BetaTestersContent"
-import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles, TestTube, FlaskConical } from "lucide-react"
+import WaitlistContent from "@/components/admin/WaitlistContent"
+import { Crown, Shield, Users, Settings, User, Building, Zap, Sparkles, TestTube, FlaskConical, ListChecks } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
@@ -96,7 +97,7 @@ export default function AdminPage() {
 
         {/* Admin Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Overview
@@ -108,6 +109,10 @@ export default function AdminPage() {
             <TabsTrigger value="beta-testers" className="flex items-center gap-2">
               <TestTube className="h-4 w-4" />
               Beta Testers
+            </TabsTrigger>
+            <TabsTrigger value="waitlist" className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4" />
+              Waitlist
             </TabsTrigger>
             <TabsTrigger value="ai-usage" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -234,6 +239,10 @@ export default function AdminPage() {
 
           <TabsContent value="beta-testers" className="space-y-6">
             <BetaTestersContent />
+          </TabsContent>
+
+          <TabsContent value="waitlist" className="space-y-6">
+            <WaitlistContent />
           </TabsContent>
 
           <TabsContent value="ai-usage" className="space-y-6">

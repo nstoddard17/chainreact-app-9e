@@ -53,11 +53,14 @@ export function validateDiscordIntegration(integration: any): void {
 let lastDiscordRequest = 0
 const MIN_REQUEST_INTERVAL = 250 // 250ms between requests (more conservative to avoid rate limits)
 
+// Global rate limit state - when Discord rate limits us, pause ALL requests
+let globalRateLimitUntil = 0
+
 // Track request counts per bucket with better management
-const bucketData = new Map<string, { 
-  count: number, 
-  resetTime: number, 
-  queue: Array<() => void> 
+const bucketData = new Map<string, {
+  count: number,
+  resetTime: number,
+  queue: Array<() => void>
 }>()
 const MAX_REQUESTS_PER_BUCKET = 5 // More conservative limit to avoid rate limits
 const BUCKET_RESET_BUFFER = 500 // 500ms buffer after bucket reset
@@ -85,22 +88,31 @@ async function processQueue(): Promise<void> {
   if (isProcessingQueue || globalQueue.length === 0) {
     return
   }
-  
+
   isProcessingQueue = true
-  
+
   while (globalQueue.length > 0) {
     const now = Date.now()
+
+    // Check global rate limit first
+    if (globalRateLimitUntil > now) {
+      const waitTime = globalRateLimitUntil - now
+      logger.debug(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before processing queue`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      continue
+    }
+
     const timeSinceLastRequest = now - lastDiscordRequest
-    
+
     if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
       const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
       logger.debug(`⏱️ Global queue throttling: waiting ${waitTime}ms`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
-    
+
     const queueItem = globalQueue.shift()
     if (!queueItem) break
-    
+
     try {
       lastDiscordRequest = Date.now()
       const response = await queueItem.fn()
@@ -108,11 +120,11 @@ async function processQueue(): Promise<void> {
     } catch (error) {
       queueItem.reject(error)
     }
-    
+
     // More conservative delay between queue items to prevent overwhelming
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   isProcessingQueue = false
 }
 
@@ -167,7 +179,8 @@ export async function fetchDiscordWithRateLimit<T>(
         const retryAfter = response.headers.get('retry-after')
         const retryAfterMs = response.headers.get('x-ratelimit-reset-after')
         const bucket = response.headers.get('x-ratelimit-bucket')
-        
+        const isGlobal = response.headers.get('x-ratelimit-scope') === 'global'
+
         // Use the most accurate retry time available
         let waitTime = defaultWaitTime
         if (retryAfterMs) {
@@ -175,19 +188,25 @@ export async function fetchDiscordWithRateLimit<T>(
         } else if (retryAfter) {
           waitTime = parseInt(retryAfter) * 1000 + 2000 // Add 2 second buffer
         }
-        
+
         // Cap the wait time at 120 seconds for severe rate limits
         waitTime = Math.min(waitTime, 120000)
-        
-        logger.debug(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms`)
+
+        logger.warn(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${Math.round(waitTime / 1000)}s`)
         logger.debug(`📊 Rate limit details:`, {
           bucket: response.headers.get('x-ratelimit-bucket'),
           limit: response.headers.get('x-ratelimit-limit'),
           remaining: response.headers.get('x-ratelimit-remaining'),
           resetAfter: response.headers.get('x-ratelimit-reset-after'),
-          scope: response.headers.get('x-ratelimit-scope')
+          scope: response.headers.get('x-ratelimit-scope'),
+          isGlobal
         })
-        
+
+        // Set global rate limit to pause ALL Discord requests
+        // This prevents other concurrent requests from also hitting rate limits
+        globalRateLimitUntil = Date.now() + waitTime
+        logger.warn(`⏸️ Setting global rate limit until ${new Date(globalRateLimitUntil).toISOString()}`)
+
         // Update bucket tracking if we have bucket info
         if (bucket) {
           const resetTime = Date.now() + waitTime
@@ -197,7 +216,7 @@ export async function fetchDiscordWithRateLimit<T>(
             queue: []
           })
         }
-        
+
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, waitTime))
           continue
@@ -229,24 +248,32 @@ export async function fetchDiscordWithRateLimit<T>(
  * Make authenticated request to Discord API with enhanced rate limiting and caching
  */
 export async function makeDiscordApiRequest<T = any>(
-  url: string, 
-  accessToken: string, 
+  url: string,
+  accessToken: string,
   options: RequestInit = {},
   useCache: boolean = true
 ): Promise<T> {
   // Create a unique request key for deduplication
   const requestKey = `${url}:${accessToken.slice(-8)}:${JSON.stringify(options.body || '')}`
-  
+  const cacheKey = `${url}:${accessToken.slice(-8)}`
+
+  // Check global rate limit FIRST - if we're rate limited, wait before doing anything
+  const now = Date.now()
+  if (globalRateLimitUntil > now) {
+    const waitTime = globalRateLimitUntil - now
+    logger.debug(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before request to ${url}`)
+    await new Promise(resolve => setTimeout(resolve, waitTime))
+  }
+
   // Check cache for GET requests with more aggressive caching
   if (useCache && (!options.method || options.method === 'GET')) {
-    const cacheKey = `${url}:${accessToken.slice(-8)}` // Use last 8 chars of token as part of key
     const cached = discordCache.get(cacheKey)
-    
+
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       logger.debug(`📦 Using cached Discord data for ${url} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
       return cached.data
     }
-    
+
     // Check if there's already a pending request for this exact same data
     const pendingRequest = pendingRequests.get(requestKey)
     if (pendingRequest) {
@@ -259,41 +286,44 @@ export async function makeDiscordApiRequest<T = any>(
   const authHeader = accessToken.startsWith('Bot ') ? accessToken : `Bearer ${accessToken}`
 
   logger.debug(`🔍 Making Discord API request to: ${url}`)
-  
-  // Create the request promise and store it for deduplication
-  const requestPromise = fetchDiscordWithRateLimit<T>(() => 
-    fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    })
-  )
-  
-  // Store the pending request for deduplication
+
+  // Create the request promise with proper atomic deduplication
+  // Store the promise IMMEDIATELY to prevent race conditions
+  const requestPromise = (async () => {
+    try {
+      const data = await fetchDiscordWithRateLimit<T>(() =>
+        fetch(url, {
+          ...options,
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+        })
+      )
+
+      // Cache successful GET requests
+      if (useCache && (!options.method || options.method === 'GET')) {
+        discordCache.set(cacheKey, { data, timestamp: Date.now() })
+        logger.debug(`📦 Cached Discord response for ${url}`)
+      }
+
+      return data
+    } finally {
+      // Clean up pending request after completion
+      if (useCache && (!options.method || options.method === 'GET')) {
+        // Use a small delay before removing to ensure any racing requests can still find this
+        setTimeout(() => pendingRequests.delete(requestKey), 100)
+      }
+    }
+  })()
+
+  // Store the pending request for deduplication BEFORE awaiting
   if (useCache && (!options.method || options.method === 'GET')) {
     pendingRequests.set(requestKey, requestPromise)
   }
-  
-  try {
-    const data = await requestPromise
-    
-    // Cache successful GET requests
-    if (useCache && (!options.method || options.method === 'GET')) {
-      const cacheKey = `${url}:${accessToken.slice(-8)}`
-      discordCache.set(cacheKey, { data, timestamp: Date.now() })
-      logger.debug(`📦 Cached Discord response for ${url}`)
-    }
-    
-    return data
-  } finally {
-    // Clean up pending request
-    if (useCache && (!options.method || options.method === 'GET')) {
-      pendingRequests.delete(requestKey)
-    }
-  }
+
+  return requestPromise
 }
 
 /**

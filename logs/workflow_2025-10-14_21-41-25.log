@@ -1,0 +1,415 @@
+=== Log Session Started: 2025-10-15T02:41:25.398Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-15T02:41:25.400Z] [INFO   ] File logging initialized
+[2025-10-15T02:41:25.400Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_21-41-25.log
+[2025-10-15T02:41:25.400Z] [INFO   ] 📁 File logging enabled
+[2025-10-15T02:41:25.400Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_21-41-25.log
+[2025-10-15T02:41:25.400Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_21-41-25.log
+[2025-10-15T02:41:25.400Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_21-41-25.log
+[2025-10-15T02:41:25.400Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_21-41-25.log
+[2025-10-15T02:41:25.400Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-15T02:41:25.401Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-15T02:41:25.416Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.2s
+[2025-10-15T02:42:10.978Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-15T02:42:14.111Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 3.7s (4831 modules)
+[2025-10-15T02:45:42.027Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T02:45:42.132Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 607ms (2671 modules)
+[2025-10-15T02:48:15.111Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 310ms (233 modules)
+[2025-10-15T02:48:16.300Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-15T02:48:20.284Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 4.6s (5618 modules)
+[2025-10-15T02:48:21.061Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 758ms (1539 modules)
+[2025-10-15T02:48:22.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 406ms (5623 modules)
+[2025-10-15T02:48:22.589Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 221ms (4100 modules)
+[2025-10-15T02:48:23.918Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T02:48:25.137Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1719ms (5635 modules)
+[2025-10-15T02:48:56.057Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 346ms (5637 modules)
+[2025-10-15T02:49:26.405Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1248ms (5647 modules)
+[2025-10-15T02:49:27.473Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T02:49:27.671Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 698ms (5635 modules)
+[2025-10-15T02:49:28.065Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T02:49:29.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 306ms (4112 modules)
+[2025-10-15T02:49:30.478Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T02:49:30.627Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 648ms (4114 modules)
+[2025-10-15T02:51:25.067Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1867ms (5651 modules)
+[2025-10-15T02:51:25.988Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 315ms (4114 modules)
+[2025-10-15T03:01:49.860Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1584ms (5651 modules)
+[2025-10-15T03:01:50.642Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 307ms (4114 modules)
+[2025-10-15T03:02:12.327Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup ...
+[2025-10-15T03:02:12.330Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup in 541ms (5641 modules)
+[2025-10-15T03:04:38.444Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1657ms (5637 modules)
+[2025-10-15T03:04:38.810Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 249ms (4103 modules)
+[2025-10-15T03:04:39.497Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 335ms (4105 modules)
+[2025-10-15T03:06:07.210Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T03:06:07.854Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1317ms (4098 modules)
+[2025-10-15T03:06:08.064Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4108 modules)
+[2025-10-15T03:06:08.987Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 425ms (4110 modules)
+[2025-10-15T03:06:38.841Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 228ms (4112 modules)
+[2025-10-15T03:07:37.983Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1348ms (5637 modules)
+[2025-10-15T03:07:38.430Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 249ms (4103 modules)
+[2025-10-15T03:07:38.652Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4103 modules)
+[2025-10-15T03:07:38.885Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4103 modules)
+[2025-10-15T03:07:39.116Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4103 modules)
+[2025-10-15T03:07:39.658Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1ms (4103 modules)
+[2025-10-15T03:07:40.798Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4105 modules)
+[2025-10-15T03:20:21.646Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 636ms (1539 modules)
+[2025-10-15T03:20:21.712Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T03:20:24.553Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T03:20:24.577Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 593ms (4098 modules)
+[2025-10-15T03:20:25.248Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 413ms (4100 modules)
+[2025-10-15T03:20:28.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 205ms (4102 modules)
+[2025-10-15T03:20:30.101Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 319ms (1539 modules)
+[2025-10-15T03:20:31.069Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 396ms (4105 modules)
+[2025-10-15T03:20:31.540Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4110 modules)
+[2025-10-15T03:20:41.445Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 322ms (1539 modules)
+[2025-10-15T03:20:42.544Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T03:20:42.573Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 596ms (4112 modules)
+[2025-10-15T03:21:15.774Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1073ms (5651 modules)
+[2025-10-15T03:21:15.814Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T03:21:35.407Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 643ms (5651 modules)
+[2025-10-15T03:21:54.345Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1303ms (5651 modules)
+[2025-10-15T03:21:55.207Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 297ms (4113 modules)
+[2025-10-15T03:22:15.607Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 621ms (5653 modules)
+[2025-10-15T03:22:16.799Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:29:16.037Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1974ms (5651 modules)
+[2025-10-15T13:29:16.205Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:29:49.937Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T13:29:50.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1454ms (4113 modules)
+[2025-10-15T13:30:27.913Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 917ms (5639 modules)
+[2025-10-15T13:30:27.964Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:30:30.114Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 315ms (4101 modules)
+[2025-10-15T13:30:30.583Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 231ms (4103 modules)
+[2025-10-15T13:30:34.465Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 306ms (4105 modules)
+[2025-10-15T13:36:30.372Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-15T13:36:31.436Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1674ms (4106 modules)
+[2025-10-15T13:36:32.005Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4111 modules)
+[2025-10-15T13:37:02.914Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 404ms (4113 modules)
+[2025-10-15T13:37:09.972Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1852ms (5653 modules)
+[2025-10-15T13:37:10.076Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:39:40.786Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1809ms (5639 modules)
+[2025-10-15T13:39:40.910Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:39:43.183Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-15T13:39:43.237Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 584ms (4101 modules)
+[2025-10-15T13:39:43.506Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 0ms (4106 modules)
+[2025-10-15T13:39:43.760Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4111 modules)
+[2025-10-15T13:39:44.017Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4111 modules)
+[2025-10-15T13:39:44.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4111 modules)
+[2025-10-15T13:39:44.609Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 0ms (4111 modules)
+[2025-10-15T13:39:46.337Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4113 modules)
+[2025-10-15T13:41:11.967Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T13:41:15.459Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 4.8s (5672 modules)
+[2025-10-15T13:41:15.777Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4136 modules)
+[2025-10-15T13:41:16.004Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4136 modules)
+[2025-10-15T13:41:16.245Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4136 modules)
+[2025-10-15T13:41:17.475Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T13:41:18.400Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1451ms (4138 modules)
+[2025-10-15T13:41:18.703Z] [WARN   ] 2025-10-15T13:41:18.703Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:41:30.926Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5678 modules)
+[2025-10-15T13:41:31.383Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 348ms (4141 modules)
+[2025-10-15T13:41:32.387Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:41:32.432Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4143 modules)
+[2025-10-15T13:41:34.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 398ms (4145 modules)
+[2025-10-15T13:41:35.006Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4147 modules)
+[2025-10-15T13:41:35.273Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4147 modules)
+[2025-10-15T13:41:35.596Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4147 modules)
+[2025-10-15T13:41:44.139Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 747ms (5687 modules)
+[2025-10-15T13:41:44.204Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:42:18.576Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1000ms (5655 modules)
+[2025-10-15T13:47:21.628Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T13:47:22.080Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 1636ms (4145 modules)
+[2025-10-15T13:47:22.731Z] [WARN   ] 2025-10-15T13:47:22.731Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:48:32.777Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5639 modules)
+[2025-10-15T13:48:33.703Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 319ms (4101 modules)
+[2025-10-15T13:48:33.930Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4106 modules)
+[2025-10-15T13:49:43.518Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T13:49:43.548Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1423ms (4097 modules)
+[2025-10-15T13:49:44.195Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4109 modules)
+[2025-10-15T13:49:44.916Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 452ms (4111 modules)
+[2025-10-15T13:49:49.271Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T13:49:50.121Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 1735ms (4143 modules)
+[2025-10-15T13:49:51.009Z] [WARN   ] 2025-10-15T13:49:51.009Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:49:51.018Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 348ms (4145 modules)
+[2025-10-15T13:50:06.084Z] [WARN   ] 2025-10-15T13:50:06.083Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:50:33.089Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T13:50:33.803Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1267ms (4147 modules)
+[2025-10-15T13:53:26.579Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5639 modules)
+[2025-10-15T13:53:28.077Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 309ms (4101 modules)
+[2025-10-15T13:53:28.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4106 modules)
+[2025-10-15T13:54:01.310Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5646 modules)
+[2025-10-15T13:54:01.377Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:54:03.821Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-15T13:54:04.725Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1545ms (4108 modules)
+[2025-10-15T13:54:05.365Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4113 modules)
+[2025-10-15T13:54:06.204Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T13:54:06.223Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 529ms (4115 modules)
+[2025-10-15T13:56:54.361Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T13:56:56.850Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 3.8s (4132 modules)
+[2025-10-15T13:56:57.961Z] [WARN   ] 2025-10-15T13:56:57.961Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:56:57.970Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 336ms (4134 modules)
+[2025-10-15T13:56:58.238Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4138 modules)
+[2025-10-15T13:57:08.305Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 462ms (4140 modules)
+[2025-10-15T13:57:09.790Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4145 modules)
+[2025-10-15T13:57:10.928Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 421ms (4147 modules)
+[2025-10-15T13:57:14.053Z] [WARN   ] 2025-10-15T13:57:14.052Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T13:58:53.274Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.4s (5639 modules)
+[2025-10-15T13:58:54.283Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 322ms (4101 modules)
+[2025-10-15T13:58:54.549Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4106 modules)
+[2025-10-15T13:59:01.841Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 374ms (1540 modules)
+[2025-10-15T13:59:01.870Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T13:59:05.318Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 419ms (4108 modules)
+[2025-10-15T13:59:07.090Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4113 modules)
+[2025-10-15T13:59:08.210Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 485ms (4115 modules)
+[2025-10-15T14:44:00.164Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-15T14:44:02.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 4.1s (5780 modules)
+[2025-10-15T14:44:05.047Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 425ms (4181 modules)
+[2025-10-15T14:44:05.301Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4183 modules)
+[2025-10-15T14:44:06.233Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T14:44:07.961Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /integrations in 2.2s (5788 modules)
+[2025-10-15T14:44:10.073Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 560ms (1612 modules)
+[2025-10-15T14:44:11.307Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/available ...
+[2025-10-15T14:44:12.086Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/available in 1372ms (5818 modules)
+[2025-10-15T14:44:16.593Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/[id] ...
+[2025-10-15T14:44:19.494Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/[id] in 3.4s (5822 modules)
+[2025-10-15T14:44:26.248Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-10-15T14:44:26.758Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 2.4s (5826 modules)
+[2025-10-15T14:45:05.521Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-15T14:45:06.565Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1892ms (4215 modules)
+[2025-10-15T14:45:07.513Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4220 modules)
+[2025-10-15T14:45:11.397Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T14:45:13.165Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 2.5s (4248 modules)
+[2025-10-15T14:45:14.059Z] [WARN   ] 2025-10-15T14:45:14.058Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T14:45:14.348Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 473ms (4250 modules)
+[2025-10-15T14:46:33.146Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T14:46:34.515Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.8s (5780 modules)
+[2025-10-15T14:46:37.036Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T14:46:37.090Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 642ms (4171 modules)
+[2025-10-15T14:46:38.496Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4183 modules)
+[2025-10-15T14:46:39.415Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 344ms (4185 modules)
+[2025-10-15T14:47:09.861Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T14:47:10.762Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1484ms (4187 modules)
+[2025-10-15T14:47:21.644Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 721ms (1626 modules)
+[2025-10-15T14:47:23.325Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T14:47:24.444Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 2.1s (4189 modules)
+[2025-10-15T14:47:50.364Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T14:47:53.935Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 4.1s (4221 modules)
+[2025-10-15T14:47:54.850Z] [WARN   ] 2025-10-15T14:47:54.850Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T14:47:55.343Z] [WARN   ] 2025-10-15T14:47:55.342Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T14:47:55.343Z] [ERROR  ] 2025-10-15T14:47:55.343Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T14:48:20.036Z] [WARN   ] 2025-10-15T14:48:20.036Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T14:48:20.421Z] [WARN   ] 2025-10-15T14:48:20.419Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T14:48:20.422Z] [ERROR  ] 2025-10-15T14:48:20.422Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T14:48:59.273Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.9s (5845 modules)
+[2025-10-15T14:49:00.374Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 376ms (4221 modules)
+[2025-10-15T14:49:06.347Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T14:49:06.617Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 674ms (5847 modules)
+[2025-10-15T14:49:29.840Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (5815 modules)
+[2025-10-15T14:50:40.135Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T14:50:40.195Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 1784ms (4217 modules)
+[2025-10-15T14:50:40.856Z] [WARN   ] 2025-10-15T14:50:40.855Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T14:50:41.154Z] [WARN   ] 2025-10-15T14:50:41.154Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T14:50:41.294Z] [WARN   ] 2025-10-15T14:50:41.294Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T14:50:41.295Z] [WARN   ] 2025-10-15T14:50:41.295Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T14:50:41.295Z] [ERROR  ] 2025-10-15T14:50:41.295Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T14:50:55.801Z] [WARN   ] 2025-10-15T14:50:55.801Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T14:50:56.094Z] [WARN   ] 2025-10-15T14:50:56.094Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T14:50:56.265Z] [WARN   ] 2025-10-15T14:50:56.265Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T14:50:56.266Z] [WARN   ] 2025-10-15T14:50:56.266Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T14:50:56.266Z] [ERROR  ] 2025-10-15T14:50:56.266Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T14:51:20.944Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T14:51:21.000Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 577ms (4219 modules)
+[2025-10-15T14:51:58.912Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.9s (5832 modules)
+[2025-10-15T14:52:00.837Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T14:52:04.563Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 4.5s (4208 modules)
+[2025-10-15T14:52:04.960Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4212 modules)
+[2025-10-15T15:02:05.777Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T15:02:08.596Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 3.5s (4171 modules)
+[2025-10-15T15:02:09.569Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4183 modules)
+[2025-10-15T15:02:10.819Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T15:02:11.543Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 1553ms (4185 modules)
+[2025-10-15T15:02:12.692Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4217 modules)
+[2025-10-15T15:02:13.131Z] [INFO   ] 2025-10-15T15:02:13.130Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:02:13.377Z] [WARN   ] 2025-10-15T15:02:13.377Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:02:13.378Z] [INFO   ] 2025-10-15T15:02:13.378Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:02:13.722Z] [INFO   ] 2025-10-15T15:02:13.722Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:02:13.723Z] [INFO   ] 2025-10-15T15:02:13.723Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:02:13.723Z] [INFO   ] 2025-10-15T15:02:13.723Z [INFO] [CreateAirtableBase] First base structure: {"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"}
+[2025-10-15T15:02:13.723Z] [INFO   ] 2025-10-15T15:02:13.723Z [INFO] [CreateAirtableBase] Selected base permission level: create
+[2025-10-15T15:02:13.723Z] [WARN   ] 2025-10-15T15:02:13.723Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T15:02:13.723Z] [INFO   ] 2025-10-15T15:02:13.723Z [INFO] [CreateAirtableBase] Available base keys: id, name, permissionLevel
+[2025-10-15T15:02:13.724Z] [INFO   ] 2025-10-15T15:02:13.723Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:02:13.869Z] [INFO   ] 2025-10-15T15:02:13.869Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","webhook:manage"]}
+[2025-10-15T15:02:13.870Z] [INFO   ] 2025-10-15T15:02:13.870Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:02:13.870Z] [INFO   ] 2025-10-15T15:02:13.870Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:02:13.870Z] [WARN   ] 2025-10-15T15:02:13.870Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:02:13.870Z] [WARN   ] 2025-10-15T15:02:13.870Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:02:13.871Z] [ERROR  ] 2025-10-15T15:02:13.871Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:02:41.692Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T15:02:42.743Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1708ms (4219 modules)
+[2025-10-15T15:02:53.055Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5845 modules)
+[2025-10-15T15:02:54.969Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-15T15:02:55.086Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1433ms (4221 modules)
+[2025-10-15T15:11:06.411Z] [INFO   ] 2025-10-15T15:11:06.410Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:11:06.648Z] [WARN   ] 2025-10-15T15:11:06.647Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:11:06.649Z] [INFO   ] 2025-10-15T15:11:06.649Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] First base structure: {"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"}
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] Selected base permission level: create
+[2025-10-15T15:11:07.299Z] [WARN   ] 2025-10-15T15:11:07.299Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] Available base keys: id, name, permissionLevel
+[2025-10-15T15:11:07.299Z] [INFO   ] 2025-10-15T15:11:07.299Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:11:07.407Z] [INFO   ] 2025-10-15T15:11:07.407Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","webhook:manage"]}
+[2025-10-15T15:11:07.408Z] [INFO   ] 2025-10-15T15:11:07.408Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:11:07.408Z] [INFO   ] 2025-10-15T15:11:07.408Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:11:07.408Z] [WARN   ] 2025-10-15T15:11:07.408Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:11:07.408Z] [WARN   ] 2025-10-15T15:11:07.408Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:11:07.408Z] [ERROR  ] 2025-10-15T15:11:07.408Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:11:07.408Z] [INFO   ] 2025-10-15T15:11:07.408Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:11:07.571Z] [ERROR  ] 2025-10-15T15:11:07.571Z [ERROR] [CreateAirtableBase] Airtable API error: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:11:20.597Z] [INFO   ] 2025-10-15T15:11:20.597Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:11:20.788Z] [WARN   ] 2025-10-15T15:11:20.788Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:11:20.789Z] [INFO   ] 2025-10-15T15:11:20.789Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.063Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.064Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.064Z [INFO] [CreateAirtableBase] First base structure: {"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"}
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.064Z [INFO] [CreateAirtableBase] Selected base permission level: create
+[2025-10-15T15:11:21.064Z] [WARN   ] 2025-10-15T15:11:21.064Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.064Z [INFO] [CreateAirtableBase] Available base keys: id, name, permissionLevel
+[2025-10-15T15:11:21.064Z] [INFO   ] 2025-10-15T15:11:21.064Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:11:21.184Z] [INFO   ] 2025-10-15T15:11:21.184Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","webhook:manage"]}
+[2025-10-15T15:11:21.184Z] [INFO   ] 2025-10-15T15:11:21.184Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:11:21.185Z] [INFO   ] 2025-10-15T15:11:21.185Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:11:21.185Z] [WARN   ] 2025-10-15T15:11:21.185Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:11:21.185Z] [WARN   ] 2025-10-15T15:11:21.185Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:11:21.185Z] [ERROR  ] 2025-10-15T15:11:21.185Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:11:21.185Z] [INFO   ] 2025-10-15T15:11:21.185Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:11:21.328Z] [ERROR  ] 2025-10-15T15:11:21.328Z [ERROR] [CreateAirtableBase] Airtable API error: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:12:03.392Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5845 modules)
+[2025-10-15T15:12:04.479Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 403ms (4221 modules)
+[2025-10-15T15:33:20.928Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 10.8s (5813 modules)
+[2025-10-15T15:33:21.931Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-15T15:41:53.515Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T15:41:53.559Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 1841ms (4218 modules)
+[2025-10-15T15:41:54.088Z] [INFO   ] 2025-10-15T15:41:54.088Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:41:54.357Z] [WARN   ] 2025-10-15T15:41:54.357Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:41:54.357Z] [INFO   ] 2025-10-15T15:41:54.357Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:41:54.663Z] [INFO   ] 2025-10-15T15:41:54.663Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:41:54.664Z] [INFO   ] 2025-10-15T15:41:54.663Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:41:54.664Z] [INFO   ] 2025-10-15T15:41:54.664Z [INFO] [CreateAirtableBase] First base structure: {"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"}
+[2025-10-15T15:41:54.664Z] [INFO   ] 2025-10-15T15:41:54.664Z [INFO] [CreateAirtableBase] Selected base permission level: create
+[2025-10-15T15:41:54.664Z] [WARN   ] 2025-10-15T15:41:54.664Z [WARN] [CreateAirtableBase] Base object does not contain workspace ID in expected fields
+[2025-10-15T15:41:54.664Z] [INFO   ] 2025-10-15T15:41:54.664Z [INFO] [CreateAirtableBase] Available base keys: id, name, permissionLevel
+[2025-10-15T15:41:54.664Z] [INFO   ] 2025-10-15T15:41:54.664Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:41:54.774Z] [INFO   ] 2025-10-15T15:41:54.773Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","schema.bases:write","webhook:manage"]}
+[2025-10-15T15:41:54.774Z] [INFO   ] 2025-10-15T15:41:54.774Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:41:54.774Z] [INFO   ] 2025-10-15T15:41:54.774Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:41:54.774Z] [WARN   ] 2025-10-15T15:41:54.774Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:41:54.775Z] [WARN   ] 2025-10-15T15:41:54.774Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:41:54.775Z] [ERROR  ] 2025-10-15T15:41:54.775Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:41:54.775Z] [INFO   ] 2025-10-15T15:41:54.775Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:41:54.776Z] [INFO   ] 2025-10-15T15:41:54.776Z [INFO] [CreateAirtableBase] Sending payload to Airtable: {"name":"Customer Service Automation","tables":[{"name":"Support Tickets","description":"Tracks support requests routed by AI","fields":[{"name":"Ticket Summary","description":"AI-generated summary of the support request","type":"multilineText"},{"name":"Priority","description":"Priority level assigned by AI","type":"singleSelect","typeOptions":{"choices":[{"name":"Low"},{"name":"Medium"},{"name":"High"}]}},{"name":"Status","description":"Current status of the ticket","type":"singleSelect","typeOptions":{"choices":[{"name":"Open"},{"name":"In Progress"},{"name":"Resolved"},{"name":"Closed"}]}},{"name":"Channel","description":"Source channel (e.g., Discord channel name)","type":"singleLineText"}]},{"name":"Feedback Log","description":"Captures customer feedback messages","fields":[{"name":"Feedback Insight","description":"AI-extracted main insight from feedback","type":"multilineText"},{"name":"Feedback Summary","description":"Short summary of the feedback message","type":"multilineText"},{"name":"Customer","description":"Name or handle of the customer who shared the feedback","type":"singleLineText"},{"name":"Sentiment","description":"Sentiment analysis (e.g., Positive, Negative, Neutral)","type":"singleSelect","typeOptions":{"choices":[{"name":"Positive"},{"name":"Neutral"},{"name":"Negative"}]}},{"name":"Confidence","description":"General AI confidence score for this classification","type":"number","typeOptions":{"precision":0}},{"name":"Source","description":"Origin of feedback (e.g., Discord)","type":"singleLineText"}]},{"name":"Newsletter Subscribers","description":"Manages newsletter subscription requests","fields":[{"name":"Name","description":"Subscriber's name","type":"singleLineText"},{"name":"Email","description":"Subscriber's email address","type":"email"},{"name":"Source","description":"Where the signup came from (e.g., Discord)","type":"singleLineText"},{"name":"Status","description":"Current subscription status","type":"singleSelect","typeOptions":{"choices":[{"name":"Subscribed"},{"name":"Unsubscribed"},{"name":"Pending"}]}}]}]}
+[2025-10-15T15:41:54.914Z] [INFO   ] 2025-10-15T15:41:54.914Z [INFO] [CreateAirtableBase] Airtable response status: 422
+[2025-10-15T15:41:54.915Z] [ERROR  ] 2025-10-15T15:41:54.915Z [ERROR] [CreateAirtableBase] Airtable API error response: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:42:21.184Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 371ms (4220 modules)
+[2025-10-15T15:42:55.169Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5847 modules)
+[2025-10-15T15:42:56.767Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T15:42:57.229Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1390ms (4176 modules)
+[2025-10-15T15:42:57.475Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4181 modules)
+[2025-10-15T15:43:23.995Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 424ms (4183 modules)
+[2025-10-15T15:43:24.321Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4188 modules)
+[2025-10-15T15:43:25.146Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 399ms (4190 modules)
+[2025-10-15T15:43:26.653Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T15:43:29.718Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 3.6s (4222 modules)
+[2025-10-15T15:43:30.313Z] [INFO   ] 2025-10-15T15:43:30.313Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:43:30.552Z] [WARN   ] 2025-10-15T15:43:30.552Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:43:30.553Z] [INFO   ] 2025-10-15T15:43:30.553Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:43:30.834Z] [INFO   ] 2025-10-15T15:43:30.834Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:43:30.835Z] [INFO   ] 2025-10-15T15:43:30.835Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:43:30.836Z] [INFO   ] 2025-10-15T15:43:30.835Z [INFO] [CreateAirtableBase] Fetching full details for base: app2KiMxZofDhMOmZ
+[2025-10-15T15:43:31.433Z] [WARN   ] 2025-10-15T15:43:31.433Z [WARN] [CreateAirtableBase] Failed to fetch base details (403)
+[2025-10-15T15:43:31.434Z] [WARN   ] 2025-10-15T15:43:31.434Z [WARN] [CreateAirtableBase] Could not extract workspace ID from any source
+[2025-10-15T15:43:31.434Z] [INFO   ] 2025-10-15T15:43:31.434Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:43:31.536Z] [INFO   ] 2025-10-15T15:43:31.536Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","schema.bases:write","webhook:manage"]}
+[2025-10-15T15:43:31.537Z] [INFO   ] 2025-10-15T15:43:31.537Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:43:31.537Z] [INFO   ] 2025-10-15T15:43:31.537Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:43:31.537Z] [WARN   ] 2025-10-15T15:43:31.537Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:43:31.537Z] [WARN   ] 2025-10-15T15:43:31.537Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:43:31.537Z] [ERROR  ] 2025-10-15T15:43:31.537Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:43:31.538Z] [INFO   ] 2025-10-15T15:43:31.538Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:43:31.538Z] [INFO   ] 2025-10-15T15:43:31.538Z [INFO] [CreateAirtableBase] Sending payload to Airtable: {"name":"Customer Service Automation","tables":[{"name":"Support Tickets","description":"Tracks support requests routed by AI","fields":[{"name":"Ticket Summary","description":"AI-generated summary of the support request","type":"multilineText"},{"name":"Priority","description":"Priority level assigned by AI","type":"singleSelect","typeOptions":{"choices":[{"name":"Low"},{"name":"Medium"},{"name":"High"}]}},{"name":"Status","description":"Current status of the ticket","type":"singleSelect","typeOptions":{"choices":[{"name":"Open"},{"name":"In Progress"},{"name":"Resolved"},{"name":"Closed"}]}},{"name":"Channel","description":"Source channel (e.g., Discord channel name)","type":"singleLineText"}]},{"name":"Feedback Log","description":"Captures customer feedback messages","fields":[{"name":"Feedback Insight","description":"AI-extracted main insight from feedback","type":"multilineText"},{"name":"Feedback Summary","description":"Short summary of the feedback message","type":"multilineText"},{"name":"Customer","description":"Name or handle of the customer who shared the feedback","type":"singleLineText"},{"name":"Sentiment","description":"Sentiment analysis (e.g., Positive, Negative, Neutral)","type":"singleSelect","typeOptions":{"choices":[{"name":"Positive"},{"name":"Neutral"},{"name":"Negative"}]}},{"name":"Confidence","description":"General AI confidence score for this classification","type":"number","typeOptions":{"precision":0}},{"name":"Source","description":"Origin of feedback (e.g., Discord)","type":"singleLineText"}]},{"name":"Newsletter Subscribers","description":"Manages newsletter subscription requests","fields":[{"name":"Name","description":"Subscriber's name","type":"singleLineText"},{"name":"Email","description":"Subscriber's email address","type":"email"},{"name":"Source","description":"Where the signup came from (e.g., Discord)","type":"singleLineText"},{"name":"Status","description":"Current subscription status","type":"singleSelect","typeOptions":{"choices":[{"name":"Subscribed"},{"name":"Unsubscribed"},{"name":"Pending"}]}}]}]}
+[2025-10-15T15:43:31.674Z] [INFO   ] 2025-10-15T15:43:31.673Z [INFO] [CreateAirtableBase] Airtable response status: 422
+[2025-10-15T15:43:31.676Z] [ERROR  ] 2025-10-15T15:43:31.676Z [ERROR] [CreateAirtableBase] Airtable API error response: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:43:38.423Z] [INFO   ] 2025-10-15T15:43:38.423Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:43:38.645Z] [WARN   ] 2025-10-15T15:43:38.645Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:43:38.646Z] [INFO   ] 2025-10-15T15:43:38.646Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:43:38.889Z] [INFO   ] 2025-10-15T15:43:38.889Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:43:38.890Z] [INFO   ] 2025-10-15T15:43:38.890Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:43:38.890Z] [INFO   ] 2025-10-15T15:43:38.890Z [INFO] [CreateAirtableBase] Fetching full details for base: app2KiMxZofDhMOmZ
+[2025-10-15T15:43:39.040Z] [WARN   ] 2025-10-15T15:43:39.040Z [WARN] [CreateAirtableBase] Failed to fetch base details (403)
+[2025-10-15T15:43:39.041Z] [WARN   ] 2025-10-15T15:43:39.041Z [WARN] [CreateAirtableBase] Could not extract workspace ID from any source
+[2025-10-15T15:43:39.041Z] [INFO   ] 2025-10-15T15:43:39.041Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:43:39.167Z] [INFO   ] 2025-10-15T15:43:39.167Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","schema.bases:write","webhook:manage"]}
+[2025-10-15T15:43:39.167Z] [INFO   ] 2025-10-15T15:43:39.167Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:43:39.167Z] [INFO   ] 2025-10-15T15:43:39.167Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:43:39.167Z] [WARN   ] 2025-10-15T15:43:39.167Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:43:39.167Z] [WARN   ] 2025-10-15T15:43:39.167Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:43:39.167Z] [ERROR  ] 2025-10-15T15:43:39.167Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:43:39.167Z] [INFO   ] 2025-10-15T15:43:39.167Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:43:39.167Z] [INFO   ] 2025-10-15T15:43:39.167Z [INFO] [CreateAirtableBase] Sending payload to Airtable: {"name":"Customer Service Automation","tables":[{"name":"Support Tickets","description":"Tracks support requests routed by AI","fields":[{"name":"Ticket Summary","description":"AI-generated summary of the support request","type":"multilineText"},{"name":"Priority","description":"Priority level assigned by AI","type":"singleSelect","typeOptions":{"choices":[{"name":"Low"},{"name":"Medium"},{"name":"High"}]}},{"name":"Status","description":"Current status of the ticket","type":"singleSelect","typeOptions":{"choices":[{"name":"Open"},{"name":"In Progress"},{"name":"Resolved"},{"name":"Closed"}]}},{"name":"Channel","description":"Source channel (e.g., Discord channel name)","type":"singleLineText"}]},{"name":"Feedback Log","description":"Captures customer feedback messages","fields":[{"name":"Feedback Insight","description":"AI-extracted main insight from feedback","type":"multilineText"},{"name":"Feedback Summary","description":"Short summary of the feedback message","type":"multilineText"},{"name":"Customer","description":"Name or handle of the customer who shared the feedback","type":"singleLineText"},{"name":"Sentiment","description":"Sentiment analysis (e.g., Positive, Negative, Neutral)","type":"singleSelect","typeOptions":{"choices":[{"name":"Positive"},{"name":"Neutral"},{"name":"Negative"}]}},{"name":"Confidence","description":"General AI confidence score for this classification","type":"number","typeOptions":{"precision":0}},{"name":"Source","description":"Origin of feedback (e.g., Discord)","type":"singleLineText"}]},{"name":"Newsletter Subscribers","description":"Manages newsletter subscription requests","fields":[{"name":"Name","description":"Subscriber's name","type":"singleLineText"},{"name":"Email","description":"Subscriber's email address","type":"email"},{"name":"Source","description":"Where the signup came from (e.g., Discord)","type":"singleLineText"},{"name":"Status","description":"Current subscription status","type":"singleSelect","typeOptions":{"choices":[{"name":"Subscribed"},{"name":"Unsubscribed"},{"name":"Pending"}]}}]}]}
+[2025-10-15T15:43:39.318Z] [INFO   ] 2025-10-15T15:43:39.318Z [INFO] [CreateAirtableBase] Airtable response status: 422
+[2025-10-15T15:43:39.318Z] [ERROR  ] 2025-10-15T15:43:39.318Z [ERROR] [CreateAirtableBase] Airtable API error response: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:47:31.566Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.3s (5801 modules)
+[2025-10-15T15:47:33.051Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-15T15:47:33.087Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 586ms (4176 modules)
+[2025-10-15T15:47:33.384Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4181 modules)
+[2025-10-15T15:47:42.494Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 492ms (1627 modules)
+[2025-10-15T15:47:42.523Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T15:47:44.934Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 407ms (4183 modules)
+[2025-10-15T15:47:47.697Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4188 modules)
+[2025-10-15T15:47:49.691Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T15:47:50.545Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1672ms (4190 modules)
+[2025-10-15T15:53:01.184Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/airtable-setup/create-base ...
+[2025-10-15T15:53:05.556Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/airtable-setup/create-base in 6.3s (4220 modules)
+[2025-10-15T15:53:06.310Z] [INFO   ] 2025-10-15T15:53:06.310Z [INFO] [CreateAirtableBase] Attempting to fetch workspaces from Meta API...
+[2025-10-15T15:53:06.663Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 382ms (4222 modules)
+[2025-10-15T15:53:06.719Z] [WARN   ] 2025-10-15T15:53:06.719Z [WARN] [CreateAirtableBase] Failed to list workspaces (404): {"error":"NOT_FOUND"}
+[2025-10-15T15:53:06.719Z] [INFO   ] 2025-10-15T15:53:06.719Z [INFO] [CreateAirtableBase] Workspace fetch failed, trying bases endpoint to extract workspace...
+[2025-10-15T15:53:07.119Z] [INFO   ] 2025-10-15T15:53:07.119Z [INFO] [CreateAirtableBase] Bases response: {"bases":[{"id":"app2KiMxZofDhMOmZ","name":"Design and Product Collaboration","permissionLevel":"create"},{"id":"app5Dt6XRorYEqsmd","name":"ChainReact AI Agent Test","permissionLevel":"create"}]}
+[2025-10-15T15:53:07.119Z] [INFO   ] 2025-10-15T15:53:07.119Z [INFO] [CreateAirtableBase] Number of bases: 2
+[2025-10-15T15:53:07.119Z] [INFO   ] 2025-10-15T15:53:07.119Z [INFO] [CreateAirtableBase] Fetching full details for base: app2KiMxZofDhMOmZ
+[2025-10-15T15:53:07.760Z] [WARN   ] 2025-10-15T15:53:07.759Z [WARN] [CreateAirtableBase] Failed to fetch base details (403)
+[2025-10-15T15:53:07.761Z] [WARN   ] 2025-10-15T15:53:07.761Z [WARN] [CreateAirtableBase] Could not extract workspace ID from any source
+[2025-10-15T15:53:07.761Z] [INFO   ] 2025-10-15T15:53:07.761Z [INFO] [CreateAirtableBase] Trying whoami endpoint as final fallback...
+[2025-10-15T15:53:07.955Z] [INFO   ] 2025-10-15T15:53:07.954Z [INFO] [CreateAirtableBase] whoami full response: {"id":"usr1rOF2G6NGelChC","scopes":["data.records:read","data.records:write","schema.bases:read","schema.bases:write","webhook:manage"]}
+[2025-10-15T15:53:07.955Z] [INFO   ] 2025-10-15T15:53:07.955Z [INFO] [CreateAirtableBase] whoami response keys: id, scopes
+[2025-10-15T15:53:07.956Z] [INFO   ] 2025-10-15T15:53:07.956Z [INFO] [CreateAirtableBase] Workspace IDs array length: 0
+[2025-10-15T15:53:07.956Z] [WARN   ] 2025-10-15T15:53:07.956Z [WARN] [CreateAirtableBase] whoami response contained no workspace information
+[2025-10-15T15:53:07.956Z] [WARN   ] 2025-10-15T15:53:07.956Z [WARN] [CreateAirtableBase] This might indicate the token lacks schema.bases:read scope or the account has no workspaces
+[2025-10-15T15:53:07.957Z] [ERROR  ] 2025-10-15T15:53:07.956Z [ERROR] [CreateAirtableBase] All workspace resolution methods failed
+[2025-10-15T15:53:07.958Z] [INFO   ] 2025-10-15T15:53:07.958Z [INFO] [CreateAirtableBase] No workspace ID found - attempting to create in default personal workspace
+[2025-10-15T15:53:07.958Z] [INFO   ] 2025-10-15T15:53:07.958Z [INFO] [CreateAirtableBase] Sending payload to Airtable: {"name":"Customer Service Automation","tables":[{"name":"Support Tickets","description":"Tracks support requests routed by AI","fields":[{"name":"Ticket Summary","description":"AI-generated summary of the support request","type":"multilineText"},{"name":"Priority","description":"Priority level assigned by AI","type":"singleSelect","typeOptions":{"choices":[{"name":"Low"},{"name":"Medium"},{"name":"High"}]}},{"name":"Status","description":"Current status of the ticket","type":"singleSelect","typeOptions":{"choices":[{"name":"Open"},{"name":"In Progress"},{"name":"Resolved"},{"name":"Closed"}]}},{"name":"Channel","description":"Source channel (e.g., Discord channel name)","type":"singleLineText"}]},{"name":"Feedback Log","description":"Captures customer feedback messages","fields":[{"name":"Feedback Insight","description":"AI-extracted main insight from feedback","type":"multilineText"},{"name":"Feedback Summary","description":"Short summary of the feedback message","type":"multilineText"},{"name":"Customer","description":"Name or handle of the customer who shared the feedback","type":"singleLineText"},{"name":"Sentiment","description":"Sentiment analysis (e.g., Positive, Negative, Neutral)","type":"singleSelect","typeOptions":{"choices":[{"name":"Positive"},{"name":"Neutral"},{"name":"Negative"}]}},{"name":"Confidence","description":"General AI confidence score for this classification","type":"number","typeOptions":{"precision":0}},{"name":"Source","description":"Origin of feedback (e.g., Discord)","type":"singleLineText"}]},{"name":"Newsletter Subscribers","description":"Manages newsletter subscription requests","fields":[{"name":"Name","description":"Subscriber's name","type":"singleLineText"},{"name":"Email","description":"Subscriber's email address","type":"email"},{"name":"Source","description":"Where the signup came from (e.g., Discord)","type":"singleLineText"},{"name":"Status","description":"Current subscription status","type":"singleSelect","typeOptions":{"choices":[{"name":"Subscribed"},{"name":"Unsubscribed"},{"name":"Pending"}]}}]}]}
+[2025-10-15T15:53:08.111Z] [INFO   ] 2025-10-15T15:53:08.111Z [INFO] [CreateAirtableBase] Airtable response status: 422
+[2025-10-15T15:53:08.113Z] [ERROR  ] 2025-10-15T15:53:08.113Z [ERROR] [CreateAirtableBase] Airtable API error response: {"error":{"type":"INVALID_REQUEST","message":"Server error"}}
+[2025-10-15T15:53:57.762Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T15:53:58.081Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5847 modules)
+[2025-10-15T15:54:31.276Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 430ms (4188 modules)
+[2025-10-15T16:08:29.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.6s (5801 modules)
+[2025-10-15T16:08:29.626Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 386ms (4179 modules)
+[2025-10-15T16:08:31.469Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 461ms (4181 modules)
+[2025-10-15T16:08:49.132Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 873ms (5808 modules)
+[2025-10-15T16:08:49.733Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-15T16:08:50.946Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-15T16:08:52.189Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 3s (4184 modules)
+[2025-10-15T16:08:53.491Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4186 modules)
+[2025-10-15T16:08:53.953Z] [ERROR  ] 2025-10-15T16:08:53.952Z [ERROR] Collaboration join error: {"code":"ECONNRESET"}
+[2025-10-15T16:08:56.027Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-15T16:08:56.083Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 592ms (4188 modules)
+[2025-10-15T16:08:56.437Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4190 modules)
+[2025-10-15T16:08:56.753Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4190 modules)
+[2025-10-15T16:08:57.196Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4190 modules)
+[2025-10-15T16:08:57.693Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4190 modules)
+[2025-10-15T16:09:42.709Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1418ms (5815 modules)
+[2025-10-15T16:09:43.037Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

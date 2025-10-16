@@ -131,40 +131,40 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
         )}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-border flex items-center justify-between relative">
+        <div className="p-4 sm:p-6 border-b border-border flex items-center justify-between relative">
           {isCollapsed ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <Button
                 variant="ghost"
                 size="icon"
-                className="hidden lg:flex"
+                className="hidden lg:flex h-8 w-8 sm:h-10 sm:w-10"
                 onClick={onToggleCollapse}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </div>
           ) : (
             <>
               <Link href="/" className="flex items-center space-x-2">
-                <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-8 h-8" />
-                <span className="text-xl font-bold text-foreground">ChainReact</span>
+                <Image src="/logo_transparent.png" alt="ChainReact Logo" width={32} height={32} className="w-7 h-7 sm:w-8 sm:h-8" />
+                <span className="text-lg sm:text-xl font-bold text-foreground">ChainReact</span>
               </Link>
               <div className="flex items-center space-x-2">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="hidden lg:flex"
+                  className="hidden lg:flex h-8 w-8 sm:h-10 sm:w-10"
                   onClick={onToggleCollapse}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="lg:hidden"
+                  className="lg:hidden h-8 w-8 sm:h-10 sm:w-10"
                   onClick={() => onMobileMenuChange(false)}
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </div>
             </>
@@ -173,16 +173,16 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="lg:hidden h-8 w-8 sm:h-10 sm:w-10"
               onClick={() => onMobileMenuChange(false)}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-3 sm:p-4 space-y-1.5 sm:space-y-2 overflow-y-auto">
           {/* Main Navigation */}
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href }/`)
@@ -197,7 +197,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 href={canAccess && !isComingSoon ? item.href : "#"}
                 onClick={(e) => handleNavigationClick(item, e)}
                 className={cn(
-                  "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group",
+                  "flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all duration-200 group",
                   isCollapsed && "justify-center px-2",
                   isActive && !isComingSoon
                     ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
@@ -207,9 +207,9 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 )}
                 title={isCollapsed ? item.name : undefined}
               >
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+                  <item.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  {!isCollapsed && <span className="font-medium text-sm sm:text-base">{item.name}</span>}
                 </div>
 
                 {/* Coming Soon Badge for non-admins */}
@@ -218,7 +218,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     {/* Full badge when there's enough space */}
                     <Badge
                       variant="secondary"
-                      className="hidden xl:flex text-[11px] px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
+                      className="hidden xl:flex text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
                     >
                       Coming Soon
                     </Badge>
@@ -227,12 +227,12 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="xl:hidden ml-auto mr-1 p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
-                            <Clock className="w-3.5 h-3.5 text-yellow-800 dark:text-yellow-300" />
+                          <div className="xl:hidden ml-auto mr-1 p-1 sm:p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
+                            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-800 dark:text-yellow-300" />
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="right">
-                          <p>Coming Soon</p>
+                          <p className="text-xs">Coming Soon</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -244,12 +244,12 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                   <Badge
                     variant="secondary"
                     className={cn(
-                      "text-xs px-1.5 py-0.5 ml-auto mr-1 flex-shrink-0",
+                      "text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 ml-auto mr-1 flex-shrink-0",
                       roleColors[item.minRole as keyof typeof roleColors],
                       isActive && "bg-white/20 text-white border-white/30"
                     )}
                   >
-                    {RoleIcon && <RoleIcon className="w-2.5 h-2.5 mr-1" />}
+                    {RoleIcon && <RoleIcon className="w-2 h-2 sm:w-2.5 sm:h-2.5 mr-0.5 sm:mr-1" />}
                     {getRoleInfo(item.minRole as UserRole).displayName}
                   </Badge>
                 )}
@@ -258,9 +258,9 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
           })}
 
           {/* Support Section - Learn, Community, Support */}
-          <div className="pt-4 border-t border-border">
+          <div className="pt-3 sm:pt-4 border-t border-border">
             {!isCollapsed && (
-              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <div className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Resources
               </div>
             )}
@@ -276,7 +276,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 href={canAccess && !isComingSoon ? item.href : "#"}
                 onClick={(e) => handleNavigationClick(item, e)}
                 className={cn(
-                  "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group",
+                  "flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all duration-200 group",
                   isCollapsed && "justify-center px-2",
                   isActive && !isComingSoon
                     ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
@@ -286,9 +286,9 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                 )}
                 title={isCollapsed ? item.name : undefined}
               >
-                <div className="flex items-center space-x-3 min-w-0 flex-1">
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1">
+                  <item.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+                  {!isCollapsed && <span className="font-medium text-sm sm:text-base">{item.name}</span>}
                 </div>
 
                 {/* Coming Soon Badge for non-admins */}
@@ -297,7 +297,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     {/* Full badge when there's enough space */}
                     <Badge
                       variant="secondary"
-                      className="hidden xl:flex text-[11px] px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
+                      className="hidden xl:flex text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 ml-auto mr-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 whitespace-nowrap flex-shrink-0"
                     >
                       Coming Soon
                     </Badge>
@@ -306,12 +306,12 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     <TooltipProvider delayDuration={0}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className="xl:hidden ml-auto mr-1 p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
-                            <Clock className="w-3.5 h-3.5 text-yellow-800 dark:text-yellow-300" />
+                          <div className="xl:hidden ml-auto mr-1 p-1 sm:p-1.5 rounded-md bg-yellow-100 dark:bg-yellow-900/50 flex-shrink-0 cursor-help">
+                            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-800 dark:text-yellow-300" />
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="right">
-                          <p>Coming Soon</p>
+                          <p className="text-xs">Coming Soon</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -324,23 +324,23 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
           {/* Admin Navigation - only show for admins */}
           {isAdmin && (
             <>
-              <div className="pt-4 border-t border-border">
+              <div className="pt-3 sm:pt-4 border-t border-border">
                 {!isCollapsed && (
-                  <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Admin
                   </div>
                 )}
               </div>
               {adminNavigation.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(`${item.href }/`)
-                
+
                 return (
                   <PrefetchLink
                     key={item.name}
                     href={item.href}
                     onClick={() => onMobileMenuChange(false)}
                     className={cn(
-                      "flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200",
+                      "flex items-center space-x-2.5 sm:space-x-3 px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl transition-all duration-200",
                       isCollapsed && "justify-center px-2",
                       isActive
                         ? "bg-gradient-to-r from-red-500 to-orange-600 text-white shadow-lg"
@@ -348,8 +348,8 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
                     )}
                     title={isCollapsed ? item.name : undefined}
                   >
-                    <item.icon className="w-5 h-5" />
-                    {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                    <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {!isCollapsed && <span className="font-medium text-sm sm:text-base">{item.name}</span>}
                   </PrefetchLink>
                 )
               })}

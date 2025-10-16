@@ -937,7 +937,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     if (!affectedWorkflows.length) return
 
     for (const workflow of affectedWorkflows) {
-      if (workflow.status !== 'paused') {
+      if (workflow.status !== 'inactive') {
         const validationState = {
           ...(workflow.validationState || {}),
           integrationPaused: providerId,
@@ -945,7 +945,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         }
 
         await updateWorkflow(workflow.id, {
-          status: 'paused',
+          status: 'inactive',
           validationState: validationState as any,
         })
       }
@@ -955,7 +955,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   resumeWorkflowsForIntegration: async (providerId: string) => {
     const { workflows, updateWorkflow } = get()
     const affectedWorkflows = workflows.filter(workflow =>
-      workflow.status === 'paused' && workflow.validationState?.integrationPaused === providerId
+      workflow.status === 'inactive' && workflow.validationState?.integrationPaused === providerId
     )
 
     if (!affectedWorkflows.length) return
@@ -1011,7 +1011,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   addWorkflowToStore: (workflow: Workflow) => {
     logger.debug('[WorkflowStore] Adding workflow to store:', workflow.id)
     set((state) => ({
-      workflows: [workflow, ...state.workflows],
+      workflows: [workflow, ...state.workflows.filter(existing => existing.id !== workflow.id)],
     }))
   },
 }))

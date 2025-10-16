@@ -1,0 +1,203 @@
+=== Log Session Started: 2025-10-14T19:40:24.618Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-14T19:40:24.618Z] [INFO   ] File logging initialized
+[2025-10-14T19:40:24.618Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_14-40-24.log
+[2025-10-14T19:40:24.620Z] [INFO   ] Deleted old log file: workflow_2025-10-07_09-08-32.log
+[2025-10-14T19:40:24.621Z] [INFO   ] Deleted old log file: workflow_2025-10-07_08-16-54.log
+[2025-10-14T19:40:24.622Z] [INFO   ] Deleted old log file: workflow_2025-10-07_00-00-55.log
+[2025-10-14T19:40:24.623Z] [INFO   ] Deleted old log file: workflow_2025-10-06_23-41-57.log
+[2025-10-14T19:40:24.623Z] [INFO   ] 📁 File logging enabled
+[2025-10-14T19:40:24.623Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_14-40-24.log
+[2025-10-14T19:40:24.623Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_14-40-24.log
+[2025-10-14T19:40:24.624Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_14-40-24.log
+[2025-10-14T19:40:24.624Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-14_14-40-24.log
+[2025-10-14T19:40:24.624Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-14T19:40:24.624Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-14T19:40:24.636Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-14T19:40:24.747Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 104ms (233 modules)
+[2025-10-14T19:40:27.499Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-14T19:40:32.372Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 6.9s (5618 modules)
+[2025-10-14T19:40:33.147Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 747ms (1539 modules)
+[2025-10-14T19:40:34.395Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-14T19:40:36.698Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 2.9s (5633 modules)
+[2025-10-14T19:40:37.893Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-14T19:40:37.914Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 590ms (5635 modules)
+[2025-10-14T19:41:07.965Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 326ms (5637 modules)
+[2025-10-14T19:42:02.929Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-14T19:42:04.174Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 1801ms (5780 modules)
+[2025-10-14T19:42:05.704Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 274ms (4181 modules)
+[2025-10-14T19:42:05.941Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4183 modules)
+[2025-10-14T19:42:06.931Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-14T19:42:07.080Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 651ms (5788 modules)
+[2025-10-14T19:42:18.594Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-14T19:42:18.973Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 900ms (5792 modules)
+[2025-10-14T19:42:22.830Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1135ms (5806 modules)
+[2025-10-14T19:42:38.304Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 418ms (5794 modules)
+[2025-10-14T19:42:39.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 786ms (5808 modules)
+[2025-10-14T19:42:39.790Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/draft in 407ms (5798 modules)
+[2025-10-14T19:42:41.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/assets in 410ms (5798 modules)
+[2025-10-14T19:42:43.281Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 373ms (4202 modules)
+[2025-10-14T19:42:51.253Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 863ms (5817 modules)
+[2025-10-14T19:43:09.093Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 663ms (5817 modules)
+[2025-10-14T19:43:27.360Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 658ms (5803 modules)
+[2025-10-14T19:43:35.626Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 612ms (5803 modules)
+[2025-10-14T19:43:56.104Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 746ms (5803 modules)
+[2025-10-14T19:44:12.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1119ms (5803 modules)
+[2025-10-14T19:44:30.931Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 627ms (5803 modules)
+[2025-10-14T19:44:45.287Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 569ms (5803 modules)
+[2025-10-14T19:45:12.351Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 589ms (5803 modules)
+[2025-10-14T19:45:36.257Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 623ms (5803 modules)
+[2025-10-14T19:45:44.166Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 709ms (5803 modules)
+[2025-10-14T19:47:06.943Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-14T19:47:07.054Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 617ms (4177 modules)
+[2025-10-14T20:01:06.255Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 665ms (1615 modules)
+[2025-10-14T20:01:07.901Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-14T20:01:07.925Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 595ms (4177 modules)
+[2025-10-14T20:01:08.772Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/draft in 263ms (4181 modules)
+[2025-10-14T20:01:09.810Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/assets in 267ms (4183 modules)
+[2025-10-14T20:01:11.091Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-14T20:01:11.118Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 628ms (4188 modules)
+[2025-10-14T20:01:37.570Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1490ms (5803 modules)
+[2025-10-14T20:01:48.833Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 550ms (5803 modules)
+[2025-10-14T20:01:58.428Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 810ms (5803 modules)
+[2025-10-14T20:02:06.682Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 253ms (4190 modules)
+[2025-10-14T20:02:15.845Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 520ms (5805 modules)
+[2025-10-14T20:04:00.275Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5775 modules)
+[2025-10-14T20:04:00.695Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 239ms (4179 modules)
+[2025-10-14T20:04:01.393Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 264ms (4182 modules)
+[2025-10-14T20:04:02.211Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/draft in 271ms (4186 modules)
+[2025-10-14T20:04:03.423Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/assets ...
+[2025-10-14T20:04:03.452Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/assets in 602ms (4188 modules)
+[2025-10-14T20:04:27.105Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 824ms (5803 modules)
+[2025-10-14T20:04:34.550Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 545ms (5803 modules)
+[2025-10-14T20:04:47.082Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 573ms (5803 modules)
+[2025-10-14T20:05:04.606Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 665ms (5803 modules)
+[2025-10-14T20:05:43.509Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 631ms (5803 modules)
+[2025-10-14T20:06:01.661Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 651ms (5803 modules)
+[2025-10-14T20:06:11.854Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 531ms (5803 modules)
+[2025-10-14T20:06:22.304Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 530ms (5803 modules)
+[2025-10-14T20:07:07.056Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-14T20:07:07.090Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 632ms (4190 modules)
+[2025-10-14T20:07:08.486Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 300ms (1615 modules)
+[2025-10-14T20:07:21.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 276ms (1615 modules)
+[2025-10-14T20:20:47.259Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (5775 modules)
+[2025-10-14T20:20:48.541Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 247ms (4177 modules)
+[2025-10-14T20:20:49.278Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/draft in 215ms (4181 modules)
+[2025-10-14T20:20:50.041Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/assets in 262ms (4183 modules)
+[2025-10-14T20:20:51.192Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-14T20:20:52.262Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1577ms (5803 modules)
+[2025-10-14T20:20:57.754Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 610ms (5803 modules)
+[2025-10-14T20:21:03.972Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1071ms (5803 modules)
+[2025-10-14T20:21:09.577Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 593ms (5803 modules)
+[2025-10-14T20:21:36.117Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1399ms (5803 modules)
+[2025-10-14T20:21:46.167Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 600ms (5803 modules)
+[2025-10-14T20:21:53.276Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 658ms (5803 modules)
+[2025-10-14T20:22:03.171Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1298ms (5803 modules)
+[2025-10-14T20:22:06.749Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 285ms (4190 modules)
+[2025-10-14T20:22:47.942Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 859ms (5805 modules)
+[2025-10-14T20:22:56.290Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 861ms (5805 modules)
+[2025-10-14T20:23:05.508Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 628ms (5805 modules)
+[2025-10-14T20:23:14.310Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 576ms (5803 modules)
+[2025-10-14T20:23:22.642Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 575ms (5803 modules)
+[2025-10-14T20:23:29.763Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 746ms (5803 modules)
+[2025-10-14T20:23:41.888Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 612ms (5803 modules)
+[2025-10-14T20:23:53.611Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 742ms (5803 modules)
+[2025-10-14T20:24:03.443Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 632ms (5803 modules)
+[2025-10-14T20:24:16.479Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 571ms (5803 modules)
+[2025-10-14T20:24:58.547Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5803 modules)
+[2025-10-14T20:25:14.784Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1246ms (5803 modules)
+[2025-10-14T20:25:34.048Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 611ms (5803 modules)
+[2025-10-14T20:25:51.515Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 589ms (5803 modules)
+[2025-10-14T20:26:13.592Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 701ms (5803 modules)
+[2025-10-14T20:27:06.750Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 287ms (4190 modules)
+[2025-10-14T20:27:07.082Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 271ms (1615 modules)
+[2025-10-14T20:27:21.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 270ms (1615 modules)
+[2025-10-14T20:43:11.554Z] [WARN   ] 2025-10-14T20:43:11.460Z [WARN] Discord Gateway connection appears unhealthy, forcing reconnection
+[2025-10-14T20:59:25.227Z] [WARN   ] 2025-10-14T20:59:25.227Z [WARN] Discord Gateway connection appears unhealthy, forcing reconnection
+[2025-10-14T23:17:47.825Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-14T23:17:48.731Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1917ms (4179 modules)
+[2025-10-14T23:17:49.456Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4183 modules)
+[2025-10-14T23:17:50.095Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 300ms (4185 modules)
+[2025-10-14T23:18:04.861Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 320ms (4188 modules)
+[2025-10-14T23:18:05.122Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4193 modules)
+[2025-10-14T23:18:36.067Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 295ms (4195 modules)
+[2025-10-14T23:19:38.828Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.8s (5794 modules)
+[2025-10-14T23:19:39.212Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 294ms (4184 modules)
+[2025-10-14T23:19:40.280Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-14T23:19:41.430Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:19:41.643Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1887ms (5787 modules)
+[2025-10-14T23:19:42.002Z] [ERROR  ] 2025-10-14T23:19:42.002Z [ERROR] Error in leave collaboration: {"code":"ECONNRESET"}
+[2025-10-14T23:19:42.028Z] [ERROR  ] 2025-10-14T23:19:42.028Z [ERROR] Error in leave collaboration: {"code":"ECONNRESET"}
+[2025-10-14T23:19:42.078Z] [ERROR  ] 2025-10-14T23:19:42.078Z [ERROR] Error in leave collaboration: {"code":"ECONNRESET"}
+[2025-10-14T23:19:42.926Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 262ms (4188 modules)
+[2025-10-14T23:19:43.481Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 295ms (4190 modules)
+[2025-10-14T23:19:47.601Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.1s (5805 modules)
+[2025-10-14T23:19:47.926Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 322ms (4192 modules)
+[2025-10-14T23:19:48.696Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 362ms (4195 modules)
+[2025-10-14T23:19:54.703Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1143ms (5810 modules)
+[2025-10-14T23:20:03.484Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 881ms (5810 modules)
+[2025-10-14T23:20:38.802Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1282ms (5808 modules)
+[2025-10-14T23:20:44.840Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1398ms (5808 modules)
+[2025-10-14T23:20:46.199Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:21:08.695Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1255ms (5808 modules)
+[2025-10-14T23:21:42.238Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 386ms (4195 modules)
+[2025-10-14T23:22:20.436Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1721ms (5794 modules)
+[2025-10-14T23:22:21.618Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 437ms (4181 modules)
+[2025-10-14T23:22:21.923Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4186 modules)
+[2025-10-14T23:23:33.972Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:23:38.326Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 5.7s (5775 modules)
+[2025-10-14T23:23:39.483Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:23:39.729Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (5801 modules)
+[2025-10-14T23:23:40.276Z] [ERROR  ] 2025-10-14T23:23:40.276Z [ERROR] Collaboration join error: {"code":"ECONNRESET"}
+[2025-10-14T23:23:41.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 299ms (4189 modules)
+[2025-10-14T23:23:46.116Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 268ms (4191 modules)
+[2025-10-14T23:24:15.900Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 518ms (1615 modules)
+[2025-10-14T23:24:51.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1832ms (1615 modules)
+[2025-10-14T23:24:51.863Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:29:23.061Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-14T23:29:23.908Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 2.3s (4193 modules)
+[2025-10-14T23:30:41.774Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.2s (5794 modules)
+[2025-10-14T23:30:42.262Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 344ms (4184 modules)
+[2025-10-14T23:30:43.381Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-14T23:30:44.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1377ms (4186 modules)
+[2025-10-14T23:32:54.122Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-14T23:32:54.963Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2s (4179 modules)
+[2025-10-14T23:32:55.519Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 283ms (4181 modules)
+[2025-10-14T23:32:56.312Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 431ms (4183 modules)
+[2025-10-14T23:32:56.571Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4191 modules)
+[2025-10-14T23:33:27.870Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-14T23:33:28.565Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1447ms (4193 modules)
+[2025-10-14T23:38:05.431Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4s (5796 modules)
+[2025-10-14T23:38:05.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 341ms (4186 modules)
+[2025-10-14T23:38:06.936Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-14T23:38:08.534Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 2.3s (4188 modules)
+[2025-10-14T23:38:23.316Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 779ms (5803 modules)
+[2025-10-14T23:38:24.359Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-14T23:38:25.106Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-14T23:38:26.708Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 3.3s (4191 modules)
+[2025-10-14T23:38:27.782Z] [ERROR  ] 2025-10-14T23:38:27.780Z [ERROR] Collaboration join error: {"code":"ECONNRESET"}
+[2025-10-14T23:38:28.778Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 376ms (4193 modules)
+[2025-10-14T23:38:29.563Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 406ms (4195 modules)
+[2025-10-14T23:41:57.360Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.5s (5794 modules)
+[2025-10-14T23:41:58.007Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 336ms (4184 modules)
+[2025-10-14T23:41:59.017Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 328ms (4186 modules)
+[2025-10-15T00:15:05.908Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-15T00:15:08.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 5s (4179 modules)
+[2025-10-15T00:15:09.077Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 330ms (4181 modules)
+[2025-10-15T00:15:11.136Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1ms (4189 modules)
+[2025-10-15T00:15:11.477Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4191 modules)
+[2025-10-15T00:15:11.768Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4191 modules)
+[2025-10-15T00:15:12.098Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4191 modules)
+[2025-10-15T00:15:43.353Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-15T00:15:44.827Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1974ms (4193 modules)
+[2025-10-15T00:17:07.363Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/config ...
+[2025-10-15T00:17:15.931Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 9.3s (5813 modules)
+[2025-10-15T00:17:18.609Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/bot-status ...
+[2025-10-15T00:17:18.937Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/bot-status in 887ms (5815 modules)
+[2025-10-15T00:17:22.408Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/discord/channel-bot-status ...
+[2025-10-15T00:17:22.871Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/discord/channel-bot-status in 963ms (5817 modules)
+[2025-10-15T00:17:26.549Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...

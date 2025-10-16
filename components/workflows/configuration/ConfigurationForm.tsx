@@ -62,6 +62,8 @@ interface ConfigurationFormProps {
   getFormValues?: () => Record<string, any>;
   integrationName?: string;
   isConnectedToAIAgent?: boolean;
+  isTemplateEditing?: boolean;
+  templateDefaults?: Record<string, any>;
 }
 
 function ConfigurationForm({
@@ -76,7 +78,9 @@ function ConfigurationForm({
   onLoadingChange,
   getFormValues,
   integrationName: integrationNameProp,
-  isConnectedToAIAgent
+  isConnectedToAIAgent,
+  isTemplateEditing = false,
+  templateDefaults,
 }: ConfigurationFormProps) {
   // FIRST: All hooks must be called before any conditional returns
 
@@ -1488,7 +1492,14 @@ function ConfigurationForm({
       return <TrelloConfiguration {...commonProps} />;
     
     case 'airtable':
-      return <AirtableConfiguration {...commonProps} />;
+      return (
+        <AirtableConfiguration
+          {...commonProps}
+          isTemplateEditing={isTemplateEditing}
+          templateDefaults={templateDefaults}
+          initialConfig={initialData}
+        />
+      );
     
     // Google Services
     case 'google-sheets':

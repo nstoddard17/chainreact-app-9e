@@ -15,6 +15,7 @@ import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useShallow } from 'zustand/react/shallow'
+import { getIntegrationLogoClasses } from '@/lib/integrations/logoStyles'
 
 interface IntegrationInfo {
   id: string
@@ -276,7 +277,7 @@ export function ActionSelectionDialog({
                       }}
                     >
                       {renderLogo(integration.id, integration.name)}
-                      <span className="font-semibold ml-4 flex-grow truncate">
+                      <span className="font-semibold ml-4 flex-grow break-words">
                         {integration.name}
                       </span>
                       {comingSoonIntegrations.has(integration.id) ? (
@@ -409,12 +410,12 @@ export function ActionSelectionDialog({
                               <img
                                 src={`/integrations/${selectedIntegration.id}.svg`}
                                 alt={`${selectedIntegration.name} icon`}
-                                className="w-5 h-5 object-contain shrink-0"
+                                className={getIntegrationLogoClasses(selectedIntegration.id, "w-5 h-5 object-contain shrink-0")}
                                 onError={(e: any) => {
                                   e.currentTarget.style.display = 'none'
                                 }}
                               />
-                              <p className="font-medium flex-1 min-w-0 truncate">
+                              <p className="font-medium flex-1 min-w-0 break-words">
                                 {action.title}
                               </p>
                               {isActionComingSoon && (

@@ -5,6 +5,10 @@ import {
   scheduleTempAttachmentCleanup,
   uploadTempAttachmentToSupabase
 } from './supabaseAttachment'
+import { logger } from '@/lib/utils/logger'
+
+const TABLE_SCHEMA_CACHE = new Map<string, { fetchedAt: number; fields: Set<string> }>()
+const TABLE_SCHEMA_TTL = 5 * 60 * 1000
 
 export interface UploadContext {
   accessToken: string
@@ -19,6 +23,49 @@ interface ParsedDataUrl {
 }
 
 export type AirtableAttachment = Record<string, any>
+
+async function getAirtableTableFieldNames(
+  accessToken: string,
+  baseId: string,
+  tableName: string
+): Promise<Set<string> | null> {
+  const cacheKey = `${baseId}:${tableName}`.toLowerCase()
+  const cached = TABLE_SCHEMA_CACHE.get(cacheKey)
+  if (cached && Date.now() - cached.fetchedAt < TABLE_SCHEMA_TTL) {
+    return cached.fields
+  }
+
+  try {
+    const res = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    })
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText)
+      logger.debug(`⚠️ [Airtable] Failed to fetch table schema (${res.status}): ${errText}`)
+      return null
+    }
+
+    const payload = await res.json().catch(() => null)
+    const tables: Array<{ name: string; fields?: Array<{ name: string }> }> = payload?.tables || []
+    const table = tables.find((t) => t.name.toLowerCase() === tableName.toLowerCase())
+    if (!table?.fields) {
+      logger.debug('[Airtable] Table schema response did not include fields for', tableName)
+      return null
+    }
+
+    const fieldSet = new Set<string>(table.fields.map((field) => field.name))
+    TABLE_SCHEMA_CACHE.set(cacheKey, { fetchedAt: Date.now(), fields: fieldSet })
+    return fieldSet
+  } catch (error) {
+    logger.error('[Airtable] Error fetching table schema:', error)
+    return null
+  }
+}
 
 function parseDataUrl(value: string): ParsedDataUrl | null {
   const dataUrlPattern = /^data:([^;,]+)(?:;charset=[^;,]+)?;base64,(.+)$/i
@@ -540,7 +587,21 @@ export async function createAirtableRecord(
             continue
           }
 
-          resolvedFields[fieldName] = finalValue
+          if (typeof finalValue === 'string') {
+            const trimmed = finalValue.trim()
+            if (trimmed && trimmed === trimmed.toLowerCase()) {
+              const normalized = trimmed
+                .split(/[_\s-]+/)
+                .filter(Boolean)
+                .map(segment => segment.charAt(0).toUpperCase() + segment.slice(1))
+                .join(' ')
+              resolvedFields[fieldName] = normalized
+            } else {
+              resolvedFields[fieldName] = finalValue
+            }
+          } else {
+            resolvedFields[fieldName] = finalValue
+          }
         }
       }
     }
@@ -551,6 +612,18 @@ export async function createAirtableRecord(
     if (attachmentErrors.length > 0) {
       logger.debug(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
+
+    // Remove any fields that do not exist in the Airtable schema to avoid 422 errors
+    const validFieldNames = await getAirtableTableFieldNames(accessToken, baseId, tableName)
+    if (validFieldNames) {
+      for (const fieldName of Object.keys(resolvedFields)) {
+        if (!validFieldNames.has(fieldName)) {
+          skippedFields.push(fieldName)
+          delete resolvedFields[fieldName]
+        }
+      }
+    }
+
     if (skippedFields.length > 0) {
       logger.debug(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
     }
