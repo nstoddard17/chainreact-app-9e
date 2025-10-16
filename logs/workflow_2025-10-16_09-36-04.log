@@ -1,0 +1,23 @@
+=== Log Session Started: 2025-10-16T14:36:04.602Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-16T14:36:04.602Z] [INFO   ] File logging initialized
+[2025-10-16T14:36:04.602Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-36-04.log
+[2025-10-16T14:36:04.603Z] [INFO   ] 📁 File logging enabled
+[2025-10-16T14:36:04.603Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-36-04.log
+[2025-10-16T14:36:04.603Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-36-04.log
+[2025-10-16T14:36:04.603Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-36-04.log
+[2025-10-16T14:36:04.603Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-36-04.log
+[2025-10-16T14:36:04.603Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-16T14:36:04.603Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-16T14:36:04.613Z] [INFO   ]  ✓ Ready in 8.2s
+[2025-10-16T14:37:16.371Z] [INFO   ]  ○ Compiling /middleware ...
+[2025-10-16T14:37:16.654Z] [INFO   ]  ✓ Compiled /middleware in 783ms (233 modules)
+[2025-10-16T14:38:01.396Z] [INFO   ]  ○ Compiling /api/presence/count ...
+[2025-10-16T14:38:02.511Z] [INFO   ]  ✓ Compiled /api/presence/count in 1615ms (2671 modules)
+[2025-10-16T14:47:50.043Z] [INFO   ]  ○ Compiling / ...
+
+=== Log Session Ended: 2025-10-16T14:47:56.740Z ===

@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, Zap, Shield, Globe, Users, Sparkles, Target } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/Header'
+import { StandardHeader } from '@/components/layout/StandardHeader'
 
 export default function AboutPage() {
   const router = useRouter()
@@ -11,7 +11,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       {/* Navigation */}
-      <Header />
+      <StandardHeader />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero Section */}

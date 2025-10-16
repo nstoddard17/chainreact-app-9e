@@ -464,7 +464,7 @@ export default function WaitlistContent() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full lg:min-w-0 min-w-[1400px]">
                 <thead className="border-b bg-muted/50">
                   <tr>
                     <th className="text-left p-4 font-medium w-12">
@@ -474,13 +474,13 @@ export default function WaitlistContent() {
                         aria-label="Select all pending members"
                       />
                     </th>
-                    <th className="text-left p-4 font-medium">Name</th>
-                    <th className="text-left p-4 font-medium">Email</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">AI Preferences</th>
-                    <th className="text-left p-4 font-medium">Integrations</th>
-                    <th className="text-left p-4 font-medium">Created</th>
-                    <th className="text-right p-4 font-medium">Actions</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[140px]">Name</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[200px]">Email</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[100px]">Status</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[240px]">AI Preferences</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[120px]">Integrations</th>
+                    <th className="text-left p-4 font-medium lg:w-auto min-w-[110px]">Created</th>
+                    <th className="text-right p-4 font-medium lg:w-auto min-w-[180px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -496,7 +496,7 @@ export default function WaitlistContent() {
                       const totalIntegrations = member.selected_integrations.length + member.custom_integrations.length
                       return (
                         <tr key={member.id} className="border-b hover:bg-muted/50 transition-colors">
-                          <td className="p-4">
+                          <td className="p-4 w-12">
                             <Checkbox
                               checked={selectedMembers.has(member.id)}
                               onCheckedChange={() => toggleSelectMember(member.id)}
@@ -504,47 +504,61 @@ export default function WaitlistContent() {
                               aria-label={`Select ${member.name}`}
                             />
                           </td>
-                          <td className="p-4">
-                            <p className="font-medium">{member.name}</p>
+                          <td className="p-4 lg:w-auto min-w-[140px]">
+                            <p className="font-medium whitespace-nowrap">{member.name}</p>
                           </td>
-                          <td className="p-4">
+                          <td className="p-4 lg:w-auto min-w-[200px]">
                             <p className="text-sm">{member.email}</p>
                           </td>
-                          <td className="p-4">
+                          <td className="p-4 lg:w-auto min-w-[100px]">
                             {getStatusBadge(member.status)}
                           </td>
-                          <td className="p-4">
-                            <div className="text-xs space-y-1">
+                          <td className="p-4 lg:w-auto min-w-[240px]">
+                            <div className="flex flex-wrap gap-1.5 items-center">
                               {member.wants_ai_assistant && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 whitespace-nowrap">
                                   <Sparkles className="w-3 h-3 mr-1" />
-                                  AI Assistant
+                                  Assistant
                                 </Badge>
                               )}
                               {member.wants_ai_actions && (
-                                <div className="flex flex-col gap-1">
-                                  <Badge variant="outline" className="text-xs">
+                                <>
+                                  <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
                                     <Bot className="w-3 h-3 mr-1" />
-                                    AI Actions
+                                    Actions
                                   </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    ({member.ai_actions_importance.replace(/-/g, ' ')})
+                                  <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${
+                                    member.ai_actions_importance === 'critical'
+                                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                      : member.ai_actions_importance === 'very-important'
+                                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                                      : member.ai_actions_importance === 'somewhat-important'
+                                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                                  }`}>
+                                    {member.ai_actions_importance === 'critical' && '🔥 Critical'}
+                                    {member.ai_actions_importance === 'very-important' && '⭐ Very Important'}
+                                    {member.ai_actions_importance === 'somewhat-important' && '➕ Somewhat Important'}
+                                    {member.ai_actions_importance === 'not-important' && '➖ Not Important'}
                                   </span>
-                                </div>
+                                </>
+                              )}
+                              {!member.wants_ai_assistant && !member.wants_ai_actions && (
+                                <span className="text-xs text-muted-foreground italic">None</span>
                               )}
                             </div>
                           </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-1">
+                          <td className="p-4 lg:w-auto min-w-[120px]">
+                            <div className="flex items-center gap-1 whitespace-nowrap">
                               <ListChecks className="w-4 h-4 text-muted-foreground" />
                               <span className="text-sm">{totalIntegrations} selected</span>
                             </div>
                           </td>
-                          <td className="p-4 text-sm">
+                          <td className="p-4 text-sm lg:w-auto min-w-[110px] whitespace-nowrap">
                             {format(new Date(member.created_at), "MMM d, yyyy")}
                           </td>
-                          <td className="p-4">
-                            <div className="flex gap-1 justify-end flex-wrap">
+                          <td className="p-4 lg:w-auto min-w-[180px]">
+                            <div className="flex gap-1 justify-end">
                               {member.status === 'pending' && (
                                 member.invitation_sent_at ? (
                                   <>

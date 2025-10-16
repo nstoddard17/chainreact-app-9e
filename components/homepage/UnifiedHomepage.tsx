@@ -2,14 +2,13 @@
 
 import React from 'react'
 import { useTheme } from 'next-themes'
-import { ThemeToggle } from './ThemeToggle'
 import { HeroSection } from './HeroSection'
 import { WorkflowAnimation } from './WorkflowAnimation'
 import { FeaturesGrid } from './FeaturesGrid'
 import { IntegrationsShowcase } from './IntegrationsShowcase'
 import { HowItWorks } from './HowItWorks'
 import { Footer } from './Footer'
-import { Header } from '@/components/layout/Header'
+import { HomepageHeader } from '@/components/layout/HomepageHeader'
 
 export function UnifiedHomepage() {
   const { theme } = useTheme()
@@ -30,11 +29,9 @@ export function UnifiedHomepage() {
   const isDark = theme === 'dark'
 
   return (
-    <div className={`min-h-screen overflow-x-hidden transition-colors duration-500 ${
+    <div className={`min-h-screen transition-colors duration-500 ${
       isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-white via-blue-50 to-purple-50'
     }`}>
-      {/* Theme Toggle Button */}
-      <ThemeToggle />
 
       {/* Animated background particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -50,7 +47,7 @@ export function UnifiedHomepage() {
       </div>
 
       {/* Navigation */}
-      <Header />
+      <HomepageHeader />
 
       {/* Main Content */}
       <HeroSection />

@@ -8,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import {
   CheckCircle2,
   Mail,
-  Twitter,
   Linkedin,
   Facebook,
   Share2,
@@ -17,22 +16,52 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
+const XLogo = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    focusable="false"
+    {...props}
+  >
+    <path d="M18.244 1.807h3.396l-7.406 8.47 8.739 12.595h-6.842l-5.367-7.557-6.144 7.557H1.512l7.77-8.893L0 1.807h6.999l4.833 6.7 6.412-6.7z" />
+  </svg>
+)
+
 export function WaitlistSuccess() {
   const searchParams = useSearchParams()
   const name = searchParams.get('name')
   const [copied, setCopied] = useState(false)
+  const DEFAULT_SHARE_TIP =
+    'LinkedIn & Facebook block pre-filled text—paste with Cmd+V / Ctrl+V after the dialog opens.'
+  const [shareTip, setShareTip] = useState<string>(DEFAULT_SHARE_TIP)
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + '/waitlist' : ''
   const shareText = "I just joined the ChainReact waitlist! The future of workflow automation is coming. Join me!"
+  const shareMessage = `${shareText} ${shareUrl}`
 
-  const handleShare = (platform: string) => {
+  const handleShare = async (platform: string) => {
     const encodedUrl = encodeURIComponent(shareUrl)
     const encodedText = encodeURIComponent(shareText)
 
     const urls: Record<string, string> = {
-      twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      twitter: `https://x.com/intent/post?text=${encodedText}&url=${encodedUrl}`,
+      linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodedUrl}&title=${encodedText}&summary=${encodedText}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
+    }
+
+    if (platform !== 'twitter') {
+      try {
+        await navigator.clipboard.writeText(shareMessage)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+        setShareTip(DEFAULT_SHARE_TIP)
+      } catch (error) {
+        console.error('Failed to copy share message:', error)
+        setShareTip('Copying the message failed. You can still click the button and paste manually.')
+      }
+    } else {
+      setShareTip(DEFAULT_SHARE_TIP)
     }
 
     if (urls[platform]) {
@@ -154,9 +183,16 @@ export function WaitlistSuccess() {
                       Want to move up the waitlist?
                     </h2>
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 mb-4">
-                    Share ChainReact with colleagues who might benefit from workflow automation!
-                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between mb-4">
+                    <p className="text-slate-700 dark:text-slate-300 flex-1">
+                      Share ChainReact with colleagues who might benefit from workflow automation!
+                    </p>
+                    {shareTip && (
+                      <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-200 sm:text-right sm:pl-4">
+                        {shareTip}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex flex-wrap gap-3">
                     <Button
@@ -165,8 +201,8 @@ export function WaitlistSuccess() {
                       onClick={() => handleShare('twitter')}
                       className="flex-1 sm:flex-none"
                     >
-                      <Twitter className="h-4 w-4 mr-2" />
-                      Twitter
+                      <XLogo className="h-4 w-4 mr-2" />
+                      Post on X
                     </Button>
                     <Button
                       variant="outline"
@@ -236,11 +272,11 @@ export function WaitlistSuccess() {
             <p>Have questions? Reach out at support@chainreact.app</p>
             <p className="mt-2">
               Follow us on{' '}
-              <a href="https://twitter.com/chainreact" className="text-blue-400 hover:underline">
-                Twitter
+              <a href="https://x.com/ChainReact_App" className="text-blue-400 hover:underline">
+                X
               </a>{' '}
               and{' '}
-              <a href="https://linkedin.com/company/chainreact" className="text-blue-400 hover:underline">
+              <a href="https://www.linkedin.com/company/chainreactapp" className="text-blue-400 hover:underline">
                 LinkedIn
               </a>
             </p>

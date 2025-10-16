@@ -1,0 +1,343 @@
+=== Log Session Started: 2025-10-16T14:48:03.304Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-16T14:48:03.305Z] [INFO   ] File logging initialized
+[2025-10-16T14:48:03.305Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-48-03.log
+[2025-10-16T14:48:03.305Z] [INFO   ] 📁 File logging enabled
+[2025-10-16T14:48:03.306Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-48-03.log
+[2025-10-16T14:48:03.306Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-48-03.log
+[2025-10-16T14:48:03.306Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-48-03.log
+[2025-10-16T14:48:03.306Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_09-48-03.log
+[2025-10-16T14:48:03.306Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-16T14:48:03.306Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-16T14:48:03.312Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.7s
+[2025-10-16T14:48:03.831Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-16T14:48:10.393Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 7.1s (4425 modules)
+[2025-10-16T14:48:11.066Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 653ms (999 modules)
+[2025-10-16T14:48:11.638Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 220ms (233 modules)
+[2025-10-16T14:48:12.322Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T14:48:14.261Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.5s (4528 modules)
+[2025-10-16T14:48:15.159Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 340ms (4530 modules)
+[2025-10-16T14:48:18.141Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 318ms (4532 modules)
+[2025-10-16T14:49:20.213Z] [INFO   ]  [37m[1m○[22m[39m Compiling /templates ...
+[2025-10-16T14:49:21.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /templates in 1981ms (4944 modules)
+[2025-10-16T14:49:23.195Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-16T14:49:23.385Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 689ms (4932 modules)
+[2025-10-16T14:49:36.592Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 764ms (4946 modules)
+[2025-10-16T14:51:12.441Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1369ms (4815 modules)
+[2025-10-16T14:51:21.468Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 848ms (4815 modules)
+[2025-10-16T14:52:32.906Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-16T14:52:32.936Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 542ms (3740 modules)
+[2025-10-16T14:52:33.301Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3744 modules)
+[2025-10-16T14:52:34.308Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T14:52:34.321Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 513ms (3746 modules)
+[2025-10-16T14:52:37.223Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 210ms (3748 modules)
+[2025-10-16T14:52:40.725Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 469ms (4937 modules)
+[2025-10-16T14:52:51.981Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 411ms (1198 modules)
+[2025-10-16T14:53:04.929Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 298ms (1198 modules)
+[2025-10-16T14:53:20.367Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1598ms (4953 modules)
+[2025-10-16T14:53:54.895Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T14:53:56.381Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T14:53:56.555Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.3s (4817 modules)
+[2025-10-16T14:53:56.832Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4942 modules)
+[2025-10-16T14:53:58.225Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 244ms (3747 modules)
+[2025-10-16T14:54:02.362Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 201ms (3749 modules)
+[2025-10-16T14:54:02.898Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 313ms (1199 modules)
+[2025-10-16T14:54:10.879Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 303ms (1199 modules)
+[2025-10-16T14:58:32.755Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1693ms (4817 modules)
+[2025-10-16T14:58:44.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 270ms (1199 modules)
+[2025-10-16T14:58:59.161Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 186ms (3741 modules)
+[2025-10-16T15:06:29.378Z] [INFO   ]  [37m[1m○[22m[39m Compiling /privacy ...
+[2025-10-16T15:06:30.544Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /privacy in 1742ms (4836 modules)
+[2025-10-16T15:06:31.801Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 250ms (3762 modules)
+[2025-10-16T15:06:32.564Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 278ms (3764 modules)
+[2025-10-16T15:06:35.687Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 400ms (3766 modules)
+[2025-10-16T15:06:41.036Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /terms in 427ms (4973 modules)
+[2025-10-16T15:08:19.975Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1929ms (4838 modules)
+[2025-10-16T15:08:36.802Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1299ms (4838 modules)
+[2025-10-16T15:08:38.327Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 828ms (4838 modules)
+[2025-10-16T15:08:52.619Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/PrivacyPolicy.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:206:1]
+ [2m203[0m │       </div>
+ [2m204[0m │     </div>
+ [2m205[0m │   )
+ [2m206[0m │ }
+     · [35;1m▲[0m
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:208:30]
+ [2m206[0m │ }
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/PrivacyPolicy.tsx
+./app/privacy/page.tsx
+[2025-10-16T15:08:54.909Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-16T15:08:56.214Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/PrivacyPolicy.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:206:1]
+ [2m203[0m │       </div>
+ [2m204[0m │     </div>
+ [2m205[0m │   )
+ [2m206[0m │ }
+     · [35;1m▲[0m
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:208:30]
+ [2m206[0m │ }
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/PrivacyPolicy.tsx
+./app/privacy/page.tsx
+[2025-10-16T15:09:11.905Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:12.479Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:13.036Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:13.411Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/PrivacyPolicy.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:206:1]
+ [2m203[0m │       </div>
+ [2m204[0m │     </div>
+ [2m205[0m │   )
+ [2m206[0m │ }
+     · [35;1m▲[0m
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:208:30]
+ [2m206[0m │ }
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/PrivacyPolicy.tsx
+./app/privacy/page.tsx
+[2025-10-16T15:09:13.806Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:14.174Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:14.489Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:14.871Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/PrivacyPolicy.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:206:1]
+ [2m203[0m │       </div>
+ [2m204[0m │     </div>
+ [2m205[0m │   )
+ [2m206[0m │ }
+     · [35;1m▲[0m
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:208:30]
+ [2m206[0m │ }
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/PrivacyPolicy.tsx
+./app/privacy/page.tsx
+[2025-10-16T15:09:16.698Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:17.044Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:17.352Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:17.753Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/PrivacyPolicy.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:206:1]
+ [2m203[0m │       </div>
+ [2m204[0m │     </div>
+ [2m205[0m │   )
+ [2m206[0m │ }
+     · [35;1m▲[0m
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/PrivacyPolicy.tsx[0m:208:30]
+ [2m206[0m │ }
+ [2m207[0m │ 
+ [2m208[0m │ export default PrivacyPolicy
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/PrivacyPolicy.tsx
+./app/privacy/page.tsx
+[2025-10-16T15:09:19.542Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:19.904Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:21.411Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1885ms (5164 modules)
+[2025-10-16T15:09:21.500Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:22.982Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T15:09:24.020Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1541ms (3947 modules)
+[2025-10-16T15:09:24.837Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 334ms (3949 modules)
+[2025-10-16T15:09:27.774Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 282ms (3951 modules)
+[2025-10-16T15:09:36.094Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/TermsOfService.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:239:1]
+ [2m236[0m │       </div>
+ [2m237[0m │     </div>
+ [2m238[0m │   )
+ [2m239[0m │ }
+     · [35;1m▲[0m
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:241:31]
+ [2m239[0m │ }
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/TermsOfService.tsx
+./app/terms/page.tsx
+[2025-10-16T15:09:36.929Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:37.306Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:37.702Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:38.168Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/TermsOfService.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:239:1]
+ [2m236[0m │       </div>
+ [2m237[0m │     </div>
+ [2m238[0m │   )
+ [2m239[0m │ }
+     · [35;1m▲[0m
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:241:31]
+ [2m239[0m │ }
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/TermsOfService.tsx
+./app/terms/page.tsx
+[2025-10-16T15:09:39.032Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:39.402Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:39.763Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:40.219Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/legal/TermsOfService.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:239:1]
+ [2m236[0m │       </div>
+ [2m237[0m │     </div>
+ [2m238[0m │   )
+ [2m239[0m │ }
+     · [35;1m▲[0m
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+  [31m×[0m Unexpected eof
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/legal/TermsOfService.tsx[0m:241:31]
+ [2m239[0m │ }
+ [2m240[0m │ 
+ [2m241[0m │ export default TermsOfService
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/legal/TermsOfService.tsx
+./app/terms/page.tsx
+[2025-10-16T15:09:41.370Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:41.769Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:43.458Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:43.948Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:44.588Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:45.689Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.3s (5303 modules)
+[2025-10-16T15:09:45.810Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-16T15:09:53.980Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1184ms (5303 modules)
+[2025-10-16T15:38:22.844Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-16T15:38:25.954Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 4.1s (5496 modules)
+[2025-10-16T15:38:27.194Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 333ms (4070 modules)
+[2025-10-16T15:38:28.199Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T15:38:28.245Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 677ms (4072 modules)
+[2025-10-16T15:38:28.891Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 474ms (1445 modules)
+[2025-10-16T15:38:36.416Z] [INFO   ]  [37m[1m○[22m[39m Compiling /integrations ...
+[2025-10-16T15:38:36.624Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /integrations in 708ms (5561 modules)
+[2025-10-16T15:38:37.675Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/available ...
+[2025-10-16T15:38:37.680Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/available in 517ms (5563 modules)
+[2025-10-16T15:38:38.440Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/integration-metrics ...
+[2025-10-16T15:38:38.929Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/integration-metrics in 1039ms (5565 modules)
+[2025-10-16T15:40:41.966Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6s (5571 modules)
+[2025-10-16T15:40:47.231Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-16T15:40:47.279Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.2s (5564 modules)
+[2025-10-16T15:40:56.084Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 918ms (5564 modules)
+[2025-10-16T15:42:00.168Z] [INFO   ]  [37m[1m○[22m[39m Compiling /about ...
+[2025-10-16T15:42:02.564Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /about in 3.1s (5538 modules)
+[2025-10-16T15:42:04.006Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T15:42:04.027Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 528ms (4091 modules)
+[2025-10-16T15:42:04.969Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 356ms (4093 modules)
+[2025-10-16T15:42:08.096Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 460ms (4095 modules)
+[2025-10-16T15:42:17.412Z] [INFO   ]  [37m[1m○[22m[39m Compiling /templates ...
+[2025-10-16T15:42:19.149Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /templates in 2.3s (4098 modules)
+[2025-10-16T15:42:20.372Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-16T15:42:20.381Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 507ms (4100 modules)
+[2025-10-16T15:42:30.548Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T15:42:30.885Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 863ms (4098 modules)
+[2025-10-16T15:43:03.795Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/usage ...
+[2025-10-16T15:43:04.691Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 1463ms (4100 modules)
+[2025-10-16T15:43:06.010Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates ...
+[2025-10-16T15:43:06.993Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates in 1489ms (5568 modules)
+[2025-10-16T15:48:22.089Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-16T15:48:32.336Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 11.6s (6234 modules)
+[2025-10-16T15:48:34.670Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id] ...
+[2025-10-16T15:48:36.541Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id] in 2.4s (6236 modules)
+[2025-10-16T15:48:37.981Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/draft ...
+[2025-10-16T15:48:37.990Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/draft in 559ms (6240 modules)
+[2025-10-16T15:48:39.108Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/assets ...
+[2025-10-16T15:48:39.123Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/assets in 516ms (6242 modules)
+[2025-10-16T15:48:40.542Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-16T15:48:40.767Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 770ms (4444 modules)
+[2025-10-16T18:33:04.922Z] [ERROR  ] Error: fetch failed
+    at context.fetch (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:321:60)
+    at eval (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/lib/helpers.js:114:25)
+    at _handleRequest (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:115:24)
+    at _request (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/lib/fetch.js:105:24)
+    at eval (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:1060:82)
+    at SupabaseAuthClient._useSession (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:955:26)
+    at async SupabaseAuthClient._getUser (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:1050:20)
+    at async eval (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:1037:20)
+    at async eval (webpack-internal:///(middleware)/./node_modules/@supabase/auth-js/dist/module/GoTrueClient.js:900:28) {
+  
+}
+[2025-10-16T18:33:06.301Z] [INFO   ]  [37m[1m○[22m[39m Compiling /auth/login ...
+[2025-10-16T18:33:08.405Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /auth/login in 3.4s (6213 modules)
+
+=== Log Session Ended: 2025-10-16T18:33:13.278Z ===

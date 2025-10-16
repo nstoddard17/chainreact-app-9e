@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Sparkles,
   Headphones,
+  LayoutTemplate,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
@@ -53,6 +54,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, minRole: 'free' },
   { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles, minRole: 'free', comingSoon: true },
   { name: "Workflows", href: "/workflows", icon: WorkflowsIcon, minRole: 'free' },
+  { name: "Templates", href: "/workflows/templates", icon: LayoutTemplate, minRole: 'free' },
   { name: "Integrations", href: "/integrations", icon: Puzzle, minRole: 'free' },
   { name: "Webhooks", href: "/webhooks", icon: Webhook, minRole: 'pro', comingSoon: true },
   { name: "Analytics", href: "/analytics", icon: BarChart3, minRole: 'pro', comingSoon: true },

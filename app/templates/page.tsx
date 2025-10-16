@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Filter, Clock, Zap, ChevronRight, Bot, Mail, MessageSquare, Database, ShoppingBag, Bell, Users, BarChart, X, GitBranch, ArrowRight, Eye, Loader2 } from 'lucide-react'
 import { templateCategories } from '@/lib/templates/predefinedTemplates'
 import { useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/Header'
+import { StandardHeader } from '@/components/layout/StandardHeader'
 import { TemplatePreviewWithProvider } from '@/components/templates/TemplatePreview'
 import { TemplatePreviewModal } from '@/components/templates/TemplatePreviewModal'
 
@@ -22,6 +22,7 @@ interface Template {
   nodes?: any[]
   connections?: any[]
   is_predefined?: boolean
+  is_public?: boolean
 }
 
 const categoryIcons: Record<string, any> = {
@@ -45,11 +46,19 @@ const difficultyColors = {
 
 // Helper function to get nodes and connections from template (handles both formats)
 const getTemplateWorkflowData = (template: Template) => {
-  // Template already has workflow_json with nodes and edges/connections
+  // Try direct nodes/connections first (database templates)
+  if (template.nodes && template.connections) {
+    return {
+      nodes: template.nodes,
+      connections: template.connections
+    }
+  }
+
+  // Try workflow_json (TypeScript templates)
   if (template.workflow_json) {
     const nodes = template.workflow_json.nodes || []
     // Templates can use either 'edges' or 'connections'
-    const connections = template.workflow_json.edges || template.workflow_json.connections || []
+    const connections = template.workflow_json.connections || template.workflow_json.edges || []
 
     return {
       nodes,
@@ -57,11 +66,8 @@ const getTemplateWorkflowData = (template: Template) => {
     }
   }
 
-  // Fallback to direct nodes/connections if no workflow_json
-  return {
-    nodes: template.nodes || [],
-    connections: template.connections || []
-  }
+  // No workflow data found
+  return { nodes: [], connections: [] }
 }
 
 export default function TemplatesPage() {
@@ -73,14 +79,25 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  // Fetch templates from API like the workflows page does
+  // Fetch templates from API and filter out Twitter templates
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         const response = await fetch('/api/templates/predefined')
         if (response.ok) {
           const data = await response.json()
-          setTemplates(data.templates || [])
+          // Filter out templates that use admin-only or unavailable integrations
+          const filteredTemplates = (data.templates || []).filter((template: Template) => {
+            if (!template?.is_public) {
+              return false
+            }
+            // Hide templates that include twitter, shopify, or other unavailable integrations
+            const unavailableIntegrations = ['twitter', 'x', 'shopify', 'github']
+            return !template.integrations?.some(integration =>
+              unavailableIntegrations.includes(integration.toLowerCase())
+            )
+          })
+          setTemplates(filteredTemplates)
         } else {
           console.error('Failed to fetch templates')
           setTemplates([])
@@ -109,7 +126,7 @@ export default function TemplatesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       {/* Navigation */}
-      <Header />
+      <StandardHeader />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero Section */}
@@ -146,7 +163,7 @@ export default function TemplatesPage() {
               placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-blue-400 transition-colors"
+              className="w-full pl-16 pr-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-blue-400 transition-colors"
             />
           </div>
 
@@ -211,16 +228,18 @@ export default function TemplatesPage() {
                   showControls={false}
                   className="w-full h-full"
                 />
-                {/* Eye icon overlay */}
-                <button
-                  onClick={() => {
-                    setSelectedTemplate(template)
-                    setShowPreviewModal(true)
-                  }}
-                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
-                >
-                  <Eye className="w-5 h-5 text-white" />
-                </button>
+                {/* Eye icon overlay - only show if template has workflow data */}
+                {getTemplateWorkflowData(template).nodes.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelectedTemplate(template)
+                      setShowPreviewModal(true)
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+                  >
+                    <Eye className="w-5 h-5 text-white" />
+                  </button>
+                )}
               </div>
 
               {/* Card Content */}

@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import AppLayout from "@/components/layout/AppLayout"
-import { TemplateGallery } from "@/components/templates/TemplateGallery"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
@@ -56,8 +54,7 @@ export default function WorkflowsContent() {
   }
 
   const userOrgRole = getUserOrgRole()
-  
-  const [activeTab, setActiveTab] = useState("workflows")
+
   const [aiPrompt, setAiPrompt] = useState("")
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiModel, setAiModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini')
@@ -648,27 +645,13 @@ export default function WorkflowsContent() {
             <LightningLoader size="sm" />
           </div>
         )}
-        <div className="flex items-center justify-end">
-          <CreateWorkflowDialog />
-        </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-lg">
-            <TabsTrigger
-              value="workflows"
-              className="transition-all duration-200 hover:bg-card hover:shadow-sm focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              My Workflows
-            </TabsTrigger>
-            <TabsTrigger
-              value="templates"
-              className="transition-all duration-200 hover:bg-card hover:shadow-sm focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              Templates
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="workflows" className="space-y-8">
+        <div className="space-y-8">
+            <PermissionGuard permission="workflows.create">
+              <div className="flex items-center justify-end">
+                <CreateWorkflowDialog />
+              </div>
+            </PermissionGuard>
             <PermissionGuard permission="workflows.create">
               <Card className="bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 border-border shadow-sm">
                 <CardHeader className="pb-4">
@@ -769,14 +752,15 @@ export default function WorkflowsContent() {
                     <PermissionGuard permission="workflows.create">
                       <CreateWorkflowDialog />
                     </PermissionGuard>
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveTab("templates")}
-                      className="flex items-center gap-2 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
-                    >
-                      <Template className="w-4 h-4" />
-                      Browse Templates
-                    </Button>
+                    <Link href="/workflows/templates">
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-2 hover:bg-slate-50 hover:shadow-sm focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+                      >
+                        <Template className="w-4 h-4" />
+                        Browse Templates
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -1074,12 +1058,7 @@ export default function WorkflowsContent() {
                 ))}
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="templates">
-            <TemplateGallery />
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
 
       {/* Admin-only AI Debug Modal */}
