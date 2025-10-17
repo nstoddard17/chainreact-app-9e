@@ -436,6 +436,7 @@ export function ConfigurationModal({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   currentNodeType={nodeInfo?.type}
+                  workflowId={workflowData?.id}
                 />
               </div>
 
@@ -460,6 +461,7 @@ export function ConfigurationModal({
                   workflowData={workflowData}
                   currentNodeId={currentNodeId}
                   currentNodeType={nodeInfo?.type}
+                  workflowId={workflowData?.id}
                 />
               </div>
 

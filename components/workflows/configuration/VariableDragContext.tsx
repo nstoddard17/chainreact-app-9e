@@ -42,7 +42,7 @@ export function VariableDragProvider({ children }: { children: React.ReactNode }
     setActiveFieldState(prev => {
       if (!prev) return prev
       if (!fieldId || prev.id === fieldId) {
-        return prev
+        return null  // ✅ Actually clear the active field
       }
       return prev
     })

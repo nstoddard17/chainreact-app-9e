@@ -271,8 +271,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Database" },
-          { value: "update", label: "Update Database" },
-          { value: "sync", label: "Sync Database Entries" }
+          { value: "update", label: "Update Database" }
         ],
         placeholder: "Select operation",
         visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
@@ -288,8 +287,8 @@ export const notionUnifiedActions: NodeComponent[] = [
         dependsOn: "workspace",
         visibilityCondition: {
           field: "operation",
-          operator: "in",
-          value: ["update", "sync"]
+          operator: "equals",
+          value: "update"
         }
       },
       // Sub-operation for update

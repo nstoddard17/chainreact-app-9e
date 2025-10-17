@@ -3352,13 +3352,6 @@ export function useWorkflowBuilder() {
     dialogsHook.setShowTriggerDialog(true)
   }, [dialogsHook])
 
-  const getWorkflowStatus = useCallback(() => {
-    if (executionHook.isExecuting) return { text: "Executing", variant: "default" as const }
-    if (isSaving) return { text: "Saving", variant: "secondary" as const }
-    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
-    return { text: "Saved", variant: "secondary" as const }
-  }, [executionHook.isExecuting, isSaving, hasUnsavedChanges])
-
   const nodeNeedsConfiguration = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)
     if (!node || !node.data?.nodeComponent) return false
@@ -3887,7 +3880,6 @@ export function useWorkflowBuilder() {
     handleNodeRename,
     handleNodeAddChain,
     openTriggerDialog,
-    getWorkflowStatus,
     nodeNeedsConfiguration,
     confirmDeleteNode,
     forceUpdate,

@@ -145,12 +145,13 @@ function getNestedValue(obj: any, path: string): any {
 export async function POST(request: Request) {
   try {
     const requestData = await request.json()
-    const { workflowId, nodeId: targetNodeId, input: triggerData } = requestData
+    const { workflowId, nodeId: targetNodeId, input: triggerData, workflowData: providedWorkflowData } = requestData
 
-    logger.debug('Received test request:', { 
-      workflowId, 
+    logger.debug('Received test request:', {
+      workflowId,
       targetNodeId,
-      triggerData
+      triggerData,
+      hasProvidedWorkflowData: !!providedWorkflowData
     })
 
     // Need to fetch the workflow data first
@@ -161,21 +162,29 @@ export async function POST(request: Request) {
       return errorResponse("Authentication required" , 401)
     }
 
-    // Fetch the workflow data
-    const { data: workflow, error: workflowError } = await supabase
-      .from('workflows')
-      .select('*')
-      .eq('id', workflowId)
-      .single()
+    // Use provided workflow data if available (for testing unsaved changes),
+    // otherwise fetch from database
+    let workflowData
+    if (providedWorkflowData && providedWorkflowData.nodes && providedWorkflowData.edges) {
+      workflowData = providedWorkflowData
+      logger.debug('Using provided workflow data from request')
+    } else {
+      // Fetch the workflow data from database
+      const { data: workflow, error: workflowError } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('id', workflowId)
+        .single()
 
-    if (workflowError || !workflow) {
-      return errorResponse("Workflow not found" , 404)
-    }
+      if (workflowError || !workflow) {
+        return errorResponse("Workflow not found" , 404)
+      }
 
-    // Parse the workflow data
-    const workflowData = {
-      nodes: workflow.nodes || [],
-      edges: workflow.edges || []
+      workflowData = {
+        nodes: workflow.nodes || [],
+        edges: workflow.edges || []
+      }
+      logger.debug('Using workflow data from database')
     }
 
     const { nodes, edges } = workflowData
@@ -201,7 +210,21 @@ export async function POST(request: Request) {
     }
 
     // Build execution path from trigger to target node
+    logger.debug('🔍 [Test API] Building execution path:', {
+      triggerNodeId: triggerNode.id,
+      targetNodeId: actualTargetNodeId,
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+      edges: edges.map(e => `${e.source} → ${e.target}`)
+    });
+
     const executionPath = buildExecutionPath(triggerNode.id, actualTargetNodeId, edges)
+
+    logger.debug('🔍 [Test API] Execution path result:', {
+      pathLength: executionPath.length,
+      path: executionPath
+    });
+
     if (executionPath.length === 0) {
       return errorResponse("No execution path found from trigger to target node" , 400)
     }
