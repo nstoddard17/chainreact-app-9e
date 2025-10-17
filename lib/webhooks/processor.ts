@@ -270,9 +270,26 @@ function applyTriggerFilters(triggerNode: any, event: WebhookEvent): boolean {
       }
     }
   }
-  
+
+  // Notion specific filters
+  if (event.provider === 'notion') {
+    // Filter by database if specified
+    if (config.database && event.eventData.databaseId) {
+      if (event.eventData.databaseId !== config.database) {
+        return false
+      }
+    }
+
+    // Filter by workspace if specified
+    if (config.workspace && event.eventData.workspaceId) {
+      if (event.eventData.workspaceId !== config.workspace) {
+        return false
+      }
+    }
+  }
+
   // Add more provider-specific filters as needed
-  
+
   return true
 }
 

@@ -13,6 +13,7 @@ import { SlackTriggerLifecycle } from './providers/SlackTriggerLifecycle'
 import { GoogleApisTriggerLifecycle } from './providers/GoogleApisTriggerLifecycle'
 import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
+import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -86,6 +87,14 @@ triggerLifecycleManager.registerProvider({
   lifecycle: new ShopifyTriggerLifecycle(),
   requiresExternalResources: true,
   description: 'Shopify webhooks for orders, products, and inventory'
+})
+
+// Register Notion provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'notion',
+  lifecycle: new NotionTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Notion webhooks for page and database triggers (manual setup required)'
 })
 
 // TODO: Register remaining providers:
