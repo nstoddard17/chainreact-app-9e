@@ -210,10 +210,8 @@ export function ActionSelectionDialog({
           <div className="space-y-3">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   placeholder="Search integrations or actions..."
-                  className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
