@@ -338,11 +338,20 @@ export const notionUnifiedActions: NodeComponent[] = [
         type: "textarea",
         required: false,
         placeholder: "Enter database description",
-        visibilityCondition: { 
-          field: "operation", 
+        visibilityCondition: {
+          field: "operation",
           operator: "in",
           value: ["create", "update"]
         }
+      },
+      {
+        name: "properties",
+        label: "Database Properties",
+        type: "custom",
+        required: false,
+        description: "Configure the database schema with properties like Status, Assignee, Due Date, etc.",
+        tooltip: "Define the fields (properties) your database will have. Every database needs at least one Title property.",
+        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
       },
       // Query fields
       {
