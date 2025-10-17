@@ -304,6 +304,20 @@ export const notionUnifiedActions: NodeComponent[] = [
           { value: "Full page", label: "Full page" },
           { value: "Inline", label: "Inline" }
         ],
+        description: "Full page databases are standalone, Inline databases are embedded in a page",
+        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
+      },
+      {
+        name: "parentPage",
+        label: "Parent Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: true,
+        placeholder: "Search for a parent page...",
+        description: "The page where this database will be created",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
         visibilityCondition: { field: "operation", operator: "equals", value: "create" }
       },
       {
@@ -312,8 +326,8 @@ export const notionUnifiedActions: NodeComponent[] = [
         type: "text",
         required: true,
         placeholder: "Enter database title",
-        visibilityCondition: { 
-          field: "operation", 
+        visibilityCondition: {
+          field: "operation",
           operator: "in",
           value: ["create", "update"]
         }

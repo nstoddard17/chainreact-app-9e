@@ -239,12 +239,12 @@ function WorkflowBuilderContent() {
     return nodes.find((node) => node.id === configuringNode.id) || null
   }, [configuringNode, nodes])
 
-  const getWorkflowStatus = () => {
+  const getWorkflowStatus = React.useCallback(() => {
     if (isExecuting) return { text: "Executing", variant: "default" as const }
     if (isSaving) return { text: "Saving", variant: "secondary" as const }
     if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
     return { text: "Saved", variant: "secondary" as const }
-  }
+  }, [isExecuting, isSaving, hasUnsavedChanges])
 
   if (isLoading) {
     return <WorkflowLoadingScreen />
