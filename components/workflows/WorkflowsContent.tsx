@@ -60,6 +60,43 @@ export default function WorkflowsContent() {
   const [aiModel, setAiModel] = useState<'gpt-4o' | 'gpt-4o-mini'>('gpt-4o-mini')
   const [updatingWorkflows, setUpdatingWorkflows] = useState<Set<string>>(new Set())
   const [deletingWorkflows, setDeletingWorkflows] = useState<Set<string>>(new Set())
+
+  // Clear loading states when workflows update (safety mechanism)
+  useEffect(() => {
+    if (!workflows) return
+
+    // Clear updating state for workflows that no longer exist or have completed updating
+    setUpdatingWorkflows(prev => {
+      const workflowIds = new Set(workflows.map(w => w.id))
+      const newSet = new Set(prev)
+      let changed = false
+
+      prev.forEach(id => {
+        if (!workflowIds.has(id)) {
+          newSet.delete(id)
+          changed = true
+        }
+      })
+
+      return changed ? newSet : prev
+    })
+
+    // Clear deleting state for workflows that no longer exist
+    setDeletingWorkflows(prev => {
+      const workflowIds = new Set(workflows.map(w => w.id))
+      const newSet = new Set(prev)
+      let changed = false
+
+      prev.forEach(id => {
+        if (!workflowIds.has(id)) {
+          newSet.delete(id)
+          changed = true
+        }
+      })
+
+      return changed ? newSet : prev
+    })
+  }, [workflows])
   const [aiDebugMode, setAiDebugMode] = useState(false)
   const [aiStrictMode, setAiStrictMode] = useState(true)
   const [aiDebugData, setAiDebugData] = useState<any | null>(null)
