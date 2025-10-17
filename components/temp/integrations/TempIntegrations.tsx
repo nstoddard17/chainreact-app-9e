@@ -3,7 +3,6 @@
 import React from "react"
 import { Plug, Shield, CheckCircle2, RefreshCw, AlertTriangle } from "lucide-react"
 import { TempAppShell } from "@/components/temp/TempAppShell"
-import { TempCard } from "@/components/temp/TempCard"
 import { TempButton } from "@/components/temp/TempButton"
 import { TempBadge } from "@/components/temp/TempBadge"
 
@@ -47,11 +46,11 @@ export default function TempIntegrations() {
     <TempAppShell
       title="Integrations"
       description="A concept view that surfaces health, sync cadence, and next actions without the noise."
-      actions={<TempButton>New connection</TempButton>}
+      actions={<TempButton contrast="light">New connection</TempButton>}
     >
-      <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
-        <TempCard tone="light" className="space-y-5">
-          <div className="flex items-center justify-between">
+      <div className="space-y-10">
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header className="flex flex-col gap-4 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-500">
                 Connection directory
@@ -60,19 +59,19 @@ export default function TempIntegrations() {
                 Active integrations
               </h2>
             </div>
-            <TempButton variant="ghost">
+            <TempButton variant="ghost" contrast="light">
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </TempButton>
-          </div>
-          <div className="grid gap-4">
+          </header>
+          <ul className="divide-y divide-slate-200">
             {integrations.map((integration) => (
-              <div
+              <li
                 key={integration.name}
-                className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-5 md:flex-row md:items-center md:justify-between"
+                className="flex flex-col gap-4 px-6 py-5 md:flex-row md:items-center md:justify-between"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                     <Plug className="h-5 w-5" />
                   </div>
                   <div>
@@ -101,19 +100,25 @@ export default function TempIntegrations() {
                       Last sync · {integration.sync}
                     </span>
                   </div>
-                  <TempButton variant="secondary" size="md">
+                  <TempButton
+                    variant="secondary"
+                    size="md"
+                    contrast="light"
+                  >
                     Manage
                   </TempButton>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        </TempCard>
+          </ul>
+        </section>
 
-        <div className="space-y-6">
-          <TempCard tone="light" className="space-y-5">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-slate-500" />
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <header className="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
+              <div className="rounded-lg bg-slate-100 p-2 text-slate-500">
+                <Shield className="h-5 w-5" />
+              </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">
                   Trust & compliance
@@ -122,31 +127,42 @@ export default function TempIntegrations() {
                   Side panel preview for security-sensitive info
                 </p>
               </div>
-            </div>
-            <ul className="space-y-4 text-sm text-slate-600">
-              <li className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3">
-                SOC 2 Type II controls enforced across every integration scope.
-              </li>
-              <li className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3">
-                Regional processing policies for EU + APAC are respected automatically.
-              </li>
-              <li className="rounded-2xl border border-slate-200/80 bg-white px-4 py-3">
-                Comprehensive audit log streaming to your security data lake.
-              </li>
+            </header>
+            <ul className="px-6 py-5 divide-y divide-slate-200">
+              {[
+                "SOC 2 Type II controls enforced across every integration scope.",
+                "Regional processing policies for EU + APAC are respected automatically.",
+                "Comprehensive audit log streaming to your security data lake.",
+              ].map((item) => (
+                <li
+                  key={item}
+                  className="py-4 text-sm text-slate-600"
+                >
+                  {item}
+                </li>
+              ))}
             </ul>
-            <TempButton variant="ghost" className="w-full justify-center">
-              View compliance report
-            </TempButton>
-          </TempCard>
+            <div className="border-t border-slate-200 px-6 py-4">
+              <TempButton
+                variant="ghost"
+                contrast="light"
+                className="justify-center"
+              >
+                View compliance report
+              </TempButton>
+            </div>
+          </section>
 
-          <TempCard tone="light" className="space-y-4">
-            <p className="text-sm font-semibold text-slate-800">
-              Upcoming launches
-            </p>
-            <p className="text-xs text-slate-400">
-              Example of how roadmap callouts will render
-            </p>
-            <div className="space-y-3">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <header className="border-b border-slate-200 px-6 py-5">
+              <p className="text-sm font-semibold text-slate-800">
+                Upcoming launches
+              </p>
+              <p className="text-xs text-slate-400">
+                Example of how roadmap callouts will render
+              </p>
+            </header>
+            <div className="px-6 py-5 space-y-4">
               {[
                 {
                   name: "ServiceNow",
@@ -160,7 +176,7 @@ export default function TempIntegrations() {
               ].map((item) => (
                 <div
                   key={item.name}
-                  className="flex items-start justify-between rounded-2xl border border-slate-200 bg-white p-4"
+                  className="flex items-start justify-between gap-4 border border-slate-200 rounded-xl px-4 py-3"
                 >
                   <div>
                     <p className="text-sm font-semibold text-slate-800">
@@ -170,14 +186,15 @@ export default function TempIntegrations() {
                       {item.description}
                     </p>
                   </div>
-                  <TempBadge tone="neutral">In beta</TempBadge>
+                  <TempBadge tone="neutral" contrast="light">
+                    In beta
+                  </TempBadge>
                 </div>
               ))}
             </div>
-          </TempCard>
+          </section>
         </div>
       </div>
     </TempAppShell>
   )
 }
-

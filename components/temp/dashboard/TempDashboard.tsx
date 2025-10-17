@@ -1,10 +1,8 @@
 "use client"
 
 import React from "react"
-import { ArrowUp, ArrowDown, Zap, Workflow, Bot, ShieldCheck } from "lucide-react"
+import { ArrowUp, ArrowDown, ShieldCheck } from "lucide-react"
 import { TempAppShell } from "@/components/temp/TempAppShell"
-import { TempStatCard } from "@/components/temp/TempStatCard"
-import { TempCard } from "@/components/temp/TempCard"
 import { TempTable } from "@/components/temp/TempTable"
 import { TempButton } from "@/components/temp/TempButton"
 
@@ -13,22 +11,16 @@ const metricData = [
     label: "Automation throughput",
     value: "42,360 runs",
     change: "+18.4%",
-    tone: "blue" as const,
-    icon: <Zap className="h-5 w-5" />,
   },
   {
     label: "Active workflows",
     value: "128",
     change: "+6.1%",
-    tone: "purple" as const,
-    icon: <Workflow className="h-5 w-5" />,
   },
   {
     label: "AI agent satisfaction",
     value: "94%",
     change: "+12.0%",
-    tone: "green" as const,
-    icon: <Bot className="h-5 w-5" />,
   },
 ]
 
@@ -84,35 +76,50 @@ export default function TempDashboard() {
     <TempAppShell
       title="Operations overview"
       description="A re-imagined dashboard experience with calmer color, clearer hierarchy, and purposeful metrics."
-      actions={<TempButton>Publish change log</TempButton>}
+      actions={<TempButton contrast="light">Publish change log</TempButton>}
     >
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
-          <div className="grid gap-5 md:grid-cols-3">
-            {metricData.map((metric) => (
-              <TempStatCard
-                key={metric.label}
-                label={metric.label}
-                value={metric.value}
-                change={metric.change}
-                tone={metric.tone}
-                icon={metric.icon}
-              />
-            ))}
-          </div>
+      <div className="space-y-10">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {metricData.map((metric) => (
+            <div
+              key={metric.label}
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+              <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">
+                {metric.label}
+              </span>
+              <p className="mt-4 text-3xl font-semibold text-slate-900">
+                {metric.value}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">vs last 30 days</p>
+              <p
+                className={`mt-5 text-sm font-semibold ${
+                  metric.change.startsWith("-")
+                    ? "text-rose-500"
+                    : "text-emerald-600"
+                }`}
+              >
+                {metric.change}
+              </p>
+            </div>
+          ))}
+        </section>
 
-          <TempCard tone="light" className="space-y-8">
-            <div className="flex items-center justify-between">
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <header className="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-slate-500">
                   Performance health
                 </p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                <h2 className="text-xl font-semibold text-slate-900">
                   Pipelines with the biggest impact this week
                 </h2>
               </div>
-              <TempButton variant="ghost">View details</TempButton>
-            </div>
+              <TempButton variant="ghost" contrast="light">
+                View details
+              </TempButton>
+            </header>
             <TempTable>
               <TempTable.Header columns={["Workflow", "Owner", "Status", "Change"]} />
               <TempTable.Body>
@@ -123,15 +130,17 @@ export default function TempDashboard() {
                     </TempTable.Cell>
                     <TempTable.Cell>{row.owner}</TempTable.Cell>
                     <TempTable.Cell>
-                      <span
-                        className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
-                      >
+                      <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                         {row.status}
                       </span>
                     </TempTable.Cell>
                     <TempTable.Cell>
                       <span
-                        className={row.change.startsWith("-") ? "inline-flex items-center gap-1 text-sm font-semibold text-rose-500" : "inline-flex items-center gap-1 text-sm font-semibold text-emerald-500"}
+                        className={
+                          row.change.startsWith("-")
+                            ? "inline-flex items-center gap-1 text-sm font-semibold text-rose-500"
+                            : "inline-flex items-center gap-1 text-sm font-semibold text-emerald-500"
+                        }
                       >
                         {row.change.startsWith("-") ? (
                           <ArrowDown className="h-4 w-4" />
@@ -145,70 +154,86 @@ export default function TempDashboard() {
                 ))}
               </TempTable.Body>
             </TempTable>
-          </TempCard>
-        </div>
+          </section>
 
-        <div className="space-y-6">
-          <TempCard tone="light" className="space-y-5">
-            <header className="flex items-center gap-3">
-              <ShieldCheck className="h-5 w-5 text-slate-500" />
-              <div>
-                <p className="text-sm font-semibold text-slate-800">
-                  Shipping highlights
-                </p>
-                <p className="text-xs text-slate-400">
-                  Previewing weekly summaries and release notes styling
-                </p>
-              </div>
-            </header>
-            <div className="space-y-4">
-              {snapshot.map((item) => (
-                <div key={item.title} className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <header className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+                <div className="rounded-lg bg-slate-100 p-2 text-slate-500">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
                   <p className="text-sm font-semibold text-slate-800">
-                    {item.title}
+                    Shipping highlights
                   </p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {item.description}
-                  </p>
-                  <p className="mt-3 text-xs uppercase tracking-[0.3em] text-slate-400">
-                    {item.author}
+                  <p className="text-xs text-slate-400">
+                    Weekly summaries and release notes preview
                   </p>
                 </div>
-              ))}
-            </div>
-          </TempCard>
-
-          <TempCard tone="light" className="space-y-4">
-            <p className="text-sm font-semibold text-slate-800">
-              Actions & alerts
-            </p>
-            <div className="space-y-4">
-              {alerts.map((alert) => (
-                <div
-                  key={alert.title}
-                  className="flex items-start gap-3 rounded-2xl border border-slate-200/70 bg-white p-4"
-                >
+              </header>
+              <div className="space-y-4 px-5 py-5">
+                {snapshot.map((item) => (
                   <div
-                    className={alert.urgency === "medium" ? "mt-1 h-2 w-2 rounded-full bg-amber-400" : "mt-1 h-2 w-2 rounded-full bg-emerald-400"}
-                  />
-                  <div>
+                    key={item.title}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
                     <p className="text-sm font-semibold text-slate-800">
-                      {alert.title}
+                      {item.title}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {alert.description}
+                      {item.description}
+                    </p>
+                    <p className="mt-3 text-xs uppercase tracking-[0.3em] text-slate-400">
+                      {item.author}
                     </p>
                   </div>
-                </div>
-              ))}
-            </div>
-            <TempButton variant="secondary" className="w-full justify-center">
-              Review queue
-            </TempButton>
-          </TempCard>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <header className="border-b border-slate-200 px-5 py-4">
+                <p className="text-sm font-semibold text-slate-800">
+                  Actions & alerts
+                </p>
+              </header>
+              <div className="space-y-4 px-5 py-5">
+                {alerts.map((alert) => (
+                  <div
+                    key={alert.title}
+                    className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3"
+                  >
+                    <span
+                      className={
+                        alert.urgency === "medium"
+                          ? "mt-1 inline-block h-2 w-2 rounded-full bg-amber-400"
+                          : "mt-1 inline-block h-2 w-2 rounded-full bg-emerald-400"
+                      }
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {alert.title}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {alert.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-slate-200 px-5 py-4">
+                <TempButton
+                  variant="secondary"
+                  contrast="light"
+                  className="w-full justify-center"
+                >
+                  Review queue
+                </TempButton>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </TempAppShell>
   )
 }
-

@@ -31,9 +31,9 @@ export function TempAppShell({
 
   return (
     <TempTheme background="light">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white/70 backdrop-blur-lg lg:flex">
-          <div className="px-6 pb-6 pt-8">
+      <div className="flex min-h-screen bg-slate-100">
+        <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
+          <div className="px-6 pb-6 pt-8 border-b border-slate-200">
             <Link
               href="/dashboard/temp"
               className="text-xl font-semibold text-slate-900"
@@ -41,7 +41,7 @@ export function TempAppShell({
               ChainReact
             </Link>
           </div>
-          <nav className="flex-1 space-y-2 px-4">
+          <nav className="flex-1 space-y-1 px-4 py-6">
             {navItems.map((item) => {
               const isActive = pathname === item.href
               const Icon = item.icon
@@ -50,10 +50,10 @@ export function TempAppShell({
                   key={item.label}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all",
+                    "flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-gradient-to-r from-[#2563EB]/15 to-[#7C3AED]/15 text-[#1E293B]"
-                      : "text-slate-500 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -63,8 +63,8 @@ export function TempAppShell({
             })}
           </nav>
           <div className="border-t border-slate-200 px-4 py-6">
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
-              <CircleUserRound className="h-8 w-8 text-slate-400" />
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <CircleUserRound className="h-8 w-8 text-slate-500" />
               <div>
                 <p className="text-sm font-semibold text-slate-800">
                   Alex Martinez
@@ -75,8 +75,8 @@ export function TempAppShell({
           </div>
         </aside>
         <div className="flex flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex w-[min(1180px,94%)] items-center justify-between py-6">
+          <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+            <div className="mx-auto flex w-[min(1120px,94%)] items-center justify-between py-6">
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">
                   {title}
@@ -88,12 +88,11 @@ export function TempAppShell({
               {actions}
             </div>
           </header>
-          <main className="flex-1 bg-[#F1F5F9] py-10">
-            <div className="mx-auto w-[min(1180px,94%)]">{children}</div>
+          <main className="flex-1 bg-slate-100 py-10">
+            <div className="mx-auto w-[min(1120px,94%)]">{children}</div>
           </main>
         </div>
       </div>
     </TempTheme>
   )
 }
-
