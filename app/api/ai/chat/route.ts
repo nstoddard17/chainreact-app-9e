@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
+import { formatAIResponse, extractStructuredData } from "@/lib/ai/smart-formatter"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -127,6 +128,41 @@ export async function POST(request: NextRequest) {
       const cost = calculateCost(model, promptTokens, completionTokens)
       const responseContent = completion.choices[0]?.message?.content || ''
 
+      // Detect integration context and fetch data if needed
+      let integrationContext: { integration?: string; dataType?: string; rawData?: any } = {}
+      const messageLower = messages[messages.length - 1].content.toLowerCase()
+
+      // Fetch integrations for user
+      const { data: integrations } = await supabase
+        .from('integrations')
+        .select('provider, status')
+        .eq('user_id', userId)
+
+      // Check if asking for calendar data
+      if (messageLower.includes('calendar') || messageLower.includes('appointment') || messageLower.includes('meeting')) {
+        integrationContext.integration = 'google_calendar'
+        integrationContext.dataType = 'calendar'
+
+        const hasGoogleCalendar = integrations?.some(i => i.provider === 'google_calendar')
+        if (hasGoogleCalendar) {
+          try {
+            // In a real implementation, you'd fetch actual calendar data here
+            // integrationContext.rawData = await fetchCalendarData(userId)
+          } catch (error) {
+            logger.error('Error fetching calendar data:', error)
+          }
+        }
+      }
+
+      // Check if asking for email data
+      if (messageLower.includes('email') || messageLower.includes('inbox') || messageLower.includes('message')) {
+        integrationContext.integration = 'gmail'
+        integrationContext.dataType = 'email'
+      }
+
+      // Apply smart formatting to the response
+      const formattedResponse = formatAIResponse(responseContent, integrationContext)
+
       // Save to ai_cost_logs table
       const { data: costLog, error: costLogError } = await supabase
         .from('ai_cost_logs')
@@ -142,7 +178,8 @@ export async function POST(request: NextRequest) {
             request_id: requestId,
             workflow_id: workflowId,
             node_id: nodeId,
-            response_content: responseContent,
+            response_content: formattedResponse.content,
+            response_type: formattedResponse.type,
             messages,
             temperature,
             max_tokens,
@@ -160,17 +197,24 @@ export async function POST(request: NextRequest) {
       await supabase.from("ai_chat_history").insert({
         user_id: userId,
         message: messages[messages.length - 1].content,
-        response: responseContent,
+        response: formattedResponse.content,
         model,
         tokens_used: totalTokens,
         cost_usd: cost,
         timestamp: new Date().toISOString(),
       })
 
-      // Return response in expected format
+      // Return response with smart formatting
       return jsonResponse({
         requestId,
-        content: responseContent,
+        content: formattedResponse.content,
+        type: formattedResponse.type,
+        metadata: {
+          ...formattedResponse.metadata,
+          timestamp: new Date().toISOString(),
+          userId: userId,
+        },
+        structuredData: formattedResponse.structuredData,
         choices: completion.choices,
         usage: {
           prompt_tokens: promptTokens,
@@ -179,11 +223,7 @@ export async function POST(request: NextRequest) {
           cost_usd: cost
         },
         model: completion.model,
-        created: completion.created,
-        metadata: {
-          timestamp: new Date().toISOString(),
-          userId: userId,
-        }
+        created: completion.created
       })
       
     } catch (error) {

@@ -128,6 +128,7 @@
     "react-dom": "^19",
     "react-hook-form": "latest",
     "react-is": "^19.1.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "latest",
     "recharts": "latest",
     "resend": "^4.8.0",

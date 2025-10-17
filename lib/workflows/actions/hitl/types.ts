@@ -6,13 +6,30 @@ export interface HITLConfig {
   channel: 'discord' | 'slack' | 'sms'
   discordGuildId?: string
   discordChannelId?: string
-  initialMessage: string
+
+  // Auto-context detection (new)
+  autoDetectContext?: boolean
+  customMessage?: string
+
+  // Manual mode (legacy)
+  initialMessage?: string
   contextData?: string
+
+  // AI configuration
   systemPrompt?: string
   extractVariables?: Record<string, string>
+
+  // Timeout configuration
   timeout?: number
   timeoutAction?: 'cancel' | 'proceed'
   continuationSignals?: string[]
+
+  // Memory & learning (new)
+  enableMemory?: boolean
+  knowledgeBaseDocuments?: any[]
+  memoryStorageDocument?: any
+  memoryCategories?: string[]
+  cacheInDatabase?: boolean
 }
 
 export interface ConversationMessage {

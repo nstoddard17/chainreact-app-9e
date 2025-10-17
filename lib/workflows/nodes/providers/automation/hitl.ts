@@ -56,23 +56,54 @@ export const hitlAction: NodeComponent = {
       uiTab: "basic"
     },
     {
+      name: "autoDetectContext",
+      label: "Auto-Detect Context",
+      type: "checkbox",
+      description: "Automatically include all data from the previous step",
+      defaultValue: true,
+      required: false,
+      uiTab: "basic"
+    },
+    {
+      name: "availableDataPreview",
+      label: "Available Data",
+      type: "info",
+      description: "The workflow will automatically format and display all data from the previous step. You can optionally add a custom introduction message below.",
+      visibleWhen: { autoDetectContext: true },
+      uiTab: "basic"
+    },
+    {
+      name: "customMessage",
+      label: "Custom Introduction (Optional)",
+      type: "textarea",
+      description: "Add a custom message before the auto-detected data",
+      placeholder: "I need your approval before proceeding...",
+      required: false,
+      visibleWhen: { autoDetectContext: true },
+      uiTab: "basic"
+    },
+    {
       name: "initialMessage",
       label: "Initial Message",
       type: "discord-rich-text",
       provider: "discord",
-      description: "The first message to send (can use {{variables}})",
-      placeholder: "I'm about to {{action}}. Here's what I have:\n{{context}}",
-      required: true,
-      uiTab: "basic"
+      description: "The first message to send (use {{*}} to include all previous data)",
+      placeholder: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
+      required: false,
+      visibleWhen: { autoDetectContext: false },
+      defaultValue: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
+      uiTab: "advanced"
     },
     {
       name: "contextData",
       label: "Context Data",
       type: "textarea",
-      description: "Data available for the AI to discuss (JSON or text, can use {{variables}})",
-      placeholder: '{\n  "emailDraft": "{{emailBody}}",\n  "recipient": "{{recipientEmail}}"\n}',
+      description: "Specific data to include (use {{*}} for all previous data, or {{fieldName}} for specific fields)",
+      placeholder: '{{*}}',
       required: false,
-      uiTab: "basic"
+      visibleWhen: { autoDetectContext: false },
+      defaultValue: '{{*}}',
+      uiTab: "advanced"
     },
     {
       name: "systemPrompt",
@@ -126,6 +157,72 @@ export const hitlAction: NodeComponent = {
       required: false,
       defaultValue: ["continue", "proceed", "go ahead", "send it", "looks good", "approve"],
       uiTab: "advanced"
+    },
+    {
+      name: "enableMemory",
+      label: "Enable AI Memory & Learning",
+      type: "checkbox",
+      description: "Allow the AI to learn from conversations and improve over time",
+      defaultValue: true,
+      required: false,
+      uiTab: "memory"
+    },
+    {
+      name: "knowledgeBaseDocuments",
+      label: "Knowledge Base Documents",
+      type: "unified-document-picker",
+      description: "Select documents containing business policies, guidelines, and examples for the AI to reference",
+      placeholder: "Click to select documents from any connected service...",
+      providers: ["google_docs", "notion", "onedrive", "dropbox", "box"],
+      allowInlineConnection: true,
+      multiSelect: true,
+      required: false,
+      visibleWhen: { enableMemory: true },
+      uiTab: "memory"
+    },
+    {
+      name: "memoryStorageDocument",
+      label: "AI Memory Storage Location (Required)",
+      type: "unified-document-picker",
+      description: "Choose where to store what the AI learns. You control this data and can edit it anytime.",
+      placeholder: "Select or create a document to store AI learnings...",
+      providers: ["google_docs", "notion", "onedrive"],
+      allowInlineConnection: true,
+      allowCreate: true,
+      createLabel: "Create new memory document",
+      multiSelect: false,
+      required: true,
+      visibleWhen: { enableMemory: true },
+      uiTab: "memory",
+      help: "💡 Your AI's learnings will be stored in YOUR document, not our database. You have full control!"
+    },
+    {
+      name: "memoryCategories",
+      label: "What Should AI Learn?",
+      type: "multi-select",
+      description: "Select what the AI should remember from conversations",
+      options: [
+        { value: "tone_preferences", label: "Tone & Style Preferences" },
+        { value: "formatting_rules", label: "Formatting Rules" },
+        { value: "approval_criteria", label: "Approval Criteria" },
+        { value: "common_corrections", label: "Common Corrections" },
+        { value: "business_context", label: "Business Context & Policies" },
+        { value: "user_preferences", label: "Personal Preferences" }
+      ],
+      defaultValue: ["tone_preferences", "formatting_rules", "approval_criteria", "common_corrections"],
+      required: false,
+      visibleWhen: { enableMemory: true },
+      uiTab: "memory"
+    },
+    {
+      name: "cacheInDatabase",
+      label: "Cache Memory for Faster Loading",
+      type: "checkbox",
+      description: "Store a copy in database for faster access (recommended)",
+      defaultValue: true,
+      required: false,
+      visibleWhen: { enableMemory: true },
+      uiTab: "memory"
     }
   ],
   outputSchema: [
