@@ -501,10 +501,30 @@ export function GenericSelectField({
     e.stopPropagation()
     setIsDragOver(false)
 
-    const droppedText = e.dataTransfer.getData('text/plain')
+    // Try to get JSON data first (which includes alias)
+    const jsonData = e.dataTransfer.getData('application/json')
+    let droppedText = e.dataTransfer.getData('text/plain')
+    let alias: string | null = null
+
+    // Parse JSON data if available to get the alias
+    if (jsonData) {
+      try {
+        const parsed = JSON.parse(jsonData)
+        if (parsed.variable) {
+          droppedText = parsed.variable
+        }
+        if (parsed.alias) {
+          alias = parsed.alias
+        }
+      } catch (err) {
+        logger.warn('[GenericSelectField] Failed to parse JSON drag data:', err)
+      }
+    }
+
     logger.debug('🎯 [GenericSelectField] Variable dropped:', {
       fieldName: field.name,
       droppedText,
+      alias,
       isVariable: droppedText.startsWith('{{') && droppedText.endsWith('}}'),
       isMultiple: field.multiple
     })
@@ -520,18 +540,24 @@ export function GenericSelectField({
         onChange(droppedText)
       }
 
-      // Set the display label to a friendly name
-      const friendlyLabel = getFriendlyVariableLabel(droppedText, workflowNodes)
+      // Use the alias from drag data if available, otherwise generate one
+      const friendlyLabel = alias || getFriendlyVariableLabel(droppedText, workflowNodes)
       setDisplayLabel(friendlyLabel)
+
+      // Cache the label for persistence
+      if (friendlyLabel) {
+        saveLabelToCache(droppedText, friendlyLabel)
+      }
 
       logger.debug('✅ [GenericSelectField] Variable accepted:', {
         fieldName: field.name,
         variable: droppedText,
         friendlyLabel,
+        usedProvidedAlias: !!alias,
         isMultiple: field.multiple
       })
     }
-  }, [field.name, field.multiple, value, onChange, getFriendlyVariableLabel, workflowNodes])
+  }, [field.name, field.multiple, value, onChange, getFriendlyVariableLabel, workflowNodes, saveLabelToCache])
 
   // Show loading state for dynamic fields
   // Always show loading indicator when the field is actively loading

@@ -171,11 +171,29 @@ export function GenericTextInput({
     return String(value)
   }, [value])
 
-  const handleVariableInsert = useCallback((rawVariable: string) => {
+  const handleVariableInsert = useCallback((rawVariable: string, event?: React.DragEvent) => {
     if (!inputRef.current) return
 
-    const variableText = normalizeDraggedVariable(rawVariable)
+    let variableText = normalizeDraggedVariable(rawVariable)
     if (!variableText) return
+
+    // Try to extract alias from drag event if available
+    if (event) {
+      try {
+        const jsonData = event.dataTransfer?.getData('application/json')
+        if (jsonData) {
+          const parsed = JSON.parse(jsonData)
+          // Use alias for display if available, but keep actual variable reference
+          if (parsed.alias) {
+            variableText = parsed.alias
+          } else if (parsed.variable) {
+            variableText = normalizeDraggedVariable(parsed.variable)
+          }
+        }
+      } catch (err) {
+        logger.debug("[GenericTextInput] Could not parse JSON drag data, using text/plain:", err)
+      }
+    }
 
     try {
       inputRef.current.focus()

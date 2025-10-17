@@ -30,7 +30,9 @@ export function GmailEmailField({
   isLoading,
   onDynamicLoad,
 }: GmailEmailFieldProps) {
-  
+  // Store variable aliases for display
+  const [variableOptions, setVariableOptions] = React.useState<Array<{value: string, label: string}>>([]);
+
   // Gmail-specific loading behavior
   const handleEmailFieldFocus = () => {
     if (field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
@@ -46,15 +48,15 @@ export function GmailEmailField({
         // Prioritize Gmail contacts first
         if (a.type === 'contact' && b.type !== 'contact') return -1;
         if (b.type === 'contact' && a.type !== 'contact') return 1;
-        
+
         // Then recent Gmail contacts
         if (a.type === 'recent' && b.type !== 'recent') return -1;
         if (b.type === 'recent' && a.type !== 'recent') return 1;
-        
+
         // Then by name availability
         if (a.name && !b.name) return -1;
         if (b.name && !a.name) return 1;
-        
+
         // Default to alphabetical
         return (a.name || a.email).localeCompare(b.name || b.email);
       })
@@ -76,7 +78,9 @@ export function GmailEmailField({
     return error;
   };
 
-  const processedOptions = processGmailOptions(suggestions);
+  // Combine regular options with variable options
+  const processedGmailOptions = processGmailOptions(suggestions);
+  const processedOptions = [...processedGmailOptions, ...variableOptions];
   const processedError = error ? handleGmailError(error) : undefined;
 
   // Convert comma-separated string to array and back
@@ -96,12 +100,65 @@ export function GmailEmailField({
       isLoading,
       willCallDynamicLoad: isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading
     });
-    
+
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
       logger.debug('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };
+
+  // Handle variable drops
+  const handleVariableDrop = React.useCallback((e: React.DragEvent) => {
+    // Extract variable and alias from drag data
+    const jsonData = e.dataTransfer.getData('application/json')
+    let droppedText = e.dataTransfer.getData('text/plain')
+    let alias: string | null = null
+
+    if (jsonData) {
+      try {
+        const parsed = JSON.parse(jsonData)
+        if (parsed.variable) {
+          droppedText = parsed.variable
+        }
+        if (parsed.alias) {
+          alias = parsed.alias
+        }
+      } catch (err) {
+        logger.warn('[GmailEmailField] Failed to parse JSON drag data:', err)
+      }
+    }
+
+    logger.debug('📧 [GmailEmailField] Variable dropped:', {
+      fieldName: field.name,
+      droppedText,
+      alias,
+      isVariable: droppedText.startsWith('{{') && droppedText.endsWith('}}')
+    })
+
+    // Check if it's a variable reference
+    if (droppedText && droppedText.startsWith('{{') && droppedText.endsWith('}}')) {
+      // Add the variable to the options list with its alias as the label
+      const displayLabel = alias || droppedText
+      setVariableOptions(prev => {
+        // Check if this variable is already in the options
+        const exists = prev.some(opt => opt.value === droppedText)
+        if (exists) return prev
+
+        return [...prev, { value: droppedText, label: displayLabel }]
+      })
+
+      // Add the variable to the current values
+      onChange(value ? `${value}, ${droppedText}` : droppedText)
+
+      logger.debug('✅ [GmailEmailField] Variable accepted:', {
+        fieldName: field.name,
+        variable: droppedText,
+        alias,
+        displayLabel,
+        newValue: value ? `${value}, ${droppedText}` : droppedText
+      })
+    }
+  }, [field.name, value, onChange])
 
   return (
     <div className="relative">
@@ -121,6 +178,7 @@ export function GmailEmailField({
         disabled={false}
         creatable={true} // Always allow typing email addresses
         onOpenChange={handleDropdownOpen}
+        onDrop={handleVariableDrop}
         className={cn(
           error && "border-red-500",
           isLoading && "opacity-70"

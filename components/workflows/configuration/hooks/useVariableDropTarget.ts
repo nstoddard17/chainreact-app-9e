@@ -85,7 +85,8 @@ export function useVariableDropTarget({
     }
 
     if (variable) {
-      onInsert(variable, event)
+      // Pass the event to onInsert so it can access the full drag data (including alias)
+      onInsert(variable, event as any)
     }
   }, [elementRef, focusField, onInsert])
 
