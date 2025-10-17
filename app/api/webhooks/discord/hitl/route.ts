@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { processConversationMessage } from '@/lib/workflows/actions/hitl/conversation'
 import { sendDiscordThreadMessage } from '@/lib/workflows/actions/hitl/discord'
+import { processConversationLearnings } from '@/lib/workflows/actions/hitl/memoryService'
 import type { ConversationMessage } from '@/lib/workflows/actions/hitl/types'
 
 /**
@@ -44,21 +45,137 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, message: 'Missing required fields' })
     }
 
-    // Find active HITL conversation for this channel
+    // Find HITL conversation for this channel (active or timeout)
     const supabase = await createSupabaseServerClient()
 
     const { data: conversation, error } = await supabase
       .from('hitl_conversations')
       .select('*')
       .eq('channel_id', channelId)
-      .eq('status', 'active')
+      .in('status', ['active', 'timeout'])  // Look for active OR timed-out conversations
       .single()
 
     if (error || !conversation) {
-      // No active conversation in this channel - ignore
+      // No active or timed-out conversation in this channel - ignore
       return NextResponse.json({ ok: true, message: 'No active conversation' })
     }
 
+    // ============================================
+    // HANDLE TIMED-OUT CONVERSATIONS (REACTIVATION)
+    // ============================================
+    if (conversation.status === 'timeout') {
+      logger.info('Found timed-out HITL conversation', {
+        conversationId: conversation.id,
+        executionId: conversation.execution_id,
+        channelId
+      })
+
+      const lowerMessage = content.toLowerCase().trim()
+
+      // Check if user wants to reactivate
+      const reactivationKeywords = ['continue', 'resume', 'reactivate', 'restart']
+      const wantsToReactivate = reactivationKeywords.some(keyword =>
+        lowerMessage.includes(keyword)
+      )
+
+      if (!wantsToReactivate) {
+        // User didn't say a reactivation keyword
+        await sendDiscordThreadMessage(
+          conversation.user_id,
+          channelId,
+          "⏱️ **This conversation has timed out.**\n\n" +
+          "If you'd like to continue where we left off, please reply with **'continue'** to reactivate it."
+        )
+        return NextResponse.json({ ok: true, message: 'Awaiting reactivation keyword' })
+      }
+
+      // Get workflow execution to check its status
+      const { data: execution, error: execError } = await supabase
+        .from('workflow_executions')
+        .select('*')
+        .eq('id', conversation.execution_id)
+        .single()
+
+      if (execError || !execution) {
+        logger.error('Failed to find execution for timed-out conversation', { error: execError })
+        return NextResponse.json({ error: 'Execution not found' }, { status: 404 })
+      }
+
+      const resumeData = execution.resume_data as any
+      const hitlConfig = resumeData?.hitl_config || {}
+      const timeoutMinutes = conversation.timeout_minutes || hitlConfig.timeout || 60
+
+      // Check if workflow already completed (auto-proceeded)
+      if (execution.status === 'completed') {
+        await sendDiscordThreadMessage(
+          conversation.user_id,
+          channelId,
+          "❌ **This workflow has already completed.**\n\n" +
+          "When the conversation timed out, the workflow was configured to proceed automatically. " +
+          "The remaining steps have already been executed.\n\n" +
+          "_You'll need to start a new workflow to perform this action again._"
+        )
+        return NextResponse.json({ ok: true, message: 'Workflow already completed' })
+      }
+
+      // Check if workflow was cancelled
+      if (execution.status === 'cancelled') {
+        // Reactivate the workflow back to paused state
+        await supabase
+          .from('workflow_executions')
+          .update({
+            status: 'paused',
+            paused_node_id: conversation.node_id,
+            error: null,  // Clear the timeout error
+            paused_at: conversation.started_at  // Keep original paused time
+          })
+          .eq('id', execution.id)
+
+        logger.info('Workflow reactivated from cancelled state', {
+          executionId: execution.id,
+          conversationId: conversation.id
+        })
+      }
+
+      // Reactivate the conversation
+      await supabase
+        .from('hitl_conversations')
+        .update({
+          status: 'active',
+          timeout_at: new Date(Date.now() + timeoutMinutes * 60 * 1000),  // Reset timeout
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conversation.id)
+
+      // Send reactivation confirmation
+      await sendDiscordThreadMessage(
+        conversation.user_id,
+        channelId,
+        "✅ **Conversation Reactivated!**\n\n" +
+        "Let's continue where we left off. Here's the context:\n\n" +
+        "---\n\n" +
+        conversation.context_data +
+        "\n\n---\n\n" +
+        `You have **${timeoutMinutes} minutes** to respond before this times out again.\n\n` +
+        "What would you like to do?"
+      )
+
+      logger.info('HITL conversation reactivated', {
+        conversationId: conversation.id,
+        executionId: execution.id,
+        newTimeoutAt: new Date(Date.now() + timeoutMinutes * 60 * 1000).toISOString()
+      })
+
+      return NextResponse.json({
+        ok: true,
+        action: 'reactivated',
+        conversationId: conversation.id
+      })
+    }
+
+    // ============================================
+    // ACTIVE CONVERSATION - NORMAL PROCESSING
+    // ============================================
     logger.info('Found active HITL conversation', {
       conversationId: conversation.id,
       executionId: conversation.execution_id,
@@ -89,13 +206,14 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    // Process message through AI
+    // Process message through AI (use stored system prompt with memory + knowledge base)
     const { aiResponse, shouldContinue, extractedVariables, summary } =
       await processConversationMessage(
         content,
         conversationHistory,
         hitlConfig,
-        contextData
+        contextData,
+        conversation.system_prompt || undefined // Use enhanced prompt with memory
       )
 
     // Add AI response to history
@@ -126,6 +244,24 @@ export async function POST(request: NextRequest) {
           extracted_variables: extractedVariables
         })
         .eq('id', conversation.id)
+
+      // Extract and save learnings from this conversation (async, don't block workflow)
+      processConversationLearnings(
+        conversation.id,
+        conversation.user_id,
+        conversation.workflow_id,
+        conversationHistory,
+        contextData,
+        {
+          enableMemory: hitlConfig.enableMemory,
+          memoryCategories: hitlConfig.memoryCategories,
+          memoryStorageDocument: hitlConfig.memoryStorageDocument,
+          cacheInDatabase: hitlConfig.cacheInDatabase
+        }
+      ).catch(error => {
+        // Log error but don't fail the workflow
+        logger.error('Failed to process learnings (non-blocking)', { error: error.message })
+      })
 
       // Update execution status to running and pass extracted variables forward
       const outputData = {

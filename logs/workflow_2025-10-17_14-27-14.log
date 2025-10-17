@@ -1,0 +1,131 @@
+=== Log Session Started: 2025-10-17T19:27:14.388Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-17T19:27:14.388Z] [INFO   ] File logging initialized
+[2025-10-17T19:27:14.388Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_14-27-14.log
+[2025-10-17T19:27:14.389Z] [INFO   ] 📁 File logging enabled
+[2025-10-17T19:27:14.389Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_14-27-14.log
+[2025-10-17T19:27:14.390Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_14-27-14.log
+[2025-10-17T19:27:14.390Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_14-27-14.log
+[2025-10-17T19:27:14.390Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_14-27-14.log
+[2025-10-17T19:27:14.390Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-17T19:27:14.390Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-17T19:27:14.407Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.9s
+[2025-10-17T19:27:14.683Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:27:21.820Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:27:22.399Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:27:23.030Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:27:25.565Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:28:06.021Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:28:06.760Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:28:07.237Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:28:07.620Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T19:28:10.964Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 740ms (3889 modules)
+[2025-10-17T19:29:22.285Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-17T19:29:22.447Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 669ms (3134 modules)
+[2025-10-17T19:32:01.664Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 594ms (664 modules)
+[2025-10-17T19:32:28.496Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 236ms (664 modules)
+[2025-10-17T19:32:50.081Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 251ms (664 modules)
+[2025-10-17T19:33:01.817Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 252ms (664 modules)
+[2025-10-17T19:33:11.870Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 232ms (664 modules)
+[2025-10-17T19:33:49.785Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 306ms (664 modules)
+[2025-10-17T19:39:34.924Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 336ms (664 modules)
+[2025-10-17T19:39:55.818Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 641ms (3147 modules)
+[2025-10-17T19:40:11.676Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 236ms (664 modules)
+[2025-10-17T19:40:28.863Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 234ms (664 modules)
+[2025-10-17T19:40:55.319Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 419ms (664 modules)
+[2025-10-17T19:41:09.760Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 337ms (664 modules)
+[2025-10-17T19:41:18.474Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 350ms (664 modules)
+[2025-10-17T19:41:35.342Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 296ms (664 modules)
+[2025-10-17T19:41:45.544Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 248ms (664 modules)
+[2025-10-17T19:41:54.341Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 253ms (664 modules)
+[2025-10-17T19:42:20.718Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 618ms (671 modules)
+[2025-10-17T19:42:36.699Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 352ms (671 modules)
+[2025-10-17T19:42:45.541Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 248ms (671 modules)
+[2025-10-17T19:42:52.945Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 402ms (671 modules)
+[2025-10-17T19:43:01.660Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 243ms (671 modules)
+[2025-10-17T19:54:56.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 597ms (671 modules)
+[2025-10-17T19:55:08.571Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 287ms (671 modules)
+[2025-10-17T19:55:18.558Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 262ms (671 modules)
+[2025-10-17T19:59:38.601Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 293ms (233 modules)
+[2025-10-17T19:59:39.654Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-17T19:59:42.357Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 3.2s (5657 modules)
+[2025-10-17T19:59:49.216Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 409ms (1572 modules)
+[2025-10-17T20:00:00.146Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 556ms (1572 modules)
+
+=== Log Session Ended: 2025-10-17T20:00:00.563Z ===

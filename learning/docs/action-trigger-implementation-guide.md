@@ -1350,6 +1350,130 @@ if (filterConfig?.supportsRecipient && triggerConfig.to) {
 
 ---
 
+## Human-in-the-Loop (HITL) Implementation Pattern
+
+### Overview
+
+Human-in-the-Loop (HITL) is a specialized action that **pauses workflow execution** and initiates a conversational AI interaction with the user. Unlike standard actions that execute and continue, HITL actions:
+
+1. Pause the workflow at a specific node
+2. Send a message to the user via Discord/Slack/SMS
+3. Enable back-and-forth conversation with AI assistance
+4. Extract decisions/modifications from the conversation
+5. Resume the workflow with extracted variables
+
+**Use Cases:**
+- Email review and approval before sending
+- Content review with AI-assisted editing
+- Decision checkpoints in automated processes
+- Data validation with human oversight
+- Policy compliance checks
+
+### Key Features
+
+#### 1. Auto-Context Detection
+Automatically formats the previous node's output into readable context:
+- Detects data types (strings, numbers, arrays, objects)
+- Formats nested objects with proper indentation
+- Converts camelCase to Title Case for readability
+- Truncates long strings to prevent overflow
+
+**Location:** `/lib/workflows/actions/hitl/index.ts` (lines 17-95)
+
+```typescript
+function formatPreviousNodeContext(previousOutput: any): string {
+  // Intelligently formats based on data type
+  // Handles arrays, objects, primitives
+  // Returns human-readable markdown
+}
+```
+
+#### 2. AI Memory & Learning System
+Extracts patterns from conversations and stores them for future use:
+
+**Memory Categories:**
+- `tone_preferences` - Communication style (formal vs casual, emoji usage)
+- `formatting_rules` - Date formats, capitalization, templates
+- `approval_criteria` - What user checks when approving
+- `common_corrections` - Frequent changes user makes
+- `business_context` - Policies, rules, constraints
+- `user_preferences` - Personal habits, defaults
+
+**How It Works:**
+1. After conversation completes, GPT-4 analyzes full history
+2. Extracts patterns across configured categories
+3. Merges with existing learnings (70% existing, 30% new confidence)
+4. Saves to user's chosen document (Google Docs, Notion, OneDrive)
+5. Optionally caches in Supabase for performance
+
+**Location:** `/lib/workflows/actions/hitl/memoryService.ts`
+
+```typescript
+// Extract learnings from conversation
+export async function extractLearningsFromConversation(
+  conversationHistory: ConversationMessage[],
+  contextData: any,
+  memoryCategories: string[]
+): Promise<Record<string, any>>
+
+// Merge new learnings with existing (smart deduplication)
+function mergeLearnings(
+  existing: Record<string, any>,
+  newLearnings: Record<string, any>
+): Record<string, any>
+
+// Save to user's document (primary storage)
+export async function saveLearningsToDocument(
+  documentInfo: any,
+  existingLearnings: Record<string, any>,
+  newLearnings: Record<string, any>,
+  userId: string
+): Promise<boolean>
+
+// Cache in Supabase (optional, for performance)
+export async function cacheLearningsInDatabase(
+  userId: string,
+  workflowId: string,
+  conversationId: string,
+  learnings: Record<string, any>
+): Promise<void>
+```
+
+#### 3. Knowledge Base Loading
+Load business documents to provide context to AI:
+- Company policies
+- Brand guidelines
+- Compliance documents
+- Standard operating procedures
+
+**Supports:** Google Docs, Notion, OneDrive (implementations pending)
+
+#### 4. Continuation Detection
+AI automatically detects when user is ready to continue:
+
+**Default Signals:** `continue`, `proceed`, `go ahead`, `send it`, `looks good`, `approve`
+**Custom Signals:** Configurable per workflow
+**Smart Detection:** Uses OpenAI function calling to reliably detect intent
+
+**Location:** `/lib/workflows/actions/hitl/conversation.ts`
+
+```typescript
+// AI calls this function when user wants to proceed
+const tools: OpenAI.Chat.ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'continue_workflow',
+      description: 'Call this when the user is ready to continue',
+      parameters: {
+        type: 'object',
+        properties: {
+          extractedVariables: { type: 'object' },
+          summary: { type: 'string' }
+        }
+      }
+    }
+
 ## Duplicate Handling Pattern (HubSpot Contact Example)
 
 ### The Problem
@@ -1386,6 +1510,479 @@ configSchema: [
 ]
 ```
 
+### Architecture
+
+#### Dual Storage Strategy
+
+**Primary Storage:** User's own documents (user owns and controls data)
+- Google Docs
+- Notion pages
+- OneDrive files
+
+**Optional Cache:** Supabase database (performance optimization)
+- Faster access than fetching from external APIs
+- Queryable for analytics
+- User-controlled via `cacheInDatabase` field (default: true)
+
+**Benefits:**
+- Users retain full ownership of their AI memory
+- Performance is optimized via optional caching
+- Works even if Supabase cache is disabled
+
+#### Database Schema
+
+**Table: `hitl_conversations`**
+Tracks active and completed HITL conversations:
+
+```sql
+CREATE TABLE hitl_conversations (
+  id UUID PRIMARY KEY,
+  execution_id UUID REFERENCES workflow_executions(id),
+  node_id TEXT NOT NULL,
+  workflow_id UUID REFERENCES workflows(id),
+  user_id UUID REFERENCES users(id),
+
+  -- Channel configuration
+  channel_type TEXT NOT NULL, -- 'discord', 'slack', 'sms'
+  channel_id TEXT NOT NULL,
+  guild_id TEXT,              -- Discord server ID
+
+  -- Conversation state
+  status TEXT NOT NULL,        -- 'active', 'completed', 'timeout', 'cancelled'
+  conversation_history JSONB DEFAULT '[]',
+  extracted_variables JSONB DEFAULT '{}',
+  learnings_extracted JSONB,
+
+  -- Configuration
+  system_prompt TEXT,          -- Enhanced with memory + knowledge base
+  initial_message TEXT,
+  context_data TEXT,
+  extract_variables JSONB DEFAULT '{}',
+  continuation_signals TEXT[] DEFAULT ARRAY['continue', 'proceed', 'go ahead'],
+
+  -- Timeout handling
+  timeout_minutes INTEGER DEFAULT 60,
+  timeout_action TEXT DEFAULT 'cancel', -- 'cancel' or 'proceed'
+  timeout_at TIMESTAMPTZ,
+
+  -- Memory context
+  knowledge_base_used JSONB DEFAULT '[]',
+  memory_context_provided TEXT,
+
+  -- Timestamps
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+**Table: `hitl_memory`** (optional cache)
+Stores extracted learnings for fast access:
+
+```sql
+CREATE TABLE hitl_memory (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  workflow_id UUID REFERENCES workflows(id),
+
+  -- Learning data
+  scope TEXT NOT NULL,         -- 'workflow', 'global'
+  category TEXT NOT NULL,      -- 'tone_preferences', 'formatting_rules', etc.
+  learning_summary TEXT,
+  learning_data JSONB,
+
+  -- Metadata
+  confidence_score DECIMAL(3,2), -- 0.00 to 1.00
+  source_conversation_id UUID REFERENCES hitl_conversations(id),
+  usage_count INTEGER DEFAULT 0,
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### Implementation Files
+
+#### Core Action Handler
+**Location:** `/lib/workflows/actions/hitl/index.ts`
+
+Main entry point for HITL action execution:
+- Formats context (auto-detect or manual)
+- Loads knowledge base documents
+- Loads AI memory from user's document
+- Builds enhanced system prompt
+- Sends initial message via Discord/Slack/SMS
+- Creates conversation record
+- Pauses workflow execution
+
+**Critical:** Returns `{ pauseExecution: true }` to halt workflow.
+
+#### Conversation Processor
+**Location:** `/lib/workflows/actions/hitl/conversation.ts`
+
+Handles AI conversation with OpenAI:
+- Generates system prompts with memory context
+- Processes user messages
+- Detects continuation signals via function calling
+- Extracts variables from conversation
+- Fallback to keyword detection if OpenAI fails
+
+#### Memory Service
+**Location:** `/lib/workflows/actions/hitl/memoryService.ts`
+
+Manages AI memory and learning:
+- Extracts learnings using GPT-4
+- Merges new patterns with existing (smart deduplication)
+- Formats learnings as readable markdown
+- Saves to user's document (primary)
+- Caches in Supabase (optional)
+- Loads from cache for performance
+
+#### Webhook Handler
+**Location:** `/app/api/webhooks/discord/hitl/route.ts`
+
+Receives Discord messages and routes to active conversations:
+- Finds active conversation for channel
+- Processes message through AI
+- Detects continuation signals
+- Resumes workflow when user approves
+- Extracts learnings (non-blocking)
+- Updates conversation state
+
+#### Type Definitions
+**Location:** `/lib/workflows/actions/hitl/types.ts`
+
+```typescript
+export interface HITLConfig {
+  // Channel
+  channel: 'discord' | 'slack' | 'sms'
+  discordGuildId?: string
+  discordChannelId?: string
+
+  // Auto-context detection
+  autoDetectContext?: boolean
+  customMessage?: string
+
+  // Manual mode (legacy)
+  initialMessage?: string
+  contextData?: string
+
+  // AI configuration
+  systemPrompt?: string
+  extractVariables?: Record<string, string>
+
+  // Timeout
+  timeout?: number
+  timeoutAction?: 'cancel' | 'proceed'
+  continuationSignals?: string[]
+
+  // Memory & learning
+  enableMemory?: boolean
+  knowledgeBaseDocuments?: any[]
+  memoryStorageDocument?: any
+  memoryCategories?: string[]
+  cacheInDatabase?: boolean
+}
+```
+
+#### Discord Integration
+**Location:** `/lib/workflows/actions/hitl/discord.ts`
+
+Handles Discord-specific messaging:
+- Creates private threads for conversations
+- Sends messages to threads
+- Manages Discord API authentication
+- Handles rate limiting
+
+### Key Patterns
+
+#### Pattern 1: Workflow Pause and Resume
+
+**Pausing:**
+```typescript
+// In HITL action handler (index.ts)
+// Update workflow execution to paused state
+await supabase
+  .from('workflow_executions')
+  .update({
+    status: 'paused',
+    paused_node_id: context.nodeId,
+    paused_at: new Date().toISOString(),
+    resume_data: {
+      conversation_id: conversation.id,
+      hitl_config: config,
+      // ... all data needed to resume
+    }
+  })
+  .eq('id', context.executionId)
+
+// Return with pauseExecution flag
+return {
+  success: true,
+  output: { hitlInitiated: true, conversationId },
+  pauseExecution: true  // CRITICAL FLAG
+}
+```
+
+**Resuming:**
+```typescript
+// In webhook handler (route.ts)
+if (shouldContinue) {
+  // Extract variables and prepare output
+  const outputData = {
+    ...resumeData.input,
+    hitlStatus: 'continued',
+    conversationSummary: summary,
+    extractedVariables: extractedVariables || {}
+  }
+
+  // Resume workflow
+  await supabase
+    .from('workflow_executions')
+    .update({
+      status: 'running',
+      paused_node_id: null,
+      paused_at: null,
+      resume_data: {
+        ...resumeData,
+        output: outputData
+      }
+    })
+    .eq('id', conversation.execution_id)
+}
+```
+
+#### Pattern 2: Non-Blocking Learning Extraction
+
+Don't delay workflow for learning extraction:
+
+```typescript
+// Process learnings asynchronously (webhook handler)
+processConversationLearnings(
+  conversation.id,
+  conversation.user_id,
+  conversation.workflow_id,
+  conversationHistory,
+  contextData,
+  config
+).catch(error => {
+  // Log but don't fail the workflow
+  logger.error('Failed to process learnings (non-blocking)', {
+    error: error.message
+  })
+})
+
+// Workflow continues immediately - learning happens in background
+```
+
+#### Pattern 3: Enhanced System Prompt with Memory
+
+Build comprehensive context for AI:
+
+```typescript
+function buildSystemPrompt(
+  config: HITLConfig,
+  aiMemory: any,
+  knowledgeBase: string[]
+): string {
+  let prompt = config.systemPrompt || "You are a helpful workflow assistant..."
+
+  // Add memory context
+  if (aiMemory) {
+    prompt += '\n\n**AI Memory & Learnings:**\n'
+    // Format memory categories
+  }
+
+  // Add knowledge base
+  if (knowledgeBase.length > 0) {
+    prompt += '\n\n**Knowledge Base:**\n'
+    knowledgeBase.forEach((content, index) => {
+      prompt += `\n**Document ${index + 1}:**\n${content}\n`
+    })
+  }
+
+  return prompt
+}
+```
+
+#### Pattern 4: Smart Learning Merging
+
+Avoid duplicates and maintain confidence scores:
+
+```typescript
+function mergeLearnings(
+  existing: Record<string, any>,
+  newLearnings: Record<string, any>
+): Record<string, any> {
+  const merged = { ...existing }
+
+  for (const [category, newData] of Object.entries(newLearnings)) {
+    if (!merged[category]) {
+      merged[category] = newData
+    } else {
+      // Merge patterns (deduplicate with Set)
+      const uniquePatterns = Array.from(new Set([
+        ...(merged[category].patterns || []),
+        ...(newData.patterns || [])
+      ]))
+
+      // Keep recent examples (last 10)
+      const recentExamples = [
+        ...(merged[category].examples || []),
+        ...(newData.examples || [])
+      ].slice(-10)
+
+      // Weighted confidence (favor established patterns)
+      const mergedConfidence =
+        (merged[category].confidence * 0.7) +
+        (newData.confidence * 0.3)
+
+      merged[category] = {
+        patterns: uniquePatterns,
+        examples: recentExamples,
+        confidence: mergedConfidence,
+        lastUpdated: new Date().toISOString(),
+        updateCount: (merged[category].updateCount || 0) + 1
+      }
+    }
+  }
+
+  return merged
+}
+```
+
+### Common Gotchas
+
+#### 1. TypeScript Export Errors
+
+**Problem:** `export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types'`
+
+**Solution:** Use `export type` for type-only exports:
+
+```typescript
+// ❌ WRONG
+export { HITLConfig } from './types'
+
+// ✅ CORRECT
+export type { HITLConfig, ConversationMessage } from './types'
+```
+
+#### 2. Missing pauseExecution Flag
+
+**Problem:** HITL action executes but workflow continues immediately.
+
+**Solution:** Always return `pauseExecution: true`:
+
+```typescript
+return {
+  success: true,
+  output: { /* ... */ },
+  message: 'Workflow paused',
+  pauseExecution: true  // DON'T FORGET THIS!
+}
+```
+
+#### 3. Document Loading Not Implemented
+
+**Problem:** `loadDocumentContent()` has TODO stubs for all providers.
+
+**Current State:** Google Docs, Notion, OneDrive implementations pending.
+
+**Workaround:** Focus on database caching (`cacheInDatabase: true`) until provider implementations are ready.
+
+#### 4. Memory Not Appearing in Conversations
+
+**Problem:** AI doesn't use memory even when configured.
+
+**Checklist:**
+1. Is `enableMemory: true` in config?
+2. Is `memoryStorageDocument` configured?
+3. Check if memory was loaded: look for `memory_context_provided` in `hitl_conversations`
+4. Verify `system_prompt` field contains memory context
+5. Check if document content was fetched successfully
+
+#### 5. Continuation Signals Not Detected
+
+**Problem:** User says "continue" but workflow doesn't resume.
+
+**Debugging:**
+1. Check OpenAI API key is set (`OPENAI_API_KEY`)
+2. Verify `continuationSignals` array in config
+3. Check webhook handler logs for function call detection
+4. Ensure fallback keyword detection is working
+5. Test with exact default signals: `continue`, `proceed`, `go ahead`
+
+### Testing Checklist
+
+#### Backend Testing
+- [ ] HITL action pauses workflow execution
+- [ ] Conversation record created in `hitl_conversations`
+- [ ] Initial message sent via Discord/Slack
+- [ ] Workflow execution status is 'paused'
+- [ ] `resume_data` contains all necessary context
+- [ ] Auto-context detection formats data correctly
+- [ ] Manual context mode works with variables
+
+#### AI & Memory Testing
+- [ ] Memory loads from user's document (if configured)
+- [ ] Knowledge base documents load correctly
+- [ ] System prompt includes memory context
+- [ ] AI responds appropriately to user messages
+- [ ] Continuation signals are detected
+- [ ] Variables extracted from conversation
+- [ ] Learnings extracted after completion
+- [ ] Learnings saved to user's document
+- [ ] Learnings cached in database (if enabled)
+
+#### Webhook Integration Testing
+- [ ] Webhook receives Discord messages
+- [ ] Active conversation found by channel_id
+- [ ] User messages added to conversation history
+- [ ] AI responses sent back to Discord
+- [ ] Workflow resumes when user approves
+- [ ] Extracted variables passed to next nodes
+- [ ] Conversation marked as completed
+- [ ] Timeout handling works (if timeout expires)
+
+#### End-to-End Testing
+- [ ] Create workflow with HITL action
+- [ ] Execute workflow
+- [ ] Verify workflow pauses at HITL node
+- [ ] Receive Discord message
+- [ ] Have conversation with AI
+- [ ] Approve/continue
+- [ ] Workflow resumes and completes
+- [ ] Check next node receives extracted variables
+- [ ] Verify learnings were extracted and saved
+
+### Best Practices
+
+1. **Always use auto-context detection** unless you have specific formatting needs
+2. **Enable memory caching** (`cacheInDatabase: true`) for better performance
+3. **Provide clear system prompts** that explain the AI's role and what to extract
+4. **Define extraction variables** explicitly to get structured data from conversations
+5. **Use specific continuation signals** that match your workflow context
+6. **Test with real conversations** - AI behavior can be surprising
+7. **Handle timeouts gracefully** - decide if timeout should cancel or proceed
+8. **Log extensively** - HITL involves many async operations that can fail silently
+9. **Don't block on learning extraction** - it can take several seconds with GPT-4
+10. **Provide fallback options** - keyword detection if OpenAI fails
+
+### Time Estimates
+
+- **Basic HITL setup** (Discord, no memory): 30-45 minutes
+- **With memory & knowledge base**: 1-2 hours
+- **Custom channel integration** (Slack/SMS): 2-3 hours
+- **Document provider implementation** (Google Docs/Notion/OneDrive): 4-6 hours
+
+### Related Documentation
+
+- **Database Migration**: `/supabase/migrations/*_create_hitl_tables.sql`
+- **Discord Integration**: `/lib/workflows/actions/hitl/discord.ts`
+- **OpenAI Configuration**: Environment variable `OPENAI_API_KEY` required
+
+**Implementation Date**: January 2025
 #### Step 2: Implement Handling in Action
 **Location:** `/lib/workflows/actions/[provider].ts`
 

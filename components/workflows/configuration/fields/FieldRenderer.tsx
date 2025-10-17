@@ -49,6 +49,7 @@ import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
+import { UnifiedDocumentPicker } from "./UnifiedDocumentPicker";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -1615,6 +1616,22 @@ export function FieldRenderer({
         }
         // Add more custom field types here as needed
         return null;
+
+      case "unified-document-picker":
+        // Unified Document Picker for selecting documents across multiple providers
+        return (
+          <UnifiedDocumentPicker
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+            onConnectProvider={async (providerId) => {
+              // Handle in-modal connection
+              // This could open a connection modal or redirect to integration page
+              console.log('Connect provider:', providerId)
+            }}
+          />
+        );
 
       default:
         return (
