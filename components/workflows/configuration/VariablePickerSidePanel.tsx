@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { resolveVariableValue, getNodeVariableValues } from '@/lib/workflows/variableResolution'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { useVariableDragContext } from './VariableDragContext'
-import { buildVariableReference } from '@/lib/workflows/variableInsertion'
+import { buildVariableReference, createVariableAlias } from '@/lib/workflows/variableInsertion'
 
 import { logger } from '@/lib/utils/logger'
 import { getActionOutputSchema, mergeSchemas, type OutputField } from '@/lib/workflows/actions/outputSchemaRegistry'
@@ -703,11 +703,11 @@ export function VariablePickerSidePanel({
     </div>
 
       {activeField && (
-        <div className="px-3 py-2 border-b border-slate-200 bg-blue-50">
+        <div className="px-3 py-2 border-b border-slate-200 bg-blue-50 dark:bg-blue-950 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-            <span className="text-xs text-slate-700 font-medium truncate" title={activeField.label || activeField.id}>
-              Inserting into: <span className="text-blue-700">{activeField.label || activeField.id}</span>
+            <span className="text-xs text-slate-800 dark:text-slate-200 font-medium truncate" title={activeField.label || activeField.id}>
+              Inserting into: <span className="text-blue-800 dark:text-blue-300 font-semibold">{activeField.label || activeField.id}</span>
             </span>
           </div>
         </div>
@@ -787,7 +787,7 @@ export function VariablePickerSidePanel({
                             )}
                           </div>
                           {node.subtitle && (
-                            <span className={`text-xs truncate block ${isNodeTested ? 'text-black' : 'text-white'}`}>
+                            <span className={`text-xs truncate block ${isNodeTested ? 'text-slate-700' : 'text-slate-600'}`}>
                               {node.subtitle}
                             </span>
                           )}
@@ -813,7 +813,7 @@ export function VariablePickerSidePanel({
                         {node.outputs.map((output: any) => {
                           // Use node.id for the actual variable reference, not node.title
                           const variableRef = buildVariableReference(node.id, output.name)
-                          const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
+                          const displayVariableRef = createVariableAlias(variableRef, node.title, output.label || output.name)
                           const variableValue = getVariableValue(node.id, output.name)
                           const hasValue = variableValue !== null
 
@@ -828,6 +828,7 @@ export function VariablePickerSidePanel({
                               onDragStart={(e) => {
                                 logger.debug('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                   variableRef,
+                                  displayVariableRef,
                                   nodeTitle: node.title,
                                   outputName: output.name,
                                   outputLabel: output.label,
@@ -837,6 +838,7 @@ export function VariablePickerSidePanel({
                                 e.stopPropagation()
                                 e.dataTransfer.setData('application/json', JSON.stringify({
                                   variable: variableRef,
+                                  alias: displayVariableRef,
                                   nodeTitle: node.title,
                                   outputName: output.name,
                                   outputLabel: output.label
