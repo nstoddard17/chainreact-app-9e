@@ -123,7 +123,7 @@ export function resolveValue(
             return resolvedValue
           }
         } catch (error) {
-          logger.warn('DataFlowManager resolution failed:', error)
+          logger.warn('DataFlowManager resolution failed')
         }
       }
       

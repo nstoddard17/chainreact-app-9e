@@ -57,9 +57,43 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     const encryptionKey = process.env.ENCRYPTION_KEY!
     const accessToken = decrypt(workspace.access_token, encryptionKey)
 
+    // Get database and data source info using new API (2025-09-03)
+    const databaseId = trigger.config?.database
+    let dataSourceId = trigger.config?.dataSource // New field for data source
+
+    if (databaseId && !dataSourceId) {
+      // Fetch data source ID from database
+      try {
+        // Add timeout to prevent hanging on slow API responses
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
+        const dbResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Notion-Version': '2025-09-03',
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (dbResponse.ok) {
+          const dbData = await dbResponse.json()
+          // Get the first (or default) data source
+          if (dbData.data_sources && dbData.data_sources.length > 0) {
+            dataSourceId = dbData.data_sources[0].id
+            logger.info('[Notion Trigger] Auto-detected data source for trigger activation')
+          }
+        }
+      } catch (err) {
+        // Log error without sensitive details
+        logger.warn('[Notion Trigger] Failed to fetch data source metadata, using database ID fallback')
+      }
+    }
+
     // Store trigger configuration for webhook processing
-    // Since Notion doesn't support native webhooks, we'll store the config
-    // and rely on manual webhook setup or polling
     const { data: resource, error } = await supabase
       .from('trigger_resources')
       .insert({
@@ -70,14 +104,24 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         status: 'active',
         config: {
           workspaceId,
-          databaseId: trigger.config?.database,
+          databaseId,
+          dataSourceId, // Store data source ID for filtering
           triggerType: trigger.type,
           triggerId: trigger.id
         },
         metadata: {
-          note: 'Notion webhooks must be manually configured in Notion integration settings',
+          note: 'Notion webhooks configured for API version 2025-09-03',
           webhookUrl: getWebhookUrl('/api/webhooks/notion'),
-          supportedEvents: this.getSupportedEventsForTrigger(trigger.type)
+          apiVersion: '2025-09-03',
+          supportedEvents: this.getSupportedEventsForTrigger(trigger.type),
+          instructions: [
+            '1. Go to https://www.notion.so/my-integrations',
+            '2. Select your integration',
+            '3. Add webhook URL: ' + getWebhookUrl('/api/webhooks/notion'),
+            '4. Set API version to 2025-09-03',
+            '5. Subscribe to data_source events (not database events)',
+            '6. Test the webhook'
+          ]
         }
       })
       .select()
@@ -88,17 +132,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Failed to activate Notion trigger: ${error.message}`)
     }
 
-    logger.info('✅ [Notion Trigger] Trigger activated (manual webhook setup required)', {
-      resourceId: resource.id,
-      webhookUrl: getWebhookUrl('/api/webhooks/notion'),
-      instructions: [
-        '1. Go to https://www.notion.so/my-integrations',
-        '2. Select your integration',
-        '3. Add webhook URL: ' + getWebhookUrl('/api/webhooks/notion'),
-        '4. Subscribe to relevant events',
-        '5. Test the webhook'
-      ]
-    })
+    logger.info('[Notion Trigger] Trigger activated with data source support')
   }
 
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
