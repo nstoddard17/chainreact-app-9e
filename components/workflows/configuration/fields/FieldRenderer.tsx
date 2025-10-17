@@ -45,6 +45,7 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
+import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
@@ -526,6 +527,22 @@ export function FieldRenderer({
             />
           );
         }
+
+        // Dynamic fields for Notion database rows
+        if (integrationProvider === 'notion' && field.dynamic === 'notion_database_rows') {
+          return (
+            <NotionDatabaseRowsField
+              value={value}
+              onChange={onChange}
+              field={field}
+              values={parentValues}
+              loadOptions={onDynamicLoad}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={loadingDynamic}
+            />
+          );
+        }
+
         return null;
         
       case "email-rich-text":

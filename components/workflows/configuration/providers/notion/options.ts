@@ -38,8 +38,9 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'destination_page_id': 'pages',
         'destinationPage': 'pages',
         'destination_database_id': 'databases',
+        'databaseRows': 'database_rows',
       }
-      
+
       const dataType = fieldToDataTypeMap[fieldName] || fieldName
       
       // Build request body from query params
@@ -61,6 +62,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       if (fieldName === 'databaseProperties' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
       } else if (fieldName === 'databaseFields' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+      } else if (fieldName === 'databaseRows' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
       } else if (fieldName === 'pageFields' && dependsOnValue) {
         requestBody.options.pageId = dependsOnValue
@@ -167,6 +170,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           // This is used for the pageFields dynamic_fields type
           return Array.isArray(data) ? data : []
 
+        case 'database_rows':
+          // Database rows returns all pages/entries in the database with their properties
+          // This is used for the databaseRows dynamic_fields type
+          return Array.isArray(data) ? data : []
+
         case 'blocks':
           return (Array.isArray(data) ? data : data.blocks)?.map((block: any) => ({
             value: block.id,
@@ -238,6 +246,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'block_id': ['page_id'],
       'databaseProperties': ['database'],
       'databaseFields': ['database'],
+      'databaseRows': ['database'],
       'pageFields': ['page'],
     }
 
