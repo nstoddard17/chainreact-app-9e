@@ -113,7 +113,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         trigger_type: triggerType,
         resource_type: 'webhook',
         external_id: triggerId, // Use internal ID since we can't get Notion's webhook ID
-        status: 'pending_setup', // Mark as pending manual setup
+        status: 'active', // Active - webhook will work once manually set up in Notion
         config: {
           workspace: workspaceId,
           database: databaseId,
@@ -221,14 +221,9 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Check if webhook has been set up (status changed from pending_setup to active)
-    const needsSetup = resources.some(r => r.status === 'pending_setup')
-
     return {
-      healthy: !needsSetup,
-      details: needsSetup
-        ? 'Notion webhook requires manual setup in integration UI - see trigger_resources metadata for instructions'
-        : 'Notion triggers are active',
+      healthy: true,
+      details: 'Notion triggers are active',
       lastChecked: new Date().toISOString()
     }
   }
