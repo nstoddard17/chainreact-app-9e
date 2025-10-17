@@ -151,9 +151,9 @@ const WorkflowToolbarComponent = function WorkflowToolbar({
 
   const handleToggleSandboxPreview = React.useCallback(() => {
     if (setShowSandboxPreview) {
-      setShowSandboxPreview(!showSandboxPreview)
+      setShowSandboxPreview(prev => !prev)
     }
-  }, [setShowSandboxPreview, showSandboxPreview])
+  }, [setShowSandboxPreview])
 
   const handleOpenExecutionHistory = React.useCallback(() => {
     if (setShowExecutionHistory) {
