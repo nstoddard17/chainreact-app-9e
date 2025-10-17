@@ -84,20 +84,45 @@ export function TeamContent() {
   const [membersDialog, setMembersDialog] = useState<{ open: boolean; team: Team | null }>({ open: false, team: null })
   const [newTeam, setNewTeam] = useState({ name: '', description: '' })
   const [editTeamData, setEditTeamData] = useState({ name: '', description: '' })
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
     if (user) {
-      fetchTeams()
+      // Get current organization from localStorage
+      const orgId = localStorage.getItem('current_organization_id')
+      setCurrentOrgId(orgId)
+      fetchTeams(orgId)
     }
   }, [user])
 
-  const fetchTeams = async () => {
+  // Listen for organization changes
+  useEffect(() => {
+    const handleOrgChange = (event: CustomEvent) => {
+      const org = event.detail
+      setCurrentOrgId(org.id)
+      fetchTeams(org.id)
+    }
+
+    window.addEventListener('organization-changed', handleOrgChange as EventListener)
+    return () => {
+      window.removeEventListener('organization-changed', handleOrgChange as EventListener)
+    }
+  }, [])
+
+  const fetchTeams = async (organizationId?: string | null) => {
     setLoading(true)
     try {
-      const response = await fetch('/api/teams')
+      const url = organizationId
+        ? `/api/teams?organization_id=${organizationId}`
+        : '/api/teams'
+      const response = await fetch(url)
       const data = await response.json()
-      if (data.success) {
+      if (data.success !== undefined) {
+        // Old API format
+        setTeams(data.teams || [])
+      } else {
+        // New API format
         setTeams(data.teams || [])
       }
     } catch (error) {
@@ -135,24 +160,36 @@ export function TeamContent() {
       return
     }
 
+    if (!currentOrgId) {
+      toast({
+        title: "No organization selected",
+        description: "Please select an organization first",
+        variant: "destructive"
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const response = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTeam)
+        body: JSON.stringify({
+          ...newTeam,
+          organization_id: currentOrgId
+        })
       })
 
       const data = await response.json()
 
-      if (data.success) {
+      if (data.success || data.team) {
         toast({
           title: "Team Created",
           description: `"${newTeam.name}" has been created successfully.`,
         })
         setCreateDialog(false)
         setNewTeam({ name: '', description: '' })
-        fetchTeams()
+        fetchTeams(currentOrgId)
       } else {
         throw new Error(data.error || 'Failed to create team')
       }
@@ -193,7 +230,7 @@ export function TeamContent() {
           description: `"${editTeamData.name}" has been updated.`,
         })
         setEditDialog({ open: false, team: null })
-        fetchTeams()
+        fetchTeams(currentOrgId)
       } else {
         throw new Error(data.error || 'Failed to update team')
       }
@@ -225,7 +262,7 @@ export function TeamContent() {
           description: `"${deleteDialog.team.name}" has been deleted.`,
         })
         setDeleteDialog({ open: false, team: null })
-        fetchTeams()
+        fetchTeams(currentOrgId)
       } else {
         throw new Error(data.error || 'Failed to delete team')
       }
