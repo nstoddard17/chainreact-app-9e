@@ -17,6 +17,10 @@
       "schedule": "*/2 * * * *"
     },
     {
+      "path": "/api/cron/check-hitl-timeouts",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/webhooks/google/renew",
       "schedule": "0 7 * * *"
     }

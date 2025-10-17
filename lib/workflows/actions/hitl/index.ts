@@ -1,6 +1,7 @@
 /**
  * Human-in-the-Loop Action Handler
  * Pauses workflow execution for conversational human input
+ * Supports auto-context detection, AI memory, and knowledge base loading
  */
 
 import { createSupabaseServerClient } from '@/utils/supabase/server'
@@ -9,6 +10,229 @@ import type { ActionResult } from '../core/executeWait'
 import type { HITLConfig } from './types'
 import { sendDiscordHITLMessage } from './discord'
 import { resolveValue } from '../core/resolveValue'
+
+/**
+ * Format previous node output into readable context
+ */
+function formatPreviousNodeContext(previousOutput: any): string {
+  if (!previousOutput) {
+    return 'No data available from previous step.'
+  }
+
+  // If it's a simple string or number, return directly
+  if (typeof previousOutput === 'string' || typeof previousOutput === 'number') {
+    return String(previousOutput)
+  }
+
+  // If it's an array, format each item
+  if (Array.isArray(previousOutput)) {
+    if (previousOutput.length === 0) {
+      return 'No items from previous step.'
+    }
+
+    return previousOutput.map((item, index) => {
+      if (typeof item === 'object' && item !== null) {
+        return `**Item ${index + 1}:**\n${formatObject(item)}`
+      }
+      return `**Item ${index + 1}:** ${item}`
+    }).join('\n\n')
+  }
+
+  // If it's an object, format key-value pairs
+  if (typeof previousOutput === 'object' && previousOutput !== null) {
+    return formatObject(previousOutput)
+  }
+
+  return String(previousOutput)
+}
+
+/**
+ * Format an object into readable key-value pairs
+ */
+function formatObject(obj: Record<string, any>, indent = 0): string {
+  const spaces = '  '.repeat(indent)
+
+  return Object.entries(obj)
+    .filter(([key, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => {
+      // Format the key nicely (convert camelCase to Title Case)
+      const formattedKey = key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim()
+
+      // Handle different value types
+      if (Array.isArray(value)) {
+        if (value.length === 0) return `${spaces}**${formattedKey}:** (empty list)`
+        if (value.length === 1 && typeof value[0] !== 'object') {
+          return `${spaces}**${formattedKey}:** ${value[0]}`
+        }
+        return `${spaces}**${formattedKey}:**\n${value.map((item, idx) => {
+          if (typeof item === 'object') {
+            return `${spaces}  ${idx + 1}. ${formatObject(item, indent + 2)}`
+          }
+          return `${spaces}  ${idx + 1}. ${item}`
+        }).join('\n')}`
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        return `${spaces}**${formattedKey}:**\n${formatObject(value, indent + 1)}`
+      }
+
+      if (typeof value === 'boolean') {
+        return `${spaces}**${formattedKey}:** ${value ? 'Yes' : 'No'}`
+      }
+
+      // For strings, truncate if too long
+      let displayValue = String(value)
+      if (displayValue.length > 200) {
+        displayValue = displayValue.substring(0, 200) + '...'
+      }
+
+      return `${spaces}**${formattedKey}:** ${displayValue}`
+    })
+    .join('\n')
+}
+
+/**
+ * Load knowledge base documents from user's cloud storage
+ */
+async function loadKnowledgeBase(documents: any[], userId: string): Promise<string[]> {
+  if (!documents || documents.length === 0) {
+    return []
+  }
+
+  logger.info('[HITL] Loading knowledge base documents', { count: documents.length })
+
+  const loadedContent: string[] = []
+
+  for (const doc of documents) {
+    try {
+      // Parse document info if it's a JSON string
+      const docInfo = typeof doc === 'string' ? JSON.parse(doc) : doc
+
+      // Load document content based on provider
+      const content = await loadDocumentContent(docInfo, userId)
+      if (content) {
+        loadedContent.push(content)
+      }
+    } catch (error) {
+      logger.error('[HITL] Failed to load knowledge base document', { error, doc })
+    }
+  }
+
+  logger.info('[HITL] Loaded knowledge base', { documentsLoaded: loadedContent.length })
+  return loadedContent
+}
+
+/**
+ * Load content from a specific document
+ */
+async function loadDocumentContent(docInfo: any, userId: string): Promise<string | null> {
+  const { provider, id, url } = docInfo
+
+  try {
+    switch (provider) {
+      case 'google_docs':
+        // TODO: Implement Google Docs content fetching
+        logger.warn('[HITL] Google Docs content loading not yet implemented')
+        return null
+
+      case 'notion':
+        // TODO: Implement Notion content fetching
+        logger.warn('[HITL] Notion content loading not yet implemented')
+        return null
+
+      case 'onedrive':
+        // TODO: Implement OneDrive content fetching
+        logger.warn('[HITL] OneDrive content loading not yet implemented')
+        return null
+
+      default:
+        logger.warn('[HITL] Unknown document provider', { provider })
+        return null
+    }
+  } catch (error) {
+    logger.error('[HITL] Failed to load document content', { error, provider, id })
+    return null
+  }
+}
+
+/**
+ * Load AI memory from user's chosen storage document
+ */
+async function loadAIMemory(memoryDocument: any, userId: string, workflowId: string): Promise<any> {
+  if (!memoryDocument) {
+    logger.debug('[HITL] No memory document configured')
+    return null
+  }
+
+  try {
+    // Parse document info if it's a JSON string
+    const docInfo = typeof memoryDocument === 'string' ? JSON.parse(memoryDocument) : memoryDocument
+
+    logger.info('[HITL] Loading AI memory from document', { provider: docInfo.provider, id: docInfo.id })
+
+    // Load memory content from the document
+    const memoryContent = await loadDocumentContent(docInfo, userId)
+
+    if (!memoryContent) {
+      logger.warn('[HITL] No memory content found in document')
+      return null
+    }
+
+    // Parse memory structure (expecting JSON or structured text)
+    try {
+      return JSON.parse(memoryContent)
+    } catch {
+      // If not JSON, return as plain text
+      return { raw: memoryContent }
+    }
+  } catch (error) {
+    logger.error('[HITL] Failed to load AI memory', { error })
+    return null
+  }
+}
+
+/**
+ * Build AI system prompt with memory and knowledge base
+ */
+function buildSystemPrompt(
+  config: HITLConfig,
+  aiMemory: any,
+  knowledgeBase: string[]
+): string {
+  let prompt = config.systemPrompt ||
+    "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'."
+
+  // Add memory context if available
+  if (aiMemory) {
+    prompt += '\n\n**AI Memory & Learnings:**\nBased on previous conversations, here are your learnings:\n'
+
+    if (aiMemory.raw) {
+      prompt += aiMemory.raw
+    } else {
+      // Format structured memory
+      const categories = config.memoryCategories || []
+      categories.forEach(category => {
+        if (aiMemory[category]) {
+          const categoryName = category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+          prompt += `\n**${categoryName}:**\n${JSON.stringify(aiMemory[category], null, 2)}\n`
+        }
+      })
+    }
+  }
+
+  // Add knowledge base context if available
+  if (knowledgeBase.length > 0) {
+    prompt += '\n\n**Knowledge Base:**\nUse the following business policies and guidelines when reviewing:\n'
+    knowledgeBase.forEach((content, index) => {
+      prompt += `\n**Document ${index + 1}:**\n${content}\n`
+    })
+  }
+
+  return prompt
+}
 
 /**
  * Execute HITL action - pause workflow and initiate conversation
@@ -30,17 +254,54 @@ export async function executeHITL(
 
     const supabase = await createSupabaseServerClient()
 
-    // Resolve variables in configuration
-    const resolvedInitialMessage = await resolveValue(
-      config.initialMessage,
-      input,
-      userId,
-      context
-    )
+    // 1. Format context from previous node (auto-detect or manual)
+    let contextText = ''
+    if (config.autoDetectContext) {
+      // Auto-detect: format the previous node's output nicely
+      contextText = formatPreviousNodeContext(input)
+      logger.debug('[HITL] Auto-detected context', { contextLength: contextText.length })
+    } else {
+      // Manual mode: use contextData field with variable resolution
+      const resolvedContextData = config.contextData
+        ? await resolveValue(config.contextData, input, userId, context)
+        : JSON.stringify(input, null, 2)
+      contextText = resolvedContextData
+    }
 
-    const resolvedContextData = config.contextData
-      ? await resolveValue(config.contextData, input, userId, context)
-      : JSON.stringify(input, null, 2)
+    // 2. Load knowledge base documents (if memory is enabled)
+    let knowledgeBase: string[] = []
+    if (config.enableMemory && config.knowledgeBaseDocuments) {
+      knowledgeBase = await loadKnowledgeBase(config.knowledgeBaseDocuments, userId)
+    }
+
+    // 3. Load AI memory from user's document
+    let aiMemory: any = null
+    if (config.enableMemory && config.memoryStorageDocument) {
+      aiMemory = await loadAIMemory(config.memoryStorageDocument, userId, context?.workflowId)
+    }
+
+    // 4. Build system prompt with memory and knowledge
+    const enhancedSystemPrompt = buildSystemPrompt(config, aiMemory, knowledgeBase)
+
+    // 5. Build initial message
+    let resolvedInitialMessage = ''
+    if (config.autoDetectContext) {
+      // Auto-format message with optional custom introduction
+      if (config.customMessage) {
+        const resolvedCustom = await resolveValue(config.customMessage, input, userId, context)
+        resolvedInitialMessage = `${resolvedCustom}\n\n**Data from previous step:**\n${contextText}`
+      } else {
+        resolvedInitialMessage = `**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n${contextText}\n\nLet me know when you're ready to continue!`
+      }
+    } else {
+      // Manual mode: use initialMessage field with variable resolution
+      resolvedInitialMessage = await resolveValue(
+        config.initialMessage,
+        input,
+        userId,
+        context
+      )
+    }
 
     // Parse extracted variables config (it might be a JSON string)
     let extractVariables = config.extractVariables
@@ -67,9 +328,11 @@ export async function executeHITL(
       }
     }
 
-    // Calculate timeout
-    const timeoutMinutes = config.timeout || 60
-    const timeoutAt = new Date(Date.now() + timeoutMinutes * 60 * 1000)
+    // Calculate timeout (0 = no timeout, null = no timeout)
+    const timeoutMinutes = config.timeout ?? 60  // Use 60 if undefined/null, but allow 0
+    const timeoutAt = timeoutMinutes > 0
+      ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
+      : null  // No timeout if 0
 
     // Send initial message based on channel type
     let channelId = ''
@@ -102,13 +365,15 @@ export async function executeHITL(
     }
 
     // Create conversation record in database
-    const { data: conversation, error: conversationError } = await supabase
+    const { data: conversation, error: conversationError} = await supabase
       .from('hitl_conversations')
       .insert({
         execution_id: context.executionId,
         node_id: context.nodeId,
+        workflow_id: context.workflowId,
         channel_type: config.channel,
         channel_id: channelId,
+        guild_id: config.channel === 'discord' ? config.discordGuildId : null,
         user_id: userId,
         conversation_history: [
           {
@@ -118,7 +383,17 @@ export async function executeHITL(
           }
         ],
         status: 'active',
-        timeout_at: timeoutAt.toISOString()
+        timeout_at: timeoutAt ? timeoutAt.toISOString() : null,
+        system_prompt: enhancedSystemPrompt,
+        initial_message: resolvedInitialMessage,
+        context_data: contextText,
+        extract_variables: extractVariables || {},
+        continuation_signals: continuationSignals || ['continue', 'proceed', 'go ahead', 'send it', 'looks good', 'approve'],
+        timeout_minutes: timeoutMinutes,
+        timeout_action: config.timeoutAction || 'cancel',
+        started_at: new Date().toISOString(),
+        knowledge_base_used: config.knowledgeBaseDocuments || [],
+        memory_context_provided: aiMemory ? 'Loaded from user document' : null
       })
       .select()
       .single()
@@ -142,7 +417,10 @@ export async function executeHITL(
             extractVariables,
             continuationSignals
           },
-          context_data: resolvedContextData,
+          context_data: contextText,
+          system_prompt: enhancedSystemPrompt,
+          has_memory: !!aiMemory,
+          knowledge_base_count: knowledgeBase.length,
           channel_id: channelId,
           thread_id: threadId,
           input
@@ -160,7 +438,8 @@ export async function executeHITL(
       conversationId: conversation.id,
       channelType: config.channel,
       channelId,
-      timeoutAt: timeoutAt.toISOString()
+      timeoutAt: timeoutAt ? timeoutAt.toISOString() : 'no timeout',
+      timeoutMinutes
     })
 
     return {
@@ -172,10 +451,12 @@ export async function executeHITL(
         channelType: config.channel,
         channelId,
         threadId,
-        timeoutAt: timeoutAt.toISOString(),
+        timeoutAt: timeoutAt ? timeoutAt.toISOString() : null,
+        timeoutMinutes,
+        hasTimeout: timeoutMinutes > 0,
         status: 'waiting_for_input'
       },
-      message: `Workflow paused - waiting for user input via ${config.channel}`,
+      message: `Workflow paused - waiting for user input via ${config.channel}${timeoutMinutes > 0 ? ` (timeout: ${timeoutMinutes} minutes)` : ' (no timeout)'}`,
       pauseExecution: true // Critical flag to pause execution
     }
 
@@ -189,4 +470,5 @@ export async function executeHITL(
   }
 }
 
-export { HITLConfig } from './types'
+// Re-export types
+export type { HITLConfig, ConversationMessage, ConversationState, ExtractedVariables, ContinuationDetectionResult } from './types'

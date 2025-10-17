@@ -245,9 +245,17 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
       // RLS will automatically filter to user's workflows
+      // Join with user_profiles to get creator information
       const { data, error } = await supabase
         .from("workflows")
-        .select("*")
+        .select(`
+          *,
+          creator:user_profiles!user_id(
+            user_id,
+            username,
+            email
+          )
+        `)
         .order("updated_at", { ascending: false })
         .abortSignal(controller.signal)
 

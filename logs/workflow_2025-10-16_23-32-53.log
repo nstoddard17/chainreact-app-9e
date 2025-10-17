@@ -150,3 +150,202 @@ Import trace for requested module:
 ./lib/workflows/executeNode.ts
 ./lib/execution/advancedExecutionEngine.ts
 ./lib/integrations/discordGateway.ts
+[2025-10-17T04:33:50.015Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:33:50.050Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T04:33:50.255Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:33:51.004Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:34:34.649Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:34:35.566Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:34:36.343Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:34:36.425Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T04:34:53.326Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:35:38.826Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:35:39.208Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:35:39.259Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T04:36:11.269Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:36:11.530Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:42:51.626Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:42:53.183Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T04:42:55.184Z] [WARN   ] 2025-10-17T04:42:55.184Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:55.382Z] [WARN   ] 2025-10-17T04:42:55.382Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:55.508Z] [WARN   ] 2025-10-17T04:42:55.508Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:55.647Z] [WARN   ] 2025-10-17T04:42:55.647Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:55.788Z] [WARN   ] 2025-10-17T04:42:55.788Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:55.926Z] [WARN   ] 2025-10-17T04:42:55.926Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.113Z] [WARN   ] 2025-10-17T04:42:56.113Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.280Z] [WARN   ] 2025-10-17T04:42:56.280Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.431Z] [WARN   ] 2025-10-17T04:42:56.431Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.572Z] [WARN   ] 2025-10-17T04:42:56.572Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.716Z] [WARN   ] 2025-10-17T04:42:56.716Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:56.866Z] [WARN   ] 2025-10-17T04:42:56.866Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.015Z] [WARN   ] 2025-10-17T04:42:57.015Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.206Z] [WARN   ] 2025-10-17T04:42:57.206Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.385Z] [WARN   ] 2025-10-17T04:42:57.385Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.527Z] [WARN   ] 2025-10-17T04:42:57.526Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.674Z] [WARN   ] 2025-10-17T04:42:57.674Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.814Z] [WARN   ] 2025-10-17T04:42:57.814Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:57.958Z] [WARN   ] 2025-10-17T04:42:57.958Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.093Z] [WARN   ] 2025-10-17T04:42:58.092Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.290Z] [WARN   ] 2025-10-17T04:42:58.290Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.481Z] [WARN   ] 2025-10-17T04:42:58.481Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.626Z] [WARN   ] 2025-10-17T04:42:58.626Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.762Z] [WARN   ] 2025-10-17T04:42:58.762Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:58.912Z] [WARN   ] 2025-10-17T04:42:58.912Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.050Z] [WARN   ] 2025-10-17T04:42:59.050Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.192Z] [WARN   ] 2025-10-17T04:42:59.192Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.377Z] [WARN   ] 2025-10-17T04:42:59.377Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.561Z] [WARN   ] 2025-10-17T04:42:59.561Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.720Z] [WARN   ] 2025-10-17T04:42:59.720Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:42:59.879Z] [WARN   ] 2025-10-17T04:42:59.879Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.063Z] [WARN   ] 2025-10-17T04:43:00.063Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.214Z] [WARN   ] 2025-10-17T04:43:00.214Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.405Z] [WARN   ] 2025-10-17T04:43:00.405Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.592Z] [WARN   ] 2025-10-17T04:43:00.592Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.782Z] [WARN   ] 2025-10-17T04:43:00.782Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:00.927Z] [WARN   ] 2025-10-17T04:43:00.927Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.074Z] [WARN   ] 2025-10-17T04:43:01.074Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.233Z] [WARN   ] 2025-10-17T04:43:01.233Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.418Z] [WARN   ] 2025-10-17T04:43:01.418Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.607Z] [WARN   ] 2025-10-17T04:43:01.607Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.758Z] [WARN   ] 2025-10-17T04:43:01.758Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:01.918Z] [WARN   ] 2025-10-17T04:43:01.918Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.061Z] [WARN   ] 2025-10-17T04:43:02.061Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.197Z] [WARN   ] 2025-10-17T04:43:02.197Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.327Z] [WARN   ] 2025-10-17T04:43:02.327Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.512Z] [WARN   ] 2025-10-17T04:43:02.512Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.686Z] [WARN   ] 2025-10-17T04:43:02.686Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.842Z] [WARN   ] 2025-10-17T04:43:02.842Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:02.983Z] [WARN   ] 2025-10-17T04:43:02.983Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.123Z] [WARN   ] 2025-10-17T04:43:03.123Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.251Z] [WARN   ] 2025-10-17T04:43:03.251Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.387Z] [WARN   ] 2025-10-17T04:43:03.386Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.554Z] [WARN   ] 2025-10-17T04:43:03.554Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.723Z] [WARN   ] 2025-10-17T04:43:03.723Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:03.879Z] [WARN   ] 2025-10-17T04:43:03.879Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.012Z] [WARN   ] 2025-10-17T04:43:04.012Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.162Z] [WARN   ] 2025-10-17T04:43:04.161Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.307Z] [WARN   ] 2025-10-17T04:43:04.307Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.446Z] [WARN   ] 2025-10-17T04:43:04.446Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.648Z] [WARN   ] 2025-10-17T04:43:04.648Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.828Z] [WARN   ] 2025-10-17T04:43:04.828Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:04.967Z] [WARN   ] 2025-10-17T04:43:04.967Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.111Z] [WARN   ] 2025-10-17T04:43:05.111Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.272Z] [WARN   ] 2025-10-17T04:43:05.272Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.424Z] [WARN   ] 2025-10-17T04:43:05.424Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.580Z] [WARN   ] 2025-10-17T04:43:05.580Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.749Z] [WARN   ] 2025-10-17T04:43:05.749Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:05.897Z] [WARN   ] 2025-10-17T04:43:05.897Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.034Z] [WARN   ] 2025-10-17T04:43:06.034Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.172Z] [WARN   ] 2025-10-17T04:43:06.172Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.373Z] [WARN   ] 2025-10-17T04:43:06.373Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.506Z] [WARN   ] 2025-10-17T04:43:06.506Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.643Z] [WARN   ] 2025-10-17T04:43:06.643Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.811Z] [WARN   ] 2025-10-17T04:43:06.811Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:06.940Z] [WARN   ] 2025-10-17T04:43:06.940Z [WARN] No guildId provided for discord_channels, returning empty channels list
+[2025-10-17T04:43:07.077Z] [WARN   ] 2025-10-17T04:43:07.077Z [WARN] No guildId provided for discord_channels, returning empty channels list
+
+=== Log Session Ended: 2025-10-17T04:43:07.195Z ===

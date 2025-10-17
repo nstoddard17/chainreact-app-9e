@@ -292,7 +292,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       
       try {
       // Special handling for Discord guilds
-      if (fieldName === 'guildId' && providerId === 'discord') {
+      // Support both 'guildId' (standard Discord actions) and 'discordGuildId' (HITL)
+      if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && providerId === 'discord') {
         try {
           // Check if we have a Discord integration first to avoid unnecessary API calls
           const discordIntegration = getIntegrationByProvider('discord');
@@ -374,7 +375,8 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
 
       // Special handling for Discord channels using cache store
-      if (fieldName === 'channelId' && providerId === 'discord') {
+      // Support both 'channelId' (standard Discord actions) and 'discordChannelId' (HITL)
+      if ((fieldName === 'channelId' || fieldName === 'discordChannelId') && providerId === 'discord') {
         if (!dependsOnValue) {
           setDynamicOptions(prev => ({
             ...prev,
@@ -383,7 +385,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           return;
         }
 
-        
+
         try {
           // Load Discord channels from API
           const discordIntegration = getIntegrationByProvider('discord');

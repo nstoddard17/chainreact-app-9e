@@ -57,7 +57,8 @@ export async function processConversationMessage(
   userMessage: string,
   conversationHistory: ConversationMessage[],
   config: HITLConfig,
-  contextData: any
+  contextData: any,
+  customSystemPrompt?: string
 ): Promise<{
   aiResponse: string
   shouldContinue: boolean
@@ -65,8 +66,9 @@ export async function processConversationMessage(
   summary?: string
 }> {
   try {
-    // Build messages array for OpenAI
-    const systemPrompt = generateSystemPrompt(config, contextData)
+    // Use custom system prompt if provided (contains memory + knowledge base)
+    // Otherwise generate a basic one
+    const systemPrompt = customSystemPrompt || generateSystemPrompt(config, contextData)
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
       ...conversationHistory.map(msg => ({

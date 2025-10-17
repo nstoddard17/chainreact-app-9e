@@ -903,6 +903,13 @@ function ConfigurationForm({
         loadOptions('folder', undefined, undefined, false); // Use cache for better performance
       }
 
+      // Load immediately for HITL Discord server field
+      const hitlDiscordGuildField = fieldsToLoad.find((f: any) => f.name === 'discordGuildId');
+      if (hitlDiscordGuildField && nodeInfo?.type === 'hitl_conversation') {
+        logger.debug(`🚀 [ConfigForm] Loading HITL Discord server (discordGuildId) immediately with cache`);
+        loadOptions('discordGuildId', undefined, undefined, false); // Use cache for better performance
+      }
+
       // Add a small delay for other fields to ensure options are cleared first
       const timeoutId = setTimeout(() => {
         // Load each field marked with loadOnMount (except boardId and Airtable baseId if already loaded above)
@@ -968,6 +975,10 @@ function ConfigurationForm({
             return;
           }
           if (field.name === 'labelIds' && nodeInfo?.providerId === 'gmail') {
+            // Already loaded above
+            return;
+          }
+          if (field.name === 'discordGuildId' && nodeInfo?.type === 'hitl_conversation') {
             // Already loaded above
             return;
           }
