@@ -45,6 +45,7 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
+import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
 
@@ -1582,6 +1583,21 @@ export function FieldRenderer({
             error={error}
           />
         );
+
+      case "custom":
+        // Handle custom field types - check which custom component to render
+        if (field.name === 'properties' && nodeInfo?.type === 'notion_action_manage_database') {
+          // Notion Database Property Builder
+          return (
+            <NotionDatabasePropertyBuilder
+              value={value}
+              onChange={onChange}
+              disabled={field.disabled}
+            />
+          );
+        }
+        // Add more custom field types here as needed
+        return null;
 
       default:
         return (

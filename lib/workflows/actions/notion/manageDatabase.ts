@@ -217,6 +217,47 @@ async function executeNotionManageDatabaseInternal(
         throw new Error('Parent page is required to create a database. Please select a page where the database will be created.');
       }
 
+      // Parse custom properties if provided
+      let databaseProperties: Record<string, any>
+      if (config.properties) {
+        try {
+          // Import the property converter
+          const { convertToNotionProperties, validateProperties } =
+            await import('./databasePropertyTypes');
+
+          // Parse properties from JSON
+          let propertiesConfig
+          if (typeof config.properties === 'string') {
+            propertiesConfig = JSON.parse(config.properties)
+          } else {
+            propertiesConfig = config.properties
+          }
+
+          // Validate properties
+          const validation = validateProperties(propertiesConfig)
+          if (!validation.valid) {
+            throw new Error(`Invalid properties: ${validation.errors.join(', ')}`)
+          }
+
+          // Convert to Notion format
+          databaseProperties = convertToNotionProperties(propertiesConfig)
+        } catch (error: any) {
+          // If it's already a validation error, don't add extra message
+          if (error.message.includes('Invalid properties:')) {
+            throw error
+          }
+          // Otherwise it's a parsing error
+          throw new Error(`Failed to parse properties: ${error.message}`)
+        }
+      } else {
+        // Use default properties (just Name field)
+        databaseProperties = {
+          Name: {
+            title: {}
+          }
+        }
+      }
+
       // Create a new database
       // Note: Both "Full page" and "Inline" databases in Notion are created as children of a page
       // The difference is in how they appear - full page databases are displayed as standalone pages
@@ -234,11 +275,7 @@ async function executeNotionManageDatabaseInternal(
             }
           }
         ],
-        properties: {
-          Name: {
-            title: {}
-          }
-        }
+        properties: databaseProperties
       };
 
       const createResponse = await fetch('https://api.notion.com/v1/databases', {
