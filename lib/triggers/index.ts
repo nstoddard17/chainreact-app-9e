@@ -14,6 +14,7 @@ import { GoogleApisTriggerLifecycle } from './providers/GoogleApisTriggerLifecyc
 import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
+import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -97,8 +98,15 @@ triggerLifecycleManager.registerProvider({
   description: 'Notion webhooks for page and database triggers (manual setup required)'
 })
 
+// Register HubSpot provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'hubspot',
+  lifecycle: new HubSpotTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'HubSpot webhook subscriptions for CRM object events'
+})
+
 // TODO: Register remaining providers:
-// - HubSpot
 // - Dropbox
 // - Trello
 // - Mailchimp
