@@ -753,6 +753,14 @@ const notionMappings: Record<string, FieldMapping> = {
   },
 };
 
+// HITL (Human-in-the-Loop) field mappings
+const hitlMappings: Record<string, FieldMapping> = {
+  hitl_conversation: {
+    discordGuildId: "discord_guilds",
+    discordChannelId: "discord_channels",
+  },
+};
+
 // Default field mappings for unmapped fields
 const defaultMappings: FieldMapping = {
   channelId: "channels",
@@ -790,6 +798,7 @@ export const fieldToResourceMap: NodeFieldMappings = {
   ...hubspotMappings,
   ...notionMappings,
   ...aiMappings,
+  ...hitlMappings,
   default: defaultMappings,
 };
 

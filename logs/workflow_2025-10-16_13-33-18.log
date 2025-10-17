@@ -331,3 +331,209 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-16T21:48:11.230Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
 [2025-10-16T21:48:13.345Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 3.4s (3929 modules)
 [2025-10-16T21:48:13.980Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3931 modules)
+[2025-10-16T22:01:00.624Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 13.5s (5619 modules)
+[2025-10-16T22:03:12.080Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T22:03:12.749Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 5s (5869 modules)
+[2025-10-16T22:03:18.369Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/usage ...
+[2025-10-16T22:03:18.931Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 1306ms (3931 modules)
+[2025-10-16T22:03:40.067Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 512ms (1707 modules)
+[2025-10-16T22:04:11.912Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 404ms (1707 modules)
+[2025-10-16T22:38:13.765Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-16T22:38:15.532Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /temp in 3.7s (3931 modules)
+[2025-10-16T22:38:21.910Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 5.3s (1743 modules)
+[2025-10-16T22:38:25.955Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 336ms (3953 modules)
+[2025-10-16T22:40:43.906Z] [INFO   ]  [37m[1m○[22m[39m Compiling /dashboard/temp ...
+[2025-10-16T22:40:46.880Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /dashboard/temp in 4.3s (5663 modules)
+[2025-10-16T22:41:10.003Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-16T22:41:12.326Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /new in 3.1s (5607 modules)
+[2025-10-16T22:43:11.140Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T22:43:11.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1528ms (3864 modules)
+[2025-10-16T22:43:26.993Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 353ms (3866 modules)
+[2025-10-16T22:48:53.008Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/templates/temp ...
+[2025-10-16T22:48:55.397Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/templates/temp in 4.2s (5609 modules)
+[2025-10-16T22:48:56.879Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T22:49:01.428Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 5.2s (3876 modules)
+[2025-10-16T22:49:05.344Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 357ms (3878 modules)
+[2025-10-16T22:50:18.785Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/temp ...
+[2025-10-16T22:50:22.916Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/temp in 5.6s (5595 modules)
+[2025-10-16T22:50:24.274Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 419ms (3872 modules)
+[2025-10-16T22:50:26.090Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 385ms (3874 modules)
+[2025-10-16T22:50:29.018Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 342ms (3876 modules)
+[2025-10-16T22:50:59.022Z] [INFO   ]  [37m[1m○[22m[39m Compiling /integrations/temp ...
+[2025-10-16T22:51:01.221Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /integrations/temp in 3.2s (5623 modules)
+[2025-10-16T22:54:15.698Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 9.6s (5603 modules)
+[2025-10-16T22:54:23.030Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 513ms (1761 modules)
+[2025-10-16T22:54:41.609Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 634ms (1761 modules)
+[2025-10-16T22:55:05.688Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 6.9s (5604 modules)
+[2025-10-16T22:55:22.859Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 424ms (1761 modules)
+[2025-10-16T22:55:35.150Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 362ms (1761 modules)
+[2025-10-16T22:55:42.492Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1774ms (5608 modules)
+[2025-10-16T22:56:03.154Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T22:56:12.481Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 10.1s (3862 modules)
+[2025-10-16T22:58:05.978Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.4s (1763 modules)
+[2025-10-16T22:58:36.870Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 25.5s (5614 modules)
+[2025-10-16T22:58:37.463Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-16T22:58:50.771Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-16T22:59:03.589Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 13.3s (5633 modules)
+[2025-10-16T22:59:04.395Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 579ms (1765 modules)
+[2025-10-16T22:59:04.830Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 416ms (3870 modules)
+[2025-10-16T22:59:07.672Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 312ms (3872 modules)
+[2025-10-16T22:59:31.536Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 521ms (1765 modules)
+[2025-10-16T22:59:51.166Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 473ms (1765 modules)
+[2025-10-16T23:00:18.992Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 697ms (1765 modules)
+[2025-10-16T23:00:42.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 9.4s (5614 modules)
+[2025-10-16T23:00:46.240Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:01:35.904Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:04:04.443Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:04:06.734Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-16T23:04:11.816Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:07:59.512Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:08:15.238Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:08:15.832Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:08:16.257Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:08:18.857Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:08:19.249Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:09:39.998Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:09:42.611Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:07.192Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:18.019Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:39.805Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:47.814Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:53.887Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-16T23:10:59.161Z] [WARN   ]  [33m[1m⚠[22m[39m Server is approaching the used memory threshold, restarting...

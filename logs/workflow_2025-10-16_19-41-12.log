@@ -1,0 +1,994 @@
+=== Log Session Started: 2025-10-17T00:41:12.436Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-17T00:41:12.437Z] [INFO   ] File logging initialized
+[2025-10-17T00:41:12.438Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_19-41-12.log
+[2025-10-17T00:41:12.442Z] [INFO   ] 📁 File logging enabled
+[2025-10-17T00:41:12.443Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_19-41-12.log
+[2025-10-17T00:41:12.443Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_19-41-12.log
+[2025-10-17T00:41:12.443Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_19-41-12.log
+[2025-10-17T00:41:12.443Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-16_19-41-12.log
+[2025-10-17T00:41:12.444Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-17T00:41:12.444Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-17T00:41:12.471Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-17T00:41:15.278Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:15.456Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:15.844Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:20.551Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:21.386Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:21.864Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:22.257Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:22.713Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:23.044Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:26.660Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:41:27.005Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:42:50.205Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:42:52.194Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:44:29.157Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:44:38.014Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:46:23.654Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T00:46:24.242Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:08:13.822Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:08:21.748Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:08:31.900Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:08:39.143Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:08:47.609Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:00.188Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:07.255Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:07.932Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:08.751Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:09.725Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:10.192Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:10.428Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:13.202Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:13.465Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:22.162Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:22.907Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:25.748Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:09:26.694Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:15:03.622Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:15:25.091Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:15:43.686Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:16:04.315Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:17:13.939Z] [ERROR  ]  [31m[1m⨯[22m[39m Invariant: Expected clientReferenceManifest to be defined. This is a bug in Next.js.
+InvariantError: Invariant: Expected clientReferenceManifest to be defined. This is a bug in Next.js.
+    at assertClientReferenceManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:26046)
+    at renderToHTMLOrFlightImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:30572)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at renderToHTMLOrFlight (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:48706)
+    at AppPageRouteModule.render (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:59974)
+    at invokeRouteModule (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:304:32)
+    at doRender (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:413:34)
+    at responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:557:20)
+    at responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:567:41)
+    at ResponseCache.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:34:12338)
+    at AppPageRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:57325)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:565:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:943:20)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-17T02:17:14.044Z] [ERROR  ]  [31m[1m⨯[22m[39m Invariant: Expected clientReferenceManifest to be defined. This is a bug in Next.js.
+InvariantError: Invariant: Expected clientReferenceManifest to be defined. This is a bug in Next.js.
+    at assertClientReferenceManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:26046)
+    at renderToHTMLOrFlightImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:30572)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at renderToHTMLOrFlight (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:48706)
+    at AppPageRouteModule.render (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:59974)
+    at invokeRouteModule (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:304:32)
+    at doRender (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:413:34)
+    at responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:557:20)
+    at responseGenerator (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:567:41)
+    at ResponseCache.get (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:34:12338)
+    at AppPageRouteModule.handleResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:57325)
+    at async handleResponse (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:565:32)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fpage&page=%2Fpage&appPaths=%2Fpage&pagePath=private-next-app-dir%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:943:20)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-17T02:17:15.540Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:18:10.680Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:19:11.060Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:19:12.794Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:25:56.858Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:25:58.664Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:25:59.508Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:00.321Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:00.901Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:01.220Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:04.086Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:04.366Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:11.082Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:12.107Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:22.311Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:23.511Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:24.820Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:26.684Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:34.393Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:36.058Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:36.597Z] [WARN   ] Route "/integrations/new" used `Object.keys(searchParams)` or similar. `searchParams` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+Error: Route "/integrations/new" used `Object.keys(searchParams)` or similar. `searchParams` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at createSearchAccessError (webpack-internal:///(ssr)/./node_modules/next/dist/server/request/search-params.js:602:34)
+    at logDedupedError (webpack-internal:///(ssr)/./node_modules/next/dist/server/create-deduped-by-callsite-server-error-logger.js:74:25)
+    at syncIODev (webpack-internal:///(ssr)/./node_modules/next/dist/server/request/search-params.js:572:9)
+    at Object.ownKeys (webpack-internal:///(ssr)/./node_modules/next/dist/server/request/search-params.js:502:13)
+    at Function.keys (<anonymous>)
+    at IntegrationsNewPage.useMemo[configuredClients] (webpack-internal:///(ssr)/./app/integrations/new/page.tsx:139:24)
+    at Object.useMemo (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:85022)
+    at exports.useMemo (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:444526)
+    at IntegrationsNewPage (webpack-internal:///(ssr)/./app/integrations/new/page.tsx:135:77)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:177546)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:186098)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128203)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at finishFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:115090)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:130261)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+[2025-10-17T02:26:37.434Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:38.079Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:38.286Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:26:39.084Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:28:54.484Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:10.432Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:28.690Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:38.283Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:55.410Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:55.719Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:56.576Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:58.313Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:59.476Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:30:59.892Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:31:00.120Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:31:02.820Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:31:02.910Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:31:03.454Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:31:41.699Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:06.069Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:07.476Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:11.452Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:11.836Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:11.837Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:13.479Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:14.200Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:14.699Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:14.701Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:26.884Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:33.073Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:44.245Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:32:57.624Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:43:09.232Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:43:15.945Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:43:25.835Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:43:32.203Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:43:48.601Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts

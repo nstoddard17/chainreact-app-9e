@@ -58,7 +58,7 @@ interface TempTableRowProps {
 }
 
 TempTable.Row = function TempTableRow({ children }: TempTableRowProps) {
-  return <tr className="hover:bg-slate-50/60">{children}</tr>
+  return <tr className="transition-colors hover:bg-slate-50">{children}</tr>
 }
 
 interface TempTableCellProps {
@@ -76,4 +76,3 @@ TempTable.Cell = function TempTableCell({
     </td>
   )
 }
-

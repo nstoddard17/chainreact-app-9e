@@ -33,11 +33,11 @@ const footerLinks = [
 
 export function TempFooter() {
   return (
-    <footer className="border-t border-white/10 bg-[#0f172a]/70">
-      <div className="mx-auto flex w-[min(1180px,94%)] flex-col gap-10 py-10">
+    <footer className="border-t border-white/5 bg-[#0B1220]">
+      <div className="mx-auto flex w-[min(1120px,94%)] flex-col gap-10 py-10">
         <div className="grid gap-10 md:grid-cols-[2fr_1fr_1fr_1fr]">
           <div>
-            <p className="text-lg font-semibold text-white">ChainReact</p>
+            <p className="text-lg font-semibold text-slate-100">ChainReact</p>
             <p className="mt-3 text-sm text-slate-400">
               A unified platform for designing, deploying, and monitoring
               AI-powered automations your team can trust.
@@ -63,7 +63,7 @@ export function TempFooter() {
           </div>
           {footerLinks.map((column) => (
             <div key={column.title}>
-              <p className="text-sm font-semibold text-slate-200 uppercase tracking-[0.2em]">
+              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-300">
                 {column.title}
               </p>
               <ul className="mt-4 space-y-3 text-sm text-slate-400">
@@ -71,7 +71,7 @@ export function TempFooter() {
                   <li key={item.label}>
                     <Link
                       href={item.href}
-                      className="transition hover:text-white"
+                      className="transition-colors hover:text-slate-100"
                     >
                       {item.label}
                     </Link>
@@ -81,16 +81,16 @@ export function TempFooter() {
             </div>
           ))}
         </div>
-        <div className="flex flex-col gap-4 border-t border-white/10 pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-t border-white/5 pt-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} ChainReact. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="/privacy" className="hover:text-slate-300">
+            <Link href="/privacy" className="transition-colors hover:text-slate-200">
               Privacy
             </Link>
-            <Link href="/terms" className="hover:text-slate-300">
+            <Link href="/terms" className="transition-colors hover:text-slate-200">
               Terms
             </Link>
-            <Link href="/support" className="hover:text-slate-300">
+            <Link href="/support" className="transition-colors hover:text-slate-200">
               Support
             </Link>
           </div>
@@ -99,4 +99,3 @@ export function TempFooter() {
     </footer>
   )
 }
-

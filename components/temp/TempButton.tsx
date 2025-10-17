@@ -7,6 +7,7 @@ interface TempButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost"
   size?: "md" | "lg"
+  contrast?: "dark" | "light"
 }
 
 export function TempButton({
@@ -14,15 +15,22 @@ export function TempButton({
   children,
   variant = "primary",
   size = "md",
+  contrast = "dark",
   ...props
 }: TempButtonProps) {
   const variants = {
     primary:
-      "bg-gradient-to-r from-[#2563EB] via-[#4338CA] to-[#7C3AED] text-white shadow-lg shadow-blue-500/40 hover:shadow-xl hover:shadow-blue-500/50",
+      contrast === "dark"
+        ? "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+        : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]",
     secondary:
-      "bg-white/10 text-white border border-white/15 hover:bg-white/15",
+      contrast === "dark"
+        ? "bg-white/10 text-slate-100 border border-white/20 hover:bg-white/20"
+        : "bg-white text-slate-900 border border-slate-200 hover:bg-slate-100",
     ghost:
-      "bg-transparent text-slate-200 border border-transparent hover:border-white/15 hover:bg-white/5",
+      contrast === "dark"
+        ? "bg-transparent text-slate-200 border border-transparent hover:border-white/20 hover:bg-white/10"
+        : "bg-transparent text-slate-700 border border-transparent hover:bg-slate-100",
   }
 
   const sizes = {
@@ -33,7 +41,8 @@ export function TempButton({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090E1A]",
+        "inline-flex items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2",
+        contrast === "dark" ? "focus-visible:ring-offset-[#0B1220]" : "focus-visible:ring-offset-slate-50",
         variants[variant],
         sizes[size],
         className
@@ -44,4 +53,3 @@ export function TempButton({
     </button>
   )
 }
-

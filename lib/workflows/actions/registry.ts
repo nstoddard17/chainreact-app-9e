@@ -193,6 +193,9 @@ import {
   executeWaitForTime
 } from './core'
 
+// HITL (Human-in-the-Loop) action
+import { executeHITL } from './hitl'
+
 // Generic actions
 import {
   executeDelayAction,
@@ -650,7 +653,11 @@ export const actionHandlerRegistry: Record<string, Function> = {
       input: params.input,
       userId: params.userId,
     })
-  }
+  },
+
+  // HITL (Human-in-the-Loop) - needs execution context for pausing
+  "hitl_conversation": (params: { config: any; userId: string; input: Record<string, any>; context?: any }) =>
+    executeHITL(params.config, params.userId, params.input, params.input.context)
 }
 
 /**

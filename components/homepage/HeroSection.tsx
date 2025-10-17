@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 
 export function HeroSection() {
   const router = useRouter()
+  const [isDemoHovered, setIsDemoHovered] = React.useState(false)
 
   return (
     <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-20 lg:py-32 bg-transparent">
@@ -70,11 +71,15 @@ export function HeroSection() {
               <Button
                 size="lg"
                 variant="outline"
-                className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-white/10 px-8 py-6 text-lg rounded-xl group"
+                onMouseEnter={() => setIsDemoHovered(true)}
+                onMouseLeave={() => setIsDemoHovered(false)}
+                className="border-gray-300 dark:border-white/20 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 px-8 py-6 text-lg rounded-xl cursor-not-allowed transition-all"
               >
                 <Play className="w-5 h-5 mr-2" />
                 Watch Demo
-                <span className="ml-2 text-gray-500 dark:text-gray-300">2 min</span>
+                <span className={`ml-2 transition-all ${isDemoHovered ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {isDemoHovered ? 'Coming Soon' : '2 min'}
+                </span>
               </Button>
             </motion.div>
 
@@ -85,24 +90,10 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-gray-600 dark:text-gray-300"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-2">
-                  {[...Array(4)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 border-2 border-slate-900 flex items-center justify-center"
-                      style={{
-                        backgroundImage: `linear-gradient(135deg, hsl(${200 + i * 30}, 70%, 50%), hsl(${220 + i * 30}, 70%, 60%))`
-                      }}
-                    >
-                      <svg className="w-5 h-5 text-white/90" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                      </svg>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                 <span className="text-sm">
-                  <strong className="text-gray-900 dark:text-white">500+</strong> early adopters
+                  <strong className="text-gray-900 dark:text-white">Join</strong> early access
                 </span>
               </div>
               <div className="flex items-center gap-2">
