@@ -93,8 +93,30 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = getWebhookUrl('notion')
     const eventTypes = this.getNotionEventTypes(triggerType)
 
+    logger.info('[Notion Trigger] Creating webhook with URL:', webhookUrl)
+    logger.info('[Notion Trigger] Event types:', eventTypes)
+    logger.info('[Notion Trigger] Target:', dataSourceId ? `data_source ${dataSourceId}` : `database ${databaseId}`)
+
+    // Validate webhook URL (Notion requires HTTPS)
+    if (!webhookUrl.startsWith('https://')) {
+      throw new Error(`Webhook URL must be HTTPS, got: ${webhookUrl}`)
+    }
+
     let webhookId: string
     try {
+      const requestBody = {
+        url: webhookUrl,
+        event_types: eventTypes,
+        // If we have a data source, subscribe to it; otherwise subscribe to the database
+        ...(dataSourceId ? {
+          data_source_id: dataSourceId
+        } : {
+          database_id: databaseId
+        })
+      }
+
+      logger.info('[Notion Trigger] Webhook request body:', JSON.stringify(requestBody))
+
       const webhookResponse = await fetch('https://api.notion.com/v1/webhooks', {
         method: 'POST',
         headers: {
@@ -102,16 +124,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
           'Notion-Version': '2025-09-03',
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          url: webhookUrl,
-          event_types: eventTypes,
-          // If we have a data source, subscribe to it; otherwise subscribe to the database
-          ...(dataSourceId ? {
-            data_source_id: dataSourceId
-          } : {
-            database_id: databaseId
-          })
-        })
+        body: JSON.stringify(requestBody)
       })
 
       if (!webhookResponse.ok) {
