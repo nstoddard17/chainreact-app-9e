@@ -196,35 +196,35 @@ async function executeNotionManageDatabaseInternal(
 ): Promise<any> {
   const { operation } = config;
 
-  // Get the Notion integration
-  const { createClient } = await import('@/utils/supabaseClient');
-  const supabase = createClient();
+  // Get the Notion integration credentials using the helper function
+  const { getIntegrationCredentials } = await import('@/lib/integrations/getDecryptedAccessToken');
+  const credentials = await getIntegrationCredentials(context.userId, 'notion');
 
-  const { data: integration, error: integrationError } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', context.userId)
-    .eq('provider', 'notion')
-    .eq('status', 'connected')
-    .single();
-
-  if (integrationError || !integration) {
+  if (!credentials || !credentials.accessToken) {
     throw new Error('Notion integration not found or not connected');
   }
 
   const baseHeaders = {
-    'Authorization': `Bearer ${integration.access_token}`,
+    'Authorization': `Bearer ${credentials.accessToken}`,
     'Notion-Version': '2022-06-28',
     'Content-Type': 'application/json'
   };
 
   switch (operation) {
     case 'create':
+      // Validate parentPage is provided
+      if (!config.parentPage) {
+        throw new Error('Parent page is required to create a database. Please select a page where the database will be created.');
+      }
+
       // Create a new database
+      // Note: Both "Full page" and "Inline" databases in Notion are created as children of a page
+      // The difference is in how they appear - full page databases are displayed as standalone pages
+      // while inline databases are embedded within the parent page content
       const createBody = {
         parent: {
-          type: config.databaseType === 'Inline' ? 'page_id' : 'workspace',
-          ...(config.databaseType === 'Inline' ? { page_id: config.parentPage } : { workspace: true })
+          type: 'page_id',
+          page_id: config.parentPage
         },
         title: [
           {
@@ -387,7 +387,16 @@ export async function executeNotionManageDatabase(
       message: `Successfully executed ${config.operation} operation`
     };
   } catch (error: any) {
-    logger.error('Notion Manage Database error:', error);
+    logger.error('Notion Manage Database error:', {
+      operation: config.operation,
+      errorMessage: error.message,
+      errorStack: error.stack,
+      config: {
+        databaseType: config.databaseType,
+        parentPage: config.parentPage,
+        title: config.title
+      }
+    });
     return {
       success: false,
       output: {},
