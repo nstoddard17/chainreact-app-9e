@@ -1,10 +1,6 @@
-import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
-
 import { logger } from '@/lib/utils/logger'
-import type { Integration } from "@/types/integration"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -37,54 +33,10 @@ export async function GET() {
 
     // Use service role client to bypass RLS for reading integrations
     const supabaseService = await createSupabaseServiceClient()
-    let { data: integrations, error: integrationsError } = await supabaseService
+    const { data: integrations, error: integrationsError } = await supabaseService
       .from("integrations")
       .select("*")
       .eq("user_id", user.id)
-    
-    // Fallback: If no integrations found, check for orphaned ones based on email
-    if ((!integrations || integrations.length === 0) && user.email) {
-      logger.debug('🔍 [API /api/integrations] No integrations found, checking for orphaned ones...')
-      
-      // Try to find integrations from old user IDs
-      const { data: userProfiles } = await supabaseService
-        .from("user_profiles")
-        .select("id")
-        .eq("email", user.email)
-        .neq("id", user.id)
-      
-      if (userProfiles && userProfiles.length > 0) {
-        const oldUserIds = userProfiles.map(p => p.id)
-        const { data: orphanedIntegrations } = await supabaseService
-          .from("integrations")
-          .select("*")
-          .in("user_id", oldUserIds)
-        
-        if (orphanedIntegrations && orphanedIntegrations.length > 0) {
-          logger.debug(`🔄 [API /api/integrations] Found ${orphanedIntegrations.length} orphaned integrations, auto-migrating...`)
-          
-          // Auto-migrate these integrations
-          await supabaseService
-            .from("integrations")
-            .update({ 
-              user_id: user.id,
-              updated_at: new Date().toISOString()
-            })
-            .in("user_id", oldUserIds)
-          
-          // Re-fetch with the correct user ID
-          const result = await supabaseService
-            .from("integrations")
-            .select("*")
-            .eq("user_id", user.id)
-          
-          integrations = result.data
-          integrationsError = result.error
-          
-          logger.debug(`✅ [API /api/integrations] Auto-migrated and fetched ${integrations?.length || 0} integrations`)
-        }
-      }
-    }
     
     logger.debug('📊 [API /api/integrations] Query result', {
       count: integrations?.length || 0,
