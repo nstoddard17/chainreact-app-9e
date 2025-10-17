@@ -70,17 +70,35 @@ export async function POST(req: NextRequest) {
 
     // Check for verification token (Notion sends this in the initial verification)
     if (body.type === 'url_verification') {
+      // CRITICAL: Log verification token in multiple ways for Vercel
+      console.log('NOTION_VERIFICATION_TOKEN:', body.token)
+      console.error('NOTION_VERIFICATION_TOKEN:', body.token) // Use error level to ensure it appears
+      logger.info(`NOTION_VERIFICATION_TOKEN: ${body.token}`)
+
       logSection('URL VERIFICATION REQUEST DETECTED', {
         challenge: body.challenge,
         token: body.token,
       }, colors.magenta)
+
+      // IMPORTANT: Log the token clearly for easy retrieval
+      console.log('=' .repeat(80))
+      console.log('🔑 NOTION VERIFICATION TOKEN (copy this):')
+      console.log(body.token)
+      console.log('=' .repeat(80))
+
+      // Store the token temporarily in the response for manual verification
+      // This helps users who need to manually verify in Notion UI
+      logger.info(`Verification token: ${body.token}`)
 
       // Respond with the challenge for verification
       const response = jsonResponse({ challenge: body.challenge })
 
       logSection('VERIFICATION RESPONSE', {
         status: 200,
-        body: { challenge: body.challenge }
+        body: {
+          challenge: body.challenge,
+          note: 'Token logged above - check Vercel logs for NOTION_VERIFICATION_TOKEN'
+        }
       }, colors.green)
 
       return response
