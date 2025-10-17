@@ -58,7 +58,7 @@ export function VariablePickerSidePanel({
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
   const [dataDialogOpen, setDataDialogOpen] = useState(false)
-  const [selectedDataInfo, setSelectedDataInfo] = useState<{ label: string; value: any; nodeTitle: string } | null>(null)
+  const [selectedDataInfo, setSelectedDataInfo] = useState<{ label: string; value: any; nodeTitle: string; isMock?: boolean } | null>(null)
   const { toast } = useToast()
   const isDraggingVariable = useRef(false)
   const allowClickSelect = useRef(true)
@@ -641,6 +641,62 @@ export function VariablePickerSidePanel({
     return nodeValues[outputName] || null
   };
 
+  // Generate mock data based on field type and name
+  const generateMockData = (outputName: string, outputType?: string): any => {
+    const nameLower = outputName.toLowerCase()
+
+    // Email-related fields
+    if (nameLower.includes('email')) return 'user@example.com'
+    if (nameLower.includes('subject')) return 'Example Subject Line'
+    if (nameLower.includes('body') || nameLower.includes('content') || nameLower.includes('message')) {
+      return 'This is example message content...'
+    }
+
+    // ID fields
+    if (nameLower.includes('id') || nameLower.includes('uuid')) return 'abc123-def456-ghi789'
+
+    // Name fields
+    if (nameLower.includes('name') || nameLower.includes('username') || nameLower.includes('author')) {
+      return 'John Doe'
+    }
+
+    // URL fields
+    if (nameLower.includes('url') || nameLower.includes('link')) return 'https://example.com/resource'
+
+    // Date/Time fields
+    if (nameLower.includes('date') || nameLower.includes('created') || nameLower.includes('updated')) {
+      return new Date().toISOString()
+    }
+
+    // Title fields
+    if (nameLower.includes('title')) return 'Example Title'
+
+    // Description fields
+    if (nameLower.includes('description')) return 'Example description text'
+
+    // Status fields
+    if (nameLower.includes('status')) return 'active'
+
+    // Number/Count fields
+    if (nameLower.includes('count') || nameLower.includes('number') || outputType === 'number') {
+      return 42
+    }
+
+    // Boolean fields
+    if (outputType === 'boolean') return true
+
+    // Array fields
+    if (outputType === 'array') return ['item1', 'item2', 'item3']
+
+    // Object fields
+    if (outputType === 'object') {
+      return { key: 'value', example: 'data' }
+    }
+
+    // Default
+    return 'Example data'
+  }
+
   // Format variable value for display
   const formatVariableValue = (value: any) => {
     if (value === null || value === undefined) return 'null';
@@ -715,6 +771,22 @@ export function VariablePickerSidePanel({
           </div>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between gap-2 text-[10px]">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded bg-green-100 border border-green-300"></div>
+              <span className="text-slate-600">Real data</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></div>
+              <span className="text-slate-600">Example</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Test results timestamp */}
       {hasTestResults() && (
@@ -862,32 +934,48 @@ export function VariablePickerSidePanel({
                                   {output.type || 'string'}
                                 </Badge>
                                 <span className="text-sm truncate font-medium">{output.label || output.name}</span>
-                                {hasValue && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge
-                                          className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap cursor-pointer hover:bg-green-100 hover:border-green-300 transition-colors"
-                                          style={{ textOverflow: 'ellipsis' }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setSelectedDataInfo({
-                                              label: output.label || output.name,
-                                              value: variableValue,
-                                              nodeTitle: node.title
-                                            })
-                                            setDataDialogOpen(true)
-                                          }}
-                                        >
-                                          {formatVariableValue(variableValue)}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="left">
-                                        <p className="text-xs">Click to view full data</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                                {(() => {
+                                  // Only show data badges if test has been run
+                                  if (!hasTestResults()) return null
+
+                                  // Generate mock data if real data isn't available
+                                  const displayValue = hasValue ? variableValue : generateMockData(output.name, output.type)
+                                  const isMockData = !hasValue
+
+                                  return (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            className={`text-[10px] h-5 px-1.5 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap cursor-pointer transition-colors ${
+                                              isMockData
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300'
+                                            }`}
+                                            style={{ textOverflow: 'ellipsis' }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedDataInfo({
+                                                label: output.label || output.name,
+                                                value: displayValue,
+                                                nodeTitle: node.title,
+                                                isMock: isMockData
+                                              } as any)
+                                              setDataDialogOpen(true)
+                                            }}
+                                          >
+                                            {formatVariableValue(displayValue)}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left">
+                                          <p className="text-xs">
+                                            {isMockData ? 'Click to view example data' : 'Click to view full data'}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )
+                                })()}
                               </div>
 
                               <Button
@@ -932,19 +1020,21 @@ export function VariablePickerSidePanel({
 
       {/* Full Data Dialog */}
       <Dialog open={dataDialogOpen} onOpenChange={setDataDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="text-green-600">Test Data:</span>
-              <span className="text-slate-700">{selectedDataInfo?.label}</span>
+              <span className={selectedDataInfo?.isMock ? "text-blue-600 dark:text-blue-600" : "text-green-600 dark:text-green-600"}>
+                {selectedDataInfo?.isMock ? 'Example Data:' : 'Test Data:'}
+              </span>
+              <span className="text-slate-900 dark:text-slate-900">{selectedDataInfo?.label}</span>
             </DialogTitle>
             <DialogDescription>
-              From: {selectedDataInfo?.nodeTitle}
+              <span className="text-slate-700 dark:text-slate-700">From: {selectedDataInfo?.nodeTitle}</span>
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-auto">
-            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+            <div className="rounded-lg p-4 border bg-slate-700 border-slate-600">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words text-white">
                 {selectedDataInfo?.value !== null && selectedDataInfo?.value !== undefined
                   ? typeof selectedDataInfo?.value === 'object'
                     ? JSON.stringify(selectedDataInfo?.value, null, 2)
