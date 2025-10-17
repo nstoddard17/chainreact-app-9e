@@ -528,7 +528,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newStatus = statusProvided ? body.status : previousStatus
     const wasActive = previousStatus === 'active'
     const isActiveNow = newStatus === 'active'
-    const shouldRegisterWebhooks = data && (isActiveNow || (!statusProvided && wasActive))
+
+    // Only re-register webhooks if status changed to active OR if trigger nodes changed while active
+    const nodesProvided = Object.prototype.hasOwnProperty.call(body, 'nodes')
+    const statusChangedToActive = statusProvided && !wasActive && isActiveNow
+    const shouldRegisterWebhooks = data && (statusChangedToActive || (nodesProvided && wasActive))
     const shouldUnregisterWebhooks = data && statusProvided && wasActive && !isActiveNow
 
     if (shouldRegisterWebhooks) {
@@ -648,12 +652,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
-    try {
-      const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
-      const webhookManager = new TriggerWebhookManager()
-      await webhookManager.cleanupUnusedWebhooks(data.id)
-    } catch (cleanupErr) {
-      logger.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
+    // Only cleanup webhooks if we actually modified nodes or deactivated the workflow
+    if (shouldUnregisterWebhooks || (nodesProvided && wasActive)) {
+      try {
+        const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
+        const webhookManager = new TriggerWebhookManager()
+        await webhookManager.cleanupUnusedWebhooks(data.id)
+        logger.debug('✅ Cleaned up unused webhooks')
+      } catch (cleanupErr) {
+        logger.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
+      }
     }
 
     return jsonResponse(data)
