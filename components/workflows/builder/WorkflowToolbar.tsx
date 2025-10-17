@@ -128,6 +128,27 @@ export function WorkflowToolbar({
   const [isSharing, setIsSharing] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
 
+  // Memoize workflow status to prevent creating new objects on every render
+  const workflowStatusInfo = React.useMemo(() => getWorkflowStatus(), [getWorkflowStatus])
+
+  // Memoize input width calculation
+  const inputWidth = React.useMemo(() =>
+    `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`,
+    [workflowName]
+  )
+
+  // Memoize Airtable panel handler
+  const handleOpenAirtableSetup = React.useCallback(() => {
+    const templateId = currentWorkflow?.source_template_id || editTemplateId
+    const storageKey = `airtable-setup-panel-${workflowId || templateId}`
+    localStorage.setItem(storageKey, 'expanded')
+    window.dispatchEvent(new CustomEvent('airtable-panel-reopen'))
+    toast({
+      title: "Airtable Setup Panel",
+      description: "Opening setup instructions...",
+    })
+  }, [currentWorkflow?.source_template_id, editTemplateId, workflowId, toast])
+
   // Handle sharing workflow with another user
   const handleShareWorkflow = async () => {
     if (!shareEmail || !workflowId) {
@@ -187,7 +208,7 @@ export function WorkflowToolbar({
                 className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full"
                 style={{
                   boxShadow: "none",
-                  width: `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`
+                  width: inputWidth
                 }}
                 placeholder="Untitled Workflow"
                 title={workflowName || "Untitled Workflow"}
@@ -255,7 +276,7 @@ export function WorkflowToolbar({
             )}
           </div>
           {/* Status badges */}
-          <Badge variant={getWorkflowStatus().variant}>{getWorkflowStatus().text}</Badge>
+          <Badge variant={workflowStatusInfo.variant}>{workflowStatusInfo.text}</Badge>
           {selectedEdgeId && (
             <Badge variant="outline" className="ml-2">
               Connection Selected
@@ -530,20 +551,7 @@ export function WorkflowToolbar({
               )}
               {(currentWorkflow?.source_template_id || editTemplateId) && (
                 <>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      // Update localStorage to reopen the Airtable Setup Panel
-                      const templateId = currentWorkflow?.source_template_id || editTemplateId
-                      const storageKey = `airtable-setup-panel-${workflowId || templateId}`
-                      localStorage.setItem(storageKey, 'expanded')
-                      // Trigger a re-render by dispatching a custom event
-                      window.dispatchEvent(new CustomEvent('airtable-panel-reopen'))
-                      toast({
-                        title: "Airtable Setup Panel",
-                        description: "Opening setup instructions...",
-                      })
-                    }}
-                  >
+                  <DropdownMenuItem onClick={handleOpenAirtableSetup}>
                     <Table2 className="w-4 h-4 mr-2" />
                     Airtable Setup Guide
                   </DropdownMenuItem>
