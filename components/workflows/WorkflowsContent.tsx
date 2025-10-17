@@ -380,6 +380,23 @@ export default function WorkflowsContent() {
 
       logger.debug(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
 
+      // Check if this workflow has Notion triggers that need manual setup
+      const hasNotionTrigger = workflowSnapshot.nodes.some((n: any) =>
+        n?.data?.providerId === 'notion' && n?.data?.isTrigger
+      )
+
+      if (newStatus === 'active' && hasNotionTrigger) {
+        toast({
+          title: "Notion webhook setup required",
+          description: "To complete activation, configure the webhook in your Notion integration settings.",
+          action: {
+            label: "Open Notion Integrations",
+            onClick: () => window.open('https://www.notion.so/my-integrations', '_blank')
+          },
+          duration: 15000, // Show for 15 seconds
+        })
+      }
+
       toast({
         title: "Success",
         description: `Workflow ${newStatus === "active" ? "activated" : newStatus === "inactive" ? "deactivated" : "updated"}`

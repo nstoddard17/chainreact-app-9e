@@ -123,7 +123,10 @@
       "Bash(git stash:*)",
       "Bash(do grep -A 20 \"isTrigger: true\" \"$file\")",
       "Bash(do echo \"=== $trigger ===\")",
-      "Bash(wait)"
+      "Bash(wait)",
+      "Bash(if [ -z \"$SUPABASE_ACCESS_TOKEN\" ])",
+      "Bash(then echo \"NOT_SET\")",
+      "Bash(else echo \"SET\")"
     ],
     "defaultMode": "acceptEdits"
   }

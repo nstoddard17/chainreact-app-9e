@@ -671,6 +671,21 @@ const hubspotActionCreateContact: NodeComponent = {
       description: "Choose how to configure contact fields"
     },
 
+    // Duplicate handling strategy
+    {
+      name: "duplicateHandling",
+      label: "If Contact Already Exists",
+      type: "select",
+      required: false,
+      defaultValue: "fail",
+      options: [
+        { value: "fail", label: "Fail with error" },
+        { value: "update", label: "Update existing contact" },
+        { value: "skip", label: "Skip and return existing contact" }
+      ],
+      description: "How to handle contacts that already exist (matched by email)"
+    },
+
     // Basic mode fields (shown when fieldMode is "basic")
     {
       name: "email",
