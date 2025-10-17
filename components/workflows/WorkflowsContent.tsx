@@ -358,10 +358,22 @@ export default function WorkflowsContent() {
       if ((updatedWorkflow as any)?.triggerActivationError) {
         const error = (updatedWorkflow as any).triggerActivationError
         logger.error('❌ Trigger activation failed:', error)
+
+        // Format error details for display
+        let errorDescription = error.message || "Could not activate triggers"
+        if (error.details) {
+          if (Array.isArray(error.details)) {
+            errorDescription = error.details.join('; ')
+          } else if (typeof error.details === 'string') {
+            errorDescription = error.details
+          }
+        }
+
         toast({
-          title: "Failed to activate workflow",
-          description: error.message || "Could not activate triggers",
+          title: "Workflow activation failed",
+          description: errorDescription,
           variant: "destructive",
+          duration: 10000, // Show for longer so user can read the error
         })
         throw new Error(error.message || "Trigger activation failed")
       }
