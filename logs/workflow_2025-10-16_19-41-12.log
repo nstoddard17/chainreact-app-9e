@@ -992,3 +992,210 @@ Import trace for requested module:
 ./lib/workflows/executeNode.ts
 ./lib/execution/advancedExecutionEngine.ts
 ./lib/integrations/discordGateway.ts
+[2025-10-17T02:54:55.679Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:56:43.807Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:56:44.848Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:57:17.855Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T02:57:18.378Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:02:07.825Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:02:08.729Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:02:19.799Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:02:20.058Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:26.179Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:27.519Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:27.872Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:28.201Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:28.803Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:28.804Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:29.071Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:29.469Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:29.780Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:29.782Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:31.673Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:37.163Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:46.318Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-17T03:04:48.684Z] [WARN   ]  [33m[1m⚠[22m[39m ./lib/workflows/actions/hitl/index.ts
+export 'HITLConfig' (reexported as 'HITLConfig') was not found in './types' (module has no exports)
+
+Import trace for requested module:
+./lib/workflows/actions/hitl/index.ts
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
