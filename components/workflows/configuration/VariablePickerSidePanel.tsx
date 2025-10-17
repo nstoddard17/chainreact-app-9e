@@ -76,6 +76,7 @@ export function VariablePickerSidePanel({
     clearTestResults
   } = useWorkflowTestStore()
 
+
   const renderProviderIcon = useCallback((providerId?: string, providerName?: string) => {
     if (providerId) {
       return (
@@ -253,6 +254,21 @@ export function VariablePickerSidePanel({
     }) || []
     
     if (currentNodeId) {
+      // Check if the current node exists in the workflow graph
+      const currentNodeExists = allNodes.some(n => n.id === currentNodeId);
+
+      // If the node doesn't exist yet (being configured before adding to graph),
+      // show all nodes since we don't know where it will be placed
+      if (!currentNodeExists) {
+        logger.debug('📊 [VARIABLES] Current node not in graph yet, showing all nodes:', {
+          currentNodeId,
+          allNodesCount: allNodes.length
+        });
+
+        // Return all nodes with outputs (they'll all be "previous" once the node is added)
+        return allNodes.filter(node => node.outputs && node.outputs.length > 0);
+      }
+
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
 
       // Debug logging with MORE DETAIL
@@ -552,12 +568,7 @@ export function VariablePickerSidePanel({
         const execPath = responseData.executionPath || [];
         const triggerOut = responseData.triggerOutput || {};
 
-        logger.debug('🧪 [Test] Full API Response:', response);
         logger.debug('🧪 [Test] Results received:', {
-          testResultsArray: testDataArray,
-          testResultsType: Array.isArray(testDataArray) ? 'array' : typeof testDataArray,
-          executionPath: execPath,
-          triggerOutput: triggerOut,
           testResultsCount: testDataArray.length,
           executionPathLength: execPath.length,
           firstResult: testDataArray[0]
@@ -621,25 +632,8 @@ export function VariablePickerSidePanel({
       return acc
     }, {})
 
-    logger.debug('🔍 [getVariableValue] Looking up value:', {
-      nodeId,
-      outputName,
-      hasTestResults: testResults.length > 0,
-      testResultsObjKeys: Object.keys(testResultsObj),
-      nodeTestResult: testResultsObj[nodeId],
-      nodeOutput: testResultsObj[nodeId]?.output
-    });
-
     // Use the new resolution system to get variable values
     const nodeValues = getNodeVariableValues(nodeId, workflowData || { nodes: [], edges: [] }, testResultsObj)
-
-    logger.debug('🔍 [getVariableValue] Retrieved values:', {
-      nodeId,
-      outputName,
-      nodeValues,
-      nodeValuesKeys: Object.keys(nodeValues),
-      resultValue: nodeValues[outputName]
-    });
 
     return nodeValues[outputName] || null
   };
@@ -690,7 +684,8 @@ export function VariablePickerSidePanel({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Test workflow to see actual values</p>
+                <p>Test actions to see actual output values</p>
+                <p className="text-xs text-muted-foreground mt-1">Triggers show values only when they fire with real events</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
