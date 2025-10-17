@@ -1350,6 +1350,228 @@ if (filterConfig?.supportsRecipient && triggerConfig.to) {
 
 ---
 
+## Duplicate Handling Pattern (HubSpot Contact Example)
+
+### The Problem
+When creating records in CRM systems, duplicates are common and expected. A rigid "fail on duplicate" approach causes workflows to fail unnecessarily, requiring manual intervention.
+
+### The Solution: Configurable Duplicate Handling Strategy
+
+Add a configuration option to let users choose how to handle duplicates:
+- **Fail with error** (default, backward compatible)
+- **Update existing record** (upsert behavior)
+- **Skip and return existing** (idempotent behavior)
+
+### Implementation Steps
+
+#### Step 1: Add Configuration to Node Definition
+**Location:** `/lib/workflows/nodes/providers/[provider]/index.ts`
+
+```typescript
+configSchema: [
+  // ... other fields
+  {
+    name: "duplicateHandling",
+    label: "If Contact Already Exists",
+    type: "select",
+    required: false,
+    defaultValue: "fail",
+    options: [
+      { value: "fail", label: "Fail with error" },
+      { value: "update", label: "Update existing contact" },
+      { value: "skip", label: "Skip and return existing contact" }
+    ],
+    description: "How to handle contacts that already exist (matched by email)"
+  }
+]
+```
+
+#### Step 2: Implement Handling in Action
+**Location:** `/lib/workflows/actions/[provider].ts`
+
+```typescript
+export async function createHubSpotContact(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, { input })
+    const duplicateHandling = resolvedConfig.duplicateHandling || 'fail'
+
+    // ... prepare payload
+
+    // Attempt to create
+    let response = await fetch(apiUrl, { method: "POST", ... })
+    let result: any
+    let wasUpdate = false
+    let existingContactId: string | null = null
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+
+      // Check if it's a duplicate (409 Conflict for HubSpot)
+      if (response.status === 409 && duplicateHandling !== 'fail') {
+        // Extract existing ID from error message
+        const match = errorData.message?.match(/Existing ID: (\d+)/)
+        existingContactId = match ? match[1] : null
+
+        // Fallback: Search by unique identifier if ID not in error
+        if (!existingContactId) {
+          existingContactId = await searchByUniqueField(email)
+        }
+
+        if (duplicateHandling === 'update' && existingContactId) {
+          // PATCH existing resource
+          const updateResponse = await fetch(
+            `${apiUrl}/${existingContactId}`,
+            { method: "PATCH", body: JSON.stringify(payload) }
+          )
+
+          if (!updateResponse.ok) {
+            throw new Error(`Failed to update existing contact: ${updateResponse.status}`)
+          }
+
+          result = await updateResponse.json()
+          wasUpdate = true
+        } else if (duplicateHandling === 'skip' && existingContactId) {
+          // GET existing resource
+          const getResponse = await fetch(`${apiUrl}/${existingContactId}`)
+          result = getResponse.ok ? await getResponse.json() : { id: existingContactId }
+        } else {
+          // Still fail if we couldn't resolve the duplicate
+          throw new Error(errorData.message || 'Record already exists')
+        }
+      } else {
+        // Non-duplicate error
+        throw new Error(errorData.message || response.statusText)
+      }
+    } else {
+      // Success - record was created
+      result = await response.json()
+    }
+
+    // Build appropriate success message
+    let successMessage: string
+    if (wasUpdate) {
+      successMessage = `Contact updated successfully (${result.properties.email})`
+    } else if (existingContactId && duplicateHandling === 'skip') {
+      successMessage = `Contact already exists (${result.properties.email}), returning existing contact`
+    } else {
+      successMessage = `Contact created successfully with email ${result.properties.email}`
+    }
+
+    return {
+      success: true,
+      output: {
+        ...result,
+        // Include metadata about the operation
+        wasUpdate: wasUpdate,
+        wasExisting: !!existingContactId,
+        duplicateHandling: duplicateHandling
+      },
+      message: successMessage
+    }
+
+  } catch (error: any) {
+    // Properly serialize error for logging
+    logger.error("Action error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    })
+
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to execute action"
+    }
+  }
+}
+```
+
+#### Step 3: Fix Error Logging
+
+**Problem:** JavaScript Error objects don't serialize properly with JSON, resulting in empty objects `{}` in logs.
+
+**Solution:** Explicitly extract error properties:
+
+```typescript
+// ❌ BAD - Logs empty object
+logger.error("Action error:", error)
+
+// ✅ GOOD - Logs all error details
+logger.error("Action error:", {
+  message: error.message,
+  stack: error.stack,
+  name: error.name,
+  cause: error.cause
+})
+```
+
+### API-Specific Implementation Notes
+
+#### HubSpot (409 Conflict)
+- Error message includes existing ID: `"Contact already exists. Existing ID: 289098846917"`
+- Use regex to extract: `const match = errorData.message?.match(/Existing ID: (\d+)/)`
+- Fallback to search API if ID not in message
+- Update endpoint: `PATCH /crm/v3/objects/contacts/{id}`
+
+#### Salesforce (DUPLICATE_VALUE)
+- Error response has `errorCode: "DUPLICATE_VALUE"`
+- Must search by unique field (email, external ID) to find existing record
+- Update endpoint: `PATCH /sobjects/Contact/{id}`
+
+#### Other CRMs
+- Check API documentation for duplicate error codes
+- Most return 409 Conflict or specific error codes
+- Update strategy typically uses PATCH with resource ID
+
+### Benefits
+
+1. **User Control** - Let users decide workflow behavior
+2. **Backward Compatible** - Default to "fail" preserves existing behavior
+3. **Idempotent Workflows** - "Skip" mode makes workflows safe to re-run
+4. **Data Sync** - "Update" mode enables keep-in-sync workflows
+5. **Better UX** - No manual intervention needed for expected duplicates
+
+### Use Cases
+
+**"Update existing" mode:**
+- Sync workflows that run periodically to keep CRM updated
+- Import workflows where some records may already exist
+- Enrichment workflows that add data to existing contacts
+
+**"Skip and return existing" mode:**
+- Idempotent workflows that should succeed if contact exists
+- Automation that references contacts but doesn't modify them
+- Multi-step workflows where contact creation is a prerequisite
+
+**"Fail with error" mode:**
+- Strict data quality requirements
+- When duplicates indicate a problem that needs attention
+- Workflows where duplicate handling should be explicit
+
+### Testing Checklist
+
+- [ ] Default behavior ("fail") works as before
+- [ ] "Update" mode successfully updates existing records
+- [ ] "Skip" mode returns existing record without modification
+- [ ] Error messages are clear for each mode
+- [ ] Logs show proper error details (not empty objects)
+- [ ] Output metadata indicates what action was taken (wasUpdate, wasExisting)
+- [ ] Works with multiple duplicate detection strategies (error message parsing, search API)
+
+### Related Files
+- Node definition: `/lib/workflows/nodes/providers/hubspot/index.ts:675-687`
+- Action handler: `/lib/workflows/actions/hubspot.ts:152-285`
+- Error logging fix: `/lib/workflows/actions/hubspot.ts:427-434`
+
+**Date Implemented:** October 17, 2025
+
+---
+
 ## Notes
 
 - This guide applies to both actions and triggers

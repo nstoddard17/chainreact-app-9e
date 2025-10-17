@@ -134,7 +134,7 @@ export async function createHubSpotContact(
     // Get HubSpot integration
     const { createSupabaseServerClient } = await import("@/utils/supabase/server")
     const supabase = await createSupabaseServerClient()
-    
+
     const { data: integration } = await supabase
       .from("integrations")
       .select("*")
@@ -149,13 +149,16 @@ export async function createHubSpotContact(
 
     const accessToken = await getDecryptedAccessToken(userId, "hubspot")
 
+    // Get duplicate handling strategy
+    const duplicateHandling = resolvedConfig.duplicateHandling || 'fail'
+
     // Create contact payload
     const payload = {
       properties: properties
     }
 
-    // Create contact
-    const response = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+    // Attempt to create contact
+    let response = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -164,12 +167,122 @@ export async function createHubSpotContact(
       body: JSON.stringify(payload)
     })
 
+    let result: any
+    let wasUpdate = false
+    let existingContactId: string | null = null
+
+    // Handle response based on status
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(`HubSpot API error: ${response.status} - ${errorData.message || response.statusText}`)
-    }
 
-    const result = await response.json()
+      // Check if it's a duplicate contact error (409 Conflict)
+      if (response.status === 409 && duplicateHandling !== 'fail') {
+        // Extract existing contact ID from error message
+        const match = errorData.message?.match(/Existing ID: (\d+)/)
+        existingContactId = match ? match[1] : null
+
+        if (!existingContactId) {
+          // Try to find contact by email if ID not in error message
+          const searchResponse = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/contacts/search`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                filterGroups: [{
+                  filters: [{
+                    propertyName: "email",
+                    operator: "EQ",
+                    value: properties.email
+                  }]
+                }],
+                properties: Object.keys(properties),
+                limit: 1
+              })
+            }
+          )
+
+          if (searchResponse.ok) {
+            const searchResult = await searchResponse.json()
+            if (searchResult.results && searchResult.results.length > 0) {
+              existingContactId = searchResult.results[0].id
+              result = searchResult.results[0]
+            }
+          }
+        }
+
+        // Handle based on strategy
+        if (duplicateHandling === 'update' && existingContactId) {
+          // Update the existing contact
+          logger.debug(`Updating existing contact ${existingContactId} (duplicate handling: update)`)
+
+          const updateResponse = await fetch(
+            `https://api.hubapi.com/crm/v3/objects/contacts/${existingContactId}`,
+            {
+              method: "PATCH",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(payload)
+            }
+          )
+
+          if (!updateResponse.ok) {
+            const updateErrorData = await updateResponse.json().catch(() => ({}))
+            throw new Error(
+              `Failed to update existing contact: ${updateResponse.status} - ${updateErrorData.message || updateResponse.statusText}`
+            )
+          }
+
+          result = await updateResponse.json()
+          wasUpdate = true
+        } else if (duplicateHandling === 'skip' && existingContactId) {
+          // Skip creation and return existing contact
+          logger.debug(`Skipping creation, returning existing contact ${existingContactId} (duplicate handling: skip)`)
+
+          if (!result) {
+            // Fetch the existing contact details
+            const getResponse = await fetch(
+              `https://api.hubapi.com/crm/v3/objects/contacts/${existingContactId}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json"
+                }
+              }
+            )
+
+            if (getResponse.ok) {
+              result = await getResponse.json()
+            } else {
+              // If we can't fetch details, return minimal info
+              result = {
+                id: existingContactId,
+                properties: { email: properties.email }
+              }
+            }
+          }
+        } else {
+          // Either 'fail' strategy or couldn't find existing contact
+          throw new Error(
+            `HubSpot API error: ${response.status} - ${errorData.message || 'Contact already exists. Existing ID: ' + existingContactId || response.statusText}`
+          )
+        }
+      } else {
+        // Non-duplicate error or 'fail' strategy
+        throw new Error(
+          `HubSpot API error: ${response.status} - ${errorData.message || response.statusText}`
+        )
+      }
+    } else {
+      // Success - contact was created
+      result = await response.json()
+    }
     
     logger.debug('HubSpot API response:', result)
     logger.debug('Created contact properties:', result.properties)
@@ -271,6 +384,20 @@ export async function createHubSpotContact(
       }
     }
 
+    // Build success message based on what action was taken
+    let successMessage: string
+    if (wasUpdate) {
+      successMessage = companyId
+        ? `HubSpot contact updated successfully (${result.properties.email}) and associated with company ${companyName}`
+        : `HubSpot contact updated successfully (${result.properties.email})`
+    } else if (existingContactId && duplicateHandling === 'skip') {
+      successMessage = `Contact already exists (${result.properties.email}), returning existing contact`
+    } else {
+      successMessage = companyId
+        ? `HubSpot contact created successfully with email ${result.properties.email} and associated with company ${companyName}`
+        : `HubSpot contact created successfully with email ${result.properties.email}`
+    }
+
     return {
       success: true,
       output: {
@@ -288,15 +415,23 @@ export async function createHubSpotContact(
         hubspotResponse: result,
         // Include company information if created
         companyId: companyId,
-        companyCreated: !!companyId
+        companyCreated: !!companyId,
+        // Include metadata about the operation
+        wasUpdate: wasUpdate,
+        wasExisting: !!existingContactId,
+        duplicateHandling: duplicateHandling
       },
-      message: companyId 
-        ? `HubSpot contact created successfully with email ${result.properties.email} and associated with company ${companyName}`
-        : `HubSpot contact created successfully with email ${result.properties.email}`
+      message: successMessage
     }
 
   } catch (error: any) {
-    logger.error("HubSpot create contact error:", error)
+    // Properly log error with all details
+    logger.error("HubSpot create contact error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    })
     return {
       success: false,
       output: {},
