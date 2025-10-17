@@ -782,7 +782,7 @@ export function VariablePickerSidePanel({
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-slate-900 truncate">
+                            <span className={`text-sm font-medium truncate ${isNodeTested ? 'text-black' : 'text-slate-900'}`}>
                               {node.title}
                             </span>
                             {hasOutputs && (
@@ -792,7 +792,7 @@ export function VariablePickerSidePanel({
                             )}
                           </div>
                           {node.subtitle && (
-                            <span className="text-xs text-white truncate block">
+                            <span className={`text-xs truncate block ${isNodeTested ? 'text-black' : 'text-white'}`}>
                               {node.subtitle}
                             </span>
                           )}
