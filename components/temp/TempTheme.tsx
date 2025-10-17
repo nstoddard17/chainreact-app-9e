@@ -28,22 +28,19 @@ interface TempThemeProps {
 export function TempTheme({ children, background = "dark" }: TempThemeProps) {
   const palette =
     background === "dark"
-      ? "bg-[#090E1A] text-[#E2E8F0]"
-      : "bg-[#F8FAFC] text-[#0F172A]"
+      ? "bg-[#0B1220] text-slate-100"
+      : "bg-slate-50 text-slate-900"
 
   return (
     <div
       className={cn(
         spaceGrotesk.variable,
         inter.variable,
-        "min-h-screen",
-        "antialiased",
-        palette,
-        "tracking-tight"
+        "min-h-screen antialiased tracking-tight font-sans",
+        palette
       )}
     >
       {children}
     </div>
   )
 }
-

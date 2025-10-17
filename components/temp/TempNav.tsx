@@ -19,8 +19,8 @@ interface TempNavProps {
 export function TempNav({ variant = "marketing" }: TempNavProps) {
   const wrapperClasses =
     variant === "marketing"
-      ? "bg-[#090E1A]/80 border border-white/10 shadow-[0_10px_50px_rgba(15,23,42,0.25)]"
-      : "bg-white/70 backdrop-blur border border-slate-200 text-slate-900"
+      ? "bg-[#101a2d] border border-white/5 shadow-none"
+      : "bg-white border border-slate-200 text-slate-900 shadow-sm"
 
   return (
     <header
@@ -33,14 +33,14 @@ export function TempNav({ variant = "marketing" }: TempNavProps) {
         href="/temp"
         className={cn(
           "text-lg font-semibold tracking-tight",
-          variant === "marketing" ? "text-white" : "text-slate-900"
+          variant === "marketing" ? "text-slate-100" : "text-slate-900"
         )}
       >
         ChainReact
       </Link>
 
       {variant === "marketing" && (
-        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
+        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-300 md:flex">
           {navItems.map((item) => (
             <a
               key={item.label}
@@ -59,7 +59,7 @@ export function TempNav({ variant = "marketing" }: TempNavProps) {
           className={cn(
             "text-sm font-medium transition-colors",
             variant === "marketing"
-              ? "text-slate-200 hover:text-white"
+              ? "text-slate-300 hover:text-white"
               : "text-slate-600 hover:text-slate-900"
           )}
         >
@@ -68,8 +68,10 @@ export function TempNav({ variant = "marketing" }: TempNavProps) {
         <Button
           size="sm"
           className={cn(
-            "rounded-full px-4 text-sm font-semibold shadow-lg shadow-blue-500/40 transition-all hover:shadow-xl hover:shadow-blue-500/50",
-            "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white"
+            "rounded-full px-4 text-sm font-semibold transition-colors",
+            variant === "marketing"
+              ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              : "bg-slate-900 hover:bg-slate-800 text-white"
           )}
         >
           Start free trial
@@ -78,4 +80,3 @@ export function TempNav({ variant = "marketing" }: TempNavProps) {
     </header>
   )
 }
-

@@ -28,15 +28,15 @@ export function TempPlaceholder({
     return (
       <TempMarketingLayout>
         <section className="py-24">
-          <div className="mx-auto w-[min(640px,94%)] text-center">
+          <div className="mx-auto w-[min(640px,94%)]">
             <TempCard className="space-y-6">
-              <h1 className="text-3xl font-semibold text-white md:text-4xl">
+              <h1 className="text-3xl font-semibold md:text-4xl">
                 {title}
               </h1>
-              <p className="text-base text-slate-300 md:text-lg">
+              <p className="text-base md:text-lg text-slate-300">
                 {description}
               </p>
-              <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 {actions || (
                   <>
                     <TempButton>Primary action</TempButton>
@@ -56,7 +56,13 @@ export function TempPlaceholder({
     <TempAppShell
       title={title}
       description={description}
-      actions={actions || <TempButton variant="secondary">Example action</TempButton>}
+      actions={
+        actions || (
+          <TempButton variant="secondary" contrast="light">
+            Example action
+          </TempButton>
+        )
+      }
     >
       <TempCard tone="light" className="space-y-4">
         <p className="text-sm text-slate-600">
@@ -68,4 +74,3 @@ export function TempPlaceholder({
     </TempAppShell>
   )
 }
-

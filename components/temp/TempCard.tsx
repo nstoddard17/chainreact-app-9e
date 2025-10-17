@@ -15,15 +15,18 @@ export function TempCard({
   tone = "dark",
 }: TempCardProps) {
   const tones = {
-    dark: "bg-white/[0.04] border border-white/10 shadow-[0_25px_60px_rgba(15,23,42,0.35)]",
+    dark: "bg-[#121a2b] border border-white/8 text-slate-100 shadow-[0_10px_24px_rgba(7,11,19,0.25)]",
     light:
-      "bg-white border border-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.08)]",
+      "bg-white border border-slate-200 text-slate-900 shadow-[0_6px_18px_rgba(15,23,42,0.08)]",
   }
 
   return (
     <div
       className={cn(
-        "rounded-3xl p-6 transition-all hover:-translate-y-1 hover:shadow-[0_35px_70px_rgba(15,23,42,0.35)]",
+        "rounded-2xl p-6 transition-all",
+        tone === "dark"
+          ? "hover:border-white/20"
+          : "hover:border-slate-300",
         tones[tone],
         className
       )}
@@ -32,4 +35,3 @@ export function TempCard({
     </div>
   )
 }
-
