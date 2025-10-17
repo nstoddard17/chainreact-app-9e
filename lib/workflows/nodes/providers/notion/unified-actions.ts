@@ -247,7 +247,7 @@ export const notionUnifiedActions: NodeComponent[] = [
   {
     type: "notion_action_manage_database",
     title: "Manage Database",
-    description: "Create, query, update, or sync Notion databases",
+    description: "Create databases, update database info/rows, or sync Notion databases",
     icon: Database,
     providerId: "notion",
     requiredScopes: ["content.read", "content.write"],
@@ -292,6 +292,20 @@ export const notionUnifiedActions: NodeComponent[] = [
           value: ["update", "sync"]
         }
       },
+      // Sub-operation for update
+      {
+        name: "updateType",
+        label: "What to Update",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "metadata", label: "Database Info (Title/Description)" },
+          { value: "data", label: "Database Rows/Entries" }
+        ],
+        placeholder: "Select what to update",
+        visibilityCondition: { field: "operation", operator: "equals", value: "update" }
+      },
       // Create database fields
       {
         name: "databaseType",
@@ -323,12 +337,18 @@ export const notionUnifiedActions: NodeComponent[] = [
         name: "title",
         label: "Database Title",
         type: "text",
-        required: true,
+        required: false,
         placeholder: "Enter database title",
         visibilityCondition: {
-          field: "operation",
-          operator: "in",
-          value: ["create", "update"]
+          or: [
+            { field: "operation", operator: "equals", value: "create" },
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "update" },
+                { field: "updateType", operator: "equals", value: "metadata" }
+              ]
+            }
+          ]
         }
       },
       {
@@ -338,9 +358,15 @@ export const notionUnifiedActions: NodeComponent[] = [
         required: false,
         placeholder: "Enter database description",
         visibilityCondition: {
-          field: "operation",
-          operator: "in",
-          value: ["create", "update"]
+          or: [
+            { field: "operation", operator: "equals", value: "create" },
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "update" },
+                { field: "updateType", operator: "equals", value: "metadata" }
+              ]
+            }
+          ]
         }
       },
       {
@@ -351,6 +377,23 @@ export const notionUnifiedActions: NodeComponent[] = [
         description: "Configure the database schema with properties like Status, Assignee, Due Date, etc.",
         tooltip: "Define the fields (properties) your database will have. Every database needs at least one Title property.",
         visibilityCondition: { field: "operation", operator: "equals", value: "create" }
+      },
+      // Database rows/data management
+      {
+        name: "databaseRows",
+        label: "Database Rows",
+        type: "dynamic_fields",
+        dynamic: "notion_database_rows",
+        dependsOn: "database",
+        required: false,
+        placeholder: "Loading database entries...",
+        description: "View and manage all rows in this database. You can add new rows, edit existing ones, or delete them.",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "update" },
+            { field: "updateType", operator: "equals", value: "data" }
+          ]
+        }
       },
       // Sync fields
       {
