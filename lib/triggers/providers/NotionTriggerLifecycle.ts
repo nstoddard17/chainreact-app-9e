@@ -18,13 +18,9 @@ import { logger } from '@/lib/utils/logger'
 export class NotionTriggerLifecycle implements TriggerLifecycle {
 
   async onActivate(context: TriggerActivationContext): Promise<void> {
-    const { workflowId, userId, trigger } = context
+    const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.info('📝 [Notion Trigger] Activating trigger', {
-      workflowId,
-      triggerType: trigger.type,
-      triggerConfig: trigger.config
-    })
+    logger.info('[Notion Trigger] Activating trigger')
 
     // Get Notion integration
     const supabase = await createSupabaseServerClient()
@@ -41,7 +37,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get workspace access token
-    const workspaceId = trigger.config?.workspace
+    const workspaceId = config?.workspace
     if (!workspaceId) {
       throw new Error('Workspace ID is required for Notion triggers')
     }
@@ -58,8 +54,8 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     const accessToken = decrypt(workspace.access_token, encryptionKey)
 
     // Get database and data source info using new API (2025-09-03)
-    const databaseId = trigger.config?.database
-    let dataSourceId = trigger.config?.dataSource // New field for data source
+    const databaseId = config?.database
+    let dataSourceId = config?.dataSource // New field for data source
 
     if (databaseId && !dataSourceId) {
       // Fetch data source ID from database
@@ -99,21 +95,21 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .insert({
         workflow_id: workflowId,
         provider: 'notion',
-        resource_type: trigger.type,
-        external_id: `notion-${workflowId}-${trigger.id}`,
+        resource_type: triggerType,
+        external_id: `notion-${workflowId}-${nodeId}`,
         status: 'active',
         config: {
           workspaceId,
           databaseId,
           dataSourceId, // Store data source ID for filtering
-          triggerType: trigger.type,
-          triggerId: trigger.id
+          triggerType,
+          nodeId
         },
         metadata: {
           note: 'Notion webhooks configured for API version 2025-09-03',
           webhookUrl: getWebhookUrl('/api/webhooks/notion'),
           apiVersion: '2025-09-03',
-          supportedEvents: this.getSupportedEventsForTrigger(trigger.type),
+          supportedEvents: this.getSupportedEventsForTrigger(triggerType),
           instructions: [
             '1. Go to https://www.notion.so/my-integrations',
             '2. Select your integration',
@@ -128,7 +124,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .single()
 
     if (error) {
-      logger.error('❌ [Notion Trigger] Failed to store trigger resource:', error)
+      logger.error('[Notion Trigger] Failed to store trigger resource')
       throw new Error(`Failed to activate Notion trigger: ${error.message}`)
     }
 
@@ -136,9 +132,9 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
   }
 
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId } = context
 
-    logger.info('📝 [Notion Trigger] Deactivating triggers', { workflowId })
+    logger.info('[Notion Trigger] Deactivating triggers')
 
     // Delete trigger resources
     const supabase = await createSupabaseServerClient()
@@ -149,11 +145,11 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .eq('provider', 'notion')
 
     if (error) {
-      logger.error('❌ [Notion Trigger] Failed to delete trigger resources:', error)
+      logger.error('[Notion Trigger] Failed to delete trigger resources')
       throw new Error(`Failed to deactivate Notion triggers: ${error.message}`)
     }
 
-    logger.info('✅ [Notion Trigger] Triggers deactivated', { workflowId })
+    logger.info('[Notion Trigger] Triggers deactivated')
   }
 
   async onDelete(context: TriggerDeactivationContext): Promise<void> {
@@ -174,14 +170,16 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     if (error) {
       return {
         healthy: false,
-        message: `Health check failed: ${error.message}`
+        details: `Health check failed: ${error.message}`,
+        lastChecked: new Date().toISOString()
       }
     }
 
     if (!resources || resources.length === 0) {
       return {
         healthy: false,
-        message: 'No Notion trigger resources found'
+        details: 'No Notion trigger resources found',
+        lastChecked: new Date().toISOString()
       }
     }
 
@@ -196,18 +194,15 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     if (!integration || integration.status !== 'connected') {
       return {
         healthy: false,
-        message: 'Notion integration is not connected',
-        requiresReconnection: true
+        details: 'Notion integration is not connected - please reconnect',
+        lastChecked: new Date().toISOString()
       }
     }
 
     return {
       healthy: true,
-      message: 'Notion triggers are configured (manual webhook setup required)',
-      details: {
-        resourceCount: resources.length,
-        webhookUrl: getWebhookUrl('/api/webhooks/notion')
-      }
+      details: 'Notion triggers are configured (manual webhook setup required)',
+      lastChecked: new Date().toISOString()
     }
   }
 
