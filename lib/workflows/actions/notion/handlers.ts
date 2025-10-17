@@ -4,7 +4,7 @@ import { ExecutionContext } from '../../execution/types'
 
 import { logger } from '@/lib/utils/logger'
 
-const NOTION_API_VERSION = "2022-06-28"
+const NOTION_API_VERSION = "2025-09-03"
 
 /**
  * Output Schema Type Definition

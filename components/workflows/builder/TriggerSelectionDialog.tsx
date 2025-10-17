@@ -89,11 +89,24 @@ export function TriggerSelectionDialog({
   )
 
   // Refresh integrations when dialog opens
+  // Use ref to prevent dependency cycle - refreshIntegrations can change on every render
+  const refreshIntegrationsRef = React.useRef(refreshIntegrations)
+  const didRefreshOnThisOpen = React.useRef(false)
+  React.useEffect(() => {
+    refreshIntegrationsRef.current = refreshIntegrations
+  }, [refreshIntegrations])
+
   useEffect(() => {
-    if (open && refreshIntegrations) {
-      refreshIntegrations()
+    if (open) {
+      if (!didRefreshOnThisOpen.current && refreshIntegrationsRef.current) {
+        didRefreshOnThisOpen.current = true
+        refreshIntegrationsRef.current()
+      }
+    } else {
+      // reset guard when dialog closes so next open can refresh once
+      didRefreshOnThisOpen.current = false
     }
-  }, [open, refreshIntegrations])
+  }, [open]) // Only depend on open state, not the function
 
   // Handle OAuth connection - mirrors IntegrationCard logic
   const handleConnect = React.useCallback((integrationId: string) => {

@@ -358,15 +358,44 @@ export default function WorkflowsContent() {
       if ((updatedWorkflow as any)?.triggerActivationError) {
         const error = (updatedWorkflow as any).triggerActivationError
         logger.error('❌ Trigger activation failed:', error)
+
+        // Format error details for display
+        let errorDescription = error.message || "Could not activate triggers"
+        if (error.details) {
+          if (Array.isArray(error.details)) {
+            errorDescription = error.details.join('; ')
+          } else if (typeof error.details === 'string') {
+            errorDescription = error.details
+          }
+        }
+
         toast({
-          title: "Failed to activate workflow",
-          description: error.message || "Could not activate triggers",
+          title: "Workflow activation failed",
+          description: errorDescription,
           variant: "destructive",
+          duration: 10000, // Show for longer so user can read the error
         })
         throw new Error(error.message || "Trigger activation failed")
       }
 
       logger.debug(`✅ Workflow status updated. Webhooks will be ${newStatus === 'active' ? 'registered' : 'unregistered'} automatically.`)
+
+      // Check if this workflow has Notion triggers that need manual setup
+      const hasNotionTrigger = workflowSnapshot.nodes.some((n: any) =>
+        n?.data?.providerId === 'notion' && n?.data?.isTrigger
+      )
+
+      if (newStatus === 'active' && hasNotionTrigger) {
+        toast({
+          title: "Notion webhook setup required",
+          description: "To complete activation, configure the webhook in your Notion integration settings.",
+          action: {
+            label: "Open Notion Integrations",
+            onClick: () => window.open('https://www.notion.so/my-integrations', '_blank')
+          },
+          duration: 15000, // Show for 15 seconds
+        })
+      }
 
       toast({
         title: "Success",

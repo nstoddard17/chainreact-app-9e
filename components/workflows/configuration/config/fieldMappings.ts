@@ -747,10 +747,6 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_get_pages: {
-    workspace: "notion_workspaces",
-    database: "notion_databases",
-  },
 };
 
 // HITL (Human-in-the-Loop) field mappings

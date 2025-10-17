@@ -753,8 +753,9 @@ export class AdvancedExecutionEngine {
         ...context,
         data: {
           ...currentData,
-          // Only pass what's needed for AI field resolution
-          previousResults: { ...previousResults }, // Shallow copy to avoid mutations
+          // CRITICAL: Spread previousResults at TOP LEVEL for variable resolution
+          // resolveValue expects input[nodeId] to exist directly, not input.previousResults[nodeId]
+          ...(previousResults || {}), // Spread previous results at top level
           trigger: context.trigger // Ensure trigger is available
         }
       };
@@ -888,10 +889,12 @@ export class AdvancedExecutionEngine {
       const { previousResults, trigger, ...restData } = context.data || {};
 
       // Use safeClone to prevent circular references when passing data
+      // CRITICAL: previousResults must be spread at TOP LEVEL for resolveValue to work
+      // resolveValue expects input[nodeId] to exist directly, not input.previousResults[nodeId]
       const safeInput = safeClone({
         ...restData,
+        ...(previousResults || {}), // Spread previous results at top level for variable resolution
         trigger: trigger || context.trigger, // Ensure trigger data is available
-        previousResults: previousResults || {}, // Pass accumulated results for AI processing
         executionId: context.session?.id,
         workflowId: context.workflow?.id,
         nodeId: node.id,
@@ -912,6 +915,17 @@ export class AdvancedExecutionEngine {
         testMode: context.testMode || false,
         executionMode: context.testMode ? 'sandbox' : 'live'
       })
+
+      // Check if the action failed and throw an error to stop workflow execution
+      if (actionResult.success === false) {
+        const errorMessage = actionResult.message || actionResult.error || `Action ${node.data?.title || node.data?.type} failed`
+        logger.error(`❌ Action returned failure: ${node.id}`, errorMessage)
+        logError(context.session.id, `Action failed: ${node.data?.title || node.data?.type}`, {
+          nodeId: node.id,
+          message: errorMessage
+        })
+        throw new Error(errorMessage)
+      }
 
       // Build the result in the expected format for the execution engine
       // Keep it simple - just return the current data with the new result

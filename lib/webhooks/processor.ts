@@ -270,9 +270,36 @@ function applyTriggerFilters(triggerNode: any, event: WebhookEvent): boolean {
       }
     }
   }
-  
+
+  // Notion specific filters (API version 2025-09-03 with data sources)
+  if (event.provider === 'notion') {
+    // Filter by data source ID (new in 2025-09-03)
+    if (config.dataSourceId && event.eventData.data?.parent?.data_source_id) {
+      if (event.eventData.data.parent.data_source_id !== config.dataSourceId) {
+        return false
+      }
+    }
+
+    // Fallback: Filter by database if specified (backwards compatibility)
+    if (config.database) {
+      const eventDatabaseId = event.eventData.databaseId ||
+                             event.eventData.data?.parent?.id ||
+                             event.eventData.entity?.id
+      if (eventDatabaseId && eventDatabaseId !== config.database) {
+        return false
+      }
+    }
+
+    // Filter by workspace if specified
+    if (config.workspace && event.eventData.workspace_id) {
+      if (event.eventData.workspace_id !== config.workspace) {
+        return false
+      }
+    }
+  }
+
   // Add more provider-specific filters as needed
-  
+
   return true
 }
 

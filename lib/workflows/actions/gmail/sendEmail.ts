@@ -17,14 +17,28 @@ export async function sendGmailEmail(
   const cleanupPaths = new Set<string>()
 
   try {
+    // Debug logging
+    logger.debug('📧 [sendGmailEmail] Raw config:', JSON.stringify(config, null, 2))
+    logger.debug('📧 [sendGmailEmail] Input keys:', Object.keys(input || {}))
+    logger.debug('📧 [sendGmailEmail] Input structure:', JSON.stringify(input, (key, value) => {
+      if (typeof value === 'string' && value.length > 100) return value.substring(0, 100) + '...'
+      return value
+    }, 2))
+
     // Config is already resolved if coming from GmailIntegrationService
     // Only resolve if it contains template variables
-    const needsResolution = typeof config === 'object' && 
-      Object.values(config).some(v => 
+    const needsResolution = typeof config === 'object' &&
+      Object.values(config).some(v =>
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
-    
-    const resolvedConfig = needsResolution ? resolveValue(config, { input }) : config
+
+    logger.debug('📧 [sendGmailEmail] Needs resolution:', needsResolution)
+
+    // IMPORTANT: Pass input directly, not wrapped in { input }
+    const resolvedConfig = needsResolution ? resolveValue(config, input) : config
+
+    logger.debug('📧 [sendGmailEmail] Resolved config.to:', resolvedConfig.to)
+    logger.debug('📧 [sendGmailEmail] Resolved config.body:', resolvedConfig.body)
     const {
       to,
       cc,

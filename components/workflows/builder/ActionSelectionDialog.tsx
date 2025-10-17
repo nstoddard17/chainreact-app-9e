@@ -94,11 +94,24 @@ export function ActionSelectionDialog({
   )
 
   // Refresh integrations when dialog opens
+  // Use ref to prevent dependency cycle - refreshIntegrations can change on every render
+  const refreshIntegrationsRef = React.useRef(refreshIntegrations)
+  const didRefreshOnThisOpen = React.useRef(false)
+  React.useEffect(() => {
+    refreshIntegrationsRef.current = refreshIntegrations
+  }, [refreshIntegrations])
+
   useEffect(() => {
-    if (open && refreshIntegrations) {
-      refreshIntegrations()
+    if (open) {
+      if (!didRefreshOnThisOpen.current && refreshIntegrationsRef.current) {
+        didRefreshOnThisOpen.current = true
+        refreshIntegrationsRef.current()
+      }
+    } else {
+      // reset guard when dialog closes so next open can refresh once
+      didRefreshOnThisOpen.current = false
     }
-  }, [open, refreshIntegrations])
+  }, [open]) // Only depend on open state, not the function
 
   // Handle OAuth connection - mirrors IntegrationCard logic
   const handleConnect = useCallback((integrationId: string) => {
@@ -197,10 +210,8 @@ export function ActionSelectionDialog({
           <div className="space-y-3">
             <div className="flex items-center space-x-4">
               <div className="relative flex-grow">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
                   placeholder="Search integrations or actions..."
-                  className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />

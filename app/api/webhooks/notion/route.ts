@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { processNotionEvent } from '@/lib/webhooks/processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 import { getWebhookUrl } from '@/lib/webhooks/utils'
+import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -70,9 +71,30 @@ export async function POST(req: NextRequest) {
 
     // Check for verification token (Notion sends this in the initial verification)
     if (body.type === 'url_verification') {
+      // CRITICAL: Store verification token in database so user can retrieve it
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      // Store token in webhook_events table with a special marker
+      await supabase.from('webhook_events').insert({
+        provider: 'notion',
+        event_type: 'VERIFICATION_TOKEN',
+        request_id: requestId,
+        status: 'success',
+        event_data: {
+          token: body.token,
+          challenge: body.challenge,
+          timestamp: timestamp
+        },
+        created_at: new Date().toISOString()
+      })
+
       logSection('URL VERIFICATION REQUEST DETECTED', {
         challenge: body.challenge,
         token: body.token,
+        note: 'Token stored in database - query webhook_events table for event_type=VERIFICATION_TOKEN'
       }, colors.magenta)
 
       // Respond with the challenge for verification
@@ -80,7 +102,10 @@ export async function POST(req: NextRequest) {
 
       logSection('VERIFICATION RESPONSE', {
         status: 200,
-        body: { challenge: body.challenge }
+        body: {
+          challenge: body.challenge,
+          note: 'Token stored in database'
+        }
       }, colors.green)
 
       return response
