@@ -39,16 +39,6 @@ export async function sendGmailEmail(
 
     logger.debug('📧 [sendGmailEmail] Resolved config.to:', resolvedConfig.to)
     logger.debug('📧 [sendGmailEmail] Resolved config.body:', resolvedConfig.body)
-
-    // Debug: Check if body still has templates
-    if (resolvedConfig.body && typeof resolvedConfig.body === 'string' && resolvedConfig.body.includes('{{')) {
-      console.error('⚠️ [DEBUG] Body still contains unresolved templates!')
-      console.error('⚠️ [DEBUG] Body:', resolvedConfig.body)
-      console.error('⚠️ [DEBUG] Input has action node?', !!(input && input['action-1760677115194']))
-      if (input && input['action-1760677115194']) {
-        console.error('⚠️ [DEBUG] Node output keys:', Object.keys(input['action-1760677115194']))
-      }
-    }
     const {
       to,
       cc,
