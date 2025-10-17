@@ -1,0 +1,16 @@
+# Ignore everything from parent directories
+../../*
+
+# But include this directory's files
+!.
+!*
+!**/*
+
+# Ignore local env files
+.env
+.env.local
+.env*.local
+
+# Ignore dev files
+*.log
+.DS_Store
