@@ -8,10 +8,9 @@ import type { NodeComponent } from '../../types'
 
 export const hitlAction: NodeComponent = {
   type: "hitl_conversation",
-  title: "Human-in-the-Loop",
-  description: "Pause workflow for a conversational approval or input from a human",
+  title: "Ask Human via Chat",
+  description: "Pause workflow and have an AI-powered conversation with a human before continuing",
   icon: MessageCircle,
-  providerId: "automation",
   category: "Automation",
   isTrigger: false,
   producesOutput: true,
@@ -37,8 +36,8 @@ export const hitlAction: NodeComponent = {
       description: "The Discord server to send messages to",
       placeholder: "Select a Discord server",
       dynamic: "discord_guilds",
+      dynamicProvider: "discord",
       required: true,
-      dependsOn: "channel",
       visibleWhen: { channel: "discord" },
       loadOnMount: true,
       uiTab: "basic"
@@ -50,6 +49,7 @@ export const hitlAction: NodeComponent = {
       description: "The channel where the conversation will happen",
       placeholder: "Select a channel",
       dynamic: "discord_channels",
+      dynamicProvider: "discord",
       required: true,
       dependsOn: "discordGuildId",
       visibleWhen: { channel: "discord" },
