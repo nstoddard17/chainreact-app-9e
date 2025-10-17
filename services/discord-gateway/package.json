@@ -1,0 +1,17 @@
+{
+  "name": "discord-gateway",
+  "version": "1.0.0",
+  "description": "Discord Gateway for HITL Webhook Forwarding",
+  "main": "index.ts",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -29,6 +29,12 @@ CREATE INDEX IF NOT EXISTS idx_google_watch_subscriptions_integration ON public.
 -- Add RLS policies
 ALTER TABLE public.google_watch_subscriptions ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view own Google watch subscriptions" ON public.google_watch_subscriptions;
+DROP POLICY IF EXISTS "Users can create own Google watch subscriptions" ON public.google_watch_subscriptions;
+DROP POLICY IF EXISTS "Users can update own Google watch subscriptions" ON public.google_watch_subscriptions;
+DROP POLICY IF EXISTS "Users can delete own Google watch subscriptions" ON public.google_watch_subscriptions;
+
 -- Users can only see their own Google watch subscriptions
 CREATE POLICY "Users can view own Google watch subscriptions" ON public.google_watch_subscriptions
   FOR SELECT USING (auth.uid() = user_id);
@@ -54,6 +60,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_google_watch_subscriptions_updated_at ON public.google_watch_subscriptions;
 CREATE TRIGGER update_google_watch_subscriptions_updated_at
   BEFORE UPDATE ON public.google_watch_subscriptions
   FOR EACH ROW

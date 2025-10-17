@@ -3,7 +3,6 @@
 import React from "react"
 import { Plus, Filter, Wand2, Clock4, Activity, ArrowRight } from "lucide-react"
 import { TempAppShell } from "@/components/temp/TempAppShell"
-import { TempCard } from "@/components/temp/TempCard"
 import { TempButton } from "@/components/temp/TempButton"
 import { TempTable } from "@/components/temp/TempTable"
 
@@ -60,20 +59,20 @@ export default function TempWorkflows() {
       description="Preview of the calmer workflow catalog: consistent spacing, clearer filters, and emphasis on next actions."
       actions={
         <div className="flex items-center gap-3">
-          <TempButton variant="ghost">
+          <TempButton variant="ghost" contrast="light">
             <Filter className="mr-2 h-4 w-4" />
             Filters
           </TempButton>
-          <TempButton>
+          <TempButton contrast="light">
             <Plus className="mr-2 h-4 w-4" />
             New workflow
           </TempButton>
         </div>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <TempCard tone="light" className="space-y-6">
-          <div className="flex items-center justify-between">
+      <div className="space-y-10">
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header className="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-500">
                 My automations
@@ -82,9 +81,10 @@ export default function TempWorkflows() {
                 Active workflows
               </h2>
             </div>
-            <TempButton variant="ghost">See analytics</TempButton>
-          </div>
-
+            <TempButton variant="ghost" contrast="light">
+              See analytics
+            </TempButton>
+          </header>
           <TempTable>
             <TempTable.Header
               columns={["Workflow", "Owner", "Status", "Last run", "Impact"]}
@@ -97,17 +97,13 @@ export default function TempWorkflows() {
                   </TempTable.Cell>
                   <TempTable.Cell>{wf.owner}</TempTable.Cell>
                   <TempTable.Cell>
-                    <span
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
-                    >
+                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                       {wf.status}
                     </span>
                   </TempTable.Cell>
                   <TempTable.Cell>{wf.lastRun}</TempTable.Cell>
                   <TempTable.Cell>
-                    <span
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-500"
-                    >
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-500">
                       <Activity className="h-4 w-4" />
                       {wf.impact}
                     </span>
@@ -116,12 +112,14 @@ export default function TempWorkflows() {
               ))}
             </TempTable.Body>
           </TempTable>
-        </TempCard>
+        </section>
 
-        <div className="space-y-6">
-          <TempCard tone="light" className="space-y-5">
-            <div className="flex items-center gap-3">
-              <Wand2 className="h-5 w-5 text-slate-500" />
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <header className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+              <div className="rounded-lg bg-slate-100 p-2 text-slate-500">
+                <Wand2 className="h-5 w-5" />
+              </div>
               <div>
                 <p className="text-sm font-semibold text-slate-800">
                   Guided builder
@@ -130,8 +128,8 @@ export default function TempWorkflows() {
                   Reimagined checkpoint cards with simplified copy
                 </p>
               </div>
-            </div>
-            <ul className="space-y-4">
+            </header>
+            <ul className="px-5 py-5 space-y-4">
               {[
                 {
                   title: "Describe the outcome",
@@ -154,7 +152,7 @@ export default function TempWorkflows() {
               ].map((step) => (
                 <li
                   key={step.title}
-                  className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4"
+                  className="flex items-start gap-3 rounded-xl border border-slate-200 px-4 py-3"
                 >
                   <div className="mt-1 rounded-full bg-slate-100 p-2 text-slate-500">
                     {step.icon}
@@ -168,13 +166,19 @@ export default function TempWorkflows() {
                 </li>
               ))}
             </ul>
-            <TempButton variant="secondary" className="w-full justify-center">
-              Launch guided mode
-            </TempButton>
-          </TempCard>
+            <div className="border-t border-slate-200 px-5 py-4">
+              <TempButton
+                variant="secondary"
+                contrast="light"
+                className="w-full justify-center"
+              >
+                Launch guided mode
+              </TempButton>
+            </div>
+          </section>
 
-          <TempCard tone="light" className="space-y-5">
-            <div className="flex items-center justify-between">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <p className="text-sm font-semibold text-slate-800">
                   Featured templates
@@ -183,16 +187,16 @@ export default function TempWorkflows() {
                   How reusable blueprints will appear in the new system
                 </p>
               </div>
-              <TempButton variant="ghost">
+              <TempButton variant="ghost" contrast="light">
                 View library
                 <ArrowRight className="ml-2 h-4 w-4" />
               </TempButton>
-            </div>
-            <div className="space-y-4">
+            </header>
+            <div className="px-5 py-5 space-y-4">
               {templates.map((template) => (
                 <div
                   key={template.name}
-                  className="rounded-2xl border border-slate-200 bg-white p-4"
+                  className="rounded-xl border border-slate-200 px-4 py-3"
                 >
                   <p className="text-sm font-semibold text-slate-800">
                     {template.name}
@@ -206,10 +210,9 @@ export default function TempWorkflows() {
                 </div>
               ))}
             </div>
-          </TempCard>
+          </section>
         </div>
       </div>
     </TempAppShell>
   )
 }
-
