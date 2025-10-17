@@ -198,11 +198,64 @@ if (body.type === 'url_verification') {
    - Must be publicly accessible
    - No localhost URLs allowed
 
+## Critical Implementation Details
+
+### Event Type Mapping (Required!)
+
+Notion sends webhook events with their own event type names (e.g., `page.created`), but our workflow nodes use internal trigger type names (e.g., `notion_trigger_new_page`). The webhook processor MUST map these:
+
+```typescript
+// In lib/webhooks/processor.ts
+const notionEventMap: Record<string, string[]> = {
+  'notion_trigger_new_page': ['page.created'],
+  'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated'],
+  'notion_trigger_comment_added': ['comment.created']
+}
+```
+
+**Without this mapping, workflows won't trigger even though webhooks are received!**
+
+### Webhook Subscription Setup
+
+**Complete step-by-step process that works:**
+
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Select your ChainReact integration
+3. Click "Webhooks" tab
+4. Click "+ Create a subscription"
+5. **Webhook URL:** `https://chainreact.app/api/webhooks/notion`
+6. **API Version:** `2025-09-03` (important!)
+7. **Subscribed events:**
+   - Under "Page" section: Check `Page created` (for new page triggers)
+   - Do NOT select old `database.content_updated` events (not supported in 2025-09-03)
+8. **Filter (optional):** Can filter to specific database/data source
+9. Click verification token when it arrives
+10. Enter token in Notion UI
+11. Subscription is now active!
+
+### Common Issues and Solutions
+
+**Issue 1: "Event types database.content_updated, database.schema_updated are not supported in API version 2025-09-03"**
+- **Cause:** Selected old database events instead of page/data source events
+- **Solution:** Uncheck database events, only select page/data source/comment events
+
+**Issue 2: Webhook received but workflow doesn't trigger**
+- **Cause:** Event type mapping missing in processor
+- **Solution:** Ensure `lib/webhooks/processor.ts` has Notion event type mapping (see above)
+
+**Issue 3: No logs appearing when creating pages**
+- **Cause:** Webhook subscription not active or not subscribed to correct database
+- **Solution:** Verify subscription status is "Active" and filter matches your database
+
+**Issue 4: Database constraint violation with 'pending_setup' status**
+- **Cause:** Tried to use status not in allowed list
+- **Solution:** Use 'active' status - webhook works once manually set up regardless
+
 ## Future Considerations
 
 1. **Status Updates:**
-   - Consider adding a UI flow to mark `pending_setup` → `active` after user confirms setup
-   - Could auto-detect by checking if webhook events start arriving
+   - Trigger resources use 'active' status from the start
+   - Could add health checks to verify webhook subscription is still active in Notion
 
 2. **Setup Verification:**
    - Could add endpoint to test if webhook is working
@@ -214,9 +267,9 @@ if (body.type === 'url_verification') {
    - Auto-copy webhook URL and token to clipboard
 
 4. **Monitoring:**
-   - Track which workflows have pending setup
-   - Send reminders to users who haven't completed setup
+   - Alert if webhook subscription becomes inactive/paused
    - Alert if webhook stops receiving events
+   - Auto-remind users to complete manual setup if trigger_resources exist but no events received
 
 ## References
 
