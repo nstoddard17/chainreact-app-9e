@@ -186,14 +186,12 @@ export function getNotionManageDatabaseSchema(operation?: string): OutputField[]
   switch (operation) {
     case 'create':
       return notionDatabaseSchemas.createDatabase
-    case 'query':
-      return notionDatabaseSchemas.queryDatabase
     case 'update':
       return notionDatabaseSchemas.updateDatabase
     case 'sync':
       return notionDatabaseSchemas.syncDatabaseEntries
     default:
-      return notionDatabaseSchemas.queryDatabase
+      return notionDatabaseSchemas.createDatabase
   }
 }
 

@@ -4,190 +4,6 @@ import { ActionResult } from '@/lib/workflows/actions';
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Build Notion filter from user-friendly filter fields
- */
-function buildNotionFilter(config: any): any {
-  const { filterType } = config;
-
-  if (!filterType || filterType === 'custom_json') {
-    // Use custom JSON filter if provided
-    return config.customFilter ? JSON.parse(config.customFilter) : undefined;
-  }
-
-  // Build filter based on filter type
-  switch (filterType) {
-    // Title filters
-    case 'title_contains':
-      return {
-        property: 'title',
-        title: {
-          contains: config.titleFilterValue || ''
-        }
-      };
-
-    case 'title_equals':
-      return {
-        property: 'title',
-        title: {
-          equals: config.titleFilterValue || ''
-        }
-      };
-
-    case 'title_starts_with':
-      return {
-        property: 'title',
-        title: {
-          starts_with: config.titleFilterValue || ''
-        }
-      };
-
-    case 'title_ends_with':
-      return {
-        property: 'title',
-        title: {
-          ends_with: config.titleFilterValue || ''
-        }
-      };
-
-    // Date filters
-    case 'created_after':
-      return {
-        timestamp: 'created_time',
-        created_time: {
-          after: config.dateFilterValue || new Date().toISOString()
-        }
-      };
-
-    case 'created_before':
-      return {
-        timestamp: 'created_time',
-        created_time: {
-          before: config.dateFilterValue || new Date().toISOString()
-        }
-      };
-
-    case 'updated_after':
-      return {
-        timestamp: 'last_edited_time',
-        last_edited_time: {
-          after: config.dateFilterValue || new Date().toISOString()
-        }
-      };
-
-    case 'updated_before':
-      return {
-        timestamp: 'last_edited_time',
-        last_edited_time: {
-          before: config.dateFilterValue || new Date().toISOString()
-        }
-      };
-
-    // Property filters
-    case 'property_equals':
-      return {
-        property: config.propertyName,
-        rich_text: {
-          equals: config.propertyValue || ''
-        }
-      };
-
-    case 'property_contains':
-      return {
-        property: config.propertyName,
-        rich_text: {
-          contains: config.propertyValue || ''
-        }
-      };
-
-    case 'property_checkbox':
-      return {
-        property: config.propertyName,
-        checkbox: {
-          equals: config.propertyCheckboxValue === 'true'
-        }
-      };
-
-    case 'property_select':
-      return {
-        property: config.propertyName,
-        select: {
-          equals: config.propertyValue || ''
-        }
-      };
-
-    case 'property_multi_select':
-      return {
-        property: config.propertyName,
-        multi_select: {
-          contains: config.propertyMultiSelectValues?.[0] || ''
-        }
-      };
-
-    case 'property_number':
-      const numberOperatorMap: Record<string, string> = {
-        'equals': 'equals',
-        'does_not_equal': 'does_not_equal',
-        'greater_than': 'greater_than',
-        'less_than': 'less_than',
-        'greater_than_or_equal_to': 'greater_than_or_equal_to',
-        'less_than_or_equal_to': 'less_than_or_equal_to'
-      };
-
-      return {
-        property: config.propertyName,
-        number: {
-          [numberOperatorMap[config.propertyNumberOperator] || 'equals']: config.propertyNumberValue || 0
-        }
-      };
-
-    case 'property_date':
-      const dateOperatorMap: Record<string, any> = {
-        'equals': { equals: config.propertyDateValue },
-        'before': { before: config.propertyDateValue },
-        'after': { after: config.propertyDateValue },
-        'on_or_before': { on_or_before: config.propertyDateValue },
-        'on_or_after': { on_or_after: config.propertyDateValue },
-        'past_week': { past_week: {} },
-        'past_month': { past_month: {} },
-        'past_year': { past_year: {} },
-        'next_week': { next_week: {} },
-        'next_month': { next_month: {} },
-        'next_year': { next_year: {} }
-      };
-
-      return {
-        property: config.propertyName,
-        date: dateOperatorMap[config.propertyDateOperator] || { equals: config.propertyDateValue }
-      };
-
-    case 'property_people':
-      return {
-        property: config.propertyName,
-        people: {
-          contains: config.propertyPeopleValue || ''
-        }
-      };
-
-    default:
-      return undefined;
-  }
-}
-
-/**
- * Build Notion sorts array from user-friendly sort fields
- */
-function buildNotionSorts(config: any): any[] | undefined {
-  if (!config.sortBy) {
-    return undefined;
-  }
-
-  return [{
-    property: config.sortBy === 'title' ? 'title' : config.sortBy,
-    direction: config.sortDirection || 'ascending'
-  }];
-}
-
-/**
  * Internal function to execute Notion Manage Database action
  */
 async function executeNotionManageDatabaseInternal(
@@ -259,10 +75,10 @@ async function executeNotionManageDatabaseInternal(
       }
 
       // Create a new database
-      // Note: Both "Full page" and "Inline" databases in Notion are created as children of a page
-      // The difference is in how they appear - full page databases are displayed as standalone pages
-      // while inline databases are embedded within the parent page content
-      const createBody = {
+      // The difference between "Full page" and "Inline" databases:
+      // - Full page: is_inline = false (default) - appears as a standalone page in the sidebar
+      // - Inline: is_inline = true - embedded directly within the parent page content
+      const createBody: any = {
         parent: {
           type: 'page_id',
           page_id: config.parentPage
@@ -278,6 +94,13 @@ async function executeNotionManageDatabaseInternal(
         properties: databaseProperties
       };
 
+      // Set is_inline based on database type
+      // "Inline" databases are embedded in the parent page
+      // "Full page" databases appear as standalone pages (is_inline = false or omitted)
+      if (config.databaseType === 'Inline') {
+        createBody.is_inline = true;
+      }
+
       const createResponse = await fetch('https://api.notion.com/v1/databases', {
         method: 'POST',
         headers: baseHeaders,
@@ -290,44 +113,6 @@ async function executeNotionManageDatabaseInternal(
       }
 
       return await createResponse.json();
-
-    case 'query':
-    case 'search':
-      // Query/search a database
-      const filter = buildNotionFilter(config);
-      const sorts = buildNotionSorts(config);
-
-      const queryBody: any = {
-        page_size: Math.min(config.limit || 100, 100)
-      };
-
-      if (filter) {
-        queryBody.filter = filter;
-      }
-
-      if (sorts) {
-        queryBody.sorts = sorts;
-      }
-
-      const queryResponse = await fetch(`https://api.notion.com/v1/databases/${config.database}/query`, {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify(queryBody)
-      });
-
-      if (!queryResponse.ok) {
-        const error = await queryResponse.json();
-        throw new Error(`Failed to query database: ${error.message || queryResponse.statusText}`);
-      }
-
-      const queryResult = await queryResponse.json();
-
-      return {
-        results: queryResult.results,
-        hasMore: queryResult.has_more,
-        nextCursor: queryResult.next_cursor,
-        totalResults: queryResult.results.length
-      };
 
     case 'update':
       // Update database metadata
