@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Search, ChevronDown, ChevronRight, Copy, Check, Variable, Play, CircleAlert } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Search, ChevronDown, ChevronRight, Copy, Check, Variable, Play, CircleAlert, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { apiClient } from '@/lib/apiClient'
@@ -56,6 +57,8 @@ export function VariablePickerSidePanel({
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
+  const [dataDialogOpen, setDataDialogOpen] = useState(false)
+  const [selectedDataInfo, setSelectedDataInfo] = useState<{ label: string; value: any; nodeTitle: string } | null>(null)
   const { toast } = useToast()
   const isDraggingVariable = useRef(false)
   const allowClickSelect = useRef(true)
@@ -863,17 +866,24 @@ export function VariablePickerSidePanel({
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Badge className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap" style={{ textOverflow: 'ellipsis' }}>
+                                        <Badge
+                                          className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap cursor-pointer hover:bg-green-100 hover:border-green-300 transition-colors"
+                                          style={{ textOverflow: 'ellipsis' }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setSelectedDataInfo({
+                                              label: output.label || output.name,
+                                              value: variableValue,
+                                              nodeTitle: node.title
+                                            })
+                                            setDataDialogOpen(true)
+                                          }}
+                                        >
                                           {formatVariableValue(variableValue)}
                                         </Badge>
                                       </TooltipTrigger>
                                       <TooltipContent side="left">
-                                        <p className="text-xs whitespace-pre-wrap max-w-[300px]">
-                                          {typeof variableValue === 'object'
-                                            ? JSON.stringify(variableValue, null, 2)
-                                            : String(variableValue)
-                                          }
-                                        </p>
+                                        <p className="text-xs">Click to view full data</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -919,6 +929,60 @@ export function VariablePickerSidePanel({
           Click to insert • Drag & drop • Hover to copy
         </p>
       </div>
+
+      {/* Full Data Dialog */}
+      <Dialog open={dataDialogOpen} onOpenChange={setDataDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="text-green-600">Test Data:</span>
+              <span className="text-slate-700">{selectedDataInfo?.label}</span>
+            </DialogTitle>
+            <DialogDescription>
+              From: {selectedDataInfo?.nodeTitle}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words">
+                {selectedDataInfo?.value !== null && selectedDataInfo?.value !== undefined
+                  ? typeof selectedDataInfo?.value === 'object'
+                    ? JSON.stringify(selectedDataInfo?.value, null, 2)
+                    : String(selectedDataInfo?.value)
+                  : 'null'}
+              </pre>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const textToCopy = selectedDataInfo?.value !== null && selectedDataInfo?.value !== undefined
+                  ? typeof selectedDataInfo?.value === 'object'
+                    ? JSON.stringify(selectedDataInfo?.value, null, 2)
+                    : String(selectedDataInfo?.value)
+                  : 'null'
+                navigator.clipboard.writeText(textToCopy)
+                toast({
+                  title: "Copied!",
+                  description: "Data copied to clipboard",
+                })
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setDataDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
