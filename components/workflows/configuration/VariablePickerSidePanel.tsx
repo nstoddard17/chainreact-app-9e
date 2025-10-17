@@ -181,24 +181,24 @@ export function VariablePickerSidePanel({
     const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
       if (visited.has(nodeId)) return [];
       visited.add(nodeId);
-      
+
       // Find edges where this node is the target
       const incomingEdges = workflowData.edges.filter(edge => edge.target === nodeId);
-      
+
       // No incoming edges means no previous nodes
       if (incomingEdges.length === 0) return [];
-      
+
       // Get the source nodes from incoming edges
       const sourceNodeIds = incomingEdges.map(edge => edge.source);
-      
+
       // For each source node, also get its previous nodes
       const allPreviousNodes: string[] = [...sourceNodeIds];
-      
+
       sourceNodeIds.forEach(sourceId => {
         const previousNodes = findPreviousNodes(sourceId, visited);
         allPreviousNodes.push(...previousNodes);
       });
-      
+
       return allPreviousNodes;
     };
 
@@ -206,6 +206,56 @@ export function VariablePickerSidePanel({
     const previousNodeIds = findPreviousNodes(nodeId);
     return previousNodeIds;
   };
+
+  // Topological sort based on workflow edges to get execution order
+  const getTopologicalOrder = useCallback((): string[] => {
+    if (!workflowData?.nodes || !workflowData?.edges) return []
+
+    const nodeIds = workflowData.nodes.map((n: any) => n.id)
+    const inDegree = new Map<string, number>()
+    const adjList = new Map<string, string[]>()
+
+    // Initialize
+    nodeIds.forEach((id: string) => {
+      inDegree.set(id, 0)
+      adjList.set(id, [])
+    })
+
+    // Build adjacency list and calculate in-degrees
+    workflowData.edges.forEach((edge: any) => {
+      const { source, target } = edge
+      adjList.get(source)?.push(target)
+      inDegree.set(target, (inDegree.get(target) || 0) + 1)
+    })
+
+    logger.debug('📊 [VARIABLES] Topological sort input:', {
+      nodeIds,
+      edges: workflowData.edges.map((e: any) => ({ source: e.source, target: e.target })),
+      inDegrees: Array.from(inDegree.entries())
+    })
+
+    // Queue with nodes that have no incoming edges (starts with triggers)
+    const queue: string[] = []
+    inDegree.forEach((degree, nodeId) => {
+      if (degree === 0) queue.push(nodeId)
+    })
+
+    const result: string[] = []
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      result.push(current)
+
+      adjList.get(current)?.forEach(neighbor => {
+        const newDegree = (inDegree.get(neighbor) || 0) - 1
+        inDegree.set(neighbor, newDegree)
+        if (newDegree === 0) {
+          queue.push(neighbor)
+        }
+      })
+    }
+
+    return result
+  }, [workflowData])
 
   // Get available nodes from workflow data
   const nodes = useMemo(() => {
@@ -269,7 +319,25 @@ export function VariablePickerSidePanel({
         });
 
         // Return all nodes with outputs (they'll all be "previous" once the node is added)
-        return allNodes.filter(node => node.outputs && node.outputs.length > 0);
+        const nodesWithOutputs = allNodes.filter(node => node.outputs && node.outputs.length > 0);
+
+        // Sort by topological order
+        const topologicalOrder = getTopologicalOrder()
+        const sortedNodes = [...nodesWithOutputs].sort((a, b) => {
+          const aIndex = topologicalOrder.indexOf(a.id)
+          const bIndex = topologicalOrder.indexOf(b.id)
+
+          if (aIndex !== -1 && bIndex !== -1) {
+            return aIndex - bIndex
+          }
+
+          if (aIndex !== -1) return -1
+          if (bIndex !== -1) return 1
+
+          return 0
+        })
+
+        return sortedNodes;
       }
 
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
@@ -322,11 +390,59 @@ export function VariablePickerSidePanel({
         outputs: n.outputs.map(o => o.name)
       })));
 
-      return filteredNodes;
+      // Sort nodes by workflow execution order (topological sort)
+      const topologicalOrder = getTopologicalOrder()
+
+      logger.debug('📊 [VARIABLES] Topological order:', {
+        topologicalOrder,
+        filteredNodeIds: filteredNodes.map(n => ({ id: n.id, title: n.title, isTrigger: n.isTrigger }))
+      })
+
+      const sortedNodes = [...filteredNodes].sort((a, b) => {
+        const aIndex = topologicalOrder.indexOf(a.id)
+        const bIndex = topologicalOrder.indexOf(b.id)
+
+        // If both are in topological order, sort by their order
+        if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex
+        }
+
+        // If only one is in topological order, it comes first
+        if (aIndex !== -1) return -1
+        if (bIndex !== -1) return 1
+
+        // Otherwise maintain original order
+        return 0
+      })
+
+      logger.debug('📊 [VARIABLES] Sorted nodes:', sortedNodes.map(n => ({ id: n.id, title: n.title, isTrigger: n.isTrigger })))
+
+      return sortedNodes;
     }
     
-    return allNodes;
-  }, [workflowData, currentNodeId, getRelevantOutputs])
+    // Sort all nodes when no currentNodeId (show all)
+    const topologicalOrder = getTopologicalOrder()
+    console.log('📊 Topological Order:', topologicalOrder)
+    console.log('📊 All Nodes BEFORE sort:', allNodes.map(n => ({ id: n.id, title: n.title })))
+
+    const sortedAllNodes = [...allNodes].sort((a, b) => {
+      const aIndex = topologicalOrder.indexOf(a.id)
+      const bIndex = topologicalOrder.indexOf(b.id)
+
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex
+      }
+
+      if (aIndex !== -1) return -1
+      if (bIndex !== -1) return 1
+
+      return 0
+    })
+
+    console.log('📊 All Nodes AFTER sort:', sortedAllNodes.map(n => ({ id: n.id, title: n.title })))
+
+    return sortedAllNodes;
+  }, [workflowData, currentNodeId, getRelevantOutputs, getTopologicalOrder])
 
   // Filter nodes and outputs based on search term
   const filteredNodes = useMemo(() => {
@@ -773,8 +889,8 @@ export function VariablePickerSidePanel({
       )}
 
       {/* Legend */}
-      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-center justify-between gap-2 text-[10px]">
+      <div className="px-6 py-2 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-center gap-2 text-[10px]">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
               <div className="w-3 h-3 rounded bg-green-100 border border-green-300"></div>
