@@ -9,11 +9,12 @@ import { logger } from '@/lib/utils/logger'
  * Notion Trigger Lifecycle Manager
  *
  * Manages webhook subscriptions for Notion triggers.
- * Note: Notion doesn't have a native webhook API yet, so this implementation
- * uses a polling strategy or waits for Notion's webhook support.
  *
- * For now, we'll log the setup but not create actual subscriptions since
- * Notion doesn't support webhooks in their public API yet.
+ * IMPORTANT: Notion webhooks must be created manually through the integration UI at
+ * https://www.notion.so/my-integrations - there is no API endpoint for programmatic creation.
+ *
+ * This lifecycle manager stores the necessary configuration in the database and provides
+ * setup instructions to the user.
  */
 export class NotionTriggerLifecycle implements TriggerLifecycle {
 
@@ -89,57 +90,17 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Create webhook via Notion API
+    // Store configuration for manual webhook setup
     const webhookUrl = getWebhookUrl('notion')
     const eventTypes = this.getNotionEventTypes(triggerType)
 
-    logger.info('[Notion Trigger] Creating webhook with URL:', webhookUrl)
+    logger.info('[Notion Trigger] Preparing webhook configuration')
+    logger.info('[Notion Trigger] Webhook URL:', webhookUrl)
     logger.info('[Notion Trigger] Event types:', eventTypes)
     logger.info('[Notion Trigger] Target:', dataSourceId ? `data_source ${dataSourceId}` : `database ${databaseId}`)
 
-    // Validate webhook URL (Notion requires HTTPS)
-    if (!webhookUrl.startsWith('https://')) {
-      throw new Error(`Webhook URL must be HTTPS, got: ${webhookUrl}`)
-    }
-
-    let webhookId: string
-    try {
-      const requestBody = {
-        url: webhookUrl,
-        event_types: eventTypes,
-        // If we have a data source, subscribe to it; otherwise subscribe to the database
-        ...(dataSourceId ? {
-          data_source_id: dataSourceId
-        } : {
-          database_id: databaseId
-        })
-      }
-
-      logger.info('[Notion Trigger] Webhook request body:', JSON.stringify(requestBody))
-
-      const webhookResponse = await fetch('https://api.notion.com/v1/webhooks', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Notion-Version': '2025-09-03',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      })
-
-      if (!webhookResponse.ok) {
-        const errorText = await webhookResponse.text()
-        throw new Error(`Notion API error: ${webhookResponse.status} - ${errorText}`)
-      }
-
-      const webhookData = await webhookResponse.json()
-      webhookId = webhookData.id
-
-      logger.info('[Notion Trigger] Webhook created successfully')
-    } catch (webhookError: any) {
-      logger.error('[Notion Trigger] Failed to create webhook')
-      throw new Error(`Failed to create Notion webhook: ${webhookError.message}`)
-    }
+    // Generate a unique identifier for this trigger to match with incoming webhooks
+    const triggerId = `${workflowId}-${nodeId}`
 
     // Store trigger configuration for webhook processing
     const { data: resource, error } = await supabase
@@ -151,8 +112,8 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         provider_id: 'notion',
         trigger_type: triggerType,
         resource_type: 'webhook',
-        external_id: webhookId, // Use actual Notion webhook ID
-        status: 'active',
+        external_id: triggerId, // Use internal ID since we can't get Notion's webhook ID
+        status: 'pending_setup', // Mark as pending manual setup
         config: {
           workspace: workspaceId,
           database: databaseId,
@@ -162,91 +123,41 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
           webhookUrl: webhookUrl,
           apiVersion: '2025-09-03',
           eventTypes: eventTypes,
-          createdProgrammatically: true
+          setupInstructions: {
+            step1: `Visit https://www.notion.so/my-integrations`,
+            step2: `Select your ChainReact integration`,
+            step3: `Go to the "Webhooks" tab`,
+            step4: `Click "+ Create a subscription"`,
+            step5: `Enter webhook URL: ${webhookUrl}`,
+            step6: `Select events: ${eventTypes.join(', ')}`,
+            step7: dataSourceId
+              ? `Subscribe to data source: ${dataSourceId}`
+              : `Subscribe to database: ${databaseId}`,
+            step8: `Copy the verification token and enter it when prompted`,
+            step9: `Webhook will be verified automatically when Notion sends the first event`
+          }
         }
       })
       .select()
       .single()
 
     if (error) {
-      // If storing failed, try to clean up the webhook we just created
-      try {
-        await fetch(`https://api.notion.com/v1/webhooks/${webhookId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Notion-Version': '2025-09-03'
-          }
-        })
-      } catch (cleanupError) {
-        logger.warn('[Notion Trigger] Failed to cleanup webhook after storage error')
-      }
-
       logger.error('[Notion Trigger] Failed to store trigger resource')
       throw new Error(`Failed to activate Notion trigger: ${error.message}`)
     }
 
-    logger.info('[Notion Trigger] Trigger activated with programmatic webhook')
+    logger.info('[Notion Trigger] Trigger configured - manual webhook setup required')
   }
 
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId } = context
 
     logger.info('[Notion Trigger] Deactivating triggers')
 
     const supabase = await createSupabaseServerClient()
 
-    // Get trigger resources to find webhook IDs
-    const { data: resources, error: queryError } = await supabase
-      .from('trigger_resources')
-      .select('*')
-      .eq('workflow_id', workflowId)
-      .eq('provider_id', 'notion')
-
-    if (queryError) {
-      logger.error('[Notion Trigger] Failed to query trigger resources')
-      throw new Error(`Failed to deactivate Notion triggers: ${queryError.message}`)
-    }
-
-    // Delete webhooks from Notion API
-    if (resources && resources.length > 0) {
-      // Get integration to fetch access token
-      const { data: integration } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('provider', 'notion')
-        .eq('status', 'connected')
-        .single()
-
-      if (integration) {
-        const workspaceId = resources[0].config?.workspace
-        const workspaces = integration.metadata?.workspaces || {}
-        const workspace = workspaces[workspaceId]
-
-        if (workspace) {
-          const encryptionKey = process.env.ENCRYPTION_KEY!
-          const accessToken = decrypt(workspace.access_token, encryptionKey)
-
-          // Delete each webhook
-          for (const resource of resources) {
-            const webhookId = resource.external_id
-            try {
-              await fetch(`https://api.notion.com/v1/webhooks/${webhookId}`, {
-                method: 'DELETE',
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Notion-Version': '2025-09-03'
-                }
-              })
-              logger.info('[Notion Trigger] Webhook deleted from Notion')
-            } catch (webhookError) {
-              logger.warn('[Notion Trigger] Failed to delete webhook from Notion, continuing cleanup')
-            }
-          }
-        }
-      }
-    }
+    // Note: Notion webhooks must be deleted manually through the integration UI
+    // We only clean up our internal tracking here
 
     // Delete trigger resources from database
     const { error } = await supabase
@@ -260,7 +171,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Failed to deactivate Notion triggers: ${error.message}`)
     }
 
-    logger.info('[Notion Trigger] Triggers deactivated')
+    logger.info('[Notion Trigger] Triggers deactivated - remember to delete webhook subscription in Notion integration UI')
   }
 
   async onDelete(context: TriggerDeactivationContext): Promise<void> {
@@ -310,9 +221,14 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
+    // Check if webhook has been set up (status changed from pending_setup to active)
+    const needsSetup = resources.some(r => r.status === 'pending_setup')
+
     return {
-      healthy: true,
-      details: 'Notion triggers are configured (manual webhook setup required)',
+      healthy: !needsSetup,
+      details: needsSetup
+        ? 'Notion webhook requires manual setup in integration UI - see trigger_resources metadata for instructions'
+        : 'Notion triggers are active',
       lastChecked: new Date().toISOString()
     }
   }
