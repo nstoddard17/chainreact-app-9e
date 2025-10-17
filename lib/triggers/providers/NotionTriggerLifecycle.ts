@@ -94,23 +94,24 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .from('trigger_resources')
       .insert({
         workflow_id: workflowId,
-        provider: 'notion',
-        resource_type: triggerType,
+        user_id: userId,
+        node_id: nodeId,
+        provider_id: 'notion',
+        trigger_type: triggerType,
+        resource_type: 'webhook',
         external_id: `notion-${workflowId}-${nodeId}`,
         status: 'active',
         config: {
-          workspaceId,
-          databaseId,
-          dataSourceId, // Store data source ID for filtering
-          triggerType,
-          nodeId
+          workspace: workspaceId,
+          database: databaseId,
+          dataSourceId: dataSourceId // Store data source ID for filtering (matches processor expectations)
         },
         metadata: {
           note: 'Notion webhooks configured for API version 2025-09-03',
           webhookUrl: getWebhookUrl('/api/webhooks/notion'),
           apiVersion: '2025-09-03',
           supportedEvents: this.getSupportedEventsForTrigger(triggerType),
-          instructions: [
+          setupInstructions: [
             '1. Go to https://www.notion.so/my-integrations',
             '2. Select your integration',
             '3. Add webhook URL: ' + getWebhookUrl('/api/webhooks/notion'),
@@ -142,7 +143,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .from('trigger_resources')
       .delete()
       .eq('workflow_id', workflowId)
-      .eq('provider', 'notion')
+      .eq('provider_id', 'notion')
 
     if (error) {
       logger.error('[Notion Trigger] Failed to delete trigger resources')
@@ -165,7 +166,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
-      .eq('provider', 'notion')
+      .eq('provider_id', 'notion')
 
     if (error) {
       return {
