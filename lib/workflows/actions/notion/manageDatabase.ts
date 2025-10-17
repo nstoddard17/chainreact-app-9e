@@ -4,187 +4,90 @@ import { ActionResult } from '@/lib/workflows/actions';
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Build Notion filter from user-friendly filter fields
+ * Convert a field value to Notion property format
  */
-function buildNotionFilter(config: any): any {
-  const { filterType } = config;
+function convertToNotionProperty(field: any): any {
+  const { propertyType, value } = field;
 
-  if (!filterType || filterType === 'custom_json') {
-    // Use custom JSON filter if provided
-    return config.customFilter ? JSON.parse(config.customFilter) : undefined;
-  }
-
-  // Build filter based on filter type
-  switch (filterType) {
-    // Title filters
-    case 'title_contains':
+  switch (propertyType) {
+    case 'title':
       return {
-        property: 'title',
-        title: {
-          contains: config.titleFilterValue || ''
-        }
+        title: [{ type: 'text', text: { content: value || '' } }]
       };
 
-    case 'title_equals':
+    case 'rich_text':
       return {
-        property: 'title',
-        title: {
-          equals: config.titleFilterValue || ''
-        }
+        rich_text: [{ type: 'text', text: { content: value || '' } }]
       };
 
-    case 'title_starts_with':
+    case 'number':
       return {
-        property: 'title',
-        title: {
-          starts_with: config.titleFilterValue || ''
-        }
+        number: value ? parseFloat(value) : null
       };
 
-    case 'title_ends_with':
+    case 'select':
       return {
-        property: 'title',
-        title: {
-          ends_with: config.titleFilterValue || ''
-        }
+        select: value ? { name: value } : null
       };
 
-    // Date filters
-    case 'created_after':
+    case 'multi_select':
+      const values = Array.isArray(value) ? value : (value ? value.split(',').map((v: string) => v.trim()) : []);
       return {
-        timestamp: 'created_time',
-        created_time: {
-          after: config.dateFilterValue || new Date().toISOString()
-        }
+        multi_select: values.map((v: string) => ({ name: v }))
       };
 
-    case 'created_before':
+    case 'date':
       return {
-        timestamp: 'created_time',
-        created_time: {
-          before: config.dateFilterValue || new Date().toISOString()
-        }
+        date: value ? { start: value } : null
       };
 
-    case 'updated_after':
+    case 'checkbox':
       return {
-        timestamp: 'last_edited_time',
-        last_edited_time: {
-          after: config.dateFilterValue || new Date().toISOString()
-        }
+        checkbox: Boolean(value)
       };
 
-    case 'updated_before':
+    case 'url':
       return {
-        timestamp: 'last_edited_time',
-        last_edited_time: {
-          before: config.dateFilterValue || new Date().toISOString()
-        }
+        url: value || null
       };
 
-    // Property filters
-    case 'property_equals':
+    case 'email':
       return {
-        property: config.propertyName,
-        rich_text: {
-          equals: config.propertyValue || ''
-        }
+        email: value || null
       };
 
-    case 'property_contains':
+    case 'phone_number':
       return {
-        property: config.propertyName,
-        rich_text: {
-          contains: config.propertyValue || ''
-        }
+        phone_number: value || null
       };
 
-    case 'property_checkbox':
+    case 'people':
+      const people = Array.isArray(value) ? value : [];
       return {
-        property: config.propertyName,
-        checkbox: {
-          equals: config.propertyCheckboxValue === 'true'
-        }
+        people: people.map((p: any) => ({ id: p.id || p }))
       };
 
-    case 'property_select':
+    case 'relation':
+      const relations = Array.isArray(value) ? value : [];
       return {
-        property: config.propertyName,
-        select: {
-          equals: config.propertyValue || ''
-        }
+        relation: relations.map((r: any) => ({ id: r.id || r }))
       };
 
-    case 'property_multi_select':
+    case 'files':
+      const files = Array.isArray(value) ? value : [];
       return {
-        property: config.propertyName,
-        multi_select: {
-          contains: config.propertyMultiSelectValues?.[0] || ''
-        }
-      };
-
-    case 'property_number':
-      const numberOperatorMap: Record<string, string> = {
-        'equals': 'equals',
-        'does_not_equal': 'does_not_equal',
-        'greater_than': 'greater_than',
-        'less_than': 'less_than',
-        'greater_than_or_equal_to': 'greater_than_or_equal_to',
-        'less_than_or_equal_to': 'less_than_or_equal_to'
-      };
-
-      return {
-        property: config.propertyName,
-        number: {
-          [numberOperatorMap[config.propertyNumberOperator] || 'equals']: config.propertyNumberValue || 0
-        }
-      };
-
-    case 'property_date':
-      const dateOperatorMap: Record<string, any> = {
-        'equals': { equals: config.propertyDateValue },
-        'before': { before: config.propertyDateValue },
-        'after': { after: config.propertyDateValue },
-        'on_or_before': { on_or_before: config.propertyDateValue },
-        'on_or_after': { on_or_after: config.propertyDateValue },
-        'past_week': { past_week: {} },
-        'past_month': { past_month: {} },
-        'past_year': { past_year: {} },
-        'next_week': { next_week: {} },
-        'next_month': { next_month: {} },
-        'next_year': { next_year: {} }
-      };
-
-      return {
-        property: config.propertyName,
-        date: dateOperatorMap[config.propertyDateOperator] || { equals: config.propertyDateValue }
-      };
-
-    case 'property_people':
-      return {
-        property: config.propertyName,
-        people: {
-          contains: config.propertyPeopleValue || ''
-        }
+        files: files.map((f: any) => ({
+          name: f.name,
+          external: { url: f.url }
+        }))
       };
 
     default:
-      return undefined;
+      // For unsupported types, try rich_text as fallback
+      return {
+        rich_text: [{ type: 'text', text: { content: String(value || '') } }]
+      };
   }
-}
-
-/**
- * Build Notion sorts array from user-friendly sort fields
- */
-function buildNotionSorts(config: any): any[] | undefined {
-  if (!config.sortBy) {
-    return undefined;
-  }
-
-  return [{
-    property: config.sortBy === 'title' ? 'title' : config.sortBy,
-    direction: config.sortDirection || 'ascending'
-  }];
 }
 
 /**
@@ -206,7 +109,7 @@ async function executeNotionManageDatabaseInternal(
 
   const baseHeaders = {
     'Authorization': `Bearer ${credentials.accessToken}`,
-    'Notion-Version': '2022-06-28',
+    'Notion-Version': '2025-09-03',
     'Content-Type': 'application/json'
   };
 
@@ -259,10 +162,10 @@ async function executeNotionManageDatabaseInternal(
       }
 
       // Create a new database
-      // Note: Both "Full page" and "Inline" databases in Notion are created as children of a page
-      // The difference is in how they appear - full page databases are displayed as standalone pages
-      // while inline databases are embedded within the parent page content
-      const createBody = {
+      // The difference between "Full page" and "Inline" databases:
+      // - Full page: is_inline = false (default) - appears as a standalone page in the sidebar
+      // - Inline: is_inline = true - embedded directly within the parent page content
+      const createBody: any = {
         parent: {
           type: 'page_id',
           page_id: config.parentPage
@@ -278,6 +181,13 @@ async function executeNotionManageDatabaseInternal(
         properties: databaseProperties
       };
 
+      // Set is_inline based on database type
+      // "Inline" databases are embedded in the parent page
+      // "Full page" databases appear as standalone pages (is_inline = false or omitted)
+      if (config.databaseType === 'Inline') {
+        createBody.is_inline = true;
+      }
+
       const createResponse = await fetch('https://api.notion.com/v1/databases', {
         method: 'POST',
         headers: baseHeaders,
@@ -291,82 +201,144 @@ async function executeNotionManageDatabaseInternal(
 
       return await createResponse.json();
 
-    case 'query':
-    case 'search':
-      // Query/search a database
-      const filter = buildNotionFilter(config);
-      const sorts = buildNotionSorts(config);
-
-      const queryBody: any = {
-        page_size: Math.min(config.limit || 100, 100)
-      };
-
-      if (filter) {
-        queryBody.filter = filter;
-      }
-
-      if (sorts) {
-        queryBody.sorts = sorts;
-      }
-
-      const queryResponse = await fetch(`https://api.notion.com/v1/databases/${config.database}/query`, {
-        method: 'POST',
-        headers: baseHeaders,
-        body: JSON.stringify(queryBody)
-      });
-
-      if (!queryResponse.ok) {
-        const error = await queryResponse.json();
-        throw new Error(`Failed to query database: ${error.message || queryResponse.statusText}`);
-      }
-
-      const queryResult = await queryResponse.json();
-
-      return {
-        results: queryResult.results,
-        hasMore: queryResult.has_more,
-        nextCursor: queryResult.next_cursor,
-        totalResults: queryResult.results.length
-      };
-
     case 'update':
-      // Update database metadata
-      const updateBody: any = {};
+      // Check updateType to determine what to update
+      if (config.updateType === 'data') {
+        // Update database rows/entries
+        const rowUpdates = config.databaseRows || [];
+        const results = {
+          updated: 0,
+          added: 0,
+          deleted: 0,
+          errors: []
+        };
 
-      if (config.title) {
-        updateBody.title = [
-          {
-            type: 'text',
-            text: {
-              content: config.title
+        for (const row of rowUpdates) {
+          try {
+            if (row._action === 'delete' && row.id) {
+              // Archive/delete the page
+              const deleteResponse = await fetch(`https://api.notion.com/v1/pages/${row.id}`, {
+                method: 'PATCH',
+                headers: baseHeaders,
+                body: JSON.stringify({ archived: true })
+              });
+
+              if (deleteResponse.ok) {
+                results.deleted++;
+              } else {
+                const error = await deleteResponse.json();
+                results.errors.push(`Failed to delete row ${row.id}: ${error.message}`);
+              }
+            } else if (row._action === 'add' || !row.id) {
+              // Create new page in the database
+              const properties: any = {};
+
+              // Build properties from row fields
+              if (row.fields) {
+                for (const field of row.fields) {
+                  if (field.value !== undefined && field.value !== '') {
+                    // Convert field value to Notion property format
+                    properties[field.name] = convertToNotionProperty(field);
+                  }
+                }
+              }
+
+              const createPageBody = {
+                parent: { database_id: config.database },
+                properties
+              };
+
+              const createResponse = await fetch('https://api.notion.com/v1/pages', {
+                method: 'POST',
+                headers: baseHeaders,
+                body: JSON.stringify(createPageBody)
+              });
+
+              if (createResponse.ok) {
+                results.added++;
+              } else {
+                const error = await createResponse.json();
+                results.errors.push(`Failed to add row: ${error.message}`);
+              }
+            } else if (row.id) {
+              // Update existing page
+              const properties: any = {};
+
+              // Build properties from row fields
+              if (row.fields) {
+                for (const field of row.fields) {
+                  // Only include fields that have been modified or have values
+                  if (field.value !== undefined && !field.readOnly) {
+                    properties[field.name] = convertToNotionProperty(field);
+                  }
+                }
+              }
+
+              // Only update if there are properties to update
+              if (Object.keys(properties).length > 0) {
+                const updatePageBody = {
+                  properties
+                };
+
+                const updatePageResponse = await fetch(`https://api.notion.com/v1/pages/${row.id}`, {
+                  method: 'PATCH',
+                  headers: baseHeaders,
+                  body: JSON.stringify(updatePageBody)
+                });
+
+                if (updatePageResponse.ok) {
+                  results.updated++;
+                } else {
+                  const error = await updatePageResponse.json();
+                  results.errors.push(`Failed to update row ${row.id}: ${error.message}`);
+                }
+              }
             }
+          } catch (error: any) {
+            results.errors.push(`Error processing row: ${error.message}`);
           }
-        ];
-      }
+        }
 
-      if (config.description) {
-        updateBody.description = [
-          {
-            type: 'text',
-            text: {
-              content: config.description
+        return results;
+      } else {
+        // Update database metadata (title/description)
+        const updateBody: any = {};
+
+        if (config.title) {
+          updateBody.title = [
+            {
+              type: 'text',
+              text: {
+                content: config.title
+              }
             }
-          }
-        ];
+          ];
+        }
+
+        if (config.description) {
+          updateBody.description = [
+            {
+              type: 'text',
+              text: {
+                content: config.description
+              }
+            }
+          ];
+        }
+
+        const updateResponse = await fetch(`https://api.notion.com/v1/databases/${config.database}`, {
+          method: 'PATCH',
+          headers: baseHeaders,
+          body: JSON.stringify(updateBody)
+        });
+
+        if (!updateResponse.ok) {
+          const error = await updateResponse.json();
+          throw new Error(`Failed to update database: ${error.message || updateResponse.statusText}`);
+        }
+
+        return await updateResponse.json();
       }
-
-      const updateResponse = await fetch(`https://api.notion.com/v1/databases/${config.database}`, {
-        method: 'PATCH',
-        headers: baseHeaders,
-        body: JSON.stringify(updateBody)
-      });
-
-      if (!updateResponse.ok) {
-        const error = await updateResponse.json();
-        throw new Error(`Failed to update database: ${error.message || updateResponse.statusText}`);
-      }
-
-      return await updateResponse.json();
 
     case 'sync':
       // Sync database entries (simplified version)

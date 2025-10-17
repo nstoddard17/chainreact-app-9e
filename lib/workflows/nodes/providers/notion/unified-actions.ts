@@ -247,7 +247,7 @@ export const notionUnifiedActions: NodeComponent[] = [
   {
     type: "notion_action_manage_database",
     title: "Manage Database",
-    description: "Create, query, update, or sync Notion databases",
+    description: "Create databases, update database info/rows, or sync Notion databases",
     icon: Database,
     providerId: "notion",
     requiredScopes: ["content.read", "content.write"],
@@ -271,9 +271,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Database" },
-          { value: "query", label: "Search Database" },
-          { value: "update", label: "Update Database" },
-          { value: "sync", label: "Sync Database Entries" }
+          { value: "update", label: "Update Database" }
         ],
         placeholder: "Select operation",
         visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
@@ -287,11 +285,25 @@ export const notionUnifiedActions: NodeComponent[] = [
         required: true,
         placeholder: "Select a database",
         dependsOn: "workspace",
-        visibilityCondition: { 
-          field: "operation", 
-          operator: "in",
-          value: ["query", "update", "sync"]
+        visibilityCondition: {
+          field: "operation",
+          operator: "equals",
+          value: "update"
         }
+      },
+      // Sub-operation for update
+      {
+        name: "updateType",
+        label: "What to Update",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "metadata", label: "Database Info (Title/Description)" },
+          { value: "data", label: "Database Rows/Entries" }
+        ],
+        placeholder: "Select what to update",
+        visibilityCondition: { field: "operation", operator: "equals", value: "update" }
       },
       // Create database fields
       {
@@ -324,12 +336,18 @@ export const notionUnifiedActions: NodeComponent[] = [
         name: "title",
         label: "Database Title",
         type: "text",
-        required: true,
+        required: false,
         placeholder: "Enter database title",
         visibilityCondition: {
-          field: "operation",
-          operator: "in",
-          value: ["create", "update"]
+          or: [
+            { field: "operation", operator: "equals", value: "create" },
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "update" },
+                { field: "updateType", operator: "equals", value: "metadata" }
+              ]
+            }
+          ]
         }
       },
       {
@@ -339,9 +357,15 @@ export const notionUnifiedActions: NodeComponent[] = [
         required: false,
         placeholder: "Enter database description",
         visibilityCondition: {
-          field: "operation",
-          operator: "in",
-          value: ["create", "update"]
+          or: [
+            { field: "operation", operator: "equals", value: "create" },
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "update" },
+                { field: "updateType", operator: "equals", value: "metadata" }
+              ]
+            }
+          ]
         }
       },
       {
@@ -353,242 +377,22 @@ export const notionUnifiedActions: NodeComponent[] = [
         tooltip: "Define the fields (properties) your database will have. Every database needs at least one Title property.",
         visibilityCondition: { field: "operation", operator: "equals", value: "create" }
       },
-      // Query fields
+      // Database rows/data management
       {
-        name: "filterType",
-        label: "Filter Type",
-        type: "select",
+        name: "databaseRows",
+        label: "Database Rows",
+        type: "dynamic_fields",
+        dynamic: "notion_database_rows",
+        dependsOn: "database",
         required: false,
-        clearable: true,
-        options: [
-          { value: "title_contains", label: "Title Contains" },
-          { value: "title_equals", label: "Title Equals" },
-          { value: "title_starts_with", label: "Title Starts With" },
-          { value: "title_ends_with", label: "Title Ends With" },
-          { value: "created_after", label: "Created After" },
-          { value: "created_before", label: "Created Before" },
-          { value: "updated_after", label: "Last Edited After" },
-          { value: "updated_before", label: "Last Edited Before" },
-          { value: "property_equals", label: "Property Equals" },
-          { value: "property_contains", label: "Property Contains" },
-          { value: "property_checkbox", label: "Checkbox Property" },
-          { value: "property_select", label: "Select Property" },
-          { value: "property_multi_select", label: "Multi-Select Property" },
-          { value: "property_number", label: "Number Property" },
-          { value: "property_date", label: "Date Property" },
-          { value: "property_people", label: "People Property" },
-          { value: "custom_json", label: "Custom JSON Filter" }
-        ],
-        placeholder: "Select filter type",
-        visibilityCondition: { field: "operation", operator: "equals", value: "query" }
-      },
-      // Title filter fields
-      {
-        name: "titleFilterValue",
-        label: "Title Value",
-        type: "text",
-        required: false,
-        placeholder: "Enter title to search for",
+        placeholder: "Loading database entries...",
+        description: "View and manage all rows in this database. You can add new rows, edit existing ones, or delete them.",
         visibilityCondition: {
-          field: "filterType",
-          operator: "in",
-          value: ["title_contains", "title_equals", "title_starts_with", "title_ends_with"]
+          and: [
+            { field: "operation", operator: "equals", value: "update" },
+            { field: "updateType", operator: "equals", value: "data" }
+          ]
         }
-      },
-      // Date filter fields
-      {
-        name: "dateFilterValue",
-        label: "Date",
-        type: "date",
-        required: false,
-        placeholder: "Select date",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "in",
-          value: ["created_after", "created_before", "updated_after", "updated_before"]
-        }
-      },
-      // Property filter fields
-      {
-        name: "propertyName",
-        label: "Property Name",
-        type: "text",
-        required: false,
-        placeholder: "Enter property name",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "in",
-          value: ["property_equals", "property_contains", "property_checkbox", "property_select",
-                  "property_multi_select", "property_number", "property_date", "property_people"]
-        }
-      },
-      {
-        name: "propertyValue",
-        label: "Property Value",
-        type: "text",
-        required: false,
-        placeholder: "Enter property value",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "in",
-          value: ["property_equals", "property_contains", "property_select"]
-        }
-      },
-      {
-        name: "propertyCheckboxValue",
-        label: "Checkbox Value",
-        type: "select",
-        required: false,
-        options: [
-          { value: "true", label: "Checked" },
-          { value: "false", label: "Unchecked" }
-        ],
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_checkbox"
-        }
-      },
-      {
-        name: "propertyMultiSelectValues",
-        label: "Select Values",
-        type: "tag-input",
-        required: false,
-        placeholder: "Enter values (press Enter after each)",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_multi_select"
-        }
-      },
-      {
-        name: "propertyNumberValue",
-        label: "Number Value",
-        type: "number",
-        required: false,
-        placeholder: "Enter number",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_number"
-        }
-      },
-      {
-        name: "propertyNumberOperator",
-        label: "Number Operator",
-        type: "select",
-        required: false,
-        options: [
-          { value: "equals", label: "Equals" },
-          { value: "does_not_equal", label: "Does Not Equal" },
-          { value: "greater_than", label: "Greater Than" },
-          { value: "less_than", label: "Less Than" },
-          { value: "greater_than_or_equal_to", label: "Greater Than or Equal" },
-          { value: "less_than_or_equal_to", label: "Less Than or Equal" }
-        ],
-        defaultValue: "equals",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_number"
-        }
-      },
-      {
-        name: "propertyDateValue",
-        label: "Date Value",
-        type: "date",
-        required: false,
-        placeholder: "Select date",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_date"
-        }
-      },
-      {
-        name: "propertyDateOperator",
-        label: "Date Operator",
-        type: "select",
-        required: false,
-        options: [
-          { value: "equals", label: "On" },
-          { value: "before", label: "Before" },
-          { value: "after", label: "After" },
-          { value: "on_or_before", label: "On or Before" },
-          { value: "on_or_after", label: "On or After" },
-          { value: "past_week", label: "Past Week" },
-          { value: "past_month", label: "Past Month" },
-          { value: "past_year", label: "Past Year" },
-          { value: "next_week", label: "Next Week" },
-          { value: "next_month", label: "Next Month" },
-          { value: "next_year", label: "Next Year" }
-        ],
-        defaultValue: "equals",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_date"
-        }
-      },
-      {
-        name: "propertyPeopleValue",
-        label: "Person Email",
-        type: "text",
-        required: false,
-        placeholder: "Enter email address",
-        visibilityCondition: {
-          field: "filterType",
-          operator: "equals",
-          value: "property_people"
-        }
-      },
-      // Custom JSON filter
-      {
-        name: "customFilter",
-        label: "Custom Filter (JSON)",
-        type: "json",
-        required: false,
-        placeholder: "Enter custom filter conditions in Notion API format",
-        visibilityCondition: { field: "filterType", operator: "equals", value: "custom_json" }
-      },
-      // Sort fields
-      {
-        name: "sortBy",
-        label: "Sort By",
-        type: "select",
-        required: false,
-        clearable: true,
-        options: [
-          { value: "created_time", label: "Created Time" },
-          { value: "last_edited_time", label: "Last Edited Time" },
-          { value: "title", label: "Title" }
-        ],
-        placeholder: "Select sort field",
-        visibilityCondition: { field: "operation", operator: "equals", value: "query" }
-      },
-      {
-        name: "sortDirection",
-        label: "Sort Direction",
-        type: "select",
-        required: false,
-        options: [
-          { value: "ascending", label: "Ascending" },
-          { value: "descending", label: "Descending" }
-        ],
-        defaultValue: "ascending",
-        visibilityCondition: {
-          field: "sortBy",
-          operator: "isNotEmpty"
-        }
-      },
-      {
-        name: "limit",
-        label: "Maximum Results",
-        type: "number",
-        required: false,
-        defaultValue: 100,
-        placeholder: "Maximum number of results (default: 100)",
-        visibilityCondition: { field: "operation", operator: "equals", value: "query" }
       },
       // Sync fields
       {
@@ -695,98 +499,6 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "User",
         type: "object",
         description: "User details (for get operation)"
-      }
-    ]
-  },
-
-  // ============= GET PAGES FROM DATABASE =============
-  {
-    type: "notion_action_get_pages",
-    title: "Get Pages from Database",
-    description: "Retrieve pages from a specific Notion database with filtering and sorting",
-    icon: Layers,
-    providerId: "notion",
-    requiredScopes: ["content.read"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "workspace",
-        label: "Workspace",
-        type: "select",
-        dynamic: "notion_workspaces",
-        required: true,
-        placeholder: "Select Notion workspace",
-        loadOnMount: true
-      },
-      {
-        name: "database",
-        label: "Database",
-        type: "select",
-        dynamic: "notion_databases",
-        required: true,
-        placeholder: "Select a database",
-        dependsOn: "workspace"
-      },
-      {
-        name: "filterProperty",
-        label: "Filter by Property (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "Property name to filter by"
-      },
-      {
-        name: "filterValue",
-        label: "Filter Value",
-        type: "text",
-        required: false,
-        placeholder: "Value to match"
-      },
-      {
-        name: "sortProperty",
-        label: "Sort by Property (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "Property name to sort by"
-      },
-      {
-        name: "sortDirection",
-        label: "Sort Direction",
-        type: "select",
-        required: false,
-        options: [
-          { value: "ascending", label: "Ascending" },
-          { value: "descending", label: "Descending" }
-        ],
-        defaultValue: "ascending"
-      },
-      {
-        name: "limit",
-        label: "Maximum Results",
-        type: "number",
-        required: false,
-        defaultValue: 100,
-        placeholder: "Maximum number of pages to retrieve"
-      }
-    ],
-    outputSchema: [
-      {
-        name: "pages",
-        label: "Pages",
-        type: "array",
-        description: "Array of pages from the database"
-      },
-      {
-        name: "count",
-        label: "Count",
-        type: "number",
-        description: "Number of pages retrieved"
-      },
-      {
-        name: "hasMore",
-        label: "Has More",
-        type: "boolean",
-        description: "Whether there are more pages available"
       }
     ]
   }

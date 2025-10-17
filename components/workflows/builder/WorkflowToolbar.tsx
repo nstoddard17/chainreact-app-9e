@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -31,7 +31,6 @@ interface WorkflowToolbarProps {
   isSaving: boolean
   isExecuting: boolean
   listeningMode: boolean
-  getWorkflowStatus: () => { text: string; variant: "default" | "secondary" | "outline" | "destructive" }
   handleSave: () => Promise<void>
   handleExecute: () => void
   handleResetLoadingStates: () => void
@@ -73,14 +72,13 @@ interface WorkflowToolbarProps {
   deleteSelectedEdge?: () => void
 }
 
-export function WorkflowToolbar({
+const WorkflowToolbarComponent = function WorkflowToolbar({
   workflowName,
   setWorkflowName,
   hasUnsavedChanges,
   isSaving,
   isExecuting,
   listeningMode,
-  getWorkflowStatus,
   handleSave,
   handleExecute,
   handleResetLoadingStates,
@@ -128,14 +126,85 @@ export function WorkflowToolbar({
   const [isSharing, setIsSharing] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
 
-  // Memoize workflow status to prevent creating new objects on every render
-  const workflowStatusInfo = React.useMemo(() => getWorkflowStatus(), [getWorkflowStatus])
+  // Compute workflow status based on state
+  const workflowStatusInfo = React.useMemo(() => {
+    if (isExecuting) return { text: "Executing", variant: "default" as const }
+    if (isSaving) return { text: "Saving", variant: "secondary" as const }
+    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
+    return { text: "Saved", variant: "secondary" as const }
+  }, [isExecuting, isSaving, hasUnsavedChanges])
 
   // Memoize input width calculation
   const inputWidth = React.useMemo(() =>
     `${Math.max(200, (workflowName?.length || 0) * 10 + 20)}px`,
     [workflowName]
   )
+
+  // Memoize all button click handlers to prevent creating new functions on every render
+  const handleBackClick = React.useCallback(() => {
+    handleNavigation("/workflows")
+  }, [handleNavigation])
+
+  const handleWorkflowNameChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setWorkflowName(e.target.value)
+  }, [setWorkflowName])
+
+  const handleToggleSandboxPreview = React.useCallback(() => {
+    if (setShowSandboxPreview) {
+      setShowSandboxPreview(prev => !prev)
+    }
+  }, [setShowSandboxPreview])
+
+  const handleOpenExecutionHistory = React.useCallback(() => {
+    if (setShowExecutionHistory) {
+      setShowExecutionHistory(true)
+    }
+  }, [setShowExecutionHistory])
+
+  const handleOpenShareModal = React.useCallback(() => {
+    setShowShareModal(true)
+  }, [])
+
+  const handleOpenAnalytics = React.useCallback(() => {
+    setShowAnalytics(true)
+  }, [])
+
+  const handleOpenDeleteConfirm = React.useCallback(() => {
+    setShowDeleteConfirm(true)
+  }, [])
+
+  const handleCloseDeleteConfirm = React.useCallback(() => {
+    setShowDeleteConfirm(false)
+  }, [])
+
+  const handleCloseShareModal = React.useCallback(() => {
+    setShowShareModal(false)
+    setShareEmail('')
+  }, [])
+
+  const handleCloseAnalytics = React.useCallback(() => {
+    setShowAnalytics(false)
+  }, [])
+
+  const handleDuplicateClick = React.useCallback(() => {
+    if (workflowId) {
+      duplicateWorkflow(workflowId)
+    }
+  }, [workflowId, duplicateWorkflow])
+
+  const handleConfirmDelete = React.useCallback(() => {
+    if (workflowId) {
+      deleteWorkflow(workflowId)
+      setShowDeleteConfirm(false)
+    }
+  }, [workflowId, deleteWorkflow])
+
+  const handleViewFullHistory = React.useCallback(() => {
+    if (setShowExecutionHistory) {
+      setShowExecutionHistory(true)
+      setShowAnalytics(false)
+    }
+  }, [setShowExecutionHistory])
 
   // Memoize Airtable panel handler
   const handleOpenAirtableSetup = React.useCallback(() => {
@@ -187,14 +256,13 @@ export function WorkflowToolbar({
   }
 
   return (
-    <TooltipProvider>
       <div className="absolute top-0 left-0 right-0 z-10 pointer-events-none">
         <div className="flex justify-between items-start p-4 pointer-events-auto">
         <div className="flex items-center space-x-4 flex-1 min-w-0">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleNavigation("/workflows")}
+            onClick={handleBackClick}
             className="flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -203,7 +271,7 @@ export function WorkflowToolbar({
             <div className="flex flex-col space-y-1 flex-1 min-w-0">
               <Input
                 value={workflowName}
-                onChange={(e) => setWorkflowName(e.target.value)}
+                onChange={handleWorkflowNameChange}
                 onBlur={handleSave}
                 className="text-xl font-semibold !border-none !outline-none !ring-0 p-0 bg-transparent w-auto min-w-[200px] max-w-full"
                 style={{
@@ -506,7 +574,7 @@ export function WorkflowToolbar({
                     <Button
                       variant={showSandboxPreview ? "default" : "outline"}
                       size="icon"
-                      onClick={() => setShowSandboxPreview(!showSandboxPreview)}
+                      onClick={handleToggleSandboxPreview}
                       className="relative"
                     >
                       <Shield className="w-5 h-5" />
@@ -541,7 +609,7 @@ export function WorkflowToolbar({
               {workflowId && setShowExecutionHistory && (
                 <>
                   <DropdownMenuItem
-                    onClick={() => setShowExecutionHistory(true)}
+                    onClick={handleOpenExecutionHistory}
                   >
                     <History className="w-4 h-4 mr-2" />
                     View History
@@ -559,31 +627,27 @@ export function WorkflowToolbar({
                 </>
               )}
               <DropdownMenuItem
-                onClick={() => setShowShareModal(true)}
+                onClick={handleOpenShareModal}
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Workflow
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => {
-                  if (workflowId) {
-                    duplicateWorkflow(workflowId)
-                  }
-                }}
+                onClick={handleDuplicateClick}
                 disabled={isDuplicating}
               >
                 <Copy className="w-4 h-4 mr-2" />
                 {isDuplicating ? 'Duplicating...' : 'Duplicate Workflow'}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setShowAnalytics(true)}
+                onClick={handleOpenAnalytics}
               >
                 <BarChart3 className="w-4 h-4 mr-2" />
                 View Analytics
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={handleOpenDeleteConfirm}
                 disabled={isDeleting}
                 className="text-destructive focus:text-destructive"
               >
@@ -628,18 +692,13 @@ export function WorkflowToolbar({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDeleteConfirm(false)}
+              onClick={handleCloseDeleteConfirm}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                if (workflowId) {
-                  deleteWorkflow(workflowId)
-                  setShowDeleteConfirm(false)
-                }
-              }}
+              onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
               {isDeleting ? (
@@ -687,10 +746,7 @@ export function WorkflowToolbar({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setShowShareModal(false)
-                setShareEmail('')
-              }}
+              onClick={handleCloseShareModal}
             >
               Cancel
             </Button>
@@ -794,17 +850,12 @@ export function WorkflowToolbar({
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowAnalytics(false)}
+              onClick={handleCloseAnalytics}
             >
               Close
             </Button>
             <Button
-              onClick={() => {
-                if (setShowExecutionHistory) {
-                  setShowExecutionHistory(true)
-                  setShowAnalytics(false)
-                }
-              }}
+              onClick={handleViewFullHistory}
             >
               <History className="w-4 h-4 mr-2" />
               View Full History
@@ -813,6 +864,8 @@ export function WorkflowToolbar({
         </DialogContent>
       </Dialog>
       </div>
-    </TooltipProvider>
   )
 }
+
+// Wrap in React.memo to prevent unnecessary re-renders from parent
+export const WorkflowToolbar = React.memo(WorkflowToolbarComponent)

@@ -13,6 +13,8 @@ import { SlackTriggerLifecycle } from './providers/SlackTriggerLifecycle'
 import { GoogleApisTriggerLifecycle } from './providers/GoogleApisTriggerLifecycle'
 import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
+import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
+import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -88,8 +90,23 @@ triggerLifecycleManager.registerProvider({
   description: 'Shopify webhooks for orders, products, and inventory'
 })
 
+// Register Notion provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'notion',
+  lifecycle: new NotionTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Notion webhooks for page and database triggers (manual setup required)'
+})
+
+// Register HubSpot provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'hubspot',
+  lifecycle: new HubSpotTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'HubSpot webhook subscriptions for CRM object events'
+})
+
 // TODO: Register remaining providers:
-// - HubSpot
 // - Dropbox
 // - Trello
 // - Mailchimp

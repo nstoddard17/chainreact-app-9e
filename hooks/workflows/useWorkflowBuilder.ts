@@ -2529,7 +2529,7 @@ export function useWorkflowBuilder() {
       // If we are still saving after the timeout, force-clear and notify
       setIsSaving(false)
       logger.warn('[Workflow Builder] Save operation took too long; clearing loading state')
-    }, 20000)
+    }, 60000) // Increased to 60s for workflows with complex webhook operations
     return () => clearTimeout(timeoutId)
   }, [isSaving])
 
@@ -3352,13 +3352,6 @@ export function useWorkflowBuilder() {
     dialogsHook.setShowTriggerDialog(true)
   }, [dialogsHook])
 
-  const getWorkflowStatus = useCallback(() => {
-    if (executionHook.isExecuting) return { text: "Executing", variant: "default" as const }
-    if (isSaving) return { text: "Saving", variant: "secondary" as const }
-    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
-    return { text: "Saved", variant: "secondary" as const }
-  }, [executionHook.isExecuting, isSaving, hasUnsavedChanges])
-
   const nodeNeedsConfiguration = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)
     if (!node || !node.data?.nodeComponent) return false
@@ -3887,7 +3880,6 @@ export function useWorkflowBuilder() {
     handleNodeRename,
     handleNodeAddChain,
     openTriggerDialog,
-    getWorkflowStatus,
     nodeNeedsConfiguration,
     confirmDeleteNode,
     forceUpdate,

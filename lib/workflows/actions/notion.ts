@@ -134,7 +134,7 @@ export async function createNotionDatabase(
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": "2025-09-03",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -262,7 +262,7 @@ export async function createNotionPage(
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": "2025-09-03",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -361,7 +361,7 @@ export async function updateNotionPage(
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": "2025-09-03",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)
@@ -427,7 +427,7 @@ export async function searchNotionPages(
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": "2025-09-03",
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload)

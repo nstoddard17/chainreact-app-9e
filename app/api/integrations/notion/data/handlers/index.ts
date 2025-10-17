@@ -13,6 +13,7 @@ import { getNotionTeamspaces } from './teamspaces'
 import { getNotionPageBlocks } from './pageBlocks'
 import { getNotionDatabaseFields } from './databaseFields'
 import { getNotionDatabaseMetadata } from './databaseMetadata'
+import { getNotionDatabaseRows } from './databaseRows'
 
 export const notionHandlers: Record<string, NotionDataHandler> = {
   // Direct mappings for cleaner API
@@ -25,6 +26,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   properties: getNotionDatabaseProperties,
   database_fields: getNotionDatabaseFields,
   database_metadata: getNotionDatabaseMetadata,
+  database_rows: getNotionDatabaseRows,
   blocks: getNotionPageBlocks,
   page_blocks: getNotionPageBlocks,
   filter_types: () => Promise.resolve([
@@ -60,5 +62,6 @@ export {
   getNotionTeamspaces,
   getNotionDatabaseProperties,
   getNotionDatabaseFields,
+  getNotionDatabaseRows,
   getNotionPageBlocks,
 }

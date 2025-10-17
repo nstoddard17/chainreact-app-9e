@@ -40,8 +40,14 @@ export class GmailIntegrationService {
   private async executeSendEmail(node: any, context: ExecutionContext) {
     logger.debug("📧 Executing Gmail send email")
     logger.debug("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
-    
+
+    // CRITICAL DEBUG - will show in console
+    console.error('[DEBUG] GmailIntegrationService.executeSendEmail called')
+    console.error('[DEBUG] context.data keys:', Object.keys(context.data || {}))
+    console.error('[DEBUG] Does context.data contain action-1760677115194?', !!(context.data && context.data['action-1760677115194']))
+
     const config = node.data.config || {}
+    console.error('[DEBUG] config.to BEFORE resolve:', config.to)
     
     // Debug raw config
     logger.debug('📧 [GmailIntegrationService] Raw config:', {
@@ -87,6 +93,9 @@ export class GmailIntegrationService {
       attachments: resolvedConfig.attachments
     });
 
+    console.error('[DEBUG] resolvedConfig.to AFTER resolve:', resolvedConfig.to)
+    console.error('[DEBUG] resolvedConfig.body AFTER resolve:', resolvedConfig.body)
+
     if (!resolvedConfig.to || !resolvedConfig.subject) {
       throw new Error("Gmail send email requires 'to' and 'subject' fields")
     }
@@ -113,6 +122,11 @@ export class GmailIntegrationService {
       userId: context.userId, // Pass the userId from context
       input: context.data || {} // Pass context data as input
     })
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to send Gmail email')
+    }
 
     return result.output || result
   }
@@ -147,7 +161,12 @@ export class GmailIntegrationService {
       context.userId, // Pass the userId directly from context
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to search Gmail emails')
+    }
+
     return result
   }
 
@@ -179,7 +198,12 @@ export class GmailIntegrationService {
       context.userId, // Pass the userId directly from context
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch Gmail message')
+    }
+
     return result
   }
 
@@ -216,7 +240,12 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to add Gmail label')
+    }
+
     return result
   }
 
@@ -253,7 +282,12 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to remove Gmail label')
+    }
+
     return result
   }
 
@@ -288,7 +322,12 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to mark Gmail message as read')
+    }
+
     return result
   }
 
@@ -323,7 +362,12 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to mark Gmail message as unread')
+    }
+
     return result
   }
 
@@ -358,7 +402,12 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to archive Gmail message')
+    }
+
     return result
   }
 
@@ -393,14 +442,79 @@ export class GmailIntegrationService {
       context.userId,
       context.data || {}
     )
-    
+
+    // Check if the action failed and throw error
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to delete Gmail message')
+    }
+
     return result
   }
 
   private resolveValue(value: any, context: ExecutionContext): any {
-    if (typeof value === 'string' && context.dataFlowManager) {
-      return context.dataFlowManager.resolveVariable(value)
+    // Try dataFlowManager first if available
+    if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+      if (context.dataFlowManager && typeof context.dataFlowManager.resolveVariable === 'function') {
+        return context.dataFlowManager.resolveVariable(value)
+      }
+
+      // Fallback: manual variable resolution using context.data
+      // Check if it's a single variable (entire value is {{...}})
+      const singleMatch = value.match(/^{{([^.]+)\.(.+)}}$/)
+      if (singleMatch && context.data) {
+        const [, nodeId, fieldPath] = singleMatch
+        const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
+        if (resolved !== undefined) {
+          logger.debug(`✅ Resolved ${value} to:`, resolved)
+          return resolved
+        }
+      }
+
+      // Handle embedded variables (e.g., "Hello {{name}}, your email is {{email}}")
+      let resolvedValue = value
+      resolvedValue = resolvedValue.replace(/{{([^.]+)\.([^}]+)}}/g, (match, nodeId, fieldPath) => {
+        const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
+        if (resolved !== undefined) {
+          logger.debug(`✅ Resolved ${match} to:`, resolved)
+          return String(resolved)
+        }
+        logger.warn(`⚠️ Could not resolve variable: ${match}`)
+        return match // Keep original if can't resolve
+      })
+
+      return resolvedValue
     }
+
     return value
+  }
+
+  private resolveVariablePath(nodeId: string, fieldPath: string, data: any): any {
+    if (!data || !data[nodeId]) {
+      return undefined
+    }
+
+    // Navigate through the field path
+    const fields = fieldPath.split('.')
+    let result = data[nodeId]
+
+    for (const field of fields) {
+      if (result && typeof result === 'object') {
+        // Check direct property
+        if (result[field] !== undefined) {
+          result = result[field]
+        }
+        // Check in output property
+        else if (result.output && result.output[field] !== undefined) {
+          result = result.output[field]
+        }
+        else {
+          return undefined
+        }
+      } else {
+        return undefined
+      }
+    }
+
+    return result
   }
 }

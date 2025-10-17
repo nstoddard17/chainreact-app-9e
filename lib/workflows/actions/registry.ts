@@ -521,7 +521,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     notionSyncDatabaseEntries(params.config, params.userId, params.input),
   "notion_action_get_page_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
     notionGetPageDetails(params.config, params.userId, params.input),
-  "notion_action_get_pages": createExecutionContextWrapper(notionGetPages),
 
   // GitHub actions - wrapped to handle new calling convention
   "github_action_create_issue": (params: { config: any; userId: string; input: Record<string, any> }) =>

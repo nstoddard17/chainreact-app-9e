@@ -2,6 +2,41 @@
 
 import { buildVariableReference, normalizeVariableExpression } from "./variableReferences"
 
+/**
+ * Create a human-readable alias for a variable reference
+ * Converts {{trigger-1760405356297.userId}} → {{Gmail Trigger: User ID}}
+ */
+export function createVariableAlias(variableRef: string, nodeTitle?: string, outputLabel?: string): string {
+  // If already has braces, remove them
+  const inner = variableRef.startsWith('{{') && variableRef.endsWith('}}')
+    ? variableRef.slice(2, -2)
+    : variableRef
+
+  // Parse the variable reference to get node ID and field
+  const parts = inner.split('.')
+
+  if (nodeTitle && outputLabel) {
+    // Use provided metadata
+    return `{{${nodeTitle}: ${outputLabel}}}`
+  }
+
+  // Fallback: Clean up the technical names
+  if (parts.length >= 2) {
+    const fieldName = parts[parts.length - 1]
+    // Convert camelCase or snake_case to Title Case
+    const cleanField = fieldName
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, l => l.toUpperCase())
+      .trim()
+
+    return `{{${cleanField}}}`
+  }
+
+  // If can't parse, return as-is
+  return variableRef
+}
+
 export function insertVariableIntoTextInput(
   element: HTMLInputElement | HTMLTextAreaElement,
   variable: string,

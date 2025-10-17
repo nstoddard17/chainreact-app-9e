@@ -31,6 +31,8 @@ export function OutlookEmailField({
   onDynamicLoad,
 }: OutlookEmailFieldProps) {
   const hasRequestedOptionsRef = React.useRef(false);
+  // Store variable aliases for display
+  const [variableOptions, setVariableOptions] = React.useState<Array<{value: string, label: string}>>([]);
 
   const suggestionCount = Array.isArray(suggestions) ? suggestions.length : 0;
   const normalizedSuggestions = Array.isArray(suggestions) ? suggestions : [];
@@ -45,7 +47,7 @@ export function OutlookEmailField({
       onDynamicLoad(field.name);
     }
   }, [field.dynamic, field.name, onDynamicLoad, isLoading, suggestionCount]);
-  
+
 
   // Outlook-specific loading behavior
   const handleEmailFieldFocus = () => {
@@ -94,7 +96,9 @@ export function OutlookEmailField({
     return error;
   };
 
-  const processedOptions = processOutlookOptions(normalizedSuggestions);
+  // Combine regular options with variable options
+  const processedOutlookOptions = processOutlookOptions(normalizedSuggestions);
+  const processedOptions = [...processedOutlookOptions, ...variableOptions];
   const processedError = error ? handleOutlookError(error) : undefined;
 
   // Convert comma-separated string to array and back (same as Gmail)
@@ -121,6 +125,59 @@ export function OutlookEmailField({
     }
   };
 
+  // Handle variable drops
+  const handleVariableDrop = React.useCallback((e: React.DragEvent) => {
+    // Extract variable and alias from drag data
+    const jsonData = e.dataTransfer.getData('application/json')
+    let droppedText = e.dataTransfer.getData('text/plain')
+    let alias: string | null = null
+
+    if (jsonData) {
+      try {
+        const parsed = JSON.parse(jsonData)
+        if (parsed.variable) {
+          droppedText = parsed.variable
+        }
+        if (parsed.alias) {
+          alias = parsed.alias
+        }
+      } catch (err) {
+        logger.warn('[OutlookEmailField] Failed to parse JSON drag data:', err)
+      }
+    }
+
+    logger.debug('📧 [OutlookEmailField] Variable dropped:', {
+      fieldName: field.name,
+      droppedText,
+      alias,
+      isVariable: droppedText.startsWith('{{') && droppedText.endsWith('}}')
+    })
+
+    // Check if it's a variable reference
+    if (droppedText && droppedText.startsWith('{{') && droppedText.endsWith('}}')) {
+      // Add the variable to the options list with its alias as the label
+      const displayLabel = alias || droppedText
+      setVariableOptions(prev => {
+        // Check if this variable is already in the options
+        const exists = prev.some(opt => opt.value === droppedText)
+        if (exists) return prev
+
+        return [...prev, { value: droppedText, label: displayLabel }]
+      })
+
+      // Add the variable to the current values
+      onChange(value ? `${value}, ${droppedText}` : droppedText)
+
+      logger.debug('✅ [OutlookEmailField] Variable accepted:', {
+        fieldName: field.name,
+        variable: droppedText,
+        alias,
+        displayLabel,
+        newValue: value ? `${value}, ${droppedText}` : droppedText
+      })
+    }
+  }, [field.name, value, onChange])
+
   return (
     <div className="relative">
       <MultiCombobox
@@ -133,6 +190,7 @@ export function OutlookEmailField({
         disabled={isLoading}
         creatable={!isLoading} // Only allow typing new addresses when not loading
         onOpenChange={handleDropdownOpen}
+        onDrop={handleVariableDrop}
         className={cn(
           error && "border-red-500",
           isLoading && "opacity-70"
