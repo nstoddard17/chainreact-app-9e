@@ -1,7 +1,15 @@
-"use client"
+import AppLayout from "@/components/layout/AppLayout"
+import { HomeContent } from "@/components/new-design/HomeContent"
+import { requireUsername } from "@/utils/checkUsername"
 
-import { NewHomepage } from "@/components/new-design/NewHomepage"
+export const dynamic = 'force-dynamic'
 
-export default function NewDesignPreview() {
-  return <NewHomepage />
+export default async function NewHomePage() {
+  await requireUsername()
+
+  return (
+    <AppLayout title="Workflows" subtitle="Build and manage your automations">
+      <HomeContent />
+    </AppLayout>
+  )
 }
