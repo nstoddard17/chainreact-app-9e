@@ -42,11 +42,10 @@ export const notionNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
-      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, dependsOn: "workspace" }
     ],
     outputSchema: [
       { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
       { name: "title", label: "Title", type: "string", description: "The title of the page" },
       { name: "changedProperties", label: "Changed Properties", type: "object", description: "The properties that were changed" },
       { name: "updatedAt", label: "Updated At", type: "string", description: "When the page was updated" },
