@@ -39,9 +39,11 @@ export function useVariableDropTarget({
   }, [elementRef, fieldId, fieldLabel, onInsert, setActiveField])
 
   const blurField = useCallback(() => {
-    clearActiveField(fieldId)
+    // Don't clear activeField on blur - keep it active until another field is focused
+    // or the modal is closed. This allows clicking variables without losing the active field.
+    // clearActiveField(fieldId)
     setIsDragOver(false)
-  }, [clearActiveField, fieldId])
+  }, [fieldId])
 
   const handleDragOver = useCallback((event: DragEvent) => {
     if (!elementRef.current) return

@@ -228,12 +228,6 @@ export function VariablePickerSidePanel({
       inDegree.set(target, (inDegree.get(target) || 0) + 1)
     })
 
-    logger.debug('📊 [VARIABLES] Topological sort input:', {
-      nodeIds,
-      edges: workflowData.edges.map((e: any) => ({ source: e.source, target: e.target })),
-      inDegrees: Array.from(inDegree.entries())
-    })
-
     // Queue with nodes that have no incoming edges (starts with triggers)
     const queue: string[] = []
     inDegree.forEach((degree, nodeId) => {
@@ -392,12 +386,6 @@ export function VariablePickerSidePanel({
 
       // Sort nodes by workflow execution order (topological sort)
       const topologicalOrder = getTopologicalOrder()
-
-      logger.debug('📊 [VARIABLES] Topological order:', {
-        topologicalOrder,
-        filteredNodeIds: filteredNodes.map(n => ({ id: n.id, title: n.title, isTrigger: n.isTrigger }))
-      })
-
       const sortedNodes = [...filteredNodes].sort((a, b) => {
         const aIndex = topologicalOrder.indexOf(a.id)
         const bIndex = topologicalOrder.indexOf(b.id)
@@ -415,16 +403,11 @@ export function VariablePickerSidePanel({
         return 0
       })
 
-      logger.debug('📊 [VARIABLES] Sorted nodes:', sortedNodes.map(n => ({ id: n.id, title: n.title, isTrigger: n.isTrigger })))
-
       return sortedNodes;
     }
     
     // Sort all nodes when no currentNodeId (show all)
     const topologicalOrder = getTopologicalOrder()
-    console.log('📊 Topological Order:', topologicalOrder)
-    console.log('📊 All Nodes BEFORE sort:', allNodes.map(n => ({ id: n.id, title: n.title })))
-
     const sortedAllNodes = [...allNodes].sort((a, b) => {
       const aIndex = topologicalOrder.indexOf(a.id)
       const bIndex = topologicalOrder.indexOf(b.id)
@@ -438,8 +421,6 @@ export function VariablePickerSidePanel({
 
       return 0
     })
-
-    console.log('📊 All Nodes AFTER sort:', sortedAllNodes.map(n => ({ id: n.id, title: n.title })))
 
     return sortedAllNodes;
   }, [workflowData, currentNodeId, getRelevantOutputs, getTopologicalOrder])
@@ -537,7 +518,7 @@ export function VariablePickerSidePanel({
     if (onVariableSelect) {
       // Try to resolve the actual value using our new resolution system
       const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
-      
+
       if (resolvedValue !== variable) {
         // Pass the actual resolved value
         onVariableSelect(resolvedValue)
