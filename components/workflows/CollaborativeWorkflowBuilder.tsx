@@ -32,6 +32,7 @@ import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { ArrowLeft } from "lucide-react"
 
 import { logger } from '@/lib/utils/logger'
@@ -239,18 +240,36 @@ function WorkflowBuilderContent() {
     return nodes.find((node) => node.id === configuringNode.id) || null
   }, [configuringNode, nodes])
 
-  const getWorkflowStatus = React.useCallback(() => {
-    if (isExecuting) return { text: "Executing", variant: "default" as const }
-    if (isSaving) return { text: "Saving", variant: "secondary" as const }
-    if (hasUnsavedChanges) return { text: "Draft", variant: "outline" as const }
-    return { text: "Saved", variant: "secondary" as const }
-  }, [isExecuting, isSaving, hasUnsavedChanges])
+  // Memoize handlers to prevent creating new function references on every render
+  // Use refs to access latest values without causing re-renders
+  const nodesRef = React.useRef(nodes)
+  const edgesRef = React.useRef(edges)
+  const hasUnsavedChangesRef = React.useRef(hasUnsavedChanges)
+
+  React.useEffect(() => {
+    nodesRef.current = nodes
+    edgesRef.current = edges
+    hasUnsavedChangesRef.current = hasUnsavedChanges
+  }, [nodes, edges, hasUnsavedChanges])
+
+  const handleExecuteCallback = React.useCallback(() => {
+    handleExecute(nodesRef.current, edgesRef.current)
+  }, [handleExecute])
+
+  const handleNavigationCallback = React.useCallback((href: string) => {
+    handleNavigation(hasUnsavedChangesRef.current, href)
+  }, [handleNavigation])
+
+  const handleOpenTemplateSettings = React.useCallback(() => {
+    setIsTemplateSettingsOpen(true)
+  }, [])
 
   if (isLoading) {
     return <WorkflowLoadingScreen />
   }
 
   return (
+    <TooltipProvider>
     <div style={{ height: "100vh", position: "relative" }}>
       {/* Top Toolbar */}
       <WorkflowToolbar
@@ -260,11 +279,10 @@ function WorkflowBuilderContent() {
         isSaving={isSaving}
         isExecuting={isExecuting}
         listeningMode={listeningMode}
-        getWorkflowStatus={getWorkflowStatus}
         handleSave={handleSave}
-        handleExecute={() => handleExecute(nodes, edges)}
+        handleExecute={handleExecuteCallback}
         handleResetLoadingStates={handleResetLoadingStates}
-        handleNavigation={(href) => handleNavigation(hasUnsavedChanges, href)}
+        handleNavigation={handleNavigationCallback}
         workflowStatus={currentWorkflow?.status}
         handleToggleLive={handleToggleLive}
         isUpdatingStatus={isUpdatingStatus}
@@ -295,7 +313,7 @@ function WorkflowBuilderContent() {
         canRedo={canRedo}
         selectedEdgeId={selectedEdgeId}
         deleteSelectedEdge={deleteSelectedEdge}
-        onOpenTemplateSettings={isTemplateEditing ? () => setIsTemplateSettingsOpen(true) : undefined}
+        onOpenTemplateSettings={isTemplateEditing ? handleOpenTemplateSettings : undefined}
         templateSettingsLabel={templateSettingsLabel}
       />
 
@@ -1553,6 +1571,7 @@ function WorkflowBuilderContent() {
         isRunning={isRunningPreflight}
       />
     </div>
+    </TooltipProvider>
   )
 }
 

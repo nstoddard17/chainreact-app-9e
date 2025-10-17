@@ -1,5 +1,7 @@
 import { ExecutionContext } from '@/types/workflow';
 import { ActionResult } from '@/lib/workflows/actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { decrypt } from '@/lib/security/encryption';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -10,11 +12,10 @@ async function executeNotionManageUsersInternal(
   context: ExecutionContext,
   config: any
 ): Promise<any> {
-  const { operation, userId, includeGuests } = config;
+  const { operation, userId, includeGuests, workspace: workspaceId } = config;
 
-  // Get the Notion integration
-  const { createClient } = await import('@/utils/supabaseClient');
-  const supabase = createClient();
+  // Get the Notion integration using admin client
+  const supabase = createAdminClient();
 
   const { data: integration, error: integrationError } = await supabase
     .from('integrations')
@@ -28,8 +29,20 @@ async function executeNotionManageUsersInternal(
     throw new Error('Notion integration not found or not connected');
   }
 
+  // Get the workspace access token from integration metadata
+  const workspaces = integration.metadata?.workspaces || {};
+  const workspace = workspaces[workspaceId];
+
+  if (!workspace) {
+    throw new Error(`Workspace ${workspaceId} not found in integration`);
+  }
+
+  // Decrypt the access token
+  const encryptionKey = process.env.ENCRYPTION_KEY!;
+  const accessToken = decrypt(workspace.access_token, encryptionKey);
+
   const baseHeaders = {
-    'Authorization': `Bearer ${integration.access_token}`,
+    'Authorization': `Bearer ${accessToken}`,
     'Notion-Version': '2022-06-28',
     'Content-Type': 'application/json'
   };
@@ -228,11 +241,16 @@ export async function executeNotionManageUsers(
       message: `Successfully executed ${config.operation} operation`
     };
   } catch (error: any) {
-    logger.error('Notion Manage Users error:', error);
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    logger.error('Notion Manage Users error:', {
+      message: errorMessage,
+      operation: config.operation,
+      hasUserId: !!config.userId
+    });
     return {
       success: false,
       output: {},
-      message: error.message || `Failed to execute ${config.operation} operation`
+      message: errorMessage
     };
   }
 }

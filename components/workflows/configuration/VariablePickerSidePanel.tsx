@@ -42,13 +42,15 @@ interface VariablePickerSidePanelProps {
   currentNodeId?: string
   currentNodeType?: string
   onVariableSelect?: (variable: string) => void
+  workflowId?: string
 }
 
 export function VariablePickerSidePanel({
   workflowData,
   currentNodeId,
   currentNodeType,
-  onVariableSelect
+  onVariableSelect,
+  workflowId
 }: VariablePickerSidePanelProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
@@ -252,30 +254,46 @@ export function VariablePickerSidePanel({
     
     if (currentNodeId) {
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
-      
-      // Debug logging
+
+      // Debug logging with MORE DETAIL
       logger.debug('📊 [VARIABLES] Debug info:', {
         currentNodeId,
         previousNodeIds: Array.from(previousNodeIds),
         allNodesCount: allNodes.length,
+        edges: workflowData?.edges?.map(e => ({ source: e.source, target: e.target })),
         allNodes: allNodes.map(n => ({
           id: n.id,
           title: n.title,
           type: n.type,
           isTrigger: n.isTrigger,
           outputsCount: n.outputs?.length || 0,
-          outputs: n.outputs?.map(o => o.name) || []
+          outputs: n.outputs?.map(o => o.name) || [],
+          isPreviousNode: previousNodeIds.has(n.id),
+          isCurrentNode: n.id === currentNodeId
         }))
       });
-      
+
       // Include all nodes that have outputs, not just previous ones
-      const filteredNodes = allNodes.filter(node => 
-        node.id !== currentNodeId &&
-        node.outputs &&
-        node.outputs.length > 0 &&
-        previousNodeIds.has(node.id)
-      );
-      
+      const filteredNodes = allNodes.filter(node => {
+        const isNotCurrent = node.id !== currentNodeId;
+        const hasOutputs = node.outputs && node.outputs.length > 0;
+        const isPrevious = previousNodeIds.has(node.id);
+
+        // Log why each node is included/excluded
+        if (!isNotCurrent || !hasOutputs || !isPrevious) {
+          logger.debug(`📊 [VARIABLES] Node "${node.title}" excluded:`, {
+            nodeId: node.id,
+            isNotCurrent,
+            hasOutputs,
+            outputCount: node.outputs?.length || 0,
+            isPrevious,
+            reason: !isNotCurrent ? 'is current node' : !hasOutputs ? 'no outputs' : 'not a previous node'
+          });
+        }
+
+        return isNotCurrent && hasOutputs && isPrevious;
+      });
+
       // Debug: Log which nodes are being included
       logger.debug('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
         id: n.id,
@@ -284,7 +302,7 @@ export function VariablePickerSidePanel({
         hasOutputs: n.outputs.length > 0,
         outputs: n.outputs.map(o => o.name)
       })));
-      
+
       return filteredNodes;
     }
     
@@ -451,15 +469,15 @@ export function VariablePickerSidePanel({
   // Run workflow test to get actual output values
   const runWorkflowTest = async () => {
     if (!workflowData?.nodes || workflowData.nodes.length === 0) return;
-    
+
     try {
       setIsTestRunning(true);
-      
+
       // Find the trigger node (first node)
-      const triggerNodes = workflowData.nodes.filter((node: any) => 
+      const triggerNodes = workflowData.nodes.filter((node: any) =>
         node.data?.isTrigger || node.type === 'trigger'
       );
-      
+
       if (triggerNodes.length === 0) {
         toast({
           title: "No trigger found",
@@ -468,47 +486,112 @@ export function VariablePickerSidePanel({
         });
         return;
       }
-      
+
       const triggerNode = triggerNodes[0];
-      
-      // Find workflow ID from any node in the workflow
-      let workflowId = null;
-      for (const node of workflowData.nodes) {
-        if (node.data?.workflowId) {
-          workflowId = node.data.workflowId;
-          break;
+
+      // Try to find workflow ID from multiple sources
+      let resolvedWorkflowId = workflowId; // Use prop if provided
+
+      // Fallback 1: Check node data
+      if (!resolvedWorkflowId) {
+        for (const node of workflowData.nodes) {
+          if (node.data?.workflowId) {
+            resolvedWorkflowId = node.data.workflowId;
+            break;
+          }
         }
       }
-      
-      if (!workflowId) {
+
+      // Fallback 2: Try to extract from URL
+      if (!resolvedWorkflowId && typeof window !== 'undefined') {
+        const urlMatch = window.location.pathname.match(/\/workflows\/([a-f0-9-]+)/);
+        if (urlMatch) {
+          resolvedWorkflowId = urlMatch[1];
+        }
+      }
+
+      if (!resolvedWorkflowId) {
+        logger.error('❌ [Test] Could not find workflow ID:', {
+          propWorkflowId: workflowId,
+          nodeDataWorkflowIds: workflowData.nodes.map(n => n.data?.workflowId).filter(Boolean),
+          url: typeof window !== 'undefined' ? window.location.pathname : 'SSR'
+        });
         toast({
           title: "Missing workflow ID",
-          description: "Could not determine the workflow ID.",
+          description: "Could not determine the workflow ID. Please save the workflow first.",
           variant: "destructive",
         });
         return;
       }
-      
+
       // Call API to test the workflow
+      // Send the current workflow data (nodes and edges) instead of relying on database
+      logger.debug('🧪 [Test] Calling test API with:', {
+        workflowId: resolvedWorkflowId,
+        nodeId: currentNodeId || triggerNode.id,
+        nodesCount: workflowData.nodes.length,
+        edgesCount: workflowData.edges.length
+      });
+
       const response = await apiClient.post('/api/workflows/test-workflow-segment', {
-        workflowId,
+        workflowId: resolvedWorkflowId,
         nodeId: currentNodeId || triggerNode.id,
         input: {}, // Empty input for testing
+        workflowData: {
+          nodes: workflowData.nodes,
+          edges: workflowData.edges
+        }
       });
       
       if (response.success) {
-        // Store the test results
+        // Extract data from the nested response structure
+        const responseData = (response as any).data || response;
+
+        // Store the test results - convert array to object format
+        const testDataArray = responseData.testResults || [];
+        const execPath = responseData.executionPath || [];
+        const triggerOut = responseData.triggerOutput || {};
+
+        logger.debug('🧪 [Test] Full API Response:', response);
+        logger.debug('🧪 [Test] Results received:', {
+          testResultsArray: testDataArray,
+          testResultsType: Array.isArray(testDataArray) ? 'array' : typeof testDataArray,
+          executionPath: execPath,
+          triggerOutput: triggerOut,
+          testResultsCount: testDataArray.length,
+          executionPathLength: execPath.length,
+          firstResult: testDataArray[0]
+        });
+
         setTestResults(
-          (response as any).testResults || [],
-          (response as any).executionPath || [],
-          (response as any).triggerOutput || {},
+          testDataArray,
+          execPath,
+          triggerOut,
           triggerNode.id
         );
-        
-        toast({
-          title: "Test completed",
-          description: "Workflow test completed successfully.",
-        });
+
+        // Count how many nodes have test data
+        const testedNodesCount = testDataArray.length;
+
+        // Show detailed info if no results
+        if (testedNodesCount === 0) {
+          logger.error('🧪 [Test] No test results returned!', {
+            response,
+            executionPathLength: execPath.length,
+            triggerOutputKeys: Object.keys(triggerOut)
+          });
+
+          toast({
+            title: "Test completed",
+            description: `Test ran but returned no results. Check console for details. ExecutionPath: ${execPath.length} nodes`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Test completed",
+            description: `Successfully tested ${testedNodesCount} ${testedNodesCount === 1 ? 'node' : 'nodes'}. Green badges show actual values.`,
+          });
+        }
       } else {
         toast({
           title: "Test failed",
@@ -530,8 +613,34 @@ export function VariablePickerSidePanel({
 
   // Get the actual value of a variable if test results are available
   const getVariableValue = (nodeId: string, outputName: string) => {
+    // Convert testResults array to object format expected by getNodeVariableValues
+    // testResults is an array of { nodeId, output, ... } objects
+    // We need to convert to { [nodeId]: { output: {...} } }
+    const testResultsObj = testResults.reduce((acc: any, result: any) => {
+      acc[result.nodeId] = result
+      return acc
+    }, {})
+
+    logger.debug('🔍 [getVariableValue] Looking up value:', {
+      nodeId,
+      outputName,
+      hasTestResults: testResults.length > 0,
+      testResultsObjKeys: Object.keys(testResultsObj),
+      nodeTestResult: testResultsObj[nodeId],
+      nodeOutput: testResultsObj[nodeId]?.output
+    });
+
     // Use the new resolution system to get variable values
-    const nodeValues = getNodeVariableValues(nodeId, workflowData || { nodes: [], edges: [] }, testResults)
+    const nodeValues = getNodeVariableValues(nodeId, workflowData || { nodes: [], edges: [] }, testResultsObj)
+
+    logger.debug('🔍 [getVariableValue] Retrieved values:', {
+      nodeId,
+      outputName,
+      nodeValues,
+      nodeValuesKeys: Object.keys(nodeValues),
+      resultValue: nodeValues[outputName]
+    });
+
     return nodeValues[outputName] || null
   };
 
@@ -549,32 +658,33 @@ export function VariablePickerSidePanel({
   };
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-50 to-white border-l border-slate-200 flex flex-col">
+    <div className="w-full h-full bg-white border-l border-slate-200 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-500 to-purple-600">
+      <div className="p-4 border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-r from-purple-400 to-purple-600 rounded-md shadow-sm">
-              <span className="text-sm font-mono font-semibold text-white">{`{}`}</span>
+            <div className="w-8 h-8 flex items-center justify-center bg-slate-100 rounded-lg">
+              <span className="text-sm font-mono font-semibold text-slate-700">{`{}`}</span>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">Variables</h3>
-              <span className="text-xs text-white/80">Click headers to expand/collapse</span>
+              <h3 className="text-sm font-semibold text-slate-900">Variables</h3>
+              <span className="text-xs text-slate-500">Available data from previous steps</span>
             </div>
           </div>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  className="bg-green-500 hover:bg-green-600 text-white"
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs font-medium"
                   onClick={runWorkflowTest}
                   disabled={isTestRunning}
                 >
                   {isTestRunning ? (
-                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"></div>
                   ) : (
-                    <Play className="h-3.5 w-3.5 mr-1" />
+                    <Play className="h-3 w-3" />
                   )}
                   Test
                 </Button>
@@ -585,52 +695,41 @@ export function VariablePickerSidePanel({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search variables..."
-            className="pl-9 bg-white/90 border-white/20 focus:border-white/40 focus:ring-white/20 placeholder:text-slate-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-      </div>
+        <Input
+          placeholder="Search variables..."
+          className="h-9 bg-slate-50 border-slate-200 focus:bg-white focus:border-slate-300 placeholder:text-slate-400 text-sm text-slate-900 px-3"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
+        />
     </div>
 
-      <div className="px-4 py-2.5 border-b border-blue-300 bg-gradient-to-r from-blue-600 to-indigo-600">
-        {activeField ? (
-          <div className="space-y-1">
-            <div className="text-[10px] uppercase tracking-wider text-blue-100 font-bold">
-              Inserting into
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shadow-sm"></div>
-              <span
-                className="text-sm text-white font-bold break-words line-clamp-2"
-                title={activeField.label || activeField.id}
-              >
-                {activeField.label || activeField.id}
-              </span>
-            </div>
+      {activeField && (
+        <div className="px-3 py-2 border-b border-slate-200 bg-blue-50">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+            <span className="text-xs text-slate-700 font-medium truncate" title={activeField.label || activeField.id}>
+              Inserting into: <span className="text-blue-700">{activeField.label || activeField.id}</span>
+            </span>
           </div>
-        ) : (
-          <div className="text-xs text-blue-100 font-medium">
-            Click a form field to enable click-to-insert (copy icon still available).
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Test results timestamp */}
       {hasTestResults() && (
-        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-          <div className="text-xs text-slate-500 flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            Test results available ({new Date(testTimestamp || 0).toLocaleTimeString()})
+        <div className="px-3 py-2 bg-green-50 border-b border-green-200 flex justify-between items-center">
+          <div className="text-xs text-green-700 flex items-center gap-1.5 font-medium">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+            Test data loaded ({new Date(testTimestamp || 0).toLocaleTimeString()})
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={clearTestResults} 
-            className="h-6 text-xs"
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearTestResults}
+            className="h-6 text-xs text-green-700 hover:text-green-900 hover:bg-green-100"
           >
             Clear
           </Button>
@@ -665,149 +764,148 @@ export function VariablePickerSidePanel({
                 <Collapsible
                   key={node.id}
                   open={isExpanded}
-                  className={`mb-3 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm ${isNodeTested ? 'border-green-300' : ''}`}
+                  className={`mb-2 border rounded-lg overflow-hidden transition-all ${
+                    isNodeTested
+                      ? 'border-green-200 bg-green-50/50'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
                 >
                   {/* Node Header */}
                   <CollapsibleTrigger asChild>
                     <div
-                      className={`flex items-start justify-between px-3 py-2 hover:bg-slate-100 cursor-pointer transition-colors w-full ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : 'bg-slate-50'}`}
+                      className="flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-slate-50/50 transition-colors w-full"
                       onClick={() => toggleNodeExpansion(node.id)}
                     >
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div className="w-4 h-4 flex items-center justify-center mt-1 flex-shrink-0">
-                          {isExpanded ? (
-                            <ChevronDown className="h-3 w-3 text-slate-500" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3 text-slate-500" />
-                          )}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex-shrink-0">
+                          {renderProviderIcon(node.providerId, node.providerName)}
                         </div>
-                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                          <div className="mt-0.5 flex-shrink-0">
-                            {renderProviderIcon(node.providerId, node.providerName)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium text-slate-900 break-words whitespace-normal leading-tight block">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-900 truncate">
                               {node.title}
                             </span>
-                            {node.subtitle && (
-                              <span className="text-xs text-slate-500 break-words whitespace-normal block mt-0.5">
-                                {node.subtitle}
-                              </span>
+                            {hasOutputs && (
+                              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-slate-100 text-slate-600 border-slate-200 font-medium">
+                                {node.outputs.length}
+                              </Badge>
                             )}
                           </div>
+                          {node.subtitle && (
+                            <span className="text-xs text-white truncate block">
+                              {node.subtitle}
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-start gap-1 flex-shrink-0 ml-2">
-                        {hasOutputs && (
-                          <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-700 border-slate-200">
-                            {node.outputs.length}
-                          </Badge>
-                        )}
-                        {isNodeTested && (
-                          <div className="w-2 h-2 rounded-full bg-green-500 mt-1" title="Test data available"></div>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {isNodeTested && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="Test data available"></div>
+                          )}
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CollapsibleTrigger>
                   
                   {/* Node Outputs */}
-                  <CollapsibleContent className="bg-white">
+                  <CollapsibleContent className="bg-slate-50/30 border-t border-slate-100">
                     {hasOutputs ? (
-                      node.outputs.map((output: any) => {
-                                                  // Use node.id for the actual variable reference, not node.title
-                        const variableRef = buildVariableReference(node.id, output.name)
-                        const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
-                        const variableValue = getVariableValue(node.id, output.name)
-                        const hasValue = variableValue !== null
-                        
-                        return (
-                          <div
-                            key={`${node.id}-${output.name}`}
-                            className={`flex items-start justify-between px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors border-t border-slate-100 ${hasValue ? 'bg-green-50/30' : ''}`}
-                            draggable
-                            onMouseDown={() => {
-                              allowClickSelect.current = true
-                            }}
-                            onDragStart={(e) => {
-                              logger.debug('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
-                                variableRef,
-                                nodeTitle: node.title,
-                                outputName: output.name,
-                                outputLabel: output.label,
-                                dataTransfer: e.dataTransfer
-                              })
-                              handleDragStart(e, variableRef)
-                              e.stopPropagation() // Prevent collapsible from closing
-                              e.dataTransfer.setData('application/json', JSON.stringify({
-                                variable: variableRef,
-                                nodeTitle: node.title,
-                                outputName: output.name,
-                                outputLabel: output.label
-                              }))
-                            }}
-                            onDragEnd={(e) => {
-                              e.stopPropagation() // Prevent collapsible from closing
-                              handleDragEnd(e)
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation() // Prevent collapsible from closing
-                              handleVariableSelect(variableRef, node.id, output.name)
-                              // Prevent the collapsible from closing after insertion
-                              e.preventDefault()
-                            }}
-                          >
-                            <div className="flex items-start gap-2 flex-1 min-w-0">
-                              <Badge variant="outline" className={`text-xs bg-blue-50 text-blue-700 border-blue-200 flex-shrink-0 ${hasValue ? 'border-green-300' : ''}`}>
-                                {output.type || 'string'}
-                              </Badge>
-                              <span className="text-sm text-slate-700 break-words whitespace-normal leading-tight">{output.label || output.name}</span>
-                            </div>
-                            
-                            <div className="flex items-start flex-shrink-0">
-                              {/* Show variable value if available */}
-                              {hasValue && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge className="mr-2 mt-0.5 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
-                                        {formatVariableValue(variableValue)}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="text-xs whitespace-pre-wrap max-w-[300px]">
-                                        {typeof variableValue === 'object'
-                                          ? JSON.stringify(variableValue, null, 2)
-                                          : String(variableValue)
-                                        }
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                              
+                      <div className="py-1">
+                        {node.outputs.map((output: any) => {
+                          // Use node.id for the actual variable reference, not node.title
+                          const variableRef = buildVariableReference(node.id, output.name)
+                          const displayVariableRef = `{{${node.title}.${output.label || output.name}}}`
+                          const variableValue = getVariableValue(node.id, output.name)
+                          const hasValue = variableValue !== null
+
+                          return (
+                            <div
+                              key={`${node.id}-${output.name}`}
+                              className="group flex items-center justify-between px-3 py-2 bg-gray-700 text-white hover:bg-black hover:text-white cursor-pointer transition-colors mx-1 rounded"
+                              draggable
+                              onMouseDown={() => {
+                                allowClickSelect.current = true
+                              }}
+                              onDragStart={(e) => {
+                                logger.debug('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
+                                  variableRef,
+                                  nodeTitle: node.title,
+                                  outputName: output.name,
+                                  outputLabel: output.label,
+                                  dataTransfer: e.dataTransfer
+                                })
+                                handleDragStart(e, variableRef)
+                                e.stopPropagation()
+                                e.dataTransfer.setData('application/json', JSON.stringify({
+                                  variable: variableRef,
+                                  nodeTitle: node.title,
+                                  outputName: output.name,
+                                  outputLabel: output.label
+                                }))
+                              }}
+                              onDragEnd={(e) => {
+                                e.stopPropagation()
+                                handleDragEnd(e)
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleVariableSelect(variableRef, node.id, output.name)
+                                e.preventDefault()
+                              }}
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-white text-slate-900 border-slate-300 font-medium flex-shrink-0">
+                                  {output.type || 'string'}
+                                </Badge>
+                                <span className="text-sm truncate font-medium">{output.label || output.name}</span>
+                                {hasValue && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium max-w-[80px] truncate">
+                                          {formatVariableValue(variableValue)}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left">
+                                        <p className="text-xs whitespace-pre-wrap max-w-[300px]">
+                                          {typeof variableValue === 'object'
+                                            ? JSON.stringify(variableValue, null, 2)
+                                            : String(variableValue)
+                                          }
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 w-6 p-0 mt-0.5 hover:bg-blue-100"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   copyToClipboard(variableRef)
                                 }}
                               >
                                 {copiedVariable === variableRef ? (
-                                  <Check className="h-3 w-3" />
+                                  <Check className="h-3 w-3 text-green-600" />
                                 ) : (
-                                  <Copy className="h-3 w-3" />
+                                  <Copy className="h-3 w-3 text-slate-400" />
                                 )}
                                 <span className="sr-only">Copy</span>
                               </Button>
                             </div>
-                          </div>
-                        )
-                      })
+                          )
+                        })}
+                      </div>
                     ) : (
-                      <div className="px-3 py-2 text-sm text-slate-500 border-t border-slate-100">
-                        No variables available from this node
+                      <div className="px-3 py-2 text-xs text-slate-500">
+                        No variables available
                       </div>
                     )}
                   </CollapsibleContent>
@@ -819,9 +917,9 @@ export function VariablePickerSidePanel({
       </ScrollArea>
 
       {/* Footer */}
-      <div className="p-3 border-t border-slate-200 bg-slate-50">
-        <p className="text-xs text-slate-500 text-center">
-          Drag or click to insert. Use the copy icon for clipboard.
+      <div className="px-3 py-2.5 border-t border-slate-200 bg-slate-50/50">
+        <p className="text-xs text-black text-center leading-relaxed font-medium">
+          Click to insert • Drag & drop • Hover to copy
         </p>
       </div>
     </div>
