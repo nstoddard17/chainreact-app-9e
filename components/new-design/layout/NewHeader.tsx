@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Search, Bell, Command } from "lucide-react"
+import { OrganizationSwitcher } from "@/components/new-design/OrganizationSwitcher"
 
 interface NewHeaderProps {
   title?: string
@@ -35,8 +36,11 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
         )}
       </div>
 
-      {/* Right Side - Search, Notifications, Actions */}
+      {/* Right Side - Organization Switcher, Search, Notifications, Actions */}
       <div className="flex items-center gap-3">
+        {/* Organization Switcher */}
+        <OrganizationSwitcher />
+
         {/* Quick Search */}
         <Button
           variant="outline"
