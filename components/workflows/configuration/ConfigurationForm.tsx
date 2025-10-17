@@ -203,7 +203,9 @@ function ConfigurationForm({
     resetOptions
   } = useDynamicOptions({
     nodeType: nodeInfo?.type,
-    providerId: nodeInfo?.providerId || provider,
+    // For HITL nodes, use 'discord' as providerId even though the node itself has no providerId
+    // This allows the node to appear in Core while still loading Discord data
+    providerId: nodeInfo?.type === 'hitl_conversation' ? 'discord' : (nodeInfo?.providerId || provider),
     workflowId,
     onOptionsUpdated: useCallback((updatedOptions: Record<string, any>) => {
       // Update the form values with the latest dynamic options
