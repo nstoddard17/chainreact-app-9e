@@ -863,7 +863,7 @@ export function VariablePickerSidePanel({
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Badge className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium max-w-[80px] truncate">
+                                        <Badge className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap" style={{ textOverflow: 'ellipsis' }}>
                                           {formatVariableValue(variableValue)}
                                         </Badge>
                                       </TooltipTrigger>
