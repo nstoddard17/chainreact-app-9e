@@ -96,11 +96,13 @@ export const notionUserSchemas = {
   ] as OutputField[],
 
   retrieveUser: [
-    { name: 'user_id', label: 'User ID', type: 'string', description: 'The unique ID of the user' },
-    { name: 'name', label: 'Name', type: 'string', description: 'The user\'s name' },
-    { name: 'email', label: 'Email', type: 'string', description: 'The user\'s email address' },
-    { name: 'type', label: 'Type', type: 'string', description: 'The type of user (person/bot)' },
-    { name: 'avatar_url', label: 'Avatar URL', type: 'string', description: 'URL to the user\'s avatar image' }
+    { name: 'user.id', label: 'User ID', type: 'string', description: 'The unique ID of the user' },
+    { name: 'user.name', label: 'Name', type: 'string', description: 'The user\'s name' },
+    { name: 'user.person_details.email', label: 'Email', type: 'string', description: 'The user\'s email address' },
+    { name: 'user.type', label: 'Type', type: 'string', description: 'The type of user (person/bot)' },
+    { name: 'user.avatar_url', label: 'Avatar URL', type: 'string', description: 'URL to the user\'s avatar image' },
+    { name: 'user.access_level', label: 'Access Level', type: 'string', description: 'The user\'s access level in the workspace' },
+    { name: 'user.description', label: 'Description', type: 'string', description: 'Description of the user' }
   ] as OutputField[]
 }
 

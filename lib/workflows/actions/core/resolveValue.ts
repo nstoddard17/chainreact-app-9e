@@ -25,6 +25,12 @@ export function resolveValue(
   }
 
   if (typeof value !== "string") return value
+
+  // Debug logging for variable resolution
+  if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
+    logger.debug('🔍 Resolving variable:', value)
+    logger.debug('🔍 Available input keys:', Object.keys(input || {}).join(', '))
+  }
   
   // First check if the entire value is a single template
   const singleMatch = value.match(/^{{(.*)}}$/)
@@ -75,11 +81,39 @@ export function resolveValue(
     }
     
     const parts = key.split(".")
-    
-    // Handle node output references: {{NodeTitle.output}} or {{NodeTitle.AI Agent Output}}
+
+    // Handle node output references: {{NodeTitle.output}} or {{node-id.field}}
     if (parts.length >= 2) {
-      const nodeTitle = parts[0]
+      const nodeIdOrTitle = parts[0]
       const outputField = parts.slice(1).join(".")
+
+      // First, try direct node ID access (e.g., {{action-1760677115194.email}})
+      if (input && input[nodeIdOrTitle]) {
+        const nodeData = input[nodeIdOrTitle]
+
+        // Navigate through the nested structure
+        const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+          return acc && acc[part]
+        }, nodeData)
+
+        if (fieldValue !== undefined) {
+          return fieldValue
+        }
+
+        // Also check if the field exists in the node's output property
+        if (nodeData.output) {
+          const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+            return acc && acc[part]
+          }, nodeData.output)
+
+          if (outputFieldValue !== undefined) {
+            return outputFieldValue
+          }
+        }
+      }
+
+      const nodeTitle = nodeIdOrTitle
+      const outputFieldOrig = outputField
       
       // First try to use the dataFlowManager if available for proper node title matching
       if (input && input.dataFlowManager && typeof input.dataFlowManager.resolveVariable === 'function') {
@@ -222,9 +256,9 @@ export function resolveValue(
         }
       }
       
-      // Handle other template formats (data.field, trigger.field, etc.)
+      // Handle other template formats (data.field, trigger.field, node.field, etc.)
       const parts = key.split(".")
-      
+
       if (parts[0] === "data") {
         const dataKey = parts.slice(1).join(".")
         const resolvedData = dataKey.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
@@ -232,20 +266,51 @@ export function resolveValue(
           return resolvedData
         }
       }
-      
+
       if (parts[0] === "trigger" && mockTriggerOutputs) {
         const triggerKey = parts[1]
         if (mockTriggerOutputs[triggerKey]) {
           return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey]
         }
       }
-      
-      // Try direct field access
+
+      // Handle node output references (e.g., {{action-123.user.name}})
+      if (parts.length >= 2) {
+        const nodeIdOrTitle = parts[0]
+        const outputField = parts.slice(1).join(".")
+
+        // Try direct node ID access
+        if (input && input[nodeIdOrTitle]) {
+          const nodeData = input[nodeIdOrTitle]
+
+          // Navigate through the nested structure
+          const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+            return acc && acc[part]
+          }, nodeData)
+
+          if (fieldValue !== undefined) {
+            return fieldValue
+          }
+
+          // Also check if the field exists in the node's output property
+          if (nodeData.output) {
+            const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+              return acc && acc[part]
+            }, nodeData.output)
+
+            if (outputFieldValue !== undefined) {
+              return outputFieldValue
+            }
+          }
+        }
+      }
+
+      // Try direct field access as fallback
       const directValue = parts.reduce((acc: any, part: any) => acc && acc[part], input)
       if (directValue !== undefined) {
         return directValue
       }
-      
+
       // If we can't resolve it, return the original template
       return match
     })
