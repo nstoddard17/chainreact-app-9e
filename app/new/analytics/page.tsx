@@ -1,15 +1,15 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { HomeContent } from "@/components/new-design/HomeContent"
+import { AnalyticsContent } from "@/components/new-design/AnalyticsContent"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'
 
-export default async function NewHomePage() {
+export default async function AnalyticsPage() {
   await requireUsername()
 
   return (
-    <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
-      <HomeContent />
+    <NewAppLayout title="Analytics" subtitle="Monitor your workflow performance">
+      <AnalyticsContent />
     </NewAppLayout>
   )
 }
