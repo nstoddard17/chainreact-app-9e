@@ -57,15 +57,18 @@ export function OrganizationSwitcher() {
       if (!response.ok) throw new Error('Failed to fetch organizations')
 
       const data = await response.json()
-      setOrganizations(data.organizations || [])
+      const organizations = Array.isArray(data.organizations) ? data.organizations : (Array.isArray(data) ? data : [])
+      setOrganizations(organizations)
 
       // Set current org from localStorage or default to first
       const storedOrgId = localStorage.getItem('current_organization_id')
-      if (storedOrgId) {
-        const org = data.organizations.find((o: Organization) => o.id === storedOrgId)
-        setCurrentOrg(org || data.organizations[0] || null)
+      if (storedOrgId && organizations.length > 0) {
+        const org = organizations.find((o: Organization) => o.id === storedOrgId)
+        setCurrentOrg(org || organizations[0] || null)
+      } else if (organizations.length > 0) {
+        setCurrentOrg(organizations[0])
       } else {
-        setCurrentOrg(data.organizations[0] || null)
+        setCurrentOrg(null)
       }
     } catch (error) {
       console.error('Error fetching organizations:', error)
