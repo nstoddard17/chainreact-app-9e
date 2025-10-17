@@ -2529,7 +2529,7 @@ export function useWorkflowBuilder() {
       // If we are still saving after the timeout, force-clear and notify
       setIsSaving(false)
       logger.warn('[Workflow Builder] Save operation took too long; clearing loading state')
-    }, 20000)
+    }, 60000) // Increased to 60s for workflows with complex webhook operations
     return () => clearTimeout(timeoutId)
   }, [isSaving])
 
