@@ -62,15 +62,26 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ success: true, message: 'Unknown subscription type' })
     }
 
-    // Find ALL matching workflows with this HubSpot trigger type
-    // NOTE: HubSpot Private Apps use a single global webhook endpoint for all workflows.
-    // We query trigger_resources to find all workflows that should be triggered by this event.
-    const { data: triggerResources } = await supabase
+    // Get workflow ID from query params (for Public App per-workflow webhooks)
+    const workflowId = req.nextUrl.searchParams.get('workflowId')
+
+    // Find matching workflows with this HubSpot trigger type
+    // NOTE: Public Apps can create per-workflow webhooks with workflowId in URL.
+    // If workflowId is provided, we only execute that specific workflow.
+    // If not provided (legacy/global webhook), execute all matching workflows.
+    let query = supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')
       .eq('provider_id', 'hubspot')
       .eq('trigger_type', triggerType)
       .eq('status', 'active')
+
+    // Filter by workflow ID if provided in query params
+    if (workflowId) {
+      query = query.eq('workflow_id', workflowId)
+    }
+
+    const { data: triggerResources } = await query
 
     if (!triggerResources || triggerResources.length === 0) {
       logger.debug(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
