@@ -65,20 +65,11 @@ export default function WorkflowsContent() {
   useEffect(() => {
     if (!workflows) return
 
-    // Clear updating state for workflows that no longer exist or have completed updating
+    // Clear updating state - when workflows array updates, assume update completed
     setUpdatingWorkflows(prev => {
-      const workflowIds = new Set(workflows.map(w => w.id))
-      const newSet = new Set(prev)
-      let changed = false
-
-      prev.forEach(id => {
-        if (!workflowIds.has(id)) {
-          newSet.delete(id)
-          changed = true
-        }
-      })
-
-      return changed ? newSet : prev
+      if (prev.size === 0) return prev
+      // Clear all updating states since workflows array changed
+      return new Set()
     })
 
     // Clear deleting state for workflows that no longer exist
