@@ -110,7 +110,7 @@ export function HomepageHeader() {
       </div>
 
       <div
-        className={`md:hidden overflow-hidden transition-all duration-300 ease-out ${menuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+        className={`md:hidden overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${menuOpen ? 'max-h-[28rem] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
           }`}
       >
         <div className="px-4 pb-6 pt-2 space-y-2 border-t border-gray-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 rounded-b-2xl shadow-lg shadow-black/5">
