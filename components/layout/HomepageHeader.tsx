@@ -8,7 +8,7 @@ import { Moon, Sun, Menu, X, ArrowRight } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 export function HomepageHeader() {
-  const { theme, setTheme } = useTheme()
+  const { theme, resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
 
@@ -19,8 +19,10 @@ export function HomepageHeader() {
   const scrollToSection = (sectionId: string) => {
     setMenuOpen(false)
     const element = document.getElementById(sectionId)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' })
+    if (element && typeof window !== 'undefined') {
+      const yOffset = -80
+      const y = element.getBoundingClientRect().top + window.scrollY + yOffset
+      window.scrollTo({ top: y, behavior: 'smooth' })
     }
   }
 
@@ -34,7 +36,15 @@ export function HomepageHeader() {
     return () => window.removeEventListener('resize', closeOnResize)
   }, [])
 
-  const isDark = theme === 'dark'
+  const effectiveTheme = mounted ? (resolvedTheme ?? theme ?? 'light') : 'light'
+  const isDark = effectiveTheme === 'dark'
+  const navItems = [
+    { label: 'Overview', target: 'overview' },
+    { label: 'How it Works', target: 'how-it-works' },
+    { label: 'Automation', target: 'workflow-animation' },
+    { label: 'Features', target: 'features' },
+    { label: 'Integrations', target: 'integrations' },
+  ]
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 px-4 sm:px-6 lg:px-8">
@@ -44,27 +54,16 @@ export function HomepageHeader() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-2">
-          <Button
-            variant="ghost"
-            className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
-            onClick={() => scrollToSection('features')}
-          >
-            Features
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
-            onClick={() => scrollToSection('integrations')}
-          >
-            Integrations
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
-            onClick={() => scrollToSection('how-it-works')}
-          >
-            How it Works
-          </Button>
+          {navItems.map((item) => (
+            <Button
+              key={item.target}
+              variant="ghost"
+              className="text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10"
+              onClick={() => scrollToSection(item.target)}
+            >
+              {item.label}
+            </Button>
+          ))}
 
           {mounted && (
             <Button
@@ -115,24 +114,15 @@ export function HomepageHeader() {
           }`}
       >
         <div className="px-4 pb-6 pt-2 space-y-2 border-t border-gray-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 rounded-b-2xl shadow-lg shadow-black/5">
-          <button
-            onClick={() => scrollToSection('features')}
-            className="w-full text-left px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
-          >
-            Features
-          </button>
-          <button
-            onClick={() => scrollToSection('integrations')}
-            className="w-full text-left px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
-          >
-            Integrations
-          </button>
-          <button
-            onClick={() => scrollToSection('how-it-works')}
-            className="w-full text-left px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
-          >
-            How it Works
-          </button>
+          {navItems.map((item) => (
+            <button
+              key={item.target}
+              onClick={() => scrollToSection(item.target)}
+              className="w-full text-left px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+            >
+              {item.label}
+            </button>
+          ))}
           <Link
             href="/waitlist"
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:from-blue-700 hover:to-purple-700 transition-colors"
