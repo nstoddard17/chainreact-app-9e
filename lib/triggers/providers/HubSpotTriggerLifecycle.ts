@@ -112,7 +112,8 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Create webhook subscription in HubSpot using Private App token
-    const response = await fetch(`https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions`, {
+    // NOTE: Private Apps use a different endpoint - no App ID needed, token identifies the app
+    const response = await fetch(`https://api.hubapi.com/webhooks/v3/subscriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${privateAppToken}`,
@@ -200,7 +201,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
         const subscriptionId = resource.external_id
 
         const response = await fetch(
-          `https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions/${subscriptionId}`,
+          `https://api.hubapi.com/webhooks/v3/subscriptions/${subscriptionId}`,
           {
             method: 'DELETE',
             headers: {
@@ -282,7 +283,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
       try {
         const response = await fetch(
-          `https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions/${resource.external_id}`,
+          `https://api.hubapi.com/webhooks/v3/subscriptions/${resource.external_id}`,
           {
             headers: {
               'Authorization': `Bearer ${privateAppToken}`
