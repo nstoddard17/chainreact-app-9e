@@ -62,10 +62,9 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ success: true, message: 'Unknown subscription type' })
     }
 
-    // Get workflow ID from query params (if provided during setup)
-    const workflowId = req.nextUrl.searchParams.get('workflowId')
-
-    // Find matching workflows with HubSpot triggers
+    // Find ALL matching workflows with this HubSpot trigger type
+    // NOTE: HubSpot Private Apps use a single global webhook endpoint for all workflows.
+    // We query trigger_resources to find all workflows that should be triggered by this event.
     const { data: triggerResources } = await supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')
@@ -86,12 +85,8 @@ export async function POST(req: NextRequest) {
     // Execute each matching workflow
     let executed = 0
     for (const resource of triggerResources) {
-      // If workflow ID was specified in query, only execute that workflow
-      if (workflowId && resource.workflow_id !== workflowId) {
-        continue
-      }
-
       // Filter by property name if specified in trigger config
+      // This allows workflows to listen for changes to specific properties
       const propertyName = resource.config?.propertyName
       if (propertyName && payload.propertyName !== propertyName) {
         logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - property filter mismatch`)
