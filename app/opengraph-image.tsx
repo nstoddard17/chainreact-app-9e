@@ -1,20 +1,20 @@
 import { ImageResponse } from 'next/og'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 const size = {
   width: 1200,
   height: 630,
 }
 
-const fontDataPromise = fetch(
-  new URL('../public/fonts/SpaceGrotesk-Bold.woff2', import.meta.url)
-).then(res => res.arrayBuffer())
-
 export const contentType = 'image/png'
 
 export default async function OpengraphImage() {
-  const fontData = await fontDataPromise
+  const fontData = readFileSync(
+    join(process.cwd(), 'public', 'fonts', 'SpaceGrotesk-Bold.woff2')
+  )
 
   return new ImageResponse(
     (
