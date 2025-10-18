@@ -52,27 +52,6 @@ export const notionNodes: NodeComponent[] = [
       { name: "url", label: "URL", type: "string", description: "The URL of the page" }
     ]
   },
-  {
-    type: "notion_trigger_comment_added",
-    title: "Comment Added",
-    description: "Triggers when a new comment is added to a page",
-    icon: MessageSquare,
-    providerId: "notion",
-    category: "Productivity",
-    isTrigger: true,
-    producesOutput: true,
-    configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true }
-    ],
-    outputSchema: [
-      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "commentId", label: "Comment ID", type: "string", description: "The unique ID of the comment" },
-      { name: "commentText", label: "Comment Text", type: "string", description: "The text of the comment" },
-      { name: "authorId", label: "Author ID", type: "string", description: "The ID of the comment author" },
-      { name: "authorName", label: "Author Name", type: "string", description: "The name of the comment author" },
-      { name: "createdAt", label: "Created At", type: "string", description: "When the comment was created" }
-    ]
-  },
   // DEPRECATED: Replaced by notion_action_manage_page with operation="create"
   /*
   {
