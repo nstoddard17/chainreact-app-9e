@@ -6,31 +6,56 @@ export function WorkflowShowcase3D() {
   return (
     <section className="relative py-12 px-4 md:px-8 lg:px-12">
       <div className="relative mx-auto" style={{ maxWidth: '1800px' }}>
-        {/* Screenshot wrapper - keeping it simple like the working debug version */}
-        <div className="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.8)]">
-          {/* Top browser bar */}
-          <div className="bg-gray-100 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-white/5 px-6 py-4 flex items-center gap-3">
-            <div className="flex gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500/80" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-              <div className="w-3 h-3 rounded-full bg-green-500/80" />
-            </div>
-            <div className="flex-1 ml-4 text-sm text-gray-600 dark:text-gray-400">
-              AI Agent Test Workflow - Customer Service
-            </div>
-            <div className="text-xs text-gray-400 dark:text-gray-600 hidden md:block">
-              chainreact.app
+        {/* Enhanced Gradient glow effect */}
+        <div className="absolute -inset-32 bg-gradient-to-b from-blue-500/30 via-purple-500/20 to-pink-500/10 blur-[100px] -z-10" />
+        <div className="absolute -inset-24 bg-gradient-to-tr from-cyan-500/20 to-transparent blur-3xl -z-10" />
+
+        {/* 3D Perspective container */}
+        <div
+          className="relative mx-auto"
+          style={{
+            perspective: '3000px',
+          }}
+        >
+          {/* 3D Transform wrapper */}
+          <div
+            className="relative transform-gpu transition-all duration-700 hover:scale-[1.01]"
+            style={{
+              transformStyle: 'preserve-3d',
+              transform: 'rotateX(8deg) rotateY(-2deg) rotateZ(0.5deg)',
+            }}
+          >
+            {/* Screenshot wrapper */}
+            <div className="relative rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.8)]">
+              {/* Top browser bar */}
+              <div className="bg-gray-100 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-white/5 px-6 py-4 flex items-center gap-3">
+                <div className="flex gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                </div>
+                <div className="flex-1 ml-4 text-sm text-gray-600 dark:text-gray-400">
+                  AI Agent Test Workflow - Customer Service
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-600 hidden md:block">
+                  chainreact.app
+                </div>
+              </div>
+
+              {/* Actual workflow screenshot */}
+              <div className="bg-white dark:bg-[#0a0a0a] relative">
+                <img
+                  src="/workflow-screenshot-full.png"
+                  alt="ChainReact Workflow Builder showcasing an AI-powered customer service automation"
+                  className="w-full h-auto block"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Actual workflow screenshot */}
-          <div className="bg-white dark:bg-[#0a0a0a] relative">
-            <img
-              src="/workflow-screenshot-full.png"
-              alt="ChainReact Workflow Builder showcasing an AI-powered customer service automation"
-              className="w-full h-auto"
-            />
-          </div>
+          {/* Ambient light spots */}
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] -z-20" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] -z-20" />
         </div>
 
         {/* Stats bar below screenshot */}
