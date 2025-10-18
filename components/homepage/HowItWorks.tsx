@@ -102,7 +102,7 @@ export function HowItWorks() {
 
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Steps List */}
-          <div className="space-y-6">
+          <div className="space-y-6 order-2 lg:order-1">
             {steps.map((step, index) => (
               <motion.div
                 key={index}
@@ -151,7 +151,7 @@ export function HowItWorks() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="relative h-96 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-8 overflow-hidden"
+            className="order-1 lg:order-2 relative w-full max-w-[520px] mx-auto h-[360px] sm:h-96 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 overflow-hidden shadow-lg"
           >
             {activeStep === 0 && (
               <div className="h-full flex flex-col">
@@ -164,7 +164,7 @@ export function HowItWorks() {
                 </div>
 
                 {/* Integration Grid */}
-                <div className="grid grid-cols-2 gap-2 flex-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 flex-1">
                   {[
                     { name: 'Gmail', logo: '/integrations/gmail.svg', desc: 'Email automation' },
                     { name: 'Slack', logo: '/integrations/slack.svg', desc: 'Team communication' },
@@ -531,7 +531,7 @@ export function HowItWorks() {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

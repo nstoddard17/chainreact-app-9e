@@ -104,3 +104,28 @@ Import trace for requested module:
 [2025-10-18T03:48:34.808Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
 [2025-10-18T03:48:38.165Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 224ms (3672 modules)
 [2025-10-18T03:48:43.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 613ms (4789 modules)
+[2025-10-18T04:25:00.534Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5002 modules)
+[2025-10-18T04:25:10.141Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 328ms (1117 modules)
+[2025-10-18T04:25:43.025Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 301ms (1117 modules)
+[2025-10-18T04:26:52.971Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 611ms (1117 modules)
+[2025-10-18T04:27:41.368Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 523ms (1117 modules)
+[2025-10-18T04:28:42.666Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 806ms (1117 modules)
+[2025-10-18T04:29:18.447Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 384ms (1117 modules)
+[2025-10-18T04:29:26.865Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1293ms (4783 modules)
+[2025-10-18T04:29:30.077Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 561ms (4783 modules)
+[2025-10-18T04:29:37.323Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 534ms (4783 modules)
+[2025-10-18T04:30:09.957Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 268ms (1117 modules)
+[2025-10-18T04:30:31.351Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 767ms (4766 modules)
+[2025-10-18T04:30:35.790Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1316ms (4766 modules)
+[2025-10-18T04:30:47.499Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 710ms (4766 modules)
+[2025-10-18T04:30:57.622Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1523ms (4766 modules)
+[2025-10-18T04:34:08.521Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 627ms (1117 modules)
+[2025-10-18T04:34:11.140Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T04:34:11.948Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1307ms (3666 modules)
+[2025-10-18T04:37:45.525Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-18T04:37:47.946Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /new in 3.1s (4797 modules)
+[2025-10-18T04:37:49.791Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T04:37:51.365Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.1s (4821 modules)
+[2025-10-18T04:37:52.842Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 350ms (3696 modules)
+[2025-10-18T04:37:56.130Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-18T04:37:56.165Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 663ms (3698 modules)
