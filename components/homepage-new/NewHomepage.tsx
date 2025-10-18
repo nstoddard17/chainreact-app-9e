@@ -6,9 +6,9 @@ import { HomepageHeader } from '@/components/layout/HomepageHeader'
 import { Footer } from '@/components/homepage/Footer'
 import { NewHeroSection } from './NewHeroSection'
 import { HITLDemo } from './HITLDemo'
-import { ComparisonSection } from './ComparisonSection'
 import { UseCasesSection } from './UseCasesSection'
 import { FlexibilitySection } from './FlexibilitySection'
+import { IntegrationsShowcase } from '@/components/homepage/IntegrationsShowcase'
 import { SocialProofSection } from './SocialProofSection'
 
 export function NewHomepage() {
@@ -53,9 +53,9 @@ export function NewHomepage() {
       {/* Main Content */}
       <NewHeroSection />
       <HITLDemo />
-      <ComparisonSection />
-      <UseCasesSection />
       <FlexibilitySection />
+      <UseCasesSection />
+      <IntegrationsShowcase />
       <SocialProofSection />
       <Footer />
     </div>

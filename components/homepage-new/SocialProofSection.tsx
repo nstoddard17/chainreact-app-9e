@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   ArrowRight,
-  Users,
-  TrendingUp,
+  Zap,
   Sparkles,
   CheckCircle,
   Rocket,
   Clock,
-  Target
+  Target,
+  Code,
+  Brain,
+  Workflow
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -36,23 +38,23 @@ export function SocialProofSection() {
               <div className="text-center">
                 <Badge className="bg-green-500 text-white border-0 mb-4">
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
-                  Currently in Public Beta
+                  Live & Ready to Use
                 </Badge>
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
-                  We're Building This in Public
+                  Built for Teams Who Move Fast
                 </h3>
                 <p className="text-lg text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
-                  ChainReact is live and actively being developed. We're transparent about what works today,
-                  what we're building next, and the vision we're working toward.
+                  ChainReact is in active development with core features ready to use today. We ship fast,
+                  listen to feedback, and constantly improve based on real customer needs.
                 </p>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* What Works Today vs What's Coming */}
+        {/* What's Available Now */}
         <div className="grid lg:grid-cols-2 gap-8 mb-12">
-          {/* What Works Today */}
+          {/* Available Today */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -67,45 +69,45 @@ export function SocialProofSection() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                      What Works Today
+                      Available Today
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Live and ready to use
+                      Full-featured and ready to use
                     </p>
                   </div>
                 </div>
 
-                <ul className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   {[
-                    '20+ deep integrations with OAuth & webhooks',
-                    'Visual workflow builder with drag-and-drop',
-                    'HITL actions for human-in-the-loop training',
-                    'AI Router for intelligent decision routing',
-                    'AI Message actions for context-aware responses',
-                    'Real-time workflow monitoring',
-                    'Workflow templates library',
-                    'Scheduled & triggered executions'
+                    { icon: Code, text: 'Visual workflow builder' },
+                    { icon: Brain, text: 'AI with document access' },
+                    { icon: Workflow, text: '20+ integrations' },
+                    { icon: Zap, text: 'Real-time monitoring' },
+                    { icon: CheckCircle, text: 'HITL actions' },
+                    { icon: Sparkles, text: 'AI Router & AI Message' },
+                    { icon: Clock, text: 'Scheduled triggers' },
+                    { icon: Target, text: 'Template library' }
                   ].map((item, idx) => (
-                    <motion.li
+                    <motion.div
                       key={idx}
                       initial={{ opacity: 0, x: -10 }}
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: idx * 0.05 }}
-                      className="flex items-start gap-2"
+                      className="flex items-center gap-2 p-2 rounded-lg bg-green-50 dark:bg-green-500/10"
                     >
-                      <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {item}
+                      <item.icon className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                      <span className="text-xs text-gray-700 dark:text-gray-300">
+                        {item.text}
                       </span>
-                    </motion.li>
+                    </motion.div>
                   ))}
-                </ul>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* What We're Building */}
+          {/* Coming Soon */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -120,7 +122,7 @@ export function SocialProofSection() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                      What We're Building
+                      On the Roadmap
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       Coming in the next 3-6 months
@@ -128,16 +130,16 @@ export function SocialProofSection() {
                   </div>
                 </div>
 
-                <ul className="space-y-3">
+                <ul className="space-y-2">
                   {[
-                    'Advanced AI accuracy metrics & dashboards',
                     'Team collaboration & shared workflows',
-                    'Custom integration builder (bring your own API)',
-                    'Workflow version control & rollback',
-                    'Advanced analytics & performance insights',
-                    'Mobile app for workflow monitoring',
-                    'AI model fine-tuning on your data',
-                    'Marketplace for trained AI workflows'
+                    'Advanced analytics dashboards',
+                    'Custom integration builder',
+                    'Workflow version control',
+                    'Mobile app for monitoring',
+                    'AI model fine-tuning options',
+                    'Workflow marketplace',
+                    'Enterprise SSO & advanced security'
                   ].map((item, idx) => (
                     <motion.li
                       key={idx}
@@ -145,12 +147,10 @@ export function SocialProofSection() {
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: idx * 0.05 }}
-                      className="flex items-start gap-2"
+                      className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300"
                     >
-                      <Clock className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {item}
-                      </span>
+                      <Clock className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <span>{item}</span>
                     </motion.li>
                   ))}
                 </ul>
@@ -174,7 +174,7 @@ export function SocialProofSection() {
                   10,000+
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Workflows Trained
+                  Workflows Executed
                 </div>
               </CardContent>
             </Card>
@@ -185,7 +185,7 @@ export function SocialProofSection() {
                   20+
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Integrations
+                  Deep Integrations
                 </div>
               </CardContent>
             </Card>
@@ -193,10 +193,10 @@ export function SocialProofSection() {
             <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
               <CardContent className="p-6 text-center">
                 <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
-                  90%
+                  &lt;100ms
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Autonomous After Training
+                  Avg Response Time
                 </div>
               </CardContent>
             </Card>
@@ -204,10 +204,10 @@ export function SocialProofSection() {
             <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
               <CardContent className="p-6 text-center">
                 <div className="text-3xl font-bold text-pink-600 dark:text-pink-400 mb-1">
-                  24/7
+                  99.9%
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Workflow Monitoring
+                  Uptime
                 </div>
               </CardContent>
             </Card>
@@ -227,17 +227,17 @@ export function SocialProofSection() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur mb-6">
                 <Sparkles className="w-4 h-4" />
                 <span className="text-sm font-semibold">
-                  Join the Future of Workflow Automation
+                  Start Building Intelligent Workflows
                 </span>
               </div>
 
               <h2 className="text-3xl md:text-5xl font-bold mb-6">
-                Ready to Automate Your Workflow?
+                Ready to Automate Smarter?
               </h2>
 
               <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-8">
-                Get early access to ChainReact and start training your personal AI today.
-                Limited spots available for beta users.
+                Join teams who are already building intelligent workflows with AI that remembers,
+                integrations that work, and automation that actually makes sense.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -247,7 +247,7 @@ export function SocialProofSection() {
                   className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-6 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 group"
                 >
                   <Rocket className="w-5 h-5 mr-2" />
-                  Join the Waitlist
+                  Get Early Access
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
                 <Button
@@ -268,22 +268,22 @@ export function SocialProofSection() {
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-6 text-blue-100">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5" />
-                  <span className="text-sm">No credit card required</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5" />
                   <span className="text-sm">Free during beta</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5" />
-                  <span className="text-sm">Early access benefits</span>
+                  <span className="text-sm">No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="text-sm">Start with templates</span>
                 </div>
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Honesty Section */}
+        {/* Transparency Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -296,13 +296,12 @@ export function SocialProofSection() {
               <div className="text-center max-w-3xl mx-auto">
                 <Target className="w-12 h-12 text-blue-500 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                  Our Promise to You
+                  Built with You in Mind
                 </h3>
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  We're not going to oversell or overpromise. ChainReact is a powerful workflow automation tool
-                  with a genuinely unique approach to AI training. We're building in public, shipping fast, and
-                  listening to our users. If you want to be part of shaping the future of intelligent automation,
-                  we'd love to have you on board.
+                  ChainReact is designed for teams who need powerful workflow automation without the complexity.
+                  We're shipping fast, listening to feedback, and building features that matter. If you want
+                  intelligent automation that actually works, we'd love to have you on board.
                 </p>
               </div>
             </CardContent>

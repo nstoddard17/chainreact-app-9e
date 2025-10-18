@@ -11,11 +11,11 @@ import {
   MessageSquare,
   FileText,
   TrendingUp,
-  Users,
   ArrowRight,
-  CheckCircle,
   Brain,
-  Sparkles
+  Sparkles,
+  Zap,
+  Clock
 } from 'lucide-react'
 
 interface UseCase {
@@ -26,73 +26,73 @@ interface UseCase {
   description: string
   workflow: string[]
   roi: string
-  aiLearns: string
+  keyFeatures: string[]
 }
 
 const useCases: UseCase[] = [
   {
     id: 'customer-support',
-    title: 'Customer Support Triage',
+    title: 'Intelligent Customer Support',
     category: 'Support',
     icon: Mail,
-    description: 'Automatically categorize and route customer emails based on content, urgency, and your business rules.',
+    description: 'Automatically route and respond to customer emails using AI that accesses your knowledge base and collaborates with your team.',
     workflow: [
-      'Gmail trigger: New email received',
-      'AI reads and analyzes email content',
-      'HITL: AI suggests category (Refund/Question/Bug)',
-      'You correct when wrong → AI learns',
-      'Route to Notion, create HubSpot task, send templated response'
+      'Gmail trigger: New customer email received',
+      'AI analyzes email content and urgency',
+      'AI searches Google Drive for relevant policies/docs',
+      'HITL: AI drafts response, asks for approval if needed',
+      'Send response, update HubSpot, post to Slack'
     ],
-    roi: 'Save 10-15 hours/week',
-    aiLearns: 'Your refund policy, product nuances, priority rules'
+    roi: 'Save 10-15 hours per week on email triage and responses',
+    keyFeatures: ['AI Router for smart categorization', 'Document search across Google Drive & Notion', 'HITL for quality control']
   },
   {
     id: 'sales-pipeline',
-    title: 'Sales Pipeline Management',
+    title: 'Automated Sales Pipeline',
     category: 'Sales',
     icon: DollarSign,
-    description: 'Keep your CRM updated automatically when payments come in, with AI learning your deal stages and qualification criteria.',
+    description: 'Keep your CRM synchronized automatically when payments come in, with intelligent routing based on deal size and type.',
     workflow: [
       'Stripe: Payment received',
-      'AI extracts deal details and context',
-      'HITL: AI suggests HubSpot field updates',
-      'Sales lead corrects → AI learns',
-      'Update HubSpot, post to Slack, create follow-up tasks'
+      'AI extracts deal details and validates data',
+      'AI Router: Routes to correct team based on deal size',
+      'Update HubSpot fields, create tasks',
+      'Post to Slack with @mentions, send follow-up emails'
     ],
-    roi: 'Onboard new sales reps 3x faster',
-    aiLearns: 'Deal stages, qualification criteria, priority scoring'
+    roi: 'Reduce data entry time by 80%, ensure zero missed follow-ups',
+    keyFeatures: ['Real-time payment triggers', 'Smart routing by deal attributes', 'Multi-system updates in one workflow']
   },
   {
     id: 'content-distribution',
-    title: 'Content Distribution',
+    title: 'Multi-Platform Publishing',
     category: 'Marketing',
     icon: MessageSquare,
-    description: 'Publish content across multiple platforms with AI learning your brand voice, formatting preferences, and platform-specific tweaks.',
+    description: 'Publish content across multiple platforms automatically, with AI formatting each post for maximum engagement per platform.',
     workflow: [
       'Notion: New blog post published',
-      'AI formats for each platform (Twitter, LinkedIn, Discord)',
-      'HITL: AI shows formatted posts for review',
-      'You refine → AI learns your style',
+      'AI reads post and brand voice guidelines',
+      'AI Message: Formats for each platform (Twitter, LinkedIn, Discord)',
+      'AI Router: Determines which platforms based on content type',
       'Post to all platforms, track engagement'
     ],
-    roi: 'Publish to 5 platforms in the time it takes to do 1',
-    aiLearns: 'Brand voice, formatting preferences, platform nuances'
+    roi: 'Publish to 5+ platforms in the time it takes to do 1',
+    keyFeatures: ['Platform-specific formatting', 'AI Message for context-aware posts', 'Scheduled publishing']
   },
   {
     id: 'data-sync',
-    title: 'Multi-System Data Sync',
+    title: 'Cross-Platform Data Sync',
     category: 'Operations',
     icon: FileText,
-    description: 'Keep data synchronized across Airtable, Notion, and HubSpot with AI learning your data relationships and validation rules.',
+    description: 'Keep data synchronized across Airtable, Notion, and HubSpot automatically with intelligent validation and conflict resolution.',
     workflow: [
       'Airtable: Record updated',
-      'AI synthesizes data across 3 systems',
-      'HITL: AI suggests field mappings and updates',
-      'Domain expert corrects → AI learns',
-      'Update Notion, HubSpot, send notifications'
+      'AI validates data against business rules',
+      'AI checks for conflicts across systems',
+      'HITL: Flags anomalies for human review',
+      'Sync to Notion, HubSpot, send notifications'
     ],
-    roi: 'Reduce data errors by 80%',
-    aiLearns: 'Field relationships, validation rules, data formats'
+    roi: 'Reduce manual data sync time by 90%, cut errors by 80%',
+    keyFeatures: ['Bidirectional sync', 'Conflict detection', 'Real-time monitoring']
   }
 ]
 
@@ -109,10 +109,10 @@ export function UseCasesSection() {
             Real Use Cases
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            Workflows People Actually Build
+            See What You Can Build
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Stop imagining possibilities. Here's what customers are building right now.
+            Real workflows, real results, real time savings. Here's what teams are building with ChainReact.
           </p>
         </div>
 
@@ -170,7 +170,7 @@ export function UseCasesSection() {
 
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                      Workflow Steps:
+                      How It Works:
                     </h4>
                     {selectedCase.workflow.map((step, index) => (
                       <motion.div
@@ -192,7 +192,7 @@ export function UseCasesSection() {
                 </CardContent>
               </Card>
 
-              {/* Right: Results & Learning */}
+              {/* Right: Results & Features */}
               <div className="space-y-6">
                 {/* ROI Card */}
                 <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-500/10 dark:to-emerald-500/10 border-green-200 dark:border-green-500/20">
@@ -203,9 +203,9 @@ export function UseCasesSection() {
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                          Expected ROI
+                          Time Savings
                         </h4>
-                        <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                        <p className="text-lg font-bold text-green-700 dark:text-green-300">
                           {selectedCase.roi}
                         </p>
                       </div>
@@ -213,73 +213,68 @@ export function UseCasesSection() {
                   </CardContent>
                 </Card>
 
-                {/* AI Learning Card */}
+                {/* Key Features Card */}
                 <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border-purple-200 dark:border-purple-500/20">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white flex-shrink-0">
-                        <Brain className="w-5 h-5" />
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-3">
+                          Key Features Used
+                        </h4>
+                        <ul className="space-y-2">
+                          {selectedCase.keyFeatures.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <Zap className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Build Time Card */}
+                <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white flex-shrink-0">
+                        <Clock className="w-5 h-5" />
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                          What AI Learns
+                          Build Time
                         </h4>
                         <p className="text-sm text-gray-700 dark:text-gray-300">
-                          {selectedCase.aiLearns}
+                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">15-30 min</span>
+                          <span className="text-gray-600 dark:text-gray-400"> to build from scratch</span>
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          Or start with a template and customize in minutes
                         </p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Training Timeline */}
-                <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
+                {/* Workflow Complexity */}
+                <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 border-blue-200 dark:border-blue-500/20">
                   <CardContent className="p-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                      <Users className="w-5 h-5 text-blue-500" />
-                      Typical Training Journey
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex items-start gap-3">
-                        <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-0 mt-0.5">
-                          Week 1
-                        </Badge>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            AI asks for help on ~80% of decisions
-                          </p>
-                          <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                            <div className="h-full w-[20%] bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
-                          </div>
-                        </div>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                        <Brain className="w-5 h-5" />
                       </div>
-
-                      <div className="flex items-start gap-3">
-                        <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-0 mt-0.5">
-                          Month 3
-                        </Badge>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            AI asks for help on ~20% of decisions
-                          </p>
-                          <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                            <div className="h-full w-[80%] bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-0 mt-0.5">
-                          Month 6
-                        </Badge>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            AI handles 95% autonomously
-                          </p>
-                          <div className="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
-                            <div className="h-full w-[95%] bg-gradient-to-r from-green-500 to-emerald-500 rounded-full" />
-                          </div>
-                        </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                          Intelligent Automation
+                        </h4>
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                          This workflow combines AI Router for smart decisions, AI Message for context-aware
+                          responses, and HITL for human oversight—all working together seamlessly.
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -292,13 +287,13 @@ export function UseCasesSection() {
                       Ready to build this?
                     </h4>
                     <p className="text-sm text-blue-100 mb-4">
-                      Join the waitlist to get early access
+                      Start with a template or build from scratch
                     </p>
                     <Button
                       className="bg-white text-blue-600 hover:bg-gray-100"
                       onClick={() => window.location.href = '/waitlist'}
                     >
-                      Get Started
+                      Get Early Access
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
@@ -307,38 +302,6 @@ export function UseCasesSection() {
             </div>
           </motion.div>
         </AnimatePresence>
-
-        {/* All Integrations Available */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mt-16"
-        >
-          <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
-            <CardContent className="p-6 md:p-8">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  20+ Deep Integrations Available
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Not just API connections—real webhook support, OAuth flows, and field-level control
-                </p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                {['Gmail', 'Slack', 'Discord', 'Notion', 'HubSpot', 'Stripe', 'Airtable', 'Shopify', 'Drive', 'OneDrive', 'Trello', 'Facebook', 'Twitter', 'LinkedIn', 'Instagram'].map((integration) => (
-                  <div
-                    key={integration}
-                    className="flex items-center justify-center p-3 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {integration}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
       </div>
     </section>
   )

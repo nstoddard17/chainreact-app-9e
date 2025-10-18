@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,42 +8,53 @@ import { Badge } from '@/components/ui/badge'
 import {
   Mail,
   Brain,
-  CheckCircle,
-  XCircle,
+  FileText,
   MessageSquare,
-  TrendingUp,
-  Sparkles,
   ArrowRight,
   PlayCircle,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Search,
+  CheckCircle,
+  Database
 } from 'lucide-react'
 
-type DemoStep = 'trigger' | 'ai-analysis' | 'hitl-pause' | 'conversation' | 'learning' | 'complete'
+type DemoStep = 'trigger' | 'ai-analysis' | 'document-search' | 'hitl-conversation' | 'ai-response' | 'complete'
 
 interface Message {
   role: 'ai' | 'user'
   content: string
 }
 
+interface Document {
+  name: string
+  source: string
+  snippet: string
+}
+
 export function HITLDemo() {
   const [currentStep, setCurrentStep] = useState<DemoStep>('trigger')
   const [isPlaying, setIsPlaying] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
-  const [showAccuracyImprovement, setShowAccuracyImprovement] = useState(false)
+  const [foundDocuments, setFoundDocuments] = useState<Document[]>([])
+  const [showResponse, setShowResponse] = useState(false)
 
   const resetDemo = () => {
     setCurrentStep('trigger')
     setIsPlaying(false)
     setMessages([])
-    setShowAccuracyImprovement(false)
+    setFoundDocuments([])
+    setShowResponse(false)
   }
 
   const startDemo = () => {
     setIsPlaying(true)
     setCurrentStep('trigger')
+    setMessages([])
+    setFoundDocuments([])
+    setShowResponse(false)
 
-    // Automated demo progression
-    const steps: DemoStep[] = ['trigger', 'ai-analysis', 'hitl-pause', 'conversation', 'learning', 'complete']
+    const steps: DemoStep[] = ['trigger', 'ai-analysis', 'document-search', 'hitl-conversation', 'ai-response', 'complete']
     let currentIndex = 0
 
     const interval = setInterval(() => {
@@ -51,34 +62,59 @@ export function HITLDemo() {
       if (currentIndex < steps.length) {
         setCurrentStep(steps[currentIndex])
 
-        // Add messages during conversation step
-        if (steps[currentIndex] === 'conversation') {
+        // Show document search results
+        if (steps[currentIndex] === 'document-search') {
+          setTimeout(() => {
+            setFoundDocuments([
+              {
+                name: 'Return Policy 2024',
+                source: 'Google Drive',
+                snippet: 'Customers can return items within 30 days for a full refund. International returns accepted with prepaid label.'
+              },
+              {
+                name: 'Customer Service Guidelines',
+                source: 'Notion',
+                snippet: 'Always offer expedited shipping on replacement orders. Waive return shipping for defective items.'
+              }
+            ])
+          }, 800)
+        }
+
+        // Show HITL conversation
+        if (steps[currentIndex] === 'hitl-conversation') {
           setTimeout(() => {
             setMessages([{
               role: 'ai',
-              content: "Should I refund this customer? They're reporting a 3-week shipping delay."
+              content: "I found your return policy in Google Drive. The customer is asking about an international return. Should I mention the prepaid label option?"
             }])
           }, 500)
 
           setTimeout(() => {
             setMessages(prev => [...prev, {
               role: 'user',
-              content: "Yes, refund. Any shipping delay over 2 weeks gets an automatic refund."
+              content: "Yes, and also let them know we'll expedite the replacement. Add that to memory for future international return questions."
             }])
           }, 2500)
+
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              role: 'ai',
+              content: "Got it! I've saved: 'International returns → mention prepaid label + expedited replacement.' I'll remember this for next time."
+            }])
+          }, 4500)
         }
 
-        // Show accuracy improvement
-        if (steps[currentIndex] === 'learning') {
+        // Show final AI response
+        if (steps[currentIndex] === 'ai-response') {
           setTimeout(() => {
-            setShowAccuracyImprovement(true)
+            setShowResponse(true)
           }, 500)
         }
       } else {
         clearInterval(interval)
         setIsPlaying(false)
       }
-    }, 2500)
+    }, 3000)
 
     return () => clearInterval(interval)
   }
@@ -93,10 +129,10 @@ export function HITLDemo() {
             Interactive Demo
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            See Human-in-the-Loop AI in Action
+            AI That Reads Your Documents
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Watch how your AI learns from your corrections and becomes smarter with every workflow run
+            Watch how AI accesses your stored documents, collaborates with you through HITL, and builds a memory of your preferences
           </p>
         </div>
 
@@ -107,7 +143,7 @@ export function HITLDemo() {
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                   <Mail className="w-5 h-5 text-blue-500" />
-                  Customer Support Workflow
+                  Customer Support with AI Memory
                 </h3>
 
                 {/* Workflow Steps */}
@@ -134,7 +170,7 @@ export function HITLDemo() {
                           Gmail Trigger
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          New email received
+                          Customer asks about international returns
                         </div>
                       </div>
                       {currentStep === 'trigger' && (
@@ -147,7 +183,6 @@ export function HITLDemo() {
                     </div>
                   </motion.div>
 
-                  {/* Arrow */}
                   <div className="flex justify-center">
                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                   </div>
@@ -174,7 +209,7 @@ export function HITLDemo() {
                           AI Analysis
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Processing email content...
+                          Understanding customer question...
                         </div>
                       </div>
                       {currentStep === 'ai-analysis' && (
@@ -188,20 +223,59 @@ export function HITLDemo() {
                     </div>
                   </motion.div>
 
-                  {/* Arrow */}
                   <div className="flex justify-center">
                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                   </div>
 
-                  {/* Step 3: HITL Pause */}
+                  {/* Step 3: Document Search */}
                   <motion.div
                     initial={{ opacity: 0.3 }}
                     animate={{
-                      opacity: ['hitl-pause', 'conversation'].includes(currentStep) ? 1 : 0.5,
-                      scale: ['hitl-pause', 'conversation'].includes(currentStep) ? 1.02 : 1
+                      opacity: currentStep === 'document-search' ? 1 : 0.5,
+                      scale: currentStep === 'document-search' ? 1.02 : 1
                     }}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      ['hitl-pause', 'conversation'].includes(currentStep)
+                      currentStep === 'document-search'
+                        ? 'border-green-500 bg-green-50 dark:bg-green-500/10'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                          Document Search
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          Searching Google Drive & Notion...
+                        </div>
+                      </div>
+                      {currentStep === 'document-search' && (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        >
+                          <Search className="w-4 h-4 text-green-500" />
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  <div className="flex justify-center">
+                    <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
+                  </div>
+
+                  {/* Step 4: HITL Conversation */}
+                  <motion.div
+                    initial={{ opacity: 0.3 }}
+                    animate={{
+                      opacity: currentStep === 'hitl-conversation' ? 1 : 0.5,
+                      scale: currentStep === 'hitl-conversation' ? 1.02 : 1
+                    }}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      currentStep === 'hitl-conversation'
                         ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-500/10'
                         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900/50'
                     }`}
@@ -212,13 +286,13 @@ export function HITLDemo() {
                       </div>
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                          HITL Pause
+                          HITL Collaboration
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Awaiting your input...
+                          AI asks for your input...
                         </div>
                       </div>
-                      {['hitl-pause', 'conversation'].includes(currentStep) && (
+                      {currentStep === 'hitl-conversation' && (
                         <Badge className="bg-yellow-500 text-white text-xs">
                           Active
                         </Badge>
@@ -226,48 +300,46 @@ export function HITLDemo() {
                     </div>
                   </motion.div>
 
-                  {/* Arrow */}
                   <div className="flex justify-center">
                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                   </div>
 
-                  {/* Step 4: Learning */}
+                  {/* Step 5: AI Response */}
                   <motion.div
                     initial={{ opacity: 0.3 }}
                     animate={{
-                      opacity: currentStep === 'learning' ? 1 : 0.5,
-                      scale: currentStep === 'learning' ? 1.02 : 1
+                      opacity: currentStep === 'ai-response' ? 1 : 0.5,
+                      scale: currentStep === 'ai-response' ? 1.02 : 1
                     }}
                     className={`p-4 rounded-xl border-2 transition-all ${
-                      currentStep === 'learning'
-                        ? 'border-green-500 bg-green-50 dark:bg-green-500/10'
+                      currentStep === 'ai-response'
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
                         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900/50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
-                        <TrendingUp className="w-5 h-5" />
+                      <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white">
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                          AI Learning
+                          Draft Response
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Training on your correction...
+                          Using retrieved docs + your input...
                         </div>
                       </div>
-                      {currentStep === 'learning' && (
-                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      {currentStep === 'ai-response' && (
+                        <CheckCircle className="w-5 h-5 text-indigo-500" />
                       )}
                     </div>
                   </motion.div>
 
-                  {/* Arrow */}
                   <div className="flex justify-center">
                     <ArrowRight className="w-5 h-5 text-gray-400 dark:text-gray-600" />
                   </div>
 
-                  {/* Step 5: Complete */}
+                  {/* Step 6: Complete */}
                   <motion.div
                     initial={{ opacity: 0.3 }}
                     animate={{
@@ -286,10 +358,10 @@ export function HITLDemo() {
                       </div>
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                          Workflow Complete
+                          Complete
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
-                          Refund processed, customer notified
+                          Email sent, memory saved
                         </div>
                       </div>
                       {currentStep === 'complete' && (
@@ -327,14 +399,66 @@ export function HITLDemo() {
             </div>
           </div>
 
-          {/* Right: HITL Conversation & Results */}
+          {/* Right: Documents & Conversation */}
           <div className="space-y-6">
-            {/* Conversation Card */}
+            {/* Found Documents */}
+            <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-green-500" />
+                  Documents Found
+                </h3>
+
+                <div className="min-h-[180px]">
+                  <AnimatePresence>
+                    {foundDocuments.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex flex-col items-center justify-center h-[180px] text-gray-400 dark:text-gray-600 text-sm"
+                      >
+                        <Database className="w-12 h-12 mb-2 opacity-50" />
+                        <span>AI will search your documents...</span>
+                      </motion.div>
+                    ) : (
+                      <div className="space-y-3">
+                        {foundDocuments.map((doc, idx) => (
+                          <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.2 }}
+                            className="p-3 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20"
+                          >
+                            <div className="flex items-start gap-2 mb-1">
+                              <FileText className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <div className="font-semibold text-sm text-gray-900 dark:text-white">
+                                  {doc.name}
+                                </div>
+                                <div className="text-xs text-green-700 dark:text-green-300 mb-1">
+                                  From {doc.source}
+                                </div>
+                                <div className="text-xs text-gray-700 dark:text-gray-300 italic">
+                                  "{doc.snippet}"
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* HITL Conversation */}
             <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-yellow-500" />
-                  Human-in-the-Loop Conversation
+                  HITL Conversation
                 </h3>
 
                 <div className="min-h-[200px] space-y-4">
@@ -381,91 +505,62 @@ export function HITLDemo() {
               </CardContent>
             </Card>
 
-            {/* AI Learning Progress */}
-            <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10">
-              <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                  AI Learning Progress
-                </h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Autonomous Accuracy
-                      </span>
-                      <motion.span
-                        className="text-sm font-semibold text-gray-900 dark:text-white"
-                        animate={showAccuracyImprovement ? { scale: [1, 1.2, 1] } : {}}
-                      >
-                        {showAccuracyImprovement ? '85%' : '75%'}
-                      </motion.span>
-                    </div>
-                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: '75%' }}
-                        animate={{ width: showAccuracyImprovement ? '85%' : '75%' }}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-green-500 to-green-600"
-                      />
-                    </div>
-                  </div>
-
-                  <AnimatePresence>
-                    {showAccuracyImprovement && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20"
-                      >
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                          <div className="text-sm text-green-900 dark:text-green-100">
-                            <p className="font-semibold mb-1">AI learned new rule!</p>
-                            <p className="text-xs text-green-700 dark:text-green-200">
-                              "Shipping delays over 2 weeks = automatic refund"
+            {/* AI Generated Response */}
+            <AnimatePresence>
+              {showResponse && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 border-blue-200 dark:border-blue-500/20">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white flex-shrink-0">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                            AI-Generated Email Response
+                          </h4>
+                          <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <p className="mb-2">Hi [Customer],</p>
+                            <p className="mb-2">
+                              Thank you for reaching out! We're happy to help with your international return.
+                              You can return your item within 30 days for a full refund. We'll provide a prepaid
+                              shipping label for your convenience.
                             </p>
+                            <p className="mb-2">
+                              Once we receive your return, we'll expedite the replacement shipment at no extra charge.
+                            </p>
+                            <p>Best regards,<br />Support Team</p>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                            <span>Used: Return Policy doc + Your guidance + Memory saved</span>
                           </div>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Total corrections</span>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {showAccuracyImprovement ? '48' : '47'}
-                        </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Rules learned</span>
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {showAccuracyImprovement ? '23' : '22'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Key Insight */}
-            <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 border-blue-200 dark:border-blue-500/20">
+            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border-purple-200 dark:border-purple-500/20">
               <CardContent className="p-6">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white flex-shrink-0">
-                    <Sparkles className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white flex-shrink-0">
+                    <Database className="w-5 h-5" />
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                      The Power of HITL
+                      AI with Memory
                     </h4>
                     <p className="text-sm text-gray-700 dark:text-gray-300">
-                      After just a few corrections, your AI learns your business rules, edge cases, and preferences.
-                      What started as needing your input 80% of the time becomes 90% autonomous in months.
+                      The AI accessed your Google Drive and Notion docs to find answers, collaborated with you
+                      via HITL, and saved your preferences for future use. It's not just automation—it's
+                      an intelligent assistant that knows your business.
                     </p>
                   </div>
                 </div>
