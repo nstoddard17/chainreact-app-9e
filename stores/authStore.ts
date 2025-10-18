@@ -332,12 +332,8 @@ export const useAuthStore = create<AuthState>()(
                   profile = mapProfileData(fetchedProfileData)
                 }
 
-                if (!profile) {
-                  const serviceProfileAfterFallback = await fetchProfileViaService()
-                  if (serviceProfileAfterFallback) {
-                    profile = serviceProfileAfterFallback
-                  }
-                }
+                // After fallback attempts, profile should be defined. Avoid a second service call to
+                // prevent chaining two 6s timeouts that trip the global 12s auth watchdog.
               }
 
               if (!profile) {
