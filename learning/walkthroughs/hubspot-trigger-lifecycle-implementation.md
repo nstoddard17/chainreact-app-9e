@@ -1,8 +1,19 @@
 # HubSpot Trigger Lifecycle Implementation Walkthrough
 
-**Date:** October 17, 2025
-**Status:** ✅ Complete
+**Date:** October 17, 2025 (Updated: October 18, 2025)
+**Status:** ✅ Complete (Revised for Private App Limitations)
 **Issue:** HubSpot triggers were not creating webhooks, so they never received notifications
+
+## ⚠️ CRITICAL UPDATE (Oct 18, 2025)
+
+**HubSpot Private Apps CANNOT create webhook subscriptions programmatically via API.**
+
+After implementing the full lifecycle pattern (similar to Airtable/Microsoft Graph), we discovered that HubSpot has a critical limitation:
+
+- ❌ **Private Apps**: Webhook subscriptions can ONLY be configured manually through the HubSpot UI
+- ✅ **Public Apps**: Can create subscriptions programmatically via API
+
+This required a complete architecture change. See [HUBSPOT_WEBHOOK_SETUP.md](../../HUBSPOT_WEBHOOK_SETUP.md) for the current implementation.
 
 ## Problem
 
@@ -246,49 +257,84 @@ This is your HubSpot app ID, required for the webhook API endpoints. Get it from
 
 ## Known Limitations & Gotchas
 
-### 1. HubSpot App ID Required
+### 1. ⚠️ PRIVATE APP API LIMITATION (CRITICAL)
+
+**Issue:** HubSpot Private Apps cannot create webhook subscriptions via API - always returns 404
+**Root Cause:** HubSpot API restriction - webhooks for Private Apps can only be configured in the UI
+**Discovery:** After multiple authentication attempts (401 errors), realized endpoint format doesn't matter - Private Apps simply don't support the API
+**Solution:** Changed to manual webhook setup (see HUBSPOT_WEBHOOK_SETUP.md)
+
+**Architecture Change:**
+- **Old Approach:** Dynamic per-workflow subscriptions via API (like Microsoft Graph)
+- **New Approach:** Global webhook configured manually, routes events to all matching workflows
+
+**Files Changed:**
+- `HubSpotTriggerLifecycle.ts`: Removed API calls, now just registers workflows locally
+- `route.ts`: Already supported global routing (no changes needed)
+
+**Migration Path to Public App:**
+If you need dynamic subscriptions, create a HubSpot Public App instead of Private App.
+See HUBSPOT_WEBHOOK_SETUP.md section "Migration Path to Public App"
+
+### 2. HubSpot App ID Required (Deprecated - Only for Public Apps)
 
 **Issue:** HubSpot webhook API requires an App ID in the URL
 **Solution:** Must set `HUBSPOT_APP_ID` environment variable
 **Alternative:** For production, consider storing app ID per user/integration
 
-### 2. OAuth Scopes
+**NOTE:** This is NOT needed for Private Apps using manual webhook setup.
 
-**Required Scopes for Webhooks:**
-- `webhooks.read` - Read webhook subscriptions
-- `webhooks.write` - Create/delete webhook subscriptions
-- Plus object-specific scopes (e.g., `crm.objects.contacts.read`)
+### 3. OAuth Scopes (For Private App Actions Only)
 
-**Fix:** Ensure these scopes are requested during OAuth flow
+**Required Scopes for Actions (NOT Webhooks):**
+- `crm.objects.contacts.read` - Read contacts
+- `crm.objects.companies.read` - Read companies
+- `crm.objects.deals.read` - Read deals
+- Add write scopes if using create/update actions
 
-### 3. Webhook Verification
+**NOTE:** Webhook scopes (`webhooks.read`, `webhooks.write`) are NOT available for Private Apps.
+Webhooks are configured through the UI, not OAuth scopes.
+
+### 4. Webhook Verification
 
 **Current Implementation:** No signature verification
 **Security Risk:** Webhooks could be spoofed
 **TODO:** Implement HubSpot signature verification
 - HubSpot sends `X-HubSpot-Signature` header
-- Verify HMAC-SHA256 signature using app secret
+- Verify HMAC-SHA256 signature using Private App Client Secret
 
-### 4. Rate Limits
+### 6. Rate Limits
 
 **HubSpot API Limits:**
-- Webhook subscriptions: 1000 per app
+- Webhook subscriptions: 1000 per app (not applicable to Private Apps)
 - Webhook deliveries: Based on account tier
 - API calls: 100 requests per 10 seconds (default)
 
 **Mitigation:** Consider batching or queuing for high-volume scenarios
 
-### 5. Property Change Filtering
+### 7. Property Change Filtering
 
 **Current Implementation:** Filters by property name in lifecycle
 **Limitation:** Can only filter by ONE property
 **Enhancement Idea:** Support multiple property filters or complex conditions
 
-### 6. No Webhook Retry Logic
+### 8. No Webhook Retry Logic
 
 **Current Implementation:** Single-shot execution
 **Risk:** If execution fails, event is lost
 **TODO:** Implement retry queue or dead letter queue
+
+### 9. Authentication Troubleshooting Journey
+
+**What We Tried:**
+1. ❌ User OAuth tokens - Got 401 (webhooks need app-level auth)
+2. ❌ Developer API Key - Got 401 (legacy, not for webhooks v3)
+3. ❌ Private App token with App ID in URL - Got 404 (Private Apps don't use that endpoint)
+4. ❌ Private App token without App ID - Still got 404 (API not supported at all)
+
+**The Real Issue:** Private Apps fundamentally cannot use the Webhooks API programmatically.
+
+**Lesson:** Always check API documentation for app type compatibility before implementing!
 
 ## Files Changed
 
