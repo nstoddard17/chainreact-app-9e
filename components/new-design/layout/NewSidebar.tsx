@@ -39,21 +39,20 @@ export function NewSidebar() {
   const { profile, signOut } = useAuthStore()
 
   const mainNav: NavItem[] = [
-    { label: "Workflows", href: "/new", icon: Home },
-    { label: "Templates", href: "/new/library", icon: Layers },
-    { label: "Apps", href: "/new/apps", icon: Layout },
-    { label: "AI Assistant", href: "/new/ai-assistant", icon: Sparkles },
+    { label: "Workflows", href: "/workflows", icon: Home },
+    { label: "Templates", href: "/templates", icon: Layers },
+    { label: "Apps", href: "/apps", icon: Layout },
+    { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
   ]
 
   const secondaryNav: NavItem[] = [
-    { label: "Analytics", href: "/new/analytics", icon: BarChart3 },
-    { label: "Team", href: "/new/team", icon: Users },
-    { label: "Settings", href: "/new/settings", icon: Settings },
+    { label: "Analytics", href: "/analytics", icon: BarChart3 },
+    { label: "Organization", href: "/organization-settings", icon: Users },
   ]
 
   const isActive = (href: string) => {
-    if (href === "/new") {
-      return pathname === "/new"
+    if (href === "/workflows") {
+      return pathname === "/workflows"
     }
     return pathname?.startsWith(href)
   }
@@ -162,11 +161,11 @@ export function NewSidebar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => router.push('/new/settings')}>
+            <DropdownMenuItem onClick={() => router.push('/settings')}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/new/help')}>
+            <DropdownMenuItem onClick={() => router.push('/support')}>
               <HelpCircle className="w-4 h-4 mr-2" />
               Help & Support
             </DropdownMenuItem>

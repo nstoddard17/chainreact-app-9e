@@ -210,8 +210,37 @@ export class WorkflowExecutionService {
       logger.debug(`   Node ${startNode.id} execution result:`, {
         success: result?.success,
         hasError: !!result?.error,
-        hasResults: !!result?.results
+        hasResults: !!result?.results,
+        pauseExecution: result?.pauseExecution
       })
+
+      // Check if this node is requesting workflow pause (HITL)
+      if (result?.pauseExecution) {
+        logger.info(`⏸️  Workflow paused at node ${startNode.id} (HITL conversation initiated)`)
+
+        // Update progress tracker to paused state
+        await progressTracker.pause(startNode.id, startNode.data.title || 'Human input required')
+
+        // Update execution history with pause info
+        if (executionHistoryId) {
+          await executionHistoryService.pauseExecution(
+            executionHistoryId,
+            startNode.id,
+            result.output
+          )
+        }
+
+        // Return immediately with pause status
+        return {
+          results: [result],
+          paused: true,
+          pausedNodeId: startNode.id,
+          conversationId: result.output?.conversationId,
+          executionId,
+          executionHistoryId,
+          success: true
+        }
+      }
 
       // Track completion or failure
       if (result?.error) {

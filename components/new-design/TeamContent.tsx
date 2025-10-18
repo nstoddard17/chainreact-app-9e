@@ -285,12 +285,13 @@ export function TeamContent() {
   }
 
   const getUserRole = (team: Team): 'owner' | 'admin' | 'member' | null => {
-    if (!team.team_members) return null
+    if (!team || !team.team_members) return null
     const member = team.team_members.find(m => m.user_id === user?.id)
     return member?.role || null
   }
 
   const canManageTeam = (team: Team): boolean => {
+    if (!team) return false
     const role = getUserRole(team)
     return role === 'owner' || role === 'admin'
   }

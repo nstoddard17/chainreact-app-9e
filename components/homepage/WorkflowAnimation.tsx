@@ -68,11 +68,26 @@ export function WorkflowAnimation() {
   const [particles, setParticles] = useState<Particle[]>([])
   const [activeConnections, setActiveConnections] = useState<string[]>([])
   const [showDataFlow, setShowDataFlow] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
 
+  useEffect(() => {
+    const updateViewportFlag = () => {
+      setIsDesktop(window.innerWidth >= 768)
+    }
+    updateViewportFlag()
+    window.addEventListener('resize', updateViewportFlag)
+    return () => window.removeEventListener('resize', updateViewportFlag)
+  }, [])
+
   // Generate particles
   useEffect(() => {
+    if (!isDesktop) {
+      setParticles([])
+      return
+    }
+
     const interval = setInterval(() => {
       if (isVisible) {
         setParticles(prev => {
@@ -103,11 +118,11 @@ export function WorkflowAnimation() {
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isVisible])
+  }, [isVisible, isDesktop])
 
   // Animation sequence
   useEffect(() => {
-    if (!isVisible) return
+    if (!isVisible || !isDesktop) return
 
     // Reset state
     setActiveConnections([])
@@ -132,10 +147,12 @@ export function WorkflowAnimation() {
     }, 8000)
 
     return () => clearTimeout(resetTimer)
-  }, [isVisible])
+  }, [isVisible, isDesktop])
 
   // Observer for viewport visibility
   useEffect(() => {
+    if (!isDesktop) return
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !isVisible) {
@@ -151,10 +168,12 @@ export function WorkflowAnimation() {
     return () => {
       if (element) observer.unobserve(element)
     }
-  }, [isVisible])
+  }, [isVisible, isDesktop])
 
   // Draw particles on canvas
   useEffect(() => {
+    if (!isDesktop) return
+
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -218,8 +237,42 @@ export function WorkflowAnimation() {
         </div>
 
         <div className="relative">
+          {/* Mobile-friendly workflow summary */}
+          {!isDesktop && (
+            <div className="md:hidden grid gap-4 sm:grid-cols-2">
+              {nodes.map((node) => (
+                <motion.div
+                  key={node.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4 }}
+                  className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white/90 dark:bg-slate-900/60 backdrop-blur-xl p-4 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${node.color} flex items-center justify-center text-white`}>
+                      {React.createElement(node.icon, { className: 'w-5 h-5' })}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{node.label}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {node.id === 'trigger' && 'Automatically capture new events'}
+                        {node.id === 'ai' && 'AI understands the context instantly'}
+                        {node.id === 'condition' && 'Smart filters keep noise out'}
+                        {node.id === 'database' && 'Store structured insights securely'}
+                        {node.id === 'slack' && 'Notify teams where they already work'}
+                        {node.id === 'webhook' && 'Push updates to any destination'}
+                        {node.id === 'complete' && 'Track the entire automation lifecycle'}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
           {/* Main container with glassmorphism */}
-          <div className="relative bg-white/80 dark:bg-slate-900/30 backdrop-blur-2xl rounded-3xl border border-gray-200 dark:border-white/10 p-8 overflow-hidden">
+          <div className={`relative bg-white/80 dark:bg-slate-900/30 backdrop-blur-2xl rounded-3xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 overflow-hidden ${isDesktop ? '' : 'hidden md:block'}`}>
             {/* Glow effects */}
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-20 animate-pulse"></div>

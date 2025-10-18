@@ -20,16 +20,36 @@ export interface HITLConfig {
   extractVariables?: Record<string, string>
 
   // Timeout configuration
-  timeout?: number
+  timeoutPreset?: string  // Preset timeout option ("0", "15", "30", "60", "120", "240", "480", "1440", "custom")
+  timeout?: number        // Custom timeout value in minutes (only used when timeoutPreset is "custom")
   timeoutAction?: 'cancel' | 'proceed'
   continuationSignals?: string[]
 
   // Memory & learning (new)
-  enableMemory?: boolean
+  enableMemory?: boolean | string  // Can be boolean (legacy) or "true"/"false" string (new)
+  memoryStorageProvider?: 'chainreact' | 'google_docs' | 'notion' | 'onedrive'
+  memoryDocumentId?: string  // UUID for ChainReact Memory documents
+  memoryStorageDocument?: any  // For external providers (Google Docs, Notion, etc.)
   knowledgeBaseDocuments?: any[]
-  memoryStorageDocument?: any
+  knowledgeBaseProvider?: 'chainreact' | 'google_docs' | 'notion' | 'onedrive'
+  knowledgeBaseDocumentIds?: string[]  // UUIDs for ChainReact KB documents
   memoryCategories?: string[]
-  cacheInDatabase?: boolean
+  cacheInDatabase?: boolean | string  // Can be boolean (legacy) or "true"/"false" string (new)
+}
+
+export interface MemoryDocument {
+  id: string
+  userId: string
+  workflowId?: string
+  docType: 'memory' | 'knowledge_base'
+  title: string
+  description?: string
+  content?: string
+  structuredData?: Record<string, any>
+  scope: 'user' | 'workflow' | 'global'
+  createdAt: string
+  updatedAt: string
+  lastAccessedAt?: string
 }
 
 export interface ConversationMessage {

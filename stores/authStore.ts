@@ -96,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
 
         // Check if we're in production and experiencing a cold start
         const isProduction = process.env.NODE_ENV === 'production'
-        const timeoutDuration = isProduction ? 5000 : 5000 // 5 seconds for both
+        const timeoutDuration = isProduction ? 12000 : 12000 // 12 seconds for both
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
@@ -136,28 +136,25 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
-          // Get current user from Supabase with timeout
-          logger.debug('Fetching user from Supabase...')
+          // Get session from local storage (fast, no network call)
+          // This is the recommended approach for client-side auth initialization
+          logger.debug('Fetching session from Supabase...')
           logger.debug('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-          const userPromise = supabase.auth.getUser()
-          const userTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
-          )
 
-          let userResult
-          try {
-            userResult = await Promise.race([userPromise, userTimeout])
-            logger.debug('User fetch completed successfully')
-          } catch (timeoutError) {
-            logger.warn('User fetch timed out, treating as unauthenticated', timeoutError)
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+          if (sessionError) {
+            logger.warn('Session error:', sessionError)
             set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
           }
-          
-          const { data: { user }, error: userError } = userResult
 
-          if (userError) {
+          // Extract user from session (no network call needed)
+          const user = session?.user
+
+          if (!user) {
+            logger.debug('No active session found')
             set({ user: null, loading: false, initialized: true })
             clearTimeout(initTimeout)
             return
@@ -190,11 +187,18 @@ export const useAuthStore = create<AuthState>()(
 
             const fetchProfileViaService = async (): Promise<Profile | null> => {
               if (typeof window === 'undefined') return null
+
+              const abortController = new AbortController()
+              const timeoutId = window.setTimeout(() => {
+                abortController.abort()
+              }, 6000)
+
               try {
                 const response = await fetch('/api/auth/profile', {
                   method: 'GET',
                   credentials: 'include',
                   cache: 'no-store',
+                  signal: abortController.signal,
                 })
 
                 if (!response.ok) {
@@ -207,9 +211,15 @@ export const useAuthStore = create<AuthState>()(
                   return mapProfileData(payload.profile)
                 }
                 return null
-              } catch (error) {
-                logger.error('Failed to fetch profile via service endpoint:', error)
+              } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                  logger.warn('Service profile fetch timed out, falling back to direct query')
+                } else {
+                  logger.error('Failed to fetch profile via service endpoint:', error)
+                }
                 return null
+              } finally {
+                clearTimeout(timeoutId)
               }
             }
 
@@ -511,10 +521,11 @@ export const useAuthStore = create<AuthState>()(
               const handleVisibilityChange = () => {
                 if (document.visibilityState === 'visible') {
                   setTimeout(async () => {
-                    const { data: { user } } = await supabase.auth.getUser()
+                    // Use getSession instead of getUser to avoid network timeout
+                    const { data: { session } } = await supabase.auth.getSession()
                     const currentState = get()
-                    
-                    if (user && !currentState.user) {
+
+                    if (session?.user && !currentState.user) {
                       setTimeout(() => {
                         get().initialize()
                       }, 100)
@@ -944,22 +955,20 @@ export const useAuthStore = create<AuthState>()(
             logger.error("Session refresh error:", error)
             return false
           }
-          
-          if (session) {
-            // Update the user state with the refreshed session
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-              set({ user: {
-                id: user.id,
-                email: user.email || '',
-                name: user.user_metadata?.name,
-                first_name: user.user_metadata?.first_name,
-                last_name: user.user_metadata?.last_name,
-                full_name: user.user_metadata?.full_name,
-                avatar: user.user_metadata?.avatar_url,
-              }})
-              return true
-            }
+
+          if (session?.user) {
+            // Update the user state with the refreshed session (user already in session)
+            const user = session.user
+            set({ user: {
+              id: user.id,
+              email: user.email || '',
+              name: user.user_metadata?.name,
+              first_name: user.user_metadata?.first_name,
+              last_name: user.user_metadata?.last_name,
+              full_name: user.user_metadata?.full_name,
+              avatar: user.user_metadata?.avatar_url,
+            }})
+            return true
           }
           return false
         } catch (error) {

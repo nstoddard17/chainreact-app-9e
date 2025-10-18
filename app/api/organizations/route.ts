@@ -29,8 +29,23 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch organizations" , 500)
     }
 
+    // Fetch teams count for each organization separately to avoid RLS issues
+    const orgsWithTeamCounts = await Promise.all(
+      organizations.map(async (org: any) => {
+        const { data: teams, error: teamsError } = await serviceClient
+          .from("teams")
+          .select("id", { count: 'exact', head: true })
+          .eq("organization_id", org.id)
+
+        return {
+          ...org,
+          teams: teams || []
+        }
+      })
+    )
+
     // Transform the data to match the expected format
-    const transformedOrganizations = organizations.map((org: any) => ({
+    const transformedOrganizations = orgsWithTeamCounts.map((org: any) => ({
       id: org.id,
       name: org.name,
       slug: org.slug,
@@ -40,10 +55,12 @@ export async function GET(request: NextRequest) {
       owner_id: org.owner_id,
       billing_email: org.billing_email,
       billing_address: org.billing_address,
+      is_personal: org.is_personal,
       created_at: org.created_at,
       updated_at: org.updated_at,
       role: org.organization_members[0]?.role || 'viewer',
-      member_count: org.organization_members?.length || 1
+      member_count: org.organization_members?.length || 1,
+      team_count: org.teams?.length || 0
     }))
 
     return jsonResponse(transformedOrganizations)
@@ -120,7 +137,8 @@ export async function POST(request: NextRequest) {
     const result = {
       ...organization,
       role: "admin",
-      member_count: 1
+      member_count: 1,
+      team_count: 0
     }
 
     return jsonResponse(result, { status: 201 })

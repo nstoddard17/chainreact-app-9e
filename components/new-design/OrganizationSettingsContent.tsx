@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,6 +44,7 @@ import {
   UserPlus
 } from "lucide-react"
 import { toast } from "sonner"
+import { TeamContent } from "./TeamContent"
 
 interface Organization {
   id: string
@@ -57,6 +58,7 @@ interface Organization {
   member_count: number
   team_count: number
   created_at: string
+  is_personal?: boolean
 }
 
 interface OrganizationMember {
@@ -73,17 +75,27 @@ interface OrganizationMember {
 
 export function OrganizationSettingsContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuthStore()
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("general")
 
   // Form state
   const [orgName, setOrgName] = useState("")
   const [orgDescription, setOrgDescription] = useState("")
   const [billingEmail, setBillingEmail] = useState("")
+
+  // Handle tab parameter from URL
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // Fetch current organization
   useEffect(() => {
@@ -204,7 +216,7 @@ export function OrganizationSettingsContent() {
       localStorage.removeItem('current_organization_id')
 
       // Redirect to home or refresh
-      router.push('/new')
+      router.push('/workflows')
       router.refresh()
     } catch (error: any) {
       console.error('Error deleting organization:', error)
@@ -265,16 +277,29 @@ export function OrganizationSettingsContent() {
         </p>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
-          {isOwner && <TabsTrigger value="danger">Danger Zone</TabsTrigger>}
+          {isOwner && !organization.is_personal && <TabsTrigger value="danger">Danger Zone</TabsTrigger>}
         </TabsList>
 
         {/* General Settings */}
         <TabsContent value="general" className="space-y-6">
+          {organization.is_personal && (
+            <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+              <CardHeader>
+                <CardTitle className="text-blue-700 dark:text-blue-400">Personal Workspace</CardTitle>
+                <CardDescription className="text-blue-600 dark:text-blue-300">
+                  This is your personal workspace. It cannot be deleted or transferred, and is private to you.
+                  Create an organization to collaborate with others.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Organization Details</CardTitle>
@@ -363,6 +388,11 @@ export function OrganizationSettingsContent() {
           </Card>
         </TabsContent>
 
+        {/* Teams Tab */}
+        <TabsContent value="teams" className="space-y-6">
+          <TeamContent />
+        </TabsContent>
+
         {/* Members Tab */}
         <TabsContent value="members" className="space-y-6">
           <Card>
@@ -371,10 +401,13 @@ export function OrganizationSettingsContent() {
                 <div>
                   <CardTitle>Organization Members</CardTitle>
                   <CardDescription>
-                    Manage who has access to your organization
+                    {organization.is_personal
+                      ? "Personal workspaces are private to you only"
+                      : "Manage who has access to your organization"
+                    }
                   </CardDescription>
                 </div>
-                {isAdmin && (
+                {isAdmin && !organization.is_personal && (
                   <Button>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Invite Member
@@ -467,7 +500,7 @@ export function OrganizationSettingsContent() {
         </TabsContent>
 
         {/* Danger Zone */}
-        {isOwner && (
+        {isOwner && !organization.is_personal && (
           <TabsContent value="danger" className="space-y-6">
             <Card className="border-destructive">
               <CardHeader>

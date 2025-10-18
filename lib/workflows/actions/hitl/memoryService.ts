@@ -125,36 +125,62 @@ IMPORTANT:
 
 /**
  * Save learnings to user's document (primary storage)
+ * Supports both ChainReact Memory and external providers
  */
 export async function saveLearningsToDocument(
-  documentInfo: any,
+  config: {
+    memoryStorageProvider?: string
+    memoryDocumentId?: string
+    memoryStorageDocument?: any
+  },
   existingLearnings: Record<string, any>,
   newLearnings: Record<string, any>,
   userId: string
 ): Promise<boolean> {
   try {
-    // Parse document info
-    const docInfo = typeof documentInfo === 'string' ? JSON.parse(documentInfo) : documentInfo
-
-    logger.info('[Memory] Saving learnings to user document', {
-      provider: docInfo.provider,
-      documentId: docInfo.id
-    })
-
     // Merge new learnings with existing ones
     const mergedLearnings = mergeLearnings(existingLearnings, newLearnings)
 
     // Format as readable content
     const documentContent = formatLearningsForDocument(mergedLearnings)
 
-    // Save to provider-specific storage
-    const saved = await saveToProvider(docInfo, documentContent, userId)
+    // Save to ChainReact Memory or external provider
+    if (config.memoryStorageProvider === 'chainreact' && config.memoryDocumentId) {
+      logger.info('[Memory] Saving learnings to ChainReact Memory', {
+        documentId: config.memoryDocumentId
+      })
 
-    if (saved) {
-      logger.info('[Memory] Learnings saved successfully to user document')
+      const saved = await saveToChainReactMemory(config.memoryDocumentId, documentContent, userId)
+
+      if (saved) {
+        logger.info('[Memory] Learnings saved successfully to ChainReact Memory')
+      }
+
+      return saved
+
+    } else if (config.memoryStorageDocument) {
+      // Parse document info for external providers
+      const docInfo = typeof config.memoryStorageDocument === 'string'
+        ? JSON.parse(config.memoryStorageDocument)
+        : config.memoryStorageDocument
+
+      logger.info('[Memory] Saving learnings to external provider', {
+        provider: docInfo.provider,
+        documentId: docInfo.id
+      })
+
+      const saved = await saveToProvider(docInfo, documentContent, userId)
+
+      if (saved) {
+        logger.info('[Memory] Learnings saved successfully to external provider')
+      }
+
+      return saved
+
+    } else {
+      logger.warn('[Memory] No memory storage provider configured')
+      return false
     }
-
-    return saved
 
   } catch (error: any) {
     logger.error('[Memory] Failed to save learnings to document', { error: error.message })
@@ -255,6 +281,40 @@ function formatLearningsForDocument(learnings: Record<string, any>): string {
 }
 
 /**
+ * Save content to ChainReact Memory document
+ */
+async function saveToChainReactMemory(
+  documentId: string,
+  content: string,
+  userId: string
+): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerClient()
+
+    const { error } = await supabase
+      .from('user_memory_documents')
+      .update({
+        content,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', documentId)
+      .eq('user_id', userId)
+
+    if (error) {
+      logger.error('[Memory] Failed to save to ChainReact Memory', { error, documentId })
+      return false
+    }
+
+    logger.info('[Memory] Saved to ChainReact Memory successfully', { documentId })
+    return true
+
+  } catch (error: any) {
+    logger.error('[Memory] Error saving to ChainReact Memory', { error: error.message, documentId })
+    return false
+  }
+}
+
+/**
  * Save content to provider-specific storage
  */
 async function saveToProvider(
@@ -266,6 +326,10 @@ async function saveToProvider(
 
   try {
     switch (provider) {
+      case 'chainreact':
+        // Save to ChainReact Memory (Supabase)
+        return await saveToChainReactMemory(id, content, userId)
+
       case 'google_docs':
         // TODO: Implement Google Docs save
         logger.warn('[Memory] Google Docs save not yet implemented')
@@ -397,13 +461,18 @@ export async function processConversationLearnings(
   conversationHistory: ConversationMessage[],
   contextData: any,
   config: {
-    enableMemory?: boolean
+    enableMemory?: boolean | string  // Can be boolean (legacy) or "true"/"false" string (new)
     memoryCategories?: string[]
+    memoryStorageProvider?: string
+    memoryDocumentId?: string
     memoryStorageDocument?: any
-    cacheInDatabase?: boolean
+    cacheInDatabase?: boolean | string  // Can be boolean (legacy) or "true"/"false" string (new)
   }
 ): Promise<void> {
-  if (!config.enableMemory) {
+  // Handle enableMemory as both boolean (legacy) and string (new dropdown)
+  const isMemoryEnabled = config.enableMemory === true || config.enableMemory === 'true'
+
+  if (!isMemoryEnabled) {
     logger.debug('[Memory] Learning disabled for this conversation')
     return
   }
@@ -430,22 +499,25 @@ export async function processConversationLearnings(
       return
     }
 
-    // 2. Load existing learnings from user's document
+    // 2. Load existing learnings from cache or document
     let existingLearnings: Record<string, any> = {}
-    if (config.memoryStorageDocument) {
-      // Try to load from cache first for performance
-      if (config.cacheInDatabase) {
-        existingLearnings = await loadLearningsFromCache(userId, workflowId)
-      }
 
-      // If no cache, load from user's document
-      // (loadDocumentContent function from hitl/index.ts would be used here)
+    // Handle cacheInDatabase as both boolean (legacy) and string (new dropdown)
+    const shouldCacheInDb = config.cacheInDatabase === true || config.cacheInDatabase === 'true'
+
+    // Try to load from cache first for performance
+    if (shouldCacheInDb) {
+      existingLearnings = await loadLearningsFromCache(userId, workflowId)
     }
 
+    // If no cache, we could load from user's document here
+    // (For ChainReact Memory, we'd use loadChainReactMemoryDocument from hitl/index.ts)
+    // (For external providers, we'd use loadDocumentContent)
+
     // 3. Save merged learnings to user's document (primary storage)
-    if (config.memoryStorageDocument) {
+    if (config.memoryStorageProvider || config.memoryStorageDocument) {
       await saveLearningsToDocument(
-        config.memoryStorageDocument,
+        config,
         existingLearnings,
         newLearnings,
         userId
@@ -453,7 +525,7 @@ export async function processConversationLearnings(
     }
 
     // 4. Optionally cache in database for performance
-    if (config.cacheInDatabase) {
+    if (shouldCacheInDb) {
       await cacheLearningsInDatabase(
         userId,
         workflowId,

@@ -1,25 +1,15 @@
-import { Metadata } from "next"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
-import AIAssistantContent from "@/components/ai/AIAssistantContent"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
+import { AIAssistantContent } from "@/components/new-design/AIAssistantContent"
+import { requireUsername } from "@/utils/checkUsername"
 
-export const metadata: Metadata = {
-  title: "AI Assistant | ChainReact",
-  description: "Intelligent AI assistant that can interact with all your connected integrations",
-}
+export const dynamic = 'force-dynamic'
 
 export default async function AIAssistantPage() {
-  const supabase = await createSupabaseServerClient()
+  await requireUsername()
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    redirect("/auth/login")
-  }
-
-  return <AIAssistantContent />
-} 
+  return (
+    <NewAppLayout title="AI Assistant" subtitle="Get help building and optimizing your workflows">
+      <AIAssistantContent />
+    </NewAppLayout>
+  )
+}
