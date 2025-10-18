@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Search, ChevronDown, ChevronRight, Copy, Check, Variable, Play, CircleAlert } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Search, ChevronDown, ChevronRight, Copy, Check, Variable, Play, CircleAlert, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { apiClient } from '@/lib/apiClient'
@@ -56,6 +57,8 @@ export function VariablePickerSidePanel({
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
   const [isTestRunning, setIsTestRunning] = useState(false)
+  const [dataDialogOpen, setDataDialogOpen] = useState(false)
+  const [selectedDataInfo, setSelectedDataInfo] = useState<{ label: string; value: any; nodeTitle: string; isMock?: boolean } | null>(null)
   const { toast } = useToast()
   const isDraggingVariable = useRef(false)
   const allowClickSelect = useRef(true)
@@ -178,24 +181,24 @@ export function VariablePickerSidePanel({
     const findPreviousNodes = (nodeId: string, visited = new Set<string>()): string[] => {
       if (visited.has(nodeId)) return [];
       visited.add(nodeId);
-      
+
       // Find edges where this node is the target
       const incomingEdges = workflowData.edges.filter(edge => edge.target === nodeId);
-      
+
       // No incoming edges means no previous nodes
       if (incomingEdges.length === 0) return [];
-      
+
       // Get the source nodes from incoming edges
       const sourceNodeIds = incomingEdges.map(edge => edge.source);
-      
+
       // For each source node, also get its previous nodes
       const allPreviousNodes: string[] = [...sourceNodeIds];
-      
+
       sourceNodeIds.forEach(sourceId => {
         const previousNodes = findPreviousNodes(sourceId, visited);
         allPreviousNodes.push(...previousNodes);
       });
-      
+
       return allPreviousNodes;
     };
 
@@ -203,6 +206,50 @@ export function VariablePickerSidePanel({
     const previousNodeIds = findPreviousNodes(nodeId);
     return previousNodeIds;
   };
+
+  // Topological sort based on workflow edges to get execution order
+  const getTopologicalOrder = useCallback((): string[] => {
+    if (!workflowData?.nodes || !workflowData?.edges) return []
+
+    const nodeIds = workflowData.nodes.map((n: any) => n.id)
+    const inDegree = new Map<string, number>()
+    const adjList = new Map<string, string[]>()
+
+    // Initialize
+    nodeIds.forEach((id: string) => {
+      inDegree.set(id, 0)
+      adjList.set(id, [])
+    })
+
+    // Build adjacency list and calculate in-degrees
+    workflowData.edges.forEach((edge: any) => {
+      const { source, target } = edge
+      adjList.get(source)?.push(target)
+      inDegree.set(target, (inDegree.get(target) || 0) + 1)
+    })
+
+    // Queue with nodes that have no incoming edges (starts with triggers)
+    const queue: string[] = []
+    inDegree.forEach((degree, nodeId) => {
+      if (degree === 0) queue.push(nodeId)
+    })
+
+    const result: string[] = []
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      result.push(current)
+
+      adjList.get(current)?.forEach(neighbor => {
+        const newDegree = (inDegree.get(neighbor) || 0) - 1
+        inDegree.set(neighbor, newDegree)
+        if (newDegree === 0) {
+          queue.push(neighbor)
+        }
+      })
+    }
+
+    return result
+  }, [workflowData])
 
   // Get available nodes from workflow data
   const nodes = useMemo(() => {
@@ -266,7 +313,25 @@ export function VariablePickerSidePanel({
         });
 
         // Return all nodes with outputs (they'll all be "previous" once the node is added)
-        return allNodes.filter(node => node.outputs && node.outputs.length > 0);
+        const nodesWithOutputs = allNodes.filter(node => node.outputs && node.outputs.length > 0);
+
+        // Sort by topological order
+        const topologicalOrder = getTopologicalOrder()
+        const sortedNodes = [...nodesWithOutputs].sort((a, b) => {
+          const aIndex = topologicalOrder.indexOf(a.id)
+          const bIndex = topologicalOrder.indexOf(b.id)
+
+          if (aIndex !== -1 && bIndex !== -1) {
+            return aIndex - bIndex
+          }
+
+          if (aIndex !== -1) return -1
+          if (bIndex !== -1) return 1
+
+          return 0
+        })
+
+        return sortedNodes;
       }
 
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
@@ -319,11 +384,46 @@ export function VariablePickerSidePanel({
         outputs: n.outputs.map(o => o.name)
       })));
 
-      return filteredNodes;
+      // Sort nodes by workflow execution order (topological sort)
+      const topologicalOrder = getTopologicalOrder()
+      const sortedNodes = [...filteredNodes].sort((a, b) => {
+        const aIndex = topologicalOrder.indexOf(a.id)
+        const bIndex = topologicalOrder.indexOf(b.id)
+
+        // If both are in topological order, sort by their order
+        if (aIndex !== -1 && bIndex !== -1) {
+          return aIndex - bIndex
+        }
+
+        // If only one is in topological order, it comes first
+        if (aIndex !== -1) return -1
+        if (bIndex !== -1) return 1
+
+        // Otherwise maintain original order
+        return 0
+      })
+
+      return sortedNodes;
     }
     
-    return allNodes;
-  }, [workflowData, currentNodeId, getRelevantOutputs])
+    // Sort all nodes when no currentNodeId (show all)
+    const topologicalOrder = getTopologicalOrder()
+    const sortedAllNodes = [...allNodes].sort((a, b) => {
+      const aIndex = topologicalOrder.indexOf(a.id)
+      const bIndex = topologicalOrder.indexOf(b.id)
+
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex
+      }
+
+      if (aIndex !== -1) return -1
+      if (bIndex !== -1) return 1
+
+      return 0
+    })
+
+    return sortedAllNodes;
+  }, [workflowData, currentNodeId, getRelevantOutputs, getTopologicalOrder])
 
   // Filter nodes and outputs based on search term
   const filteredNodes = useMemo(() => {
@@ -418,7 +518,7 @@ export function VariablePickerSidePanel({
     if (onVariableSelect) {
       // Try to resolve the actual value using our new resolution system
       const resolvedValue = resolveVariableValue(variable, workflowData || { nodes: [], edges: [] }, testResults)
-      
+
       if (resolvedValue !== variable) {
         // Pass the actual resolved value
         onVariableSelect(resolvedValue)
@@ -638,6 +738,62 @@ export function VariablePickerSidePanel({
     return nodeValues[outputName] || null
   };
 
+  // Generate mock data based on field type and name
+  const generateMockData = (outputName: string, outputType?: string): any => {
+    const nameLower = outputName.toLowerCase()
+
+    // Email-related fields
+    if (nameLower.includes('email')) return 'user@example.com'
+    if (nameLower.includes('subject')) return 'Example Subject Line'
+    if (nameLower.includes('body') || nameLower.includes('content') || nameLower.includes('message')) {
+      return 'This is example message content...'
+    }
+
+    // ID fields
+    if (nameLower.includes('id') || nameLower.includes('uuid')) return 'abc123-def456-ghi789'
+
+    // Name fields
+    if (nameLower.includes('name') || nameLower.includes('username') || nameLower.includes('author')) {
+      return 'John Doe'
+    }
+
+    // URL fields
+    if (nameLower.includes('url') || nameLower.includes('link')) return 'https://example.com/resource'
+
+    // Date/Time fields
+    if (nameLower.includes('date') || nameLower.includes('created') || nameLower.includes('updated')) {
+      return new Date().toISOString()
+    }
+
+    // Title fields
+    if (nameLower.includes('title')) return 'Example Title'
+
+    // Description fields
+    if (nameLower.includes('description')) return 'Example description text'
+
+    // Status fields
+    if (nameLower.includes('status')) return 'active'
+
+    // Number/Count fields
+    if (nameLower.includes('count') || nameLower.includes('number') || outputType === 'number') {
+      return 42
+    }
+
+    // Boolean fields
+    if (outputType === 'boolean') return true
+
+    // Array fields
+    if (outputType === 'array') return ['item1', 'item2', 'item3']
+
+    // Object fields
+    if (outputType === 'object') {
+      return { key: 'value', example: 'data' }
+    }
+
+    // Default
+    return 'Example data'
+  }
+
   // Format variable value for display
   const formatVariableValue = (value: any) => {
     if (value === null || value === undefined) return 'null';
@@ -712,6 +868,22 @@ export function VariablePickerSidePanel({
           </div>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="px-6 py-2 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-center gap-2 text-[10px]">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded bg-green-100 border border-green-300"></div>
+              <span className="text-slate-600">Real data</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></div>
+              <span className="text-slate-600">Example</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Test results timestamp */}
       {hasTestResults() && (
@@ -859,25 +1031,48 @@ export function VariablePickerSidePanel({
                                   {output.type || 'string'}
                                 </Badge>
                                 <span className="text-sm truncate font-medium">{output.label || output.name}</span>
-                                {hasValue && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge className="text-[10px] h-5 px-1.5 bg-green-50 text-green-700 border-green-200 font-medium max-w-[80px] truncate">
-                                          {formatVariableValue(variableValue)}
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="left">
-                                        <p className="text-xs whitespace-pre-wrap max-w-[300px]">
-                                          {typeof variableValue === 'object'
-                                            ? JSON.stringify(variableValue, null, 2)
-                                            : String(variableValue)
-                                          }
-                                        </p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                                {(() => {
+                                  // Only show data badges if test has been run
+                                  if (!hasTestResults()) return null
+
+                                  // Generate mock data if real data isn't available
+                                  const displayValue = hasValue ? variableValue : generateMockData(output.name, output.type)
+                                  const isMockData = !hasValue
+
+                                  return (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge
+                                            className={`text-[10px] h-5 px-1.5 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap cursor-pointer transition-colors ${
+                                              isMockData
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300'
+                                            }`}
+                                            style={{ textOverflow: 'ellipsis' }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedDataInfo({
+                                                label: output.label || output.name,
+                                                value: displayValue,
+                                                nodeTitle: node.title,
+                                                isMock: isMockData
+                                              } as any)
+                                              setDataDialogOpen(true)
+                                            }}
+                                          >
+                                            {formatVariableValue(displayValue)}
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left">
+                                          <p className="text-xs">
+                                            {isMockData ? 'Click to view example data' : 'Click to view full data'}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )
+                                })()}
                               </div>
 
                               <Button
@@ -919,6 +1114,62 @@ export function VariablePickerSidePanel({
           Click to insert • Drag & drop • Hover to copy
         </p>
       </div>
+
+      {/* Full Data Dialog */}
+      <Dialog open={dataDialogOpen} onOpenChange={setDataDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className={selectedDataInfo?.isMock ? "text-blue-600 dark:text-blue-600" : "text-green-600 dark:text-green-600"}>
+                {selectedDataInfo?.isMock ? 'Example Data:' : 'Test Data:'}
+              </span>
+              <span className="text-slate-900 dark:text-slate-900">{selectedDataInfo?.label}</span>
+            </DialogTitle>
+            <DialogDescription>
+              <span className="text-slate-700 dark:text-slate-700">From: {selectedDataInfo?.nodeTitle}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <div className="rounded-lg p-4 border bg-slate-700 border-slate-600">
+              <pre className="text-xs font-mono whitespace-pre-wrap break-words text-white">
+                {selectedDataInfo?.value !== null && selectedDataInfo?.value !== undefined
+                  ? typeof selectedDataInfo?.value === 'object'
+                    ? JSON.stringify(selectedDataInfo?.value, null, 2)
+                    : String(selectedDataInfo?.value)
+                  : 'null'}
+              </pre>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const textToCopy = selectedDataInfo?.value !== null && selectedDataInfo?.value !== undefined
+                  ? typeof selectedDataInfo?.value === 'object'
+                    ? JSON.stringify(selectedDataInfo?.value, null, 2)
+                    : String(selectedDataInfo?.value)
+                  : 'null'
+                navigator.clipboard.writeText(textToCopy)
+                toast({
+                  title: "Copied!",
+                  description: "Data copied to clipboard",
+                })
+              }}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setDataDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

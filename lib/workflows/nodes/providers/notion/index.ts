@@ -42,36 +42,14 @@ export const notionNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
-      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, dependsOn: "workspace" }
     ],
     outputSchema: [
       { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
       { name: "title", label: "Title", type: "string", description: "The title of the page" },
       { name: "changedProperties", label: "Changed Properties", type: "object", description: "The properties that were changed" },
       { name: "updatedAt", label: "Updated At", type: "string", description: "When the page was updated" },
       { name: "url", label: "URL", type: "string", description: "The URL of the page" }
-    ]
-  },
-  {
-    type: "notion_trigger_comment_added",
-    title: "Comment Added",
-    description: "Triggers when a new comment is added to a page",
-    icon: MessageSquare,
-    providerId: "notion",
-    category: "Productivity",
-    isTrigger: true,
-    producesOutput: true,
-    configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true }
-    ],
-    outputSchema: [
-      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "commentId", label: "Comment ID", type: "string", description: "The unique ID of the comment" },
-      { name: "commentText", label: "Comment Text", type: "string", description: "The text of the comment" },
-      { name: "authorId", label: "Author ID", type: "string", description: "The ID of the comment author" },
-      { name: "authorName", label: "Author Name", type: "string", description: "The name of the comment author" },
-      { name: "createdAt", label: "Created At", type: "string", description: "When the comment was created" }
     ]
   },
   // DEPRECATED: Replaced by notion_action_manage_page with operation="create"

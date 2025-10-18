@@ -53,7 +53,11 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Activate HubSpot trigger
-   * Creates a webhook subscription for the specified trigger type
+   *
+   * Creates a webhook subscription in HubSpot using the Public App Webhooks API.
+   * Requires user to have HubSpot connected via OAuth with 'webhooks' scope.
+   *
+   * See: HUBSPOT_PUBLIC_APP_SETUP.md for Public App configuration
    */
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
@@ -69,22 +73,20 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Unsupported HubSpot trigger type: ${triggerType}`)
     }
 
-    // NOTE: HubSpot webhook API requires app-level authentication (Private App token)
-    // NOT user OAuth tokens. User OAuth tokens are still used for CRM operations (actions).
-    const privateAppToken = process.env.HUBSPOT_PRIVATE_APP_TOKEN
-
-    if (!privateAppToken) {
+    // Get HubSpot App ID from environment
+    const appId = process.env.HUBSPOT_APP_ID
+    if (!appId) {
       throw new Error(
-        'HUBSPOT_PRIVATE_APP_TOKEN not configured. ' +
-        'HubSpot webhooks require a Private App token for subscription management. ' +
-        'See: /learning/docs/hubspot-webhook-authentication-issue.md'
+        'HUBSPOT_APP_ID not configured. ' +
+        'HubSpot Public App requires App ID for webhook management. ' +
+        'See: HUBSPOT_PUBLIC_APP_SETUP.md'
       )
     }
 
-    // Verify user has HubSpot integration (even though we don't use their token for webhooks)
+    // Get user's HubSpot integration with OAuth token
     const { data: integration } = await supabase
       .from('integrations')
-      .select('id')
+      .select('access_token, id')
       .eq('user_id', userId)
       .eq('provider', 'hubspot')
       .eq('status', 'connected')
@@ -94,36 +96,47 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       throw new Error('User must connect HubSpot integration before activating triggers')
     }
 
-    // Get webhook callback URL
-    const webhookUrl = this.getWebhookUrl(workflowId)
+    // Decrypt the access token
+    const accessToken = await safeDecrypt(integration.access_token)
+    if (!accessToken) {
+      throw new Error('Failed to decrypt HubSpot access token')
+    }
+
+    // Get webhook callback URL for this specific workflow
+    const targetUrl = this.getWebhookUrl(workflowId)
 
     logger.debug(`📤 Creating HubSpot webhook subscription`, {
+      appId,
       subscriptionType: mapping.subscriptionType,
-      webhookUrl
+      targetUrl,
+      propertyName: config.propertyName || mapping.propertyName
     })
 
     // Build subscription payload
     const subscriptionPayload: any = {
-      enabled: true,
-      subscriptionDetails: {
-        subscriptionType: mapping.subscriptionType,
-        propertyName: config.propertyName || mapping.propertyName // Allow filtering by specific property
-      }
+      eventType: mapping.subscriptionType,
+      targetUrl,
+      active: true
     }
 
-    // Create webhook subscription in HubSpot using Private App token
-    const response = await fetch(`https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${privateAppToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        eventType: mapping.subscriptionType,
-        propertyName: config.propertyName || undefined,
-        active: true
-      })
-    })
+    // Add property filter if specified
+    if (config.propertyName || mapping.propertyName) {
+      subscriptionPayload.propertyName = config.propertyName || mapping.propertyName
+    }
+
+    // Create webhook subscription using Public App Webhooks API
+    // https://developers.hubspot.com/docs/api/webhooks
+    const response = await fetch(
+      `https://api.hubapi.com/webhooks/v3/${appId}/subscriptions`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(subscriptionPayload)
+      }
+    )
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -135,6 +148,12 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     }
 
     const subscription = await response.json()
+
+    logger.debug('HubSpot subscription created:', {
+      id: subscription.id,
+      eventType: subscription.eventType,
+      active: subscription.active
+    })
 
     // Store in trigger_resources table
     await supabase.from('trigger_resources').insert({
@@ -148,7 +167,8 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       config: {
         subscriptionType: mapping.subscriptionType,
         propertyName: config.propertyName || mapping.propertyName,
-        webhookUrl: webhookUrl
+        targetUrl,
+        appId
       },
       status: 'active',
       expires_at: null // HubSpot webhooks don't expire
@@ -159,7 +179,8 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Deactivate HubSpot trigger
-   * Deletes the webhook subscription
+   *
+   * Deletes the webhook subscription from HubSpot using the Public App Webhooks API.
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
@@ -179,11 +200,10 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get Private App token for webhook management
-    const privateAppToken = process.env.HUBSPOT_PRIVATE_APP_TOKEN
-
-    if (!privateAppToken) {
-      logger.warn(`⚠️ HUBSPOT_PRIVATE_APP_TOKEN not configured, marking subscriptions as deleted locally`)
+    // Get HubSpot App ID
+    const appId = process.env.HUBSPOT_APP_ID
+    if (!appId) {
+      logger.warn(`⚠️ HUBSPOT_APP_ID not configured, marking subscriptions as deleted locally`)
       await supabase
         .from('trigger_resources')
         .delete()
@@ -192,7 +212,37 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Delete each subscription
+    // Get user's access token
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('access_token')
+      .eq('user_id', userId)
+      .eq('provider', 'hubspot')
+      .eq('status', 'connected')
+      .single()
+
+    if (!integration) {
+      logger.warn(`⚠️ HubSpot integration not found, marking subscriptions as deleted locally`)
+      await supabase
+        .from('trigger_resources')
+        .delete()
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'hubspot')
+      return
+    }
+
+    const accessToken = await safeDecrypt(integration.access_token)
+    if (!accessToken) {
+      logger.warn(`⚠️ Failed to decrypt access token, marking subscriptions as deleted locally`)
+      await supabase
+        .from('trigger_resources')
+        .delete()
+        .eq('workflow_id', workflowId)
+        .eq('provider_id', 'hubspot')
+      return
+    }
+
+    // Delete each subscription from HubSpot
     for (const resource of resources) {
       if (!resource.external_id) continue
 
@@ -200,11 +250,11 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
         const subscriptionId = resource.external_id
 
         const response = await fetch(
-          `https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions/${subscriptionId}`,
+          `https://api.hubapi.com/webhooks/v3/${appId}/subscriptions/${subscriptionId}`,
           {
             method: 'DELETE',
             headers: {
-              'Authorization': `Bearer ${privateAppToken}`
+              'Authorization': `Bearer ${accessToken}`
             }
           }
         )
@@ -244,7 +294,8 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Check health of HubSpot webhooks
-   * Verifies subscriptions are still active in HubSpot
+   *
+   * Verifies subscriptions are still active in HubSpot using the Public App Webhooks API.
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
     const { data: resources } = await supabase
@@ -262,13 +313,37 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Get Private App token to verify subscriptions
-    const privateAppToken = process.env.HUBSPOT_PRIVATE_APP_TOKEN
-
-    if (!privateAppToken) {
+    // Get App ID and access token
+    const appId = process.env.HUBSPOT_APP_ID
+    if (!appId) {
       return {
         healthy: false,
-        details: 'HUBSPOT_PRIVATE_APP_TOKEN not configured',
+        details: 'HUBSPOT_APP_ID not configured',
+        lastChecked: new Date().toISOString()
+      }
+    }
+
+    const { data: integration } = await supabase
+      .from('integrations')
+      .select('access_token')
+      .eq('user_id', userId)
+      .eq('provider', 'hubspot')
+      .eq('status', 'connected')
+      .single()
+
+    if (!integration) {
+      return {
+        healthy: false,
+        details: 'HubSpot integration not connected',
+        lastChecked: new Date().toISOString()
+      }
+    }
+
+    const accessToken = await safeDecrypt(integration.access_token)
+    if (!accessToken) {
+      return {
+        healthy: false,
+        details: 'Failed to decrypt access token',
         lastChecked: new Date().toISOString()
       }
     }
@@ -282,10 +357,10 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
       try {
         const response = await fetch(
-          `https://api.hubapi.com/webhooks/v3/${process.env.HUBSPOT_APP_ID}/subscriptions/${resource.external_id}`,
+          `https://api.hubapi.com/webhooks/v3/${appId}/subscriptions/${resource.external_id}`,
           {
             headers: {
-              'Authorization': `Bearer ${privateAppToken}`
+              'Authorization': `Bearer ${accessToken}`
             }
           }
         )
@@ -310,7 +385,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
   }
 
   /**
-   * Get webhook callback URL for this workflow
+   * Get webhook callback URL for a specific workflow
    */
   private getWebhookUrl(workflowId: string): string {
     return getWebhookUrl(`/api/webhooks/hubspot?workflowId=${workflowId}`)
