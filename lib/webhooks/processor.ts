@@ -170,11 +170,23 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
 
       let matchesEventType = true
       if (nodeEventType) {
-        matchesEventType = nodeEventType === event.eventType ||
-          (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))
+        // Map Notion event types to trigger types
+        if (event.provider === 'notion') {
+          const notionEventMap: Record<string, string[]> = {
+            'notion_trigger_new_page': ['page.created'],
+            'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated'],
+            'notion_trigger_comment_added': ['comment.created']
+          }
+          const allowedEvents = notionEventMap[nodeEventType] || []
+          matchesEventType = allowedEvents.includes(event.eventType)
+        } else {
+          matchesEventType = nodeEventType === event.eventType ||
+            (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))
+        }
       }
 
       if (!matchesEventType) {
+        logger.debug(`      ❌ Event type mismatch: node=${nodeEventType}, event=${event.eventType}`)
         return false
       }
 

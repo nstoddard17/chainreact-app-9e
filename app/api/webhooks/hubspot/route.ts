@@ -62,16 +62,26 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ success: true, message: 'Unknown subscription type' })
     }
 
-    // Get workflow ID from query params (if provided during setup)
+    // Get workflow ID from query params (for Public App per-workflow webhooks)
     const workflowId = req.nextUrl.searchParams.get('workflowId')
 
-    // Find matching workflows with HubSpot triggers
-    const { data: triggerResources } = await supabase
+    // Find matching workflows with this HubSpot trigger type
+    // NOTE: Public Apps can create per-workflow webhooks with workflowId in URL.
+    // If workflowId is provided, we only execute that specific workflow.
+    // If not provided (legacy/global webhook), execute all matching workflows.
+    let query = supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')
       .eq('provider_id', 'hubspot')
       .eq('trigger_type', triggerType)
       .eq('status', 'active')
+
+    // Filter by workflow ID if provided in query params
+    if (workflowId) {
+      query = query.eq('workflow_id', workflowId)
+    }
+
+    const { data: triggerResources } = await query
 
     if (!triggerResources || triggerResources.length === 0) {
       logger.debug(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
@@ -86,12 +96,8 @@ export async function POST(req: NextRequest) {
     // Execute each matching workflow
     let executed = 0
     for (const resource of triggerResources) {
-      // If workflow ID was specified in query, only execute that workflow
-      if (workflowId && resource.workflow_id !== workflowId) {
-        continue
-      }
-
       // Filter by property name if specified in trigger config
+      // This allows workflows to listen for changes to specific properties
       const propertyName = resource.config?.propertyName
       if (propertyName && payload.propertyName !== propertyName) {
         logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - property filter mismatch`)
