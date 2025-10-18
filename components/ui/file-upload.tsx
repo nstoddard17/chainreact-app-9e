@@ -176,23 +176,27 @@ export function FileUpload({
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (session?.access_token) {
-                  const response = await fetch('/api/workflows/files/preview', {
+                  const response = await fetch('/api/storage/sign-url', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${session.access_token}`
                     },
-                    body: JSON.stringify({ filePath: file.filePath })
+                    body: JSON.stringify({
+                      bucket: 'workflow-files',
+                      path: file.filePath,
+                      expiresIn: 3600,
+                    })
                   });
 
                   if (response.ok) {
                     const result = await response.json();
                     logger.debug('📸 [FileUpload] Preview API response:', {
-                      hasPreviewUrl: !!result.previewUrl,
-                      previewUrl: result.previewUrl?.substring(0, 100)
+                      hasPreviewUrl: !!result.signedUrl,
+                      signedUrl: result.signedUrl?.substring(0, 100)
                     });
-                    if (result.previewUrl) {
-                      uploadedFile.previewUrl = result.previewUrl;
+                    if (result.signedUrl) {
+                      uploadedFile.previewUrl = result.signedUrl;
                       logger.debug('📸 [FileUpload] Set preview URL for file:', uploadedFile.actualName);
                     }
                   } else {
