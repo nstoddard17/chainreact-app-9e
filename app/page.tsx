@@ -11,23 +11,23 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://chainreact.app',
     siteName: 'ChainReact',
-    title: 'ChainReact – Workflow Automation That Thinks For Itself',
-    description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
+    title: 'ChainReact – Automate Your Workflows 10x Faster with AI',
+    description: 'The visual automation platform that connects your favorite apps, runs intelligent workflows, and keeps your team in complete control. From simple tasks to complex AI-driven processes.',
     images: [
       {
-        url: 'https://chainreact.app/opengraph-image.png',
+        url: '/api/og',
         width: 1200,
         height: 630,
-        alt: 'Preview of the ChainReact automation platform',
+        alt: 'ChainReact - AI-Powered Workflow Automation Platform',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChainReact – Workflow Automation That Thinks For Itself',
-    description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
+    title: 'ChainReact – Automate Your Workflows 10x Faster with AI',
+    description: 'Build intelligent workflows that connect your apps, automate busywork, and scale with your team. 20+ integrations, AI-powered actions, and real-time monitoring.',
     creator: '@ChainReact_App',
-    images: ['https://chainreact.app/twitter-image.png'],
+    images: ['/api/og/twitter'],
   },
 }
 

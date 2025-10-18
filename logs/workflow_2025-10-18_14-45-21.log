@@ -25,3 +25,73 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-18T19:45:49.440Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 313ms (679 modules)
 [2025-10-18T19:46:02.459Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/og ...
 [2025-10-18T19:46:02.463Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 512ms (1147 modules)
+[2025-10-18T19:55:33.626Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflow/[id]/builder ...
+[2025-10-18T19:55:35.902Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflow/[id]/builder in 2.8s (5689 modules)
+[2025-10-18T19:55:38.234Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T19:55:38.810Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1078ms (5715 modules)
+[2025-10-18T19:56:09.993Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 438ms (5718 modules)
+[2025-10-18T19:57:46.703Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 485ms (1579 modules)
+[2025-10-18T19:57:47.476Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-18T19:57:48.097Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T19:57:48.423Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 1446ms (5715 modules)
+[2025-10-18T19:57:50.632Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-18T19:57:50.879Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 753ms (4152 modules)
+[2025-10-18T19:57:51.965Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4157 modules)
+[2025-10-18T19:57:52.608Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 317ms (4159 modules)
+[2025-10-18T20:09:38.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 814ms (1579 modules)
+[2025-10-18T20:09:50.588Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-18T20:09:51.678Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /new in 1663ms (5732 modules)
+[2025-10-18T20:09:52.039Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:09:53.194Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 363ms (4168 modules)
+[2025-10-18T20:09:54.023Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 448ms (4170 modules)
+[2025-10-18T20:09:54.359Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1ms (4170 modules)
+[2025-10-18T20:09:55.022Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4175 modules)
+[2025-10-18T20:09:55.414Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4175 modules)
+[2025-10-18T20:09:55.736Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4175 modules)
+[2025-10-18T20:09:56.085Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4175 modules)
+[2025-10-18T20:09:56.392Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4175 modules)
+[2025-10-18T20:09:56.722Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4175 modules)
+[2025-10-18T20:13:22.185Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 562ms (1580 modules)
+[2025-10-18T20:13:29.629Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 343ms (1580 modules)
+[2025-10-18T20:13:29.755Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:15:10.808Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1624ms (5739 modules)
+[2025-10-18T20:15:11.803Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-18T20:15:11.815Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 515ms (4161 modules)
+[2025-10-18T20:15:12.132Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4166 modules)
+[2025-10-18T20:15:54.000Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:15:54.425Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 902ms (5746 modules)
+[2025-10-18T20:15:54.684Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4166 modules)
+[2025-10-18T20:15:54.937Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4166 modules)
+[2025-10-18T20:15:55.185Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4166 modules)
+[2025-10-18T20:15:55.882Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at readChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:340657)
+    at getComponentNameFromType (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:76927)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194224)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-18T20:15:57.780Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-18T20:15:57.844Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 584ms (4168 modules)
+[2025-10-18T20:15:58.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4173 modules)
+[2025-10-18T20:15:59.020Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 364ms (4175 modules)
+[2025-10-18T20:16:08.590Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1088ms (5753 modules)
+[2025-10-18T20:16:16.257Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 806ms (5753 modules)
+[2025-10-18T20:16:16.433Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:16:23.297Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 804ms (5753 modules)
+[2025-10-18T20:16:30.261Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:16:30.562Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 730ms (5753 modules)
+[2025-10-18T20:16:30.859Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4173 modules)
+[2025-10-18T20:16:31.151Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4173 modules)
+[2025-10-18T20:16:31.740Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4173 modules)
+[2025-10-18T20:16:38.438Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 599ms (5753 modules)
+
+=== Log Session Ended: 2025-10-18T20:22:46.700Z ===
