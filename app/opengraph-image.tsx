@@ -1,8 +1,6 @@
 import { ImageResponse } from 'next/og'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 
-export const runtime = 'nodejs'
+export const runtime = 'edge'
 
 const size = {
   width: 1200,
@@ -12,9 +10,10 @@ const size = {
 export const contentType = 'image/png'
 
 export default async function OpengraphImage() {
-  const fontData = readFileSync(
-    join(process.cwd(), 'public', 'fonts', 'SpaceGrotesk-Bold.woff2')
-  )
+  // Fetch Space Grotesk font from Google Fonts
+  const fontData = await fetch(
+    new URL('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mQoQDjQSkFtoMM3T6r8E7mF71Q-gOoraIAEj7oUXskPMBBSSJLm2E.woff2')
+  ).then(res => res.arrayBuffer())
 
   return new ImageResponse(
     (
