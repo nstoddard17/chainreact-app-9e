@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description: 'The visual automation platform that connects your favorite apps, runs intelligent workflows, and keeps your team in complete control. From simple tasks to complex AI-driven processes.',
     images: [
       {
-        url: '/api/og',
+        url: 'https://chainreact.app/opengraph-image.png',
         width: 1200,
         height: 630,
         alt: 'ChainReact - AI-Powered Workflow Automation Platform',
