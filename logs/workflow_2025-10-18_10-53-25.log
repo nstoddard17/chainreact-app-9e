@@ -1,0 +1,200 @@
+=== Log Session Started: 2025-10-18T15:53:25.305Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T15:53:25.305Z] [INFO   ] File logging initialized
+[2025-10-18T15:53:25.305Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-53-25.log
+[2025-10-18T15:53:25.306Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T15:53:25.306Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-53-25.log
+[2025-10-18T15:53:25.306Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-53-25.log
+[2025-10-18T15:53:25.306Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-53-25.log
+[2025-10-18T15:53:25.306Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-53-25.log
+[2025-10-18T15:53:25.306Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T15:53:25.306Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T15:53:25.317Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.8s
+[2025-10-18T15:53:25.558Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 237ms (233 modules)
+[2025-10-18T15:53:28.223Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-18T15:53:32.508Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 6.6s (3909 modules)
+[2025-10-18T15:53:33.275Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 742ms (679 modules)
+[2025-10-18T15:53:35.479Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T15:53:37.826Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 2.8s (3905 modules)
+[2025-10-18T15:53:38.875Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-18T15:53:38.946Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 598ms (3913 modules)
+[2025-10-18T15:53:41.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 331ms (3915 modules)
+[2025-10-18T15:54:07.229Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/og ...
+[2025-10-18T15:54:07.583Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 855ms (1147 modules)
+[2025-10-18T15:54:07.884Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:07.885Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:08.408Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-18T15:54:08.975Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1087ms (4255 modules)
+[2025-10-18T15:54:09.241Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:09.241Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:09.497Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:09.497Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:14.688Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:14.689Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:19.632Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og/twitter in 203ms (1301 modules)
+[2025-10-18T15:54:19.970Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:19.971Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:21.089Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T15:54:21.090Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+
+=== Log Session Ended: 2025-10-18T15:54:24.882Z ===

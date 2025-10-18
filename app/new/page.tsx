@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
     images: [
       {
-        url: 'https://chainreact.app/opengraph-image.png',
+        url: '/api/og',
         width: 1200,
         height: 630,
         alt: 'Preview of the ChainReact automation platform',
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     title: 'ChainReact – Workflow Automation That Thinks For Itself',
     description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
     creator: '@ChainReact_App',
-    images: ['https://chainreact.app/twitter-image.png'],
+    images: ['/api/og/twitter'],
   },
 }
 
