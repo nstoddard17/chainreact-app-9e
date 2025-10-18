@@ -352,7 +352,7 @@ export function TemplatesContent() {
 
   const handleUseTemplate = (template: Template) => {
     // Navigate to workflow builder with template data
-    window.location.href = `/workflows/builder?template=${template.id}`
+    window.location.href = `/workflow/new/builder?template=${template.id}`
   }
 
   const handlePreviewTemplate = (template: Template) => {
@@ -884,7 +884,7 @@ export function TemplatesContent() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 text-lg"
-              onClick={() => window.location.href = '/workflows/builder'}
+              onClick={() => window.location.href = '/workflow/new/builder'}
             >
               Create Custom Workflow
             </Button>
