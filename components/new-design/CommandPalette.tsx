@@ -19,6 +19,7 @@ import {
   Zap,
   Play,
   Eye,
+  Loader2,
 } from "lucide-react"
 
 interface CommandPaletteProps {
@@ -37,6 +38,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter()
   const [search, setSearch] = useState("")
   const [templates, setTemplates] = useState<Template[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadingText, setLoadingText] = useState("")
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const { providers, integrations, fetchIntegrations } = useIntegrationStore()
 
@@ -61,10 +64,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
   }
 
+  // Reset loading state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setLoading(false)
+      setLoadingText("")
+    }
+  }, [open])
+
   const handleSelect = useCallback(
-    (callback: () => void) => {
-      onOpenChange(false)
-      callback()
+    (callback: () => void, loadingMessage?: string) => {
+      if (loadingMessage) {
+        setLoading(true)
+        setLoadingText(loadingMessage)
+      }
+      // Small delay to show the loading state before closing
+      setTimeout(() => {
+        if (!loadingMessage) {
+          onOpenChange(false)
+        }
+        callback()
+      }, loadingMessage ? 100 : 0)
     },
     [onOpenChange]
   )
@@ -114,11 +134,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 gap-0 max-w-2xl">
+      <DialogContent className="p-0 gap-0 max-w-2xl overflow-hidden">
         <VisuallyHidden>
           <DialogTitle>Command Palette</DialogTitle>
         </VisuallyHidden>
-        <Command className="rounded-lg border-none">
+        <Command className="rounded-lg border-none relative">
           <div className="flex items-center border-b px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <Command.Input
@@ -184,7 +204,10 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                   <Command.Item
                     key={workflow.id}
                     onSelect={() =>
-                      handleSelect(() => router.push(`/workflows/builder?id=${workflow.id}`))
+                      handleSelect(
+                        () => router.push(`/workflows/builder?id=${workflow.id}`),
+                        `Opening ${workflow.name}...`
+                      )
                     }
                     className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                   >
@@ -277,6 +300,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               </Command.Group>
             )}
           </Command.List>
+
+          {/* Loading Overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+              <div className="flex flex-col items-center gap-3 p-6 bg-card border rounded-xl shadow-lg">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium">{loadingText}</p>
+              </div>
+            </div>
+          )}
         </Command>
       </DialogContent>
     </Dialog>

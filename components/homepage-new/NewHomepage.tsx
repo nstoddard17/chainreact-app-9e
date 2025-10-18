@@ -30,27 +30,13 @@ export function NewHomepage() {
   const isDark = theme === 'dark'
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 overflow-x-hidden ${
-      isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gradient-to-br from-white via-blue-50 to-purple-50'
+    <div className={`min-h-screen transition-colors duration-500 ${
+      isDark ? 'bg-slate-950' : 'bg-white'
     }`}>
-
-      {/* Animated background particles */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-0 left-1/4 w-96 h-96 rounded-full filter blur-3xl animate-pulse ${
-          isDark ? 'bg-blue-500 opacity-10' : 'bg-blue-200 opacity-20'
-        }`}></div>
-        <div className={`absolute top-0 right-1/4 w-96 h-96 rounded-full filter blur-3xl animate-pulse [animation-delay:2s] ${
-          isDark ? 'bg-purple-500 opacity-10' : 'bg-purple-200 opacity-20'
-        }`}></div>
-        <div className={`absolute bottom-0 left-1/2 w-96 h-96 rounded-full filter blur-3xl animate-pulse [animation-delay:4s] ${
-          isDark ? 'bg-pink-500 opacity-10' : 'bg-pink-200 opacity-20'
-        }`}></div>
-      </div>
-
       {/* Navigation */}
       <HomepageHeader />
 
-      {/* Main Content */}
+      {/* Main Content - Clean flow without background changes */}
       <NewHeroSection />
       <HITLDemo />
       <FlexibilitySection />
