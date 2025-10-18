@@ -195,3 +195,5 @@ Error:   [31m×[0m ImageResponse moved from "next/server" to "next/og" since N
 
 Import trace for requested module:
 ./node_modules/next/dist/build/webpack/loaders/next-metadata-image-loader.js?type=openGraph&segment=&basePath=&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js!./app/opengraph-image.tsx?__next_metadata__
+
+=== Log Session Ended: 2025-10-18T13:59:24.533Z ===
