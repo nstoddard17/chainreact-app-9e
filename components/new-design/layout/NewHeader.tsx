@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -10,8 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, Bell, Command } from "lucide-react"
+import { Bell, Command } from "lucide-react"
 import { OrganizationSwitcher } from "@/components/new-design/OrganizationSwitcher"
+import { CommandPalette } from "@/components/new-design/CommandPalette"
 
 interface NewHeaderProps {
   title?: string
@@ -21,6 +22,20 @@ interface NewHeaderProps {
 
 export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
   const [notifications] = useState(0)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // Keyboard shortcut: Cmd+K or Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setCommandPaletteOpen(true)
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   return (
     <div className="h-14 border-b bg-background flex items-center justify-between px-6">
@@ -45,9 +60,8 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
         <Button
           variant="outline"
           className="hidden md:flex items-center gap-2 text-muted-foreground"
-          onClick={() => {/* Open command palette */}}
+          onClick={() => setCommandPaletteOpen(true)}
         >
-          <Search className="w-4 h-4" />
           <span className="text-sm">Search</span>
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
             <Command className="w-3 h-3" />K
@@ -81,6 +95,9 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
         {/* Custom Actions */}
         {actions}
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </div>
   )
 }

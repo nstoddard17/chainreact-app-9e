@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Plus, Building2, Loader2, Settings } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Building2, Loader2, Settings, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -34,6 +34,7 @@ interface Organization {
   user_role: string
   member_count: number
   team_count: number
+  is_personal?: boolean
 }
 
 export function OrganizationSwitcher() {
@@ -162,6 +163,10 @@ export function OrganizationSwitcher() {
     )
   }
 
+  // Split organizations into personal and team
+  const personalWorkspace = organizations.find(org => org.is_personal)
+  const teamOrganizations = organizations.filter(org => !org.is_personal)
+
   return (
     <>
       <DropdownMenu>
@@ -169,46 +174,76 @@ export function OrganizationSwitcher() {
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2 max-w-[200px]"
+            className={`gap-2 ${currentOrg.is_personal ? '' : 'max-w-[200px]'}`}
           >
-            <Building2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline truncate">{currentOrg.name}</span>
+            {currentOrg.is_personal ? (
+              <User className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Building2 className="w-4 h-4 flex-shrink-0" />
+            )}
+            <span className={`hidden sm:inline ${currentOrg.is_personal ? '' : 'truncate'}`}>{currentOrg.name}</span>
             <ChevronsUpDown className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[280px]">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Switch Organization
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-
-          {organizations.map((org) => (
-            <DropdownMenuItem
-              key={org.id}
-              onClick={() => handleSwitchOrganization(org)}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <Building2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{org.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
-                    {' • '}
-                    {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
-                  </p>
+          {/* Personal Workspace Section */}
+          {personalWorkspace && (
+            <>
+              <DropdownMenuItem
+                onClick={() => handleSwitchOrganization(personalWorkspace)}
+                className="flex items-center justify-between cursor-pointer"
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <User className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{personalWorkspace.name}</p>
+                    <p className="text-xs text-muted-foreground">Personal workspace</p>
+                  </div>
                 </div>
-              </div>
-              {currentOrg.id === org.id && (
-                <Check className="w-4 h-4 flex-shrink-0 text-primary" />
-              )}
-            </DropdownMenuItem>
-          ))}
+                {currentOrg.id === personalWorkspace.id && (
+                  <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+                )}
+              </DropdownMenuItem>
+
+              {teamOrganizations.length > 0 && <DropdownMenuSeparator />}
+            </>
+          )}
+
+          {/* Team Organizations Section */}
+          {teamOrganizations.length > 0 && (
+            <>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                ORGANIZATIONS
+              </DropdownMenuLabel>
+              {teamOrganizations.map((org) => (
+                <DropdownMenuItem
+                  key={org.id}
+                  onClick={() => handleSwitchOrganization(org)}
+                  className="flex items-center justify-between cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Building2 className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{org.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
+                        {' • '}
+                        {org.team_count} {org.team_count === 1 ? 'team' : 'teams'}
+                      </p>
+                    </div>
+                  </div>
+                  {currentOrg.id === org.id && (
+                    <Check className="w-4 h-4 flex-shrink-0 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onClick={() => router.push('/new/organization-settings')}
+            onClick={() => router.push('/organization-settings')}
             className="cursor-pointer"
           >
             <Settings className="w-4 h-4 mr-2" />

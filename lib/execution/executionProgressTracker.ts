@@ -242,6 +242,19 @@ export class ExecutionProgressTracker {
   }
 
   /**
+   * Pause execution (for HITL)
+   */
+  async pause(nodeId?: string, nodeName?: string): Promise<void> {
+    await this.update({
+      status: 'running', // Keep as running but update message
+      currentNodeId: nodeId,
+      currentNodeName: nodeName || 'Paused for human input',
+    })
+
+    logger.debug(`⏸️  Execution paused${nodeId ? ` at node ${nodeId}` : ''}`)
+  }
+
+  /**
    * Mark execution as completed
    */
   async complete(success: boolean, errorMessage?: string): Promise<void> {

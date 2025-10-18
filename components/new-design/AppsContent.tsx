@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 
@@ -209,12 +209,10 @@ export function AppsContent() {
 
             {/* Search for available apps */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search available apps..."
                 value={availableSearchQuery}
                 onChange={(e) => setAvailableSearchQuery(e.target.value)}
-                className="pl-9"
               />
             </div>
 
@@ -270,12 +268,10 @@ export function AppsContent() {
 
       {/* Search Connected Apps */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search connected apps..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
         />
       </div>
 

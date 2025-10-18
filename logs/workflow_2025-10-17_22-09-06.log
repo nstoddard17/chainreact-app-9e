@@ -1,0 +1,28 @@
+=== Log Session Started: 2025-10-18T03:09:06.521Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T03:09:06.521Z] [INFO   ] File logging initialized
+[2025-10-18T03:09:06.521Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_22-09-06.log
+[2025-10-18T03:09:06.522Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T03:09:06.522Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_22-09-06.log
+[2025-10-18T03:09:06.522Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_22-09-06.log
+[2025-10-18T03:09:06.522Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_22-09-06.log
+[2025-10-18T03:09:06.522Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_22-09-06.log
+[2025-10-18T03:09:06.523Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T03:09:06.523Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T03:09:06.532Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-18T03:09:06.559Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T03:09:07.056Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-18T03:09:13.064Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 6.5s (4421 modules)
+[2025-10-18T03:09:13.158Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T03:09:13.957Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 866ms (1000 modules)
+[2025-10-18T03:09:14.627Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 195ms (233 modules)
+[2025-10-18T03:09:15.277Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T03:09:16.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1856ms (4533 modules)
+[2025-10-18T03:09:17.462Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 338ms (4535 modules)
+[2025-10-18T03:09:20.430Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 302ms (4537 modules)
+[2025-10-18T03:10:33.678Z] [INFO   ]  [37m[1m○[22m[39m Compiling /waitlist ...
+[2025-10-18T03:10:35.775Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /waitlist in 2.6s (4478 modules)

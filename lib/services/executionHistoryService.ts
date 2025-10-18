@@ -196,6 +196,41 @@ export class ExecutionHistoryService {
   }
 
   /**
+   * Pause execution (for HITL)
+   */
+  async pauseExecution(
+    executionHistoryId: string,
+    pausedNodeId: string,
+    pauseData?: any
+  ): Promise<void> {
+    try {
+      const supabase = await this.getSupabase()
+
+      const { error } = await supabase
+        .from('workflow_execution_history')
+        .update({
+          status: 'running', // Keep as running but store pause info
+          final_output: {
+            paused: true,
+            pausedNodeId,
+            pauseData
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', executionHistoryId)
+
+      if (error) {
+        logger.error('Error pausing execution history:', error)
+        throw error
+      }
+
+      logger.debug(`⏸️  Execution ${executionHistoryId} paused at node ${pausedNodeId}`)
+    } catch (error) {
+      logger.error('Failed to pause execution history:', error)
+    }
+  }
+
+  /**
    * Complete the entire execution
    */
   async completeExecution(

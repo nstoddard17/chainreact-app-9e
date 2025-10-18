@@ -1,0 +1,537 @@
+=== Log Session Started: 2025-10-18T02:54:00.867Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T02:54:00.867Z] [INFO   ] File logging initialized
+[2025-10-18T02:54:00.867Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_21-54-00.log
+[2025-10-18T02:54:00.868Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T02:54:00.868Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_21-54-00.log
+[2025-10-18T02:54:00.868Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_21-54-00.log
+[2025-10-18T02:54:00.868Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_21-54-00.log
+[2025-10-18T02:54:00.868Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_21-54-00.log
+[2025-10-18T02:54:00.869Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T02:54:00.869Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T02:54:00.885Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.7s
+[2025-10-18T02:54:01.691Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 156ms (233 modules)
+[2025-10-18T02:54:04.867Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-18T02:54:09.874Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.5s (3898 modules)
+[2025-10-18T02:54:10.838Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 930ms (678 modules)
+[2025-10-18T02:54:11.761Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 452ms (3903 modules)
+[2025-10-18T02:54:12.762Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/teams ...
+[2025-10-18T02:54:13.086Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/teams in 828ms (3911 modules)
+[2025-10-18T02:54:15.718Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 455ms (3913 modules)
+[2025-10-18T02:54:27.472Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/predefined ...
+[2025-10-18T02:54:27.512Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/predefined in 541ms (3915 modules)
+[2025-10-18T02:54:33.543Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 472ms (678 modules)
+[2025-10-18T02:54:52.634Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 325ms (678 modules)
+[2025-10-18T02:55:05.076Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 288ms (678 modules)
+[2025-10-18T02:55:26.778Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 353ms (678 modules)
+[2025-10-18T02:58:20.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1394ms (3898 modules)
+[2025-10-18T02:58:28.425Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 249ms (678 modules)
+[2025-10-18T02:58:38.237Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 584ms (3900 modules)
+[2025-10-18T02:58:52.223Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 480ms (3900 modules)
+[2025-10-18T02:59:02.549Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 496ms (3900 modules)
+[2025-10-18T02:59:12.815Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T02:59:13.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1093ms (3238 modules)
+[2025-10-18T02:59:13.795Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppRouteRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:155947)
+    at AppRouteRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:164236)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fpresence%2Fcount%2Froute&page=%2Fapi%2Fpresence%2Fcount%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fpresence%2Fcount%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:95:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:14.306Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-18T02:59:14.627Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 826ms (4243 modules)
+[2025-10-18T02:59:15.047Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:15.196Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at listOnTimeout (node:internal/timers:575:9)
+    at process.processTimers (node:internal/timers:549:7)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:15.400Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:17.865Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppRouteRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:155947)
+    at AppRouteRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:164236)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fpresence%2Fcount%2Froute&page=%2Fapi%2Fpresence%2Fcount%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fpresence%2Fcount%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:95:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:18.475Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:18.540Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:18.560Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:18.744Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:18.746Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:19.308Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:19.533Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:19.545Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:19.748Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:19.749Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:20.011Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:20.217Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:20.222Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:20.426Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:20.428Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:42.941Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-18T02:59:43.855Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/layout/HomepageHeader.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/layout/HomepageHeader.tsx[0m:83:1]
+ [2m80[0m │                   )}
+ [2m81[0m │                 </Button>
+ [2m82[0m │               )}
+ [2m83[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m84[0m │ [35;1m│[0m   
+ [2m85[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <div className="md:hidden flex items-center gap-2">
+ [2m86[0m │               {mounted && (
+ [2m87[0m │                 <Button
+ [2m88[0m │                   variant="ghost"
+    ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/layout/HomepageHeader.tsx
+./components/homepage/UnifiedHomepage.tsx
+[2025-10-18T02:59:44.255Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/layout/HomepageHeader.tsx
+Error:   [31m×[0m Expected '</', got 'jsx text (
+  [31m│[0m
+  [31m│[0m         )'
+    ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/layout/HomepageHeader.tsx[0m:83:1]
+ [2m80[0m │                   )}
+ [2m81[0m │                 </Button>
+ [2m82[0m │               )}
+ [2m83[0m │ [35;1m╭[0m[35;1m─[0m[35;1m▶[0m         </div>
+ [2m84[0m │ [35;1m│[0m   
+ [2m85[0m │ [35;1m╰[0m[35;1m─[0m[35;1m▶[0m         <div className="md:hidden flex items-center gap-2">
+ [2m86[0m │               {mounted && (
+ [2m87[0m │                 <Button
+ [2m88[0m │                   variant="ghost"
+    ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/layout/HomepageHeader.tsx
+./components/homepage/UnifiedHomepage.tsx
+[2025-10-18T02:59:44.280Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:342:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:44.294Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:342:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:44.295Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T02:59:45.117Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 554ms (5114 modules)
+
+=== Log Session Ended: 2025-10-18T02:59:47.905Z ===

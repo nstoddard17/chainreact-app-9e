@@ -152,7 +152,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-gray-600 dark:text-white/40 text-sm">
-            © 2024 ChainReact. All rights reserved.
+            © 2025 ChainReact. All rights reserved.
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-white/40 text-sm">
             <span>Built with</span>

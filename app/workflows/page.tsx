@@ -1,13 +1,15 @@
-import WorkflowsContent from "@/components/workflows/WorkflowsContent"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
+import { HomeContent } from "@/components/new-design/HomeContent"
 import { requireUsername } from "@/utils/checkUsername"
 
-// Force dynamic rendering since workflows uses auth and real-time data
 export const dynamic = 'force-dynamic'
 
-// Main page component
-export default async function WorkflowsPage() {
-  // This will check for username and redirect if needed
+export default async function NewHomePage() {
   await requireUsername()
 
-  return <WorkflowsContent />
+  return (
+    <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
+      <HomeContent />
+    </NewAppLayout>
+  )
 }

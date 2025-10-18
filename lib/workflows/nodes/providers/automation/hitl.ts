@@ -38,7 +38,7 @@ export const hitlAction: NodeComponent = {
       dynamic: "discord_guilds",
       dynamicProvider: "discord",
       required: true,
-      visibleWhen: { channel: "discord" },
+      showWhen: { channel: "discord" },
       loadOnMount: true,
       uiTab: "basic"
     },
@@ -52,34 +52,65 @@ export const hitlAction: NodeComponent = {
       dynamicProvider: "discord",
       required: true,
       dependsOn: "discordGuildId",
-      visibleWhen: { channel: "discord" },
+      showWhen: { channel: "discord" },
       uiTab: "basic"
     },
     {
-      name: "autoDetectContext",
-      label: "Auto-Detect Context",
-      type: "checkbox",
-      description: "Automatically include all data from the previous step",
-      defaultValue: true,
+      name: "timeoutPreset",
+      label: "Response Timeout",
+      type: "select",
+      description: "How long to wait for a response before timing out",
       required: false,
+      options: [
+        { value: "0", label: "Never (wait indefinitely)" },
+        { value: "15", label: "15 minutes" },
+        { value: "30", label: "30 minutes" },
+        { value: "60", label: "1 hour" },
+        { value: "120", label: "2 hours" },
+        { value: "240", label: "4 hours" },
+        { value: "480", label: "8 hours" },
+        { value: "1440", label: "24 hours" },
+        { value: "custom", label: "Custom..." }
+      ],
+      defaultValue: "60",
       uiTab: "basic"
     },
     {
-      name: "availableDataPreview",
-      label: "Available Data",
-      type: "info",
-      description: "The workflow will automatically format and display all data from the previous step. You can optionally add a custom introduction message below.",
-      visibleWhen: { autoDetectContext: true },
-      uiTab: "basic"
-    },
-    {
-      name: "customMessage",
-      label: "Custom Introduction (Optional)",
-      type: "textarea",
-      description: "Add a custom message before the auto-detected data",
-      placeholder: "I need your approval before proceeding...",
+      name: "timeout",
+      label: "Custom Timeout (minutes)",
+      type: "number",
+      description: "Enter custom timeout in minutes",
+      placeholder: "90",
       required: false,
-      visibleWhen: { autoDetectContext: true },
+      showWhen: { timeoutPreset: "custom" },
+      uiTab: "basic",
+      help: "Enter the number of minutes to wait (e.g., 90 for 1.5 hours)"
+    },
+    {
+      name: "timeoutAction",
+      label: "If No Response Within Timeout",
+      type: "select",
+      description: "What to do if the conversation times out",
+      required: false,
+      options: [
+        { value: "cancel", label: "Cancel workflow" },
+        { value: "proceed", label: "Continue automatically with original data" }
+      ],
+      defaultValue: "cancel",
+      showWhen: { timeoutPreset: { $in: ["15", "30", "60", "120", "240", "480", "1440", "custom"] } },
+      uiTab: "basic"
+    },
+    {
+      name: "enableMemory",
+      label: "Enable AI Memory & Learning",
+      type: "select",
+      description: "Allow the AI to learn from conversations and improve over time",
+      required: false,
+      options: [
+        { value: "true", label: "True" },
+        { value: "false", label: "False" }
+      ],
+      defaultValue: "true",
       uiTab: "basic"
     },
     {
@@ -90,7 +121,6 @@ export const hitlAction: NodeComponent = {
       description: "The first message to send (use {{*}} to include all previous data)",
       placeholder: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
       required: false,
-      visibleWhen: { autoDetectContext: false },
       defaultValue: "**Workflow Paused for Review**\n\nHere's the data from the previous step:\n{{*}}\n\nLet me know when you're ready to continue!",
       uiTab: "advanced"
     },
@@ -101,7 +131,6 @@ export const hitlAction: NodeComponent = {
       description: "Specific data to include (use {{*}} for all previous data, or {{fieldName}} for specific fields)",
       placeholder: '{{*}}',
       required: false,
-      visibleWhen: { autoDetectContext: false },
       defaultValue: '{{*}}',
       uiTab: "advanced"
     },
@@ -126,29 +155,6 @@ export const hitlAction: NodeComponent = {
       defaultValue: '{\n  "decision": "The user\'s final decision",\n  "notes": "Any additional context provided by the user"\n}'
     },
     {
-      name: "timeout",
-      label: "Timeout (minutes)",
-      type: "number",
-      description: "How long to wait for a response before timing out",
-      placeholder: "60",
-      required: false,
-      defaultValue: 60,
-      uiTab: "advanced"
-    },
-    {
-      name: "timeoutAction",
-      label: "Timeout Action",
-      type: "select",
-      description: "What to do if the conversation times out",
-      required: false,
-      options: [
-        { value: "cancel", label: "Cancel Workflow" },
-        { value: "proceed", label: "Proceed Anyway" }
-      ],
-      defaultValue: "cancel",
-      uiTab: "advanced"
-    },
-    {
       name: "continuationSignals",
       label: "Continuation Signals",
       type: "tag-input",
@@ -159,32 +165,90 @@ export const hitlAction: NodeComponent = {
       uiTab: "advanced"
     },
     {
-      name: "enableMemory",
-      label: "Enable AI Memory & Learning",
-      type: "checkbox",
-      description: "Allow the AI to learn from conversations and improve over time",
-      defaultValue: true,
+      name: "memoryStorageProvider",
+      label: "Memory Storage Provider",
+      type: "select",
+      description: "Where to store AI learnings from conversations",
       required: false,
+      options: [
+        { value: "none", label: "None (Don't save learnings)" },
+        { value: "chainreact", label: "ChainReact Memory (Recommended)" },
+        { value: "google_docs", label: "Google Docs" },
+        { value: "notion", label: "Notion" },
+        { value: "onedrive", label: "OneDrive" }
+      ],
+      defaultValue: "none",
+      showWhen: { enableMemory: "true" },
+      uiTab: "memory",
+      help: "💡 ChainReact Memory stores data securely in your account - no external setup needed!"
+    },
+    {
+      name: "memoryDocumentId",
+      label: "ChainReact Memory Document",
+      type: "chainreact-memory-picker",
+      description: "Select or create a memory document to store AI learnings",
+      placeholder: "Select existing or create new memory document...",
+      docType: "memory",
+      allowCreate: true,
+      required: false,
+      showWhen: { enableMemory: "true", memoryStorageProvider: "chainreact" },
+      uiTab: "memory",
+      help: "Leave blank to create a new document, or select an existing one to append learnings"
+    },
+    {
+      name: "knowledgeBaseProvider",
+      label: "Knowledge Base Provider",
+      type: "select",
+      description: "Where your knowledge base documents are stored",
+      required: false,
+      options: [
+        { value: "none", label: "None (No knowledge base)" },
+        { value: "chainreact", label: "ChainReact Memory" },
+        { value: "google_docs", label: "Google Docs" },
+        { value: "notion", label: "Notion" },
+        { value: "onedrive", label: "OneDrive" },
+        { value: "dropbox", label: "Dropbox" },
+        { value: "box", label: "Box" }
+      ],
+      defaultValue: "none",
+      showWhen: { enableMemory: "true" },
+      uiTab: "memory",
+      help: "Knowledge base = reference documents with business policies, guidelines, and examples"
+    },
+    {
+      name: "knowledgeBaseDocumentIds",
+      label: "ChainReact Knowledge Base",
+      type: "chainreact-memory-picker",
+      description: "Select documents with business policies, guidelines, and examples",
+      placeholder: "Select knowledge base documents...",
+      docType: "knowledge_base",
+      allowCreate: true,
+      multiSelect: true,
+      required: false,
+      showWhen: { enableMemory: "true", knowledgeBaseProvider: "chainreact" },
       uiTab: "memory"
     },
     {
       name: "knowledgeBaseDocuments",
-      label: "Knowledge Base Documents",
+      label: "External Knowledge Base",
       type: "unified-document-picker",
-      description: "Select documents containing business policies, guidelines, and examples for the AI to reference",
-      placeholder: "Click to select documents from any connected service...",
+      description: "Select documents containing business policies and guidelines",
+      placeholder: "Click to select documents from your connected service...",
       providers: ["google_docs", "notion", "onedrive", "dropbox", "box"],
       allowInlineConnection: true,
       multiSelect: true,
       required: false,
-      visibleWhen: { enableMemory: true },
+      showWhen: {
+        enableMemory: "true",
+        knowledgeBaseProvider: { $in: ["google_docs", "notion", "onedrive", "dropbox", "box"] }
+      },
       uiTab: "memory"
     },
     {
       name: "memoryStorageDocument",
-      label: "AI Memory Storage Location (Required)",
+      label: "External Memory Document",
       type: "unified-document-picker",
-      description: "Choose where to store what the AI learns. You control this data and can edit it anytime.",
+      description: "Choose where to store what the AI learns",
       placeholder: "Select or create a document to store AI learnings...",
       providers: ["google_docs", "notion", "onedrive"],
       allowInlineConnection: true,
@@ -192,9 +256,11 @@ export const hitlAction: NodeComponent = {
       createLabel: "Create new memory document",
       multiSelect: false,
       required: true,
-      visibleWhen: { enableMemory: true },
-      uiTab: "memory",
-      help: "💡 Your AI's learnings will be stored in YOUR document, not our database. You have full control!"
+      showWhen: {
+        enableMemory: "true",
+        memoryStorageProvider: { $in: ["google_docs", "notion", "onedrive"] }
+      },
+      uiTab: "memory"
     },
     {
       name: "memoryCategories",
@@ -211,18 +277,26 @@ export const hitlAction: NodeComponent = {
       ],
       defaultValue: ["tone_preferences", "formatting_rules", "approval_criteria", "common_corrections"],
       required: false,
-      visibleWhen: { enableMemory: true },
+      showWhen: { enableMemory: "true" },
       uiTab: "memory"
     },
     {
       name: "cacheInDatabase",
       label: "Cache Memory for Faster Loading",
-      type: "checkbox",
-      description: "Store a copy in database for faster access (recommended)",
-      defaultValue: true,
+      type: "select",
+      description: "Store a copy in database for faster access on every message",
+      options: [
+        { value: "true", label: "Enabled (Recommended for external providers)" },
+        { value: "false", label: "Disabled" }
+      ],
+      defaultValue: "true",
       required: false,
-      visibleWhen: { enableMemory: true },
-      uiTab: "memory"
+      showWhen: {
+        enableMemory: "true",
+        memoryStorageProvider: { $in: ["google_docs", "notion", "onedrive"] }
+      },
+      uiTab: "memory",
+      help: "⚡ Caches learnings in database to avoid slow API calls to external services. ChainReact Memory doesn't need this - it's already fast!"
     }
   ],
   outputSchema: [

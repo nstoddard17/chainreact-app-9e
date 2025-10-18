@@ -1,8 +1,98 @@
 import { logger } from '@/lib/utils/logger'
 
 /**
+ * Format all input data into a readable string
+ */
+function formatAllInputData(input: any): string {
+  if (!input) {
+    return 'No data available.'
+  }
+
+  // If it's a simple string or number, return directly
+  if (typeof input === 'string' || typeof input === 'number') {
+    return String(input)
+  }
+
+  // If it's an array, format each item
+  if (Array.isArray(input)) {
+    if (input.length === 0) {
+      return 'No items available.'
+    }
+
+    return input.map((item, index) => {
+      if (typeof item === 'object' && item !== null) {
+        return `**Item ${index + 1}:**\n${formatObject(item)}`
+      }
+      return `**Item ${index + 1}:** ${item}`
+    }).join('\n\n')
+  }
+
+  // If it's an object, format key-value pairs
+  if (typeof input === 'object' && input !== null) {
+    return formatObject(input)
+  }
+
+  return String(input)
+}
+
+/**
+ * Format an object into readable key-value pairs
+ */
+function formatObject(obj: Record<string, any>, indent = 0): string {
+  const spaces = '  '.repeat(indent)
+
+  return Object.entries(obj)
+    .filter(([key, value]) => {
+      // Filter out internal/metadata fields
+      return value !== undefined &&
+             value !== null &&
+             !key.startsWith('_') &&
+             key !== 'dataFlowManager' &&
+             key !== 'nodeOutputs'
+    })
+    .map(([key, value]) => {
+      // Format the key nicely (convert camelCase to Title Case)
+      const formattedKey = key
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim()
+
+      // Handle different value types
+      if (Array.isArray(value)) {
+        if (value.length === 0) return `${spaces}**${formattedKey}:** (empty list)`
+        if (value.length === 1 && typeof value[0] !== 'object') {
+          return `${spaces}**${formattedKey}:** ${value[0]}`
+        }
+        return `${spaces}**${formattedKey}:**\n${value.map((item, idx) => {
+          if (typeof item === 'object') {
+            return `${spaces}  ${idx + 1}. ${formatObject(item, indent + 2)}`
+          }
+          return `${spaces}  ${idx + 1}. ${item}`
+        }).join('\n')}`
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        return `${spaces}**${formattedKey}:**\n${formatObject(value, indent + 1)}`
+      }
+
+      if (typeof value === 'boolean') {
+        return `${spaces}**${formattedKey}:** ${value ? 'Yes' : 'No'}`
+      }
+
+      // For strings, truncate if too long
+      let displayValue = String(value)
+      if (displayValue.length > 500) {
+        displayValue = displayValue.substring(0, 500) + '...'
+      }
+
+      return `${spaces}**${formattedKey}:** ${displayValue}`
+    })
+    .join('\n')
+}
+
+/**
  * Resolves a value from input data using template syntax
- * Supports {{data.field}}, {{trigger.field}}, {{NodeTitle.output}}, and {{variableName}} syntax for accessing nested properties
+ * Supports {{*}}, {{data.field}}, {{trigger.field}}, {{NodeTitle.output}}, and {{variableName}} syntax for accessing nested properties
  * If a trigger variable is referenced and not present in input, uses mockTriggerOutputs if provided
  */
 export function resolveValue(
@@ -35,8 +125,13 @@ export function resolveValue(
   // First check if the entire value is a single template
   const singleMatch = value.match(/^{{(.*)}}$/)
   if (singleMatch) {
-    const key = singleMatch[1]
-    
+    const key = singleMatch[1].trim()
+
+    // Handle wildcard {{*}} - return all input data formatted nicely
+    if (key === '*') {
+      return formatAllInputData(input)
+    }
+
     // Handle "Action: Provider: Action Name.Field" format
     // e.g., "Action: Gmail: Get Email.Body"
     if (key.includes(': ')) {
@@ -214,6 +309,13 @@ export function resolveValue(
     // Replace all embedded templates
     let resolvedValue = value
     resolvedValue = resolvedValue.replace(/{{([^}]+)}}/g, (match, key) => {
+      const trimmedKey = key.trim()
+
+      // Handle wildcard {{*}} - replace with formatted input data
+      if (trimmedKey === '*') {
+        return formatAllInputData(input)
+      }
+
       // Handle "Action: Provider: Action Name.Field" format
       if (key.includes(': ')) {
         const colonParts = key.split(': ')
