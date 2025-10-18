@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter, useParams } from 'next/navigation'
 import { useNodesState, useEdgesState, useReactFlow, type Node, type Edge, type Connection } from '@xyflow/react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -93,7 +93,10 @@ interface RunPreflightOptions {
 export function useWorkflowBuilder() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const workflowId = searchParams.get("id")
+  const params = useParams()
+
+  // Support both path params (/workflow/[id]/builder) and query params (/workflows/builder?id=xxx)
+  const workflowId = (params?.id as string) || searchParams.get("id")
   const editTemplateId = searchParams.get("editTemplate")
   const isTemplateEditing = Boolean(editTemplateId && !workflowId)
   const { toast } = useToast()

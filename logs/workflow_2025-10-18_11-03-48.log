@@ -96,3 +96,10 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-18T16:51:51.396Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 404ms (1608 modules)
 [2025-10-18T16:51:58.663Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 301ms (1608 modules)
 [2025-10-18T16:52:14.562Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 968ms (5787 modules)
+[2025-10-18T16:57:28.923Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/og ...
+[2025-10-18T16:57:29.254Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 907ms (2076 modules)
+[2025-10-18T17:35:15.690Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 650ms (1841 modules)
+[2025-10-18T17:36:09.625Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 325ms (1608 modules)
+[2025-10-18T17:36:09.695Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+
+=== Log Session Ended: 2025-10-18T18:25:05.859Z ===

@@ -205,7 +205,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     key={workflow.id}
                     onSelect={() =>
                       handleSelect(
-                        () => router.push(`/workflows/builder?id=${workflow.id}`),
+                        () => router.push(`/workflow/${workflow.id}/builder`),
                         `Opening ${workflow.name}...`
                       )
                     }

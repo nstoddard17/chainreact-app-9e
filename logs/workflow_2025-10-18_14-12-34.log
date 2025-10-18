@@ -1,0 +1,28 @@
+=== Log Session Started: 2025-10-18T19:12:34.798Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T19:12:34.798Z] [INFO   ] File logging initialized
+[2025-10-18T19:12:34.798Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-12-34.log
+[2025-10-18T19:12:34.800Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T19:12:34.800Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-12-34.log
+[2025-10-18T19:12:34.800Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-12-34.log
+[2025-10-18T19:12:34.800Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-12-34.log
+[2025-10-18T19:12:34.800Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-12-34.log
+[2025-10-18T19:12:34.800Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T19:12:34.800Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T19:12:34.816Z] [INFO   ]  ✓ Ready in 2.5s
+[2025-10-18T19:12:35.180Z] [INFO   ]  ✓ Compiled /middleware in 359ms (233 modules)
+[2025-10-18T19:12:37.667Z] [INFO   ]  ○ Compiling /workflows ...
+[2025-10-18T19:12:42.907Z] [INFO   ]  ✓ Compiled /workflows in 7.4s (3909 modules)
+[2025-10-18T19:12:43.608Z] [INFO   ]  ✓ Compiled in 682ms (679 modules)
+[2025-10-18T19:12:45.049Z] [INFO   ]  ○ Compiling / ...
+[2025-10-18T19:12:47.462Z] [INFO   ]  ✓ Compiled / in 2.9s (4763 modules)
+[2025-10-18T19:12:48.007Z] [INFO   ]  ○ Compiling /api/og ...
+[2025-10-18T19:12:48.488Z] [INFO   ]  ✓ Compiled /api/presence/count in 1007ms (5247 modules)
+[2025-10-18T19:12:48.958Z] [ERROR  ] Expected style "zIndex: 10px" to be unitless
+[2025-10-18T19:12:51.457Z] [INFO   ]  ✓ Compiled /api/integrations in 359ms (4767 modules)
+
+=== Log Session Ended: 2025-10-18T19:13:34.396Z ===

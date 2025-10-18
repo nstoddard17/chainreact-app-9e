@@ -1,0 +1,27 @@
+=== Log Session Started: 2025-10-18T19:45:21.991Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T19:45:21.991Z] [INFO   ] File logging initialized
+[2025-10-18T19:45:21.991Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-45-21.log
+[2025-10-18T19:45:21.993Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T19:45:21.993Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-45-21.log
+[2025-10-18T19:45:21.993Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-45-21.log
+[2025-10-18T19:45:21.993Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-45-21.log
+[2025-10-18T19:45:21.993Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-45-21.log
+[2025-10-18T19:45:21.993Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T19:45:21.993Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T19:45:22.010Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3s
+[2025-10-18T19:45:22.163Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 149ms (233 modules)
+[2025-10-18T19:45:25.034Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-18T19:45:28.403Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.9s (3900 modules)
+[2025-10-18T19:45:29.120Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 702ms (679 modules)
+[2025-10-18T19:45:30.267Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T19:45:30.997Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1229ms (3905 modules)
+[2025-10-18T19:45:34.861Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 623ms (3907 modules)
+[2025-10-18T19:45:38.450Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 476ms (3915 modules)
+[2025-10-18T19:45:49.440Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 313ms (679 modules)
+[2025-10-18T19:46:02.459Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/og ...
+[2025-10-18T19:46:02.463Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 512ms (1147 modules)

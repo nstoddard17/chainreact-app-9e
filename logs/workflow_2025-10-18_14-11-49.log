@@ -1,0 +1,19 @@
+=== Log Session Started: 2025-10-18T19:11:49.675Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T19:11:49.675Z] [INFO   ] File logging initialized
+[2025-10-18T19:11:49.675Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-11-49.log
+[2025-10-18T19:11:49.677Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T19:11:49.677Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-11-49.log
+[2025-10-18T19:11:49.677Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-11-49.log
+[2025-10-18T19:11:49.677Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-11-49.log
+[2025-10-18T19:11:49.677Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-11-49.log
+[2025-10-18T19:11:49.677Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T19:11:49.677Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T19:11:49.691Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.5s
+[2025-10-18T19:12:19.457Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/og ...
+[2025-10-18T19:12:19.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 775ms (464 modules)
+[2025-10-18T19:12:20.156Z] [ERROR  ] Expected style "zIndex: 10px" to be unitless

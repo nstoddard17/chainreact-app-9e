@@ -486,7 +486,7 @@ export default function CommunityContent() {
 
   const handleUseTemplate = (template: SharedTemplate) => {
     // Navigate to workflow builder with template data
-    window.location.href = `/workflows/builder?template=${template.id}`
+    window.location.href = `/workflow/new/builder?template=${template.id}`
   }
 
   return (

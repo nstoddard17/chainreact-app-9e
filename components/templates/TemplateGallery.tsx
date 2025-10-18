@@ -337,7 +337,7 @@ export function TemplateGallery() {
       })
 
       if (createdTemplate?.id) {
-        router.push(`/workflows/builder?editTemplate=${createdTemplate.id}`)
+        router.push(`/workflow/new/builder?editTemplate=${createdTemplate.id}`)
       }
     } catch (error: any) {
       logger.error("Error creating template:", error)
@@ -380,7 +380,7 @@ export function TemplateGallery() {
         })
 
         logger.debug(`Navigating to workflow builder...`)
-        router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${templateId}`)
+        router.push(`/workflow/${data.workflow.id}/builder?editTemplate=${templateId}`)
       } else {
         logger.error("No workflow ID in response:", data)
         throw new Error(data.error || "Failed to copy template - no workflow ID returned")
@@ -555,7 +555,7 @@ export function TemplateGallery() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          router.push(`/workflows/builder?editTemplate=${template.id}`)
+                          router.push(`/workflow/new/builder?editTemplate=${template.id}`)
                         }}
                         title="Edit Template"
                       >

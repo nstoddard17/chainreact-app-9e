@@ -8,76 +8,115 @@ export async function GET() {
     return new ImageResponse(
       (
         <div style={containerStyle}>
-          <div style={topRowStyle}>
-            <div style={brandStyle}>
-              <div style={brandDotStyle} />
-              <span style={brandLabelStyle}>ChainReact</span>
-            </div>
-            <span style={taglineStyle}>Visual Workflow Automation Platform</span>
-          </div>
+          {/* Subtle gradient mesh background */}
+          <div style={gradientMesh1} />
+          <div style={gradientMesh2} />
+          <div style={gradientMesh3} />
 
-          <div style={contentRowStyle}>
-            <div style={copyColumnStyle}>
-              <h1 style={headlineStyle}>
-                Automate Your Workflows 10x Faster with AI
+          {/* Noise texture overlay for depth */}
+          <div style={noiseOverlay} />
+
+          {/* Grid pattern for sophistication */}
+          <div style={gridPattern} />
+
+          {/* Main content */}
+          <div style={contentWrapperStyle}>
+            {/* Logo - match homepage header */}
+            <div style={logoContainerStyle}>
+              <span style={logoTextStyle}>ChainReact</span>
+            </div>
+
+            {/* Main headline - Bold, impactful */}
+            <div style={headlineContainerStyle}>
+              <h1 style={mainHeadlineStyle}>
+                Automate your workflow
               </h1>
-              <p style={bodyStyle}>
-                The visual automation platform that connects your favorite apps, runs intelligent workflows, and keeps your team in complete control. From simple tasks to complex AI-driven processes.
-              </p>
+              <h1 style={gradientHeadlineStyle}>
+                effortlessly
+              </h1>
+            </div>
 
-              <div style={featureListStyle}>
-                {featureHighlights.map((feature) => (
-                  <div key={feature.title} style={featureItemStyle}>
-                    <div style={{ ...pillIconStyle, background: feature.accent }} />
-                    <div style={featureCopyStyle}>
-                      <span style={featureTitleStyle}>{feature.title}</span>
-                      <span style={featureSubtitleStyle}>{feature.subtitle}</span>
-                    </div>
+            {/* Subheading */}
+            <p style={subheadingStyle}>
+              From simple tasks to complex orchestration—everything you need to automate.
+            </p>
+
+            {/* Key Features Grid */}
+            <div style={featuresContainerStyle}>
+              <div style={featuresGridStyle}>
+                {/* Feature 1 - Lightning Fast */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="#60a5fa" />
+                    </svg>
                   </div>
-                ))}
+                  <div style={featureLabelStyle}>Lightning Fast</div>
+                </div>
+
+                {/* Feature 2 - Enterprise Security */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 2L4 6v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V6l-8-4z" stroke="#a855f7" strokeWidth="2" fill="none" />
+                    </svg>
+                  </div>
+                  <div style={featureLabelStyle}>Enterprise Security</div>
+                </div>
+
+                {/* Feature 3 - Visual Builder */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M4 6h16M4 12h16M4 18h16" stroke="#34d399" strokeWidth="2" strokeLinecap="round" />
+                      <circle cx="8" cy="6" r="2" fill="#34d399" />
+                      <circle cx="16" cy="12" r="2" fill="#34d399" />
+                      <circle cx="8" cy="18" r="2" fill="#34d399" />
+                    </svg>
+                  </div>
+                  <div style={featureLabelStyle}>Visual Builder</div>
+                </div>
+
+                {/* Feature 4 - Real-time Monitoring */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="#f59e0b" strokeWidth="2" fill="none" />
+                      <path d="M12 6v6l4 2" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div style={featureLabelStyle}>24/7 Monitoring</div>
+                </div>
+
+                {/* Feature 5 - Team Collaboration */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <circle cx="9" cy="7" r="3" stroke="#ec4899" strokeWidth="2" fill="none" />
+                      <circle cx="15" cy="7" r="3" stroke="#ec4899" strokeWidth="2" fill="none" />
+                      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 20c0-3.3 2.7-6 6-6" stroke="#ec4899" strokeWidth="2" fill="none" />
+                    </svg>
+                  </div>
+                  <div style={featureLabelStyle}>Team Collaboration</div>
+                </div>
+
+                {/* Feature 6 - Advanced Analytics */}
+                <div style={featureCardStyle}>
+                  <div style={featureIconContainerStyle}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M3 20h18M7 20V10m5 10V4m5 16v-8" stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div style={featureLabelStyle}>Advanced Analytics</div>
+                </div>
+              </div>
+
+              {/* Bottom badge */}
+              <div style={badgeStyle}>
+                <div style={badgeDotStyle} />
+                <span style={badgeTextStyle}>Now in Public Beta</span>
               </div>
             </div>
-
-            <div style={previewWrapperStyle}>
-            <div style={previewCardStyle}>
-              <div style={previewHeaderStyle}>
-                <div style={previewTitleStyle}>
-                  <span style={previewBulletStyle} />
-                  Sales Lead Automation
-                </div>
-                <div style={previewTagStyle}>Active</div>
-              </div>
-
-              <div style={previewGridStyle}>
-                  {workflowSteps.map((step) => (
-                    <div key={step.title} style={{ ...stepCardStyle, background: step.bg }}>
-                      <div style={{ ...stepBadgeStyle, color: step.badge, background: step.badgeBg }}>
-                        {step.badgeLabel}
-                      </div>
-                      <div style={stepTitleStyle}>{step.title}</div>
-                      <div style={stepDescriptionStyle}>{step.description}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={timelineStyle}>
-                  {timeline.map((item, index) => (
-                    <div key={`${item.label}-${index}`} style={timelineItemStyle}>
-                      <div style={{ ...timelineDotStyle, background: item.color }} />
-                      <div style={timelineTextStyle}>
-                        <span style={timelineLabelStyle}>{item.label}</span>
-                        <span style={timelineMetaStyle}>{item.meta}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div style={footerStyle}>
-            <span style={footerDomainStyle}>chainreact.app</span>
-            <span style={footerCaptionStyle}>Build workflows that scale with your business</span>
           </div>
         </div>
       ),
@@ -92,323 +131,222 @@ export async function GET() {
   }
 }
 
+// ============================================================================
+// CONTAINER & BACKGROUND
+// ============================================================================
+
 const containerStyle: React.CSSProperties = {
   width: '100%',
   height: '100%',
   display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
-  padding: '56px 72px',
-  background: 'radial-gradient(circle at 12% 18%, rgba(56,189,248,0.75) 0%, rgba(15,23,42,0.45) 28%, rgba(2,6,23,0.95) 68%, rgba(2,6,23,1) 100%)',
-  color: '#e2e8f0',
+  position: 'relative',
+  background: 'linear-gradient(to bottom, #0f172a, #020617)', // slate-900 to slate-950
+  overflow: 'hidden',
 }
 
-const topRowStyle: React.CSSProperties = {
+// Subtle gradient mesh for depth (Linear-style)
+const gradientMesh1: React.CSSProperties = {
+  position: 'absolute',
+  top: '-20%',
+  left: '-10%',
+  width: '600px',
+  height: '600px',
+  background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+  filter: 'blur(80px)',
+}
+
+const gradientMesh2: React.CSSProperties = {
+  position: 'absolute',
+  top: '-10%',
+  right: '-5%',
+  width: '500px',
+  height: '500px',
+  background: 'radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%)',
+  filter: 'blur(90px)',
+}
+
+const gradientMesh3: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '-15%',
+  left: '30%',
+  width: '550px',
+  height: '550px',
+  background: 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
+  filter: 'blur(100px)',
+}
+
+// Noise texture for premium feel
+const noiseOverlay: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='3.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.025'/%3E%3C/svg%3E")`,
+  opacity: 0.6,
+}
+
+// Grid pattern (Stripe-style sophistication)
+const gridPattern: React.CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  backgroundImage: `linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px)`,
+  backgroundSize: '50px 50px',
+}
+
+// ============================================================================
+// CONTENT WRAPPER
+// ============================================================================
+
+const contentWrapperStyle: React.CSSProperties = {
   display: 'flex',
+  flexDirection: 'column',
   justifyContent: 'space-between',
+  width: '100%',
+  height: '100%',
+  padding: '70px 80px',
+  position: 'relative',
+}
+
+// ============================================================================
+// LOGO
+// ============================================================================
+
+const logoContainerStyle: React.CSSProperties = {
+  display: 'flex',
   alignItems: 'center',
-  fontSize: 26,
+  marginBottom: 80,
+}
+
+const logoTextStyle: React.CSSProperties = {
+  fontSize: 30,
+  fontWeight: 700,
+  background: 'linear-gradient(to right, #60a5fa, #a78bfa)',
+  backgroundClip: 'text',
+  WebkitBackgroundClip: 'text',
+  color: 'transparent',
+  letterSpacing: '-0.8px',
+}
+
+// ============================================================================
+// HEADLINES
+// ============================================================================
+
+const headlineContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
   marginBottom: 24,
 }
 
-const brandStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 14,
-  fontSize: 28,
-  letterSpacing: 1.2,
-  textTransform: 'uppercase',
-  color: '#e0f2fe',
-  fontWeight: 600,
-}
-
-const brandDotStyle: React.CSSProperties = {
-  width: 18,
-  height: 18,
-  borderRadius: '50%',
-  background: 'radial-gradient(circle, #38bdf8 0%, #0ea5e9 60%, rgba(8,47,73,0.6) 100%)',
-  boxShadow: '0 0 18px rgba(56,189,248,0.6)',
-}
-
-const brandLabelStyle: React.CSSProperties = {
-  letterSpacing: 3.2,
-}
-
-const taglineStyle: React.CSSProperties = {
-  fontSize: 22,
-  opacity: 0.78,
-  letterSpacing: 0.4,
-}
-
-const contentRowStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 68,
-  alignItems: 'flex-start',
-  flex: 1,
-}
-
-const copyColumnStyle: React.CSSProperties = {
-  flex: 1.1,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 22,
-  justifyContent: 'flex-start',
-  maxWidth: 520,
-}
-
-const headlineStyle: React.CSSProperties = {
-  fontSize: 48,
-  lineHeight: 1.12,
-  margin: 0,
-  color: '#f8fafc',
+const mainHeadlineStyle: React.CSSProperties = {
+  fontSize: 72,
   fontWeight: 700,
-  letterSpacing: -0.5,
-}
-
-const bodyStyle: React.CSSProperties = {
-  fontSize: 22,
-  lineHeight: 1.5,
+  color: '#ffffff',
   margin: 0,
-  maxWidth: 520,
-  color: 'rgba(226,232,240,0.85)',
+  lineHeight: 0.95,
+  letterSpacing: '-2.5px',
+  marginBottom: 8,
 }
 
-const featureListStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 18,
-  marginTop: 16,
+const gradientHeadlineStyle: React.CSSProperties = {
+  fontSize: 72,
+  fontWeight: 700,
+  background: 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #c084fc 100%)',
+  backgroundClip: 'text',
+  WebkitBackgroundClip: 'text',
+  color: 'transparent',
+  margin: 0,
+  lineHeight: 0.95,
+  letterSpacing: '-2.5px',
 }
 
-const featureItemStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 18,
-  background: 'rgba(8,16,32,0.65)',
-  borderRadius: 16,
-  padding: '18px 26px',
-  border: '1px solid rgba(148,163,184,0.28)',
-  backdropFilter: 'blur(6px)',
-  boxShadow: '0 18px 38px rgba(2,6,23,0.45)',
-}
-
-const pillIconStyle: React.CSSProperties = {
-  width: 12,
-  height: 12,
-  borderRadius: '9999px',
-  boxShadow: '0 0 16px rgba(56,189,248,0.65)',
-}
-
-const featureCopyStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-}
-
-const featureTitleStyle: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 600,
-  color: '#f8fafc',
-}
-
-const featureSubtitleStyle: React.CSSProperties = {
-  fontSize: 18,
-  color: 'rgba(226,232,240,0.72)',
-}
-
-const previewWrapperStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-}
-
-const previewCardStyle: React.CSSProperties = {
-  width: 520,
-  height: 360,
-  borderRadius: 32,
-  padding: '28px 30px',
-  background: 'linear-gradient(130deg, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.68) 100%)',
-  border: '1px solid rgba(148,163,184,0.25)',
-  boxShadow: '0 40px 120px rgba(15,23,42,0.75)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 20,
-}
-
-const previewHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-}
-
-const previewTitleStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  fontSize: 22,
-  fontWeight: 600,
-  color: '#e2e8f0',
-}
-
-const previewBulletStyle: React.CSSProperties = {
-  width: 10,
-  height: 10,
-  borderRadius: '50%',
-  background: '#38bdf8',
-  boxShadow: '0 0 10px rgba(56,189,248,0.65)',
-}
-
-const previewTagStyle: React.CSSProperties = {
-  padding: '6px 16px',
-  borderRadius: 999,
-  background: 'rgba(45,212,191,0.12)',
-  color: '#5eead4',
-  fontSize: 18,
-  fontWeight: 600,
-  border: '1px solid rgba(94,234,212,0.45)',
-}
-
-const previewGridStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: 14,
-}
-
-const stepCardStyle: React.CSSProperties = {
-  borderRadius: 18,
-  padding: '16px 18px',
-  border: '1px solid rgba(148,163,184,0.16)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  color: '#e2e8f0',
-  flex: 1,
-}
-
-const stepBadgeStyle: React.CSSProperties = {
-  alignSelf: 'flex-start',
-  padding: '4px 12px',
-  borderRadius: 999,
-  fontSize: 16,
-  fontWeight: 600,
-}
-
-const stepTitleStyle: React.CSSProperties = {
-  fontSize: 20,
-  fontWeight: 600,
-}
-
-const stepDescriptionStyle: React.CSSProperties = {
-  fontSize: 16,
-  opacity: 0.75,
-  lineHeight: 1.35,
-}
-
-const timelineStyle: React.CSSProperties = {
-  marginTop: 'auto',
-  display: 'flex',
-  gap: 16,
-  justifyContent: 'space-between',
-  paddingTop: 12,
-  borderTop: '1px solid rgba(148,163,184,0.18)',
-}
-
-const timelineItemStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  flex: 1,
-  minWidth: 0,
-}
-
-const timelineDotStyle: React.CSSProperties = {
-  width: 10,
-  height: 10,
-  borderRadius: '50%',
-}
-
-const timelineTextStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-}
-
-const timelineLabelStyle: React.CSSProperties = {
-  fontSize: 18,
-  color: '#f8fafc',
-  fontWeight: 600,
-}
-
-const timelineMetaStyle: React.CSSProperties = {
-  fontSize: 16,
-  color: 'rgba(226,232,240,0.74)',
-}
-
-const footerStyle: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  fontSize: 22,
-  color: 'rgba(226,232,240,0.75)',
-}
-
-const footerDomainStyle: React.CSSProperties = {
+const subheadingStyle: React.CSSProperties = {
   fontSize: 24,
-  letterSpacing: 0.6,
-  color: '#bae6fd',
+  color: '#94a3b8',
+  marginBottom: 60,
+  lineHeight: 1.4,
+  letterSpacing: '-0.3px',
 }
 
-const footerCaptionStyle: React.CSSProperties = {
-  fontSize: 22,
+// ============================================================================
+// FEATURES GRID
+// ============================================================================
+
+const featuresContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 32,
+  marginBottom: 'auto',
 }
 
-const featureHighlights = [
-  {
-    title: 'AI-Powered Workflows',
-    subtitle: 'Build intelligent automations that learn and adapt.',
-    accent: '#a855f7',
-  },
-  {
-    title: '20+ Integrations',
-    subtitle: 'Connect Gmail, Slack, Notion, HubSpot & more instantly.',
-    accent: '#60a5fa',
-  },
-  {
-    title: 'Real-Time Monitoring',
-    subtitle: 'Track every execution with full observability.',
-    accent: '#5eead4',
-  },
-]
+const featuresGridStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 16,
+  maxWidth: 900,
+}
 
-const workflowSteps = [
-  {
-    badgeLabel: 'Trigger',
-    badge: '#93c5fd',
-    badgeBg: 'rgba(59,130,246,0.15)',
-    title: 'New Lead in HubSpot',
-    description: 'Auto-detect form submission & enrich data.',
-    bg: 'rgba(30,64,175,0.28)',
-  },
-  {
-    badgeLabel: 'AI Action',
-    badge: '#f0abfc',
-    badgeBg: 'rgba(192,132,252,0.18)',
-    title: 'Generate Outreach',
-    description: 'AI crafts personalized email from context.',
-    bg: 'rgba(88,28,135,0.26)',
-  },
-  {
-    badgeLabel: 'Action',
-    badge: '#6ee7b7',
-    badgeBg: 'rgba(16,185,129,0.18)',
-    title: 'Send to Slack',
-    description: 'Notify team & create follow-up task.',
-    bg: 'rgba(22,101,52,0.24)',
-  },
-]
+const featureCardStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '16px 24px',
+  background: 'rgba(15, 23, 42, 0.6)',
+  border: '1px solid rgba(148, 163, 184, 0.15)',
+  borderRadius: 12,
+  backdropFilter: 'blur(20px)',
+  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+  width: 280,
+}
 
-const timeline = [
-  { label: '10x Faster Setup', meta: 'vs traditional automation', color: '#60a5fa' },
-  { label: '99.9% Uptime', meta: 'Enterprise-grade reliability', color: '#a855f7' },
-  { label: 'Real-Time Logs', meta: 'Full execution visibility', color: '#5eead4' },
-]
+const featureIconContainerStyle: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: 10,
+  background: 'rgba(59, 130, 246, 0.1)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+}
+
+const featureLabelStyle: React.CSSProperties = {
+  fontSize: 16,
+  fontWeight: 600,
+  color: '#e2e8f0',
+  letterSpacing: '-0.2px',
+}
+
+// ============================================================================
+// BADGE
+// ============================================================================
+
+const badgeStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '10px 20px',
+  background: 'rgba(59, 130, 246, 0.1)',
+  border: '1px solid rgba(59, 130, 246, 0.2)',
+  borderRadius: 100,
+  alignSelf: 'flex-start',
+}
+
+const badgeDotStyle: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: '50%',
+  background: '#3b82f6',
+  boxShadow: '0 0 12px rgba(59, 130, 246, 0.6)',
+}
+
+const badgeTextStyle: React.CSSProperties = {
+  fontSize: 15,
+  fontWeight: 600,
+  color: '#93c5fd',
+  letterSpacing: '-0.2px',
+}

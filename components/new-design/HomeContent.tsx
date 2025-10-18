@@ -466,8 +466,8 @@ export function HomeContent() {
       setSelectedCreateTeamIds([])
       setCreateDialog(false)
 
-      // Navigate to builder
-      router.push(`/workflows/builder?id=${workflowId}`)
+      // Navigate to new builder
+      router.push(`/workflow/${workflowId}/builder`)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -594,7 +594,7 @@ export function HomeContent() {
               <div
                 key={workflow.id}
                 className="group flex items-center gap-4 p-4 border rounded-xl hover:bg-accent/50 transition-all cursor-pointer"
-                onClick={() => router.push(`/workflows/builder?id=${workflow.id}`)}
+                onClick={() => router.push(`/workflow/${workflow.id}/builder`)}
               >
                 {/* Status Indicator */}
                 <div className="flex-shrink-0">
@@ -681,7 +681,7 @@ export function HomeContent() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflows/builder?id=${workflow.id}`) }}>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflow/${workflow.id}/builder`) }}>
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Workflow
                     </DropdownMenuItem>
