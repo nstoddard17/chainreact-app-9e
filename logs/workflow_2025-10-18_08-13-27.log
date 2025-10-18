@@ -25,3 +25,24 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-18T13:13:38.121Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
 [2025-10-18T13:13:38.125Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 517ms (4547 modules)
 [2025-10-18T13:15:04.214Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1111ms (4432 modules)
+[2025-10-18T13:18:31.193Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 575ms (1006 modules)
+[2025-10-18T13:18:35.161Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T13:18:35.200Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 593ms (3549 modules)
+[2025-10-18T13:18:42.147Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 777ms (4555 modules)
+[2025-10-18T13:18:48.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 674ms (4563 modules)
+[2025-10-18T13:18:56.490Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 543ms (4563 modules)
+[2025-10-18T13:19:01.362Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 765ms (4563 modules)
+[2025-10-18T13:19:21.622Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 945ms (4563 modules)
+[2025-10-18T13:19:30.914Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 732ms (4563 modules)
+[2025-10-18T13:19:38.413Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-18T13:19:39.890Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 2s (4764 modules)
+[2025-10-18T13:19:41.812Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T13:19:42.988Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1677ms (3674 modules)
+[2025-10-18T13:19:43.946Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/teams ...
+[2025-10-18T13:19:44.549Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/teams in 1164ms (4777 modules)
+[2025-10-18T13:19:46.877Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-18T13:19:47.371Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 996ms (4793 modules)
+[2025-10-18T13:19:56.686Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1268ms (4793 modules)
+[2025-10-18T13:20:15.164Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (1109 modules)
+
+=== Log Session Ended: 2025-10-18T13:21:12.297Z ===

@@ -65,7 +65,7 @@ const features = [
 
 export function FlexibilitySection() {
   return (
-    <section className="relative px-4 sm:px-6 lg:px-8 py-24 border-t border-gray-100 dark:border-gray-800">
+    <section id="features" className="relative px-4 sm:px-6 lg:px-8 py-24 border-t border-gray-100 dark:border-gray-800">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">

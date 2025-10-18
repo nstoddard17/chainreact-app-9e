@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState, type ChangeEvent } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,11 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { User, Bell, Shield, Palette, Trash2 } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/utils/supabaseClient"
+import { User, Bell, Shield, Palette, Loader2 } from "lucide-react"
 
 export function SettingsContent() {
-  const { profile } = useAuthStore()
+  const { profile, updateProfile, user } = useAuthStore()
+  const { toast } = useToast()
+  const supabase = createClient()
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
@@ -20,6 +24,119 @@ export function SettingsContent() {
     workflow_failure: true,
     weekly_digest: true
   })
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarButtonClick = () => {
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const maxSizeBytes = 1.5 * 1024 * 1024 // 1.5MB
+    const maxDimension = 1024
+    if (!file.type.startsWith("image/")) {
+      setAvatarError("Please choose a valid image file (PNG, JPG, or GIF).")
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > maxSizeBytes) {
+      setAvatarError("Image is too large. Please upload a file smaller than 1.5MB.")
+      event.target.value = ""
+      return
+    }
+
+    setAvatarError(null)
+
+    const objectUrl = URL.createObjectURL(file)
+    try {
+      const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve({ width: img.width, height: img.height })
+        img.onerror = () => reject(new Error("Unable to read image dimensions."))
+        img.src = objectUrl
+      })
+
+      if (dimensions.width > maxDimension || dimensions.height > maxDimension) {
+        setAvatarError(`Please upload an image up to ${maxDimension}x${maxDimension} pixels.`)
+        event.target.value = ""
+        return
+      }
+    } catch (imageError: any) {
+      setAvatarError(imageError?.message || "Unable to validate image size. Please try another file.")
+      event.target.value = ""
+      return
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
+
+    setAvatarUploading(true)
+
+    const userId = profile?.id || user?.id
+
+    if (!userId) {
+      setAvatarError("Unable to determine user identity. Please refresh and try again.")
+      setAvatarUploading(false)
+      event.target.value = ""
+      return
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg"
+    const fileName = `avatar-${Date.now()}.${extension}`
+    const filePath = `${userId}/${fileName}`
+
+    try {
+      // Upload the new avatar
+      const { error: uploadError } = await supabase.storage
+        .from("user-avatars")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type,
+        })
+
+      if (uploadError) {
+        setAvatarError(uploadError.message || "Failed to upload avatar. Please try again.")
+        return
+      }
+
+      // Attempt to remove previous avatar if it exists
+      if (profile?.avatar_url?.includes("/user-avatars/")) {
+        const [, path] = profile.avatar_url.split("/user-avatars/")
+        if (path) {
+          await supabase.storage.from("user-avatars").remove([path]).catch(() => {
+            // Ignore cleanup errors
+          })
+        }
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("user-avatars")
+        .getPublicUrl(filePath)
+
+      const newAvatarUrl = publicUrlData?.publicUrl
+      if (!newAvatarUrl) {
+        setAvatarError("Unable to retrieve public URL for avatar.")
+        return
+      }
+
+      await updateProfile({ avatar_url: newAvatarUrl })
+
+      toast({
+        title: "Profile photo updated",
+        description: "Your new avatar will appear across the app.",
+      })
+    } catch (error: any) {
+      setAvatarError(error.message || "Unexpected error while updating avatar.")
+    } finally {
+      setAvatarUploading(false)
+      event.target.value = ""
+    }
+  }
 
   return (
     <Tabs defaultValue="profile" className="space-y-6">
@@ -52,14 +169,47 @@ export function SettingsContent() {
           <CardContent className="space-y-6">
             {/* Avatar */}
             <div className="flex items-center gap-4">
-              <Avatar className="w-20 h-20">
-                <AvatarFallback className="text-2xl">
-                  {profile?.username?.[0]?.toUpperCase() || profile?.email?.[0]?.toUpperCase() || "U"}
+              <Avatar className="w-20 h-20 bg-muted">
+                {profile?.avatar_url && (
+                  <AvatarImage
+                    src={profile.avatar_url}
+                    alt="Profile avatar"
+                    className="object-cover"
+                  />
+                )}
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  <User className="w-8 h-8" />
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <Button variant="outline" size="sm">Change Photo</Button>
-                <p className="text-sm text-muted-foreground mt-1">JPG, GIF or PNG. Max size of 800KB</p>
+              <div className="space-y-1.5">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAvatarButtonClick}
+                  disabled={avatarUploading}
+                >
+                  {avatarUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Change Photo"
+                  )}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  PNG, JPG, or GIF. Max size 1.5MB.
+                </p>
+                {avatarError && (
+                  <p className="text-sm text-destructive">{avatarError}</p>
+                )}
               </div>
             </div>
 
