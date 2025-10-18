@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     description: "Design intelligent automations, connect your apps securely, and launch workflows that scale with your business.",
     images: [
       {
-        url: "https://chainreact.app/opengraph-image.png",
+        url: "/api/og",
         width: 1200,
         height: 630,
         alt: "Preview of the ChainReact automation platform",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     title: "ChainReact – Automate Your Workflows with AI",
     description: "Design intelligent automations, connect your apps securely, and launch workflows that scale with your business.",
     creator: "@ChainReact_App",
-    images: ["https://chainreact.app/twitter-image.png"],
+    images: ["/api/og/twitter"],
   },
 }
 

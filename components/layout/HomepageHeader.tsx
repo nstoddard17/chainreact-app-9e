@@ -20,8 +20,8 @@ export function HomepageHeader() {
     setMenuOpen(false)
     const element = document.getElementById(sectionId)
     if (element && typeof window !== 'undefined') {
-      // Increased offset to ensure section title is fully visible
-      const yOffset = -100
+      // Reduced offset to scroll down further and show more of the section
+      const yOffset = -20
       const y = element.getBoundingClientRect().top + window.scrollY + yOffset
       window.scrollTo({ top: y, behavior: 'smooth' })
     }
