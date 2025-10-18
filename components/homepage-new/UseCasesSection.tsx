@@ -119,19 +119,34 @@ export function UseCasesSection() {
         <div className="flex flex-wrap justify-center gap-2 mb-12">
           {useCases.map((useCase) => {
             const Icon = useCase.icon
+            const isSelected = selectedCase.id === useCase.id
             return (
-              <button
+              <motion.button
                 key={useCase.id}
                 onClick={() => setSelectedCase(useCase)}
+                animate={{
+                  scale: isSelected ? 1.05 : 1,
+                }}
+                whileHover={{
+                  scale: isSelected ? 1.05 : 1.02,
+                }}
+                whileTap={{
+                  scale: 0.98,
+                }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 17
+                }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCase.id === useCase.id
-                    ? 'bg-blue-600 text-white'
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
                     : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 {useCase.title}
-              </button>
+              </motion.button>
             )
           })}
         </div>

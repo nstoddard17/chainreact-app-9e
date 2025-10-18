@@ -153,3 +153,236 @@ TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f877
     at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
     at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
 [2025-10-18T14:20:11.176Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 265ms (3769 modules)
+[2025-10-18T14:20:43.909Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-18T14:20:45.092Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 1688ms (4949 modules)
+[2025-10-18T14:20:45.282Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:45.284Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:45.285Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:45.285Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:45.285Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:45.285Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:46.522Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-18T14:20:47.178Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1157ms (4955 modules)
+[2025-10-18T14:20:48.053Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T14:20:49.168Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1614ms (3799 modules)
+[2025-10-18T14:20:53.559Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-18T14:20:54.106Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1265ms (3801 modules)
+[2025-10-18T14:20:59.208Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:59.209Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:59.210Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:59.210Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:59.211Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:20:59.211Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.029Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.6s (4840 modules)
+[2025-10-18T14:32:39.303Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.305Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.306Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.306Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.306Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:32:39.306Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:35:11.588Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T14:35:11.626Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 635ms (3789 modules)
+[2025-10-18T14:36:56.134Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1817ms (4963 modules)
+[2025-10-18T14:36:56.385Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:36:56.386Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:36:56.387Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:36:56.388Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:36:56.388Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:36:56.388Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.229Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1463ms (4840 modules)
+[2025-10-18T14:37:11.459Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.460Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.461Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.461Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.461Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:11.461Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1745ms (5059 modules)
+[2025-10-18T14:37:38.420Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.421Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.422Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.422Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.422Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:38.422Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T14:37:45.242Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1468ms (1174 modules)
+[2025-10-18T14:40:11.549Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T14:40:11.581Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 639ms (3789 modules)
