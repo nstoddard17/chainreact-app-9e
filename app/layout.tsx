@@ -25,15 +25,46 @@ const spaceGrotesk = Space_Grotesk({
 })
 
 export const metadata: Metadata = {
-  title: "ChainReact",
-  description: "Automate your workflows with ChainReact.",
+  title: {
+    default: "ChainReact",
+    template: "%s | ChainReact",
+  },
+  applicationName: "ChainReact",
+  description: "Connect your favorite tools, build AI-powered automations visually, and let ChainReact run the busywork for you.",
   generator: "v0.dev",
-  // Add performance optimizations
-  metadataBase: new URL('https://chainreact.app'),
+  metadataBase: new URL("https://chainreact.app"),
+  keywords: [
+    "ChainReact",
+    "workflow automation",
+    "AI automation",
+    "no-code workflows",
+    "business automation",
+    "automation platform",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
-    title: "ChainReact",
-    description: "Automate your workflows with ChainReact.",
-    type: 'website',
+    type: "website",
+    url: "https://chainreact.app",
+    siteName: "ChainReact",
+    title: "ChainReact – Automate Your Workflows with AI",
+    description: "Design intelligent automations, connect your apps securely, and launch workflows that scale with your business.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Preview of the ChainReact automation platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ChainReact – Automate Your Workflows with AI",
+    description: "Design intelligent automations, connect your apps securely, and launch workflows that scale with your business.",
+    creator: "@ChainReact_App",
+    images: ["/twitter-image"],
   },
 }
 
