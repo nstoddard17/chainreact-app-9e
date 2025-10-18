@@ -50,3 +50,11 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-18T22:06:10.967Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 749ms (3574 modules)
 [2025-10-18T22:06:11.542Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 293ms (3576 modules)
 [2025-10-18T22:06:14.812Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 460ms (3578 modules)
+[2025-10-18T22:06:53.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 887ms (4587 modules)
+[2025-10-18T22:08:27.878Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1056ms (4563 modules)
+[2025-10-18T22:11:11.790Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T22:11:11.829Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 553ms (3574 modules)
+[2025-10-18T22:15:35.195Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 894ms (4563 modules)
+[2025-10-18T22:15:53.383Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 630ms (4563 modules)
+[2025-10-18T22:16:11.493Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 238ms (3574 modules)
+[2025-10-18T22:22:47.125Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 515ms (1009 modules)

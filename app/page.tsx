@@ -21,6 +21,7 @@ export const metadata: Metadata = {
         alt: 'ChainReact - AI-Powered Workflow Automation Platform',
       },
     ],
+    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
