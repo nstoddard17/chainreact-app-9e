@@ -32,7 +32,7 @@ export function HeroSection() {
   const [isDemoHovered, setIsDemoHovered] = React.useState(false)
 
   return (
-    <section className="relative z-10 px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
+    <section id="overview" className="relative z-10 px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
       <div className="absolute inset-x-0 -top-32 h-80 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl pointer-events-none" aria-hidden />
       <div className="max-w-7xl mx-auto">
         <div className="relative text-center">
