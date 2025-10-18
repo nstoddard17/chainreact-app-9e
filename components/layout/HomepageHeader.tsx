@@ -21,7 +21,7 @@ export function HomepageHeader() {
     const element = document.getElementById(sectionId)
     if (element && typeof window !== 'undefined') {
       // Reduced offset to scroll down further and show more of the section
-      const yOffset = -20
+      const yOffset = 0
       const y = element.getBoundingClientRect().top + window.scrollY + yOffset
       window.scrollTo({ top: y, behavior: 'smooth' })
     }

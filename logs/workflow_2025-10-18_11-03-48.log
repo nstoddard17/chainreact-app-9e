@@ -19,3 +19,10 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-18T16:03:55.542Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1344ms (1006 modules)
 [2025-10-18T16:04:00.497Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 240ms (233 modules)
 [2025-10-18T16:04:34.107Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1262ms (4433 modules)
+[2025-10-18T16:08:14.325Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1040ms (4433 modules)
+[2025-10-18T16:08:39.541Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T16:08:39.563Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 560ms (4543 modules)
+[2025-10-18T16:11:03.190Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 407ms (1007 modules)
+[2025-10-18T16:11:10.860Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 244ms (1007 modules)
+[2025-10-18T16:12:29.306Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 345ms (1007 modules)
+[2025-10-18T16:12:31.786Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 240ms (1007 modules)
