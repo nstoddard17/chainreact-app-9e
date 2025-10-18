@@ -10,6 +10,7 @@ import { UseCasesSection } from './UseCasesSection'
 import { FlexibilitySection } from './FlexibilitySection'
 import { IntegrationsShowcase } from '@/components/homepage/IntegrationsShowcase'
 import { SocialProofSection } from './SocialProofSection'
+import { AnimatedBackground } from './AnimatedBackground'
 
 export function NewHomepage() {
   const { theme } = useTheme()
@@ -30,9 +31,10 @@ export function NewHomepage() {
   const isDark = theme === 'dark'
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${
-      isDark ? 'bg-slate-950' : 'bg-white'
-    }`}>
+    <div className="min-h-screen relative">
+      {/* Animated Background */}
+      <AnimatedBackground />
+
       {/* Navigation */}
       <HomepageHeader />
 

@@ -70,6 +70,9 @@ const config: Config = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		backgroundImage: {
+  			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+  		},
   		keyframes: {
   			'accordion-down': {
   				from: {
@@ -276,6 +279,34 @@ const config: Config = {
   					opacity: '0',
   					transform: 'translate(0, -16px) scale(0.5)'
   				}
+  			},
+  			'blob': {
+  				'0%': {
+  					transform: 'translate(0px, 0px) scale(1)'
+  				},
+  				'33%': {
+  					transform: 'translate(30px, -50px) scale(1.1)'
+  				},
+  				'66%': {
+  					transform: 'translate(-20px, 20px) scale(0.9)'
+  				},
+  				'100%': {
+  					transform: 'translate(0px, 0px) scale(1)'
+  				}
+  			},
+  			'blob-slow': {
+  				'0%': {
+  					transform: 'translate(0px, 0px) scale(1) rotate(0deg)'
+  				},
+  				'33%': {
+  					transform: 'translate(40px, -60px) scale(1.15) rotate(120deg)'
+  				},
+  				'66%': {
+  					transform: 'translate(-30px, 30px) scale(0.85) rotate(240deg)'
+  				},
+  				'100%': {
+  					transform: 'translate(0px, 0px) scale(1) rotate(360deg)'
+  				}
   			}
   		},
   		animation: {
@@ -293,7 +324,15 @@ const config: Config = {
   			'sparkle': 'sparkle 2s infinite',
   			'spark-1': 'spark-1 2s infinite',
   			'spark-2': 'spark-2 2s infinite',
-  			'spark-3': 'spark-3 2s infinite'
+  			'spark-3': 'spark-3 2s infinite',
+  			'blob': 'blob 15s infinite',
+  			'blob-slow': 'blob-slow 25s infinite'
+  		},
+  		animationDelay: {
+  			'2000': '2s',
+  			'3000': '3s',
+  			'4000': '4s',
+  			'6000': '6s'
   		}
   	}
   },

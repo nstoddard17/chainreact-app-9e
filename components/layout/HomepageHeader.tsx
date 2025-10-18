@@ -20,7 +20,8 @@ export function HomepageHeader() {
     setMenuOpen(false)
     const element = document.getElementById(sectionId)
     if (element && typeof window !== 'undefined') {
-      const yOffset = -80
+      // Increased offset to ensure section title is fully visible
+      const yOffset = -100
       const y = element.getBoundingClientRect().top + window.scrollY + yOffset
       window.scrollTo({ top: y, behavior: 'smooth' })
     }
@@ -39,11 +40,11 @@ export function HomepageHeader() {
   const effectiveTheme = mounted ? (resolvedTheme ?? theme ?? 'light') : 'light'
   const isDark = effectiveTheme === 'dark'
   const navItems = [
-    { label: 'Overview', target: 'overview' },
-    { label: 'How it Works', target: 'how-it-works' },
-    { label: 'Automation', target: 'workflow-animation' },
+    { label: 'Demo', target: 'demo' },
     { label: 'Features', target: 'features' },
+    { label: 'Use Cases', target: 'use-cases' },
     { label: 'Integrations', target: 'integrations' },
+    { label: 'Roadmap', target: 'roadmap' },
   ]
 
   return (
@@ -79,6 +80,13 @@ export function HomepageHeader() {
               )}
             </Button>
           )}
+
+          <Link href="/waitlist">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              Get Started
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
         </nav>
 
         <div className="md:hidden flex items-center gap-2">
@@ -110,7 +118,7 @@ export function HomepageHeader() {
       </div>
 
       <div
-        className={`md:hidden overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${menuOpen ? 'max-h-[28rem] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
+        className={`md:hidden overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${menuOpen ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0 pointer-events-none'
           }`}
       >
         <div className="px-4 pb-6 pt-2 space-y-2 border-t border-gray-200 dark:border-white/10 bg-white/95 dark:bg-slate-950/95 rounded-b-2xl shadow-lg shadow-black/5">
@@ -125,9 +133,9 @@ export function HomepageHeader() {
           ))}
           <Link
             href="/waitlist"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold hover:from-blue-700 hover:to-purple-700 transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
           >
-            Join Waitlist
+            Get Started
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

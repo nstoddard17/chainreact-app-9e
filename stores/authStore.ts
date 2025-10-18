@@ -690,6 +690,7 @@ export const useAuthStore = create<AuthState>()(
               secondary_email: updates.secondary_email,
               phone_number: updates.phone_number,
               provider: updates.provider,
+              avatar_url: updates.avatar_url,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'id'
@@ -699,19 +700,24 @@ export const useAuthStore = create<AuthState>()(
 
           // Update the local state
           const { profile } = get()
+          const updatedUser = {
+            ...user,
+            name: updates.full_name ?? user.name,
+            first_name: updates.first_name ?? user.first_name,
+            last_name: updates.last_name ?? user.last_name,
+            full_name: updates.full_name ?? user.full_name,
+            avatar: updates.avatar_url ?? user.avatar,
+          }
+
+          const updatedProfile = {
+            ...(profile || {}),
+            ...updates,
+            id: user.id,
+          } as Profile
+
           set({
-            user: {
-              ...user,
-              name: updates.full_name,
-              first_name: updates.first_name,
-              last_name: updates.last_name,
-              full_name: updates.full_name,
-            },
-            profile: {
-              ...profile,
-              ...updates,
-              id: user.id,
-            }
+            user: updatedUser,
+            profile: updatedProfile,
           })
         } catch (error: any) {
           logger.error("Profile update error:", error)
