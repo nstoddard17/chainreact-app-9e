@@ -504,6 +504,11 @@ export function useWorkflowBuilder() {
 
   // Custom hooks
   const executionHook = useWorkflowExecution()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🧪 [useWorkflowBuilder] executionHook.testModeDialogOpen:', executionHook.testModeDialogOpen)
+  }, [executionHook.testModeDialogOpen])
   const dialogsHook = useWorkflowDialogs()
   const integrationHook = useIntegrationSelection()
   const historyHook = useWorkflowHistory()
@@ -3799,7 +3804,8 @@ export function useWorkflowBuilder() {
     return `${formatted} Setup`
   }, [isTemplateEditing, templateDraftMetadata?.primarySetupTarget])
 
-  return {
+  // Debug log: check what we're about to return
+  const returnValue = {
     // React Flow state
     nodes,
     edges: processedEdges,
@@ -3910,4 +3916,9 @@ export function useWorkflowBuilder() {
     handleEdgeClick,
     deleteSelectedEdge,
   }
+
+  // Debug log: check if testModeDialogOpen is in the return value
+  console.log('🧪 [useWorkflowBuilder] Returning - testModeDialogOpen:', returnValue.testModeDialogOpen)
+
+  return returnValue
 }

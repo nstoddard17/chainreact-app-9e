@@ -24,6 +24,7 @@ import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
 import { PreflightCheckDialog } from "./PreflightCheckDialog"
+import { TestModeDialog } from "./TestModeDialog"
 import { AirtableSetupPanel, type TemplateSetupRequirement, type TemplateSetupData } from "@/components/templates/AirtableSetupPanel"
 import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
 import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
@@ -130,6 +131,10 @@ function WorkflowBuilderContent() {
     testDataNodes,
     stopWebhookListening,
     skipToTestData,
+    testModeDialogOpen,
+    setTestModeDialogOpen,
+    isExecutingTest,
+    handleRunTest,
 
     // Configuration
     configuringNode,
@@ -197,6 +202,11 @@ function WorkflowBuilderContent() {
   } = useWorkflowBuilder()
 
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
+
+  // Debug logging for test mode dialog
+  React.useEffect(() => {
+    console.log('🧪 testModeDialogOpen changed:', testModeDialogOpen)
+  }, [testModeDialogOpen])
 
   const sourceTemplateId = React.useMemo(
     () => currentWorkflow?.source_template_id || editTemplateId || null,
@@ -1570,6 +1580,27 @@ function WorkflowBuilderContent() {
         onOpenIntegrations={() => handleNavigation(hasUnsavedChanges, "/integrations")}
         isRunning={isRunningPreflight}
       />
+
+      {/* Test Mode Dialog */}
+      {typeof window !== 'undefined' && (
+        <TestModeDialog
+          open={testModeDialogOpen}
+          onOpenChange={(open) => {
+            console.log('🧪 TestModeDialog onOpenChange:', open)
+            setTestModeDialogOpen(open)
+          }}
+          workflowId={currentWorkflow?.id || ''}
+          triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
+          onRunTest={(config, mockVariation) => {
+            console.log('🧪 TestModeDialog onRunTest called', { config, mockVariation })
+            const currentNodes = getNodes()
+            const currentEdges = getEdges()
+            handleRunTest(currentNodes, currentEdges, config, mockVariation)
+          }}
+          interceptedActions={sandboxInterceptedActions}
+          isExecuting={isExecutingTest}
+        />
+      )}
     </div>
     </TooltipProvider>
   )

@@ -48,6 +48,13 @@ export function useWorkflowExecution() {
   // Sandbox mode states
   const [sandboxInterceptedActions, setSandboxInterceptedActions] = useState<any[]>([])
   const [showSandboxPreview, setShowSandboxPreview] = useState(false)
+  const [testModeDialogOpen, setTestModeDialogOpen] = useState(false)
+  const [isExecutingTest, setIsExecutingTest] = useState(false)
+
+  // Debug effect to track state changes
+  useEffect(() => {
+    console.log('🧪 [Hook] testModeDialogOpen state changed:', testModeDialogOpen)
+  }, [testModeDialogOpen])
 
   // Add debug log helper
   const addDebugLog = useCallback((level: 'info' | 'warning' | 'error' | 'success', message: string, details?: any) => {
@@ -266,14 +273,27 @@ export function useWorkflowExecution() {
   }, [])
 
   const handleTestSandbox = useCallback(async (nodes: Node[], edges: Edge[]) => {
-    // Prevent duplicate executions
-    if (isExecuting) {
-      logger.debug('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
+    console.log('🧪 [Sandbox Mode] handleTestSandbox called', {
+      hasWorkflow: !!currentWorkflow?.id,
+      nodeCount: nodes?.length || 0,
+      testModeDialogOpen,
+      currentWorkflow
+    })
+
+    // If already in test mode, reset it
+    if (isStepMode || isExecuting) {
+      console.log('🧪 [Sandbox Mode] Resetting test mode')
+      setIsExecuting(false)
+      setIsStepMode(false)
+      setActiveExecutionNodeId(null)
+      setSandboxInterceptedActions([])
+      setShowSandboxPreview(false)
       return
     }
 
     // Validate workflow is saved
     if (!currentWorkflow?.id) {
+      console.warn('⚠️ [Sandbox Mode] No workflow ID')
       toast({
         title: "Error",
         description: "Please save your workflow first",
@@ -284,6 +304,7 @@ export function useWorkflowExecution() {
 
     // Validate nodes are loaded
     if (!nodes || nodes.length === 0) {
+      console.warn('⚠️ [Sandbox Mode] No nodes in workflow')
       toast({
         title: "Error",
         description: "No nodes found in workflow",
@@ -292,15 +313,29 @@ export function useWorkflowExecution() {
       return
     }
 
+    // Open the test mode configuration dialog instead of executing immediately
+    console.log('🧪 [Sandbox Mode] Opening test mode configuration dialog')
+    setTestModeDialogOpen(true)
+    console.log('🧪 [Sandbox Mode] Dialog state set to true')
+  }, [currentWorkflow, toast, testModeDialogOpen, isStepMode, isExecuting])
+
+  const handleRunTest = useCallback(async (nodes: Node[], edges: Edge[], testModeConfig: any, mockVariation?: string) => {
+    // Prevent duplicate executions
+    if (isExecutingTest) {
+      logger.debug('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
+      return
+    }
+
+    setIsExecutingTest(true)
     setIsExecuting(true)
     setIsStepMode(true)
     setSandboxInterceptedActions([])
-    addDebugLog('info', 'Starting Sandbox Mode execution')
+    addDebugLog('info', 'Starting Sandbox Mode execution with test config', testModeConfig)
 
     try {
-      logger.debug('🧪 [Sandbox Mode] Starting execution with intercepted actions...')
+      logger.debug('🧪 [Sandbox Mode] Starting execution with test mode config:', testModeConfig)
 
-      // Execute workflow in sandbox mode - this will intercept all external actions
+      // Execute workflow in sandbox mode with the chosen configuration
       const response = await fetch('/api/workflows/execute', {
         method: 'POST',
         headers: {
@@ -309,13 +344,15 @@ export function useWorkflowExecution() {
         body: JSON.stringify({
           workflowId: currentWorkflow.id,
           testMode: true,  // This ensures actions are intercepted
+          testModeConfig,  // Pass the test mode configuration
+          mockVariation,   // Optional mock data variation
           executionMode: 'sandbox',
           inputData: {},
           workflowData: {
             nodes,
             edges,
           },
-          skipTriggers: true, // Skip trigger nodes for manual execution
+          skipTriggers: testModeConfig.triggerMode === 'use_mock_data', // Only skip if using mock data
         }),
       })
 
@@ -370,7 +407,7 @@ export function useWorkflowExecution() {
         setNodeStatuses({})
       }, 5000)
     }
-  }, [isExecuting, currentWorkflow, toast, addDebugLog, setSandboxInterceptedActions, setShowSandboxPreview, setNodeStatuses, setActiveExecutionNodeId])
+  }, [isExecutingTest, currentWorkflow, toast, addDebugLog])
 
   // Monitor execution progress from webhook trigger
   const monitorExecution = useCallback(async (executionId: string, nodes: Node[]) => {
@@ -1147,5 +1184,9 @@ export function useWorkflowExecution() {
     setSandboxInterceptedActions,
     showSandboxPreview,
     setShowSandboxPreview,
+    testModeDialogOpen,
+    setTestModeDialogOpen,
+    isExecutingTest,
+    handleRunTest,
   }
 }

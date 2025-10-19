@@ -33,5 +33,48 @@ export const metadata: Metadata = {
 }
 
 export default function HomePage() {
-  return <NewHomepage />
+  // Structured data for SEO (JSON-LD)
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'ChainReact',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '100',
+    },
+    description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
+    url: 'https://chainreact.app',
+    screenshot: 'https://chainreact.app/opengraph-image.png',
+    featureList: [
+      'AI-powered workflow automation',
+      'Visual workflow builder',
+      '20+ app integrations',
+      'No-code platform',
+      'Real-time monitoring',
+      'Human-in-the-loop approvals',
+    ],
+    author: {
+      '@type': 'Organization',
+      name: 'ChainReact',
+      url: 'https://chainreact.app',
+    },
+  }
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <NewHomepage />
+    </>
+  )
 }

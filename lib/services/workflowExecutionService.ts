@@ -3,6 +3,7 @@ import { createDataFlowManager } from "@/lib/workflows/dataFlowContext"
 import { NodeExecutionService } from "./nodeExecutionService"
 import { executionHistoryService } from "./executionHistoryService"
 import { ExecutionProgressTracker } from "@/lib/execution/executionProgressTracker"
+import { TestModeConfig, TriggerTestMode, ActionTestMode } from "./testMode/types"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -10,6 +11,7 @@ export interface ExecutionContext {
   userId: string
   workflowId: string
   testMode: boolean
+  testModeConfig?: TestModeConfig // Enhanced test mode configuration
   data: any
   variables: Record<string, any>
   results: Record<string, any>
@@ -26,11 +28,33 @@ export class WorkflowExecutionService {
     this.nodeExecutionService = new NodeExecutionService()
   }
 
-  async executeWorkflow(workflow: any, inputData: any, userId: string, testMode: boolean, workflowData?: any, skipTriggers: boolean = false) {
-    logger.debug("🚀 Starting workflow execution service")
-    
+  async executeWorkflow(
+    workflow: any,
+    inputData: any,
+    userId: string,
+    testMode: boolean,
+    workflowData?: any,
+    skipTriggers: boolean = false,
+    testModeConfig?: TestModeConfig
+  ) {
+    logger.debug("🚀 Starting workflow execution service", {
+      testMode,
+      testModeConfig: testModeConfig ? {
+        triggerMode: testModeConfig.triggerMode,
+        actionMode: testModeConfig.actionMode
+      } : 'none'
+    })
+
+    // If testMode is true but no config provided, create default config
+    const finalTestConfig: TestModeConfig | undefined = testMode ? (testModeConfig || {
+      triggerMode: TriggerTestMode.USE_MOCK_DATA,
+      actionMode: ActionTestMode.INTERCEPT_WRITES,
+      showDetailedSteps: true,
+      captureStepData: true
+    }) : undefined
+
     const supabase = await createSupabaseRouteHandlerClient()
-    
+
     // Use workflowData if provided (current state), otherwise fall back to saved workflow
     const allNodes = workflowData?.nodes || workflow.nodes || []
     // Handle both 'edges' (from UI) and 'connections' (from DB) naming
@@ -162,7 +186,8 @@ export class WorkflowExecutionService {
       inputData,
       userId,
       testMode,
-      supabase
+      supabase,
+      finalTestConfig
     )
 
     // Add execution tracking to context
@@ -301,22 +326,24 @@ export class WorkflowExecutionService {
   }
 
   private async createExecutionContext(
-    workflow: any, 
-    inputData: any, 
-    userId: string, 
-    testMode: boolean, 
-    supabase: any
+    workflow: any,
+    inputData: any,
+    userId: string,
+    testMode: boolean,
+    supabase: any,
+    testModeConfig?: TestModeConfig
   ): Promise<ExecutionContext> {
     logger.debug(`🔧 Creating execution context with userId: ${userId}`)
-    
+
     // Initialize data flow manager
     const dataFlowManager = createDataFlowManager(`exec_${Date.now()}`, workflow.id, userId)
-    
+
     const executionContext: ExecutionContext = {
       data: inputData,
       variables: {},
       results: {},
       testMode,
+      testModeConfig,
       userId,
       workflowId: workflow.id,
       dataFlowManager

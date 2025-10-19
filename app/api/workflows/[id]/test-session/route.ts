@@ -14,6 +14,11 @@ export async function POST(
 ) {
   try {
     const { id: workflowId } = await params
+    const body = await request.json().catch(() => ({}))
+    const { testModeConfig, timeout = 30 * 60 * 1000 } = body // Accept test mode config and custom timeout
+
+    logger.debug('Starting test session with config:', { testModeConfig, timeout })
+
     const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
@@ -97,8 +102,9 @@ export async function POST(
         user_id: user.id,
         status: 'listening',
         trigger_type: triggerType,
+        test_mode_config: testModeConfig || null, // Store test mode configuration
         started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
+        expires_at: new Date(Date.now() + timeout).toISOString(),
       })
 
     if (sessionError) {
@@ -112,7 +118,8 @@ export async function POST(
       status: 'listening',
       message: 'Webhook registered. Waiting for trigger event...',
       triggerType,
-      expiresIn: 30 * 60 * 1000, // 30 minutes in ms
+      testModeConfig,
+      expiresIn: timeout,
     })
   } catch (error: any) {
     logger.error('Error starting test session:', error)
