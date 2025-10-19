@@ -1,0 +1,31 @@
+=== Log Session Started: 2025-10-19T00:39:59.539Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-19T00:39:59.540Z] [INFO   ] File logging initialized
+[2025-10-19T00:39:59.540Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_19-39-59.log
+[2025-10-19T00:39:59.543Z] [INFO   ] Deleted old log file: workflow_2025-10-11_11-14-36.log
+[2025-10-19T00:39:59.543Z] [INFO   ] 📁 File logging enabled
+[2025-10-19T00:39:59.543Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_19-39-59.log
+[2025-10-19T00:39:59.543Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_19-39-59.log
+[2025-10-19T00:39:59.544Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_19-39-59.log
+[2025-10-19T00:39:59.544Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_19-39-59.log
+[2025-10-19T00:39:59.544Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-19T00:39:59.544Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-19T00:39:59.557Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-19T00:39:59.693Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 130ms (233 modules)
+[2025-10-19T00:40:02.454Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-19T00:40:05.654Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.6s (3900 modules)
+[2025-10-19T00:40:06.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 732ms (679 modules)
+[2025-10-19T00:40:11.820Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-19T00:40:12.137Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 818ms (3903 modules)
+[2025-10-19T00:43:09.861Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 881ms (3900 modules)
+[2025-10-19T00:43:09.895Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T00:44:12.387Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 840ms (3900 modules)
+[2025-10-19T00:44:12.422Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-19T00:44:26.876Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 303ms (679 modules)
+[2025-10-19T00:45:11.512Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 179ms (3238 modules)
+
+=== Log Session Ended: 2025-10-19T01:00:22.332Z ===

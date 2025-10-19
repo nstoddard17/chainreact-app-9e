@@ -97,7 +97,7 @@ export default function WorkflowDialog({
         setTimeout(() => {
           logger.debug("🚀 [WorkflowDialog] Navigating to workflow builder:", newWorkflow.id)
           // Navigate to the workflow builder for new workflows
-          router.push(`/workflow/${newWorkflow.id}/builder`)
+          router.push(`/workflows/builder/${newWorkflow.id}`)
         }, 100)
       }
     } catch (error: any) {

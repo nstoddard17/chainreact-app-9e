@@ -38,7 +38,7 @@ function LoginFormContent() {
         logger.error('Invalid return URL:', error)
       }
     }
-    return "/dashboard"
+    return "/workflows"
   }
 
   const checkProvider = async (email: string) => {

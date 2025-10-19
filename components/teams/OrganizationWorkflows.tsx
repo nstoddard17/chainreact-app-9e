@@ -74,7 +74,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold text-slate-900">Organization Workflows</CardTitle>
             {canCreateWorkflows && (
-              <Link href={`/workflow/new/builder?organizationId=${organizationId}`}>
+              <Link href={`/workflows/builder?organizationId=${organizationId}`}>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
@@ -138,7 +138,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                 : "Create your first organization workflow to get started."}
             </p>
             {canCreateWorkflows && (
-              <Link href={`/workflow/new/builder?organizationId=${organizationId}`}>
+              <Link href={`/workflows/builder?organizationId=${organizationId}`}>
                 <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
@@ -214,7 +214,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                       </Button>
                     </Link>
                     {(canCreateWorkflows || workflow.created_by === "current_user") && (
-                      <Link href={`/workflow/${workflow.id}/builder`}>
+                      <Link href={`/workflows/builder/${workflow.id}`}>
                         <Button size="sm" variant="outline">
                           <Settings className="w-4 h-4" />
                         </Button>
@@ -225,7 +225,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                 
                 {/* Edit Workflow button - always at bottom */}
                 <Link
-                  href={`/workflow/${workflow.id}/builder`}
+                  href={`/workflows/builder/${workflow.id}`}
                   className="block w-full bg-slate-100 hover:bg-slate-200 p-3 text-center text-sm font-semibold border-t border-slate-200 transition-all duration-200 text-slate-900 hover:text-slate-900"
                 >
                   Edit Workflow

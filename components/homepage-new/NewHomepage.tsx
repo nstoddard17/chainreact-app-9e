@@ -5,7 +5,6 @@ import { useTheme } from 'next-themes'
 import { HomepageHeader } from '@/components/layout/HomepageHeader'
 import { Footer } from '@/components/homepage/Footer'
 import { NewHeroSection } from './NewHeroSection'
-import { WorkflowShowcase3D } from './WorkflowShowcase3D'
 import { HITLDemo } from './HITLDemo'
 import { UseCasesSection } from './UseCasesSection'
 import { FlexibilitySection } from './FlexibilitySection'
@@ -41,7 +40,6 @@ export function NewHomepage() {
 
       {/* Main Content - Clean flow without background changes */}
       <NewHeroSection />
-      <WorkflowShowcase3D />
       <HITLDemo />
       <FlexibilitySection />
       <UseCasesSection />

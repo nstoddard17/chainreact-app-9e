@@ -95,7 +95,7 @@ export function useWorkflowBuilder() {
   const searchParams = useSearchParams()
   const params = useParams()
 
-  // Support both path params (/workflow/[id]/builder) and query params (/workflows/builder?id=xxx)
+  // Support both path params (/workflows/builder/[id]) and query params (/workflows/builder?id=xxx)
   const workflowId = (params?.id as string) || searchParams.get("id")
   const editTemplateId = searchParams.get("editTemplate")
   const isTemplateEditing = Boolean(editTemplateId && !workflowId)
