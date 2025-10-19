@@ -7,7 +7,7 @@ import { logger } from '@/lib/utils/logger'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const next = searchParams.get('next') ?? '/workflows'
   const type = searchParams.get('type') // Check if this is an email confirmation
 
   if (code) {
@@ -113,9 +113,9 @@ export async function GET(request: NextRequest) {
         }
 
         // User is already signed in via exchangeCodeForSession
-        // Redirect directly to dashboard
-        logger.debug('Email confirmation successful, redirecting to dashboard')
-        return NextResponse.redirect(`${origin}/dashboard`)
+        // Redirect directly to workflows
+        logger.debug('Email confirmation successful, redirecting to workflows')
+        return NextResponse.redirect(`${origin}/workflows`)
       }
 
       // For regular OAuth login (Google, etc)
@@ -201,10 +201,10 @@ export async function GET(request: NextRequest) {
         }
         
         // Google user has a username, proceed normally
-        logger.debug('Google user has username, proceeding to dashboard')
+        logger.debug('Google user has username, proceeding to workflows')
       }
       
-      // User has username or is not Google auth, proceed to dashboard
+      // User has username or is not Google auth, proceed to workflows
       return NextResponse.redirect(`${origin}${next}`)
     }
 

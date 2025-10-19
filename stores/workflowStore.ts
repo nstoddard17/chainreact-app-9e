@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { supabase } from "@/lib/supabase-singleton"
+import { supabase } from "@/utils/supabaseClient"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { logger } from "@/lib/utils/logger"
@@ -230,14 +230,25 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     }
 
     // If already fetching, return the existing promise to avoid duplicate requests
+    // BUT if loadingList has been true for more than 35 seconds, assume it's stuck and reset
+    const LOADING_TIMEOUT = 35000 // 35 seconds (longer than the fetch timeout)
     if (state.fetchPromise && state.loadingList) {
-      logger.debug('[WorkflowStore] Already fetching, returning existing promise')
-      return state.fetchPromise
+      // Check if we've been loading for too long (stuck state)
+      const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
+      if (timeSinceLastFetch > LOADING_TIMEOUT) {
+        logger.warn('[WorkflowStore] Detected stuck loading state, resetting...')
+        set({ loadingList: false, fetchPromise: null })
+        // Continue with fresh fetch below
+      } else {
+        logger.debug('[WorkflowStore] Already fetching, returning existing promise')
+        return state.fetchPromise
+      }
     }
 
     // Create the fetch promise
     const fetchPromise = (async () => {
-      set({ loadingList: true, error: null })
+      logger.debug('[WorkflowStore] Starting fresh workflow fetch')
+      set({ loadingList: true, error: null, lastFetchTime: Date.now() })
 
     try {
       // Add a reasonable timeout for the request

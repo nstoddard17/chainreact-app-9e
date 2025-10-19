@@ -392,7 +392,7 @@ function BetaSignupContent() {
             await new Promise(resolve => setTimeout(resolve, 500))
 
             // Use window.location for hard redirect to ensure clean navigation
-            window.location.href = "/dashboard"
+            window.location.href = "/workflows"
           } else {
             // This should never happen with our retry logic, but just in case
             logger.error("Profile missing after all checks:", finalCheckError)

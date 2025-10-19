@@ -92,7 +92,7 @@ interface Organization {
 
 export function HomeContent() {
   const router = useRouter()
-  const { workflows, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const [searchQuery, setSearchQuery] = useState("")
@@ -467,7 +467,7 @@ export function HomeContent() {
       setCreateDialog(false)
 
       // Navigate to new builder
-      router.push(`/workflow/${workflowId}/builder`)
+      router.push(`/workflows/builder/${workflowId}`)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -545,8 +545,19 @@ export function HomeContent() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loadingList && workflows.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <RefreshCw className="w-8 h-8 text-primary animate-spin mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Loading workflows...</h3>
+          <p className="text-muted-foreground text-center max-w-md">
+            Fetching your automations
+          </p>
+        </div>
+      )}
+
       {/* Empty State */}
-      {filtered.length === 0 && workflows.length === 0 && (
+      {!loadingList && filtered.length === 0 && workflows.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
             <Zap className="w-8 h-8 text-primary" />
@@ -594,7 +605,7 @@ export function HomeContent() {
               <div
                 key={workflow.id}
                 className="group flex items-center gap-4 p-4 border rounded-xl hover:bg-accent/50 transition-all cursor-pointer"
-                onClick={() => router.push(`/workflow/${workflow.id}/builder`)}
+                onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
               >
                 {/* Status Indicator */}
                 <div className="flex-shrink-0">
@@ -681,7 +692,7 @@ export function HomeContent() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflow/${workflow.id}/builder`) }}>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflows/builder/${workflow.id}`) }}>
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Workflow
                     </DropdownMenuItem>

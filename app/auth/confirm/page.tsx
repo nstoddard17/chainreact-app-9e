@@ -119,7 +119,7 @@ export default function EmailConfirmPage() {
 
         // Username is now set during signup, go to dashboard
         setTimeout(() => {
-          router.push('/dashboard')
+          router.push('/workflows')
         }, 2000)
         
       } catch (error) {
@@ -228,7 +228,7 @@ export default function EmailConfirmPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <Link href="/dashboard">
+                  <Link href="/workflows">
                     <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue to Dashboard

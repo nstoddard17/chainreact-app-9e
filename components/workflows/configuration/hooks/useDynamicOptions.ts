@@ -144,8 +144,23 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
-    
+
+    logger.debug(`🔵 [useDynamicOptions] loadOptions called`, {
+      fieldName,
+      nodeType,
+      providerId,
+      dependsOn,
+      dependsOnValue,
+      forceRefresh,
+      silent
+    });
+
     if (!nodeType || !providerId) {
+      logger.warn(`⚠️ [useDynamicOptions] Missing nodeType or providerId`, {
+        fieldName,
+        nodeType,
+        providerId
+      });
       return;
     }
     
@@ -296,15 +311,34 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       if ((fieldName === 'guildId' || fieldName === 'discordGuildId') && providerId === 'discord') {
         try {
           // Check if we have a Discord integration first to avoid unnecessary API calls
-          const discordIntegration = getIntegrationByProvider('discord');
+          let discordIntegration = getIntegrationByProvider('discord');
+
+          // If integration not found, try fetching fresh integrations
+          if (!discordIntegration) {
+            logger.debug('⚠️ [DynamicOptions] Discord integration not found, fetching integrations...');
+            await fetchIntegrations(true); // Force refresh
+            discordIntegration = getIntegrationByProvider('discord');
+          }
+
           if (!discordIntegration || discordIntegration.status !== 'connected') {
-            logger.debug('⚠️ [DynamicOptions] Discord not connected, skipping guild load');
+            logger.warn('⚠️ [DynamicOptions] Discord not connected', {
+              hasIntegration: !!discordIntegration,
+              status: discordIntegration?.status,
+              fieldName,
+              providerId
+            });
             setDynamicOptions(prev => ({
               ...prev,
               [fieldName]: []
             }));
             return;
           }
+
+          logger.debug('✅ [DynamicOptions] Loading Discord guilds', {
+            integrationId: discordIntegration.id,
+            fieldName,
+            forceRefresh
+          });
 
           // Load Discord guilds from API
           const response = await loadIntegrationData(

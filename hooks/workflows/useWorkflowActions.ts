@@ -88,7 +88,7 @@ export function useWorkflowActions() {
       })
 
       // Navigate to the new workflow
-      router.push(`/workflow/${duplicated.id}/builder`)
+      router.push(`/workflows/builder/${duplicated.id}`)
 
     } catch (error) {
       logger.error('Error duplicating workflow:', error)
@@ -167,7 +167,7 @@ export function useWorkflowActions() {
 
     try {
       // For now, just copy the current URL to clipboard
-      const shareUrl = `${window.location.origin}/workflow/${workflowId}/builder`
+      const shareUrl = `${window.location.origin}/workflows/builder/${workflowId}`
 
       await navigator.clipboard.writeText(shareUrl)
 

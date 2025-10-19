@@ -568,7 +568,7 @@ export default function WorkflowsContent() {
           setAiPrompt("")
           // Navigate to the workflow builder with the new workflow
           setTimeout(() => {
-            window.location.href = `/workflow/${data.workflow.id}/builder`
+            window.location.href = `/workflows/builder/${data.workflow.id}`
           }, 500)
         }
       } else {
@@ -1105,7 +1105,7 @@ export default function WorkflowsContent() {
                       
                       {/* Edit Workflow button - always at bottom */}
                       <Link
-                        href={`/workflow/${workflow.id}/builder`}
+                        href={`/workflows/builder/${workflow.id}`}
                         className="block w-full bg-slate-100 hover:bg-slate-200 p-3 text-center text-sm font-semibold border-t border-border transition-all duration-200 text-slate-900 hover:text-slate-900"
                       >
                         Edit Workflow
@@ -1157,7 +1157,7 @@ export default function WorkflowsContent() {
                   {aiDebugWorkflowId && (
                     <Button onClick={() => {
                       setAiDebugOpen(false)
-                      window.location.href = `/workflow/${aiDebugWorkflowId}/builder`
+                      window.location.href = `/workflows/builder/${aiDebugWorkflowId}`
                     }}>
                       Open in Builder
                     </Button>
