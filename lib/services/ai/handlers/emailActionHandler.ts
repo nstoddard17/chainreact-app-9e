@@ -120,17 +120,30 @@ export class EmailActionHandler extends BaseActionHandler {
 
     const emails = result.output?.emails || []
 
-    return this.getSuccessResponse(
-      `Fetched ${emails.length} email${emails.length === 1 ? "" : "s"} from ${folder}.`,
-      {
-        type: "email_query",
+    return {
+      content: `Found ${emails.length} email${emails.length === 1 ? "" : "s"} in your ${folder}.`,
+      metadata: {
+        type: "email",
         provider: integration.provider,
         folder,
-        limit: maxResults,
-        count: emails.length,
-        emails
+        emails: emails.map((email: any) => ({
+          id: email.id,
+          subject: email.subject || "(No Subject)",
+          from: email.from,
+          to: email.to,
+          cc: email.cc,
+          bcc: email.bcc,
+          date: email.receivedDateTime || email.internalDate,
+          snippet: email.snippet || email.bodyPreview,
+          body: email.body,
+          hasAttachments: email.hasAttachments || (email.attachments && email.attachments.length > 0),
+          attachments: email.attachments,
+          labels: email.labelIds || email.categories,
+          isRead: email.isRead,
+          webLink: email.webLink
+        }))
       }
-    )
+    }
   }
 
   private async handleSearchEmails(
@@ -164,16 +177,30 @@ export class EmailActionHandler extends BaseActionHandler {
 
     const emails = result.output?.emails || []
 
-    return this.getSuccessResponse(
-      `Found ${emails.length} email${emails.length === 1 ? "" : "s"} matching "${query}".`,
-      {
-        type: "email_search",
+    return {
+      content: `Found ${emails.length} email${emails.length === 1 ? "" : "s"} matching "${query}".`,
+      metadata: {
+        type: "email",
         provider: integration.provider,
         query,
-        count: emails.length,
-        emails
+        emails: emails.map((email: any) => ({
+          id: email.id,
+          subject: email.subject || "(No Subject)",
+          from: email.from,
+          to: email.to,
+          cc: email.cc,
+          bcc: email.bcc,
+          date: email.receivedDateTime || email.internalDate,
+          snippet: email.snippet || email.bodyPreview,
+          body: email.body,
+          hasAttachments: email.hasAttachments || (email.attachments && email.attachments.length > 0),
+          attachments: email.attachments,
+          labels: email.labelIds || email.categories,
+          isRead: email.isRead,
+          webLink: email.webLink
+        }))
       }
-    )
+    }
   }
 
   private async handleSendEmail(

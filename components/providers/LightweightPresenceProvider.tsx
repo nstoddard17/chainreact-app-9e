@@ -18,7 +18,7 @@ interface LightweightPresenceProviderProps {
 
 export function LightweightPresenceProvider({ children }: LightweightPresenceProviderProps) {
   const presence = useSingleTabPresence()
-  
+
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     onlineCount: presence.onlineCount,

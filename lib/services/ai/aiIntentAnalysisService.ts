@@ -97,7 +97,7 @@ export class AIIntentAnalysisService {
 Available integrations: ${availableIntegrations}
 
 Analyze the user's message and determine their intent. Return a JSON object with:
-- intent: "calendar_query", "calendar_action", "email_query", "email_action", "file_query", "file_action", "social_query", "social_action", "crm_query", "crm_action", "ecommerce_query", "ecommerce_action", "developer_query", "developer_action", "productivity_query", "productivity_action", "communication_query", "communication_action", "general"
+- intent: "calendar_query", "calendar_action", "email_query", "email_action", "file_query", "file_action", "social_query", "social_action", "crm_query", "crm_action", "ecommerce_query", "ecommerce_action", "developer_query", "developer_action", "productivity_query", "productivity_action", "communication_query", "communication_action", "workflow_query", "workflow_action", "app_knowledge", "app_help", "integration_query", "integration_action", "general"
 - action: specific action to take
 - parameters: any relevant parameters from the message
 - requiresConfirmation: boolean (true for destructive actions)
@@ -140,6 +140,24 @@ Examples:
 - "Create a OneNote page" → productivity_action, create_page, {platform: "microsoft-onenote"}, requiresConfirmation: true, specifiedIntegration: "microsoft-onenote"
 - "Show me my Kit products" → ecommerce_query, get_products, {platform: "kit"}, specifiedIntegration: "kit"
 - "Create a Blackbaud donor record" → crm_action, create_donor, {platform: "blackbaud"}, requiresConfirmation: true, specifiedIntegration: "blackbaud"
+- "Show my workflows" → workflow_query, list_workflows, {}
+- "What workflows are active?" → workflow_query, list_workflows, {status: "active"}
+- "Activate my email workflow" → workflow_action, activate_workflow, {search: "email"}, requiresConfirmation: true
+- "Deactivate the notification workflow" → workflow_action, deactivate_workflow, {search: "notification"}, requiresConfirmation: true
+- "Delete the test workflow" → workflow_action, delete_workflow, {search: "test"}, requiresConfirmation: true
+- "Duplicate my backup workflow" → workflow_action, duplicate_workflow, {search: "backup"}
+- "What is ChainReact?" → app_knowledge, general_info, {topic: "what_is_chainreact"}
+- "How do I create a workflow?" → app_help, create_workflow, {topic: "how_to_create_workflow"}
+- "What are triggers?" → app_knowledge, explain_concept, {topic: "what_are_triggers"}
+- "How do I connect an integration?" → app_help, connect_integration, {topic: "how_to_connect_integration"}
+- "What integrations are available?" → app_knowledge, list_available, {topic: "available_integrations"}
+- "Help me get started" → app_help, getting_started, {topic: "getting_started"}
+- "Show my integrations" → integration_query, list_integrations, {}
+- "Is Gmail connected?" → integration_query, integration_status, {provider: "gmail"}
+- "What integrations do I have?" → integration_query, list_integrations, {}
+- "Connect Gmail" → integration_action, connect_integration, {provider: "gmail"}, specifiedIntegration: "gmail"
+- "Disconnect Slack" → integration_action, disconnect_integration, {provider: "slack"}, requiresConfirmation: true, specifiedIntegration: "slack"
+- "Reconnect Notion" → integration_action, reconnect_integration, {provider: "notion"}, specifiedIntegration: "notion"
 
 User message: "${message}"`
   }
@@ -158,11 +176,12 @@ User message: "${message}"`
       "file_query", "file_action", "social_query", "social_action",
       "crm_query", "crm_action", "ecommerce_query", "ecommerce_action",
       "developer_query", "developer_action", "productivity_query", "productivity_action",
-      "communication_query", "communication_action", "general"
+      "communication_query", "communication_action", "workflow_query", "workflow_action",
+      "app_knowledge", "app_help", "integration_query", "integration_action", "general"
     ]
 
-    return validIntents.includes(intent.intent) && 
-           typeof intent.action === 'string' && 
+    return validIntents.includes(intent.intent) &&
+           typeof intent.action === 'string' &&
            typeof intent.parameters === 'object'
   }
 }

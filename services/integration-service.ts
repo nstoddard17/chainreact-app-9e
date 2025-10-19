@@ -75,9 +75,9 @@ export class IntegrationService {
     let lastError: any = null
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      // Add timeout to prevent hanging requests (increased to 25 seconds)
+      // Add timeout to prevent hanging requests (increased to 45 seconds for slower connections)
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 25000) // 25 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 45000) // 45 second timeout
 
       try {
         logger.debug('🌐 [IntegrationService] Making API call', {

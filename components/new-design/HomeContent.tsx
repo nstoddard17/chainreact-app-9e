@@ -118,10 +118,15 @@ export function HomeContent() {
 
   useEffect(() => {
     if (user) {
-      fetchWorkflows()
-      fetchExecutionStats()
-      fetchTeams()
-      fetchOrganizations()
+      // Execute all independent data fetches in parallel for faster loading
+      Promise.all([
+        fetchWorkflows(),
+        fetchExecutionStats(),
+        fetchTeams(),
+        fetchOrganizations()
+      ]).catch(error => {
+        logger.error('[HomeContent] Error during parallel data fetch:', error)
+      })
     }
   }, [user, fetchWorkflows])
 

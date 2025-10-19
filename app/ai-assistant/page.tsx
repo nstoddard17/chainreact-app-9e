@@ -1,5 +1,5 @@
+import AIAssistantContent from "@/components/ai/AIAssistantContent"
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { AIAssistantContent } from "@/components/new-design/AIAssistantContent"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'

@@ -8,6 +8,9 @@ import { EcommerceActionHandler } from "./handlers/ecommerceActionHandler"
 import { DeveloperActionHandler } from "./handlers/developerActionHandler"
 import { ProductivityActionHandler } from "./handlers/productivityActionHandler"
 import { CommunicationActionHandler } from "./handlers/communicationActionHandler"
+import { WorkflowManagementHandler } from "./handlers/workflowManagementHandler"
+import { AppKnowledgeHandler } from "./handlers/appKnowledgeHandler"
+import { IntegrationManagementHandler } from "./handlers/integrationManagementHandler"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -26,6 +29,9 @@ export class AIActionExecutionService {
   private developerHandler: DeveloperActionHandler
   private productivityHandler: ProductivityActionHandler
   private communicationHandler: CommunicationActionHandler
+  private workflowHandler: WorkflowManagementHandler
+  private appKnowledgeHandler: AppKnowledgeHandler
+  private integrationHandler: IntegrationManagementHandler
 
   constructor() {
     this.calendarHandler = new CalendarActionHandler()
@@ -37,6 +43,9 @@ export class AIActionExecutionService {
     this.developerHandler = new DeveloperActionHandler()
     this.productivityHandler = new ProductivityActionHandler()
     this.communicationHandler = new CommunicationActionHandler()
+    this.workflowHandler = new WorkflowManagementHandler()
+    this.appKnowledgeHandler = new AppKnowledgeHandler()
+    this.integrationHandler = new IntegrationManagementHandler()
   }
 
   async executeAction(
@@ -137,6 +146,19 @@ export class AIActionExecutionService {
         return await this.communicationHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
       case "communication_action":
         return await this.communicationHandler.handleAction(intent, integrations, userId, supabaseAdmin)
+      case "workflow_query":
+        return await this.workflowHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
+      case "workflow_action":
+        return await this.workflowHandler.handleAction(intent, integrations, userId, supabaseAdmin)
+      case "app_knowledge":
+      case "app_help":
+        return await this.appKnowledgeHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
+      case "integration_query":
+        return await this.integrationHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
+      case "integration_action":
+        return await this.integrationHandler.handleAction(intent, integrations, userId, supabaseAdmin)
+      case "general":
+      case "chat":
       default:
         return this.getGeneralResponse()
     }
@@ -144,14 +166,36 @@ export class AIActionExecutionService {
 
   private getGeneralResponse(): ActionExecutionResult {
     return {
-      content: "I can help you with your calendars, emails, files, social media, CRM, e-commerce, developer tools, and productivity apps. What would you like to know or do?",
+      content: `I can help you with:
+
+**Your Integrations**
+- View and manage your connected apps (Gmail, Slack, Notion, etc.)
+- Connect new integrations
+- Check integration status
+
+**Your Workflows**
+- List, activate, and deactivate workflows
+- Check workflow status
+- Get workflow information
+
+**Your Data**
+- Query calendars, emails, files, and more
+- Search across all your connected apps
+- View productivity data (Notion, Airtable, Trello)
+
+**App Knowledge**
+- Learn how to use ChainReact
+- Get help with features
+- Troubleshooting tips
+
+What would you like to do?`,
       metadata: { type: "general_help" }
     }
   }
 
   getFallbackResponse(): ActionExecutionResult {
     return {
-      content: "I can help you with your calendars, emails, files, social media, CRM, e-commerce, developer tools, and productivity apps. What would you like to know or do?",
+      content: "I can help you with your integrations, workflows, and data across all your connected apps. What would you like to know or do?",
       metadata: { type: "fallback" }
     }
   }

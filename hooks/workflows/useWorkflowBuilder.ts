@@ -111,6 +111,7 @@ export function useWorkflowBuilder() {
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
   const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
   const collaborationWorkflowIdRef = useRef<string | null>(null)
+  const timeoutToastShownRef = useRef<boolean>(false)
 
   // React Flow state
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
@@ -2494,11 +2495,8 @@ export function useWorkflowBuilder() {
       // But not if we've been loading for too long
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
         logger.warn('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
-        toast({
-          title: "Loading timeout",
-          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
-          variant: "destructive"
-        })
+        // Don't call toast here - it causes infinite render loop
+        // Toast notification is handled in a useEffect below
         return false
       }
       return true
@@ -2530,6 +2528,34 @@ export function useWorkflowBuilder() {
       setLoadingStartTime(null)
     }
   }, [isLoading, loadingStartTime])
+
+  // Show timeout toast when loading takes too long
+  // This is separate from render to avoid infinite loops
+  useEffect(() => {
+    if (!loadingStartTime) {
+      // Reset the flag when loading stops
+      timeoutToastShownRef.current = false
+      return
+    }
+
+    const checkTimeout = () => {
+      if (timeoutToastShownRef.current) return // Already shown
+
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        timeoutToastShownRef.current = true
+        toast({
+          title: "Loading timeout",
+          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
+          variant: "destructive"
+        })
+      }
+    }
+
+    // Check timeout periodically
+    const intervalId = setInterval(checkTimeout, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [loadingStartTime, toast])
   // Failsafe: never let the Save spinner get stuck indefinitely
   useEffect(() => {
     if (!isSaving) return

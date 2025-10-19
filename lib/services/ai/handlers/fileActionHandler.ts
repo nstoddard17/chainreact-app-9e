@@ -150,15 +150,24 @@ export class FileActionHandler extends BaseActionHandler {
 
     const files = response.data.files || []
 
-    return this.getSuccessResponse(
-      `Found ${files.length} file${files.length === 1 ? "" : "s"} matching "${query}".`,
-      {
-        type: "file_query",
+    return {
+      content: `Found ${files.length} file${files.length === 1 ? "" : "s"} matching "${query}".`,
+      metadata: {
+        type: "file",
         provider: "google-drive",
         query,
-        files
+        files: files.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          modifiedTime: file.modifiedTime,
+          webViewLink: file.webViewLink,
+          provider: "Google Drive",
+          path: file.parents?.join('/'),
+          size: file.size
+        }))
       }
-    )
+    }
   }
 
   private async handleListFiles(
@@ -184,15 +193,24 @@ export class FileActionHandler extends BaseActionHandler {
 
     const files = response.data.files || []
 
-    return this.getSuccessResponse(
-      `Listed ${files.length} file${files.length === 1 ? "" : "s"}${parent ? ` inside folder ${parent}` : ""}.`,
-      {
-        type: "file_query",
+    return {
+      content: `Listed ${files.length} file${files.length === 1 ? "" : "s"}${parent ? ` inside folder ${parent}` : ""}.`,
+      metadata: {
+        type: "file",
         provider: "google-drive",
         parent,
-        files
+        files: files.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          modifiedTime: file.modifiedTime,
+          webViewLink: file.webViewLink,
+          provider: "Google Drive",
+          path: file.parents?.join('/'),
+          size: file.size
+        }))
       }
-    )
+    }
   }
 
   private async handleDropboxGetFile(
