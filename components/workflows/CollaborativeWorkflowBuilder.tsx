@@ -201,8 +201,14 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
-  // Debug: Log testModeDialogOpen on every render
+  // Force rebuild - Debug: Log testModeDialogOpen on every render
   console.log('🧪 [CollaborativeWorkflowBuilder] RENDER - testModeDialogOpen:', testModeDialogOpen)
+  console.log('🧪 [CollaborativeWorkflowBuilder] ALL PROPS:', {
+    testModeDialogOpen,
+    setTestModeDialogOpen: typeof setTestModeDialogOpen,
+    isExecutingTest,
+    handleRunTest: typeof handleRunTest
+  })
 
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
 
@@ -1585,25 +1591,28 @@ function WorkflowBuilderContent() {
       />
 
       {/* Test Mode Dialog */}
-      {typeof window !== 'undefined' && (
-        <TestModeDialog
-          open={testModeDialogOpen}
-          onOpenChange={(open) => {
-            console.log('🧪 TestModeDialog onOpenChange:', open)
-            setTestModeDialogOpen(open)
-          }}
-          workflowId={currentWorkflow?.id || ''}
-          triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
-          onRunTest={(config, mockVariation) => {
-            console.log('🧪 TestModeDialog onRunTest called', { config, mockVariation })
-            const currentNodes = getNodes()
-            const currentEdges = getEdges()
-            handleRunTest(currentNodes, currentEdges, config, mockVariation)
-          }}
-          interceptedActions={sandboxInterceptedActions}
-          isExecuting={isExecutingTest}
-        />
-      )}
+      {(() => {
+        console.log('🧪 [CollaborativeWorkflowBuilder] Rendering TestModeDialog with open:', testModeDialogOpen)
+        return (
+          <TestModeDialog
+            open={testModeDialogOpen}
+            onOpenChange={(open) => {
+              console.log('🧪 TestModeDialog onOpenChange:', open)
+              setTestModeDialogOpen(open)
+            }}
+            workflowId={currentWorkflow?.id || ''}
+            triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
+            onRunTest={(config, mockVariation) => {
+              console.log('🧪 TestModeDialog onRunTest called', { config, mockVariation })
+              const currentNodes = getNodes()
+              const currentEdges = getEdges()
+              handleRunTest(currentNodes, currentEdges, config, mockVariation)
+            }}
+            interceptedActions={sandboxInterceptedActions}
+            isExecuting={isExecutingTest}
+          />
+        )
+      })()}
     </div>
     </TooltipProvider>
   )

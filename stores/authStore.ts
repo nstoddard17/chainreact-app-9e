@@ -44,6 +44,8 @@ interface AuthState {
   initialized: boolean
   error: string | null
   hydrated: boolean
+  tabId: string // Unique ID for this tab instance
+  initializingTabId: string | null // Which tab is currently initializing
   initialize: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
@@ -58,6 +60,9 @@ interface AuthState {
   resetInitialization: () => void
 }
 
+// Generate unique tab ID (not persisted, each tab gets its own)
+const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -67,6 +72,8 @@ export const useAuthStore = create<AuthState>()(
       initialized: false,
       error: null,
       hydrated: false,
+      tabId: generateTabId(),
+      initializingTabId: null,
 
       setHydrated: () => {
         set({ hydrated: true })
@@ -78,25 +85,71 @@ export const useAuthStore = create<AuthState>()(
 
       initialize: async () => {
         const state = get()
+        const currentTabId = state.tabId
+
         logger.debug('🔐 [AUTH] Initialize called', {
+          tabId: currentTabId,
           initialized: state.initialized,
           loading: state.loading,
+          initializingTabId: state.initializingTabId,
           hasUser: !!state.user,
           hasProfile: !!state.profile,
           timestamp: new Date().toISOString()
         })
-        if (state.initialized || state.loading) {
-          logger.debug('⏭️ [AUTH] Already initialized or loading, skipping', {
-            initialized: state.initialized,
+
+        // Only skip if THIS specific tab is already initialized or loading
+        if (state.initialized && state.initializingTabId === currentTabId) {
+          logger.debug('⏭️ [AUTH] This tab already initialized, skipping', {
+            tabId: currentTabId,
+            initialized: state.initialized
+          })
+          return
+        }
+
+        // If this tab is already loading, skip
+        if (state.loading && state.initializingTabId === currentTabId) {
+          logger.debug('⏭️ [AUTH] This tab already loading, skipping', {
+            tabId: currentTabId,
             loading: state.loading
           })
           return
         }
 
+        // If another tab is initializing, try quick session adoption first
+        if (state.initializingTabId && state.initializingTabId !== currentTabId) {
+          logger.debug('🔄 [AUTH] Another tab initializing, attempting quick session check', {
+            thisTabId: currentTabId,
+            initializingTabId: state.initializingTabId
+          })
+
+          // Quick check if we already have valid user/profile from another tab
+          if (state.user && state.profile) {
+            logger.debug('✅ [AUTH] Valid session already exists from another tab, adopting it', {
+              tabId: currentTabId,
+              userId: state.user.id
+            })
+            set({ initialized: true, loading: false })
+            return
+          }
+
+          // Wait a bit for the other tab to complete, then proceed if still not initialized
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          const updatedState = get()
+          if (updatedState.initialized && updatedState.user) {
+            logger.debug('✅ [AUTH] Session initialized by another tab during wait', {
+              tabId: currentTabId
+            })
+            return
+          }
+        }
+
+        // Mark this tab as the one initializing
+        set({ initializingTabId: currentTabId })
+
         // Temporary bypass for debugging
         if (typeof window !== 'undefined' && window.location.search.includes('bypass_auth=true')) {
           logger.warn('Auth bypass enabled - skipping auth initialization')
-          set({ loading: false, initialized: true, error: null, user: null })
+          set({ loading: false, initialized: true, error: null, user: null, initializingTabId: null })
           return
         }
 
@@ -106,8 +159,10 @@ export const useAuthStore = create<AuthState>()(
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
-          logger.warn('Auth initialization timed out, forcing completion...')
-          set({ loading: false, initialized: true, error: null, user: null })
+          logger.warn('Auth initialization timed out, forcing completion...', {
+            tabId: currentTabId
+          })
+          set({ loading: false, initialized: true, error: null, user: null, initializingTabId: null })
         }, timeoutDuration)
         let initTimeoutCleared = false
         const clearInitTimeout = () => {
@@ -118,7 +173,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          set({ loading: true, error: null })
+          set({ loading: true, error: null, initializingTabId: currentTabId })
 
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
@@ -173,7 +228,7 @@ export const useAuthStore = create<AuthState>()(
               errorMessage: sessionError.message,
               errorName: sessionError.name
             })
-            set({ user: null, loading: false, initialized: true })
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
             clearInitTimeout()
             return
           }
@@ -186,7 +241,7 @@ export const useAuthStore = create<AuthState>()(
               hasSession: !!session,
               timestamp: new Date().toISOString()
             })
-            set({ user: null, loading: false, initialized: true })
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
             clearInitTimeout()
             return
           }
@@ -208,7 +263,7 @@ export const useAuthStore = create<AuthState>()(
             })
 
             clearInitTimeout()
-            set({ user: userObj, loading: false, initialized: true, error: null })
+            set({ user: userObj, loading: false, initialized: true, error: null, initializingTabId: null })
 
             logger.debug('✅ [AUTH] Auth state updated - user authenticated', {
               initialized: true,
@@ -497,8 +552,8 @@ export const useAuthStore = create<AuthState>()(
               set({ profile: null })
             }
           } else {
-            set({ user: null, loading: false, initialized: true })
-            
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
+
             // Clear integration store when no user is found
             setTimeout(async () => {
               try {
@@ -659,20 +714,39 @@ export const useAuthStore = create<AuthState>()(
             })
 
             // Add visibility change listener to handle tab switching
+            // Only re-initialize if the tab has been hidden for a significant time
+            // to prevent race conditions between multiple tabs
             if (typeof window !== 'undefined') {
               logger.debug('👁️ [AUTH] Setting up visibility change listener', {
                 timestamp: new Date().toISOString()
               })
 
+              let lastVisibilityChange = Date.now()
               const handleVisibilityChange = () => {
                 logger.debug('👁️ [AUTH] Visibility changed', {
                   visibilityState: document.visibilityState,
                   timestamp: new Date().toISOString()
                 })
 
-                if (document.visibilityState === 'visible') {
+                if (document.visibilityState === 'hidden') {
+                  lastVisibilityChange = Date.now()
+                } else if (document.visibilityState === 'visible') {
+                  // Only check session if tab was hidden for more than 5 minutes
+                  // This prevents race conditions when quickly switching between tabs
+                  const timeSinceHidden = Date.now() - lastVisibilityChange
+                  const FIVE_MINUTES = 5 * 60 * 1000
+
+                  if (timeSinceHidden < FIVE_MINUTES) {
+                    logger.debug('⏭️ [AUTH] Tab was only hidden briefly, skipping session check', {
+                      timeSinceHidden,
+                      timestamp: new Date().toISOString()
+                    })
+                    return
+                  }
+
                   setTimeout(async () => {
-                    logger.debug('🔍 [AUTH] Tab became visible, checking session', {
+                    logger.debug('🔍 [AUTH] Tab became visible after extended absence, checking session', {
+                      timeSinceHidden,
                       timestamp: new Date().toISOString()
                     })
 
@@ -687,8 +761,9 @@ export const useAuthStore = create<AuthState>()(
                       timestamp: new Date().toISOString()
                     })
 
+                    // Only re-initialize if we have a session but no user in state
                     if (session?.user && !currentState.user) {
-                      logger.debug('🔄 [AUTH] Reinitializing auth after tab visible', {
+                      logger.debug('🔄 [AUTH] Reinitializing auth after extended absence', {
                         timestamp: new Date().toISOString()
                       })
                       setTimeout(() => {
@@ -704,14 +779,16 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error: any) {
           logger.error('❌ [AUTH] Initialize error', {
+            tabId: currentTabId,
             error,
             errorMessage: error?.message,
             errorStack: error?.stack,
             timestamp: new Date().toISOString()
           })
-          set({ user: null, error: error.message, loading: false, initialized: true })
+          set({ user: null, error: error.message, loading: false, initialized: true, initializingTabId: null })
         } finally {
           logger.debug('🏁 [AUTH] Initialize complete', {
+            tabId: currentTabId,
             timestamp: new Date().toISOString()
           })
           clearInitTimeout()
@@ -1301,6 +1378,52 @@ export const useAuthStore = create<AuthState>()(
             initialized: state?.initialized,
             timestamp: new Date().toISOString()
           })
+
+          // Set up cross-tab synchronization via storage events
+          if (state && typeof window !== 'undefined') {
+            const handleStorageChange = (event: StorageEvent) => {
+              // Only handle changes to our auth store
+              if (event.key !== 'chainreact-auth') return
+
+              logger.debug('🔄 [AUTH] Storage event detected from another tab', {
+                key: event.key,
+                hasNewValue: !!event.newValue,
+                timestamp: new Date().toISOString()
+              })
+
+              try {
+                if (event.newValue) {
+                  const newData = JSON.parse(event.newValue)
+                  const newState = newData?.state
+
+                  // If another tab just authenticated, adopt that session
+                  if (newState?.user && newState?.profile) {
+                    const currentState = useAuthStore.getState()
+
+                    // Only adopt if we don't have a user yet or if the user changed
+                    if (!currentState.user || currentState.user.id !== newState.user.id) {
+                      logger.debug('✅ [AUTH] Adopting session from another tab', {
+                        userId: newState.user.id,
+                        timestamp: new Date().toISOString()
+                      })
+
+                      useAuthStore.setState({
+                        user: newState.user,
+                        profile: newState.profile,
+                        initialized: true,
+                        loading: false,
+                        error: null,
+                      })
+                    }
+                  }
+                }
+              } catch (error) {
+                logger.error('Error handling storage change:', error)
+              }
+            }
+
+            window.addEventListener('storage', handleStorageChange)
+          }
 
           // Only initialize if not already initialized and we're on the client
           if (state && !state.initialized && typeof window !== 'undefined') {
