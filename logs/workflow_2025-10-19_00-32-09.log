@@ -1,0 +1,51 @@
+=== Log Session Started: 2025-10-19T05:32:09.583Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-19T05:32:09.583Z] [INFO   ] File logging initialized
+[2025-10-19T05:32:09.583Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_00-32-09.log
+[2025-10-19T05:32:09.586Z] [INFO   ] 📁 File logging enabled
+[2025-10-19T05:32:09.586Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_00-32-09.log
+[2025-10-19T05:32:09.586Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_00-32-09.log
+[2025-10-19T05:32:09.586Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_00-32-09.log
+[2025-10-19T05:32:09.586Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_00-32-09.log
+[2025-10-19T05:32:09.586Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-19T05:32:09.586Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-19T05:32:09.601Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 5.7s
+[2025-10-19T05:32:10.589Z] [INFO   ] 2025-10-19T05:32:10.589Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-19T05:32:12.337Z] [INFO   ] 2025-10-19T05:32:12.337Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-19T05:32:12.338Z] [INFO   ] 2025-10-19T05:32:12.338Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-19T05:32:13.031Z] [INFO   ] 2025-10-19T05:32:13.030Z [DEBUG] Discord Gateway initialization complete
+[2025-10-19T05:32:13.032Z] [INFO   ] 2025-10-19T05:32:13.032Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-19T05:32:13.204Z] [INFO   ] 2025-10-19T05:32:13.204Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-19T05:32:13.204Z] [INFO   ] 2025-10-19T05:32:13.204Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-19T05:32:13.375Z] [INFO   ] 2025-10-19T05:32:13.375Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"4bc39e8efc0bb6b9f8ce6ed6580fa9d3","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-19T05:32:13.375Z] [INFO   ] 2025-10-19T05:32:13.375Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-19T05:32:13.377Z] [INFO   ] 2025-10-19T05:32:13.377Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-19T05:32:13.384Z] [INFO   ] 2025-10-19T05:32:13.384Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-19T05:32:13.536Z] [INFO   ] 2025-10-19T05:32:13.536Z [DEBUG] ✅ Cached 4 invites for guild 1378950884045623406
+[2025-10-19T05:32:36.518Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 422ms (233 modules)
+[2025-10-19T05:32:36.891Z] [INFO   ] 2025-10-19T05:32:36.891Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12285269491}
+[2025-10-19T05:32:37.440Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-19T05:32:44.914Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 8s (5682 modules)
+[2025-10-19T05:32:45.702Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 670ms (1558 modules)
+[2025-10-19T05:32:46.117Z] [INFO   ] 2025-10-19T05:32:46.117Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T05:32:46.117Z"}
+[2025-10-19T05:32:46.127Z] [INFO   ] 2025-10-19T05:32:46.127Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T05:32:46.127Z"}
+[2025-10-19T05:32:46.127Z] [INFO   ] 2025-10-19T05:32:46.127Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T05:32:46.127Z"}
+[2025-10-19T05:32:46.396Z] [INFO   ] 2025-10-19T05:32:46.395Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T05:32:46.774Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T05:32:48.581Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-19T05:32:51.818Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 3.8s (5672 modules)
+[2025-10-19T05:32:52.001Z] [INFO   ] 2025-10-19T05:32:52.001Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-19T05:32:52.001Z","headers":{"referer":"check-console"}}
+[2025-10-19T05:32:52.159Z] [INFO   ] 2025-10-19T05:32:52.159Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-19T05:32:52.291Z] [INFO   ] 2025-10-19T05:32:52.291Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-19T05:33:22.963Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 470ms (5674 modules)
+[2025-10-19T05:39:52.259Z] [INFO   ] 2025-10-19T05:39:52.258Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12285704858}
+[2025-10-19T05:39:52.880Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-19T05:39:54.957Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 2.6s (5714 modules)
+[2025-10-19T05:39:55.490Z] [INFO   ] 2025-10-19T05:39:55.490Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T05:39:55.625Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 413ms (5716 modules)
+[2025-10-19T05:39:56.538Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-19T05:39:56.878Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 861ms (5722 modules)

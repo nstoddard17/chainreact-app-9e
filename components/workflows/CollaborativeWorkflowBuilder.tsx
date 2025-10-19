@@ -201,11 +201,14 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
+  // Debug: Log testModeDialogOpen on every render
+  console.log('🧪 [CollaborativeWorkflowBuilder] RENDER - testModeDialogOpen:', testModeDialogOpen)
+
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
 
   // Debug logging for test mode dialog
   React.useEffect(() => {
-    console.log('🧪 testModeDialogOpen changed:', testModeDialogOpen)
+    console.log('🧪 [CollaborativeWorkflowBuilder] useEffect - testModeDialogOpen changed:', testModeDialogOpen)
   }, [testModeDialogOpen])
 
   const sourceTemplateId = React.useMemo(
