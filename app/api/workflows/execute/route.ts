@@ -33,14 +33,24 @@ export async function POST(request: Request) {
       })
     }
 
-    const { workflowId, testMode = false, executionMode, inputData = {}, workflowData, skipTriggers = false } = body
+    const {
+      workflowId,
+      testMode = false,
+      executionMode,
+      inputData = {},
+      workflowData,
+      skipTriggers = false,
+      testModeConfig // Enhanced test mode configuration
+    } = body
 
     // Log the workflow data to see what nodes we're getting
     logger.debug("📊 [Execute Route] Workflow data received:", {
       workflowId,
       hasWorkflowData: !!workflowData,
       nodesCount: workflowData?.nodes?.length || 0,
-      nodeTypes: workflowData?.nodes?.map((n: any) => ({ id: n.id, type: n.data?.type })) || []
+      nodeTypes: workflowData?.nodes?.map((n: any) => ({ id: n.id, type: n.data?.type })) || [],
+      hasTestModeConfig: !!testModeConfig,
+      testModeConfig
     })
 
     // Determine execution mode
@@ -270,7 +280,8 @@ export async function POST(request: Request) {
       userId,
       effectiveTestMode,
       filteredWorkflowData,
-      skipTriggers
+      skipTriggers,
+      testModeConfig // Pass enhanced test mode config
     )
     
     logger.debug("Workflow execution completed successfully")

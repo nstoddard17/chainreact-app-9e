@@ -1190,6 +1190,27 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "chainreact-auth",
+      version: 2, // Increment this when store structure changes to auto-clear stale data
+      migrate: (persistedState: any, version: number) => {
+        // If persisted version doesn't match current version, clear the state
+        // This prevents stale localStorage data from causing auth issues
+        if (version !== 2) {
+          logger.warn('🔄 [AUTH] Persisted state version mismatch, clearing stale data', {
+            persistedVersion: version,
+            currentVersion: 2,
+            timestamp: new Date().toISOString()
+          })
+          return {
+            user: null,
+            profile: null,
+            loading: false,
+            initialized: false,
+            error: null,
+            hydrated: false
+          }
+        }
+        return persistedState
+      },
       storage: {
         getItem: (name) => {
           try {
@@ -1197,25 +1218,25 @@ export const useAuthStore = create<AuthState>()(
             if (typeof window === 'undefined') {
               return null
             }
-            
+
             const str = localStorage.getItem(name)
             if (!str) return null
-            
+
             // Validate the stored data before parsing
             if (str.startsWith('base64-') || str.includes('eyJ')) {
               logger.warn('Detected corrupted auth data, clearing...')
               localStorage.removeItem(name)
               return null
             }
-            
+
             // Try to parse the JSON
             const data = JSON.parse(str)
-            
+
             // Validate the structure
             if (data && typeof data === 'object' && data.state) {
               return str
             }
-            
+
             // If invalid structure, clear it
             logger.warn('Invalid auth data structure, clearing...')
             localStorage.removeItem(name)

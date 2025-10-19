@@ -62,6 +62,10 @@ export class ActionNodeHandlers {
       case "ai_router":
         return await this.aiActionsService.executeAIRouter(node, context)
 
+      // Human-in-the-Loop
+      case "hitl_conversation":
+        return await this.executeHITLConversation(node, context)
+
       default:
         throw new Error(`Unknown action node type: ${nodeType}`)
     }
@@ -317,21 +321,63 @@ export class ActionNodeHandlers {
   }
 
   private async executeRetry(
-    node: any, 
-    allNodes: any[], 
-    connections: any[], 
+    node: any,
+    allNodes: any[],
+    connections: any[],
     context: ExecutionContext
   ) {
     logger.debug("🔄 Executing retry node")
-    
+
     const maxRetries = Number(node.data.config?.max_retries || 3)
     const retryDelay = Number(node.data.config?.retry_delay || 1000)
-    
+
     return {
       type: "retry",
       max_retries: maxRetries,
       retry_delay: retryDelay,
       data: context.data
+    }
+  }
+
+  private async executeHITLConversation(node: any, context: ExecutionContext) {
+    logger.debug("💬 Executing HITL conversation node")
+
+    const config = node.data.config || {}
+    const channel = config.channel || "discord"
+
+    // In test mode, return a mock response immediately
+    if (context.testMode) {
+      logger.debug("Test mode: Simulating HITL conversation")
+      return {
+        success: true,
+        output: {
+          status: "simulated",
+          conversationSummary: "Test mode: Conversation would pause here and wait for human response",
+          messagesCount: 0,
+          duration: 0,
+          extractedVariables: {},
+          conversationHistory: [],
+          testMode: true
+        }
+      }
+    }
+
+    // For now, return an error indicating this feature is not fully implemented
+    // TODO: Implement full HITL conversation logic with Discord integration
+    logger.warn("HITL conversation attempted but not fully implemented yet")
+
+    return {
+      success: false,
+      output: {
+        status: "not_implemented",
+        error: "HITL conversation feature is not yet fully implemented",
+        conversationSummary: "This feature will pause the workflow and allow human interaction via chat",
+        messagesCount: 0,
+        duration: 0,
+        extractedVariables: {},
+        conversationHistory: []
+      },
+      message: "HITL conversation is not yet fully implemented. In test mode, it will simulate a successful conversation."
     }
   }
 
