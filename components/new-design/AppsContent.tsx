@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 
@@ -159,27 +159,40 @@ export function AppsContent() {
     handleConnect(providerId)
   }
 
-  // Filter connected apps
+  // Filter connected apps - only show truly connected (not expired)
   const connectedApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
-    const isConnected = !!getConnectionStatus(provider.id)
+    const connection = getConnectionStatus(provider.id)
+    const isConnected = connection?.status === 'connected'
     const matchesSearch = searchQuery === "" ||
       provider.name.toLowerCase().includes(searchQuery.toLowerCase())
     return isConnected && matchesSearch
   }).sort((a, b) => a.name.localeCompare(b.name))
 
-  // Filter available apps (not connected)
+  // Filter apps that need attention (expired or needs reauth)
+  const appsNeedingAttention = providers.filter(provider => {
+    if (["ai", "logic", "control"].includes(provider.id)) return false
+    const connection = getConnectionStatus(provider.id)
+    const needsAttention = connection && (connection.status === 'expired' || connection.status === 'needs_reauthorization')
+    const matchesSearch = searchQuery === "" ||
+      provider.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return needsAttention && matchesSearch
+  }).sort((a, b) => a.name.localeCompare(b.name))
+
+  // Filter available apps (not connected at all - no integration record)
   const availableApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
-    const isConnected = !!getConnectionStatus(provider.id)
+    const connection = getConnectionStatus(provider.id)
+    // Only show as available if there's NO integration record at all
+    const isAvailable = !connection
     const matchesSearch = availableSearchQuery === "" ||
       provider.name.toLowerCase().includes(availableSearchQuery.toLowerCase())
-    return !isConnected && matchesSearch
+    return isAvailable && matchesSearch
   }).sort((a, b) => a.name.localeCompare(b.name))
 
   const stats = {
-    connected: integrations.length,
-    available: providers.filter(p => !["ai", "logic", "control"].includes(p.id)).length - integrations.length,
+    connected: integrations.filter(i => i.status === 'connected').length,
+    available: availableApps.length,
   }
 
   return (
@@ -265,6 +278,95 @@ export function AppsContent() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Apps Needing Attention */}
+      {appsNeedingAttention.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Needs Attention</h3>
+            <Badge variant="destructive">{appsNeedingAttention.length}</Badge>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {appsNeedingAttention.map((provider) => {
+              const connection = getConnectionStatus(provider.id)
+              const isExpired = connection?.status === 'expired' || connection?.status === 'needs_reauthorization'
+
+              return (
+                <Card key={provider.id} className="group hover:shadow-md transition-all border-destructive/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* App Icon */}
+                      <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
+                        <img
+                          src={`/integrations/${provider.id}.svg`}
+                          alt={provider.name}
+                          className="w-6 h-6 object-contain"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      </div>
+
+                      {/* App Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-sm truncate">{provider.name}</h3>
+                        </div>
+                        <Badge variant="destructive" className="text-xs">
+                          Reconnect
+                        </Badge>
+                      </div>
+
+                      {/* Actions Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleReconnect(provider.id)}
+                            disabled={loading[provider.id]}
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Reconnect
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => connection && handleDisconnect(connection.id, provider.name)}
+                            disabled={loading[connection?.id || '']}
+                          >
+                            <Unplug className="w-4 h-4 mr-2" />
+                            Disconnect
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Connection Details */}
+                    {connection && (
+                      <div className="text-xs text-muted-foreground">
+                        <p>Connected {new Date(connection.created_at).toLocaleDateString()}</p>
+                        {connection.expires_at && (
+                          <p className="text-destructive">
+                            Expired {new Date(connection.expires_at).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Search Connected Apps */}
       <div className="relative">

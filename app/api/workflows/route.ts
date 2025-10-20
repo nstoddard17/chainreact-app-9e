@@ -49,17 +49,18 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description } = body
+    const { name, description, organization_id, status } = body
 
     const { data, error } = await supabase
       .from("workflows")
       .insert({
         name,
         description,
+        organization_id: organization_id || null,
         user_id: user.id,
         nodes: [],
         connections: [],
-        status: "draft",
+        status: status || "draft",
       })
       .select()
       .single()
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
       return errorResponse(error.message , 500)
     }
 
-    return jsonResponse(data)
+    return successResponse({ workflow: data })
   } catch (error) {
     return errorResponse("Internal server error" , 500)
   }

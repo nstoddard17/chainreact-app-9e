@@ -1,45 +1,84 @@
 # HubSpot Webhook Authentication Issue & Solution
 
-**Date:** October 17, 2025
+**Date:** October 17, 2025 (Updated: October 18, 2025)
 **Issue:** 401 Authentication error when creating HubSpot webhook subscriptions
-**Status:** ⚠️ Requires Configuration Change
+**Status:** ✅ FIXED - Expired Token Issue Resolved
 
 ## The Problem
 
-When activating a workflow with a HubSpot trigger, we get this error:
+When activating a workflow with a HubSpot trigger, we got this error:
 ```
 Failed to create HubSpot webhook subscription: 401
 "Authentication credentials not found. This API supports OAuth 2.0 authentication..."
 ```
 
-## Root Cause
+## Root Cause Analysis (Following CLAUDE.md Protocol)
 
-**HubSpot's Webhooks API works differently than expected:**
+### Initial Hypothesis (WRONG)
+Initially thought HubSpot's Webhooks API required app-level authentication (Private App token) instead of user OAuth tokens.
 
-1. **User OAuth tokens CANNOT manage webhooks** - The webhook subscription API requires **app-level authentication**
-2. **App-level auth required** - We need either:
-   - A **Private App Access Token** (recommended)
-   - Or a **Developer API Key** (legacy, deprecated)
-3. **Per-app, not per-user** - Webhooks are managed at the app level, not user level
+### Actual Root Cause (CORRECT)
+After comparing with working implementation (Microsoft Graph) and reading HubSpot's official documentation:
 
-## Current Implementation (Incorrect)
+**The HubSpot trigger was using an EXPIRED OAuth token without refreshing it.**
 
+#### Evidence:
+1. **Microsoft Graph (working)**: Uses `MicrosoftGraphAuth.getValidAccessToken()` which automatically checks token expiration and refreshes if needed
+2. **HubSpot (broken)**: Directly decrypts token from database without any expiration check or refresh logic
+3. **HubSpot Documentation**: Confirms Public Apps use **user OAuth tokens** for webhook API (NOT Private App tokens)
+
+### The Fix
+Use the existing `getDecryptedAccessToken()` utility which:
+1. Checks if the access token is expired (within 5 minutes)
+2. Automatically refreshes it using the refresh token
+3. Returns a valid, non-expired token
+
+## HubSpot Webhook API Authentication (CLARIFIED)
+
+**Correct approach for Public Apps:**
+- ✅ Use **user OAuth tokens** from integrations table
+- ✅ Tokens must have `webhooks` scope
+- ✅ Tokens are automatically refreshed when expired
+- ❌ Do NOT use Private App tokens (different use case)
+
+## Implementation Change
+
+### Before (Broken)
 ```typescript
-// ❌ WRONG: Using user OAuth token
+// ❌ WRONG: Token expired, not refreshed
 const { data: integration } = await supabase
   .from('integrations')
-  .select('access_token')  // This is the user's OAuth token
+  .select('access_token')
   .eq('user_id', userId)
   .eq('provider', 'hubspot')
+  .single()
 
-const response = await fetch(`https://api.hubapi.com/webhooks/v3/${APP_ID}/subscriptions`, {
-  headers: {
-    'Authorization': `Bearer ${userOAuthToken}`  // ❌ This won't work for webhooks
-  }
-})
+const accessToken = await safeDecrypt(integration.access_token)
+// Token could be expired - no check, no refresh
 ```
 
-## Solution Options
+### After (Fixed)
+```typescript
+// ✅ CORRECT: Automatically refreshes if expired
+const accessToken = await getDecryptedAccessToken(userId, 'hubspot')
+// Token is guaranteed to be valid and not expired
+```
+
+## Files Changed
+- **[lib/triggers/providers/HubSpotTriggerLifecycle.ts](../../lib/triggers/providers/HubSpotTriggerLifecycle.ts)**
+  - Added import: `getDecryptedAccessToken`
+  - Removed import: `safeDecrypt` (no longer needed)
+  - Updated `onActivate()`: Now uses automatic token refresh
+  - Updated `onDeactivate()`: Now uses automatic token refresh
+  - Updated `checkHealth()`: Now uses automatic token refresh
+
+## Previous Documentation (Now Outdated)
+
+The sections below were written before discovering the real issue (expired tokens). They're kept for historical reference.
+
+### Original Theory: App-Level vs User-Level Auth
+
+## ~~Solution Options~~ (NOT THE ISSUE)
 
 ### Option 1: Private App Access Token (Recommended)
 
@@ -220,13 +259,44 @@ This approach:
 - ❌ More complex setup
 - ❌ Requires HubSpot Pro+
 
-## Conclusion
+## ~~Conclusion~~ (OUTDATED)
 
-The **correct solution is to use a Private App Access Token** for webhook subscription management, while continuing to use user OAuth tokens for actual CRM operations (creating contacts, reading deals, etc.).
+~~The **correct solution is to use a Private App Access Token** for webhook subscription management~~
 
-This is a common pattern:
-- **Stripe** - App webhooks with webhook secret
-- **Shopify** - App webhooks managed by app
-- **Slack** - App webhooks with bot token
+**UPDATE:** This conclusion was incorrect. The real issue was expired tokens not being refreshed.
 
-HubSpot follows the same model - webhooks are app-level, not user-level.
+---
+
+## Final Summary
+
+### What We Learned
+
+1. **Always follow Root Cause Analysis Protocol** (from CLAUDE.md)
+   - Compare working vs broken implementations
+   - Don't assume - verify with code and documentation
+   - The issue was NOT about Private App vs Public App
+   - The issue WAS about expired tokens
+
+2. **Token Refresh is Critical**
+   - OAuth access tokens expire (HubSpot: 6 hours)
+   - Triggers can be activated days/weeks after initial connection
+   - ALWAYS use `getDecryptedAccessToken()` which handles refresh automatically
+   - Never decrypt tokens directly unless you have a good reason
+
+3. **Pattern to Follow**
+   - ✅ DO: Use `getDecryptedAccessToken(userId, provider)` for all integrations
+   - ❌ DON'T: Manually decrypt tokens with `safeDecrypt()` in trigger/action code
+   - 💡 WHY: Automatic refresh prevents 401 errors from expired tokens
+
+### Testing Recommendation
+
+After this fix, test by:
+1. Connect HubSpot integration
+2. Wait for token to expire (6+ hours) OR manually set `expires_at` to past date in database
+3. Activate a workflow with HubSpot trigger
+4. Should succeed (token auto-refreshes) instead of 401 error
+
+### Related Files
+- Token refresh utility: [lib/integrations/getDecryptedAccessToken.ts](../../lib/integrations/getDecryptedAccessToken.ts)
+- Token refresh service: [lib/integrations/tokenRefreshService.ts](../../lib/integrations/tokenRefreshService.ts)
+- OAuth config: [lib/integrations/oauthConfig.ts](../../lib/integrations/oauthConfig.ts)

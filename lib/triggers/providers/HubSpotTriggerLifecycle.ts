@@ -8,7 +8,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { safeDecrypt } from '@/lib/security/encryption'
+import { getDecryptedAccessToken } from '@/lib/integrations/getDecryptedAccessToken'
 import { getWebhookUrl } from '@/lib/webhooks/utils'
 import {
   TriggerLifecycle,
@@ -83,23 +83,14 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       )
     }
 
-    // Get user's HubSpot integration with OAuth token
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('access_token, id')
-      .eq('user_id', userId)
-      .eq('provider', 'hubspot')
-      .eq('status', 'connected')
-      .single()
-
-    if (!integration) {
-      throw new Error('User must connect HubSpot integration before activating triggers')
-    }
-
-    // Decrypt the access token
-    const accessToken = await safeDecrypt(integration.access_token)
-    if (!accessToken) {
-      throw new Error('Failed to decrypt HubSpot access token')
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await getDecryptedAccessToken(userId, 'hubspot')
+      logger.debug(`✅ Retrieved valid HubSpot access token for user ${userId}`)
+    } catch (error: any) {
+      logger.error('❌ Failed to get valid HubSpot token:', error)
+      throw new Error('HubSpot integration not connected or token expired. Please reconnect your HubSpot account.')
     }
 
     // Get webhook callback URL for this specific workflow
@@ -212,28 +203,14 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'hubspot')
-      .eq('status', 'connected')
-      .single()
-
-    if (!integration) {
-      logger.warn(`⚠️ HubSpot integration not found, marking subscriptions as deleted locally`)
-      await supabase
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'hubspot')
-      return
-    }
-
-    const accessToken = await safeDecrypt(integration.access_token)
-    if (!accessToken) {
-      logger.warn(`⚠️ Failed to decrypt access token, marking subscriptions as deleted locally`)
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await getDecryptedAccessToken(userId, 'hubspot')
+      logger.debug('✅ Retrieved valid HubSpot access token for deactivation')
+    } catch (error) {
+      logger.warn(`⚠️ Failed to get valid HubSpot token, deleting subscription records without API cleanup`, error)
+      // Delete even if we can't clean up in HubSpot API
       await supabase
         .from('trigger_resources')
         .delete()
@@ -323,27 +300,14 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'hubspot')
-      .eq('status', 'connected')
-      .single()
-
-    if (!integration) {
+    // Get valid access token (automatically refreshes if expired)
+    let accessToken: string
+    try {
+      accessToken = await getDecryptedAccessToken(userId, 'hubspot')
+    } catch (error) {
       return {
         healthy: false,
-        details: 'HubSpot integration not connected',
-        lastChecked: new Date().toISOString()
-      }
-    }
-
-    const accessToken = await safeDecrypt(integration.access_token)
-    if (!accessToken) {
-      return {
-        healthy: false,
-        details: 'Failed to decrypt access token',
+        details: 'HubSpot integration not connected or token expired',
         lastChecked: new Date().toISOString()
       }
     }
