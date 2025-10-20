@@ -612,7 +612,7 @@ export function useWorkflowBuilder() {
     setNodesInternal(currentNodes => {
       return currentNodes.map(node => {
         // If not executing and not listening, clear all execution status
-        if (!executionHook.isExecuting && !executionHook.isListeningForWebhook) {
+        if (!executionHook.isExecuting && !executionHook.isListeningForWebhook && !executionHook.isPaused) {
           // Only update if the node has execution status to clear
           if (node.data?.executionStatus || node.data?.isActiveExecution) {
             return {
@@ -628,8 +628,9 @@ export function useWorkflowBuilder() {
         }
 
         // Otherwise, apply execution status
-        const status = executionHook.nodeStatuses[node.id]
         const isActive = executionHook.activeExecutionNodeId === node.id
+        const pausedHighlight = executionHook.isPaused && executionHook.activeExecutionNodeId === node.id
+        const status = executionHook.nodeStatuses[node.id] || (pausedHighlight ? 'running' : undefined)
 
         // Highlight trigger node when listening for webhook
         const isTriggerListening = executionHook.isListeningForWebhook && node.data?.isTrigger
@@ -640,12 +641,12 @@ export function useWorkflowBuilder() {
           data: {
             ...node.data,
             executionStatus: status || listeningStatus,
-            isActiveExecution: isActive || isTriggerListening,
+            isActiveExecution: isActive || isTriggerListening || pausedHighlight,
           }
         }
       })
     })
-  }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook])
+  }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook, executionHook.isPaused])
 
   // Validate nodes when they change and an AI Agent is present
   useEffect(() => {

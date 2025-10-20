@@ -10,7 +10,7 @@ export const integrationIcons: Record<string, string> = {
   youtube: '/integrations/youtube.svg',
   teams: '/integrations/microsoft-teams.svg',
   onedrive: '/integrations/onedrive.svg',
-  twitter: '/integrations/twitter.svg',
+  twitter: '/integrations/x.svg',
   facebook: '/integrations/facebook.svg',
   instagram: '/integrations/instagram.svg',
   tiktok: '/integrations/tiktok.svg',

@@ -157,6 +157,8 @@ export function useWorkflowExecution() {
       return
     }
 
+    let pausedDuringExecution = false
+
     try {
       setIsExecuting(true)
       logger.debug('🚀 [Workflow Execution] Starting execution for workflow:', currentWorkflow.id);
@@ -219,7 +221,28 @@ export function useWorkflowExecution() {
         },
       })
 
-      if (executionResults.success) {
+      if (executionResults?.paused) {
+        pausedDuringExecution = true
+
+        if (executionResults.pausedNodeId) {
+          setActiveExecutionNodeId(executionResults.pausedNodeId)
+          setExecutionResults(prev => ({
+            ...prev,
+            [executionResults.pausedNodeId!]: {
+              status: 'running',
+              timestamp: Date.now()
+            }
+          }))
+        }
+
+        setIsPaused(true)
+        setIsExecuting(false)
+
+        toast({
+          title: "⏸️ Workflow Paused",
+          description: "Waiting for human approval in your connected channel.",
+        })
+      } else if (executionResults?.success) {
         toast({
           title: "Success",
           description: "Workflow executed successfully!",
@@ -233,7 +256,7 @@ export function useWorkflowExecution() {
       } else {
         toast({
           title: "Execution Failed",
-          description: executionResults.error || "An error occurred during execution",
+          description: executionResults?.error || "An error occurred during execution",
           variant: "destructive",
         })
       }
@@ -245,6 +268,10 @@ export function useWorkflowExecution() {
         variant: "destructive",
       })
     } finally {
+      if (pausedDuringExecution) {
+        return
+      }
+
       setIsExecuting(false)
       setActiveExecutionNodeId(null)
       
@@ -465,6 +492,8 @@ export function useWorkflowExecution() {
     setSandboxInterceptedActions([])
     addDebugLog('info', 'Starting Sandbox Mode execution with test config', testModeConfig)
 
+    let pausedDuringRun = false
+
     try {
       logger.debug('🧪 [Sandbox Mode] Starting execution with test mode config:', testModeConfig)
 
@@ -602,72 +631,34 @@ export function useWorkflowExecution() {
 
       const result = await response.json()
 
-      // Mark trigger as completed
-      if (triggerNode) {
-        setNodeStatuses(prev => ({ ...prev, [triggerNode.id]: 'completed' }))
-        addDebugLog('success', `Trigger completed: ${triggerNode.data?.title || triggerNode.data?.type}`)
-      }
-
-      // Process results with visual feedback for each node
-      if (result.results && Array.isArray(result.results)) {
-        for (const nodeResult of result.results) {
-          if (nodeResult.nodeId) {
-            const node = nodes.find(n => n.id === nodeResult.nodeId)
-            if (node) {
-              // Show node as running
-              setActiveExecutionNodeId(nodeResult.nodeId)
-              setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: 'running' }))
-              addDebugLog('info', `Executing: ${node.data?.title || node.data?.type}`)
-
-              // Visual delay to show the transition
-              await new Promise(resolve => setTimeout(resolve, 400))
-
-              // Update to final status
-              const status = nodeResult.success ? 'completed' : 'error'
-              setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: status }))
-              addDebugLog(
-                nodeResult.success ? 'success' : 'error',
-                `${node.data?.title || node.data?.type} ${nodeResult.success ? 'completed' : 'failed'}`,
-                nodeResult.error ? { error: nodeResult.error } : undefined
-              )
-            }
-          }
-        }
-      }
-
-      setActiveExecutionNodeId(null)
-
-      // Process intercepted actions
-      if (result.interceptedActions && Array.isArray(result.interceptedActions)) {
-        setSandboxInterceptedActions(result.interceptedActions)
-        setShowSandboxPreview(true)
-
-        addDebugLog('success', `Sandbox execution complete: ${result.interceptedActions.length} actions intercepted`)
-
-        toast({
-          title: "Sandbox Test Complete",
-          description: `${result.interceptedActions.length} actions were intercepted and can be reviewed`,
-        })
-      }
-
-      // Handle paused execution (HITL)
+      // CHECK FOR PAUSED EXECUTION FIRST (before processing results)
+      // This prevents the visual feedback loop from marking the HITL node as "completed"
       if (result.paused) {
-        addDebugLog('info', 'Workflow paused for human input', {
+        pausedDuringRun = true
+        addDebugLog('info', '⏸️ Workflow paused for human input', {
           conversationId: result.conversationId,
           pausedNodeId: result.pausedNodeId
         })
 
-        // Set the paused node to a "waiting" status
+        // Mark trigger as completed (if exists)
+        if (triggerNode) {
+          setNodeStatuses(prev => ({ ...prev, [triggerNode.id]: 'completed' }))
+        }
+
+        // Set the paused node to "running" status (actively waiting)
         if (result.pausedNodeId) {
           setNodeStatuses(prev => ({
             ...prev,
             [result.pausedNodeId]: 'running' // Keep showing as active/running while waiting
           }))
           setActiveExecutionNodeId(result.pausedNodeId)
+
+          const pausedNode = nodes.find(n => n.id === result.pausedNodeId)
+          addDebugLog('info', `⏸️ Waiting for human input at: ${pausedNode?.data?.title || 'HITL Node'}`)
         }
 
         toast({
-          title: "Workflow Paused",
+          title: "⏸️ Workflow Paused",
           description: "Human input required. Check your Discord channel to continue.",
         })
 
@@ -675,9 +666,59 @@ export function useWorkflowExecution() {
         setIsExecuting(false)
         setIsStepMode(false)
         setIsExecutingTest(false)
+        setIsPaused(true)
 
         // Don't clear the node status or active node - keep them visible
-        return // Exit early to skip the finally block cleanup
+      } else {
+        // Normal completion flow (only runs if NOT paused)
+
+        // Mark trigger as completed
+        if (triggerNode) {
+          setNodeStatuses(prev => ({ ...prev, [triggerNode.id]: 'completed' }))
+          addDebugLog('success', `Trigger completed: ${triggerNode.data?.title || triggerNode.data?.type}`)
+        }
+
+        // Process results with visual feedback for each node
+        if (result.results && Array.isArray(result.results)) {
+          for (const nodeResult of result.results) {
+            if (nodeResult.nodeId) {
+              const node = nodes.find(n => n.id === nodeResult.nodeId)
+              if (node) {
+                // Show node as running
+                setActiveExecutionNodeId(nodeResult.nodeId)
+                setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: 'running' }))
+                addDebugLog('info', `Executing: ${node.data?.title || node.data?.type}`)
+
+                // Visual delay to show the transition
+                await new Promise(resolve => setTimeout(resolve, 400))
+
+                // Update to final status
+                const status = nodeResult.success ? 'completed' : 'error'
+                setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: status }))
+                addDebugLog(
+                  nodeResult.success ? 'success' : 'error',
+                  `${node.data?.title || node.data?.type} ${nodeResult.success ? 'completed' : 'failed'}`,
+                  nodeResult.error ? { error: nodeResult.error } : undefined
+                )
+              }
+            }
+          }
+        }
+
+        setActiveExecutionNodeId(null)
+
+        // Process intercepted actions
+        if (result.interceptedActions && Array.isArray(result.interceptedActions)) {
+          setSandboxInterceptedActions(result.interceptedActions)
+          setShowSandboxPreview(true)
+
+          addDebugLog('success', `Sandbox execution complete: ${result.interceptedActions.length} actions intercepted`)
+
+          toast({
+            title: "Sandbox Test Complete",
+            description: `${result.interceptedActions.length} actions were intercepted and can be reviewed`,
+          })
+        }
       }
 
     } catch (error: any) {
@@ -690,6 +731,10 @@ export function useWorkflowExecution() {
         variant: "destructive",
       })
     } finally {
+      if (pausedDuringRun) {
+        return
+      }
+
       setIsExecuting(false)
       setIsStepMode(false)
       setIsExecutingTest(false)

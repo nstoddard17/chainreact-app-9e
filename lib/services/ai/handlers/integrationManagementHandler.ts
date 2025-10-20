@@ -214,14 +214,37 @@ export class IntegrationManagementHandler extends BaseActionHandler {
       'google-calendar'
     ]
 
-    // Build apps list with connection status
+    // Build apps list with connection status and dates
     const apps = allProviders.map(providerId => {
       const integration = integrations.find(i => i.provider === providerId)
+
+      let connectedDate = undefined
+      let expiresDate = undefined
+
+      if (integration) {
+        connectedDate = new Date(integration.created_at).toLocaleDateString('en-US', {
+          month: 'numeric',
+          day: 'numeric',
+          year: 'numeric'
+        })
+
+        // Calculate expiration date if token has expiry
+        if (integration.expires_at) {
+          expiresDate = new Date(integration.expires_at).toLocaleDateString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric'
+          })
+        }
+      }
+
       return {
         id: providerId,
         name: this.PROVIDER_NAMES[providerId] || providerId,
         connected: !!integration,
-        status: integration?.status
+        status: integration?.status,
+        connectedDate,
+        expiresDate
       }
     })
 

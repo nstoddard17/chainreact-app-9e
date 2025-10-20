@@ -25,7 +25,8 @@ import {
   MessageSquare,
   Zap,
   Clock,
-  Workflow
+  Workflow,
+  Mic
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
@@ -49,6 +50,9 @@ import {
   IntegrationStatusRenderer,
   AppsGridRenderer
 } from './data-renderers'
+
+// Import voice mode component
+import { VoiceModeSimple } from './VoiceModeSimple'
 
 interface Message {
   id: string
@@ -147,7 +151,9 @@ export default function AIAssistantContent() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false)
   const [activeConversationTitle, setActiveConversationTitle] = useState<string>("New Chat")
   const [typingConversationId, setTypingConversationId] = useState<string | null>(null)
+  const [isVoiceModeActive, setIsVoiceModeActive] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
   const { integrations } = useIntegrationStore()
@@ -262,6 +268,15 @@ export default function AIAssistantContent() {
     setConversationId(undefined)
     setActiveConversationTitle("New Chat")
     setTypingConversationId(null)
+    setInput("")
+    setIsLoading(false)
+    setPendingConfirmation(null)
+
+    // Cancel any pending requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
   }
 
   const generateConversationTitle = (firstMessage: string): string => {
@@ -470,6 +485,18 @@ Learn how to build powerful workflows, discover ChainReact features, and get exp
 **Want me to show you your active workflows or help with something specific?**`
     }
 
+    // What apps/integrations are available - use local data
+    const isAskingAboutAvailable = (
+      (lowerMessage.includes('what') || lowerMessage.includes('which') || lowerMessage.includes('show')) &&
+      (lowerMessage.includes('apps') || lowerMessage.includes('integrations')) &&
+      (lowerMessage.includes('available') || lowerMessage.includes('can i') || lowerMessage.includes('are there'))
+    ) || lowerMessage === 'what apps are available' || lowerMessage === 'what integrations are available'
+
+    if (isAskingAboutAvailable) {
+      // Return a special marker that we'll handle with the apps grid
+      return '__SHOW_APPS_GRID__'
+    }
+
     // Pricing questions - no API call needed
     if (lowerMessage.includes('pricing') || lowerMessage.includes('how much') || lowerMessage.includes('cost') || lowerMessage.includes('price')) {
       return `Great question! Here's our pricing structure:
@@ -501,6 +528,107 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         timestamp: new Date(),
       }
 
+      // Special handling for apps grid
+      if (localResponse === '__SHOW_APPS_GRID__') {
+        // Build apps list from integration store
+        const allProviders = [
+          { id: 'gmail', name: 'Gmail' },
+          { id: 'microsoft-outlook', name: 'Microsoft Outlook' },
+          { id: 'slack', name: 'Slack' },
+          { id: 'discord', name: 'Discord' },
+          { id: 'microsoft-teams', name: 'Microsoft Teams' },
+          { id: 'notion', name: 'Notion' },
+          { id: 'airtable', name: 'Airtable' },
+          { id: 'trello', name: 'Trello' },
+          { id: 'google-sheets', name: 'Google Sheets' },
+          { id: 'microsoft-onenote', name: 'Microsoft OneNote' },
+          { id: 'google-drive', name: 'Google Drive' },
+          { id: 'microsoft-onedrive', name: 'Microsoft OneDrive' },
+          { id: 'dropbox', name: 'Dropbox' },
+          { id: 'box', name: 'Box' },
+          { id: 'hubspot', name: 'HubSpot' },
+          { id: 'stripe', name: 'Stripe' },
+          { id: 'shopify', name: 'Shopify' },
+          { id: 'paypal', name: 'PayPal' },
+          { id: 'github', name: 'GitHub' },
+          { id: 'gitlab', name: 'GitLab' },
+          { id: 'twitter', name: 'Twitter' },
+          { id: 'facebook', name: 'Facebook' },
+          { id: 'instagram', name: 'Instagram' },
+          { id: 'linkedin', name: 'LinkedIn' },
+          { id: 'tiktok', name: 'TikTok' },
+          { id: 'youtube', name: 'YouTube' },
+          { id: 'google-calendar', name: 'Google Calendar' }
+        ]
+
+        const apps = allProviders.map(provider => {
+          const integration = integrations.find(i => i.provider === provider.id)
+
+          let connectedDate = undefined
+          let expiresDate = undefined
+
+          if (integration) {
+            connectedDate = new Date(integration.created_at).toLocaleDateString('en-US', {
+              month: 'numeric',
+              day: 'numeric',
+              year: 'numeric'
+            })
+
+            if (integration.expires_at) {
+              expiresDate = new Date(integration.expires_at).toLocaleDateString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric'
+              })
+            }
+          }
+
+          return {
+            id: provider.id,
+            name: provider.name,
+            connected: !!integration,
+            status: integration?.status,
+            connectedDate,
+            expiresDate
+          }
+        })
+
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Here are the apps available on ChainReact:",
+          timestamp: new Date(),
+          metadata: {
+            type: "apps_grid",
+            apps,
+            local: true
+          }
+        }
+
+        const newMessages = [...messages, userMessage, assistantMessage]
+        setMessages(newMessages)
+        if (!messageText) setInput("")
+
+        // Save conversation
+        if (!conversationId) {
+          const conversationTitle = generateConversationTitle(finalMessage)
+          setActiveConversationTitle(conversationTitle)
+
+          const newConversationId = await saveConversation(undefined, conversationTitle, [userMessage, assistantMessage])
+
+          if (newConversationId) {
+            setConversationId(newConversationId)
+            setTypingConversationId(newConversationId)
+            await loadConversations()
+          }
+        } else {
+          await updateConversation(conversationId, newMessages)
+        }
+
+        return
+      }
+
+      // Regular local response
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -785,6 +913,35 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     }
   }
 
+  const handleVoiceTranscript = async (text: string, role: 'user' | 'assistant') => {
+    // Add voice transcript to messages
+    const message: Message = {
+      id: Date.now().toString(),
+      role,
+      content: text,
+      timestamp: new Date(),
+      metadata: { type: "voice_transcript" as any }
+    }
+
+    const newMessages = [...messages, message]
+    setMessages(newMessages)
+
+    // Save to conversation if we have one
+    if (conversationId) {
+      await updateConversation(conversationId, newMessages)
+    } else if (role === 'user') {
+      // First message in voice mode - create conversation
+      const conversationTitle = generateConversationTitle(text)
+      setActiveConversationTitle(conversationTitle)
+      const newConversationId = await saveConversation(undefined, conversationTitle, newMessages)
+      if (newConversationId) {
+        setConversationId(newConversationId)
+        setTypingConversationId(newConversationId)
+        await loadConversations()
+      }
+    }
+  }
+
   const renderMessageContent = (content: string) => {
     // Convert markdown-style links [text](url) to clickable links
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
@@ -1053,52 +1210,54 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Empty State / Suggestions - Show when no messages */}
         {messages.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center px-12 py-12">
-          <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mt-8">
-            <Sparkles className="w-10 h-10 text-primary" />
-          </div>
-          <h2 className="text-3xl font-semibold mb-3">AI Assistant</h2>
-          <p className="text-muted-foreground text-center max-w-3xl mb-12 text-lg">
-            I can help you create workflows, troubleshoot issues, and provide insights about your automations. I'll automatically format responses based on the data type!
-          </p>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col items-center justify-center px-4 sm:px-8 py-6 sm:py-8 min-h-full">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
+                <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+              </div>
+              <h2 className="text-xl sm:text-2xl font-semibold mb-2">AI Assistant</h2>
+              <p className="text-muted-foreground text-center max-w-2xl mb-6 sm:mb-8 text-sm sm:text-base px-4">
+                I can help you create workflows, troubleshoot issues, and provide insights about your automations.
+              </p>
 
-          {/* Suggestion Cards */}
-          <div className="w-full max-w-6xl">
-            <div className="mb-8 text-center">
-              <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/5 rounded-full border border-primary/20">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-base font-semibold text-foreground">Try asking:</span>
+              {/* Suggestion Cards */}
+              <div className="w-full max-w-4xl px-2">
+                <div className="mb-4 sm:mb-6 text-center">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/5 rounded-full border border-primary/20">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Try asking:</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {suggestions.map((suggestion, index) => {
+                    const Icon = suggestion.icon
+                    return (
+                      <Card
+                        key={index}
+                        className="cursor-pointer hover:bg-accent hover:border-primary/50 transition-all group"
+                        onClick={() => handleSuggestionClick(suggestion.text)}
+                      >
+                        <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center gap-2">
+                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
+                            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                          </div>
+                          <p className="text-xs sm:text-sm font-medium leading-snug line-clamp-2">{suggestion.text}</p>
+                          <Badge variant="secondary" className="text-xs">
+                            {suggestion.category}
+                          </Badge>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {suggestions.map((suggestion, index) => {
-                const Icon = suggestion.icon
-                return (
-                  <Card
-                    key={index}
-                    className="cursor-pointer hover:bg-accent hover:border-primary/50 transition-all group"
-                    onClick={() => handleSuggestionClick(suggestion.text)}
-                  >
-                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                        <Icon className="w-6 h-6 text-primary" />
-                      </div>
-                      <p className="text-sm font-medium leading-snug">{suggestion.text}</p>
-                      <Badge variant="secondary" className="text-xs">
-                        {suggestion.category}
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </div>
           </div>
         )}
 
         {/* Messages Area - Scrollable - Show when there are messages */}
         {messages.length > 0 && (
-          <div className="flex-1 overflow-y-auto">
+          <div ref={chatContainerRef} className="flex-1 overflow-y-auto">
             <div className="w-full">
           {messages.map((message) => (
             <div
@@ -1251,7 +1410,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                           return message.metadata.apps && (
                             <AppsGridRenderer
                               apps={message.metadata.apps}
-                              maxDisplay={6}
+                              maxDisplay={4}
                             />
                           )
 
@@ -1542,6 +1701,16 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         {/* Input Area - At Bottom */}
         <div className="border-t bg-card px-8 py-4">
           <div className="w-full flex gap-3">
+            <Button
+              onClick={() => setIsVoiceModeActive(true)}
+              disabled={isLoading}
+              size="lg"
+              variant="outline"
+              className="px-4"
+              title="Start voice conversation"
+            >
+              <Mic className="w-5 h-5" />
+            </Button>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -1566,6 +1735,14 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
           </div>
         </div>
       </div>
+
+      {/* Voice Mode Overlay */}
+      {isVoiceModeActive && (
+        <VoiceModeSimple
+          onClose={() => setIsVoiceModeActive(false)}
+          onTranscript={handleVoiceTranscript}
+        />
+      )}
     </div>
   )
 } 

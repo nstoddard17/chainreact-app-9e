@@ -1,6 +1,5 @@
 import React from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, ExternalLink } from "lucide-react"
 import Link from "next/link"
 
@@ -9,6 +8,8 @@ interface AppItem {
   name: string
   connected: boolean
   status?: string
+  connectedDate?: string
+  expiresDate?: string
 }
 
 interface AppsGridRendererProps {
@@ -16,7 +17,7 @@ interface AppsGridRendererProps {
   maxDisplay?: number
 }
 
-export function AppsGridRenderer({ apps, maxDisplay = 6 }: AppsGridRendererProps) {
+export function AppsGridRenderer({ apps, maxDisplay = 4 }: AppsGridRendererProps) {
   // Sort: connected apps first
   const sortedApps = [...apps].sort((a, b) => {
     if (a.connected && !b.connected) return -1
@@ -30,20 +31,20 @@ export function AppsGridRenderer({ apps, maxDisplay = 6 }: AppsGridRendererProps
   return (
     <div className="mt-4">
       {/* Apps Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 gap-4">
         {displayedApps.map((app) => {
           const isExpired = app.status === 'expired' || app.status === 'needs_reauthorization'
 
           return (
-            <Card key={app.id} className="hover:shadow-md transition-all">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
+            <Card key={app.id} className="bg-card border-border hover:shadow-md transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
                   {/* App Icon */}
-                  <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-background">
                     <img
                       src={`/integrations/${app.id}.svg`}
                       alt={app.name}
-                      className="w-6 h-6 object-contain"
+                      className="w-8 h-8 object-contain"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none'
                       }}
@@ -52,20 +53,37 @@ export function AppsGridRenderer({ apps, maxDisplay = 6 }: AppsGridRendererProps
 
                   {/* App Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-sm truncate">{app.name}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-semibold text-base">{app.name}</h3>
                       {app.connected && !isExpired && (
                         <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                       )}
                     </div>
+
                     {app.connected ? (
-                      isExpired ? (
-                        <Badge variant="destructive" className="text-xs">Expired</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">Connected</Badge>
-                      )
+                      <>
+                        <div className="text-sm font-medium mb-1">
+                          {isExpired ? (
+                            <span className="text-destructive">Expired</span>
+                          ) : (
+                            <span className="text-foreground">Connected</span>
+                          )}
+                        </div>
+                        {app.connectedDate && (
+                          <div className="text-xs text-muted-foreground">
+                            Connected {app.connectedDate}
+                          </div>
+                        )}
+                        {app.expiresDate && (
+                          <div className="text-xs text-muted-foreground">
+                            Expires {app.expiresDate}
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <Badge variant="secondary" className="text-xs">Available</Badge>
+                      <div className="text-sm text-muted-foreground">
+                        Available to connect
+                      </div>
                     )}
                   </div>
                 </div>
@@ -82,7 +100,7 @@ export function AppsGridRenderer({ apps, maxDisplay = 6 }: AppsGridRendererProps
             href="/apps"
             className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
           >
-            <span>and {apps.length - maxDisplay} more on the apps page</span>
+            <span>and many more on the apps page</span>
             <ExternalLink className="w-4 h-4" />
           </Link>
         </div>

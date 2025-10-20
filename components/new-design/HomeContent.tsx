@@ -111,6 +111,7 @@ export function HomeContent() {
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("")
   const [selectedOrgId, setSelectedOrgId] = useState<string>("")
   const [selectedCreateTeamIds, setSelectedCreateTeamIds] = useState<string[]>([])
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const { toast } = useToast()
 
   const connectedCount = getConnectedProviders().length
@@ -124,8 +125,12 @@ export function HomeContent() {
         fetchExecutionStats(),
         fetchTeams(),
         fetchOrganizations()
-      ]).catch(error => {
+      ]).then(() => {
+        setInitialLoadComplete(true)
+      }).catch(error => {
         logger.error('[HomeContent] Error during parallel data fetch:', error)
+        // Still mark as complete even on error so page doesn't hang
+        setInitialLoadComplete(true)
       })
     }
   }, [user, fetchWorkflows])
@@ -482,6 +487,18 @@ export function HomeContent() {
     } finally {
       setLoading(prev => ({ ...prev, 'create-workflow': false }))
     }
+  }
+
+  // Show loading state until initial data is loaded
+  if (!initialLoadComplete || loadingList) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading workflows and data...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

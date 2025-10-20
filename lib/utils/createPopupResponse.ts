@@ -1,10 +1,12 @@
 import { logger } from '@/lib/utils/logger'
+import { getProviderDisplayName } from '@/lib/utils/provider-names'
 
 /**
  * Creates a connecting/loading response for OAuth popup windows
  */
 export function createConnectingResponse(provider: string) {
-  const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
+  const displayName = getProviderDisplayName(provider)
+  const safeProvider = displayName.replace(/[\\'"]/g, '\\$&');
 
   const html = `
     <!DOCTYPE html>
@@ -118,14 +120,17 @@ export function createPopupResponse(
   baseUrl: string,
   options?: { autoClose?: boolean; payload?: Record<string, any> }
 ) {
+  // Get proper display name for the provider
+  const displayName = getProviderDisplayName(provider)
+
   // Log the popup response creation for debugging
-  logger.debug(`🔄 Creating popup response: type=${type}, provider=${provider}, message=${message}`)
-  const title = type === "success" ? `${provider} Connection Successful` : `${provider} Connection Failed`
-  const header = type === "success" ? `${provider} Connected!` : `Error Connecting ${provider}`
+  logger.debug(`🔄 Creating popup response: type=${type}, provider=${provider}, displayName=${displayName}, message=${message}`)
+  const title = type === "success" ? `${displayName} Connection Successful` : `${displayName} Connection Failed`
+  const header = type === "success" ? `${displayName} Connected!` : `Error Connecting ${displayName}`
   const status = type === "success" ? 200 : 400
 
   // Ensure strings are properly escaped for JavaScript
-  const safeProvider = provider.replace(/[\\'"]/g, '\\$&');
+  const safeProvider = displayName.replace(/[\\'"]/g, '\\$&');
   const safeMessage = message.replace(/[\\'"]/g, '\\$&');
 
   // Create a unique storage key for this response (sanitize for key safety)
@@ -148,20 +153,25 @@ export function createPopupResponse(
 `
     : ''
 
+  // Escape the original provider ID for the script
+  const safeProviderId = provider.replace(/[\\'"]/g, '\\$&');
+
   const script = `
     <script>
       // Flag to track if we've already sent a response
       window.sentResponse = false;
 
-      // Store provider and message as JavaScript variables (properly escaped)
+      // Store provider (original ID for integration store) and message as JavaScript variables (properly escaped)
       const providerName = '${safeProvider}';
+      const providerId = '${safeProviderId}';
       const messageText = '${safeMessage}';
 
       // Create response data object using the variables
       const responseData = {
         type: 'oauth-complete', // Use consistent message type
         success: ${type === 'success'},
-        provider: providerName.replace(/\\\\(.)/g, '$1'), // Unescape the provider name
+        provider: providerId.replace(/\\\\(.)/g, '$1'), // Use original provider ID for integration store
+        providerDisplayName: providerName.replace(/\\\\(.)/g, '$1'), // Pretty name for UI display
         message: messageText.replace(/\\\\(.)/g, '$1'), // Unescape the message
         error: ${type === 'error'} ? messageText.replace(/\\\\(.)/g, '$1') : null,
         timestamp: new Date().toISOString()
@@ -287,68 +297,94 @@ ${payloadScript}
             box-sizing: border-box;
           }
 
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --bg-primary: #0a0a0a;
+              --bg-secondary: #1a1a1a;
+              --border-color: rgba(255, 255, 255, 0.1);
+              --text-primary: #ffffff;
+              --text-secondary: rgba(255, 255, 255, 0.6);
+              --success-bg: rgba(34, 197, 94, 0.1);
+              --success-border: rgba(34, 197, 94, 0.3);
+              --success-color: #22c55e;
+              --error-bg: rgba(239, 68, 68, 0.1);
+              --error-border: rgba(239, 68, 68, 0.3);
+              --error-color: #ef4444;
+            }
+          }
+
+          @media (prefers-color-scheme: light) {
+            :root {
+              --bg-primary: #ffffff;
+              --bg-secondary: #f9fafb;
+              --border-color: #e5e7eb;
+              --text-primary: #111827;
+              --text-secondary: #6b7280;
+              --success-bg: rgba(34, 197, 94, 0.1);
+              --success-border: rgba(34, 197, 94, 0.2);
+              --success-color: #16a34a;
+              --error-bg: rgba(239, 68, 68, 0.1);
+              --error-border: rgba(239, 68, 68, 0.2);
+              --error-color: #dc2626;
+            }
+          }
+
           body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
             margin: 0;
-            background: ${type === "success"
-              ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-              : "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)"};
-            color: #1a202c;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             overflow: hidden;
           }
 
           .container {
             text-align: center;
             padding: 3rem 2rem;
-            max-width: 500px;
+            max-width: 450px;
             width: 90%;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            animation: slideIn 0.3s ease-out;
             position: relative;
           }
 
           @keyframes slideIn {
             from {
               opacity: 0;
-              transform: translateY(-30px) scale(0.9);
+              transform: translateY(10px);
             }
             to {
               opacity: 1;
-              transform: translateY(0) scale(1);
+              transform: translateY(0);
             }
           }
 
           .logo {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 1.5rem;
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 2rem;
             display: block;
           }
 
           .status-icon {
-            width: 80px;
-            height: 80px;
+            width: 72px;
+            height: 72px;
             margin: 0 auto 1.5rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 3rem;
-            font-weight: bold;
-            animation: ${type === "success" ? "successPop" : "errorShake"} 0.6s ease-out;
-            background: ${type === "success"
-              ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
-              : "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"};
-            color: white;
-            box-shadow: 0 8px 24px ${type === "success"
-              ? "rgba(16, 185, 129, 0.3)"
-              : "rgba(239, 68, 68, 0.3)"};
+            font-size: 2.5rem;
+            animation: ${type === "success" ? "successPop" : "errorShake"} 0.5s ease-out;
+            background: ${type === "success" ? "var(--success-bg)" : "var(--error-bg)"};
+            border: 2px solid ${type === "success" ? "var(--success-border)" : "var(--error-border)"};
+            color: ${type === "success" ? "var(--success-color)" : "var(--error-color)"};
           }
 
           @keyframes successPop {
@@ -357,7 +393,7 @@ ${payloadScript}
               opacity: 0;
             }
             50% {
-              transform: scale(1.1);
+              transform: scale(1.05);
             }
             100% {
               transform: scale(1);
@@ -367,51 +403,48 @@ ${payloadScript}
 
           @keyframes errorShake {
             0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
-            20%, 40%, 60%, 80% { transform: translateX(8px); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
           }
 
           h1 {
-            margin: 0 0 0.75rem;
-            color: #1a202c;
-            font-size: 1.875rem;
-            font-weight: 700;
-            line-height: 1.2;
+            margin: 0 0 0.5rem;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 600;
+            line-height: 1.3;
           }
 
           .provider-name {
-            color: ${type === "success" ? "#10b981" : "#ef4444"};
-            font-weight: 800;
+            color: ${type === "success" ? "var(--success-color)" : "var(--error-color)"};
+            font-weight: 700;
           }
 
           .message {
             margin: 0 0 1.5rem;
-            color: #4a5568;
-            font-size: 1.125rem;
-            line-height: 1.6;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
           }
 
           .subtitle {
             margin: 0.5rem 0 0;
-            color: #718096;
+            color: var(--text-secondary);
             font-size: 0.875rem;
-            font-weight: 500;
           }
 
           .progress-bar {
             width: 100%;
-            height: 4px;
-            background: #e2e8f0;
+            height: 3px;
+            background: var(--border-color);
             border-radius: 2px;
             overflow: hidden;
-            margin: 1rem 0;
+            margin: 1.5rem 0 0;
           }
 
           .progress-fill {
             height: 100%;
-            background: ${type === "success"
-              ? "linear-gradient(90deg, #10b981 0%, #059669 100%)"
-              : "linear-gradient(90deg, #ef4444 0%, #dc2626 100%)"};
+            background: ${type === "success" ? "var(--success-color)" : "var(--error-color)"};
             width: 0%;
             animation: fillProgress 2s ease-out forwards;
             border-radius: 2px;
@@ -423,21 +456,39 @@ ${payloadScript}
 
           .close-button {
             margin-top: 1.5rem;
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0.625rem 1.25rem;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             border: none;
             border-radius: 8px;
-            color: white;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             font-size: 0.875rem;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+          }
+
+          @media (prefers-color-scheme: dark) {
+            .close-button {
+              background: rgba(255, 255, 255, 0.9);
+              color: #0a0a0a;
+            }
+            .close-button:hover {
+              background: rgba(255, 255, 255, 1);
+            }
+          }
+
+          @media (prefers-color-scheme: light) {
+            .close-button {
+              background: #111827;
+              color: #ffffff;
+            }
+            .close-button:hover {
+              background: #1f2937;
+            }
           }
 
           .close-button:hover {
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
           }
 
           .close-button:active {
@@ -445,11 +496,11 @@ ${payloadScript}
           }
 
           .brand-footer {
-            margin-top: 1.5rem;
+            margin-top: 2rem;
             padding-top: 1rem;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid var(--border-color);
             font-size: 0.75rem;
-            color: #a0aec0;
+            color: var(--text-secondary);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -457,8 +508,9 @@ ${payloadScript}
           }
 
           .brand-footer img {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
+            opacity: 0.6;
           }
         </style>
       </head>
