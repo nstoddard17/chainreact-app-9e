@@ -201,21 +201,7 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
-  // Force rebuild - Debug: Log testModeDialogOpen on every render
-  console.log('🧪 [CollaborativeWorkflowBuilder] RENDER - testModeDialogOpen:', testModeDialogOpen)
-  console.log('🧪 [CollaborativeWorkflowBuilder] ALL PROPS:', {
-    testModeDialogOpen,
-    setTestModeDialogOpen: typeof setTestModeDialogOpen,
-    isExecutingTest,
-    handleRunTest: typeof handleRunTest
-  })
-
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
-
-  // Debug logging for test mode dialog
-  React.useEffect(() => {
-    console.log('🧪 [CollaborativeWorkflowBuilder] useEffect - testModeDialogOpen changed:', testModeDialogOpen)
-  }, [testModeDialogOpen])
 
   const sourceTemplateId = React.useMemo(
     () => currentWorkflow?.source_template_id || editTemplateId || null,
@@ -265,11 +251,10 @@ function WorkflowBuilderContent() {
   const edgesRef = React.useRef(edges)
   const hasUnsavedChangesRef = React.useRef(hasUnsavedChanges)
 
-  React.useEffect(() => {
-    nodesRef.current = nodes
-    edgesRef.current = edges
-    hasUnsavedChangesRef.current = hasUnsavedChanges
-  }, [nodes, edges, hasUnsavedChanges])
+  // Update refs directly - no need for useEffect since refs don't trigger re-renders
+  nodesRef.current = nodes
+  edgesRef.current = edges
+  hasUnsavedChangesRef.current = hasUnsavedChanges
 
   const handleExecuteCallback = React.useCallback(() => {
     handleExecute(nodesRef.current, edgesRef.current)
@@ -1591,28 +1576,21 @@ function WorkflowBuilderContent() {
       />
 
       {/* Test Mode Dialog */}
-      {(() => {
-        console.log('🧪 [CollaborativeWorkflowBuilder] Rendering TestModeDialog with open:', testModeDialogOpen)
-        return (
-          <TestModeDialog
-            open={testModeDialogOpen}
-            onOpenChange={(open) => {
-              console.log('🧪 TestModeDialog onOpenChange:', open)
-              setTestModeDialogOpen(open)
-            }}
-            workflowId={currentWorkflow?.id || ''}
-            triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
-            onRunTest={(config, mockVariation) => {
-              console.log('🧪 TestModeDialog onRunTest called', { config, mockVariation })
-              const currentNodes = getNodes()
-              const currentEdges = getEdges()
-              handleRunTest(currentNodes, currentEdges, config, mockVariation)
-            }}
-            interceptedActions={sandboxInterceptedActions}
-            isExecuting={isExecutingTest}
-          />
-        )
-      })()}
+      <TestModeDialog
+        open={testModeDialogOpen}
+        onOpenChange={(open) => {
+          setTestModeDialogOpen(open)
+        }}
+        workflowId={currentWorkflow?.id || ''}
+        triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
+        onRunTest={(config, mockVariation) => {
+          const currentNodes = getNodes()
+          const currentEdges = getEdges()
+          handleRunTest(currentNodes, currentEdges, config, mockVariation)
+        }}
+        interceptedActions={sandboxInterceptedActions}
+        isExecutingTest={isExecutingTest}
+      />
     </div>
     </TooltipProvider>
   )

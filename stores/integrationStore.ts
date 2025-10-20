@@ -434,10 +434,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setLoading(`connect-${providerId}`, false)
               emitIntegrationEvent('INTEGRATION_RECONNECTED', { providerId })
 
-              // Still fetch from server after a short delay to ensure consistency
-              setTimeout(() => {
-                fetchIntegrations(true) // Force refresh from server
-              }, 1500)
+              // Fetch from server immediately to update UI with real data
+              // Don't wait 1.5 seconds - user needs instant feedback
+              fetchIntegrations(true).catch(error => {
+                logger.error('Failed to refresh integrations after reconnect:', error)
+              })
             },
             onError: (error) => {
               clearTimeout(connectionTimeout) // Clear timeout on error
@@ -491,10 +492,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
               setLoading(`connect-${providerId}`, false)
               emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
 
-              // Still fetch from server after a short delay to ensure consistency
-              setTimeout(() => {
-                fetchIntegrations(true) // Force refresh from server to get real data
-              }, 1500)
+              // Fetch from server immediately to update UI with real data
+              // Don't wait 1.5 seconds - user needs instant feedback
+              fetchIntegrations(true).catch(error => {
+                logger.error('Failed to refresh integrations after connect:', error)
+              })
             },
             onError: (error) => {
               clearTimeout(connectionTimeout) // Clear timeout on error
@@ -653,12 +655,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
     reconnectIntegration: async (integrationId: string) => {
       const { setLoading, fetchIntegrations, integrations, setError } = get()
       const integration = integrations.find((i) => i.id === integrationId)
-      
+
       if (!integration) {
         logger.error("❌ Integration not found for ID:", integrationId)
         return
       }
-      
+
       setLoading(`reconnect-${integrationId}`, true)
       setError(null)
 
@@ -683,10 +685,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
             setLoading(`reconnect-${integrationId}`, false)
             emitIntegrationEvent('INTEGRATION_RECONNECTED', { integrationId, provider: integration.provider })
 
-            // Still fetch from server after a short delay to ensure consistency
-            setTimeout(() => {
-              fetchIntegrations(true)
-            }, 1500)
+            // Fetch from server immediately to update UI with real data
+            // Don't wait 1.5 seconds - user needs instant feedback
+            fetchIntegrations(true).catch(error => {
+              logger.error('Failed to refresh integrations after reconnect:', error)
+            })
           },
           onError: (error) => {
             setError(error)
