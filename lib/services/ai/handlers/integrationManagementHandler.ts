@@ -57,7 +57,7 @@ export class IntegrationManagementHandler extends BaseActionHandler {
         case "integration_status":
           return this.handleIntegrationStatus(intent.parameters, integrations)
         case "available_integrations":
-          return this.handleAvailableIntegrations()
+          return this.handleAvailableIntegrations(integrations)
         default:
           return this.getErrorResponse(`Integration query "${action}" is not supported yet.`)
       }
@@ -161,9 +161,11 @@ export class IntegrationManagementHandler extends BaseActionHandler {
       return {
         content: `${providerName} is ${integration.status}. Connected on ${new Date(integration.created_at).toLocaleDateString()}.`,
         metadata: {
-          type: "info",
+          type: "integration_status",
           provider: integration.provider,
-          status: integration.status
+          providerName,
+          status: integration.status,
+          connectedDate: new Date(integration.created_at).toLocaleDateString()
         }
       }
     }
@@ -201,45 +203,33 @@ export class IntegrationManagementHandler extends BaseActionHandler {
     }
   }
 
-  private handleAvailableIntegrations(): ActionExecutionResult {
-    const categories = [
-      {
-        name: 'Communication',
-        providers: ['gmail', 'microsoft-outlook', 'slack', 'discord', 'microsoft-teams']
-      },
-      {
-        name: 'Productivity',
-        providers: ['notion', 'airtable', 'trello', 'google-sheets', 'microsoft-onenote']
-      },
-      {
-        name: 'File Storage',
-        providers: ['google-drive', 'microsoft-onedrive', 'dropbox', 'box']
-      },
-      {
-        name: 'Business',
-        providers: ['hubspot', 'stripe', 'shopify', 'paypal']
-      },
-      {
-        name: 'Developer',
-        providers: ['github', 'gitlab']
-      },
-      {
-        name: 'Social Media',
-        providers: ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'youtube']
-      },
-      {
-        name: 'Calendar',
-        providers: ['google-calendar']
-      }
+  private handleAvailableIntegrations(integrations: Integration[]): ActionExecutionResult {
+    const allProviders = [
+      'gmail', 'microsoft-outlook', 'slack', 'discord', 'microsoft-teams',
+      'notion', 'airtable', 'trello', 'google-sheets', 'microsoft-onenote',
+      'google-drive', 'microsoft-onedrive', 'dropbox', 'box',
+      'hubspot', 'stripe', 'shopify', 'paypal',
+      'github', 'gitlab',
+      'twitter', 'facebook', 'instagram', 'linkedin', 'tiktok', 'youtube',
+      'google-calendar'
     ]
 
-    const formattedCategories = categories.map(cat => `**${cat.name}:** ${cat.providers.map(p => this.PROVIDER_NAMES[p] || p).join(', ')}`).join('\n\n')
+    // Build apps list with connection status
+    const apps = allProviders.map(providerId => {
+      const integration = integrations.find(i => i.provider === providerId)
+      return {
+        id: providerId,
+        name: this.PROVIDER_NAMES[providerId] || providerId,
+        connected: !!integration,
+        status: integration?.status
+      }
+    })
 
     return {
-      content: `ChainReact supports 20+ integrations:\n\n${formattedCategories}\n\nTo connect any of these, just say "Connect [integration name]" or visit the Integrations page.`,
+      content: `Here are the apps available on ChainReact:`,
       metadata: {
-        type: "info",
-        categories
+        type: "apps_grid",
+        apps
       }
     }
   }

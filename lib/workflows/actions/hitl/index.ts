@@ -5,11 +5,23 @@
  */
 
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 import type { ActionResult } from '../core/executeWait'
 import type { HITLConfig } from './types'
 import { sendDiscordHITLMessage } from './discord'
 import { resolveValue } from '../core/resolveValue'
+
+/**
+ * Create service role client for HITL database operations
+ * HITL needs service role to bypass RLS when creating conversation records
+ */
+function getServiceRoleClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 /**
  * Format previous node output into readable context
@@ -461,8 +473,10 @@ export async function executeHITL(
       throw new Error(`Channel type ${config.channel} not yet supported`)
     }
 
-    // Create conversation record in database
-    const { data: conversation, error: conversationError} = await supabase
+    // Create conversation record in database using service role client
+    // (HITL is a system operation that needs to bypass RLS)
+    const serviceClient = getServiceRoleClient()
+    const { data: conversation, error: conversationError} = await serviceClient
       .from('hitl_conversations')
       .insert({
         execution_id: context.executionId,
@@ -500,8 +514,8 @@ export async function executeHITL(
       throw new Error(`Failed to create conversation record: ${conversationError.message}`)
     }
 
-    // Update workflow execution to paused state
-    const { error: updateError } = await supabase
+    // Update workflow execution to paused state using service role client
+    const { error: updateError } = await serviceClient
       .from('workflow_executions')
       .update({
         status: 'paused',

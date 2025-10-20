@@ -25,14 +25,13 @@ export async function sendDiscordHITLMessage(
   conversationId: string
 ): Promise<DiscordMessageResult> {
   try {
-    // Get Discord bot token
-    const tokenResult = await getDecryptedAccessToken(userId, 'discord')
+    // Get Discord bot token from environment variables
+    // HITL uses the bot to send messages and create threads, not user's OAuth token
+    const botToken = process.env.DISCORD_BOT_TOKEN
 
-    if (!tokenResult.success || !tokenResult.accessToken) {
-      throw new Error('Failed to get Discord bot token')
+    if (!botToken) {
+      throw new Error('Discord bot token not configured in environment variables')
     }
-
-    const botToken = tokenResult.accessToken
 
     // Send the initial message
     const messageResponse = await fetch(
@@ -124,13 +123,12 @@ export async function sendDiscordThreadMessage(
   message: string
 ): Promise<boolean> {
   try {
-    const tokenResult = await getDecryptedAccessToken(userId, 'discord')
+    // Get Discord bot token from environment variables
+    const botToken = process.env.DISCORD_BOT_TOKEN
 
-    if (!tokenResult.success || !tokenResult.accessToken) {
-      throw new Error('Failed to get Discord bot token')
+    if (!botToken) {
+      throw new Error('Discord bot token not configured in environment variables')
     }
-
-    const botToken = tokenResult.accessToken
 
     const response = await fetch(
       `https://discord.com/api/v10/channels/${threadId}/messages`,
