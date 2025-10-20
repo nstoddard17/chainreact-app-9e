@@ -25,6 +25,7 @@ import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
 import { PreflightCheckDialog } from "./PreflightCheckDialog"
+import { TestModeDialog } from "./TestModeDialog"
 import { AirtableSetupPanel, type TemplateSetupData } from "@/components/templates/AirtableSetupPanel"
 import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
 import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
@@ -103,6 +104,16 @@ export function NewWorkflowBuilderContent() {
     testDataNodes,
     stopWebhookListening,
     skipToTestData,
+
+    // Sandbox/Test mode
+    testModeDialogOpen,
+    setTestModeDialogOpen,
+    isExecutingTest,
+    handleRunTest,
+    sandboxInterceptedActions,
+    setSandboxInterceptedActions,
+    showSandboxPreview,
+    setShowSandboxPreview,
 
     // Configuration
     configuringNode,
@@ -533,6 +544,19 @@ export function NewWorkflowBuilderContent() {
         }}
         onOpenIntegrations={() => handleNavigation(hasUnsavedChanges, "/integrations")}
         isRunning={isRunningPreflight}
+      />
+
+      {/* Test Mode Dialog */}
+      <TestModeDialog
+        open={testModeDialogOpen}
+        onOpenChange={setTestModeDialogOpen}
+        workflowId={currentWorkflow?.id || ''}
+        triggerType={nodes.find(n => n.data?.isTrigger)?.data?.type}
+        onRunTest={(config, mockVariation) => {
+          handleRunTest(nodes, edges, config, mockVariation)
+        }}
+        interceptedActions={sandboxInterceptedActions}
+        isExecuting={isExecuting || isExecutingTest}
       />
     </BuilderLayout>
   )

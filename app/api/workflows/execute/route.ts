@@ -6,6 +6,76 @@ import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 
 import { logger } from '@/lib/utils/logger'
 
+/**
+ * Generate mock trigger data for sandbox mode testing
+ */
+function generateMockTriggerData(triggerType: string, userId: string): any {
+  const timestamp = new Date().toISOString()
+
+  switch (triggerType) {
+    case 'gmail_trigger_new_email':
+      return {
+        email: {
+          id: `mock_email_${Date.now()}`,
+          subject: 'Test Email Subject',
+          from: 'test@example.com',
+          to: `user-${userId}@example.com`,
+          body: 'This is a test email body for workflow execution.',
+          timestamp,
+          labels: ['INBOX'],
+          unread: true
+        }
+      }
+
+    case 'gmail_trigger_new_attachment':
+      return {
+        email: {
+          id: `mock_email_${Date.now()}`,
+          subject: 'Email with Attachment',
+          from: 'test@example.com',
+          attachments: [
+            {
+              filename: 'test-document.pdf',
+              mimeType: 'application/pdf',
+              size: 12345
+            }
+          ]
+        }
+      }
+
+    case 'google_calendar_trigger_new_event':
+      return {
+        event: {
+          id: `mock_event_${Date.now()}`,
+          summary: 'Test Event',
+          start: timestamp,
+          end: new Date(Date.now() + 3600000).toISOString(),
+          attendees: ['test@example.com']
+        }
+      }
+
+    case 'discord_trigger_new_message':
+      return {
+        message: {
+          id: `mock_message_${Date.now()}`,
+          content: 'Test Discord message',
+          author: 'TestUser',
+          channelId: 'test-channel',
+          timestamp
+        }
+      }
+
+    default:
+      // Generic mock data for unknown trigger types
+      return {
+        triggered: true,
+        timestamp,
+        testData: true,
+        message: `Mock data for ${triggerType}`
+      }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     logger.debug("=== Workflow Execution Started (Refactored) ===")
@@ -274,9 +344,20 @@ export async function POST(request: Request) {
       connections: edges // Some parts of the code use 'connections' instead of 'edges'
     } : null
 
+    // Generate mock trigger data when in sandbox mode with skipTriggers
+    let effectiveInputData = inputData
+    if (effectiveTestMode && skipTriggers && (!inputData || Object.keys(inputData).length === 0)) {
+      // Find the trigger node that was skipped to determine what mock data to provide
+      const triggerNode = allNodes.find((n: any) => n.data?.isTrigger)
+      if (triggerNode) {
+        logger.debug('📦 Generating mock trigger data for:', triggerNode.data?.type)
+        effectiveInputData = generateMockTriggerData(triggerNode.data?.type, userId)
+      }
+    }
+
     const executionResult = await workflowExecutionService.executeWorkflow(
       workflow,
-      inputData,
+      effectiveInputData,
       userId,
       effectiveTestMode,
       filteredWorkflowData,

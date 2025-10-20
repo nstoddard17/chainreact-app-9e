@@ -1,0 +1,161 @@
+=== Log Session Started: 2025-10-20T03:28:35.300Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T03:28:35.301Z] [INFO   ] File logging initialized
+[2025-10-20T03:28:35.301Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-28-35.log
+[2025-10-20T03:28:35.304Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T03:28:35.304Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-28-35.log
+[2025-10-20T03:28:35.304Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-28-35.log
+[2025-10-20T03:28:35.304Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-28-35.log
+[2025-10-20T03:28:35.304Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-28-35.log
+[2025-10-20T03:28:35.304Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T03:28:35.305Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T03:28:35.320Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-20T03:28:35.339Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T03:28:35.447Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 101ms (233 modules)
+[2025-10-20T03:28:35.904Z] [INFO   ] 2025-10-20T03:28:35.904Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364228504}
+[2025-10-20T03:28:36.323Z] [INFO   ] 2025-10-20T03:28:36.323Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T03:28:38.309Z] [INFO   ] 2025-10-20T03:28:38.308Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T03:28:38.309Z] [INFO   ] 2025-10-20T03:28:38.309Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T03:28:38.313Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-20T03:28:38.535Z] [INFO   ] 2025-10-20T03:28:38.535Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T03:28:38.536Z] [INFO   ] 2025-10-20T03:28:38.536Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T03:28:38.738Z] [INFO   ] 2025-10-20T03:28:38.738Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T03:28:38.741Z] [INFO   ] 2025-10-20T03:28:38.741Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T03:28:38.913Z] [INFO   ] 2025-10-20T03:28:38.913Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"47a9a2c2831098adfad94149b24ad0ea","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T03:28:38.913Z] [INFO   ] 2025-10-20T03:28:38.913Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T03:28:38.914Z] [INFO   ] 2025-10-20T03:28:38.914Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:28:38.918Z] [INFO   ] 2025-10-20T03:28:38.918Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:28:39.105Z] [INFO   ] 2025-10-20T03:28:39.105Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T03:28:43.490Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 7.5s (5696 modules)
+[2025-10-20T03:28:43.568Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T03:28:44.121Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 607ms (1576 modules)
+[2025-10-20T03:28:44.141Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T03:28:44.522Z] [INFO   ] 2025-10-20T03:28:44.522Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:28:44.522Z"}
+[2025-10-20T03:28:44.531Z] [INFO   ] 2025-10-20T03:28:44.531Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:28:44.531Z"}
+[2025-10-20T03:28:44.531Z] [INFO   ] 2025-10-20T03:28:44.531Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:28:44.531Z"}
+[2025-10-20T03:28:44.591Z] [INFO   ] 2025-10-20T03:28:44.591Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364237192}
+[2025-10-20T03:28:44.592Z] [INFO   ] 2025-10-20T03:28:44.592Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364237193}
+[2025-10-20T03:28:44.691Z] [INFO   ] 2025-10-20T03:28:44.691Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364237292}
+[2025-10-20T03:28:44.870Z] [INFO   ] 2025-10-20T03:28:44.870Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:28:45.253Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:28:45.433Z] [INFO   ] 2025-10-20T03:28:45.432Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:28:45.441Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:28:51.477Z] [INFO   ] 2025-10-20T03:28:51.477Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364244078}
+[2025-10-20T03:28:51.768Z] [INFO   ] 2025-10-20T03:28:51.768Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:28:51.778Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:28:58.394Z] [INFO   ]  [37m[1m○[22m[39m Compiling /ai-assistant ...
+[2025-10-20T03:28:59.811Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2s (5826 modules)
+[2025-10-20T03:29:00.106Z] [INFO   ] 2025-10-20T03:29:00.106Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:29:00.106Z"}
+[2025-10-20T03:29:00.109Z] [INFO   ] 2025-10-20T03:29:00.109Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:29:00.109Z"}
+[2025-10-20T03:29:00.109Z] [INFO   ] 2025-10-20T03:29:00.109Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:29:00.109Z"}
+[2025-10-20T03:29:00.388Z] [INFO   ] 2025-10-20T03:29:00.387Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:29:01.171Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-20T03:29:01.906Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1237ms (5835 modules)
+[2025-10-20T03:29:02.051Z] [INFO   ] 2025-10-20T03:29:02.051Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T03:29:02.051Z","headers":{"referer":"check-console"}}
+[2025-10-20T03:29:02.154Z] [INFO   ] 2025-10-20T03:29:02.154Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T03:29:02.302Z] [INFO   ] 2025-10-20T03:29:02.301Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T03:29:03.128Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/conversations ...
+[2025-10-20T03:29:03.479Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/conversations in 851ms (5839 modules)
+[2025-10-20T03:29:16.836Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/execute ...
+[2025-10-20T03:29:19.896Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/execute in 3.6s (7851 modules)
+[2025-10-20T03:29:23.075Z] [INFO   ] 2025-10-20T03:29:23.075Z [DEBUG] === Workflow Execution Started (Refactored) ===
+[2025-10-20T03:29:23.075Z] [INFO   ] 2025-10-20T03:29:23.075Z [DEBUG] 📊 [Execute Route] Request content-length: 46930
+[2025-10-20T03:29:23.076Z] [INFO   ] 2025-10-20T03:29:23.076Z [DEBUG] 📊 [Execute Route] Request body text length: 46914
+[2025-10-20T03:29:23.077Z] [INFO   ] 2025-10-20T03:29:23.076Z [DEBUG] 📊 [Execute Route] Workflow data received: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","hasWorkflowData":true,"nodesCount":4,"nodeTypes":[{"id":"trigger-1760813764735","type":"gmail_trigger_new_email"},{"id":"action-1760841495900","type":"hitl_conversation"},{"id":"action-1760841551096","type":"discord_action_send_message"},{"id":"add-action-action-1760841551096"}],"hasTestModeConfig":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes","showDetailedSteps":true,"captureStepData":true}}
+[2025-10-20T03:29:23.077Z] [INFO   ] 2025-10-20T03:29:23.077Z [DEBUG] Execution parameters: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","testMode":true,"executionMode":"sandbox","effectiveTestMode":true,"skipTriggers":true,"hasInputData":true,"hasWorkflowData":true}
+[2025-10-20T03:29:23.223Z] [INFO   ] 2025-10-20T03:29:23.223Z [DEBUG] Workflow found: {"id":"8340b576-0b3d-4af6-8e9b-8769b61147d1","name":"test","nodesCount":3}
+[2025-10-20T03:29:23.304Z] [INFO   ] 2025-10-20T03:29:23.304Z [DEBUG] User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:29:23.305Z] [INFO   ] 2025-10-20T03:29:23.305Z [DEBUG] Skipping trigger node: trigger-1760813764735 (gmail_trigger_new_email)
+[2025-10-20T03:29:23.305Z] [INFO   ] 2025-10-20T03:29:23.305Z [DEBUG] Workflow structure: {"originalNodesCount":4,"filteredNodesCount":2,"skippedUINodes":2,"edgesCount":1,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:29:23.305Z] [INFO   ] 2025-10-20T03:29:23.305Z [DEBUG] Action nodes found (triggers skipped): 2
+[2025-10-20T03:29:23.305Z] [INFO   ] 2025-10-20T03:29:23.305Z [DEBUG] Starting workflow execution with effectiveTestMode: true
+[2025-10-20T03:29:23.306Z] [INFO   ] 2025-10-20T03:29:23.306Z [DEBUG] 🚀 Starting workflow execution service {"testMode":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes"}}
+[2025-10-20T03:29:23.306Z] [INFO   ] 2025-10-20T03:29:23.306Z [DEBUG] Executing workflow with: {"originalNodesCount":2,"validNodesCount":2,"skippedNodes":0,"connectionsCount":1,"usingWorkflowData":true,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:29:23.306Z] [INFO   ] 2025-10-20T03:29:23.306Z [DEBUG] ⚙️ Fallback: starting from 1 root action node(s) (no triggers present)
+[2025-10-20T03:29:23.307Z] [INFO   ] 2025-10-20T03:29:23.307Z [DEBUG] 🔄 ExecutionProgressTracker.initialize called {"executionId":"exec-1760930963306-7ojkps","workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","totalNodes":2}
+[2025-10-20T03:29:23.406Z] [INFO   ] 2025-10-20T03:29:23.406Z [DEBUG] ✅ Execution progress tracker initialized: 7b056d74-8dc9-44f6-bbb2-4cfeb21bf2a3
+[2025-10-20T03:29:23.585Z] [INFO   ] 2025-10-20T03:29:23.585Z [DEBUG] 📝 Started execution history tracking: 5e8fc1de-b848-453a-bcf6-ac524f74ebb2
+[2025-10-20T03:29:23.586Z] [INFO   ] 2025-10-20T03:29:23.586Z [DEBUG] 🔧 Creating execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:29:23.672Z] [INFO   ] 2025-10-20T03:29:23.672Z [DEBUG] 📊 Loaded 0 workflow variables
+[2025-10-20T03:29:23.672Z] [INFO   ] 2025-10-20T03:29:23.672Z [DEBUG] ✅ Created execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:29:23.673Z] [INFO   ] 2025-10-20T03:29:23.673Z [DEBUG] 📍 Starting execution with 1 starting nodes
+[2025-10-20T03:29:23.673Z] [INFO   ] 2025-10-20T03:29:23.673Z [DEBUG] 🎯 Executing action node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:29:23.673Z] [INFO   ] 2025-10-20T03:29:23.673Z [DEBUG] Updating execution progress: {"currentNodeId":"action-1760841495900","currentNodeName":"Ask Human via Chat","progressPercentage":0}
+[2025-10-20T03:29:23.757Z] [INFO   ] 2025-10-20T03:29:23.757Z [DEBUG] 🔧 Executing node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:29:23.895Z] [INFO   ] 2025-10-20T03:29:23.895Z [DEBUG] 📝 Recorded step 1: hitl_conversation (action-1760841495900)
+[2025-10-20T03:29:23.896Z] [INFO   ] 2025-10-20T03:29:23.896Z [DEBUG] 💬 Executing HITL conversation node
+[2025-10-20T03:29:23.898Z] [INFO   ] 2025-10-20T03:29:23.898Z [DEBUG] 🔍 Resolving variable: {{*}}
+[2025-10-20T03:29:23.898Z] [INFO   ] 2025-10-20T03:29:23.898Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:29:23.899Z] [INFO   ] 2025-10-20T03:29:23.899Z [DEBUG] [HITL] No external memory document configured
+[2025-10-20T03:29:23.899Z] [INFO   ] 2025-10-20T03:29:23.899Z [DEBUG] 🔍 Resolving variable: **Workflow Paused for Review**
+
+Here's the data from the previous step:
+{{*}}
+
+Let me know when you're ready to continue!
+[2025-10-20T03:29:23.899Z] [INFO   ] 2025-10-20T03:29:23.899Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:29:24.098Z] [INFO   ] 2025-10-20T03:29:24.098Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429672827401015398","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n\nLet me know when you're re","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:29:24.098Z] [INFO   ] 2025-10-20T03:29:24.098Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:29:24.284Z] [INFO   ] 2025-10-20T03:29:24.284Z [DEBUG] 📡 Discord event received: MESSAGE_UPDATE
+[2025-10-20T03:29:24.303Z] [INFO   ] 2025-10-20T03:29:24.303Z [DEBUG] 📡 Discord event received: THREAD_CREATE
+[2025-10-20T03:29:24.304Z] [INFO   ] 2025-10-20T03:29:24.304Z [DEBUG] 📡 Discord event received: THREAD_MEMBER_UPDATE
+[2025-10-20T03:29:24.306Z] [INFO   ] 2025-10-20T03:29:24.306Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429672828319563838","channelId":"1429672827401015398","guildId":"1378950884045623406","content":"","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:29:24.306Z] [INFO   ] 2025-10-20T03:29:24.306Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:29:24.383Z] [INFO   ] 2025-10-20T03:29:24.383Z [INFO] HITL Discord message sent with thread {"messageId":"1429672827401015398","threadId":"1429672827401015398","conversationId":"hitl_exec-1760930963306-7ojkps_action-1760841495900_1760930963899"}
+[2025-10-20T03:29:24.469Z] [ERROR  ] 2025-10-20T03:29:24.468Z [ERROR] Failed to create HITL conversation {"error":{"code":"PGRST204","details":null,"hint":null,"message":"Could not find the 'context_data' column of 'hitl_conversations' in the schema cache"}}
+[2025-10-20T03:29:24.470Z] [ERROR  ] 2025-10-20T03:29:24.469Z [ERROR] HITL execution error {"error":"Failed to create conversation record: Could not find the 'context_data' column of 'hitl_conversations' in the schema cache"}
+[2025-10-20T03:29:24.471Z] [INFO   ] 2025-10-20T03:29:24.471Z [DEBUG] 💾 Stored output for node action-1760841495900: {"success":false,"dataKeys":["success","error","message"]}
+[2025-10-20T03:29:24.471Z] [WARN   ] 2025-10-20T03:29:24.471Z [WARN] ⚠️ Node action-1760841495900 failed, stopping execution of connected nodes {"error":"Failed to create conversation record: Could not find the 'context_data' column of 'hitl_conversations' in the schema cache","message":"HITL failed: Failed to create conversation record: Could not find the 'context_data' column of 'hitl_conversations' in the schema cache"}
+[2025-10-20T03:29:24.471Z] [INFO   ] 2025-10-20T03:29:24.471Z [DEBUG] ✅ Node action-1760841495900 completed in 714ms
+[2025-10-20T03:29:24.647Z] [INFO   ] 2025-10-20T03:29:24.647Z [DEBUG] ✅ Step action-1760841495900 completed (714ms)
+[2025-10-20T03:29:24.648Z] [INFO   ] 2025-10-20T03:29:24.648Z [DEBUG]    Node action-1760841495900 execution result: {"success":false,"hasError":true,"hasResults":false}
+[2025-10-20T03:29:24.649Z] [INFO   ] 2025-10-20T03:29:24.649Z [DEBUG] Updating execution progress: {"completedNodes":[],"failedNodes":[{"nodeId":"action-1760841495900","error":"Failed to create conversation record: Could not find the 'context_data' column of 'hitl_conversations' in the schema cache"}],"progressPercentage":0}
+[2025-10-20T03:29:24.722Z] [INFO   ] 2025-10-20T03:29:24.722Z [DEBUG] ✅ Workflow execution completed with 1 results
+[2025-10-20T03:29:24.723Z] [INFO   ] 2025-10-20T03:29:24.723Z [DEBUG] Updating execution progress: {"status":"failed","errorMessage":"Workflow execution completed with errors","progressPercentage":100}
+[2025-10-20T03:29:24.804Z] [INFO   ] 2025-10-20T03:29:24.804Z [DEBUG] ✅ Execution failed
+[2025-10-20T03:29:24.881Z] [INFO   ] 2025-10-20T03:29:24.881Z [DEBUG] ✅ Execution 5e8fc1de-b848-453a-bcf6-ac524f74ebb2 completed
+[2025-10-20T03:29:24.882Z] [INFO   ] 2025-10-20T03:29:24.882Z [DEBUG] Workflow execution completed successfully
+[2025-10-20T03:29:33.247Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-20T03:29:33.440Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 861ms (7853 modules)
+[2025-10-20T03:38:30.151Z] [INFO   ] 2025-10-20T03:38:30.150Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T03:38:31.304Z] [INFO   ] 2025-10-20T03:38:31.303Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T03:40:55.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1226ms (1636 modules)
+[2025-10-20T03:40:55.597Z] [INFO   ] 2025-10-20T03:40:55.596Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:40:55.780Z] [INFO   ] 2025-10-20T03:40:55.779Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364968380}
+[2025-10-20T03:40:55.960Z] [INFO   ] 2025-10-20T03:40:55.959Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:40:56.662Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-20T03:40:57.444Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1327ms (5830 modules)
+[2025-10-20T03:40:57.621Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T03:40:57.841Z] [INFO   ] 2025-10-20T03:40:57.841Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364970442}
+[2025-10-20T03:40:58.103Z] [INFO   ] 2025-10-20T03:40:58.103Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:40:58.103Z"}
+[2025-10-20T03:40:58.113Z] [INFO   ] 2025-10-20T03:40:58.113Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:40:58.113Z"}
+[2025-10-20T03:40:58.113Z] [INFO   ] 2025-10-20T03:40:58.113Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:40:58.113Z"}
+[2025-10-20T03:40:58.325Z] [INFO   ] 2025-10-20T03:40:58.325Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:40:58.691Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:40:59.391Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 368ms (4210 modules)
+[2025-10-20T03:40:59.700Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 0ms (4214 modules)
+[2025-10-20T03:40:59.942Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4217 modules)
+[2025-10-20T03:41:00.204Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4217 modules)
+[2025-10-20T03:41:00.514Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4217 modules)
+[2025-10-20T03:41:00.542Z] [INFO   ] 2025-10-20T03:41:00.542Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T03:41:00.542Z","headers":{"referer":"check-console"}}
+[2025-10-20T03:41:00.638Z] [INFO   ] 2025-10-20T03:41:00.638Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T03:41:00.848Z] [INFO   ] 2025-10-20T03:41:00.848Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T03:41:17.525Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 451ms (1636 modules)
+[2025-10-20T03:41:17.640Z] [INFO   ] 2025-10-20T03:41:17.640Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:41:18.107Z] [INFO   ] 2025-10-20T03:41:18.106Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12364990707}
+[2025-10-20T03:41:18.254Z] [INFO   ] 2025-10-20T03:41:18.254Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:47:18.149Z] [INFO   ] 2025-10-20T03:47:18.148Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12365350749}
+[2025-10-20T03:47:18.488Z] [INFO   ] 2025-10-20T03:47:18.488Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:47:18.488Z"}
+[2025-10-20T03:47:18.489Z] [INFO   ] 2025-10-20T03:47:18.489Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:47:18.489Z"}
+[2025-10-20T03:47:18.489Z] [INFO   ] 2025-10-20T03:47:18.489Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:47:18.489Z"}
+[2025-10-20T03:47:18.724Z] [INFO   ] 2025-10-20T03:47:18.724Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:47:19.117Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:47:19.511Z] [INFO   ] 2025-10-20T03:47:19.511Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T03:47:19.511Z","headers":{"referer":"check-console"}}
+[2025-10-20T03:47:19.727Z] [INFO   ] 2025-10-20T03:47:19.727Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T03:47:19.836Z] [INFO   ] 2025-10-20T03:47:19.836Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+
+=== Log Session Ended: 2025-10-20T03:47:23.459Z ===

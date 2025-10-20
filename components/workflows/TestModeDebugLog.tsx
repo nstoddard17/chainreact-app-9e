@@ -120,20 +120,23 @@ export function TestModeDebugLog({ isActive, onClear }: TestModeDebugLogProps) {
           // If this is the second occurrence, update the first message to show repetition
           if (existing.count === 2) {
             // Find and update the original log entry to show it's repeating
-            setLogs(prevLogs => {
-              const lastIndex = prevLogs.findIndex(log =>
-                log.message === existing.firstMessage &&
-                log.level === 'info'
-              )
-              if (lastIndex !== -1) {
-                const updatedLogs = [...prevLogs]
-                updatedLogs[lastIndex] = {
-                  ...updatedLogs[lastIndex],
-                  message: `${existing.firstMessage} (repeating...)`
+            // Defer to avoid setState during render
+            queueMicrotask(() => {
+              setLogs(prevLogs => {
+                const lastIndex = prevLogs.findIndex(log =>
+                  log.message === existing.firstMessage &&
+                  log.level === 'info'
+                )
+                if (lastIndex !== -1) {
+                  const updatedLogs = [...prevLogs]
+                  updatedLogs[lastIndex] = {
+                    ...updatedLogs[lastIndex],
+                    message: `${existing.firstMessage} (repeating...)`
+                  }
+                  return updatedLogs
                 }
-                return updatedLogs
-              }
-              return prevLogs
+                return prevLogs
+              })
             })
           }
 

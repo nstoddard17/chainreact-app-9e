@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -44,7 +45,9 @@ import {
   TaskRenderer,
   ErrorRenderer,
   QuestionRenderer,
-  IntegrationConnectionRenderer
+  IntegrationConnectionRenderer,
+  IntegrationStatusRenderer,
+  AppsGridRenderer
 } from './data-renderers'
 
 interface Message {
@@ -56,7 +59,8 @@ interface Message {
     type?: "calendar" | "email" | "file" | "confirmation" | "social" | "crm" | "ecommerce" |
            "developer" | "productivity" | "communication" | "integration_not_connected" |
            "error" | "notion_page_hierarchy" | "table" | "json" | "code" | "metrics" | "list" |
-           "task" | "warning" | "info" | "question" | "integration_connect"
+           "task" | "warning" | "info" | "question" | "integration_connect" | "integration_status" |
+           "apps_grid"
     data?: any
     requiresConfirmation?: boolean
     integration?: string
@@ -88,8 +92,49 @@ interface Message {
     provider?: string
     providerName?: string
     oauthUrl?: string
+    // Integration status fields
+    connectedDate?: string
+    status?: string
+    // Apps grid fields
+    apps?: Array<{
+      id: string
+      name: string
+      connected: boolean
+      status?: string
+    }>
   }
   conversationId?: string
+}
+
+interface Conversation {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  preview: string
+}
+
+// Typing animation component for conversation titles
+function TypingText({ text, onComplete }: { text: string, onComplete?: () => void }) {
+  const [displayedText, setDisplayedText] = useState("")
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timeout = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex])
+        setCurrentIndex(prev => prev + 1)
+      }, 30) // 30ms per character for smooth typing
+
+      return () => clearTimeout(timeout)
+    } else if (onComplete) {
+      // Wait a bit after finishing before calling onComplete
+      const timeout = setTimeout(onComplete, 1000)
+      return () => clearTimeout(timeout)
+    }
+  }, [currentIndex, text, onComplete])
+
+  return <>{displayedText}</>
 }
 
 export default function AIAssistantContent() {
@@ -98,6 +143,10 @@ export default function AIAssistantContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [pendingConfirmation, setPendingConfirmation] = useState<any>(null)
   const [conversationId, setConversationId] = useState<string | undefined>(undefined)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false)
+  const [activeConversationTitle, setActiveConversationTitle] = useState<string>("New Chat")
+  const [typingConversationId, setTypingConversationId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
@@ -112,6 +161,178 @@ export default function AIAssistantContent() {
       }
     };
   }, []);
+
+  // Load conversations on mount with timeout safety
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout
+    let mounted = true
+
+    // Safety timeout - if loading takes more than 10 seconds, force it to complete
+    timeoutId = setTimeout(() => {
+      if (mounted) {
+        logger.warn("Conversation loading timed out, forcing completion")
+        setIsLoadingConversations(false)
+        setConversations([])
+      }
+    }, 10000)
+
+    loadConversations().finally(() => {
+      if (mounted) {
+        clearTimeout(timeoutId)
+      }
+    })
+
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const loadConversations = async () => {
+    setIsLoadingConversations(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        logger.debug("No session found, skipping conversation load")
+        setConversations([])
+        setIsLoadingConversations(false)
+        return
+      }
+
+      logger.debug("Loading conversations...")
+      const response = await fetch("/api/ai/conversations", {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        logger.debug(`Loaded ${data.conversations?.length || 0} conversations`)
+        setConversations(data.conversations || [])
+      } else {
+        // Table might not exist yet - that's okay
+        logger.warn("Could not load conversations:", response.status)
+        setConversations([])
+      }
+    } catch (error) {
+      logger.warn("Error loading conversations (table may not exist yet):", error)
+      setConversations([])
+    } finally {
+      setIsLoadingConversations(false)
+      logger.debug("Conversation loading complete")
+    }
+  }
+
+  const loadConversation = async (convId: string) => {
+    setIsLoading(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      const response = await fetch(`/api/ai/conversations/${convId}`, {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setConversationId(convId)
+        setMessages(data.messages || [])
+        setActiveConversationTitle(data.title || "New Chat")
+      }
+    } catch (error) {
+      logger.error("Error loading conversation:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load conversation",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const startNewChat = () => {
+    setMessages([])
+    setConversationId(undefined)
+    setActiveConversationTitle("New Chat")
+    setTypingConversationId(null)
+  }
+
+  const generateConversationTitle = (firstMessage: string): string => {
+    // Take first 50 characters of the message as title
+    const title = firstMessage.slice(0, 50)
+    return title.length < firstMessage.length ? `${title}...` : title
+  }
+
+  const saveConversation = async (convId: string | undefined, title: string, msgs: Message[]): Promise<string | null> => {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return null
+
+      const preview = msgs[0]?.content.slice(0, 100) || ""
+
+      // Validate UUID format - only send id if it's a valid UUID
+      const isValidUUID = convId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(convId)
+
+      const response = await fetch("/api/ai/conversations", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: isValidUUID ? convId : undefined, // Only send valid UUIDs
+          title,
+          preview,
+          messages: msgs,
+        }),
+      })
+
+      if (!response.ok) {
+        logger.error("Failed to save conversation:", await response.text())
+        return null
+      }
+
+      const data = await response.json()
+      return data.conversation?.id || null
+    } catch (error) {
+      logger.error("Error saving conversation:", error)
+      return null
+    }
+  }
+
+  const updateConversation = async (convId: string, allCurrentMessages: Message[]) => {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      // Save the complete conversation history
+      const response = await fetch(`/api/ai/conversations/${convId}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: allCurrentMessages,
+        }),
+      })
+
+      if (!response.ok) {
+        logger.error("Failed to update conversation:", await response.text())
+      }
+    } catch (error) {
+      logger.error("Error updating conversation:", error)
+    }
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -161,9 +382,157 @@ export default function AIAssistantContent() {
     }
   }
 
+  const getLocalResponse = (message: string): string | null => {
+    // Remove punctuation and normalize
+    const lowerMessage = message.toLowerCase().trim().replace(/[?!.,;:]/g, '')
+
+    // Simple greetings - no API call needed
+    const greetings = ['hi', 'hello', 'hey', 'howdy', 'greetings', 'good morning', 'good afternoon', 'good evening']
+    if (greetings.includes(lowerMessage)) {
+      const responses = [
+        "Hello! I'm here to help you get the most out of ChainReact.",
+        "Hi there! Great to see you.",
+        "Hey! Ready to streamline your workflows?",
+        "Welcome! Let's get you set up.",
+      ]
+      const greeting = responses[Math.floor(Math.random() * responses.length)]
+
+      return `${greeting} Here's what I can help you with:
+
+### 🔗 Integrations & Connections
+Manage your connected apps—Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
+
+### ⚡ Workflows & Automation
+View your workflows, check their status, activate or pause them, and get detailed insights into how they're performing.
+
+### 📊 Data & Insights
+Query your calendars, browse emails, search files, and pull data from all your productivity tools like Notion, Airtable, and Trello.
+
+### 💡 Help & Guidance
+Learn how to build powerful workflows, discover ChainReact features, and get expert tips to optimize your automation.
+
+**What would you like to explore first?**`
+    }
+
+    // Acknowledgments - no API call needed
+    const acknowledgments = ['thanks', 'thank you', 'thx', 'ty', 'appreciate it', 'ok', 'okay', 'got it', 'understood', 'perfect', 'great', 'awesome', 'nice']
+    if (acknowledgments.includes(lowerMessage)) {
+      const responses = [
+        "You're welcome! Let me know if you need anything else.",
+        "Happy to help! What else can I do for you?",
+        "Glad I could help! Anything else you'd like to explore?",
+        "Anytime! Feel free to ask me anything.",
+      ]
+      return responses[Math.floor(Math.random() * responses.length)]
+    }
+
+    // Help requests - no API call needed
+    const helpPatterns = [
+      'help', 'what can you do', 'what do you do', 'how can you help',
+      'what are your capabilities', 'what can i do', 'show me what you can do'
+    ]
+    if (helpPatterns.some(pattern => lowerMessage.includes(pattern))) {
+      return `I'm here to help! Here's what I can do:
+
+### 🔗 Integrations & Connections
+Manage your connected apps—Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
+
+### ⚡ Workflows & Automation
+View your workflows, check their status, activate or pause them, and get detailed insights into how they're performing.
+
+### 📊 Data & Insights
+Query your calendars, browse emails, search files, and pull data from all your productivity tools like Notion, Airtable, and Trello.
+
+### 💡 Help & Guidance
+Learn how to build powerful workflows, discover ChainReact features, and get expert tips to optimize your automation.
+
+**What would you like to explore first?**`
+    }
+
+    // How to create a workflow - no API call needed
+    if (lowerMessage.includes('how') && (lowerMessage.includes('create workflow') || lowerMessage.includes('make workflow') || lowerMessage.includes('build workflow'))) {
+      return `Creating a workflow is easy! Here's how:
+
+### 📝 Step-by-Step:
+1. Go to the [Workflows page](/workflows)
+2. Click the **"Create Workflow"** button
+3. Choose a trigger (what starts your workflow)
+4. Add actions (what happens when triggered)
+5. Configure your nodes by clicking on them
+6. Connect them together
+7. Click **"Activate"** when you're ready!
+
+### 💡 Pro Tips:
+- Start with a template to get going faster
+- Use the AI agent node for intelligent automation
+- Test your workflow before activating it
+
+**Want me to show you your active workflows or help with something specific?**`
+    }
+
+    // Pricing questions - no API call needed
+    if (lowerMessage.includes('pricing') || lowerMessage.includes('how much') || lowerMessage.includes('cost') || lowerMessage.includes('price')) {
+      return `Great question! Here's our pricing structure:
+
+### 💰 Pricing Plans:
+- **Free Tier**: Perfect for getting started
+- **Pro Plan**: Advanced features and more workflows
+- **Enterprise**: Custom solutions for teams
+
+For detailed pricing and features, check out our [Pricing page](/pricing).
+
+**Want to know what plan you're currently on or need help upgrading?**`
+    }
+
+    return null
+  }
+
   const handleSendMessage = async (messageText?: string, selectedOptionId?: string) => {
     const finalMessage = messageText || input.trim()
     if (!finalMessage || isLoading) return
+
+    // Check for local responses first (saves API costs)
+    const localResponse = getLocalResponse(finalMessage)
+    if (localResponse && !selectedOptionId) {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: "user",
+        content: finalMessage,
+        timestamp: new Date(),
+      }
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: localResponse,
+        timestamp: new Date(),
+        metadata: { type: "general_help", local: true }
+      }
+
+      const newMessages = [...messages, userMessage, assistantMessage]
+      setMessages(newMessages)
+      if (!messageText) setInput("")
+
+      // Generate conversation title and save - important for complete history!
+      if (!conversationId) {
+        const conversationTitle = generateConversationTitle(finalMessage)
+        setActiveConversationTitle(conversationTitle)
+
+        // Save the conversation and get the generated UUID from the database
+        const newConversationId = await saveConversation(undefined, conversationTitle, [userMessage, assistantMessage])
+
+        if (newConversationId) {
+          setConversationId(newConversationId)
+          setTypingConversationId(newConversationId) // Trigger typing animation
+          await loadConversations() // Refresh the conversation list
+        }
+      } else {
+        // Update existing conversation with ALL messages
+        await updateConversation(conversationId, newMessages)
+      }
+
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -248,11 +617,33 @@ export default function AIAssistantContent() {
           conversationId: data.conversationId
         }
 
-        setMessages(prev => [...prev, assistantMessage])
+        const allMessages = [...messages, userMessage, assistantMessage]
+        setMessages(allMessages)
 
         // Store conversation ID for subsequent messages
-        if (data.conversationId) {
-          setConversationId(data.conversationId)
+        const previousConversationId = conversationId
+
+        // Check if this is the first API message or if we're transitioning from local to API
+        const isFirstApiMessage = !previousConversationId
+
+        if (isFirstApiMessage) {
+          // This is the first message - save the conversation and get the UUID
+          const conversationTitle = generateConversationTitle(
+            messages.find(m => m.role === 'user')?.content || userMessage.content
+          )
+          setActiveConversationTitle(conversationTitle)
+
+          // Save and get the generated conversation ID
+          const newConversationId = await saveConversation(data.conversationId || undefined, conversationTitle, allMessages)
+
+          if (newConversationId) {
+            setConversationId(newConversationId)
+            setTypingConversationId(newConversationId) // Trigger typing animation
+            await loadConversations() // Refresh the conversation list
+          }
+        } else {
+          // Update existing conversation with ALL messages
+          await updateConversation(previousConversationId, allMessages)
         }
 
         if (data.metadata?.requiresConfirmation) {
@@ -582,22 +973,104 @@ export default function AIAssistantContent() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-13rem)] -mx-6 -my-6">
-      {/* Empty State / Suggestions - Show when no messages */}
-      {messages.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+    <div className="flex h-full w-full">
+      {/* Chat History Sidebar */}
+      <div className="w-72 border-r bg-muted/30 flex flex-col shrink-0">
+        <div className="p-4 border-b">
+          <h3 className="font-semibold text-sm">Chat History</h3>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {isLoadingConversations ? (
+            <div className="p-4 text-center">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-1 p-2">
+              {/* Show current "New Chat" if no conversationId */}
+              {!conversationId && messages.length === 0 && (
+                <button
+                  className="w-full text-left p-3 rounded-lg bg-muted"
+                >
+                  <div className="font-medium text-sm truncate mb-1">
+                    New Chat
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    Start a conversation...
+                  </div>
+                </button>
+              )}
+
+              {conversations.length === 0 && conversationId ? (
+                <div className="p-4 text-sm text-muted-foreground text-center mt-4">
+                  No previous conversations
+                </div>
+              ) : (
+                conversations.map((conversation) => (
+                  <button
+                    key={conversation.id}
+                    onClick={() => loadConversation(conversation.id)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-lg hover:bg-muted transition-colors",
+                      conversationId === conversation.id && "bg-muted"
+                    )}
+                  >
+                    <div className="font-medium text-sm truncate mb-1">
+                      {typingConversationId === conversation.id ? (
+                        <TypingText
+                          text={conversation.title}
+                          onComplete={() => setTypingConversationId(null)}
+                        />
+                      ) : (
+                        conversation.title
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {conversation.preview}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {new Date(conversation.updated_at).toLocaleDateString()}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        <div className="p-3 border-t">
+          <Button
+            onClick={startNewChat}
+            className="w-full"
+            variant="outline"
+            size="sm"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            New Chat
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Empty State / Suggestions - Show when no messages */}
+        {messages.length === 0 && (
+          <div className="flex-1 flex flex-col items-center justify-center px-12 py-12">
           <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mt-8">
             <Sparkles className="w-10 h-10 text-primary" />
           </div>
           <h2 className="text-3xl font-semibold mb-3">AI Assistant</h2>
-          <p className="text-muted-foreground text-center max-w-2xl mb-12 text-lg">
+          <p className="text-muted-foreground text-center max-w-3xl mb-12 text-lg">
             I can help you create workflows, troubleshoot issues, and provide insights about your automations. I'll automatically format responses based on the data type!
           </p>
 
           {/* Suggestion Cards */}
-          <div className="w-full max-w-3xl">
-            <p className="text-sm font-medium text-center mb-6">Try asking:</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="w-full max-w-6xl">
+            <div className="mb-8 text-center">
+              <div className="inline-flex items-center gap-2 px-6 py-3 bg-primary/5 rounded-full border border-primary/20">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-base font-semibold text-foreground">Try asking:</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {suggestions.map((suggestion, index) => {
                 const Icon = suggestion.icon
                 return (
@@ -620,40 +1093,29 @@ export default function AIAssistantContent() {
               })}
             </div>
           </div>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Messages Area - Scrollable - Show when there are messages */}
-      {messages.length > 0 && (
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="max-w-4xl space-y-6">
+        {/* Messages Area - Scrollable - Show when there are messages */}
+        {messages.length > 0 && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="w-full">
           {messages.map((message) => (
             <div
               key={message.id}
-              className="flex gap-4 w-full"
+              className="w-full py-6 px-4"
             >
-              {/* Avatar on the left for both user and assistant */}
-              <div className={cn(
-                "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
-                message.role === "assistant"
-                  ? "bg-primary"
-                  : "bg-blue-500"
-              )}>
-                {message.role === "assistant" ? (
-                  <Bot className="w-5 h-5 text-primary-foreground" />
+              <div className="max-w-3xl mx-auto">
+                {message.role === "user" ? (
+                  // User message - in a bubble
+                  <div className="flex justify-end">
+                    <div className="bg-primary text-primary-foreground rounded-2xl px-4 py-3 max-w-[80%]">
+                      {renderMessageContent(message.content)}
+                    </div>
+                  </div>
                 ) : (
-                  <User className="w-5 h-5 text-white" />
-                )}
-              </div>
-              <div className="flex-1 max-w-full">
-                <div
-                  className={cn(
-                    "rounded-2xl px-5 py-3",
-                    message.role === "user"
-                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
-                      : "bg-muted"
-                  )}
-                >
+                  // AI message - plain text, no bubble
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
                   {renderMessageContent(message.content)}
 
                   {/* Metadata display with new renderers */}
@@ -744,10 +1206,19 @@ export default function AIAssistantContent() {
                           )
 
                         case "info":
-                          return (
-                            <ErrorRenderer
-                              error={typeof data === 'string' ? data : message.content}
-                              type="info"
+                          // Don't render - content is already shown above
+                          return null
+
+                        case "integration_status":
+                          return message.metadata.provider && message.metadata.providerName && (
+                            <IntegrationStatusRenderer
+                              provider={message.metadata.provider}
+                              providerName={message.metadata.providerName}
+                              status={message.metadata.status || 'connected'}
+                              connectedDate={message.metadata.connectedDate || 'Unknown'}
+                              onDisconnect={(provider) => {
+                                handleSendMessage(`Disconnect ${message.metadata.providerName}`)
+                              }}
                             />
                           )
 
@@ -773,6 +1244,14 @@ export default function AIAssistantContent() {
                               providerName={message.metadata.providerName}
                               oauthUrl={message.metadata.oauthUrl}
                               action={message.metadata.action as 'connect' | 'reconnect' | undefined}
+                            />
+                          )
+
+                        case "apps_grid":
+                          return message.metadata.apps && (
+                            <AppsGridRenderer
+                              apps={message.metadata.apps}
+                              maxDisplay={6}
                             />
                           )
 
@@ -1005,36 +1484,32 @@ export default function AIAssistantContent() {
                         </ul>
                       </div>
                   )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
 
           {isLoading && (
-            <div className="flex gap-4 w-full">
-              <div className="flex-shrink-0 w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-                <Bot className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div className="flex-1 max-w-full">
-                <div className="bg-muted rounded-2xl px-5 py-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-sm">Thinking...</span>
-                  </div>
+            <div className="w-full py-6 px-4">
+              <div className="max-w-3xl mx-auto">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Thinking...</span>
                 </div>
               </div>
             </div>
           )}
 
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-      )}
+            <div ref={messagesEndRef} />
+            </div>
+          </div>
+        )}
 
-      {/* Confirmation Dialog - Fixed above input */}
-      {pendingConfirmation && (
-        <div className="border-t bg-yellow-50 px-4 py-3">
-          <div className="max-w-4xl mx-auto">
+        {/* Confirmation Dialog - Above input */}
+        {pendingConfirmation && (
+          <div className="border-t bg-yellow-50 px-8 py-3">
+            <div className="w-full">
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -1060,14 +1535,13 @@ export default function AIAssistantContent() {
                 </Button>
               </div>
             </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Input Area - Fixed at Bottom */}
-      <div className="border-t bg-card px-4 py-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex gap-3">
+        {/* Input Area - At Bottom */}
+        <div className="border-t bg-card px-8 py-4">
+          <div className="w-full flex gap-3">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -1090,9 +1564,6 @@ export default function AIAssistantContent() {
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            AI responses are automatically formatted based on the data type
-          </p>
         </div>
       </div>
     </div>

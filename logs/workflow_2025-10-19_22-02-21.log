@@ -1,0 +1,611 @@
+=== Log Session Started: 2025-10-20T03:02:21.027Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T03:02:21.027Z] [INFO   ] File logging initialized
+[2025-10-20T03:02:21.028Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-02-21.log
+[2025-10-20T03:02:21.030Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T03:02:21.030Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-02-21.log
+[2025-10-20T03:02:21.030Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-02-21.log
+[2025-10-20T03:02:21.030Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-02-21.log
+[2025-10-20T03:02:21.030Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-02-21.log
+[2025-10-20T03:02:21.030Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T03:02:21.030Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T03:02:21.043Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.8s
+[2025-10-20T03:02:21.147Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 99ms (233 modules)
+[2025-10-20T03:02:21.432Z] [INFO   ] 2025-10-20T03:02:21.432Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362654032}
+[2025-10-20T03:02:21.973Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-20T03:02:22.032Z] [INFO   ] 2025-10-20T03:02:22.032Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T03:02:23.837Z] [INFO   ] 2025-10-20T03:02:23.837Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T03:02:23.837Z] [INFO   ] 2025-10-20T03:02:23.837Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T03:02:24.031Z] [INFO   ] 2025-10-20T03:02:24.031Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T03:02:24.032Z] [INFO   ] 2025-10-20T03:02:24.032Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T03:02:24.229Z] [INFO   ] 2025-10-20T03:02:24.229Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T03:02:24.229Z] [INFO   ] 2025-10-20T03:02:24.229Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T03:02:24.420Z] [INFO   ] 2025-10-20T03:02:24.420Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"efa897f81737496ece83253245884ca1","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T03:02:24.420Z] [INFO   ] 2025-10-20T03:02:24.420Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T03:02:24.421Z] [INFO   ] 2025-10-20T03:02:24.421Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:02:24.433Z] [INFO   ] 2025-10-20T03:02:24.433Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:02:24.852Z] [INFO   ] 2025-10-20T03:02:24.852Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T03:02:28.370Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 6.9s (5696 modules)
+[2025-10-20T03:02:28.970Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 579ms (1576 modules)
+[2025-10-20T03:02:29.266Z] [INFO   ] 2025-10-20T03:02:29.266Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:02:29.266Z"}
+[2025-10-20T03:02:29.275Z] [INFO   ] 2025-10-20T03:02:29.275Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:02:29.275Z"}
+[2025-10-20T03:02:29.275Z] [INFO   ] 2025-10-20T03:02:29.275Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:02:29.275Z"}
+[2025-10-20T03:02:29.555Z] [INFO   ] 2025-10-20T03:02:29.554Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:02:29.899Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:02:30.902Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-20T03:02:32.986Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.6s (5711 modules)
+[2025-10-20T03:02:33.142Z] [INFO   ] 2025-10-20T03:02:33.142Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T03:02:33.142Z","headers":{"referer":"check-console"}}
+[2025-10-20T03:02:33.320Z] [INFO   ] 2025-10-20T03:02:33.320Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T03:02:33.858Z] [INFO   ] 2025-10-20T03:02:33.858Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T03:02:33.918Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-20T03:02:34.553Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1146ms (5714 modules)
+[2025-10-20T03:02:48.816Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/execute ...
+[2025-10-20T03:02:52.061Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/execute in 3.8s (7726 modules)
+[2025-10-20T03:02:55.046Z] [INFO   ] 2025-10-20T03:02:55.045Z [DEBUG] === Workflow Execution Started (Refactored) ===
+[2025-10-20T03:02:55.046Z] [INFO   ] 2025-10-20T03:02:55.046Z [DEBUG] 📊 [Execute Route] Request content-length: 46930
+[2025-10-20T03:02:55.047Z] [INFO   ] 2025-10-20T03:02:55.047Z [DEBUG] 📊 [Execute Route] Request body text length: 46914
+[2025-10-20T03:02:55.048Z] [INFO   ] 2025-10-20T03:02:55.048Z [DEBUG] 📊 [Execute Route] Workflow data received: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","hasWorkflowData":true,"nodesCount":4,"nodeTypes":[{"id":"trigger-1760813764735","type":"gmail_trigger_new_email"},{"id":"action-1760841495900","type":"hitl_conversation"},{"id":"action-1760841551096","type":"discord_action_send_message"},{"id":"add-action-action-1760841551096"}],"hasTestModeConfig":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes","showDetailedSteps":true,"captureStepData":true}}
+[2025-10-20T03:02:55.048Z] [INFO   ] 2025-10-20T03:02:55.048Z [DEBUG] Execution parameters: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","testMode":true,"executionMode":"sandbox","effectiveTestMode":true,"skipTriggers":true,"hasInputData":true,"hasWorkflowData":true}
+[2025-10-20T03:02:55.213Z] [INFO   ] 2025-10-20T03:02:55.213Z [DEBUG] Workflow found: {"id":"8340b576-0b3d-4af6-8e9b-8769b61147d1","name":"test","nodesCount":3}
+[2025-10-20T03:02:55.299Z] [INFO   ] 2025-10-20T03:02:55.299Z [DEBUG] User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:55.299Z] [INFO   ] 2025-10-20T03:02:55.299Z [DEBUG] Skipping trigger node: trigger-1760813764735 (gmail_trigger_new_email)
+[2025-10-20T03:02:55.299Z] [INFO   ] 2025-10-20T03:02:55.299Z [DEBUG] Workflow structure: {"originalNodesCount":4,"filteredNodesCount":2,"skippedUINodes":2,"edgesCount":1,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:02:55.300Z] [INFO   ] 2025-10-20T03:02:55.300Z [DEBUG] Action nodes found (triggers skipped): 2
+[2025-10-20T03:02:55.300Z] [INFO   ] 2025-10-20T03:02:55.300Z [DEBUG] Starting workflow execution with effectiveTestMode: true
+[2025-10-20T03:02:55.300Z] [INFO   ] 2025-10-20T03:02:55.300Z [DEBUG] 🚀 Starting workflow execution service {"testMode":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes"}}
+[2025-10-20T03:02:55.300Z] [INFO   ] 2025-10-20T03:02:55.300Z [DEBUG] Executing workflow with: {"originalNodesCount":2,"validNodesCount":2,"skippedNodes":0,"connectionsCount":1,"usingWorkflowData":true,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:02:55.300Z] [INFO   ] 2025-10-20T03:02:55.300Z [DEBUG] ⚙️ Fallback: starting from 1 root action node(s) (no triggers present)
+[2025-10-20T03:02:55.301Z] [INFO   ] 2025-10-20T03:02:55.301Z [DEBUG] 🔄 ExecutionProgressTracker.initialize called {"executionId":"exec-1760929375300-hxb7dt","workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","totalNodes":2}
+[2025-10-20T03:02:55.392Z] [INFO   ] 2025-10-20T03:02:55.392Z [DEBUG] ✅ Execution progress tracker initialized: b924e2f4-5046-42c7-a976-8d62d7043665
+[2025-10-20T03:02:55.573Z] [INFO   ] 2025-10-20T03:02:55.573Z [DEBUG] 📝 Started execution history tracking: fffaf4ec-75b3-4fea-8391-7664b95dfaa8
+[2025-10-20T03:02:55.574Z] [INFO   ] 2025-10-20T03:02:55.574Z [DEBUG] 🔧 Creating execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:55.661Z] [INFO   ] 2025-10-20T03:02:55.661Z [DEBUG] 📊 Loaded 0 workflow variables
+[2025-10-20T03:02:55.662Z] [INFO   ] 2025-10-20T03:02:55.662Z [DEBUG] ✅ Created execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:55.662Z] [INFO   ] 2025-10-20T03:02:55.662Z [DEBUG] 📍 Starting execution with 1 starting nodes
+[2025-10-20T03:02:55.662Z] [INFO   ] 2025-10-20T03:02:55.662Z [DEBUG] 🎯 Executing action node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:02:55.662Z] [INFO   ] 2025-10-20T03:02:55.662Z [DEBUG] Updating execution progress: {"currentNodeId":"action-1760841495900","currentNodeName":"Ask Human via Chat","progressPercentage":0}
+[2025-10-20T03:02:55.755Z] [INFO   ] 2025-10-20T03:02:55.755Z [DEBUG] 🔧 Executing node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:02:55.905Z] [INFO   ] 2025-10-20T03:02:55.905Z [DEBUG] 📝 Recorded step 1: hitl_conversation (action-1760841495900)
+[2025-10-20T03:02:55.907Z] [INFO   ] 2025-10-20T03:02:55.907Z [DEBUG] 💬 Executing HITL conversation node
+[2025-10-20T03:02:55.910Z] [INFO   ] 2025-10-20T03:02:55.910Z [DEBUG] 🔍 Resolving variable: {{*}}
+[2025-10-20T03:02:55.910Z] [INFO   ] 2025-10-20T03:02:55.910Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:02:55.911Z] [INFO   ] 2025-10-20T03:02:55.911Z [DEBUG] [HITL] No external memory document configured
+[2025-10-20T03:02:55.912Z] [INFO   ] 2025-10-20T03:02:55.912Z [DEBUG] 🔍 Resolving variable: **Workflow Paused for Review**
+
+Here's the data from the previous step:
+{{*}}
+
+Let me know when you're ready to continue!
+[2025-10-20T03:02:55.912Z] [INFO   ] 2025-10-20T03:02:55.912Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:02:55.915Z] [INFO   ] 2025-10-20T03:02:55.915Z [DEBUG] 🔍 Looking for integration: userId="a3e3a51a-175c-4b59-ad03-227ba12a18b0", provider="discord"
+[2025-10-20T03:02:55.915Z] [INFO   ] 2025-10-20T03:02:55.915Z [DEBUG] 🔍 Searching for integration with providers: discord
+[2025-10-20T03:02:56.000Z] [INFO   ] 2025-10-20T03:02:56.000Z [DEBUG] 📋 All integrations for user a3e3a51a-175c-4b59-ad03-227ba12a18b0: [{"id":"73eb00b5-f035-4c99-81e1-6f2700e7d1b8","provider":"notion","status":"connected"},{"id":"21d15a49-a011-41fc-b20a-813fd9a6ac0e","provider":"mailchimp","status":"connected"},{"id":"d0202935-e989-45c5-a024-71104843ad8a","provider":"teams","status":"needs_reauthorization"},{"id":"610e4069-9323-4f4c-a80a-a5e56b700c1f","provider":"gmail","status":"connected"},{"id":"c41c7a8c-fa41-437d-9e86-7d48581e8e8e","provider":"microsoft-outlook","status":"needs_reauthorization"},{"id":"0d007fea-e99e-4148-a24f-7baad960b24d","provider":"onedrive","status":"needs_reauthorization"},{"id":"6b250358-6441-499c-a711-37e7ae101507","provider":"dropbox","status":"connected"},{"id":"918ff057-e567-4e7c-b829-4fe0ca428dcc","provider":"facebook","status":"connected"},{"id":"fce6756a-efec-4bf7-927e-dba227ca2149","provider":"google-sheets","status":"connected"},{"id":"7cbd7f8f-75ea-4775-842f-bfc68aa9d73c","provider":"trello","status":"connected"},{"id":"4386d41f-07dd-4e5d-ae50-417fdbcf0974","provider":"slack","status":"connected"},{"id":"fa8ff906-fe58-416e-9328-245b65d2fe34","provider":"google-docs","status":"connected"},{"id":"54248f26-c543-4e8f-8285-0b0fbfbf82dd","provider":"twitter","status":"connected"},{"id":"0d92dc54-daf8-433f-9171-09f9bf502c33","provider":"hubspot","status":"needs_reauthorization"},{"id":"67c08136-3021-4b5a-ba37-343adefeb40e","provider":"discord","status":"connected"},{"id":"683b99fe-5a31-45a8-93a9-b6535930c566","provider":"google-drive","status":"connected"},{"id":"c8d02b5a-3a01-49f9-abdf-693f30c28ab9","provider":"google-calendar","status":"connected"},{"id":"1c41d1f4-cd31-45d6-b129-64ab0afc54c9","provider":"microsoft-onenote","status":"needs_reauthorization"},{"id":"23c9b660-dff1-40e3-be7a-f47816751245","provider":"airtable","status":"connected"}]
+[2025-10-20T03:02:56.091Z] [INFO   ] 2025-10-20T03:02:56.091Z [DEBUG] ✅ Found integration for discord with actual provider: discord
+[2025-10-20T03:02:56.093Z] [INFO   ] 2025-10-20T03:02:56.093Z [DEBUG] Attempting to decrypt access token for discord
+[2025-10-20T03:02:56.093Z] [INFO   ] 2025-10-20T03:02:56.093Z [DEBUG] Token format check: {"hasColon":true,"isEncrypted":true}
+[2025-10-20T03:02:56.095Z] [INFO   ] 2025-10-20T03:02:56.094Z [DEBUG] Successfully decrypted access token for discord
+[2025-10-20T03:02:56.096Z] [ERROR  ] 2025-10-20T03:02:56.095Z [ERROR] Error sending HITL Discord message {"error":"Failed to get Discord bot token"}
+[2025-10-20T03:02:56.096Z] [ERROR  ] 2025-10-20T03:02:56.096Z [ERROR] HITL execution error {"error":"Failed to send Discord message: Failed to get Discord bot token"}
+[2025-10-20T03:02:56.099Z] [INFO   ] 2025-10-20T03:02:56.099Z [DEBUG] 💾 Stored output for node action-1760841495900: {"success":false,"dataKeys":["success","error","message"]}
+[2025-10-20T03:02:56.099Z] [INFO   ] 2025-10-20T03:02:56.099Z [DEBUG] 🔗 Node action-1760841495900 has 1 connected nodes
+[2025-10-20T03:02:56.099Z] [INFO   ] 2025-10-20T03:02:56.099Z [DEBUG] 📌 Original context userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.100Z] [INFO   ] 2025-10-20T03:02:56.100Z [DEBUG] 📌 Updated context userId for node action-1760841551096: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.100Z] [INFO   ] 2025-10-20T03:02:56.100Z [DEBUG] 🔧 Executing node: action-1760841551096 (discord_action_send_message)
+[2025-10-20T03:02:56.100Z] [INFO   ] 2025-10-20T03:02:56.100Z [DEBUG]    Discord node config: {"providerId":"discord","hasConfig":true,"configKeys":["guildId","message","channelId","messageId","__dynamicOptions","__validationState"]}
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.196Z [DEBUG] 📝 Recorded step 2: discord_action_send_message (action-1760841551096)
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG] 🔌 Executing integration node: discord_action_send_message
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG] 📌 IntegrationHandlers - Context userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG] 💬 Executing Discord action
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG]    Node type: "discord_action_send_message"
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG]    User ID: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG] 🔍 [INTEGRATION DEBUG] Full context:
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG]    context.userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG]    context.data: {
+  "success": false,
+  "error": "Failed to send Discord message: Failed to get Discord bot token",
+  "message": "HITL failed: Failed to send Discord message: Failed to get Discord bot token"
+}
+[2025-10-20T03:02:56.197Z] [INFO   ] 2025-10-20T03:02:56.197Z [DEBUG] 🔍 [INTEGRATION DEBUG] Node config:
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] {
+  "guildId": "1378950884045623406",
+  "message": "Test",
+  "channelId": "1378950885044125758",
+  "messageId": "",
+  "__dynamicOptions": {
+    "guildId": [
+      {
+        "label": "ChainReact",
+        "value": "1378950884045623406"
+      },
+      {
+        "label": "chainreactapp's server",
+        "value": "1391236319807541270"
+      }
+    ],
+    "channelId": [
+      {
+        "type": 0,
+        "label": "rules",
+        "value": "1415172962788573316",
+        "position": 0
+      },
+      {
+        "type": 2,
+        "label": "general-voice",
+        "value": "1415310483979899042",
+        "position": 0
+      },
+      {
+        "type": 0,
+        "label": "general",
+        "value": "1378950885044125758",
+        "position": 2
+      },
+      {
+        "type": 5,
+        "label": "welcome",
+        "value": "1415174831183499415",
+        "position": 3
+      },
+      {
+        "type": 5,
+        "label": "announcements",
+        "value": "1415175144451739790",
+        "position": 4
+      },
+      {
+        "type": 0,
+        "label": "faq",
+        "value": "1415175175237799986",
+        "position": 5
+      },
+      {
+        "type": 0,
+        "label": "general",
+        "value": "1415309693282287687",
+        "position": 6
+      },
+      {
+        "type": 0,
+        "label": "introductions",
+        "value": "1415309737880195142",
+        "position": 7
+      },
+      {
+        "type": 15,
+        "label": "feedback",
+        "value": "1415309773989085205",
+        "position": 8
+      },
+      {
+        "type": 0,
+        "label": "showcase",
+        "value": "1415309842733862972",
+        "position": 9
+      },
+      {
+        "type": 15,
+        "label": "support-questions",
+        "value": "1415310146183106560",
+        "position": 10
+      },
+      {
+        "type": 15,
+        "label": "bug-reports",
+        "value": "1415310187820220426",
+        "position": 11
+      },
+      {
+        "type": 0,
+        "label": "off-topic",
+        "value": "1415310845092691988",
+        "position": 12
+      },
+      {
+        "type": 5,
+        "label": "resources",
+        "value": "1415310890940502077",
+        "position": 13
+      }
+    ]
+  },
+  "__validationState": {
+    "isValid": true,
+    "lastUpdatedAt": "2025-10-19T02:39:11.096Z",
+    "lastValidatedAt": "2025-10-19T02:39:11.096Z",
+    "missingRequired": [],
+    "allRequiredFields": [
+      "guildId",
+      "channelId",
+      "message"
+    ]
+  }
+}
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] 📤 Sending Discord channel message...
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    Channel ID: 1378950885044125758
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    Has message: true
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] 🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] 🔍 [DISCORD DEBUG] sendDiscordMessage called with:
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    config keys: ["guildId","message","channelId","messageId","__dynamicOptions","__validationState"]
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    input keys: ["success","error","message"]
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] 🔍 [DISCORD DEBUG] Resolved config:
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    guildId: 1378950884045623406
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    channelId: 1378950885044125758
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG]    message: SET
+[2025-10-20T03:02:56.198Z] [INFO   ] 2025-10-20T03:02:56.198Z [DEBUG] 🔍 [DISCORD DEBUG] Querying Discord integration for userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG] 🔍 [DISCORD DEBUG] Integration query result:
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    error: null
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    integration found: true
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    integration id: 67c08136-3021-4b5a-ba37-343adefeb40e
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    integration provider: discord
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    integration status: connected
+[2025-10-20T03:02:56.285Z] [INFO   ] 2025-10-20T03:02:56.285Z [DEBUG]    integration userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.487Z] [INFO   ] 2025-10-20T03:02:56.487Z [DEBUG] ✅ Bot verified as member of guild 1378950884045623406
+[2025-10-20T03:02:56.629Z] [INFO   ] 2025-10-20T03:02:56.629Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429666168750477327","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"Test","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:02:56.630Z] [INFO   ] 2025-10-20T03:02:56.629Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:02:56.702Z] [INFO   ] 2025-10-20T03:02:56.701Z [DEBUG]    Discord send result: ✅ Success
+[2025-10-20T03:02:56.703Z] [INFO   ] 2025-10-20T03:02:56.702Z [DEBUG] 🛡️ Intercepting write action: discord_action_send_message
+[2025-10-20T03:02:56.703Z] [INFO   ] 2025-10-20T03:02:56.703Z [DEBUG] 💾 Stored output for node action-1760841551096: {"success":true,"dataKeys":["messageId","channelId","guildId","content","timestamp","author","embed","discordResponse","intercepted"]}
+[2025-10-20T03:02:56.703Z] [INFO   ] 2025-10-20T03:02:56.703Z [DEBUG] 🔗 Node action-1760841551096 has 0 connected nodes
+[2025-10-20T03:02:56.703Z] [INFO   ] 2025-10-20T03:02:56.703Z [DEBUG] 📌 Original context userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:02:56.703Z] [INFO   ] 2025-10-20T03:02:56.703Z [DEBUG] ✅ Node action-1760841551096 completed in 603ms
+[2025-10-20T03:02:56.873Z] [INFO   ] 2025-10-20T03:02:56.873Z [DEBUG] ✅ Step action-1760841551096 completed (603ms)
+[2025-10-20T03:02:56.874Z] [INFO   ] 2025-10-20T03:02:56.874Z [DEBUG] ✅ Node action-1760841495900 completed in 1119ms
+[2025-10-20T03:02:57.039Z] [INFO   ] 2025-10-20T03:02:57.039Z [DEBUG] ✅ Step action-1760841495900 completed (1119ms)
+[2025-10-20T03:02:57.040Z] [INFO   ] 2025-10-20T03:02:57.040Z [DEBUG]    Node action-1760841495900 execution result: {"success":false,"hasError":true,"hasResults":false}
+[2025-10-20T03:02:57.040Z] [INFO   ] 2025-10-20T03:02:57.040Z [DEBUG] Updating execution progress: {"completedNodes":[],"failedNodes":[{"nodeId":"action-1760841495900","error":"Failed to send Discord message: Failed to get Discord bot token"}],"progressPercentage":0}
+[2025-10-20T03:02:57.129Z] [INFO   ] 2025-10-20T03:02:57.129Z [DEBUG] ✅ Workflow execution completed with 1 results
+[2025-10-20T03:02:57.130Z] [INFO   ] 2025-10-20T03:02:57.130Z [DEBUG] Updating execution progress: {"status":"failed","errorMessage":"Workflow execution completed with errors","progressPercentage":100}
+[2025-10-20T03:02:57.219Z] [INFO   ] 2025-10-20T03:02:57.219Z [DEBUG] ✅ Execution failed
+[2025-10-20T03:02:57.316Z] [INFO   ] 2025-10-20T03:02:57.316Z [DEBUG] ✅ Execution fffaf4ec-75b3-4fea-8391-7664b95dfaa8 completed
+[2025-10-20T03:02:57.316Z] [INFO   ] 2025-10-20T03:02:57.316Z [DEBUG] Workflow execution completed successfully
+[2025-10-20T03:03:05.689Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-20T03:03:05.842Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 759ms (7728 modules)
+[2025-10-20T03:03:26.006Z] [INFO   ]  [37m[1m○[22m[39m Compiling /ai-assistant ...
+[2025-10-20T03:03:27.511Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /ai-assistant in 2.1s (7851 modules)
+[2025-10-20T03:03:27.910Z] [INFO   ] 2025-10-20T03:03:27.909Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:05:41.673Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5773 modules)
+[2025-10-20T03:05:41.942Z] [INFO   ] 2025-10-20T03:05:41.942Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362854543}
+[2025-10-20T03:05:42.249Z] [INFO   ] 2025-10-20T03:05:42.249Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:05:42.866Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-20T03:05:43.304Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 944ms (5761 modules)
+[2025-10-20T03:05:43.414Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T03:05:43.658Z] [INFO   ] 2025-10-20T03:05:43.658Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362856259}
+[2025-10-20T03:05:43.946Z] [INFO   ] 2025-10-20T03:05:43.946Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:05:43.946Z"}
+[2025-10-20T03:05:43.957Z] [INFO   ] 2025-10-20T03:05:43.957Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T03:05:43.957Z"}
+[2025-10-20T03:05:43.957Z] [INFO   ] 2025-10-20T03:05:43.957Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T03:05:43.957Z"}
+[2025-10-20T03:05:44.189Z] [INFO   ] 2025-10-20T03:05:44.189Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:05:44.563Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-20T03:05:49.574Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 293ms (1634 modules)
+[2025-10-20T03:05:49.786Z] [INFO   ] 2025-10-20T03:05:49.786Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362862387}
+[2025-10-20T03:05:49.879Z] [INFO   ] 2025-10-20T03:05:49.878Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:00.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 337ms (1636 modules)
+[2025-10-20T03:06:01.003Z] [INFO   ] 2025-10-20T03:06:01.003Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362873604}
+[2025-10-20T03:06:01.074Z] [INFO   ] 2025-10-20T03:06:01.074Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:16.171Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 366ms (1636 modules)
+[2025-10-20T03:06:16.401Z] [INFO   ] 2025-10-20T03:06:16.401Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362889002}
+[2025-10-20T03:06:16.478Z] [INFO   ] 2025-10-20T03:06:16.478Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:23.186Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 299ms (1636 modules)
+[2025-10-20T03:06:23.433Z] [INFO   ] 2025-10-20T03:06:23.433Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362896034}
+[2025-10-20T03:06:23.506Z] [INFO   ] 2025-10-20T03:06:23.506Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:24.238Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 364ms (1636 modules)
+[2025-10-20T03:06:24.455Z] [INFO   ] 2025-10-20T03:06:24.455Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362897056}
+[2025-10-20T03:06:24.515Z] [INFO   ] 2025-10-20T03:06:24.515Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:32.653Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 474ms (1636 modules)
+[2025-10-20T03:06:32.871Z] [INFO   ] 2025-10-20T03:06:32.871Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362905472}
+[2025-10-20T03:06:32.938Z] [INFO   ] 2025-10-20T03:06:32.938Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:41.092Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 313ms (1636 modules)
+[2025-10-20T03:06:41.338Z] [INFO   ] 2025-10-20T03:06:41.337Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362913938}
+[2025-10-20T03:06:41.414Z] [INFO   ] 2025-10-20T03:06:41.414Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:06:47.115Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 373ms (1636 modules)
+[2025-10-20T03:06:47.331Z] [INFO   ] 2025-10-20T03:06:47.331Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362919932}
+[2025-10-20T03:06:47.394Z] [INFO   ] 2025-10-20T03:06:47.394Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:07:00.817Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 368ms (1636 modules)
+[2025-10-20T03:07:01.078Z] [INFO   ] 2025-10-20T03:07:01.078Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362933679}
+[2025-10-20T03:07:01.151Z] [INFO   ] 2025-10-20T03:07:01.151Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:07:15.100Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 338ms (1636 modules)
+[2025-10-20T03:07:15.409Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 307ms (1636 modules)
+[2025-10-20T03:07:15.546Z] [INFO   ] 2025-10-20T03:07:15.546Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362948147}
+[2025-10-20T03:07:15.612Z] [INFO   ] 2025-10-20T03:07:15.612Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:07:15.813Z] [INFO   ] 2025-10-20T03:07:15.813Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12362948414}
+[2025-10-20T03:07:15.876Z] [INFO   ] 2025-10-20T03:07:15.876Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:08:06.834Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/conversations ...
+[2025-10-20T03:08:07.169Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/conversations in 843ms (5758 modules)
+[2025-10-20T03:08:24.281Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 316ms (1636 modules)
+[2025-10-20T03:08:24.567Z] [INFO   ] 2025-10-20T03:08:24.566Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12363017167}
+[2025-10-20T03:08:24.774Z] [INFO   ] 2025-10-20T03:08:24.774Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T03:08:24.986Z] [ERROR  ]  [31m[1m⨯[22m[39m Failed to generate static paths for /workflows/builder/[id]:
+[2025-10-20T03:08:24.991Z] [ERROR  ] Cannot find module './vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-20T03:08:45.047Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 309ms (1636 modules)
+[2025-10-20T03:08:45.279Z] [INFO   ] 2025-10-20T03:08:45.278Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12363037879}
+[2025-10-20T03:08:45.519Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/next.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-20T03:08:46.103Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-20T03:08:46.737Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1216ms (6098 modules)
+[2025-10-20T03:08:47.267Z] [INFO   ] 2025-10-20T03:08:47.267Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12363039868}
+[2025-10-20T03:08:47.669Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-20T03:08:48.070Z] [INFO   ] 2025-10-20T03:08:48.070Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12363040671}
+[2025-10-20T03:08:48.349Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-20T03:08:48.760Z] [INFO   ] 2025-10-20T03:08:48.760Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12363041361}
+[2025-10-20T03:08:49.038Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-20T03:08:59.507Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-20T03:08:59.963Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1170ms (4328 modules)
+[2025-10-20T03:09:00.306Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppRouteRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:155947)
+    at AppRouteRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:164236)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fpresence%2Fcount%2Froute&page=%2Fapi%2Fpresence%2Fcount%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fpresence%2Fcount%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:95:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T03:09:00.321Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T03:09:01.897Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppRouteRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:155947)
+    at AppRouteRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-route.runtime.dev.js:1:164236)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fapi%2Fpresence%2Fcount%2Froute&page=%2Fapi%2Fpresence%2Fcount%2Froute&appPaths=&pagePath=private-next-app-dir%2Fapi%2Fpresence%2Fcount%2Froute.ts&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:95:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T03:09:01.900Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T03:09:01.924Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+
+=== Log Session Ended: 2025-10-20T03:28:28.215Z ===
