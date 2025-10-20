@@ -322,15 +322,30 @@ export async function POST(request: Request) {
         }
       )
 
-      logger.debug("Advanced workflow execution completed")
+      const isPaused = typeof executionResult === 'object' && executionResult !== null && 'paused' in executionResult && (executionResult as any).paused
 
-      return jsonResponse({
+      logger.debug("Advanced workflow execution completed", {
+        paused: !!isPaused,
+        executionMode,
+        sessionId: executionSession.id
+      })
+
+      const advancedResponsePayload: Record<string, any> = {
         success: true,
-        results: executionResult,
         executionTime: new Date().toISOString(),
         sessionId: executionSession.id,
         executionMode
-      })
+      }
+
+      if (executionResult !== undefined && executionResult !== null) {
+        if (typeof executionResult === 'object' && !Array.isArray(executionResult)) {
+          Object.assign(advancedResponsePayload, executionResult)
+        } else {
+          advancedResponsePayload.results = executionResult
+        }
+      }
+
+      return jsonResponse(advancedResponsePayload)
     }
 
     // Use standard service for sandbox mode (intercepted actions)
@@ -364,8 +379,32 @@ export async function POST(request: Request) {
       skipTriggers,
       testModeConfig // Pass enhanced test mode config
     )
-    
-    logger.debug("Workflow execution completed successfully")
+
+    const isPaused = typeof executionResult === 'object' && executionResult !== null && 'paused' in executionResult && (executionResult as any).paused
+
+    if (isPaused) {
+      logger.info("Workflow execution paused for human input", {
+        workflowId,
+        executionId: (executionResult as any).executionId,
+        pausedNodeId: (executionResult as any).pausedNodeId,
+        conversationId: (executionResult as any).conversationId
+      })
+    } else {
+      logger.debug("Workflow execution completed successfully")
+    }
+
+    const responsePayload: Record<string, any> = {
+      success: true,
+      executionTime: new Date().toISOString()
+    }
+
+    if (executionResult !== undefined && executionResult !== null) {
+      if (typeof executionResult === 'object' && !Array.isArray(executionResult)) {
+        Object.assign(responsePayload, executionResult)
+      } else {
+        responsePayload.results = executionResult
+      }
+    }
 
     // Track beta tester activity
     await trackBetaTesterActivity({
@@ -382,19 +421,12 @@ export async function POST(request: Request) {
     // Check if we have intercepted actions (sandbox mode)
     if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {
       logger.debug(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
-      return jsonResponse({
-        success: true,
-        results: executionResult.results,
-        interceptedActions: executionResult.interceptedActions,
-        executionTime: new Date().toISOString()
-      })
+      responsePayload.results = executionResult.results
+      responsePayload.interceptedActions = executionResult.interceptedActions
+      return jsonResponse(responsePayload)
     }
 
-    return jsonResponse({
-      success: true,
-      results: executionResult,
-      executionTime: new Date().toISOString()
-    })
+    return jsonResponse(responsePayload)
 
   } catch (error: any) {
     logger.error("Workflow execution error:", {

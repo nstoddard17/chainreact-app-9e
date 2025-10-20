@@ -4,6 +4,12 @@
  */
 
 import OpenAI from 'openai'
+export type ScenarioDescriptor = {
+  type: 'email' | 'chat' | 'general'
+  instructions: string
+  followUpPrompt: string
+}
+
 import type {
   ConversationMessage,
   ExtractedVariables,
@@ -177,4 +183,96 @@ export function detectContinuationSignal(
   return continuationSignals.some(signal =>
     lowerMessage.includes(signal.toLowerCase())
   )
+}
+
+export function detectScenario(input: Record<string, any> = {}): ScenarioDescriptor {
+  if (input.email || input.message?.email) {
+    return {
+      type: 'email',
+      instructions: [
+        'Draft a professional reply email using the provided details.',
+        'Call out any missing information the human should fill in.',
+        'Offer the reply in markdown with clear sections (Greeting, Body, Closing).'
+      ].join('\n- '),
+      followUpPrompt: 'Ask if the email should be sent as-is or if they want edits.'
+    }
+  }
+
+  if (input.message || input.chat || input.slack || input.discord || input.text) {
+    return {
+      type: 'chat',
+      instructions: [
+        'Draft a short message or response suitable for chat or messaging platforms.',
+        'Highlight any assumptions and offer quick alternatives if appropriate.'
+      ].join('\n- '),
+      followUpPrompt: 'Ask whether to post the message or adjust it.'
+    }
+  }
+
+  return {
+    type: 'general',
+    instructions: [
+      'Summarize what the workflow is about to do next.',
+      'Outline the proposed actions in bullet points.',
+      'Call out any risks or decisions the human should confirm.'
+    ].join('\n- '),
+    followUpPrompt: 'Ask for approval, edits, or additional guidance before continuing.'
+  }
+}
+
+/**
+ * Generate the initial assistant message that appears in Discord when the workflow pauses.
+ */
+export async function generateInitialAssistantOpening(
+  systemPrompt: string,
+  contextText: string,
+  input: Record<string, any>,
+  config: HITLConfig
+): Promise<{ message: string | null; scenario: ScenarioDescriptor }> {
+  try {
+    const scenario = detectScenario(input)
+
+    const continuationHint = Array.isArray(config.continuationSignals) && config.continuationSignals.length > 0
+      ? `If the human wants to continue, they might say something like "${config.continuationSignals[0]}".`
+      : ''
+
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      {
+        role: 'system',
+        content: `${systemPrompt}\n\nYou are preparing the very first assistant message for the human reviewer. The goal is to present a thoughtful proposal and invite collaboration before the workflow continues.`
+      },
+      {
+        role: 'user',
+        content: [
+          'Context from the previous workflow step:',
+          contextText,
+          '',
+          'Compose the initial assistant message that will be posted in Discord. The message should:',
+          `- ${scenario.instructions}`,
+          `- ${scenario.followUpPrompt}`,
+          '- Keep the tone collaborative and confident.',
+          '- Stay under 180 words.',
+          continuationHint,
+          '',
+          'Return only the message text in markdown.'
+        ].join('\n')
+      }
+    ]
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages,
+      temperature: 0.6,
+      max_tokens: 500
+    })
+
+    const aiMessage = response.choices[0]?.message?.content?.trim()
+    return { message: aiMessage || null, scenario }
+  } catch (error: any) {
+    logger.warn('Failed to generate initial assistant opening', { error: error.message })
+    return {
+      message: null,
+      scenario: detectScenario(input)
+    }
+  }
 }

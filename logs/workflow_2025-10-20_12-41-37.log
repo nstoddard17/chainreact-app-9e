@@ -1,0 +1,268 @@
+=== Log Session Started: 2025-10-20T17:41:37.219Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T17:41:37.219Z] [INFO   ] File logging initialized
+[2025-10-20T17:41:37.219Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_12-41-37.log
+[2025-10-20T17:41:37.222Z] [INFO   ] Deleted old log file: workflow_2025-10-13_12-24-47.log
+[2025-10-20T17:41:37.222Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T17:41:37.222Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_12-41-37.log
+[2025-10-20T17:41:37.222Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_12-41-37.log
+[2025-10-20T17:41:37.222Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_12-41-37.log
+[2025-10-20T17:41:37.222Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_12-41-37.log
+[2025-10-20T17:41:37.222Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T17:41:37.223Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T17:41:37.256Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 6.2s
+[2025-10-20T17:41:37.908Z] [INFO   ]  [37m[1m○[22m[39m Compiling /apps ...
+[2025-10-20T17:41:38.243Z] [INFO   ] 2025-10-20T17:41:38.242Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T17:41:39.955Z] [INFO   ] 2025-10-20T17:41:39.955Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T17:41:39.956Z] [INFO   ] 2025-10-20T17:41:39.956Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T17:41:40.283Z] [INFO   ] 2025-10-20T17:41:40.283Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T17:41:40.284Z] [INFO   ] 2025-10-20T17:41:40.284Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T17:41:40.469Z] [INFO   ] 2025-10-20T17:41:40.469Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T17:41:40.470Z] [INFO   ] 2025-10-20T17:41:40.470Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T17:41:40.866Z] [INFO   ] 2025-10-20T17:41:40.866Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"65d541b68620d5962a156ccf8d87e571","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T17:41:40.866Z] [INFO   ] 2025-10-20T17:41:40.866Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T17:41:40.867Z] [INFO   ] 2025-10-20T17:41:40.867Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T17:41:40.867Z] [INFO   ] 2025-10-20T17:41:40.867Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T17:41:41.171Z] [INFO   ] 2025-10-20T17:41:41.171Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T17:41:44.122Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /apps in 6.8s (3950 modules)
+[2025-10-20T17:41:44.507Z] [INFO   ] 2025-10-20T17:41:44.507Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:41:44.507Z"}
+[2025-10-20T17:41:44.510Z] [INFO   ] 2025-10-20T17:41:44.510Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:41:44.510Z"}
+[2025-10-20T17:41:44.510Z] [INFO   ] 2025-10-20T17:41:44.510Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T17:41:44.510Z"}
+[2025-10-20T17:41:46.184Z] [INFO   ] 2025-10-20T17:41:46.184Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:41:46.189Z] [INFO   ] 2025-10-20T17:41:46.189Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:41:46.386Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-20T17:41:49.473Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 3.6s (4190 modules)
+[2025-10-20T17:41:50.577Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/conversations ...
+[2025-10-20T17:41:50.823Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/conversations in 769ms (3966 modules)
+[2025-10-20T17:41:50.995Z] [INFO   ] 2025-10-20T17:41:50.995Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T17:41:50.995Z","headers":{"referer":"check-console"}}
+[2025-10-20T17:41:51.216Z] [INFO   ] 2025-10-20T17:41:51.216Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T17:41:51.366Z] [INFO   ] 2025-10-20T17:41:51.366Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T17:41:55.255Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/auth/generate-url ...
+[2025-10-20T17:41:56.224Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/auth/generate-url in 1467ms (3970 modules)
+[2025-10-20T17:41:56.739Z] [INFO   ] 2025-10-20T17:41:56.739Z [DEBUG] 🔍 Airtable OAuth Debug:
+[2025-10-20T17:41:56.740Z] [INFO   ] 2025-10-20T17:41:56.740Z [DEBUG]   - Client ID: 0bd8b503-0...
+[2025-10-20T17:41:56.740Z] [INFO   ] 2025-10-20T17:41:56.740Z [DEBUG]   - Redirect URI: http://localhost:3000/api/integrations/airtable/callback
+[2025-10-20T17:41:56.741Z] [INFO   ] 2025-10-20T17:41:56.741Z [DEBUG]   - Base URL: http://localhost:3000
+[2025-10-20T17:41:56.741Z] [INFO   ] 2025-10-20T17:41:56.741Z [DEBUG]   - Final OAuth URL (first 200 chars): https://airtable.com/oauth2/v1/authorize?client_id=0bd8b503-07aa-4c51-a300-c0df72e19476&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapi%2Fintegrations%2Fairtable%2Fcallback&response_type=code&scope=d...
+[2025-10-20T17:42:01.346Z] [INFO   ] 2025-10-20T17:42:01.346Z [DEBUG] ⚠️ twitter doesn't support localhost redirect URIs
+[2025-10-20T17:42:06.430Z] [INFO   ] 2025-10-20T17:42:06.430Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:42:06.430Z"}
+[2025-10-20T17:42:06.434Z] [INFO   ] 2025-10-20T17:42:06.434Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:42:06.434Z"}
+[2025-10-20T17:42:06.434Z] [INFO   ] 2025-10-20T17:42:06.434Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T17:42:06.434Z"}
+[2025-10-20T17:42:06.756Z] [INFO   ] 2025-10-20T17:42:06.756Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:42:07.190Z] [INFO   ] 2025-10-20T17:42:07.190Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T17:42:07.190Z","headers":{"referer":"check-console"}}
+[2025-10-20T17:42:07.268Z] [INFO   ] 2025-10-20T17:42:07.268Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T17:42:07.373Z] [INFO   ] 2025-10-20T17:42:07.373Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T17:42:09.347Z] [INFO   ] 2025-10-20T17:42:09.347Z [DEBUG] ⚠️ twitter doesn't support localhost redirect URIs
+[2025-10-20T17:42:20.051Z] [INFO   ] 2025-10-20T17:42:20.051Z [DEBUG] 🔍 Generated Gmail OAuth URL with params: {"client_id":"380110053434-23tlbm7qtui7tu2vfn3lk7o795i538k6.apps.googleusercontent.com","redirect_uri":"http://localhost:3000/api/integrations/gmail/callback","response_type":"code","scope":"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.settings.sharing https://www.googleapis.com/auth/contacts.readonly","state":"eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6ImdtYWlsIiwicmVjb25uZWN0IjpmYWxzZSwidGltZXN0YW1wIjoxNzYwOTgyMTQwMDUwfQ==","access_type":"offline","prompt":"consent","include_granted_scopes":"true"}
+[2025-10-20T17:42:27.542Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gmail/callback in 478ms (3974 modules)
+[2025-10-20T17:42:27.730Z] [INFO   ] 2025-10-20T17:42:27.730Z [DEBUG] 🔍 Gmail callback called: {"url":"http://localhost:3000/api/integrations/gmail/callback?state=eyJ1c2VySWQiOiJhM2UzYTUxYS0xNzVjLTRiNTktYWQwMy0yMjdiYTEyYTE4YjAiLCJwcm92aWRlciI6ImdtYWlsIiwicmVjb25uZWN0IjpmYWxzZSwidGltZXN0YW1wIjoxNzYwOTgyMTQwMDUwfQ%3D%3D&code=4%2F0AVGzR1CrQweAEvBhU7ghTAxBUG6PNsKW69vJB7nF4TAh2bdSvnCtQ0tu59A1Ex1Pi-aVqQ&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdocuments+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcontacts.readonly+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fspreadsheets+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.sharing+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.settings.basic+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.modify+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent","code":true,"state":true,"error":null,"userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36","referer":null}
+[2025-10-20T17:42:27.730Z] [INFO   ] 2025-10-20T17:42:27.730Z [DEBUG] Gmail OAuth callback state: {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"gmail","reconnect":false}
+[2025-10-20T17:42:28.017Z] [INFO   ] 2025-10-20T17:42:28.017Z [DEBUG] 🔍 Gmail token response keys: ["access_token","expires_in","refresh_token","scope","token_type","id_token"]
+[2025-10-20T17:42:28.018Z] [INFO   ] 2025-10-20T17:42:28.018Z [DEBUG] 🔍 Gmail token scopes: https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/calendar openid https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.sharing
+[2025-10-20T17:42:28.194Z] [INFO   ] 2025-10-20T17:42:28.194Z [DEBUG] ✅ Gmail integration successfully saved with status: connected
+[2025-10-20T17:42:28.196Z] [INFO   ] 2025-10-20T17:42:28.196Z [DEBUG] 🔄 Creating popup response: type=success, provider=gmail, message=Gmail connected successfully!
+[2025-10-20T17:42:28.370Z] [INFO   ] 2025-10-20T17:42:28.370Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T17:42:28.370Z","headers":{"referer":"check-console"}}
+[2025-10-20T17:42:28.488Z] [INFO   ] 2025-10-20T17:42:28.488Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T17:42:28.615Z] [INFO   ] 2025-10-20T17:42:28.615Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T17:43:51.621Z] [INFO   ] 2025-10-20T17:43:51.621Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:43:51.621Z"}
+[2025-10-20T17:43:51.626Z] [INFO   ] 2025-10-20T17:43:51.625Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:43:51.625Z"}
+[2025-10-20T17:43:51.626Z] [INFO   ] 2025-10-20T17:43:51.626Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T17:43:51.626Z"}
+[2025-10-20T17:43:52.046Z] [INFO   ] 2025-10-20T17:43:52.045Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:43:54.729Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (3970 modules)
+[2025-10-20T17:43:54.979Z] [INFO   ] 2025-10-20T17:43:54.979Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:43:55.331Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 547ms (700 modules)
+[2025-10-20T17:43:55.449Z] [INFO   ] 2025-10-20T17:43:55.449Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:43:56.151Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-20T17:43:56.162Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 519ms (3274 modules)
+[2025-10-20T17:43:56.479Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3280 modules)
+[2025-10-20T17:43:56.677Z] [INFO   ] 2025-10-20T17:43:56.677Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T17:43:56.677Z","headers":{"referer":"check-console"}}
+[2025-10-20T17:43:56.868Z] [INFO   ] 2025-10-20T17:43:56.868Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T17:43:56.961Z] [INFO   ] 2025-10-20T17:43:56.961Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T17:44:00.032Z] [INFO   ] 2025-10-20T17:44:00.032Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T17:44:00.032Z","headers":{"referer":"check-console"}}
+[2025-10-20T17:44:00.188Z] [INFO   ] 2025-10-20T17:44:00.188Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T17:44:00.300Z] [INFO   ] 2025-10-20T17:44:00.300Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T17:44:18.375Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 435ms (700 modules)
+[2025-10-20T17:44:18.589Z] [INFO   ] 2025-10-20T17:44:18.589Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:18.633Z] [INFO   ] 2025-10-20T17:44:18.633Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:48.121Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 505ms (700 modules)
+[2025-10-20T17:44:48.248Z] [INFO   ] 2025-10-20T17:44:48.248Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:48.264Z] [INFO   ] 2025-10-20T17:44:48.264Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:51.134Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (3980 modules)
+[2025-10-20T17:44:51.411Z] [INFO   ] 2025-10-20T17:44:51.410Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:51.513Z] [INFO   ] 2025-10-20T17:44:51.513Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:44:59.933Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1073ms (3967 modules)
+[2025-10-20T17:45:00.179Z] [INFO   ] 2025-10-20T17:45:00.179Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:45:00.231Z] [INFO   ] 2025-10-20T17:45:00.231Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:45:01.494Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 714ms (3967 modules)
+[2025-10-20T17:45:01.719Z] [INFO   ] 2025-10-20T17:45:01.719Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:45:01.762Z] [INFO   ] 2025-10-20T17:45:01.762Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:45:56.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 448ms (700 modules)
+[2025-10-20T17:45:56.942Z] [INFO   ] 2025-10-20T17:45:56.942Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:45:56.956Z] [INFO   ] 2025-10-20T17:45:56.956Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:07.869Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 374ms (3267 modules)
+[2025-10-20T17:47:39.832Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 348ms (700 modules)
+[2025-10-20T17:47:39.979Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/presence/count/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+Error: Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/presence/count/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at __webpack_require__.f.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:200:28)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:108:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:107:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:159:22)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/ai-assistant/page.js:55:10084
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/ai-assistant/page.js:55:10245)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T17:47:39.998Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/presence/count/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+Error: Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/presence/count/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at __webpack_require__.f.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:200:28)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:108:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:107:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:159:22)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/apps/page.js:2:9457
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/apps/page.js:2:9624)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-20T17:47:40.480Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-20T17:47:40.895Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 914ms (4307 modules)
+[2025-10-20T17:47:41.476Z] [INFO   ] 2025-10-20T17:47:41.476Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.525Z] [INFO   ] 2025-10-20T17:47:41.525Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.613Z] [INFO   ] 2025-10-20T17:47:41.613Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.634Z] [INFO   ] 2025-10-20T17:47:41.634Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.724Z] [INFO   ] 2025-10-20T17:47:41.724Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.746Z] [INFO   ] 2025-10-20T17:47:41.746Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:41.963Z] [INFO   ] 2025-10-20T17:47:41.963Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:47:41.962Z"}
+[2025-10-20T17:47:41.966Z] [INFO   ] 2025-10-20T17:47:41.966Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T17:47:41.966Z"}
+[2025-10-20T17:47:41.966Z] [INFO   ] 2025-10-20T17:47:41.966Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T17:47:41.966Z"}
+[2025-10-20T17:47:42.307Z] [INFO   ] 2025-10-20T17:47:42.307Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:42.455Z] [INFO   ] 2025-10-20T17:47:42.455Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T17:47:43.028Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/organizations ...
+[2025-10-20T17:47:43.783Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations in 1255ms (3458 modules)
+[2025-10-20T17:47:49.172Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 263ms (851 modules)
+[2025-10-20T17:48:03.678Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 659ms (4309 modules)
+
+=== Log Session Ended: 2025-10-20T17:48:15.397Z ===

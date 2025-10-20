@@ -4,6 +4,7 @@ const LIGHT_MODE_INVERT = new Set([
   'instagram',
   'tiktok',
   'x', // X logo is white, needs inverting in light mode
+  'twitter', // Twitter/X logo is white, needs inverting in light mode
   // Removed: notion (multi-color), google-docs (now colored), microsoft-onenote (now colored)
 ])
 

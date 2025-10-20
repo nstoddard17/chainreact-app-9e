@@ -83,3 +83,13 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-20T04:29:05.632Z] [INFO   ] 2025-10-20T04:29:05.632Z [DEBUG] 📡 Discord event received: GUILD_CREATE
 [2025-10-20T04:29:05.827Z] [INFO   ] 2025-10-20T04:29:05.827Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
 [2025-10-20T06:19:16.754Z] [INFO   ] 2025-10-20T06:19:16.752Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-20T13:30:44.352Z] [INFO   ]  ✓ Compiled in 875ms (2241 modules)
+[2025-10-20T13:30:57.384Z] [INFO   ]  ✓ Compiled in 341ms (2241 modules)
+[2025-10-20T15:30:23.894Z] [INFO   ]  ✓ Compiled in 813ms (2254 modules)
+[2025-10-20T17:33:46.223Z] [INFO   ]  ✓ Compiled in 1432ms (2241 modules)
+[2025-10-20T17:33:54.027Z] [INFO   ]  ✓ Compiled in 515ms (2242 modules)
+[2025-10-20T17:53:59.153Z] [INFO   ]  ✓ Compiled in 941ms (2242 modules)
+[2025-10-20T17:54:01.720Z] [INFO   ]  ✓ Compiled in 197ms (2242 modules)
+[2025-10-20T17:54:27.909Z] [INFO   ]  ✓ Compiled in 214ms (2242 modules)
+[2025-10-20T17:54:39.201Z] [INFO   ]  ✓ Compiled in 206ms (2242 modules)
+[2025-10-20T17:54:58.348Z] [INFO   ]  ✓ Compiled in 364ms (2242 modules)

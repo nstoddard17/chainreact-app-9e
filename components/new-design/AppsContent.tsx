@@ -25,20 +25,28 @@ import {
 import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
+import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
 
 export function AppsContent() {
-  const { providers, integrations, initializeProviders, fetchIntegrations, setLoading } = useIntegrationStore()
+  const { providers, integrations, initializeProviders, fetchIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
   const { user } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState("")
   const [availableSearchQuery, setAvailableSearchQuery] = useState("")
   const [showConnectDialog, setShowConnectDialog] = useState(false)
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     if (user) {
-      initializeProviders()
-      fetchIntegrations(false)
+      const loadData = async () => {
+        await Promise.all([
+          initializeProviders(),
+          fetchIntegrations(false)
+        ])
+        setInitialLoadComplete(true)
+      }
+      loadData()
     }
   }, [user, initializeProviders, fetchIntegrations])
 
@@ -59,67 +67,33 @@ export function AppsContent() {
     setLocalLoading(prev => ({ ...prev, [providerId]: true }))
 
     try {
-      const response = await fetch("/api/integrations/auth/generate-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: providerId, reconnect: false }),
-      })
+      // Use the store's connectIntegration method which handles optimistic updates
+      const result = await connectIntegration(providerId)
 
-      const data = await response.json()
+      // Close the dialog to show the newly connected app
+      setShowConnectDialog(false)
 
-      if (!response.ok) {
-        toast({
-          title: "Connection Error",
-          description: data.error || "Could not generate authentication URL.",
-          variant: "destructive",
-        })
-        setLocalLoading(prev => ({ ...prev, [providerId]: false }))
-        return
-      }
+      // Get provider display name for better toast messaging
+      const provider = providers.find(p => p.id === providerId)
+      const displayName = provider?.name || providerId
 
-      if (data.success && data.authUrl) {
-        const width = 600
-        const height = 700
-        const left = window.screen.width / 2 - width / 2
-        const top = window.screen.height / 2 - height / 2
-        const popup = window.open(
-          data.authUrl,
-          `oauth_popup_${providerId}`,
-          `width=${width},height=${height},left=${left},top=${top}`,
-        )
-
-        const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) return
-
-          if (event.data.type === "oauth-success") {
-            toast({
-              title: "Integration Connected",
-              description: `${event.data.provider || "Integration"} connected successfully.`,
-            })
-            fetchIntegrations(true)
-            setShowConnectDialog(false)
-          } else if (event.data.type === "oauth-error") {
-            toast({
-              title: "Integration Error",
-              description: event.data.message || "An unknown error occurred.",
-              variant: "destructive",
-            })
-          }
-
-          setLocalLoading(prev => ({ ...prev, [providerId]: false }))
-          if (popup) popup.close()
-          window.removeEventListener("message", handleMessage)
-        }
-
-        window.addEventListener("message", handleMessage)
-      }
-    } catch (error) {
-      logger.error("Connection error:", error)
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Integration Connected",
+        description: `${displayName} connected successfully.`,
+      })
+    } catch (error: any) {
+      logger.error("Connection error:", error)
+
+      // Get provider display name for error message too
+      const provider = providers.find(p => p.id === providerId)
+      const displayName = provider?.name || providerId
+
+      toast({
+        title: "Connection Error",
+        description: error?.message || `Failed to connect ${displayName}. Please try again.`,
         variant: "destructive",
       })
+    } finally {
       setLocalLoading(prev => ({ ...prev, [providerId]: false }))
     }
   }
@@ -195,6 +169,18 @@ export function AppsContent() {
     available: availableApps.length,
   }
 
+  // Show loading state until initial data is loaded
+  if (!initialLoadComplete || (providers.length === 0 && storeLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Loading apps and integrations...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Action */}
@@ -246,7 +232,7 @@ export function AppsContent() {
                           <img
                             src={`/integrations/${provider.id}.svg`}
                             alt={provider.name}
-                            className="w-6 h-6 object-contain"
+                            className={getIntegrationLogoClasses(provider.id)}
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
                             }}
@@ -300,7 +286,7 @@ export function AppsContent() {
                         <img
                           src={`/integrations/${provider.id}.svg`}
                           alt={provider.name}
-                          className="w-6 h-6 object-contain"
+                          className={getIntegrationLogoClasses(provider.id)}
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
                           }}
@@ -412,7 +398,7 @@ export function AppsContent() {
                       <img
                         src={`/integrations/${provider.id}.svg`}
                         alt={provider.name}
-                        className="w-6 h-6 object-contain"
+                        className={getIntegrationLogoClasses(provider.id)}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
                         }}

@@ -539,23 +539,66 @@ class DiscordGateway extends SimpleEventEmitter {
         author: messageData.author?.username
       })
 
-      // Send to webhook processing endpoint
-      const response = await fetch(`${baseUrl}/api/workflow/discord`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'ChainReact-DiscordGateway/1.0'
-        },
-        body: JSON.stringify(messageData)
-      })
+      const attemptedUrls: Array<{ url: string; status?: number; error?: string }> = []
 
-      if (!response.ok) {
-        logger.error('Failed to process Discord message for workflows:', response.status)
+      const candidateBaseUrls: string[] = []
+      if (!isProd) {
+        if (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL) {
+          candidateBaseUrls.push(process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL)
+        }
+        const tunnelUrl = process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
+        if (tunnelUrl) {
+          candidateBaseUrls.push(tunnelUrl)
+        }
+        // Always fall back to localhost in development so HITL testing works even when tunnels are offline
+        candidateBaseUrls.push('http://localhost:3000')
       } else {
-        logger.debug('✅ Discord message processed for workflows:', {
-          messageId: messageData.id,
-          channelId: messageData.channel_id,
-          author: messageData.author?.username
+        candidateBaseUrls.push(baseUrl)
+      }
+
+      let processed = false
+
+      for (const candidateBaseUrl of candidateBaseUrls) {
+        const endpoint = `${candidateBaseUrl}/api/workflow/discord`
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'ChainReact-DiscordGateway/1.0'
+            },
+            body: JSON.stringify(messageData)
+          })
+
+          attemptedUrls.push({ url: endpoint, status: response.status })
+
+          if (response.ok) {
+            logger.debug('✅ Discord message processed for workflows:', {
+              messageId: messageData.id,
+              channelId: messageData.channel_id,
+              author: messageData.author?.username,
+              endpoint
+            })
+            processed = true
+            break
+          }
+
+          logger.warn('Workflow endpoint returned non-OK status, trying next fallback if available', {
+            endpoint,
+            status: response.status
+          })
+        } catch (error: any) {
+          attemptedUrls.push({ url: endpoint, error: error.message })
+          logger.warn('Error calling workflow endpoint, trying next fallback if available', {
+            endpoint,
+            error: error.message
+          })
+        }
+      }
+
+      if (!processed) {
+        logger.error('Failed to process Discord message for workflows after trying all endpoints', {
+          attempts: attemptedUrls
         })
       }
     } catch (error) {

@@ -154,9 +154,16 @@ export class NodeExecutionService {
       // This ensures the next node receives the actual data, not the wrapper
       const dataToPass = nodeResult?.output || nodeResult
 
-      // Execute connected nodes ONLY if this node succeeded
-      // If a node fails (success: false), stop the workflow at this point
-      if (nodeResult?.success !== false) {
+      // Check if this node is requesting workflow pause (HITL)
+      // If so, DO NOT execute connected nodes - the workflow should pause here
+      if (nodeResult?.pauseExecution) {
+        logger.info(`⏸️  Node ${node.id} requesting workflow pause (HITL)`)
+        logger.debug(`   Will NOT execute connected nodes - workflow is pausing`)
+        // Don't execute connected nodes, but don't fail either
+        // The workflowExecutionService will handle the pause
+      }
+      // Execute connected nodes ONLY if this node succeeded AND is not pausing
+      else if (nodeResult?.success !== false) {
         await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
       } else {
         logger.warn(`⚠️ Node ${node.id} failed, stopping execution of connected nodes`, {

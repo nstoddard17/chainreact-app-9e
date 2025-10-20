@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, type ChangeEvent } from "react"
+import { useRef, useState, type ChangeEvent, useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,11 +12,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
 import { User, Bell, Shield, Palette, Loader2 } from "lucide-react"
+import { useTheme } from "next-themes"
 
 export function SettingsContent() {
   const { profile, updateProfile, user } = useAuthStore()
   const { toast } = useToast()
   const supabase = createClient()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,
@@ -27,6 +30,10 @@ export function SettingsContent() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleAvatarButtonClick = () => {
     avatarInputRef.current?.click()
@@ -358,20 +365,46 @@ export function SettingsContent() {
             <CardDescription>Customize how ChainReact looks</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="cursor-pointer border-2 border-primary rounded-lg p-4 text-center">
-                <div className="w-full h-20 bg-background border rounded mb-2" />
-                <p className="text-sm font-medium">Light</p>
+            {mounted ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div
+                  onClick={() => setTheme('light')}
+                  className={`cursor-pointer border-2 ${theme === 'light' ? 'border-primary' : 'border-transparent hover:border-muted'} rounded-lg p-4 text-center transition-all`}
+                >
+                  <div className="w-full h-20 bg-white border border-gray-300 rounded mb-2" />
+                  <p className="text-sm font-medium">Light</p>
+                </div>
+                <div
+                  onClick={() => setTheme('dark')}
+                  className={`cursor-pointer border-2 ${theme === 'dark' ? 'border-primary' : 'border-transparent hover:border-muted'} rounded-lg p-4 text-center transition-all`}
+                >
+                  <div className="w-full h-20 bg-slate-900 border border-slate-700 rounded mb-2" />
+                  <p className="text-sm font-medium">Dark</p>
+                </div>
+                <div
+                  onClick={() => setTheme('system')}
+                  className={`cursor-pointer border-2 ${theme === 'system' ? 'border-primary' : 'border-transparent hover:border-muted'} rounded-lg p-4 text-center transition-all`}
+                >
+                  <div className="w-full h-20 bg-gradient-to-br from-white to-slate-900 border border-gray-400 rounded mb-2" />
+                  <p className="text-sm font-medium">System</p>
+                </div>
               </div>
-              <div className="cursor-pointer border-2 border-transparent hover:border-muted rounded-lg p-4 text-center">
-                <div className="w-full h-20 bg-slate-900 border rounded mb-2" />
-                <p className="text-sm font-medium">Dark</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="border-2 border-transparent rounded-lg p-4 text-center">
+                  <div className="w-full h-20 bg-muted border rounded mb-2 animate-pulse" />
+                  <p className="text-sm font-medium text-muted-foreground">Light</p>
+                </div>
+                <div className="border-2 border-transparent rounded-lg p-4 text-center">
+                  <div className="w-full h-20 bg-muted border rounded mb-2 animate-pulse" />
+                  <p className="text-sm font-medium text-muted-foreground">Dark</p>
+                </div>
+                <div className="border-2 border-transparent rounded-lg p-4 text-center">
+                  <div className="w-full h-20 bg-muted border rounded mb-2 animate-pulse" />
+                  <p className="text-sm font-medium text-muted-foreground">System</p>
+                </div>
               </div>
-              <div className="cursor-pointer border-2 border-transparent hover:border-muted rounded-lg p-4 text-center">
-                <div className="w-full h-20 bg-gradient-to-br from-background to-slate-900 border rounded mb-2" />
-                <p className="text-sm font-medium">System</p>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </TabsContent>
