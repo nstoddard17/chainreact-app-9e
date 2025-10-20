@@ -1,10 +1,34 @@
 import { ExecutionContext } from "../workflowExecutionService"
+import { TriggerTestMode } from "../testMode/types"
+import { getMockTriggerData } from "../testMode/mockTriggerData"
 
 import { logger } from '@/lib/utils/logger'
 
 export class TriggerNodeHandlers {
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
+
+    // Check if we should use mock data
+    const useMockData = context.testMode &&
+      context.testModeConfig?.triggerMode === TriggerTestMode.USE_MOCK_DATA
+
+    logger.debug(`🎯 Trigger execution mode: ${useMockData ? 'MOCK DATA' : 'REAL DATA'}`, {
+      nodeType,
+      testMode: context.testMode,
+      triggerMode: context.testModeConfig?.triggerMode
+    })
+
+    // If using mock data, return it immediately
+    if (useMockData) {
+      const mockData = getMockTriggerData(nodeType)
+      logger.debug(`📝 Using mock data for ${nodeType}`, mockData)
+      return {
+        success: true,
+        output: mockData,
+        mockData: true,
+        triggerType: nodeType
+      }
+    }
 
     switch (nodeType) {
       case "webhook":

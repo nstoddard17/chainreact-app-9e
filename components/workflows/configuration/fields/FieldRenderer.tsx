@@ -50,6 +50,7 @@ import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
 import { UnifiedDocumentPicker } from "./UnifiedDocumentPicker";
+import { ChainReactMemoryPicker } from "./ChainReactMemoryPicker";
 
 import { logger } from '@/lib/utils/logger'
 
@@ -1630,6 +1631,17 @@ export function FieldRenderer({
               // This could open a connection modal or redirect to integration page
               console.log('Connect provider:', providerId)
             }}
+          />
+        );
+
+      case "chainreact-memory-picker":
+        // ChainReact Memory Picker for selecting memory/knowledge base documents
+        return (
+          <ChainReactMemoryPicker
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
           />
         );
 

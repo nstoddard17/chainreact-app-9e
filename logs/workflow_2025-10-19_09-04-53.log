@@ -1,0 +1,153 @@
+=== Log Session Started: 2025-10-19T14:04:53.847Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-19T14:04:53.848Z] [INFO   ] File logging initialized
+[2025-10-19T14:04:53.848Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_09-04-53.log
+[2025-10-19T14:04:53.850Z] [INFO   ] 📁 File logging enabled
+[2025-10-19T14:04:53.850Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_09-04-53.log
+[2025-10-19T14:04:53.851Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_09-04-53.log
+[2025-10-19T14:04:53.851Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_09-04-53.log
+[2025-10-19T14:04:53.851Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_09-04-53.log
+[2025-10-19T14:04:53.851Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-19T14:04:53.851Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-19T14:04:53.864Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-19T14:04:54.889Z] [INFO   ] 2025-10-19T14:04:54.889Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-19T14:04:56.626Z] [INFO   ] 2025-10-19T14:04:56.626Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-19T14:04:56.626Z] [INFO   ] 2025-10-19T14:04:56.626Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-19T14:04:56.937Z] [INFO   ] 2025-10-19T14:04:56.936Z [DEBUG] Discord Gateway initialization complete
+[2025-10-19T14:04:56.938Z] [INFO   ] 2025-10-19T14:04:56.938Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-19T14:04:57.113Z] [INFO   ] 2025-10-19T14:04:57.113Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-19T14:04:57.115Z] [INFO   ] 2025-10-19T14:04:57.115Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-19T14:04:57.419Z] [INFO   ] 2025-10-19T14:04:57.419Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"1b84a91f577c4c550c2af5b0051178d9","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-19T14:04:57.419Z] [INFO   ] 2025-10-19T14:04:57.419Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-19T14:04:57.420Z] [INFO   ] 2025-10-19T14:04:57.420Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-19T14:04:57.423Z] [INFO   ] 2025-10-19T14:04:57.423Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-19T14:04:57.610Z] [INFO   ] 2025-10-19T14:04:57.610Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-19T14:05:00.629Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 197ms (233 modules)
+[2025-10-19T14:05:01.437Z] [INFO   ] 2025-10-19T14:05:01.436Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316014037}
+[2025-10-19T14:05:02.062Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-19T14:05:06.206Z] [INFO   ] 2025-10-19T14:05:06.206Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316018807}
+[2025-10-19T14:05:07.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.7s (5709 modules)
+[2025-10-19T14:05:07.548Z] [INFO   ] 2025-10-19T14:05:07.548Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:05:07.548Z"}
+[2025-10-19T14:05:07.551Z] [INFO   ] 2025-10-19T14:05:07.551Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:05:07.551Z"}
+[2025-10-19T14:05:07.551Z] [INFO   ] 2025-10-19T14:05:07.551Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:05:07.551Z"}
+[2025-10-19T14:05:07.814Z] [INFO   ] 2025-10-19T14:05:07.814Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:05:08.845Z] [INFO   ] 2025-10-19T14:05:08.845Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:05:09.203Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:05:09.270Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/teams ...
+[2025-10-19T14:05:11.295Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/teams in 2.5s (5722 modules)
+[2025-10-19T14:05:12.399Z] [INFO   ]  [37m[1m○[22m[39m Compiling /ai-assistant ...
+[2025-10-19T14:05:13.720Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /ai-assistant in 1824ms (6069 modules)
+[2025-10-19T14:05:14.097Z] [INFO   ] 2025-10-19T14:05:14.097Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:05:15.228Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 394ms (6071 modules)
+[2025-10-19T14:05:15.299Z] [INFO   ] 2025-10-19T14:05:15.299Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-19T14:05:15.299Z","headers":{"referer":"check-console"}}
+[2025-10-19T14:05:15.425Z] [INFO   ] 2025-10-19T14:05:15.425Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-19T14:05:15.587Z] [INFO   ] 2025-10-19T14:05:15.587Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-19T14:05:15.660Z] [INFO   ] 2025-10-19T14:05:15.660Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-19T14:05:15.660Z","headers":{"referer":"check-console"}}
+[2025-10-19T14:05:15.743Z] [INFO   ] 2025-10-19T14:05:15.743Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-19T14:05:15.846Z] [INFO   ] 2025-10-19T14:05:15.846Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-19T14:05:22.571Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 541ms (1749 modules)
+[2025-10-19T14:05:22.683Z] [INFO   ] 2025-10-19T14:05:22.682Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:05:22.866Z] [INFO   ] 2025-10-19T14:05:22.865Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316035466}
+[2025-10-19T14:05:23.017Z] [INFO   ] 2025-10-19T14:05:23.017Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:05:23.767Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-19T14:05:23.771Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 519ms (6074 modules)
+[2025-10-19T14:05:55.112Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 450ms (6076 modules)
+[2025-10-19T14:06:08.680Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 515ms (1749 modules)
+[2025-10-19T14:06:08.877Z] [INFO   ] 2025-10-19T14:06:08.876Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:06:09.104Z] [INFO   ] 2025-10-19T14:06:09.103Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316081704}
+[2025-10-19T14:06:09.293Z] [INFO   ] 2025-10-19T14:06:09.293Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:06:10.082Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-19T14:06:10.412Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 970ms (6078 modules)
+[2025-10-19T14:06:10.609Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T14:06:10.841Z] [INFO   ] 2025-10-19T14:06:10.841Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316083442}
+[2025-10-19T14:06:11.143Z] [INFO   ] 2025-10-19T14:06:11.143Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:06:11.143Z"}
+[2025-10-19T14:06:11.157Z] [INFO   ] 2025-10-19T14:06:11.157Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:06:11.157Z"}
+[2025-10-19T14:06:11.157Z] [INFO   ] 2025-10-19T14:06:11.157Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:06:11.157Z"}
+[2025-10-19T14:06:11.463Z] [INFO   ] 2025-10-19T14:06:11.462Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:06:12.004Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:06:16.853Z] [INFO   ] 2025-10-19T14:06:16.853Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-19T14:06:16.853Z","headers":{"referer":"check-console"}}
+[2025-10-19T14:06:17.006Z] [INFO   ] 2025-10-19T14:06:17.006Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-19T14:06:17.135Z] [INFO   ] 2025-10-19T14:06:17.134Z [DEBUG] 📊 [API /api/integrations] Query result {"count":19,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-19T14:06:34.654Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 571ms (1749 modules)
+[2025-10-19T14:06:34.757Z] [INFO   ] 2025-10-19T14:06:34.756Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:06:34.932Z] [INFO   ] 2025-10-19T14:06:34.932Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316107533}
+[2025-10-19T14:06:35.002Z] [INFO   ] 2025-10-19T14:06:35.002Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:07.783Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1028ms (1749 modules)
+[2025-10-19T14:07:07.954Z] [INFO   ] 2025-10-19T14:07:07.954Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:08.099Z] [INFO   ] 2025-10-19T14:07:08.098Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316140699}
+[2025-10-19T14:07:08.645Z] [INFO   ] 2025-10-19T14:07:08.643Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:09.317Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1305ms (1749 modules)
+[2025-10-19T14:07:09.391Z] [INFO   ] 2025-10-19T14:07:09.391Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:09.578Z] [INFO   ] 2025-10-19T14:07:09.578Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316142179}
+[2025-10-19T14:07:09.638Z] [INFO   ] 2025-10-19T14:07:09.637Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:45.908Z] [INFO   ] 2025-10-19T14:07:45.907Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316178507}
+[2025-10-19T14:07:46.429Z] [INFO   ] 2025-10-19T14:07:46.428Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:46.480Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:07:48.334Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 571ms (1749 modules)
+[2025-10-19T14:07:48.487Z] [INFO   ] 2025-10-19T14:07:48.487Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:49.022Z] [INFO   ] 2025-10-19T14:07:49.022Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316181623}
+[2025-10-19T14:07:49.039Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 656ms (1749 modules)
+[2025-10-19T14:07:49.254Z] [INFO   ] 2025-10-19T14:07:49.254Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:49.305Z] [INFO   ] 2025-10-19T14:07:49.305Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:49.872Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 616ms (1749 modules)
+[2025-10-19T14:07:49.952Z] [INFO   ] 2025-10-19T14:07:49.952Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:49.982Z] [INFO   ] 2025-10-19T14:07:49.982Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316182583}
+[2025-10-19T14:07:50.053Z] [INFO   ] 2025-10-19T14:07:50.053Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:07:50.309Z] [INFO   ] 2025-10-19T14:07:50.309Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316182910}
+[2025-10-19T14:07:50.369Z] [INFO   ] 2025-10-19T14:07:50.369Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:08:08.117Z] [INFO   ] 2025-10-19T14:08:08.116Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316200717}
+[2025-10-19T14:08:08.467Z] [INFO   ] 2025-10-19T14:08:08.467Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:08:08.482Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:09:09.220Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 950ms (1749 modules)
+[2025-10-19T14:09:09.357Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T14:09:09.457Z] [INFO   ] 2025-10-19T14:09:09.457Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:09:09.696Z] [INFO   ] 2025-10-19T14:09:09.696Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316262297}
+[2025-10-19T14:09:10.033Z] [INFO   ] 2025-10-19T14:09:10.033Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:09:10.065Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:12:09.749Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 3.1s (6047 modules)
+[2025-10-19T14:12:10.287Z] [INFO   ] 2025-10-19T14:12:10.286Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:10.361Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T14:12:11.142Z] [INFO   ] 2025-10-19T14:12:11.142Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316443743}
+[2025-10-19T14:12:11.401Z] [INFO   ] 2025-10-19T14:12:11.401Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:11.401Z"}
+[2025-10-19T14:12:11.411Z] [INFO   ] 2025-10-19T14:12:11.411Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:11.411Z"}
+[2025-10-19T14:12:11.411Z] [INFO   ] 2025-10-19T14:12:11.411Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:12:11.411Z"}
+[2025-10-19T14:12:11.875Z] [INFO   ] 2025-10-19T14:12:11.864Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:12.505Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:12:16.471Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T14:12:16.745Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 961ms (6047 modules)
+[2025-10-19T14:12:16.918Z] [INFO   ] 2025-10-19T14:12:16.918Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:17.065Z] [INFO   ] 2025-10-19T14:12:17.065Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316449666}
+[2025-10-19T14:12:17.316Z] [INFO   ] 2025-10-19T14:12:17.315Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:17.315Z"}
+[2025-10-19T14:12:17.325Z] [INFO   ] 2025-10-19T14:12:17.325Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:17.325Z"}
+[2025-10-19T14:12:17.326Z] [INFO   ] 2025-10-19T14:12:17.326Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:12:17.326Z"}
+[2025-10-19T14:12:17.770Z] [INFO   ] 2025-10-19T14:12:17.768Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:18.213Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:12:27.958Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 802ms (6047 modules)
+[2025-10-19T14:12:28.117Z] [INFO   ] 2025-10-19T14:12:28.117Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:28.229Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-19T14:12:28.380Z] [INFO   ] 2025-10-19T14:12:28.380Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316460981}
+[2025-10-19T14:12:28.761Z] [INFO   ] 2025-10-19T14:12:28.761Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:28.764Z] [INFO   ] 2025-10-19T14:12:28.763Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316461364}
+[2025-10-19T14:12:28.871Z] [INFO   ] 2025-10-19T14:12:28.871Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:28.871Z"}
+[2025-10-19T14:12:28.882Z] [INFO   ] 2025-10-19T14:12:28.882Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:12:28.882Z"}
+[2025-10-19T14:12:28.882Z] [INFO   ] 2025-10-19T14:12:28.882Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:12:28.882Z"}
+[2025-10-19T14:12:29.101Z] [INFO   ] 2025-10-19T14:12:29.101Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:29.415Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+[2025-10-19T14:12:36.654Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 853ms (6047 modules)
+[2025-10-19T14:12:36.823Z] [INFO   ] 2025-10-19T14:12:36.822Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:12:37.052Z] [INFO   ] 2025-10-19T14:12:37.052Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12316469653}
+[2025-10-19T14:12:37.242Z] [INFO   ] 2025-10-19T14:12:37.242Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:15:09.209Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-19T14:15:10.810Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.2s (4315 modules)
+[2025-10-19T14:23:39.319Z] [INFO   ] 2025-10-19T14:23:39.318Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12317131918}
+[2025-10-19T14:23:39.740Z] [INFO   ] 2025-10-19T14:23:39.740Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:23:39.740Z"}
+[2025-10-19T14:23:39.751Z] [INFO   ] 2025-10-19T14:23:39.751Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-19T14:23:39.751Z"}
+[2025-10-19T14:23:39.751Z] [INFO   ] 2025-10-19T14:23:39.751Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-19T14:23:39.751Z"}
+[2025-10-19T14:23:40.342Z] [INFO   ] 2025-10-19T14:23:40.341Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-19T14:23:40.682Z] [INFO   ] 🧪 [useWorkflowBuilder] Returning - testModeDialogOpen: false
+
+=== Log Session Ended: 2025-10-19T14:23:47.110Z ===

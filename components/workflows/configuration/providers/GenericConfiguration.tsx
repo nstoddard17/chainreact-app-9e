@@ -3,6 +3,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ChevronLeft, Mail, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
 import { ConfigurationContainer } from '../components/ConfigurationContainer';
@@ -248,18 +249,45 @@ export function GenericConfiguration({
     return FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
   };
 
-  // Separate fields
-  const baseFields = nodeInfo?.configSchema?.filter((field: any) => {
-    const shouldShow = !field.advanced && shouldShowField(field);
-    if (field.hidden !== undefined) {
-      logger.debug(`🔍 [GenericConfig] Field ${field.name} - hidden: ${field.hidden}, shouldShow: ${shouldShow}`);
-    }
-    return shouldShow;
-  }) || [];
-  
-  const advancedFields = nodeInfo?.configSchema?.filter((field: any) => 
-    field.advanced && shouldShowField(field)
-  ) || [];
+  // Check if any fields use the new uiTab property
+  const hasTabBasedFields = nodeInfo?.configSchema?.some((field: any) => field.uiTab);
+
+  // Separate fields based on either uiTab (new) or advanced (legacy)
+  let baseFields: any[] = [];
+  let advancedFields: any[] = [];
+  let memoryFields: any[] = [];
+  let tabFields: Record<string, any[]> = {};
+
+  if (hasTabBasedFields) {
+    // New tab-based grouping
+    const visibleFields = nodeInfo?.configSchema?.filter((field: any) => shouldShowField(field)) || [];
+
+    visibleFields.forEach((field: any) => {
+      const tab = field.uiTab || 'basic'; // Default to 'basic' if no uiTab specified
+      if (!tabFields[tab]) {
+        tabFields[tab] = [];
+      }
+      tabFields[tab].push(field);
+    });
+
+    // Extract specific tabs for easier access
+    baseFields = tabFields['basic'] || [];
+    advancedFields = tabFields['advanced'] || [];
+    memoryFields = tabFields['memory'] || [];
+  } else {
+    // Legacy advanced-based grouping
+    baseFields = nodeInfo?.configSchema?.filter((field: any) => {
+      const shouldShow = !field.advanced && shouldShowField(field);
+      if (field.hidden !== undefined) {
+        logger.debug(`🔍 [GenericConfig] Field ${field.name} - hidden: ${field.hidden}, shouldShow: ${shouldShow}`);
+      }
+      return shouldShow;
+    }) || [];
+
+    advancedFields = nodeInfo?.configSchema?.filter((field: any) =>
+      field.advanced && shouldShowField(field)
+    ) || [];
+  }
 
   // Handle AI field toggle
   const handleAIToggle = useCallback((fieldName: string, enabled: boolean) => {
@@ -556,22 +584,60 @@ export function GenericConfiguration({
       isEditMode={isEditMode}
       isFormValid={isFormValid}
     >
-      {/* Base fields */}
-      {baseFields.length > 0 && (
-        <div className="space-y-3">
-          {renderFields(baseFields)}
-        </div>
-      )}
+      {hasTabBasedFields ? (
+        // New tab-based rendering
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="basic">Basic</TabsTrigger>
+            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            <TabsTrigger value="memory">Memory</TabsTrigger>
+          </TabsList>
 
-      {/* Advanced fields */}
-      {advancedFields.length > 0 && (
+          <TabsContent value="basic" className="space-y-3">
+            {baseFields.length > 0 ? (
+              renderFields(baseFields)
+            ) : (
+              <div className="text-sm text-slate-500 py-4">No basic configuration fields</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="advanced" className="space-y-3">
+            {advancedFields.length > 0 ? (
+              renderFields(advancedFields)
+            ) : (
+              <div className="text-sm text-slate-500 py-4">No advanced configuration fields</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="memory" className="space-y-3">
+            {memoryFields.length > 0 ? (
+              renderFields(memoryFields)
+            ) : (
+              <div className="text-sm text-slate-500 py-4">No memory configuration fields</div>
+            )}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        // Legacy advanced-based rendering
         <>
-          <div className="border-t border-slate-200 pt-4 mt-6">
-            <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
+          {/* Base fields */}
+          {baseFields.length > 0 && (
             <div className="space-y-3">
-              {renderFields(advancedFields)}
+              {renderFields(baseFields)}
             </div>
-          </div>
+          )}
+
+          {/* Advanced fields */}
+          {advancedFields.length > 0 && (
+            <>
+              <div className="border-t border-slate-200 pt-4 mt-6">
+                <h3 className="text-sm font-medium text-slate-700 mb-3">Advanced Settings</h3>
+                <div className="space-y-3">
+                  {renderFields(advancedFields)}
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
       {/* Email Preview Button - Only for Outlook and Gmail Get Email actions when required fields are filled */}

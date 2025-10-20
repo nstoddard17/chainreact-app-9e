@@ -4,12 +4,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseServerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { processConversationMessage } from '@/lib/workflows/actions/hitl/conversation'
 import { sendDiscordThreadMessage } from '@/lib/workflows/actions/hitl/discord'
 import { processConversationLearnings } from '@/lib/workflows/actions/hitl/memoryService'
 import type { ConversationMessage } from '@/lib/workflows/actions/hitl/types'
+import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
+import { ExecutionProgressTracker } from '@/lib/execution/executionProgressTracker'
+import { createDataFlowManager } from '@/lib/workflows/dataFlowContext'
 
 /**
  * POST /api/webhooks/discord/hitl
@@ -263,9 +266,8 @@ export async function POST(request: NextRequest) {
         logger.error('Failed to process learnings (non-blocking)', { error: error.message })
       })
 
-      // Update execution status to running and pass extracted variables forward
-      const outputData = {
-        ...resumeData.input,
+      // Prepare conversation output data
+      const conversationOutput = {
         hitlStatus: 'continued',
         conversationSummary: summary || 'User approved',
         messagesCount: conversationHistory.length,
@@ -276,39 +278,158 @@ export async function POST(request: NextRequest) {
         conversationHistory
       }
 
-      await supabase
-        .from('workflow_executions')
-        .update({
-          status: 'running',
-          paused_node_id: null,
-          paused_at: null,
-          resume_data: {
-            ...resumeData,
-            output: outputData
-          }
-        })
-        .eq('id', conversation.execution_id)
-
-      // Trigger workflow resume (this would need to be implemented in workflow engine)
-      // For now, log that it needs to be picked up by the execution engine
-      logger.info('Workflow ready to resume', {
-        executionId: conversation.execution_id,
-        pausedNodeId: execution.paused_node_id,
-        output: outputData
-      })
-
-      // Send final message to Discord
+      // Send final message to Discord before resuming
       await sendDiscordThreadMessage(
         conversation.user_id,
         channelId,
         '✅ **Workflow continuing!** Thanks for the input.'
       )
 
-      return NextResponse.json({
-        ok: true,
-        action: 'resumed',
-        executionId: conversation.execution_id
-      })
+      // Resume workflow execution directly (using service client to bypass RLS)
+      try {
+        const serviceSupabase = await createSupabaseServiceClient()
+
+        // Load workflow
+        const { data: workflow, error: workflowError } = await serviceSupabase
+          .from('workflows')
+          .select('*')
+          .eq('id', conversation.workflow_id)
+          .single()
+
+        if (workflowError || !workflow) {
+          throw new Error(`Workflow not found: ${workflowError?.message}`)
+        }
+
+        // Parse workflow nodes and edges
+        const allNodes = workflow.nodes || []
+        const allEdges = workflow.edges || workflow.connections || []
+
+        const nodes = allNodes.filter((node: any) =>
+          node.type !== 'addAction' &&
+          node.type !== 'insertAction' &&
+          !node.id?.startsWith('add-action-')
+        )
+
+        const edges = allEdges.filter((edge: any) => {
+          const sourceNode = nodes.find((n: any) => n.id === edge.source)
+          const targetNode = nodes.find((n: any) => n.id === edge.target)
+          return sourceNode && targetNode
+        })
+
+        // Find next nodes after the paused node
+        const pausedNodeId = execution.paused_node_id
+        const nextNodes = edges
+          .filter((edge: any) => edge.source === pausedNodeId)
+          .map((edge: any) => nodes.find((n: any) => n.id === edge.target))
+          .filter(Boolean)
+
+        logger.info('[HITL Resume] Found next nodes', {
+          pausedNodeId,
+          nextNodesCount: nextNodes.length
+        })
+
+        if (nextNodes.length === 0) {
+          // No more nodes - mark as completed
+          await serviceSupabase
+            .from('workflow_executions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', conversation.execution_id)
+
+          logger.info('[HITL Resume] Workflow completed - no more nodes')
+
+          return NextResponse.json({
+            ok: true,
+            action: 'completed',
+            message: 'Workflow completed'
+          })
+        }
+
+        // Create execution context
+        const dataFlowManager = createDataFlowManager(
+          conversation.execution_id,
+          conversation.workflow_id,
+          conversation.user_id
+        )
+
+        const executionContext = {
+          userId: conversation.user_id,
+          workflowId: conversation.workflow_id,
+          testMode: false,
+          data: {
+            ...resumeData.input,                              // Original workflow data
+            ...conversationOutput,                             // HITL metadata (hitlStatus, summary, etc.)
+            ...(conversationOutput.extractedVariables || {})   // Extracted variables at top level for easy access
+          },
+          variables: {},
+          results: {},
+          dataFlowManager,
+          executionId: conversation.execution_id
+        }
+
+        // Execute next nodes
+        const progressTracker = new ExecutionProgressTracker()
+        await progressTracker.initialize(
+          conversation.execution_id,
+          conversation.workflow_id,
+          conversation.user_id,
+          nodes.length
+        )
+
+        const nodeExecutionService = new NodeExecutionService()
+
+        for (const nextNode of nextNodes) {
+          logger.info(`[HITL Resume] Executing: ${nextNode.id}`)
+
+          const result = await nodeExecutionService.executeNode(
+            nextNode,
+            nodes,
+            edges,
+            executionContext
+          )
+
+          if (result?.pauseExecution) {
+            logger.info('[HITL Resume] Paused again at', nextNode.id)
+            await progressTracker.pause(nextNode.id)
+            break
+          }
+        }
+
+        await progressTracker.complete(true)
+
+        await serviceSupabase
+          .from('workflow_executions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', conversation.execution_id)
+
+        logger.info('[HITL Resume] Workflow resumed and completed')
+
+        return NextResponse.json({
+          ok: true,
+          action: 'resumed',
+          executionId: conversation.execution_id
+        })
+
+      } catch (resumeError: any) {
+        logger.error('[HITL Resume] Error', { error: resumeError.message })
+
+        await sendDiscordThreadMessage(
+          conversation.user_id,
+          channelId,
+          '❌ **Error resuming workflow**\n\nThere was a problem continuing the workflow. Please check the logs.'
+        )
+
+        return NextResponse.json({
+          ok: false,
+          error: 'Failed to resume workflow',
+          details: resumeError.message
+        }, { status: 500 })
+      }
     } else {
       // Continue conversation - update history
       await supabase

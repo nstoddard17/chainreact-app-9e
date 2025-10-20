@@ -406,7 +406,7 @@ export function useSingleTabPresence() {
   // Fetch online count periodically (for all tabs, not just leader)
   useEffect(() => {
     if (!user?.id) return
-    
+
     const fetchOnlineCount = async () => {
       try {
         const response = await fetch('/api/presence/count')
@@ -418,13 +418,13 @@ export function useSingleTabPresence() {
         console.debug('Failed to fetch online count:', error)
       }
     }
-    
+
     // Fetch immediately
     fetchOnlineCount()
-    
+
     // Then fetch periodically
     const interval = setInterval(fetchOnlineCount, USER_COUNT_UPDATE_INTERVAL)
-    
+
     return () => clearInterval(interval)
   }, [user?.id])
 

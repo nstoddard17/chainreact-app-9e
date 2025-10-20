@@ -4,6 +4,7 @@ import { ActionNodeHandlers } from "./executionHandlers/actionHandlers"
 import { IntegrationNodeHandlers } from "./executionHandlers/integrationHandlers"
 import { ExecutionContext } from "./workflowExecutionService"
 import { executionHistoryService } from "./executionHistoryService"
+import { ActionTestMode } from "./testMode/types"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -83,9 +84,40 @@ export class NodeExecutionService {
       
       let nodeResult = await this.executeNodeByType(node, allNodes, connections, context)
 
-      // If in test mode and this is an action that would send data externally,
-      // wrap the result with intercepted metadata
-      if (context.testMode && this.isExternalAction(node.data.type) && nodeResult) {
+      // Enhanced test mode action interception
+      if (context.testMode && context.testModeConfig) {
+        const actionMode = context.testModeConfig.actionMode
+
+        // INTERCEPT_WRITES: Execute reads normally, intercept sends/creates/updates
+        if (actionMode === ActionTestMode.INTERCEPT_WRITES && this.isExternalAction(node.data.type)) {
+          logger.debug(`🛡️ Intercepting write action: ${node.data.type}`)
+          nodeResult = {
+            ...nodeResult,
+            intercepted: {
+              type: node.data.type,
+              config: node.data.config || {},
+              wouldHaveSent: nodeResult,
+              nodeId: node.id,
+              nodeName: node.data.title || node.data.type,
+              destination: this.getActionDestination(node.data.type, node.data.config)
+            }
+          }
+        }
+
+        // SKIP_ALL: Skip all external actions entirely, use mock responses
+        if (actionMode === ActionTestMode.SKIP_ALL && this.isIntegrationNode(node.data.type)) {
+          logger.debug(`⏭️ Skipping external action: ${node.data.type}`)
+          nodeResult = {
+            success: true,
+            output: {
+              skipped: true,
+              message: `Test mode: ${node.data.type} would execute here`,
+              mockData: true
+            }
+          }
+        }
+      } else if (context.testMode && this.isExternalAction(node.data.type) && nodeResult) {
+        // Fallback to legacy test mode behavior for backwards compatibility
         nodeResult = {
           ...nodeResult,
           intercepted: {
@@ -275,7 +307,7 @@ export class NodeExecutionService {
       'ai_action_translate', 'ai_action_generate', 'ai_action_classify',
       'ai_agent', 'ai_router', 'variable_set', 'variable_get', 'if_condition',
       'switch_case', 'data_transform', 'template', 'javascript',
-      'try_catch', 'retry'
+      'try_catch', 'retry', 'hitl_conversation'
     ]
     return actionTypes.includes(nodeType)
   }
@@ -340,6 +372,30 @@ export class NodeExecutionService {
     )
     
     return (hasExternalKeyword || hasExternalPrefix) && !isReadOnly
+  }
+
+  private getActionDestination(nodeType: string, config: any): string {
+    // Determine where this action would send data
+    switch (nodeType) {
+      case 'gmail_action_send_email':
+      case 'gmail_send':
+        return config.to || 'unknown recipient'
+      case 'slack_send_message':
+      case 'slack_action_send_message':
+        return `Slack channel: ${config.channel || config.channelId || 'unknown'}`
+      case 'discord_action_send_message':
+        return `Discord channel: ${config.channelId || 'unknown'}`
+      case 'google_sheets_append_row':
+      case 'google-sheets:append_row':
+        return `Google Sheets: ${config.spreadsheetId || 'unknown spreadsheet'}`
+      case 'airtable_create_record':
+        return `Airtable: ${config.tableId || 'unknown table'}`
+      case 'webhook':
+      case 'webhook_call':
+        return config.url || 'unknown webhook URL'
+      default:
+        return 'external service'
+    }
   }
 
   private getTestModePreview(nodeType: string, config: any): any {

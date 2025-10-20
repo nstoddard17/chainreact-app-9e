@@ -1,0 +1,139 @@
+=== Log Session Started: 2025-10-17T22:59:55.913Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-17T22:59:55.913Z] [INFO   ] File logging initialized
+[2025-10-17T22:59:55.913Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_17-59-55.log
+[2025-10-17T22:59:55.914Z] [INFO   ] 📁 File logging enabled
+[2025-10-17T22:59:55.914Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_17-59-55.log
+[2025-10-17T22:59:55.914Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_17-59-55.log
+[2025-10-17T22:59:55.914Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_17-59-55.log
+[2025-10-17T22:59:55.915Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_17-59-55.log
+[2025-10-17T22:59:55.915Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-17T22:59:55.915Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-17T22:59:55.925Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.2s
+[2025-10-17T22:59:56.623Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-17T23:00:01.105Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /new in 5.2s (3881 modules)
+[2025-10-17T23:00:01.718Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 579ms (673 modules)
+[2025-10-17T23:00:02.839Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 238ms (233 modules)
+[2025-10-17T23:00:14.931Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-17T23:00:15.416Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 985ms (3889 modules)
+[2025-10-17T23:01:25.139Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-17T23:01:25.500Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 877ms (3891 modules)
+[2025-10-17T23:01:26.472Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-17T23:01:28.368Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder in 2.4s (5709 modules)
+[2025-10-17T23:01:30.395Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-17T23:01:32.355Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 2.5s (5716 modules)
+[2025-10-17T23:01:36.227Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-10-17T23:01:38.042Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 2.3s (5735 modules)
+[2025-10-17T23:01:59.511Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1378ms (5749 modules)
+[2025-10-17T23:01:59.599Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:01:59.780Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:02:03.602Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-17T23:02:04.440Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1384ms (5741 modules)
+[2025-10-17T23:04:10.173Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.5s (5721 modules)
+[2025-10-17T23:04:10.250Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:04:10.278Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:04:12.385Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 326ms (4146 modules)
+[2025-10-17T23:04:13.058Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 321ms (4148 modules)
+[2025-10-17T23:04:13.336Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4154 modules)
+[2025-10-17T23:04:16.215Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-17T23:04:16.295Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 580ms (4156 modules)
+[2025-10-17T23:04:19.127Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 740ms (5733 modules)
+[2025-10-17T23:04:20.161Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-17T23:04:20.328Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 668ms (4159 modules)
+[2025-10-17T23:04:25.850Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 310ms (1577 modules)
+[2025-10-17T23:04:26.926Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-17T23:04:26.959Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 581ms (5724 modules)
+[2025-10-17T23:04:27.081Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T23:05:07.438Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-10-17T23:05:07.517Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 609ms (4161 modules)
+[2025-10-17T23:05:08.370Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4178 modules)
+[2025-10-17T23:05:32.404Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 337ms (4178 modules)
+[2025-10-17T23:06:15.635Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1493ms (5721 modules)
+[2025-10-17T23:06:15.816Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:06:15.818Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:06:18.112Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 471ms (4146 modules)
+[2025-10-17T23:06:18.732Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 327ms (4148 modules)
+[2025-10-17T23:06:19.019Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4159 modules)
+[2025-10-17T23:06:21.163Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 732ms (5736 modules)
+[2025-10-17T23:06:21.684Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:06:21.694Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:06:31.149Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 989ms (5736 modules)
+[2025-10-17T23:06:32.181Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-17T23:06:32.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 590ms (4161 modules)
+[2025-10-17T23:06:36.601Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 387ms (1577 modules)
+[2025-10-17T23:06:36.666Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T23:06:44.794Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 602ms (1577 modules)
+[2025-10-17T23:07:01.144Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5738 modules)
+[2025-10-17T23:07:01.253Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T23:07:01.429Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:06.467Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1584ms (5738 modules)
+[2025-10-17T23:07:06.554Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:06.565Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:12.506Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.2s (5736 modules)
+[2025-10-17T23:07:12.592Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:12.826Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:17.758Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1406ms (5736 modules)
+[2025-10-17T23:07:18.429Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:07:18.429Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:09:11.246Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1198ms (1577 modules)
+[2025-10-17T23:09:11.322Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T23:09:21.664Z] [ERROR  ] 2025-10-17T23:09:21.661Z [ERROR] [Username Check] Auth check timed out after 10 seconds: {}
+[2025-10-17T23:09:21.665Z] [ERROR  ] 2025-10-17T23:09:21.664Z [ERROR] [Username Check] This may indicate Supabase connection issues
+[2025-10-17T23:09:22.551Z] [INFO   ]  [37m[1m○[22m[39m Compiling /auth/login ...
+[2025-10-17T23:09:25.353Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /auth/login in 3.5s (5736 modules)
+[2025-10-17T23:09:35.339Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 407ms (1585 modules)
+[2025-10-17T23:11:24.828Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1627ms (1585 modules)
+[2025-10-17T23:11:29.766Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 332ms (1585 modules)
+[2025-10-17T23:13:06.350Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1969ms (5738 modules)
+[2025-10-17T23:13:11.053Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 752ms (5738 modules)
+[2025-10-17T23:13:16.049Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1961ms (5738 modules)
+[2025-10-17T23:13:28.064Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1250ms (5721 modules)
+[2025-10-17T23:13:34.828Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1585ms (5721 modules)
+[2025-10-17T23:13:41.692Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 887ms (5721 modules)
+[2025-10-17T23:13:43.536Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 360ms (1585 modules)
+[2025-10-17T23:13:51.542Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 436ms (1585 modules)
+[2025-10-17T23:13:59.153Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 301ms (1585 modules)
+[2025-10-17T23:14:04.764Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 347ms (1585 modules)
+[2025-10-17T23:14:28.216Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-17T23:14:28.279Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 658ms (4153 modules)
+[2025-10-17T23:14:35.032Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 553ms (1585 modules)
+[2025-10-17T23:14:41.894Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 513ms (1585 modules)
+[2025-10-17T23:14:48.307Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 797ms (1585 modules)
+[2025-10-17T23:14:56.363Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 644ms (1585 modules)
+[2025-10-17T23:15:10.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 445ms (1585 modules)
+[2025-10-17T23:15:18.758Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 355ms (1585 modules)
+[2025-10-17T23:15:25.053Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 447ms (1585 modules)
+[2025-10-17T23:15:30.657Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 326ms (1585 modules)
+[2025-10-17T23:15:39.474Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 290ms (1585 modules)
+[2025-10-17T23:17:18.005Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-17T23:17:22.318Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 5.1s (5867 modules)
+[2025-10-17T23:17:23.625Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 476ms (4229 modules)
+[2025-10-17T23:17:25.596Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4237 modules)
+[2025-10-17T23:17:26.267Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4237 modules)
+[2025-10-17T23:17:26.607Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4237 modules)
+[2025-10-17T23:17:26.850Z] [ERROR  ] 2025-10-17T23:17:26.850Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+[2025-10-17T23:17:27.066Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1ms (4237 modules)
+[2025-10-17T23:17:27.649Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4239 modules)
+[2025-10-17T23:17:28.158Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/usage in 0ms (4239 modules)
+[2025-10-17T23:17:29.209Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 885ms (5881 modules)
+[2025-10-17T23:17:29.563Z] [ERROR  ] 2025-10-17T23:17:29.563Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+[2025-10-17T23:17:31.849Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 413ms (4244 modules)
+[2025-10-17T23:17:38.723Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/discord/data ...
+[2025-10-17T23:17:39.374Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/discord/data in 1437ms (4261 modules)
+[2025-10-17T23:18:00.122Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/memory/documents ...
+[2025-10-17T23:18:01.123Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/memory/documents in 2.5s (4263 modules)
+[2025-10-17T23:18:02.934Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-17T23:18:03.347Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 1001ms (4265 modules)
+[2025-10-17T23:18:15.873Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 405ms (1654 modules)
+[2025-10-17T23:18:17.292Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-17T23:18:18.027Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 1445ms (4267 modules)
+[2025-10-17T23:18:24.518Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 395ms (1654 modules)
+[2025-10-17T23:18:24.568Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-17T23:18:26.774Z] [ERROR  ] 2025-10-17T23:18:26.774Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+[2025-10-17T23:20:04.651Z] [ERROR  ] 2025-10-17T23:20:04.650Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+
+=== Log Session Ended: 2025-10-17T23:20:15.093Z ===

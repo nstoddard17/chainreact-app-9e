@@ -37,11 +37,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return errorResponse("Access denied" , 403)
     }
 
+    // Fetch teams count separately
+    const { count: teamCount } = await serviceClient
+      .from("teams")
+      .select("id", { count: 'exact', head: true })
+      .eq("organization_id", id)
+
     // Return organization with user's role
     const result = {
       ...organization,
       role: userMember.role,
-      member_count: organization.organization_members?.length || 1
+      member_count: organization.organization_members?.length || 1,
+      team_count: teamCount || 0
     }
 
     return jsonResponse(result)
@@ -64,12 +71,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const body = await request.json()
-    const { name, description, billing_email, billing_address } = body
+    const { name, description, billing_email, billing_address, owner_id } = body
 
     // Check if user is organization owner
     const { data: organization, error: checkError } = await serviceClient
       .from("organizations")
-      .select("owner_id")
+      .select("owner_id, is_personal")
       .eq("id", id)
       .single()
 
@@ -79,6 +86,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (organization.owner_id !== user.id) {
       return errorResponse("Only organization owners can update settings" , 403)
+    }
+
+    // Prevent ownership transfer of personal workspaces
+    if (organization.is_personal && owner_id && owner_id !== organization.owner_id) {
+      return errorResponse("Personal workspace ownership cannot be transferred" , 403)
     }
 
     // Update organization
@@ -118,10 +130,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return errorResponse("Unauthorized" , 401)
     }
 
-    // Check if user is organization owner
+    // Check if user is organization owner and if it's a personal workspace
     const { data: organization, error: checkError } = await serviceClient
       .from("organizations")
-      .select("owner_id, name")
+      .select("owner_id, name, is_personal")
       .eq("id", id)
       .single()
 
@@ -131,6 +143,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     if (organization.owner_id !== user.id) {
       return errorResponse("Only organization owners can delete organizations" , 403)
+    }
+
+    // Prevent deletion of personal workspaces
+    if (organization.is_personal) {
+      return errorResponse("Personal workspaces cannot be deleted" , 403)
     }
 
     // Delete all related data in the correct order (due to foreign key constraints)

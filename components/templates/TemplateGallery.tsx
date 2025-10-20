@@ -380,7 +380,7 @@ export function TemplateGallery() {
         })
 
         logger.debug(`Navigating to workflow builder...`)
-        router.push(`/workflows/builder?id=${data.workflow.id}&editTemplate=${templateId}`)
+        router.push(`/workflows/builder/${data.workflow.id}?editTemplate=${templateId}`)
       } else {
         logger.error("No workflow ID in response:", data)
         throw new Error(data.error || "Failed to copy template - no workflow ID returned")

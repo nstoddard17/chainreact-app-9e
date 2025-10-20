@@ -207,7 +207,7 @@ export default function WaitingConfirmationPage() {
                     </p>
                   </div>
                   
-                  <Link href="/dashboard">
+                  <Link href="/workflows">
                     <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue to Dashboard

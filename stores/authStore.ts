@@ -30,6 +30,7 @@ interface Profile {
   username?: string
   secondary_email?: string
   phone_number?: string
+  email?: string
   provider?: string
   role?: string
   created_at?: string
@@ -43,6 +44,8 @@ interface AuthState {
   initialized: boolean
   error: string | null
   hydrated: boolean
+  tabId: string // Unique ID for this tab instance
+  initializingTabId: string | null // Which tab is currently initializing
   initialize: () => Promise<void>
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<void>
@@ -57,6 +60,9 @@ interface AuthState {
   resetInitialization: () => void
 }
 
+// Generate unique tab ID (not persisted, each tab gets its own)
+const generateTabId = () => `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -66,6 +72,8 @@ export const useAuthStore = create<AuthState>()(
       initialized: false,
       error: null,
       hydrated: false,
+      tabId: generateTabId(),
+      initializingTabId: null,
 
       setHydrated: () => {
         set({ hydrated: true })
@@ -77,35 +85,95 @@ export const useAuthStore = create<AuthState>()(
 
       initialize: async () => {
         const state = get()
-        logger.debug('🔄 Auth initialize called:', {
+        const currentTabId = state.tabId
+
+        logger.debug('🔐 [AUTH] Initialize called', {
+          tabId: currentTabId,
           initialized: state.initialized,
           loading: state.loading,
-          hasUser: !!state.user
+          initializingTabId: state.initializingTabId,
+          hasUser: !!state.user,
+          hasProfile: !!state.profile,
+          timestamp: new Date().toISOString()
         })
-        if (state.initialized || state.loading) {
-          logger.debug('Auth already initialized or loading, skipping...')
+
+        // Only skip if THIS specific tab is already initialized or loading
+        if (state.initialized && state.initializingTabId === currentTabId) {
+          logger.debug('⏭️ [AUTH] This tab already initialized, skipping', {
+            tabId: currentTabId,
+            initialized: state.initialized
+          })
           return
         }
+
+        // If this tab is already loading, skip
+        if (state.loading && state.initializingTabId === currentTabId) {
+          logger.debug('⏭️ [AUTH] This tab already loading, skipping', {
+            tabId: currentTabId,
+            loading: state.loading
+          })
+          return
+        }
+
+        // If another tab is initializing, try quick session adoption first
+        if (state.initializingTabId && state.initializingTabId !== currentTabId) {
+          logger.debug('🔄 [AUTH] Another tab initializing, attempting quick session check', {
+            thisTabId: currentTabId,
+            initializingTabId: state.initializingTabId
+          })
+
+          // Quick check if we already have valid user/profile from another tab
+          if (state.user && state.profile) {
+            logger.debug('✅ [AUTH] Valid session already exists from another tab, adopting it', {
+              tabId: currentTabId,
+              userId: state.user.id
+            })
+            set({ initialized: true, loading: false })
+            return
+          }
+
+          // Wait a bit for the other tab to complete, then proceed if still not initialized
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          const updatedState = get()
+          if (updatedState.initialized && updatedState.user) {
+            logger.debug('✅ [AUTH] Session initialized by another tab during wait', {
+              tabId: currentTabId
+            })
+            return
+          }
+        }
+
+        // Mark this tab as the one initializing
+        set({ initializingTabId: currentTabId })
 
         // Temporary bypass for debugging
         if (typeof window !== 'undefined' && window.location.search.includes('bypass_auth=true')) {
           logger.warn('Auth bypass enabled - skipping auth initialization')
-          set({ loading: false, initialized: true, error: null, user: null })
+          set({ loading: false, initialized: true, error: null, user: null, initializingTabId: null })
           return
         }
 
         // Check if we're in production and experiencing a cold start
         const isProduction = process.env.NODE_ENV === 'production'
-        const timeoutDuration = isProduction ? 5000 : 5000 // 5 seconds for both
+        const timeoutDuration = isProduction ? 12000 : 12000 // 12 seconds for both
 
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
-          logger.warn('Auth initialization timed out, forcing completion...')
-          set({ loading: false, initialized: true, error: null, user: null })
+          logger.warn('Auth initialization timed out, forcing completion...', {
+            tabId: currentTabId
+          })
+          set({ loading: false, initialized: true, error: null, user: null, initializingTabId: null })
         }, timeoutDuration)
+        let initTimeoutCleared = false
+        const clearInitTimeout = () => {
+          if (!initTimeoutCleared) {
+            clearTimeout(initTimeout)
+            initTimeoutCleared = true
+          }
+        }
 
         try {
-          set({ loading: true, error: null })
+          set({ loading: true, error: null, initializingTabId: currentTabId })
 
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
@@ -129,37 +197,52 @@ export const useAuthStore = create<AuthState>()(
                   window.location.hash = ''
                   // Redirect to dashboard
                   window.location.href = '/dashboard'
-                  clearTimeout(initTimeout)
+                  clearInitTimeout()
                   return
                 }
               }
             }
           }
 
-          // Get current user from Supabase with timeout
-          logger.debug('Fetching user from Supabase...')
-          logger.debug('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-          const userPromise = supabase.auth.getUser()
-          const userTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('User fetch timeout')), 3000) // 3 seconds timeout for user fetch
-          )
+          // Get session from local storage (fast, no network call)
+          // This is the recommended approach for client-side auth initialization
+          logger.debug('🔍 [AUTH] Fetching session from Supabase...', {
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+            timestamp: new Date().toISOString()
+          })
 
-          let userResult
-          try {
-            userResult = await Promise.race([userPromise, userTimeout])
-            logger.debug('User fetch completed successfully')
-          } catch (timeoutError) {
-            logger.warn('User fetch timed out, treating as unauthenticated', timeoutError)
-            set({ user: null, loading: false, initialized: true })
-            clearTimeout(initTimeout)
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+          logger.debug('📊 [AUTH] Session fetch result', {
+            hasSession: !!session,
+            hasError: !!sessionError,
+            error: sessionError,
+            sessionUserId: session?.user?.id,
+            sessionUserEmail: session?.user?.email,
+            timestamp: new Date().toISOString()
+          })
+
+          if (sessionError) {
+            logger.error('❌ [AUTH] Session error', {
+              error: sessionError,
+              errorMessage: sessionError.message,
+              errorName: sessionError.name
+            })
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
+            clearInitTimeout()
             return
           }
-          
-          const { data: { user }, error: userError } = userResult
 
-          if (userError) {
-            set({ user: null, loading: false, initialized: true })
-            clearTimeout(initTimeout)
+          // Extract user from session (no network call needed)
+          const user = session?.user
+
+          if (!user) {
+            logger.warn('⚠️ [AUTH] No active session found', {
+              hasSession: !!session,
+              timestamp: new Date().toISOString()
+            })
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
+            clearInitTimeout()
             return
           }
 
@@ -171,8 +254,31 @@ export const useAuthStore = create<AuthState>()(
               avatar: user.user_metadata?.avatar_url,
             }
 
+            logger.debug('✅ [AUTH] User object created', {
+              userId: userObj.id,
+              userEmail: userObj.email,
+              userName: userObj.name,
+              hasAvatar: !!userObj.avatar,
+              timestamp: new Date().toISOString()
+            })
+
+            clearInitTimeout()
+            set({ user: userObj, loading: false, initialized: true, error: null, initializingTabId: null })
+
+            logger.debug('✅ [AUTH] Auth state updated - user authenticated', {
+              initialized: true,
+              loading: false,
+              hasUser: true,
+              timestamp: new Date().toISOString()
+            })
+
             // Check if profile exists first, create if it doesn't
             let profile: Profile | null = null
+
+            logger.debug('🔍 [AUTH] Starting profile fetch process', {
+              userId: user.id,
+              timestamp: new Date().toISOString()
+            })
 
             const mapProfileData = (raw: any): Profile => ({
               id: raw.id,
@@ -186,15 +292,26 @@ export const useAuthStore = create<AuthState>()(
               role: raw.role ?? undefined,
               secondary_email: raw.secondary_email ?? undefined,
               phone_number: raw.phone_number ?? undefined,
+              email: raw.email ?? undefined,
+              provider: raw.provider ?? undefined,
+              created_at: raw.created_at ?? undefined,
+              updated_at: raw.updated_at ?? undefined,
             })
 
             const fetchProfileViaService = async (): Promise<Profile | null> => {
               if (typeof window === 'undefined') return null
+
+              const abortController = new AbortController()
+              const timeoutId = window.setTimeout(() => {
+                abortController.abort()
+              }, 6000)
+
               try {
                 const response = await fetch('/api/auth/profile', {
                   method: 'GET',
                   credentials: 'include',
                   cache: 'no-store',
+                  signal: abortController.signal,
                 })
 
                 if (!response.ok) {
@@ -207,9 +324,15 @@ export const useAuthStore = create<AuthState>()(
                   return mapProfileData(payload.profile)
                 }
                 return null
-              } catch (error) {
-                logger.error('Failed to fetch profile via service endpoint:', error)
+              } catch (error: any) {
+                if (error?.name === 'AbortError') {
+                  logger.warn('Service profile fetch timed out, falling back to direct query')
+                } else {
+                  logger.error('Failed to fetch profile via service endpoint:', error)
+                }
                 return null
+              } finally {
+                clearTimeout(timeoutId)
               }
             }
 
@@ -222,13 +345,25 @@ export const useAuthStore = create<AuthState>()(
             }
 
             try {
+              logger.debug('📡 [AUTH] Attempting to fetch profile via service endpoint', {
+                userId: user.id,
+                timestamp: new Date().toISOString()
+              })
+
               profile = await fetchProfileViaService()
+
+              logger.debug('📊 [AUTH] Service profile fetch result', {
+                hasProfile: !!profile,
+                profileId: profile?.id,
+                profileRole: profile?.role,
+                timestamp: new Date().toISOString()
+              })
 
               if (!profile) {
                 logger.debug('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
                 const fetchResult = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, email, created_at, updated_at')
                   .eq('id', user.id)
                   .single()
 
@@ -240,6 +375,12 @@ export const useAuthStore = create<AuthState>()(
                 })
 
                 if (fetchResult.error) {
+                  logger.debug('⚠️ [AUTH] Profile does not exist, creating new profile', {
+                    error: fetchResult.error,
+                    userId: user.id,
+                    timestamp: new Date().toISOString()
+                  })
+
                   const isGoogleUser =
                     user.app_metadata?.provider === 'google' ||
                     user.app_metadata?.providers?.includes('google') ||
@@ -274,10 +415,21 @@ export const useAuthStore = create<AuthState>()(
                   const createResult = await supabase
                     .from('user_profiles')
                     .insert(createProfileData)
-                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, email, created_at, updated_at')
                     .single()
 
+                  logger.debug('📊 [AUTH] Profile creation result', {
+                    hasError: !!createResult.error,
+                    hasData: !!createResult.data,
+                    error: createResult.error,
+                    timestamp: new Date().toISOString()
+                  })
+
                   if (createResult.error) {
+                    logger.warn('⚠️ [AUTH] Profile creation failed, using fallback', {
+                      error: createResult.error,
+                      timestamp: new Date().toISOString()
+                    })
                     const detectedProvider =
                       user.app_metadata?.provider ||
                       user.app_metadata?.providers?.[0] ||
@@ -296,6 +448,7 @@ export const useAuthStore = create<AuthState>()(
                       first_name: fallbackFirstName,
                       last_name: fallbackLastName,
                       avatar_url: user.user_metadata?.avatar_url,
+                      email: user.email ?? undefined,
                       provider: detectedProvider,
                       role: derivedRole,
                       username:
@@ -306,6 +459,11 @@ export const useAuthStore = create<AuthState>()(
                     userObj.last_name = fallbackLastName
                     userObj.full_name = fallbackFullName
                   } else if (createResult.data) {
+                    logger.debug('✅ [AUTH] Profile created successfully', {
+                      profileId: createResult.data.id,
+                      role: createResult.data.role,
+                      timestamp: new Date().toISOString()
+                    })
                     const createdProfileData = createResult.data
                     userObj.first_name = createdProfileData.first_name
                     userObj.last_name = createdProfileData.last_name
@@ -315,6 +473,11 @@ export const useAuthStore = create<AuthState>()(
                     throw new Error('No profile data returned from creation')
                   }
                 } else if (fetchResult.data) {
+                  logger.debug('✅ [AUTH] Profile fetched from database', {
+                    profileId: fetchResult.data.id,
+                    role: fetchResult.data.role,
+                    timestamp: new Date().toISOString()
+                  })
                   const fetchedProfileData = fetchResult.data
                   userObj.first_name = fetchedProfileData.first_name
                   userObj.last_name = fetchedProfileData.last_name
@@ -322,23 +485,32 @@ export const useAuthStore = create<AuthState>()(
                   profile = mapProfileData(fetchedProfileData)
                 }
 
-                if (!profile) {
-                  const serviceProfileAfterFallback = await fetchProfileViaService()
-                  if (serviceProfileAfterFallback) {
-                    profile = serviceProfileAfterFallback
-                  }
-                }
+                // After fallback attempts, profile should be defined. Avoid a second service call to
+                // prevent chaining two 6s timeouts that trip the global 12s auth watchdog.
               }
 
               if (!profile) {
+                logger.error('❌ [AUTH] Profile was not properly initialized', {
+                  timestamp: new Date().toISOString()
+                })
                 throw new Error('Profile was not properly initialized')
               }
 
               if (!profile.role) {
+                logger.debug('⚠️ [AUTH] Profile missing role, deriving from metadata', {
+                  timestamp: new Date().toISOString()
+                })
                 profile.role = deriveRoleFromMetadata()
               }
 
-              set({ user: userObj, profile, loading: false, initialized: true })
+              logger.debug('✅ [AUTH] Setting profile in state', {
+                profileId: profile.id,
+                role: profile.role,
+                hasUsername: !!profile.username,
+                timestamp: new Date().toISOString()
+              })
+
+              set({ profile })
 
               // Check for missing username and redirect if needed
               setTimeout(() => {
@@ -372,11 +544,16 @@ export const useAuthStore = create<AuthState>()(
                 }
               }, 3000) // Increased delay to prioritize UI responsiveness and avoid conflicts
             } catch (profileError) {
-              set({ user: userObj, profile: null, loading: false, initialized: true })
+              logger.error('❌ [AUTH] Profile fetch/creation error', {
+                error: profileError,
+                errorMessage: profileError?.message,
+                timestamp: new Date().toISOString()
+              })
+              set({ profile: null })
             }
           } else {
-            set({ user: null, loading: false, initialized: true })
-            
+            set({ user: null, loading: false, initialized: true, initializingTabId: null })
+
             // Clear integration store when no user is found
             setTimeout(async () => {
               try {
@@ -392,8 +569,25 @@ export const useAuthStore = create<AuthState>()(
 
           // Set up auth state listener (only once)
           if (!state.initialized) {
+            logger.debug('🔗 [AUTH] Setting up auth state change listener', {
+              timestamp: new Date().toISOString()
+            })
+
             supabase.auth.onAuthStateChange(async (event, session) => {
+              logger.debug('🔔 [AUTH] Auth state changed', {
+                event,
+                hasSession: !!session,
+                hasUser: !!session?.user,
+                userId: session?.user?.id,
+                timestamp: new Date().toISOString()
+              })
+
               if (event === "SIGNED_IN" && session?.user) {
+                logger.debug('✅ [AUTH] User signed in via state change', {
+                  userId: session.user.id,
+                  email: session.user.email,
+                  timestamp: new Date().toISOString()
+                })
                 const user: User = {
                   id: session.user.id,
                   email: session.user.email || "",
@@ -404,7 +598,7 @@ export const useAuthStore = create<AuthState>()(
                 // Fetch additional profile data from user_profiles table
                 const { data: profileData, error: profileError } = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, email, created_at, updated_at')
                   .eq('id', session.user.id)
                   .single()
 
@@ -414,7 +608,7 @@ export const useAuthStore = create<AuthState>()(
                   // Try fetching without the role column in case it doesn't exist yet
                   const fallbackResult = await supabase
                     .from('user_profiles')
-                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, email, created_at, updated_at')
                     .eq('id', session.user.id)
                     .single()
                   
@@ -428,6 +622,7 @@ export const useAuthStore = create<AuthState>()(
                       id: session.user.id,
                       full_name: user.name,
                       avatar_url: user.avatar,
+                      email: session.user.email ?? undefined,
                       provider: detectedProvider,
                       role: 'free'
                     }
@@ -437,7 +632,11 @@ export const useAuthStore = create<AuthState>()(
                       user.first_name = fallbackProfileData.first_name
                       user.last_name = fallbackProfileData.last_name
                       user.full_name = fallbackProfileData.full_name || user.name
-                      profile = { ...fallbackProfileData, role: 'free' }
+                      profile = {
+                        ...fallbackProfileData,
+                        role: fallbackProfileData.role ?? 'free',
+                        email: fallbackProfileData.email ?? session.user.email ?? undefined,
+                      }
                     } else {
                       // Create a new profile if none exists
                       const detectedProvider = session.user.app_metadata?.provider || 
@@ -448,6 +647,7 @@ export const useAuthStore = create<AuthState>()(
                         id: session.user.id,
                         full_name: user.name,
                         avatar_url: user.avatar,
+                        email: session.user.email ?? undefined,
                         provider: detectedProvider,
                         role: 'free'
                       }
@@ -457,7 +657,10 @@ export const useAuthStore = create<AuthState>()(
                   user.first_name = profileData.first_name
                   user.last_name = profileData.last_name
                   user.full_name = profileData.full_name || user.name
-                  profile = profileData
+                  profile = {
+                    ...profileData,
+                    email: profileData.email ?? session.user.email ?? undefined,
+                  }
                 } else {
                   // Create a new profile if none exists
                   const detectedProvider = session.user.app_metadata?.provider || 
@@ -468,6 +671,7 @@ export const useAuthStore = create<AuthState>()(
                     id: session.user.id,
                     full_name: user.name,
                     avatar_url: user.avatar,
+                    email: session.user.email ?? undefined,
                     provider: detectedProvider,
                     role: 'free'
                   }
@@ -490,6 +694,9 @@ export const useAuthStore = create<AuthState>()(
                   }
                 }, 100)
               } else if (event === "SIGNED_OUT") {
+                logger.debug('🚪 [AUTH] User signed out via state change', {
+                  timestamp: new Date().toISOString()
+                })
                 set({ user: null, profile: null, loading: false, error: null })
                 
                 // Clear integration store when user signs out
@@ -507,14 +714,58 @@ export const useAuthStore = create<AuthState>()(
             })
 
             // Add visibility change listener to handle tab switching
+            // Only re-initialize if the tab has been hidden for a significant time
+            // to prevent race conditions between multiple tabs
             if (typeof window !== 'undefined') {
+              logger.debug('👁️ [AUTH] Setting up visibility change listener', {
+                timestamp: new Date().toISOString()
+              })
+
+              let lastVisibilityChange = Date.now()
               const handleVisibilityChange = () => {
-                if (document.visibilityState === 'visible') {
+                logger.debug('👁️ [AUTH] Visibility changed', {
+                  visibilityState: document.visibilityState,
+                  timestamp: new Date().toISOString()
+                })
+
+                if (document.visibilityState === 'hidden') {
+                  lastVisibilityChange = Date.now()
+                } else if (document.visibilityState === 'visible') {
+                  // Only check session if tab was hidden for more than 5 minutes
+                  // This prevents race conditions when quickly switching between tabs
+                  const timeSinceHidden = Date.now() - lastVisibilityChange
+                  const FIVE_MINUTES = 5 * 60 * 1000
+
+                  if (timeSinceHidden < FIVE_MINUTES) {
+                    logger.debug('⏭️ [AUTH] Tab was only hidden briefly, skipping session check', {
+                      timeSinceHidden,
+                      timestamp: new Date().toISOString()
+                    })
+                    return
+                  }
+
                   setTimeout(async () => {
-                    const { data: { user } } = await supabase.auth.getUser()
+                    logger.debug('🔍 [AUTH] Tab became visible after extended absence, checking session', {
+                      timeSinceHidden,
+                      timestamp: new Date().toISOString()
+                    })
+
+                    // Use getSession instead of getUser to avoid network timeout
+                    const { data: { session } } = await supabase.auth.getSession()
                     const currentState = get()
-                    
-                    if (user && !currentState.user) {
+
+                    logger.debug('📊 [AUTH] Visibility session check', {
+                      hasSession: !!session,
+                      hasUser: !!session?.user,
+                      currentStateHasUser: !!currentState.user,
+                      timestamp: new Date().toISOString()
+                    })
+
+                    // Only re-initialize if we have a session but no user in state
+                    if (session?.user && !currentState.user) {
+                      logger.debug('🔄 [AUTH] Reinitializing auth after extended absence', {
+                        timestamp: new Date().toISOString()
+                      })
                       setTimeout(() => {
                         get().initialize()
                       }, 100)
@@ -527,9 +778,20 @@ export const useAuthStore = create<AuthState>()(
             }
           }
         } catch (error: any) {
-          set({ user: null, error: error.message, loading: false, initialized: true })
+          logger.error('❌ [AUTH] Initialize error', {
+            tabId: currentTabId,
+            error,
+            errorMessage: error?.message,
+            errorStack: error?.stack,
+            timestamp: new Date().toISOString()
+          })
+          set({ user: null, error: error.message, loading: false, initialized: true, initializingTabId: null })
         } finally {
-          clearTimeout(initTimeout)
+          logger.debug('🏁 [AUTH] Initialize complete', {
+            tabId: currentTabId,
+            timestamp: new Date().toISOString()
+          })
+          clearInitTimeout()
         }
       },
 
@@ -683,6 +945,7 @@ export const useAuthStore = create<AuthState>()(
               secondary_email: updates.secondary_email,
               phone_number: updates.phone_number,
               provider: updates.provider,
+              avatar_url: updates.avatar_url,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: 'id'
@@ -692,19 +955,24 @@ export const useAuthStore = create<AuthState>()(
 
           // Update the local state
           const { profile } = get()
+          const updatedUser = {
+            ...user,
+            name: updates.full_name ?? user.name,
+            first_name: updates.first_name ?? user.first_name,
+            last_name: updates.last_name ?? user.last_name,
+            full_name: updates.full_name ?? user.full_name,
+            avatar: updates.avatar_url ?? user.avatar,
+          }
+
+          const updatedProfile = {
+            ...(profile || {}),
+            ...updates,
+            id: user.id,
+          } as Profile
+
           set({
-            user: {
-              ...user,
-              name: updates.full_name,
-              first_name: updates.first_name,
-              last_name: updates.last_name,
-              full_name: updates.full_name,
-            },
-            profile: {
-              ...profile,
-              ...updates,
-              id: user.id,
-            }
+            user: updatedUser,
+            profile: updatedProfile,
           })
         } catch (error: any) {
           logger.error("Profile update error:", error)
@@ -938,28 +1206,43 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshSession: async () => {
+        logger.debug('🔄 [AUTH] Refreshing session', {
+          timestamp: new Date().toISOString()
+        })
+
         try {
           const { data: { session }, error } = await supabase.auth.refreshSession()
+
+          logger.debug('📊 [AUTH] Session refresh result', {
+            hasSession: !!session,
+            hasUser: !!session?.user,
+            hasError: !!error,
+            error: error,
+            timestamp: new Date().toISOString()
+          })
+
           if (error) {
-            logger.error("Session refresh error:", error)
+            logger.error("❌ [AUTH] Session refresh error:", error)
             return false
           }
-          
-          if (session) {
-            // Update the user state with the refreshed session
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-              set({ user: {
-                id: user.id,
-                email: user.email || '',
-                name: user.user_metadata?.name,
-                first_name: user.user_metadata?.first_name,
-                last_name: user.user_metadata?.last_name,
-                full_name: user.user_metadata?.full_name,
-                avatar: user.user_metadata?.avatar_url,
-              }})
-              return true
-            }
+
+          if (session?.user) {
+            logger.debug('✅ [AUTH] Session refreshed successfully', {
+              userId: session.user.id,
+              timestamp: new Date().toISOString()
+            })
+            // Update the user state with the refreshed session (user already in session)
+            const user = session.user
+            set({ user: {
+              id: user.id,
+              email: user.email || '',
+              name: user.user_metadata?.name,
+              first_name: user.user_metadata?.first_name,
+              last_name: user.user_metadata?.last_name,
+              full_name: user.user_metadata?.full_name,
+              avatar: user.user_metadata?.avatar_url,
+            }})
+            return true
           }
           return false
         } catch (error) {
@@ -970,11 +1253,41 @@ export const useAuthStore = create<AuthState>()(
 
       isAuthenticated: () => {
         const state = get()
-        return !!(state.user && state.user.id)
+        const authenticated = !!(state.user && state.user.id)
+        logger.debug('🔐 [AUTH] isAuthenticated check', {
+          authenticated,
+          hasUser: !!state.user,
+          userId: state.user?.id,
+          initialized: state.initialized,
+          loading: state.loading,
+          timestamp: new Date().toISOString()
+        })
+        return authenticated
       },
     }),
     {
       name: "chainreact-auth",
+      version: 2, // Increment this when store structure changes to auto-clear stale data
+      migrate: (persistedState: any, version: number) => {
+        // If persisted version doesn't match current version, clear the state
+        // This prevents stale localStorage data from causing auth issues
+        if (version !== 2) {
+          logger.warn('🔄 [AUTH] Persisted state version mismatch, clearing stale data', {
+            persistedVersion: version,
+            currentVersion: 2,
+            timestamp: new Date().toISOString()
+          })
+          return {
+            user: null,
+            profile: null,
+            loading: false,
+            initialized: false,
+            error: null,
+            hydrated: false
+          }
+        }
+        return persistedState
+      },
       storage: {
         getItem: (name) => {
           try {
@@ -982,25 +1295,25 @@ export const useAuthStore = create<AuthState>()(
             if (typeof window === 'undefined') {
               return null
             }
-            
+
             const str = localStorage.getItem(name)
             if (!str) return null
-            
+
             // Validate the stored data before parsing
             if (str.startsWith('base64-') || str.includes('eyJ')) {
               logger.warn('Detected corrupted auth data, clearing...')
               localStorage.removeItem(name)
               return null
             }
-            
+
             // Try to parse the JSON
             const data = JSON.parse(str)
-            
+
             // Validate the structure
             if (data && typeof data === 'object' && data.state) {
               return str
             }
-            
+
             // If invalid structure, clear it
             logger.warn('Invalid auth data structure, clearing...')
             localStorage.removeItem(name)
@@ -1047,13 +1360,76 @@ export const useAuthStore = create<AuthState>()(
         profile: state.profile,
       }),
       onRehydrateStorage: () => (state) => {
+        logger.debug('💧 [AUTH] Rehydrating auth state from storage', {
+          hasState: !!state,
+          hasUser: !!state?.user,
+          initialized: state?.initialized,
+          timestamp: new Date().toISOString()
+        })
+
         try {
           // Mark as hydrated immediately and reset initialization so each reload revalidates
           state?.setHydrated()
           state?.resetInitialization()
 
+          logger.debug('💧 [AUTH] State hydrated and reset', {
+            hasUser: !!state?.user,
+            userId: state?.user?.id,
+            initialized: state?.initialized,
+            timestamp: new Date().toISOString()
+          })
+
+          // Set up cross-tab synchronization via storage events
+          if (state && typeof window !== 'undefined') {
+            const handleStorageChange = (event: StorageEvent) => {
+              // Only handle changes to our auth store
+              if (event.key !== 'chainreact-auth') return
+
+              logger.debug('🔄 [AUTH] Storage event detected from another tab', {
+                key: event.key,
+                hasNewValue: !!event.newValue,
+                timestamp: new Date().toISOString()
+              })
+
+              try {
+                if (event.newValue) {
+                  const newData = JSON.parse(event.newValue)
+                  const newState = newData?.state
+
+                  // If another tab just authenticated, adopt that session
+                  if (newState?.user && newState?.profile) {
+                    const currentState = useAuthStore.getState()
+
+                    // Only adopt if we don't have a user yet or if the user changed
+                    if (!currentState.user || currentState.user.id !== newState.user.id) {
+                      logger.debug('✅ [AUTH] Adopting session from another tab', {
+                        userId: newState.user.id,
+                        timestamp: new Date().toISOString()
+                      })
+
+                      useAuthStore.setState({
+                        user: newState.user,
+                        profile: newState.profile,
+                        initialized: true,
+                        loading: false,
+                        error: null,
+                      })
+                    }
+                  }
+                }
+              } catch (error) {
+                logger.error('Error handling storage change:', error)
+              }
+            }
+
+            window.addEventListener('storage', handleStorageChange)
+          }
+
           // Only initialize if not already initialized and we're on the client
           if (state && !state.initialized && typeof window !== 'undefined') {
+            logger.debug('🚀 [AUTH] Scheduling initialization after rehydration', {
+              timestamp: new Date().toISOString()
+            })
             // Use requestIdleCallback if available, otherwise setTimeout
             const scheduleInit = () => {
               if ('requestIdleCallback' in window) {
@@ -1063,11 +1439,25 @@ export const useAuthStore = create<AuthState>()(
               }
             }
             scheduleInit()
+          } else {
+            logger.debug('⏭️ [AUTH] Skipping initialization', {
+              hasState: !!state,
+              alreadyInitialized: state?.initialized,
+              isClient: typeof window !== 'undefined',
+              timestamp: new Date().toISOString()
+            })
           }
         } catch (error) {
-          logger.error('Error during rehydration:', error)
+          logger.error('❌ [AUTH] Error during rehydration:', {
+            error,
+            errorMessage: error?.message,
+            timestamp: new Date().toISOString()
+          })
           // Clear any corrupted state only if we're on the client
           if (typeof window !== 'undefined') {
+            logger.warn('⚠️ [AUTH] Clearing corrupted localStorage', {
+              timestamp: new Date().toISOString()
+            })
             try {
               localStorage.removeItem('chainreact-auth')
             } catch (e) {

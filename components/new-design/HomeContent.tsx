@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Search,
   Plus,
   MoreVertical,
   PlayCircle,
@@ -66,6 +67,7 @@ interface Team {
   created_by: string
   created_at: string
   updated_at: string
+  organization_id?: string
 }
 
 interface WorkflowShare {
@@ -77,9 +79,20 @@ interface WorkflowShare {
   team: Team
 }
 
+interface Organization {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  is_personal?: boolean
+  role?: string
+  member_count?: number
+  team_count?: number
+}
+
 export function HomeContent() {
   const router = useRouter()
-  const { workflows, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const [searchQuery, setSearchQuery] = useState("")
@@ -91,6 +104,13 @@ export function HomeContent() {
   const [teams, setTeams] = useState<Team[]>([])
   const [workflowShares, setWorkflowShares] = useState<Record<string, WorkflowShare[]>>({})
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null)
+  const [createDialog, setCreateDialog] = useState(false)
+  const [newWorkflowName, setNewWorkflowName] = useState("")
+  const [newWorkflowDescription, setNewWorkflowDescription] = useState("")
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("")
+  const [selectedCreateTeamIds, setSelectedCreateTeamIds] = useState<string[]>([])
   const { toast } = useToast()
 
   const connectedCount = getConnectedProviders().length
@@ -98,11 +118,40 @@ export function HomeContent() {
 
   useEffect(() => {
     if (user) {
-      fetchWorkflows()
-      fetchExecutionStats()
-      fetchTeams()
+      // Execute all independent data fetches in parallel for faster loading
+      Promise.all([
+        fetchWorkflows(),
+        fetchExecutionStats(),
+        fetchTeams(),
+        fetchOrganizations()
+      ]).catch(error => {
+        logger.error('[HomeContent] Error during parallel data fetch:', error)
+      })
     }
   }, [user, fetchWorkflows])
+
+  useEffect(() => {
+    // Listen for organization changes
+    const handleOrgChange = (event: CustomEvent) => {
+      setCurrentOrganization(event.detail)
+      setSelectedOrgId(event.detail.id)
+    }
+    window.addEventListener('organization-changed', handleOrgChange as EventListener)
+
+    // Get initial organization from localStorage
+    const storedOrgId = localStorage.getItem('current_organization_id')
+    if (storedOrgId && organizations.length > 0) {
+      const org = organizations.find(o => o.id === storedOrgId)
+      if (org) {
+        setCurrentOrganization(org)
+        setSelectedOrgId(org.id)
+      }
+    }
+
+    return () => {
+      window.removeEventListener('organization-changed', handleOrgChange as EventListener)
+    }
+  }, [organizations])
 
   const fetchExecutionStats = async () => {
     try {
@@ -125,6 +174,31 @@ export function HomeContent() {
       }
     } catch (error) {
       logger.error('Failed to fetch teams:', error)
+    }
+  }
+
+  const fetchOrganizations = async () => {
+    try {
+      const response = await fetch('/api/organizations')
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        setOrganizations(data)
+
+        // Set current org from localStorage or default to first
+        const storedOrgId = localStorage.getItem('current_organization_id')
+        if (storedOrgId) {
+          const org = data.find((o: Organization) => o.id === storedOrgId)
+          if (org) {
+            setCurrentOrganization(org)
+            setSelectedOrgId(org.id)
+          }
+        } else if (data.length > 0) {
+          setCurrentOrganization(data[0])
+          setSelectedOrgId(data[0].id)
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to fetch organizations:', error)
     }
   }
 
@@ -336,6 +410,80 @@ export function HomeContent() {
     )
   }
 
+  const toggleCreateTeamSelection = (teamId: string) => {
+    setSelectedCreateTeamIds(prev =>
+      prev.includes(teamId)
+        ? prev.filter(id => id !== teamId)
+        : [...prev, teamId]
+    )
+  }
+
+  const handleCreateWorkflow = async () => {
+    if (!newWorkflowName.trim()) {
+      toast({
+        title: "Name Required",
+        description: "Please enter a name for your workflow.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setLoading(prev => ({ ...prev, 'create-workflow': true }))
+
+    try {
+      // Create the workflow
+      const response = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newWorkflowName.trim(),
+          description: newWorkflowDescription.trim() || null,
+          organization_id: selectedOrgId || null,
+          status: 'draft'
+        })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create workflow')
+      }
+
+      const workflowId = data.workflow.id
+
+      // Share with teams if any selected
+      if (selectedCreateTeamIds.length > 0) {
+        await fetch(`/api/workflows/${workflowId}/share`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamIds: selectedCreateTeamIds })
+        })
+      }
+
+      toast({
+        title: "Workflow Created",
+        description: `"${newWorkflowName}" has been created successfully.`,
+      })
+
+      // Reset form
+      setNewWorkflowName("")
+      setNewWorkflowDescription("")
+      setSelectedCreateTeamIds([])
+      setCreateDialog(false)
+
+      // Navigate to new builder
+      router.push(`/workflows/builder/${workflowId}`)
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create workflow",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(prev => ({ ...prev, 'create-workflow': false }))
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
@@ -352,11 +500,11 @@ export function HomeContent() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => router.push('/new/library')}>
+          <Button variant="outline" onClick={() => router.push('/templates')}>
             <Sparkles className="w-4 h-4 mr-2" />
             Browse Templates
           </Button>
-          <Button onClick={() => router.push('/workflows/builder')}>
+          <Button onClick={() => setCreateDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
             New Workflow
           </Button>
@@ -366,12 +514,11 @@ export function HomeContent() {
       {/* Search and Filters */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search workflows..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-9"
+            className="h-9"
           />
         </div>
 
@@ -403,8 +550,19 @@ export function HomeContent() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {loadingList && workflows.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 px-4">
+          <RefreshCw className="w-8 h-8 text-primary animate-spin mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Loading workflows...</h3>
+          <p className="text-muted-foreground text-center max-w-md">
+            Fetching your automations
+          </p>
+        </div>
+      )}
+
       {/* Empty State */}
-      {filtered.length === 0 && workflows.length === 0 && (
+      {!loadingList && filtered.length === 0 && workflows.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
             <Zap className="w-8 h-8 text-primary" />
@@ -414,11 +572,11 @@ export function HomeContent() {
             Automate tasks by connecting your apps and services. Start from scratch or use a template.
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => router.push('/new/library')}>
+            <Button variant="outline" onClick={() => router.push('/templates')}>
               <Layers className="w-4 h-4 mr-2" />
               Explore Templates
             </Button>
-            <Button onClick={() => router.push('/workflows/builder')}>
+            <Button onClick={() => setCreateDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Build From Scratch
             </Button>
@@ -432,7 +590,7 @@ export function HomeContent() {
               <Button
                 variant="link"
                 size="sm"
-                onClick={() => router.push('/new/apps')}
+                onClick={() => router.push('/apps')}
                 className="mt-2 w-full"
               >
                 Connect Apps →
@@ -452,7 +610,7 @@ export function HomeContent() {
               <div
                 key={workflow.id}
                 className="group flex items-center gap-4 p-4 border rounded-xl hover:bg-accent/50 transition-all cursor-pointer"
-                onClick={() => router.push(`/workflows/builder?id=${workflow.id}`)}
+                onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
               >
                 {/* Status Indicator */}
                 <div className="flex-shrink-0">
@@ -470,7 +628,7 @@ export function HomeContent() {
 
                     {/* Status Badge */}
                     <Badge variant={workflow.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                      {workflow.status || 'draft'}
+                      {((workflow.status || 'draft').charAt(0).toUpperCase() + (workflow.status || 'draft').slice(1))}
                     </Badge>
 
                     {/* Template Badge */}
@@ -539,7 +697,7 @@ export function HomeContent() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflows/builder?id=${workflow.id}`) }}>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/workflows/builder/${workflow.id}`) }}>
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Workflow
                     </DropdownMenuItem>
@@ -647,7 +805,7 @@ export function HomeContent() {
                   size="sm"
                   onClick={() => {
                     setShareDialog({ open: false, workflowId: null })
-                    router.push('/new/team')
+                    router.push('/organization-settings?tab=teams')
                   }}
                 >
                   Create or Join a Team
@@ -738,6 +896,192 @@ export function HomeContent() {
                 <Share2 className="w-4 h-4 mr-2" />
               )}
               Share to {selectedTeamIds.length} Team{selectedTeamIds.length !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Workflow Dialog */}
+      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create New Workflow</DialogTitle>
+            <DialogDescription>
+              Set up your workflow details and optionally share it with teams.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Workflow Name */}
+            <div className="space-y-2">
+              <Label htmlFor="workflow-name">Workflow Name *</Label>
+              <Input
+                id="workflow-name"
+                placeholder="e.g., Send daily summary email"
+                value={newWorkflowName}
+                onChange={(e) => setNewWorkflowName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreateWorkflow()}
+              />
+            </div>
+
+            {/* Workflow Description */}
+            <div className="space-y-2">
+              <Label htmlFor="workflow-description">Description</Label>
+              <Textarea
+                id="workflow-description"
+                placeholder="What does this workflow do?"
+                value={newWorkflowDescription}
+                onChange={(e) => setNewWorkflowDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Organization Selection (if multiple orgs) */}
+            {organizations.filter(org => !org.is_personal).length > 0 && (
+              <div className="space-y-2">
+                <Label>Organization</Label>
+                <div className="space-y-2">
+                  {/* Personal Workspace */}
+                  {organizations.find(org => org.is_personal) && (
+                    <div
+                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedOrgId === organizations.find(org => org.is_personal)?.id
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-accent/50'
+                      }`}
+                      onClick={() => setSelectedOrgId(organizations.find(org => org.is_personal)!.id)}
+                    >
+                      <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {organizations.find(org => org.is_personal)?.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Personal workspace</p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        selectedOrgId === organizations.find(org => org.is_personal)?.id
+                          ? 'border-primary'
+                          : 'border-muted-foreground'
+                      }`}>
+                        {selectedOrgId === organizations.find(org => org.is_personal)?.id && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Team Organizations */}
+                  {organizations.filter(org => !org.is_personal).map((org) => (
+                    <div
+                      key={org.id}
+                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedOrgId === org.id
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-accent/50'
+                      }`}
+                      onClick={() => setSelectedOrgId(org.id)}
+                    >
+                      <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{org.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {org.member_count} {org.member_count === 1 ? 'member' : 'members'}
+                        </p>
+                      </div>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        selectedOrgId === org.id
+                          ? 'border-primary'
+                          : 'border-muted-foreground'
+                      }`}>
+                        {selectedOrgId === org.id && (
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Team Sharing */}
+            <div className="space-y-2 pt-2 border-t">
+              <Label>Share with Teams (Optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                {teams.length > 0
+                  ? "Select teams that should have access to this workflow."
+                  : "Create a team to collaborate and share workflows with others."}
+              </p>
+
+              {teams.length > 0 ? (
+                <ScrollArea className="max-h-[200px] pr-2">
+                  <div className="space-y-2">
+                    {teams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="flex items-start gap-3 p-2 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
+                        onClick={() => toggleCreateTeamSelection(team.id)}
+                      >
+                        <Checkbox
+                          checked={selectedCreateTeamIds.includes(team.id)}
+                          onCheckedChange={() => toggleCreateTeamSelection(team.id)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-3 h-3 text-primary flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">{team.name}</span>
+                          </div>
+                          {team.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {team.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 border rounded-lg bg-muted/30">
+                  <Users className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground text-center mb-3">
+                    No teams available yet
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCreateDialog(false)
+                      router.push('/organization-settings?tab=teams')
+                    }}
+                  >
+                    Create a Team
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateDialog(false)
+                setNewWorkflowName("")
+                setNewWorkflowDescription("")
+                setSelectedCreateTeamIds([])
+              }}
+              disabled={loading['create-workflow']}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateWorkflow} disabled={loading['create-workflow']}>
+              {loading['create-workflow'] ? (
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Create Workflow
             </Button>
           </DialogFooter>
         </DialogContent>

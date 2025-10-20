@@ -87,6 +87,13 @@ This is a large codebase with many moving parts. Jumping to conclusions will bre
 ## Trigger Lifecycle Pattern - MANDATORY
 Resources for triggers created ONLY on workflow activation, cleaned up on deactivation/deletion.
 
+## Auth Store Guardrails
+- `stores/authStore.ts` now clears the initialization watchdog (`clearInitTimeout`) as soon as we have a Supabase session and immediately marks auth as initialized before the profile fetch runs. This prevents the recurring `Auth initialization timed out, forcing completion...` warning.
+- **Do not remove or relocate** the `clearInitTimeout()` call that runs right after the `userObj` is created, and keep the early `set({ user, initialized: true })` call. Both are required to keep the watchdog from firing when the profile lookup stalls.
+- If you adjust auth initialization, preserve the non-blocking profile fetch pattern (fetch/creation happens after `initialized` is set) and keep any long-running work out of the watchdog window.
+- `Profile` objects **must include** `email` and `provider` (see `mapProfileData` in `stores/authStore.ts`) so the UI can show the correct identity and downstream beta-tester tracking keeps working. Never strip those fields.
+- All client-side Supabase access for workflows goes through `@/utils/supabaseClient` (see `stores/workflowStore.ts`). Do not reintroduce the old `lib/supabase-singleton` helper—the shared client is required so auth state and workflow queries stay in sync.
+
 **Pattern**: Connect→Save creds only | Create workflow→No resources | ACTIVATE→CREATE resources | DEACTIVATE→DELETE resources | REACTIVATE→CREATE fresh | DELETE workflow→DELETE resources
 
 **Implementation**: All triggers implement `TriggerLifecycle`:

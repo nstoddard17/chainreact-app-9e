@@ -1,0 +1,1038 @@
+=== Log Session Started: 2025-10-18T19:13:40.471Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T19:13:40.472Z] [INFO   ] File logging initialized
+[2025-10-18T19:13:40.472Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-13-40.log
+[2025-10-18T19:13:40.473Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T19:13:40.473Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-13-40.log
+[2025-10-18T19:13:40.473Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-13-40.log
+[2025-10-18T19:13:40.473Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-13-40.log
+[2025-10-18T19:13:40.474Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_14-13-40.log
+[2025-10-18T19:13:40.474Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T19:13:40.474Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T19:13:40.492Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.6s
+[2025-10-18T19:14:40.516Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-18T19:14:41.340Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1324ms (2678 modules)
+[2025-10-18T19:14:42.058Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 281ms (233 modules)
+[2025-10-18T19:14:43.096Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-18T19:14:45.619Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 3.1s (3921 modules)
+[2025-10-18T19:14:46.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 679ms (679 modules)
+[2025-10-18T19:14:47.204Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 420ms (3911 modules)
+[2025-10-18T19:14:48.149Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T19:14:48.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 648ms (3913 modules)
+[2025-10-18T19:14:50.216Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder ...
+[2025-10-18T19:14:54.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 4.8s (5723 modules)
+[2025-10-18T19:14:56.162Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-18T19:14:56.448Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 809ms (5740 modules)
+[2025-10-18T19:15:24.904Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 447ms (1580 modules)
+[2025-10-18T19:15:24.929Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T19:15:33.102Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 322ms (1580 modules)
+[2025-10-18T19:15:39.559Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 309ms (1580 modules)
+[2025-10-18T19:15:44.183Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/templates/[id]/setup ...
+[2025-10-18T19:15:44.193Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/templates/[id]/setup in 558ms (5731 modules)
+[2025-10-18T19:15:47.317Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/og in 418ms (2048 modules)
+[2025-10-18T19:15:47.791Z] [ERROR  ] Expected style "zIndex: 10px" to be unitless
+[2025-10-18T19:15:47.856Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:15:47.857Z] [ERROR  ]  [31m[1m⨯[22m[39m failed to pipe response
+Error: failed to pipe response
+    at pipeToNodeResponse (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/pipe-readable.js:130:37)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1415:13)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:15:48.479Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-18T19:15:49.244Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1381ms (6071 modules)
+[2025-10-18T19:15:51.182Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-18T19:15:52.596Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T19:15:53.046Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 2.4s (6073 modules)
+[2025-10-18T19:15:53.787Z] [ERROR  ] 2025-10-18T19:15:53.787Z [ERROR] Error in leave collaboration: {"code":"ECONNRESET"}
+[2025-10-18T19:15:53.791Z] [ERROR  ] 2025-10-18T19:15:53.791Z [ERROR] Error in leave collaboration: {"code":"ECONNRESET"}
+[2025-10-18T19:16:01.687Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1589ms (1731 modules)
+[2025-10-18T19:16:02.470Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-18T19:16:02.742Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 780ms (6078 modules)
+[2025-10-18T19:16:09.609Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51)
+    at async loadWasm (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20)
+    at async Span.traceAsyncFn (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:09.610Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51)
+    at async loadWasm (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20)
+    at async Span.traceAsyncFn (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (file:///Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:09.626Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/pages/_document.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:86:38)
+    at DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:77)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:877:21
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:170:36
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NoopTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/NoopTracer.js:65:31)
+    at ProxyTracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/trace/ProxyTracer.js:36:24)
+    at tracer.startActiveSpan (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/instrumentation-node-extensions.js:65:48)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:103
+    at NoopContextManager.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/context/NoopContextManager.js:25:19)
+    at ContextAPI.with (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/@opentelemetry/api/build/src/api/context.js:60:46)
+    at NextTracerImpl.trace (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/trace/tracer.js:152:28)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:872:41)
+    at DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:28)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1687:26)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.781Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.791Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.802Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.803Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.805Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.805Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-18T19:16:10.805Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/edge-chunks/wasm_77d9faebf7af9e421806970ce10a58e9d83116d7.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async Object.readFile (node:internal/fs/promises:1243:14)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:95:51
+    at async Promise.all (index 0)
+    at async loadWasm (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:94:5)
+    at async createModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:236:18)
+    at async getModuleContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/context.js:428:71)
+    at async getRuntimeContext (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:60:44)
+    at async runWithTaggedErrors (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/web/sandbox/sandbox.js:86:21)
+    at async DevServer.runEdgeFunction (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1364:24)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:361:41)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)

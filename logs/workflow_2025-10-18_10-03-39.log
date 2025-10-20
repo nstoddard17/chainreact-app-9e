@@ -1,0 +1,64 @@
+=== Log Session Started: 2025-10-18T15:03:39.862Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T15:03:39.862Z] [INFO   ] File logging initialized
+[2025-10-18T15:03:39.862Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-03-39.log
+[2025-10-18T15:03:39.863Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T15:03:39.863Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-03-39.log
+[2025-10-18T15:03:39.863Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-03-39.log
+[2025-10-18T15:03:39.863Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-03-39.log
+[2025-10-18T15:03:39.863Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_10-03-39.log
+[2025-10-18T15:03:39.863Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T15:03:39.863Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T15:03:39.869Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.8s
+[2025-10-18T15:03:52.684Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_not-found ...
+[2025-10-18T15:03:56.254Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_not-found in 4.1s (3453 modules)
+[2025-10-18T15:03:56.447Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:56.449Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:56.450Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:56.450Z] [ERROR  ] Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:56.450Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:56.451Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+TypeError: Failed to parse URL from /_next/static/media/SpaceGrotesk-Bold.20f87713.woff2
+    at new Request (node:internal/deps/undici/undici:9580:19)
+    at dedupeFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/dedupe-fetch.js:103:87)
+    at doOriginalFetch (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:593:24)
+    at eval (webpack-internal:///(rsc)/./node_modules/next/dist/server/lib/patch-fetch.js:848:24)
+[2025-10-18T15:03:57.329Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1055ms (526 modules)
+[2025-10-18T15:03:58.003Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/teams ...
+[2025-10-18T15:03:58.215Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/teams in 717ms (3567 modules)
+[2025-10-18T15:03:59.139Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-18T15:03:59.291Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 654ms (3804 modules)
+[2025-10-18T15:04:00.572Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T15:04:00.733Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 662ms (3573 modules)
+[2025-10-18T15:04:03.272Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 206ms (3575 modules)
+
+=== Log Session Ended: 2025-10-18T15:04:05.242Z ===

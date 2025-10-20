@@ -1,0 +1,44 @@
+=== Log Session Started: 2025-10-18T20:22:52.628Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T20:22:52.628Z] [INFO   ] File logging initialized
+[2025-10-18T20:22:52.628Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-22-52.log
+[2025-10-18T20:22:52.631Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T20:22:52.631Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-22-52.log
+[2025-10-18T20:22:52.631Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-22-52.log
+[2025-10-18T20:22:52.631Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-22-52.log
+[2025-10-18T20:22:52.631Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-22-52.log
+[2025-10-18T20:22:52.631Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T20:22:52.631Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T20:22:52.644Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.8s
+[2025-10-18T20:22:53.360Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-18T20:22:57.576Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /new in 4.9s (3495 modules)
+[2025-10-18T20:22:58.272Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 681ms (530 modules)
+[2025-10-18T20:22:59.062Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-18T20:22:59.833Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 1293ms (3840 modules)
+[2025-10-18T20:23:00.825Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 215ms (3609 modules)
+[2025-10-18T20:23:03.829Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 200ms (3611 modules)
+[2025-10-18T20:24:04.852Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflow/[id]/builder ...
+[2025-10-18T20:24:07.225Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflow/[id]/builder in 2.9s (5671 modules)
+[2025-10-18T20:24:09.687Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 345ms (4129 modules)
+[2025-10-18T20:24:10.366Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 435ms (4131 modules)
+[2025-10-18T20:24:11.032Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 499ms (1544 modules)
+[2025-10-18T20:24:42.620Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-18T20:24:42.699Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 580ms (5687 modules)
+[2025-10-18T20:25:00.320Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 424ms (1558 modules)
+[2025-10-18T20:25:01.149Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-18T20:25:01.364Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 721ms (5689 modules)
+[2025-10-18T20:25:01.784Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:25:14.457Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 494ms (1558 modules)
+[2025-10-18T20:25:20.473Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 298ms (1558 modules)
+[2025-10-18T20:25:20.528Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:26:31.657Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-18T20:26:33.272Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 2.1s (5770 modules)
+[2025-10-18T20:26:34.657Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 459ms (4182 modules)
+[2025-10-18T20:26:35.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 324ms (4184 modules)
+[2025-10-18T20:26:38.403Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 338ms (4186 modules)
+
+=== Log Session Ended: 2025-10-18T20:27:02.868Z ===

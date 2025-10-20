@@ -162,7 +162,7 @@ function RegisterFormContent() {
     setProviderError('')
     try {
       await signInWithGoogle()
-      // Google OAuth will handle redirect via callback to setup-username or dashboard
+      // Google OAuth will handle redirect via callback to setup-username or workflows
     } catch (error) {
       logger.error("Google sign in error:", error)
       toast({

@@ -3,11 +3,10 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
-import AppLayout from "@/components/layout/AppLayout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import {
   Send,
@@ -24,12 +23,29 @@ import {
   Code,
   DollarSign,
   MessageSquare,
-  Zap
+  Zap,
+  Clock,
+  Workflow
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
 
 import { logger } from '@/lib/utils/logger'
+
+// Import all data renderers
+import {
+  EmailRenderer,
+  FileRenderer,
+  TableRenderer,
+  JSONRenderer,
+  CodeRenderer,
+  MetricsRenderer,
+  ListRenderer,
+  TaskRenderer,
+  ErrorRenderer,
+  QuestionRenderer,
+  IntegrationConnectionRenderer
+} from './data-renderers'
 
 interface Message {
   id: string
@@ -37,27 +53,51 @@ interface Message {
   content: string
   timestamp: Date
   metadata?: {
-    type?: "calendar" | "email" | "file" | "confirmation" | "social" | "crm" | "ecommerce" | "developer" | "productivity" | "communication" | "integration_not_connected" | "error" | "notion_page_hierarchy"
+    type?: "calendar" | "email" | "file" | "confirmation" | "social" | "crm" | "ecommerce" |
+           "developer" | "productivity" | "communication" | "integration_not_connected" |
+           "error" | "notion_page_hierarchy" | "table" | "json" | "code" | "metrics" | "list" |
+           "task" | "warning" | "info" | "question" | "integration_connect"
     data?: any
     requiresConfirmation?: boolean
     integration?: string
     action?: string
     pages?: any[]
+    // Additional fields for enhanced renderers
+    tableName?: string
+    headers?: string[]
+    language?: string
+    fileName?: string
+    emails?: any[]
+    files?: any[]
+    tasks?: any[]
+    metrics?: any[]
+    items?: any[]
+    code?: string
+    rows?: any[]
+    // Question fields
+    question?: string
+    options?: Array<{
+      id: string
+      label: string
+      value: any
+      description?: string
+      icon?: string
+    }>
+    questionId?: string
+    // Integration connection fields
+    provider?: string
+    providerName?: string
+    oauthUrl?: string
   }
+  conversationId?: string
 }
 
 export default function AIAssistantContent() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content: "Hi! I'm your AI assistant. I can help you with all your connected integrations by checking your data and performing actions. If you're not sure what I can do, just ask me!",
-      timestamp: new Date(),
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [pendingConfirmation, setPendingConfirmation] = useState<any>(null)
+  const [conversationId, setConversationId] = useState<string | undefined>(undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
@@ -121,18 +161,19 @@ export default function AIAssistantContent() {
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return
+  const handleSendMessage = async (messageText?: string, selectedOptionId?: string) => {
+    const finalMessage = messageText || input.trim()
+    if (!finalMessage || isLoading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: finalMessage,
       timestamp: new Date(),
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInput("")
+    if (!messageText) setInput("")  // Only clear input if it came from the input field
     setIsLoading(true)
 
     // Cancel any existing requests
@@ -178,6 +219,8 @@ export default function AIAssistantContent() {
           },
           body: JSON.stringify({
             message: userMessage.content,
+            conversationId,
+            selectedOptionId
           }),
           signal: abortControllerRef.current.signal,
         })
@@ -202,9 +245,15 @@ export default function AIAssistantContent() {
           content: data.content,
           timestamp: new Date(),
           metadata: data.metadata,
+          conversationId: data.conversationId
         }
 
         setMessages(prev => [...prev, assistantMessage])
+
+        // Store conversation ID for subsequent messages
+        if (data.conversationId) {
+          setConversationId(data.conversationId)
+        }
 
         if (data.metadata?.requiresConfirmation) {
           setPendingConfirmation(data.metadata)
@@ -514,264 +563,385 @@ export default function AIAssistantContent() {
     )
   }
 
+  // Example prompts that users can click
+  const suggestions = [
+    { icon: Zap, text: "Show me my upcoming calendar events", category: "Calendar" },
+    { icon: Workflow, text: "What workflows do I have active?", category: "Workflows" },
+    { icon: Clock, text: "Summarize my recent workflow executions", category: "Analytics" },
+    { icon: Mail, text: "What's in my inbox?", category: "Email" },
+    { icon: FileText, text: "Show my Notion workspace", category: "Productivity" },
+    { icon: MessageSquare, text: "How do I create a workflow?", category: "Help" },
+  ]
+
+  const handleSuggestionClick = (text: string) => {
+    setInput(text)
+    // Auto-send after a brief delay so user sees it populate
+    setTimeout(() => {
+      handleSendMessage(text)
+    }, 100)
+  }
+
   return (
-    <AppLayout title="AI Assistant" subtitle="Your intelligent integration companion">
-      <div className="flex flex-col h-[calc(100vh-120px)]">
-        <Card className="overflow-hidden flex-1">
-          <CardContent className="p-6 h-full overflow-y-auto">
-            <div className="space-y-4">
-              {messages.map((message) => (
+    <div className="flex flex-col h-[calc(100vh-13rem)] -mx-6 -my-6">
+      {/* Empty State / Suggestions - Show when no messages */}
+      {messages.length === 0 && (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+          <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 mt-8">
+            <Sparkles className="w-10 h-10 text-primary" />
+          </div>
+          <h2 className="text-3xl font-semibold mb-3">AI Assistant</h2>
+          <p className="text-muted-foreground text-center max-w-2xl mb-12 text-lg">
+            I can help you create workflows, troubleshoot issues, and provide insights about your automations. I'll automatically format responses based on the data type!
+          </p>
+
+          {/* Suggestion Cards */}
+          <div className="w-full max-w-3xl">
+            <p className="text-sm font-medium text-center mb-6">Try asking:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {suggestions.map((suggestion, index) => {
+                const Icon = suggestion.icon
+                return (
+                  <Card
+                    key={index}
+                    className="cursor-pointer hover:bg-accent hover:border-primary/50 transition-all group"
+                    onClick={() => handleSuggestionClick(suggestion.text)}
+                  >
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
+                        <Icon className="w-6 h-6 text-primary" />
+                      </div>
+                      <p className="text-sm font-medium leading-snug">{suggestion.text}</p>
+                      <Badge variant="secondary" className="text-xs">
+                        {suggestion.category}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Messages Area - Scrollable - Show when there are messages */}
+      {messages.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          <div className="max-w-4xl space-y-6">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className="flex gap-4 w-full"
+            >
+              {/* Avatar on the left for both user and assistant */}
+              <div className={cn(
+                "flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center",
+                message.role === "assistant"
+                  ? "bg-primary"
+                  : "bg-blue-500"
+              )}>
+                {message.role === "assistant" ? (
+                  <Bot className="w-5 h-5 text-primary-foreground" />
+                ) : (
+                  <User className="w-5 h-5 text-white" />
+                )}
+              </div>
+              <div className="flex-1 max-w-full">
                 <div
-                  key={message.id}
                   className={cn(
-                    "flex gap-3",
-                    message.role === "user" ? "justify-end" : "justify-start"
+                    "rounded-2xl px-5 py-3",
+                    message.role === "user"
+                      ? "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
+                      : "bg-muted"
                   )}
                 >
-                  {message.role === "assistant" && (
-                    <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-lg px-4 py-2",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}
-                  >
-                    {renderMessageContent(message.content)}
-                    
-                    {/* Metadata display */}
-                    {message.metadata?.type === "calendar" && message.metadata.data && (
-                      renderCalendarView(message.metadata.data)
-                    )}
-                    
-                    {message.metadata?.type === "email" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Mail className="w-4 h-4" />
-                          <span className="font-medium">Email Messages</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} unread emails found
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "file" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="w-4 h-4" />
-                          <span className="font-medium">Files Found</span>
-                        </div>
-                        {message.metadata.data.map((file: any, index: number) => (
-                          <div key={index} className="text-sm space-y-1">
-                            <div className="font-medium">{file.name}</div>
-                            <div className="text-muted-foreground">
-                              {file.provider} • {new Date(file.modified).toLocaleDateString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "social" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Sparkles className="w-4 h-4" />
-                          <span className="font-medium">Social Media Posts</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} posts found
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "crm" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Users className="w-4 h-4" />
-                          <span className="font-medium">CRM Records</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} records found
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "ecommerce" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <DollarSign className="w-4 h-4" />
-                          <span className="font-medium">E-commerce Orders</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} orders found
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "developer" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Code className="w-4 h-4" />
-                          <span className="font-medium">Developer Repositories</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} repositories found
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "productivity" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <FileText className="w-4 h-4" />
-                          <span className="font-medium">Productivity Items</span>
-                        </div>
-                        <div className="space-y-3">
-                          {message.metadata.data.map((item: any, index: number) => (
-                            <div key={index} className="space-y-2">
-                              {/* Main page */}
-                              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-md">
-                                <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-sm mb-1">
-                                    {item.url ? (
-                                      <a 
-                                        href={item.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:text-blue-800 underline"
-                                      >
-                                        {item.title}
-                                      </a>
-                                    ) : (
-                                      item.title
-                                    )}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {item.provider}
-                                    {item.last_edited && (
-                                      <span> • Last edited {new Date(item.last_edited).toLocaleDateString()}</span>
-                                    )}
-                                    {item.created && !item.last_edited && (
-                                      <span> • Created {new Date(item.created).toLocaleDateString()}</span>
-                                    )}
-                                    {item.subpageCount > 0 && (
-                                      <span> • {item.subpageCount} subpage{item.subpageCount !== 1 ? 's' : ''}</span>
-                                    )}
-                                    {item.databaseCount > 0 && (
-                                      <span> • {item.databaseCount} database{item.databaseCount !== 1 ? 's' : ''}</span>
-                                    )}
-                                  </div>
-                                </div>
+                  {renderMessageContent(message.content)}
+
+                  {/* Metadata display with new renderers */}
+                  {message.metadata && (() => {
+                    const { type, data, emails, files, rows, headers, tableName, code, language,
+                            fileName, metrics, items, tasks } = message.metadata
+
+                    switch (type) {
+                      case "calendar":
+                        return data && renderCalendarView(data)
+
+                        case "email":
+                          return (emails || data) && (
+                            <EmailRenderer emails={emails || data} showBody={true} />
+                          )
+
+                        case "file":
+                          return (files || data) && (
+                            <FileRenderer files={files || data} showThumbnails={true} />
+                          )
+
+                        case "table":
+                          return rows && (
+                            <TableRenderer
+                              tableName={tableName}
+                              headers={headers}
+                              rows={rows}
+                              searchable={true}
+                              sortable={true}
+                            />
+                          )
+
+                        case "json":
+                          return data && (
+                            <JSONRenderer data={data} title={tableName || "JSON Data"} />
+                          )
+
+                        case "code":
+                          return (code || data) && (
+                            <CodeRenderer
+                              code={typeof data === 'string' ? data : code || ''}
+                              language={language || 'text'}
+                              fileName={fileName}
+                              lineNumbers={true}
+                            />
+                          )
+
+                        case "metrics":
+                          return (metrics || data) && (
+                            <MetricsRenderer
+                              metrics={metrics || data}
+                              title="Metrics Overview"
+                              layout="grid"
+                            />
+                          )
+
+                        case "list":
+                          return (items || data) && (
+                            <ListRenderer
+                              items={items || data}
+                              layout="comfortable"
+                            />
+                          )
+
+                        case "task":
+                          return (tasks || data) && (
+                            <TaskRenderer
+                              tasks={tasks || data}
+                              groupBy="status"
+                              showProgress={true}
+                            />
+                          )
+
+                        case "error":
+                          return (
+                            <ErrorRenderer
+                              error={typeof data === 'string' ? data : message.content}
+                              type="error"
+                            />
+                          )
+
+                        case "warning":
+                          return (
+                            <ErrorRenderer
+                              error={typeof data === 'string' ? data : message.content}
+                              type="warning"
+                            />
+                          )
+
+                        case "info":
+                          return (
+                            <ErrorRenderer
+                              error={typeof data === 'string' ? data : message.content}
+                              type="info"
+                            />
+                          )
+
+                        case "question":
+                          return message.metadata.options && (
+                            <QuestionRenderer
+                              question={message.metadata.question || "Please select an option:"}
+                              options={message.metadata.options}
+                              onSelect={(optionId) => {
+                                // Find the selected option to show what was chosen
+                                const selectedOption = message.metadata.options?.find(opt => opt.id === optionId)
+                                if (selectedOption) {
+                                  handleSendMessage(`Selected: ${selectedOption.label}`, optionId)
+                                }
+                              }}
+                            />
+                          )
+
+                        case "integration_connect":
+                          return message.metadata.provider && message.metadata.providerName && message.metadata.oauthUrl && (
+                            <IntegrationConnectionRenderer
+                              provider={message.metadata.provider}
+                              providerName={message.metadata.providerName}
+                              oauthUrl={message.metadata.oauthUrl}
+                              action={message.metadata.action as 'connect' | 'reconnect' | undefined}
+                            />
+                          )
+
+                        case "social":
+                        case "crm":
+                        case "ecommerce":
+                        case "developer":
+                        case "communication":
+                          // Use ListRenderer for these types with basic summary
+                          return data && Array.isArray(data) && data.length > 0 && (
+                            <ListRenderer
+                              items={data.map((item: any) => ({
+                                title: item.title || item.name || item.subject || 'Item',
+                                description: item.description || item.snippet,
+                                subtitle: item.date || item.created_at,
+                                link: item.url || item.webLink
+                              }))}
+                              title={
+                                type === 'social' ? 'Social Media Posts' :
+                                type === 'crm' ? 'CRM Records' :
+                                type === 'ecommerce' ? 'E-commerce Orders' :
+                                type === 'developer' ? 'Repositories' :
+                                'Channels'
+                              }
+                            />
+                          )
+
+                        case "productivity":
+                          // Keep existing Notion rendering for now (it's already good)
+                          return data && (
+                            <div className="mt-3 p-3 bg-background rounded-lg border">
+                              <div className="flex items-center gap-2 mb-2">
+                                <FileText className="w-4 h-4" />
+                                <span className="font-medium">Productivity Items</span>
                               </div>
-                              
-                              {/* Databases with entries by status */}
-                              {item.databases && item.databases.length > 0 && (
-                                <div className="ml-6 space-y-3">
-                                  {item.databases.map((database: any, dbIndex: number) => (
-                                    <div key={dbIndex} className="space-y-2">
-                                      <div className="flex items-start gap-3 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border-l-2 border-blue-200 dark:border-blue-800">
-                                        <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-xs mb-1 text-blue-700 dark:text-blue-300">
-                                            📊 {database.title}
-                                          </div>
-                                          <div className="text-xs text-blue-600 dark:text-blue-400">
-                                            {database.totalEntries} entries
-                                          </div>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Status categories */}
-                                      {Object.entries(database.entriesByStatus || {}).map(([status, entries]) => (
-                                        <div key={status} className="ml-4 space-y-1">
-                                          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                            {status} ({(entries as any[]).length})
-                                          </div>
-                                          {(entries as any[]).map((entry: any, entryIndex: number) => (
-                                            <div key={entryIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l border-muted">
-                                              <div className="flex-shrink-0 w-1 h-1 bg-muted-foreground/30 rounded-full mt-2"></div>
-                                              <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-xs mb-1">
-                                                  {entry.url ? (
-                                                    <a 
-                                                      href={entry.url} 
-                                                      target="_blank" 
-                                                      rel="noopener noreferrer"
-                                                      className="text-blue-600 hover:text-blue-800 underline"
-                                                    >
-                                                      {entry.title}
-                                                    </a>
-                                                  ) : (
-                                                    entry.title
-                                                  )}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground">
-                                                  {entry.last_edited && (
-                                                    <span>Last edited {new Date(entry.last_edited).toLocaleDateString()}</span>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Subpages */}
-                              {item.subpages && item.subpages.length > 0 && (
-                                <div className="ml-6 space-y-1">
-                                  {item.subpages.map((subpage: any, subIndex: number) => (
-                                    <div key={subIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l-2 border-muted">
-                                      <div className="flex-shrink-0 w-1.5 h-1.5 bg-muted-foreground/50 rounded-full mt-2"></div>
+                              <div className="space-y-3">
+                                {data.map((item: any, index: number) => (
+                                  <div key={index} className="space-y-2">
+                                    {/* Main page */}
+                                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-md">
+                                      <div className="flex-shrink-0 w-2 h-2 bg-primary rounded-full mt-2"></div>
                                       <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-xs mb-1">
-                                          {subpage.url ? (
-                                            <a 
-                                              href={subpage.url} 
-                                              target="_blank" 
+                                        <div className="font-medium text-sm mb-1">
+                                          {item.url ? (
+                                            <a
+                                              href={item.url}
+                                              target="_blank"
                                               rel="noopener noreferrer"
                                               className="text-blue-600 hover:text-blue-800 underline"
                                             >
-                                              {subpage.title}
+                                              {item.title}
                                             </a>
                                           ) : (
-                                            subpage.title
+                                            item.title
                                           )}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                          {subpage.type === 'child_database' ? 'Database' : 'Page'}
+                                          {item.provider}
+                                          {item.last_edited && (
+                                            <span> • Last edited {new Date(item.last_edited).toLocaleDateString()}</span>
+                                          )}
+                                          {item.created && !item.last_edited && (
+                                            <span> • Created {new Date(item.created).toLocaleDateString()}</span>
+                                          )}
+                                          {item.subpageCount > 0 && (
+                                            <span> • {item.subpageCount} subpage{item.subpageCount !== 1 ? 's' : ''}</span>
+                                          )}
+                                          {item.databaseCount > 0 && (
+                                            <span> • {item.databaseCount} database{item.databaseCount !== 1 ? 's' : ''}</span>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
-                                  ))}
-                                </div>
-                              )}
+
+                                    {/* Databases with entries by status */}
+                                    {item.databases && item.databases.length > 0 && (
+                                      <div className="ml-6 space-y-3">
+                                        {item.databases.map((database: any, dbIndex: number) => (
+                                          <div key={dbIndex} className="space-y-2">
+                                            <div className="flex items-start gap-3 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border-l-2 border-blue-200 dark:border-blue-800">
+                                              <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-xs mb-1 text-blue-700 dark:text-blue-300">
+                                                  📊 {database.title}
+                                                </div>
+                                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                                  {database.totalEntries} entries
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Status categories */}
+                                            {Object.entries(database.entriesByStatus || {}).map(([status, entries]) => (
+                                              <div key={status} className="ml-4 space-y-1">
+                                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                                  {status} ({(entries as any[]).length})
+                                                </div>
+                                                {(entries as any[]).map((entry: any, entryIndex: number) => (
+                                                  <div key={entryIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l border-muted">
+                                                    <div className="flex-shrink-0 w-1 h-1 bg-muted-foreground/30 rounded-full mt-2"></div>
+                                                    <div className="flex-1 min-w-0">
+                                                      <div className="font-medium text-xs mb-1">
+                                                        {entry.url ? (
+                                                          <a
+                                                            href={entry.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-600 hover:text-blue-800 underline"
+                                                          >
+                                                            {entry.title}
+                                                          </a>
+                                                        ) : (
+                                                          entry.title
+                                                        )}
+                                                      </div>
+                                                      <div className="text-xs text-muted-foreground">
+                                                        {entry.last_edited && (
+                                                          <span>Last edited {new Date(entry.last_edited).toLocaleDateString()}</span>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Subpages */}
+                                    {item.subpages && item.subpages.length > 0 && (
+                                      <div className="ml-6 space-y-1">
+                                        {item.subpages.map((subpage: any, subIndex: number) => (
+                                          <div key={subIndex} className="flex items-start gap-3 p-2 bg-background/50 rounded-md border-l-2 border-muted">
+                                            <div className="flex-shrink-0 w-1.5 h-1.5 bg-muted-foreground/50 rounded-full mt-2"></div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="font-medium text-xs mb-1">
+                                                {subpage.url ? (
+                                                  <a
+                                                    href={subpage.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-blue-600 hover:text-blue-800 underline"
+                                                  >
+                                                    {subpage.title}
+                                                  </a>
+                                                ) : (
+                                                  subpage.title
+                                                )}
+                                              </div>
+                                              <div className="text-xs text-muted-foreground">
+                                                {subpage.type === 'child_database' ? 'Database' : 'Page'}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {message.metadata?.type === "communication" && message.metadata.data && (
-                      <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <MessageSquare className="w-4 h-4" />
-                          <span className="font-medium">Communication Channels</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {message.metadata.data.length} channels found
-                        </div>
-                      </div>
-                    )}
+                          )
+
+                        default:
+                          return null
+                      }
+                    })()}
                     
                     {message.metadata?.type === "integration_not_connected" && (
                       <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -834,46 +1004,45 @@ export default function AIAssistantContent() {
                           ))}
                         </ul>
                       </div>
-                    )}
-                  </div>
-                  {message.role === "user" && (
-                    <div className="flex-shrink-0 w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4" />
-                    </div>
                   )}
                 </div>
-              ))}
-              
-              {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                  <div className="bg-muted rounded-lg px-4 py-2">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Thinking...</span>
-                    </div>
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex gap-4 w-full">
+              <div className="flex-shrink-0 w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
+                <Bot className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div className="flex-1 max-w-full">
+                <div className="bg-muted rounded-2xl px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-sm">Thinking...</span>
                   </div>
                 </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Confirmation Dialog */}
-        {pendingConfirmation && (
-          <Card className="bg-yellow-50 border-yellow-200 mt-4">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-4 h-4 text-yellow-600" />
-                <span className="font-medium text-yellow-800">Confirm Action</span>
               </div>
-              <p className="text-sm text-yellow-700 mb-3">
-                Are you sure you want to {pendingConfirmation.action}?
-              </p>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+      )}
+
+      {/* Confirmation Dialog - Fixed above input */}
+      {pendingConfirmation && (
+        <div className="border-t bg-yellow-50 px-4 py-3">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-yellow-800">Confirm Action</p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Are you sure you want to {pendingConfirmation.action}?
+                </p>
+              </div>
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -890,29 +1059,42 @@ export default function AIAssistantContent() {
                   Cancel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Input Area */}
-        <Card className="mt-4 mb-0">
-          <CardContent className="p-4">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask me anything about your integrations..."
-                className="flex-1"
-                disabled={isLoading}
-              />
-              <Button onClick={handleSendMessage} disabled={isLoading || !input.trim()}>
-                <Send className="w-4 h-4" />
-              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Input Area - Fixed at Bottom */}
+      <div className="border-t bg-card px-4 py-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-3">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask me anything about your integrations, workflows, or ChainReact..."
+              className="flex-1 h-12 text-base"
+              disabled={isLoading}
+              autoFocus
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={isLoading || !input.trim()}
+              size="lg"
+              className="px-6"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            AI responses are automatically formatted based on the data type
+          </p>
+        </div>
       </div>
-    </AppLayout>
+    </div>
   )
 } 

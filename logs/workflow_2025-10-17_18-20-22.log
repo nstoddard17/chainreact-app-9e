@@ -1,0 +1,42 @@
+=== Log Session Started: 2025-10-17T23:20:22.738Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-17T23:20:22.738Z] [INFO   ] File logging initialized
+[2025-10-17T23:20:22.738Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_18-20-22.log
+[2025-10-17T23:20:22.739Z] [INFO   ] 📁 File logging enabled
+[2025-10-17T23:20:22.739Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_18-20-22.log
+[2025-10-17T23:20:22.739Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_18-20-22.log
+[2025-10-17T23:20:22.739Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_18-20-22.log
+[2025-10-17T23:20:22.739Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-17_18-20-22.log
+[2025-10-17T23:20:22.740Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-17T23:20:22.740Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-17T23:20:22.747Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3s
+[2025-10-17T23:20:23.269Z] [INFO   ]  [37m[1m○[22m[39m Compiling /new ...
+[2025-10-17T23:20:29.340Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 6.6s (3903 modules)
+[2025-10-17T23:20:30.702Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 140ms (233 modules)
+[2025-10-17T23:20:31.323Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-17T23:20:31.611Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 788ms (3891 modules)
+[2025-10-17T23:20:32.452Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/teams ...
+[2025-10-17T23:20:32.521Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/teams in 583ms (3899 modules)
+[2025-10-17T23:20:32.835Z] [ERROR  ] 2025-10-17T23:20:32.834Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+[2025-10-17T23:20:35.252Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 296ms (3901 modules)
+[2025-10-17T23:20:45.312Z] [ERROR  ] 2025-10-17T23:20:45.311Z [ERROR] Error fetching organizations: {"code":"PGRST200","details":"Searched for a foreign key relationship between 'organizations' and 'teams' in the schema 'public', but no matches were found.","hint":null,"message":"Could not find a relationship between 'organizations' and 'teams' in the schema cache"}
+[2025-10-17T23:21:13.382Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 823ms (3915 modules)
+[2025-10-17T23:21:18.594Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 624ms (3915 modules)
+[2025-10-17T23:21:28.729Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 281ms (674 modules)
+[2025-10-17T23:22:58.055Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/memory/documents ...
+[2025-10-17T23:22:58.622Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/memory/documents in 1077ms (3891 modules)
+[2025-10-17T23:23:26.885Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 196ms (3233 modules)
+[2025-10-17T23:25:39.131Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1162ms (3903 modules)
+[2025-10-17T23:25:39.191Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:25:40.579Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1426ms (3903 modules)
+[2025-10-17T23:25:46.965Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-17T23:25:47.571Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1119ms (3903 modules)
+[2025-10-17T23:25:57.672Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 237ms (674 modules)
+[2025-10-17T23:26:09.530Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 363ms (674 modules)
+[2025-10-17T23:26:19.356Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 264ms (674 modules)
+
+=== Log Session Ended: 2025-10-17T23:27:38.335Z ===

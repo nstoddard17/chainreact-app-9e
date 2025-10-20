@@ -3,17 +3,22 @@ import { AIAuthenticationService } from "./aiAuthenticationService"
 import { AIIntentAnalysisService } from "./aiIntentAnalysisService"
 import { AIActionExecutionService } from "./aiActionExecutionService"
 import { trackUsage } from "@/lib/usageTracking"
+import { conversationStateManager } from "./conversationStateManager"
+import { clarificationService } from "./clarificationService"
 
 import { logger } from '@/lib/utils/logger'
 
 export interface AIAssistantRequest {
   message: string
+  conversationId?: string
+  selectedOptionId?: string  // For answering clarifying questions
 }
 
 export interface AIAssistantResponse {
   content: string
   metadata: Record<string, any>
   error?: string
+  conversationId?: string
 }
 
 export class AIAssistantService {
@@ -43,7 +48,7 @@ export class AIAssistantService {
 
       // 2. Parse request body
       const body = await request.json()
-      const { message } = body as AIAssistantRequest
+      const { message, conversationId: existingConversationId, selectedOptionId } = body as AIAssistantRequest
 
       if (!message || typeof message !== 'string') {
         return {
@@ -53,7 +58,7 @@ export class AIAssistantService {
         }
       }
 
-      logger.debug("📝 Processing message:", `${message.substring(0, 100) }...`)
+      logger.debug("📝 Processing message:", `${message.substring(0, 100)}...`)
 
       // 3. Authenticate user
       const authResult = await this.authService.authenticateRequest(request)
@@ -70,6 +75,13 @@ export class AIAssistantService {
       const user = authResult.user
       logger.debug("✅ User authenticated:", user.id)
 
+      // 3.5. Get or create conversation context
+      const conversationContext = conversationStateManager.getContext(user.id, existingConversationId)
+      const conversationId = conversationContext.conversationId
+
+      // Add user message to history
+      conversationStateManager.addTurn(conversationId, 'user', message)
+
       // 4. Check usage limits
       const usageCheck = await this.authService.checkAIUsageLimit(user.id)
       if (!usageCheck.allowed) {
@@ -80,7 +92,7 @@ export class AIAssistantService {
         }
       }
 
-      // 5. Get user integrations
+      // 5. Get user integrations (MOVED BEFORE CLARIFICATION CHECK)
       const integrationsResult = await this.authService.getIntegrations(user.id)
       if (integrationsResult.error) {
         return {
@@ -91,6 +103,38 @@ export class AIAssistantService {
       }
 
       const integrations = integrationsResult.integrations
+
+      // Check if this is an answer to a pending question
+      if (selectedOptionId && conversationStateManager.isWaitingForResponse(conversationId)) {
+        logger.debug("🔄 Processing answer to clarifying question")
+
+        try {
+          const { intent, parameters } = await clarificationService.processAnswer(
+            conversationId,
+            selectedOptionId
+          )
+
+          // Execute action with selected parameters
+          const result = await this.actionService.executeAction(intent, integrations, user.id, this.authService.getSupabaseAdmin())
+
+          conversationStateManager.addTurn(conversationId, 'assistant', result.content, result.metadata)
+
+          return {
+            content: result.content,
+            metadata: result.metadata,
+            conversationId
+          }
+
+        } catch (error: any) {
+          logger.error("❌ Error processing answer:", error)
+          return {
+            content: "Sorry, I couldn't process your selection. Please try again.",
+            metadata: { error: "answer_processing_failed" },
+            error: "Answer processing failed",
+            conversationId
+          }
+        }
+      }
 
       // 6. Analyze intent
       let intent
@@ -109,6 +153,36 @@ export class AIAssistantService {
           action: "chat",
           parameters: {}
         }
+      }
+
+      // 6.5. Check if clarification is needed
+      const clarificationResult = await clarificationService.checkForAmbiguity(
+        user.id,
+        conversationId,
+        message,
+        intent,
+        integrations
+      )
+
+      if (clarificationResult.needsClarification) {
+        logger.debug("❓ Clarification needed:", clarificationResult.reason)
+
+        const pendingQuestion = conversationStateManager.getPendingQuestion(conversationId)
+
+        const response = {
+          content: clarificationResult.question || "I need more information to continue.",
+          metadata: {
+            type: "question",
+            question: clarificationResult.question,
+            options: pendingQuestion?.options,
+            questionId: clarificationResult.questionId
+          },
+          conversationId
+        }
+
+        conversationStateManager.addTurn(conversationId, 'assistant', response.content, response.metadata)
+
+        return response
       }
 
       // 7. Execute action
@@ -139,10 +213,14 @@ export class AIAssistantService {
         // Don't fail the request if tracking fails
       }
 
+      // Add assistant response to history
+      conversationStateManager.addTurn(conversationId, 'assistant', result.content, result.metadata)
+
       logger.debug("✅ AI Assistant processing completed successfully")
       return {
         content: result.content,
-        metadata: result.metadata
+        metadata: result.metadata,
+        conversationId
       }
 
     } catch (error: any) {

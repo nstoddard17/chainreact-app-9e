@@ -1,0 +1,35 @@
+=== Log Session Started: 2025-10-18T20:27:29.082Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-18T20:27:29.083Z] [INFO   ] File logging initialized
+[2025-10-18T20:27:29.083Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-27-29.log
+[2025-10-18T20:27:29.084Z] [INFO   ] 📁 File logging enabled
+[2025-10-18T20:27:29.085Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-27-29.log
+[2025-10-18T20:27:29.085Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-27-29.log
+[2025-10-18T20:27:29.085Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-27-29.log
+[2025-10-18T20:27:29.085Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-18_15-27-29.log
+[2025-10-18T20:27:29.085Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-18T20:27:29.085Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-18T20:27:29.096Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 7.6s
+[2025-10-18T20:27:29.619Z] [INFO   ]  [37m[1m○[22m[39m Compiling / ...
+[2025-10-18T20:27:38.682Z] [INFO   ]  [32m[1m✓[22m[39m Compiled / in 9.6s (4585 modules)
+[2025-10-18T20:27:39.649Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 945ms (1024 modules)
+[2025-10-18T20:27:58.466Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-18T20:27:58.581Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 616ms (233 modules)
+[2025-10-18T20:27:59.384Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-18T20:27:59.582Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 853ms (4582 modules)
+[2025-10-18T20:28:00.620Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 384ms (4584 modules)
+[2025-10-18T20:28:03.564Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 316ms (4586 modules)
+[2025-10-18T20:29:36.210Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1648ms (4543 modules)
+[2025-10-18T20:29:36.513Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:29:37.493Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 234ms (3555 modules)
+[2025-10-18T20:29:41.167Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 242ms (3557 modules)
+[2025-10-18T20:29:44.908Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 520ms (4565 modules)
+[2025-10-18T20:29:44.947Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-18T20:29:47.049Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-18T20:29:47.223Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1224ms (3559 modules)
+
+=== Log Session Ended: 2025-10-18T20:43:01.107Z ===
