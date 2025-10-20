@@ -51,11 +51,6 @@ export function useWorkflowExecution() {
   const [testModeDialogOpen, setTestModeDialogOpen] = useState(false)
   const [isExecutingTest, setIsExecutingTest] = useState(false)
 
-  // Debug effect to track state changes
-  useEffect(() => {
-    console.log('🧪 [Hook] testModeDialogOpen state changed:', testModeDialogOpen)
-  }, [testModeDialogOpen])
-
   // Add debug log helper
   const addDebugLog = useCallback((level: 'info' | 'warning' | 'error' | 'success', message: string, details?: any) => {
     if (typeof window !== 'undefined' && (window as any).addTestModeDebugLog) {

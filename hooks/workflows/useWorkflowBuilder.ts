@@ -101,11 +101,26 @@ export function useWorkflowBuilder() {
   const isTemplateEditing = Boolean(editTemplateId && !workflowId)
   const { toast } = useToast()
 
-  // Store hooks
-  const { workflows, currentWorkflow, setCurrentWorkflow, updateWorkflow, removeNode, loading: workflowLoading, fetchWorkflows, addWorkflowToStore } = useWorkflowStore()
-  const { joinCollaboration, leaveCollaboration, collaborators } = useCollaborationStore()
-  const { getConnectedProviders, loading: integrationsLoading } = useIntegrationStore()
-  const { addError, setCurrentWorkflow: setErrorStoreWorkflow, getLatestErrorForNode } = useWorkflowErrorStore()
+  // Store hooks - Using selective subscriptions to prevent unnecessary re-renders
+  const workflows = useWorkflowStore(state => state.workflows)
+  const currentWorkflow = useWorkflowStore(state => state.currentWorkflow)
+  const setCurrentWorkflow = useWorkflowStore(state => state.setCurrentWorkflow)
+  const updateWorkflow = useWorkflowStore(state => state.updateWorkflow)
+  const removeNode = useWorkflowStore(state => state.removeNode)
+  const workflowLoading = useWorkflowStore(state => state.loading)
+  const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
+  const addWorkflowToStore = useWorkflowStore(state => state.addWorkflowToStore)
+
+  const joinCollaboration = useCollaborationStore(state => state.joinCollaboration)
+  const leaveCollaboration = useCollaborationStore(state => state.leaveCollaboration)
+  const collaborators = useCollaborationStore(state => state.collaborators)
+
+  const getConnectedProviders = useIntegrationStore(state => state.getConnectedProviders)
+  const integrationsLoading = useIntegrationStore(state => state.loading)
+
+  const addError = useWorkflowErrorStore(state => state.addError)
+  const setErrorStoreWorkflow = useWorkflowErrorStore(state => state.setCurrentWorkflow)
+  const getLatestErrorForNode = useWorkflowErrorStore(state => state.getLatestErrorForNode)
   
   // Store onClick handlers for AddActionNodes - needs to be before setNodes
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
@@ -3942,9 +3957,6 @@ export function useWorkflowBuilder() {
     handleEdgeClick,
     deleteSelectedEdge,
   }
-
-  // Debug log: check if testModeDialogOpen is in the return value
-  console.log('🧪 [useWorkflowBuilder] Returning - testModeDialogOpen:', returnValue.testModeDialogOpen)
 
   return returnValue
 }
