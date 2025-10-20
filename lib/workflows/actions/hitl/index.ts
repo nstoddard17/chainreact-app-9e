@@ -95,18 +95,72 @@ function formatObject(obj: Record<string, any>, indent = 0): string {
 }
 
 /**
- * Load knowledge base documents from user's cloud storage
+ * Load ChainReact Memory document
  */
-async function loadKnowledgeBase(documents: any[], userId: string): Promise<string[]> {
-  if (!documents || documents.length === 0) {
+async function loadChainReactMemoryDocument(documentId: string, userId: string): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerClient()
+
+    const { data: document, error } = await supabase
+      .from('user_memory_documents')
+      .select('*')
+      .eq('id', documentId)
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !document) {
+      logger.error('[HITL] Failed to load ChainReact Memory document', { error, documentId })
+      return null
+    }
+
+    // Update last accessed time
+    await supabase
+      .from('user_memory_documents')
+      .update({ last_accessed_at: new Date().toISOString() })
+      .eq('id', documentId)
+
+    return document.content || null
+  } catch (error) {
+    logger.error('[HITL] Error loading ChainReact Memory document', { error, documentId })
+    return null
+  }
+}
+
+/**
+ * Load knowledge base documents from user's cloud storage or ChainReact Memory
+ */
+async function loadKnowledgeBase(
+  config: HITLConfig,
+  userId: string
+): Promise<string[]> {
+  const { knowledgeBaseProvider, knowledgeBaseDocumentIds, knowledgeBaseDocuments } = config
+
+  // Handle ChainReact Memory provider
+  if (knowledgeBaseProvider === 'chainreact' && knowledgeBaseDocumentIds && knowledgeBaseDocumentIds.length > 0) {
+    logger.info('[HITL] Loading knowledge base from ChainReact Memory', { count: knowledgeBaseDocumentIds.length })
+
+    const loadedContent: string[] = []
+    for (const docId of knowledgeBaseDocumentIds) {
+      const content = await loadChainReactMemoryDocument(docId, userId)
+      if (content) {
+        loadedContent.push(content)
+      }
+    }
+
+    logger.info('[HITL] Loaded knowledge base from ChainReact Memory', { documentsLoaded: loadedContent.length })
+    return loadedContent
+  }
+
+  // Handle external providers (Google Docs, Notion, etc.)
+  if (!knowledgeBaseDocuments || knowledgeBaseDocuments.length === 0) {
     return []
   }
 
-  logger.info('[HITL] Loading knowledge base documents', { count: documents.length })
+  logger.info('[HITL] Loading knowledge base from external providers', { count: knowledgeBaseDocuments.length })
 
   const loadedContent: string[] = []
 
-  for (const doc of documents) {
+  for (const doc of knowledgeBaseDocuments) {
     try {
       // Parse document info if it's a JSON string
       const docInfo = typeof doc === 'string' ? JSON.parse(doc) : doc
@@ -121,7 +175,7 @@ async function loadKnowledgeBase(documents: any[], userId: string): Promise<stri
     }
   }
 
-  logger.info('[HITL] Loaded knowledge base', { documentsLoaded: loadedContent.length })
+  logger.info('[HITL] Loaded knowledge base from external providers', { documentsLoaded: loadedContent.length })
   return loadedContent
 }
 
@@ -159,25 +213,52 @@ async function loadDocumentContent(docInfo: any, userId: string): Promise<string
 }
 
 /**
- * Load AI memory from user's chosen storage document
+ * Load AI memory from user's chosen storage document or ChainReact Memory
  */
-async function loadAIMemory(memoryDocument: any, userId: string, workflowId: string): Promise<any> {
-  if (!memoryDocument) {
-    logger.debug('[HITL] No memory document configured')
+async function loadAIMemory(
+  config: HITLConfig,
+  userId: string,
+  workflowId: string
+): Promise<any> {
+  const { memoryStorageProvider, memoryDocumentId, memoryStorageDocument } = config
+
+  // Handle ChainReact Memory provider
+  if (memoryStorageProvider === 'chainreact' && memoryDocumentId) {
+    logger.info('[HITL] Loading AI memory from ChainReact Memory', { documentId: memoryDocumentId })
+
+    const memoryContent = await loadChainReactMemoryDocument(memoryDocumentId, userId)
+
+    if (!memoryContent) {
+      logger.warn('[HITL] No memory content found in ChainReact document')
+      return null
+    }
+
+    // Parse memory structure (expecting JSON or structured text)
+    try {
+      return JSON.parse(memoryContent)
+    } catch {
+      // If not JSON, return as plain text
+      return { raw: memoryContent }
+    }
+  }
+
+  // Handle external providers (Google Docs, Notion, etc.)
+  if (!memoryStorageDocument) {
+    logger.debug('[HITL] No external memory document configured')
     return null
   }
 
   try {
     // Parse document info if it's a JSON string
-    const docInfo = typeof memoryDocument === 'string' ? JSON.parse(memoryDocument) : memoryDocument
+    const docInfo = typeof memoryStorageDocument === 'string' ? JSON.parse(memoryStorageDocument) : memoryStorageDocument
 
-    logger.info('[HITL] Loading AI memory from document', { provider: docInfo.provider, id: docInfo.id })
+    logger.info('[HITL] Loading AI memory from external provider', { provider: docInfo.provider, id: docInfo.id })
 
     // Load memory content from the document
     const memoryContent = await loadDocumentContent(docInfo, userId)
 
     if (!memoryContent) {
-      logger.warn('[HITL] No memory content found in document')
+      logger.warn('[HITL] No memory content found in external document')
       return null
     }
 
@@ -189,7 +270,7 @@ async function loadAIMemory(memoryDocument: any, userId: string, workflowId: str
       return { raw: memoryContent }
     }
   } catch (error) {
-    logger.error('[HITL] Failed to load AI memory', { error })
+    logger.error('[HITL] Failed to load AI memory from external provider', { error })
     return null
   }
 }
@@ -269,15 +350,18 @@ export async function executeHITL(
     }
 
     // 2. Load knowledge base documents (if memory is enabled)
+    // Handle enableMemory as both boolean (legacy) and string (new dropdown)
+    const isMemoryEnabled = config.enableMemory === true || config.enableMemory === 'true'
+
     let knowledgeBase: string[] = []
-    if (config.enableMemory && config.knowledgeBaseDocuments) {
-      knowledgeBase = await loadKnowledgeBase(config.knowledgeBaseDocuments, userId)
+    if (isMemoryEnabled) {
+      knowledgeBase = await loadKnowledgeBase(config, userId)
     }
 
-    // 3. Load AI memory from user's document
+    // 3. Load AI memory from user's document or ChainReact Memory
     let aiMemory: any = null
-    if (config.enableMemory && config.memoryStorageDocument) {
-      aiMemory = await loadAIMemory(config.memoryStorageDocument, userId, context?.workflowId)
+    if (isMemoryEnabled) {
+      aiMemory = await loadAIMemory(config, userId, context?.workflowId)
     }
 
     // 4. Build system prompt with memory and knowledge
@@ -328,8 +412,21 @@ export async function executeHITL(
       }
     }
 
-    // Calculate timeout (0 = no timeout, null = no timeout)
-    const timeoutMinutes = config.timeout ?? 60  // Use 60 if undefined/null, but allow 0
+    // Calculate timeout from preset or custom value
+    // If timeoutPreset is "custom", use the timeout field, otherwise use timeoutPreset
+    let timeoutMinutes = 60 // Default to 1 hour
+
+    if (config.timeoutPreset === 'custom') {
+      // Use custom timeout value
+      timeoutMinutes = config.timeout ?? 60
+    } else if (config.timeoutPreset !== undefined) {
+      // Use preset value (convert string to number)
+      timeoutMinutes = parseInt(config.timeoutPreset as string, 10)
+    } else if (config.timeout !== undefined) {
+      // Fallback to old timeout field for backward compatibility
+      timeoutMinutes = config.timeout
+    }
+
     const timeoutAt = timeoutMinutes > 0
       ? new Date(Date.now() + timeoutMinutes * 60 * 1000)
       : null  // No timeout if 0

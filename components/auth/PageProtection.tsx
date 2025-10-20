@@ -54,13 +54,13 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
 
     // If page requires a specific role, check if user has it
     if (requiredRole && !canAccessPage(userRole, pathname)) {
-      router.push('/dashboard')
+      router.push('/workflows')
       return
     }
 
     // Check if user can access the current page
     if (!canAccessPage(userRole, pathname)) {
-      router.push('/dashboard')
+      router.push('/workflows')
     }
   }, [user, userRole, pathname, router, requiredRole, profile, loading, initialized])
 
@@ -89,8 +89,8 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
               You don't have permission to access this page with your current role ({profile?.role}).
             </p>
             <div className="flex flex-col space-y-2">
-              <Button onClick={() => router.push('/dashboard')}>
-                Go to Dashboard
+              <Button onClick={() => router.push('/workflows')}>
+                Go to Workflows
               </Button>
               <Button variant="outline" onClick={() => router.push('/settings/billing')}>
                 Upgrade Plan

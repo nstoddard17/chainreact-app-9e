@@ -20,9 +20,11 @@ const XIcon = ({ className }: { className?: string }) => (
 
 const footerLinks = {
   Product: [
-    { name: 'Features', href: '#features' },
-    { name: 'Integrations', href: '#integrations' },
-    { name: 'How it Works', href: '#how-it-works' },
+    { name: 'Demo', href: '#demo', scroll: true },
+    { name: 'Features', href: '#features', scroll: true },
+    { name: 'Use Cases', href: '#use-cases', scroll: true },
+    { name: 'Integrations', href: '#integrations', scroll: true },
+    { name: 'Roadmap', href: '#roadmap', scroll: true },
   ],
   Resources: [
     { name: 'Templates', href: '/templates' },
@@ -41,6 +43,16 @@ export function Footer() {
   const [emailCopied, setEmailCopied] = useState(false)
   const [contactModalOpen, setContactModalOpen] = useState(false)
   const email = 'info@chainreact.app'
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element && typeof window !== 'undefined') {
+      // Increased offset to ensure section title is fully visible
+      const yOffset = -100
+      const y = element.getBoundingClientRect().top + window.scrollY + yOffset
+      window.scrollTo({ top: y, behavior: 'smooth' })
+    }
+  }
 
   const handleEmailClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -133,11 +145,19 @@ export function Footer() {
             <div key={category}>
               <h3 className="text-gray-900 dark:text-white font-semibold mb-4">{category}</h3>
               <ul className="space-y-2">
-                {links.map((link) => (
+                {links.map((link: any) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
-                      onClick={link.name === 'Contact' ? handleContactClick : undefined}
+                      onClick={(e) => {
+                        if (link.name === 'Contact') {
+                          handleContactClick(e)
+                        } else if (link.scroll) {
+                          e.preventDefault()
+                          const sectionId = link.href.replace('#', '')
+                          scrollToSection(sectionId)
+                        }
+                      }}
                       className="text-gray-600 dark:text-white/60 text-sm hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
                     >
                       {link.name}
@@ -152,7 +172,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="mt-8 pt-8 border-t border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-gray-600 dark:text-white/40 text-sm">
-            © 2024 ChainReact. All rights reserved.
+            © 2025 ChainReact. All rights reserved.
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-white/40 text-sm">
             <span>Built with</span>

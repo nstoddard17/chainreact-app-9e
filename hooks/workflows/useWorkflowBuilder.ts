@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter, useParams } from 'next/navigation'
 import { useNodesState, useEdgesState, useReactFlow, type Node, type Edge, type Connection } from '@xyflow/react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -93,7 +93,10 @@ interface RunPreflightOptions {
 export function useWorkflowBuilder() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const workflowId = searchParams.get("id")
+  const params = useParams()
+
+  // Support both path params (/workflows/builder/[id]) and query params (/workflows/builder?id=xxx)
+  const workflowId = (params?.id as string) || searchParams.get("id")
   const editTemplateId = searchParams.get("editTemplate")
   const isTemplateEditing = Boolean(editTemplateId && !workflowId)
   const { toast } = useToast()
@@ -108,6 +111,7 @@ export function useWorkflowBuilder() {
   const addActionHandlersRef = useRef<Record<string, () => void>>({})
   const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
   const collaborationWorkflowIdRef = useRef<string | null>(null)
+  const timeoutToastShownRef = useRef<boolean>(false)
 
   // React Flow state
   const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
@@ -501,6 +505,11 @@ export function useWorkflowBuilder() {
 
   // Custom hooks
   const executionHook = useWorkflowExecution()
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🧪 [useWorkflowBuilder] executionHook.testModeDialogOpen:', executionHook.testModeDialogOpen)
+  }, [executionHook.testModeDialogOpen])
   const dialogsHook = useWorkflowDialogs()
   const integrationHook = useIntegrationSelection()
   const historyHook = useWorkflowHistory()
@@ -2486,11 +2495,8 @@ export function useWorkflowBuilder() {
       // But not if we've been loading for too long
       if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
         logger.warn('[WorkflowBuilder] Loading timeout reached, hiding loading screen')
-        toast({
-          title: "Loading timeout",
-          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
-          variant: "destructive"
-        })
+        // Don't call toast here - it causes infinite render loop
+        // Toast notification is handled in a useEffect below
         return false
       }
       return true
@@ -2522,6 +2528,34 @@ export function useWorkflowBuilder() {
       setLoadingStartTime(null)
     }
   }, [isLoading, loadingStartTime])
+
+  // Show timeout toast when loading takes too long
+  // This is separate from render to avoid infinite loops
+  useEffect(() => {
+    if (!loadingStartTime) {
+      // Reset the flag when loading stops
+      timeoutToastShownRef.current = false
+      return
+    }
+
+    const checkTimeout = () => {
+      if (timeoutToastShownRef.current) return // Already shown
+
+      if (loadingStartTime && Date.now() - loadingStartTime > MAX_LOADING_TIME) {
+        timeoutToastShownRef.current = true
+        toast({
+          title: "Loading timeout",
+          description: "The workflow is taking too long to load. Please try refreshing or check your connection.",
+          variant: "destructive"
+        })
+      }
+    }
+
+    // Check timeout periodically
+    const intervalId = setInterval(checkTimeout, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [loadingStartTime, toast])
   // Failsafe: never let the Save spinner get stuck indefinitely
   useEffect(() => {
     if (!isSaving) return
@@ -3796,7 +3830,8 @@ export function useWorkflowBuilder() {
     return `${formatted} Setup`
   }, [isTemplateEditing, templateDraftMetadata?.primarySetupTarget])
 
-  return {
+  // Debug log: check what we're about to return
+  const returnValue = {
     // React Flow state
     nodes,
     edges: processedEdges,
@@ -3907,4 +3942,9 @@ export function useWorkflowBuilder() {
     handleEdgeClick,
     deleteSelectedEdge,
   }
+
+  // Debug log: check if testModeDialogOpen is in the return value
+  console.log('🧪 [useWorkflowBuilder] Returning - testModeDialogOpen:', returnValue.testModeDialogOpen)
+
+  return returnValue
 }

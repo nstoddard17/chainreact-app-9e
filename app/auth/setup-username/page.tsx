@@ -30,7 +30,7 @@ export default function SetupUsernamePage() {
     
     // If user already has a username, redirect to dashboard
     if (profile?.username && profile.username.trim() !== '') {
-      router.push('/dashboard')
+      router.push('/workflows')
       
     }
     
@@ -118,7 +118,7 @@ export default function SetupUsernamePage() {
       })
 
       // Redirect to dashboard
-      router.push('/dashboard')
+      router.push('/workflows')
     } catch (error: any) {
       logger.error("Error saving username:", error)
       toast({

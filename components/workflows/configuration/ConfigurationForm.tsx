@@ -738,7 +738,17 @@ function ConfigurationForm({
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {
-    if (!nodeInfo?.configSchema || isInitialLoading) return;
+    logger.debug('🔵 [ConfigForm] loadOnMount useEffect fired', {
+      hasConfigSchema: !!nodeInfo?.configSchema,
+      isInitialLoading,
+      nodeType: nodeInfo?.type,
+      nodeId: nodeInfo?.id
+    });
+
+    if (!nodeInfo?.configSchema || isInitialLoading) {
+      logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - missing configSchema or still loading');
+      return;
+    }
 
     // Check if we've already loaded for this specific node instance
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
@@ -748,7 +758,8 @@ function ConfigurationForm({
       nodeInstanceKey,
       hasLoadedOnMount: hasLoadedOnMount.current,
       isInitialLoading,
-      hasBoardIdValue: !!values.boardId
+      hasBoardIdValue: !!values.boardId,
+      nodeType: nodeInfo?.type
     });
 
     // Find fields that should load on mount
@@ -904,10 +915,34 @@ function ConfigurationForm({
       }
 
       // Load immediately for HITL Discord server field
+      logger.debug(`🔍 [ConfigForm] Checking for HITL Discord field...`, {
+        nodeType: nodeInfo?.type,
+        providerId: nodeInfo?.providerId,
+        fieldsToLoad: fieldsToLoad.map((f: any) => f.name),
+        hasDiscordGuildId: fieldsToLoad.some((f: any) => f.name === 'discordGuildId')
+      });
+
       const hitlDiscordGuildField = fieldsToLoad.find((f: any) => f.name === 'discordGuildId');
+
+      logger.debug(`🔍 [ConfigForm] HITL field search result:`, {
+        found: !!hitlDiscordGuildField,
+        fieldName: hitlDiscordGuildField?.name,
+        isHITL: nodeInfo?.type === 'hitl_conversation',
+        nodeType: nodeInfo?.type
+      });
+
       if (hitlDiscordGuildField && nodeInfo?.type === 'hitl_conversation') {
         logger.debug(`🚀 [ConfigForm] Loading HITL Discord server (discordGuildId) immediately with cache`);
         loadOptions('discordGuildId', undefined, undefined, false); // Use cache for better performance
+      } else if (nodeInfo?.type === 'hitl_conversation') {
+        logger.warn(`⚠️ [ConfigForm] HITL node but discordGuildId field not in fieldsToLoad!`, {
+          allFields: nodeInfo?.configSchema?.map((f: any) => ({
+            name: f.name,
+            dynamic: f.dynamic,
+            loadOnMount: f.loadOnMount,
+            type: f.type
+          }))
+        });
       }
 
       // Add a small delay for other fields to ensure options are cleared first

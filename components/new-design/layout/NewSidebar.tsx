@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -22,7 +22,8 @@ import {
   ChevronDown,
   Sparkles,
   BarChart3,
-  Users
+  Users,
+  User
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -39,21 +40,20 @@ export function NewSidebar() {
   const { profile, signOut } = useAuthStore()
 
   const mainNav: NavItem[] = [
-    { label: "Workflows", href: "/new", icon: Home },
-    { label: "Templates", href: "/new/library", icon: Layers },
-    { label: "Apps", href: "/new/apps", icon: Layout },
-    { label: "AI Assistant", href: "/new/ai-assistant", icon: Sparkles },
+    { label: "Workflows", href: "/workflows", icon: Home },
+    { label: "Templates", href: "/templates", icon: Layers },
+    { label: "Apps", href: "/apps", icon: Layout },
+    { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
   ]
 
   const secondaryNav: NavItem[] = [
-    { label: "Analytics", href: "/new/analytics", icon: BarChart3 },
-    { label: "Team", href: "/new/team", icon: Users },
-    { label: "Settings", href: "/new/settings", icon: Settings },
+    { label: "Analytics", href: "/analytics", icon: BarChart3 },
+    { label: "Organization", href: "/organization-settings", icon: Users },
   ]
 
   const isActive = (href: string) => {
-    if (href === "/new") {
-      return pathname === "/new"
+    if (href === "/workflows") {
+      return pathname === "/workflows"
     }
     return pathname?.startsWith(href)
   }
@@ -63,7 +63,8 @@ export function NewSidebar() {
     router.push("/")
   }
 
-  const userInitials = profile?.username?.[0]?.toUpperCase() || profile?.email?.[0]?.toUpperCase() || "U"
+  const avatarUrl = profile?.avatar_url || null
+  const displayName = profile?.username || profile?.email?.split('@')[0] || "User"
 
   return (
     <div className="flex flex-col h-screen w-60 border-r bg-background">
@@ -145,14 +146,21 @@ export function NewSidebar() {
               variant="ghost"
               className="w-full flex items-center gap-3 px-2 py-2 h-auto justify-start hover:bg-accent"
             >
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                  {userInitials}
+              <Avatar className="w-8 h-8 bg-muted">
+                {avatarUrl && (
+                  <AvatarImage
+                    src={avatarUrl}
+                    alt={`${displayName} avatar`}
+                    className="object-cover"
+                  />
+                )}
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  <User className="w-4 h-4" />
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
                 <div className="text-sm font-medium truncate">
-                  {profile?.username || profile?.email?.split('@')[0] || "User"}
+                  {displayName}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">
                   {profile?.email || ""}
@@ -162,11 +170,11 @@ export function NewSidebar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onClick={() => router.push('/new/settings')}>
+            <DropdownMenuItem onClick={() => router.push('/settings')}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/new/help')}>
+            <DropdownMenuItem onClick={() => router.push('/support')}>
               <HelpCircle className="w-4 h-4 mr-2" />
               Help & Support
             </DropdownMenuItem>
