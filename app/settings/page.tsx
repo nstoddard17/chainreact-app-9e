@@ -1,5 +1,5 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { SettingsContent } from "@/components/new-design/SettingsContent"
+import { SettingsContent } from "@/components/new-design/SettingsContentSidebar"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'

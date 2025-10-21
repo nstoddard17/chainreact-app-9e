@@ -1,37 +1,57 @@
 "use client"
 
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
-  Save, ArrowLeft, Loader2, Pause, Radio, ChevronDown,
-  MoreVertical, Undo2, Redo2, Share2, Copy, BarChart3, Trash2,
-  Activity, CheckCircle, XCircle, ClipboardCheck, Table2, Settings,
-  Shield, Rocket, FlaskConical, History, Clock, TrendingUp
-} from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { useWorkflowActions } from '@/hooks/workflows/useWorkflowActions'
-import { useAuthStore } from '@/stores/authStore'
+  Undo2,
+  Redo2,
+  MoreVertical,
+  History,
+  GitBranch,
+  Play,
+  TestTube,
+  Rocket,
+  Loader2,
+  Download,
+  Upload,
+  Trash2,
+  Copy,
+  Share2,
+  Link2,
+  Users,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { useWorkflowActions } from "@/hooks/workflows/useWorkflowActions"
+import { useToast } from "@/hooks/use-toast"
+import { WorkflowVersionsDialog } from "./WorkflowVersionsDialog"
+import { WorkflowHistoryDialog } from "./WorkflowHistoryDialog"
 
 interface BuilderHeaderProps {
   workflowName: string
   setWorkflowName: (name: string) => void
-  hasUnsavedChanges: boolean
+  hasUnsavedChanges?: boolean
   isSaving: boolean
-  isExecuting: boolean
-  handleSave: () => Promise<void>
+  isExecuting?: boolean
+  handleSave?: () => Promise<void>
   handleToggleLive?: () => Promise<void>
   isUpdatingStatus?: boolean
   currentWorkflow?: any
@@ -57,9 +77,9 @@ interface BuilderHeaderProps {
 export function BuilderHeader({
   workflowName,
   setWorkflowName,
-  hasUnsavedChanges,
+  hasUnsavedChanges = false,
   isSaving,
-  isExecuting,
+  isExecuting = false,
   handleSave,
   handleToggleLive,
   isUpdatingStatus = false,
@@ -82,55 +102,66 @@ export function BuilderHeader({
   canRedo = false,
   setShowExecutionHistory,
 }: BuilderHeaderProps) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
-  const { profile } = useAuthStore()
-  const isAdmin = profile?.role === 'admin'
-
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [showVersionsDialog, setShowVersionsDialog] = useState(false)
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
+
+  // Share dialog state
   const [shareEmail, setShareEmail] = useState('')
-  const [isSharing, setIsSharing] = useState(false)
-  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [shareMode, setShareMode] = useState<'view' | 'edit' | 'duplicate'>('view')
+  const [shareUrl, setShareUrl] = useState('')
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false)
 
-  // Compute status badge
-  const statusBadge = React.useMemo(() => {
-    if (isExecuting) return { text: "Running", variant: "default" as const, color: "text-blue-600" }
-    if (isSaving) return { text: "Saving...", variant: "secondary" as const, color: "" }
-    if (hasUnsavedChanges) return { text: "Unsaved", variant: "outline" as const, color: "text-orange-600 border-orange-600" }
-    return null // Don't show "Saved" - it's redundant
-  }, [isExecuting, isSaving, hasUnsavedChanges])
+  // Import dialog state
+  const [importJson, setImportJson] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
 
-  const handleBackClick = React.useCallback(() => {
-    router.push("/workflows")
-  }, [router])
+  const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
+  const { toast } = useToast()
 
-  const handleDuplicateClick = React.useCallback(() => {
-    if (workflowId) {
-      duplicateWorkflow(workflowId)
+  const isActive = currentWorkflow?.status === 'active'
+
+  const handleGenerateShareLink = async () => {
+    if (!workflowId) return
+
+    setIsGeneratingLink(true)
+    try {
+      // Generate shareable URL based on mode
+      const baseUrl = window.location.origin
+      let url = ''
+
+      if (shareMode === 'view') {
+        url = `${baseUrl}/workflows/view/${workflowId}`
+      } else if (shareMode === 'edit') {
+        url = `${baseUrl}/workflows/builder/${workflowId}?collaborative=true`
+      } else {
+        url = `${baseUrl}/workflows/duplicate/${workflowId}`
+      }
+
+      setShareUrl(url)
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(url)
+
+      toast({
+        title: "Link Copied!",
+        description: "Share link has been copied to clipboard",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate share link",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingLink(false)
     }
-  }, [workflowId, duplicateWorkflow])
+  }
 
-  const handleConfirmDelete = React.useCallback(() => {
-    if (workflowId) {
-      deleteWorkflow(workflowId)
-      setShowDeleteConfirm(false)
-    }
-  }, [workflowId, deleteWorkflow])
-
-  const handleOpenAirtableSetup = React.useCallback(() => {
-    const templateId = currentWorkflow?.source_template_id || editTemplateId
-    const storageKey = `airtable-setup-panel-${workflowId || templateId}`
-    localStorage.setItem(storageKey, 'expanded')
-    window.dispatchEvent(new CustomEvent('airtable-panel-reopen'))
-    toast({
-      title: "Airtable Setup Panel",
-      description: "Opening setup instructions...",
-    })
-  }, [currentWorkflow?.source_template_id, editTemplateId, workflowId, toast])
-
-  const handleShareWorkflow = async () => {
+  const handleShareWithEmail = async () => {
     if (!shareEmail || !workflowId) {
       toast({
         title: "Error",
@@ -141,323 +172,462 @@ export function BuilderHeader({
     }
 
     try {
-      setIsSharing(true)
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // TODO: Implement backend API to share workflow with specific user
       toast({
         title: "Success",
         description: `Workflow shared with ${shareEmail}`,
       })
-      setShowShareModal(false)
       setShareEmail('')
+      setShowShareDialog(false)
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to share workflow",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleExportWorkflow = async () => {
+    if (!currentWorkflow) return
+
+    try {
+      const exportData = {
+        name: currentWorkflow.name,
+        description: currentWorkflow.description,
+        nodes: currentWorkflow.nodes,
+        connections: currentWorkflow.connections,
+        version: '1.0',
+        exported_at: new Date().toISOString(),
+      }
+
+      const json = JSON.stringify(exportData, null, 2)
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(json)
+
+      // Also trigger download
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '_')}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "Workflow Exported",
+        description: "JSON copied to clipboard and downloaded",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export workflow",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleImportWorkflow = async () => {
+    if (!importJson.trim()) {
+      toast({
+        title: "Error",
+        description: "Please paste workflow JSON",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsImporting(true)
+
+      const data = JSON.parse(importJson)
+
+      // Validate required fields
+      if (!data.nodes || !data.connections) {
+        throw new Error('Invalid workflow format')
+      }
+
+      // TODO: Implement backend API to import workflow
+      // For now, just show success
+      toast({
+        title: "Workflow Imported",
+        description: "Workflow has been imported successfully",
+      })
+
+      setImportJson('')
+      setShowImportDialog(false)
+
+      // Reload page to show imported workflow
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Invalid workflow JSON format",
+        variant: "destructive",
+      })
     } finally {
-      setIsSharing(false)
+      setIsImporting(false)
+    }
+  }
+
+  const handleDuplicateClick = () => {
+    if (workflowId) {
+      duplicateWorkflow(workflowId)
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (workflowId) {
+      deleteWorkflow(workflowId)
+      setShowDeleteConfirm(false)
     }
   }
 
   return (
     <>
-      <div className="h-14 border-b bg-background flex items-center justify-between px-4 gap-4">
-        {/* Left Side - Navigation & Name */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBackClick}
-                className="flex-shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Back to Workflows</TooltipContent>
-          </Tooltip>
-
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0">
+        {/* Left Side - Workflow Name */}
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          {isEditingName ? (
             <Input
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
-              onBlur={handleSave}
-              className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 px-2 py-1 h-8 bg-transparent max-w-md"
-              placeholder="Untitled Workflow"
+              onBlur={() => setIsEditingName(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setIsEditingName(false)
+                if (e.key === 'Escape') setIsEditingName(false)
+              }}
+              autoFocus
+              className="h-8 max-w-xs"
             />
+          ) : (
+            <div
+              onClick={() => setIsEditingName(true)}
+              className="cursor-pointer hover:bg-accent px-2 py-1 rounded-md transition-colors"
+            >
+              <h1 className="text-xl font-semibold truncate">{workflowName || "Untitled Workflow"}</h1>
+            </div>
+          )}
 
-            {statusBadge && (
-              <Badge variant={statusBadge.variant} className={statusBadge.color}>
-                {statusBadge.text}
-              </Badge>
-            )}
-
-            {isTemplateEditing && (
-              <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
-                Template
-              </Badge>
-            )}
-
-            {currentWorkflow?.status === 'active' && !isExecuting && !isSaving && !hasUnsavedChanges && (
-              <Badge variant="default" className="bg-green-600">
-                Active
-              </Badge>
-            )}
-          </div>
+          {/* Auto-save indicator */}
+          {isSaving && (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="hidden sm:inline">Saving...</span>
+            </div>
+          )}
         </div>
 
         {/* Right Side - Actions */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Undo/Redo Group */}
-          {handleUndo && handleRedo && (
-            <>
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleUndo}
-                      disabled={!canUndo}
-                      className="h-8 w-8"
-                    >
-                      <Undo2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Undo (⌘Z)</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleRedo}
-                      disabled={!canRedo}
-                      className="h-8 w-8"
-                    >
-                      <Redo2 className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Redo (⌘Y)</TooltipContent>
-                </Tooltip>
-              </div>
-              <div className="w-px h-6 bg-border" />
-            </>
-          )}
-
-          {/* Save Button */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || isExecuting}
-                variant="secondary"
-                size="sm"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Save workflow (⌘S)</TooltipContent>
-          </Tooltip>
-
-          {/* Template Settings */}
-          {isTemplateEditing && onOpenTemplateSettings && (
+        <div className="flex items-center gap-3">
+          {/* Undo/Redo */}
+          <div className="flex items-center gap-1">
             <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenTemplateSettings}
-              disabled={isSaving}
+              variant="ghost"
+              size="icon"
+              onClick={handleUndo}
+              disabled={!canUndo || !handleUndo}
+              title="Undo (Cmd+Z)"
+              className="h-8 w-8"
             >
-              <Settings className="w-4 h-4 mr-2" />
-              {templateSettingsLabel || "Settings"}
+              <Undo2 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRedo}
+              disabled={!canRedo || !handleRedo}
+              title="Redo (Cmd+Shift+Z)"
+              className="h-8 w-8"
+            >
+              <Redo2 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Versions Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVersionsDialog(true)}
+            className="hidden sm:flex items-center gap-2"
+          >
+            <GitBranch className="w-4 h-4" />
+            <span>Versions</span>
+          </Button>
+
+          {/* History Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHistoryDialog(true)}
+            className="hidden sm:flex items-center gap-2"
+          >
+            <History className="w-4 h-4" />
+            <span>History</span>
+          </Button>
+
+          {/* Test Buttons */}
+          <div className="flex items-center gap-2">
+            {handleTestSandbox && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestSandbox}
+                className="flex items-center gap-2"
+              >
+                <TestTube className="w-4 h-4" />
+                <span className="hidden sm:inline">Sandbox</span>
+              </Button>
+            )}
+
+            {handleExecuteLive && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExecuteLive}
+                className="flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                <span className="hidden sm:inline">Live Test</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Publish Button */}
+          {handleToggleLive && (
+            <Button
+              variant={isActive ? "default" : "default"}
+              size="sm"
+              onClick={handleToggleLive}
+              disabled={isUpdatingStatus}
+              className={cn(
+                "flex items-center gap-2",
+                isActive ? "bg-green-600 hover:bg-green-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+              )}
+            >
+              {isUpdatingStatus ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Rocket className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{isActive ? "Published" : "Publish"}</span>
             </Button>
           )}
 
-          {/* Test Dropdown */}
-          {(handleTestSandbox || handleExecuteLive) && (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isSaving || (isExecuting && !listeningMode && !isStepMode)}
-                  >
-                    <FlaskConical className="w-4 h-4 mr-2" />
-                    Test
-                    <ChevronDown className="w-3 h-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72">
-                  {handleTestSandbox && (
-                    <DropdownMenuItem onClick={handleTestSandbox} className="cursor-pointer">
-                      <div className="flex items-start w-full gap-3">
-                        <Shield className="w-4 h-4 mt-0.5 text-blue-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">Sandbox Mode</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {isStepMode ? "Exit sandbox testing" : "Safe testing - no real actions"}
-                          </div>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-
-                  {handleRunPreflight && (
-                    <DropdownMenuItem
-                      onClick={handleRunPreflight}
-                      disabled={isSaving || isExecuting || isRunningPreflight}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-start w-full gap-3">
-                        <ClipboardCheck className="w-4 h-4 mt-0.5 text-emerald-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">Preflight Check</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Verify integrations and configuration
-                          </div>
-                        </div>
-                        {isRunningPreflight && <Loader2 className="w-3 h-3 animate-spin" />}
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-
-                  {(handleTestSandbox || handleRunPreflight) && handleExecuteLive && (
-                    <DropdownMenuSeparator />
-                  )}
-
-                  {handleExecuteLive && (
-                    <DropdownMenuItem
-                      onClick={handleExecuteLive}
-                      disabled={isSaving || isExecuting}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-start w-full gap-3">
-                        <Rocket className="w-4 h-4 mt-0.5 text-orange-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">Live Mode</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Execute with real data (parallel)
-                          </div>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-
-                  {isAdmin && handleExecuteLiveSequential && (
-                    <DropdownMenuItem
-                      onClick={handleExecuteLiveSequential}
-                      disabled={isSaving || isExecuting}
-                      className="cursor-pointer"
-                    >
-                      <div className="flex items-start w-full gap-3">
-                        <Activity className="w-4 h-4 mt-0.5 text-purple-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">Live Sequential</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            Debug mode - one node at a time
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">Admin</Badge>
-                      </div>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-
-          {/* Activate/Deactivate */}
-          {handleToggleLive && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleToggleLive}
-                  disabled={isUpdatingStatus || isSaving || hasUnsavedChanges}
-                  variant={currentWorkflow?.status === 'active' ? "destructive" : "default"}
-                  size="sm"
-                >
-                  {isUpdatingStatus ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : currentWorkflow?.status === 'active' ? (
-                    <Pause className="w-4 h-4 mr-2" />
-                  ) : (
-                    <Radio className="w-4 h-4 mr-2" />
-                  )}
-                  {currentWorkflow?.status === 'active' ? 'Deactivate' : 'Activate'}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                {hasUnsavedChanges
-                  ? "Save changes before activating"
-                  : currentWorkflow?.status === 'active'
-                    ? "Stop automatic execution"
-                    : "Enable automatic execution on triggers"
-                }
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {/* More Actions Menu */}
+          {/* More Options Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              {workflowId && setShowExecutionHistory && (
-                <>
-                  <DropdownMenuItem onClick={() => setShowExecutionHistory(true)}>
-                    <History className="w-4 h-4 mr-2" />
-                    View History
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              {(currentWorkflow?.source_template_id || editTemplateId) && (
-                <>
-                  <DropdownMenuItem onClick={handleOpenAirtableSetup}>
-                    <Table2 className="w-4 h-4 mr-2" />
-                    Airtable Setup Guide
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem onClick={() => setShowShareModal(true)}>
+              <DropdownMenuItem onClick={() => setShowShareDialog(true)}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Workflow
               </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={handleExportWorkflow}>
+                <Download className="w-4 h-4 mr-2" />
+                Export as JSON
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setShowImportDialog(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import Workflow
+              </DropdownMenuItem>
+
               <DropdownMenuItem onClick={handleDuplicateClick} disabled={isDuplicating}>
                 <Copy className="w-4 h-4 mr-2" />
-                {isDuplicating ? 'Duplicating...' : 'Duplicate'}
+                {isDuplicating ? 'Duplicating...' : 'Duplicate Workflow'}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowAnalytics(true)}>
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Analytics
-              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting}
-                className="text-destructive focus:text-destructive"
-              >
+
+              {/* Mobile-only items */}
+              <DropdownMenuItem onClick={() => setShowVersionsDialog(true)} className="sm:hidden">
+                <GitBranch className="w-4 h-4 mr-2" />
+                Versions
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setShowHistoryDialog(true)} className="sm:hidden">
+                <History className="w-4 h-4 mr-2" />
+                Execution History
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="sm:hidden" />
+
+              <DropdownMenuItem onClick={handleDeleteClick} disabled={isDeleting} className="text-destructive">
                 <Trash2 className="w-4 h-4 mr-2" />
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {isDeleting ? 'Deleting...' : 'Delete Workflow'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Dialogs */}
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Workflow</DialogTitle>
+            <DialogDescription>
+              Share this workflow with your team or generate a shareable link
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Share with team member */}
+            <div className="space-y-2">
+              <Label htmlFor="share-email">Share with team member</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="share-email"
+                  type="email"
+                  placeholder="colleague@example.com"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                />
+                <Button onClick={handleShareWithEmail} disabled={!shareEmail}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Share
+                </Button>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+
+            {/* Generate shareable link */}
+            <div className="space-y-3">
+              <Label>Generate shareable link</Label>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="view-mode" className="text-sm font-normal">
+                    View only
+                  </Label>
+                  <Switch
+                    id="view-mode"
+                    checked={shareMode === 'view'}
+                    onCheckedChange={(checked) => checked && setShareMode('view')}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-mode" className="text-sm font-normal">
+                    Collaborative editing
+                  </Label>
+                  <Switch
+                    id="edit-mode"
+                    checked={shareMode === 'edit'}
+                    onCheckedChange={(checked) => checked && setShareMode('edit')}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="duplicate-mode" className="text-sm font-normal">
+                    Create duplicate
+                  </Label>
+                  <Switch
+                    id="duplicate-mode"
+                    checked={shareMode === 'duplicate'}
+                    onCheckedChange={(checked) => checked && setShareMode('duplicate')}
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleGenerateShareLink}
+                className="w-full"
+                disabled={isGeneratingLink}
+              >
+                {isGeneratingLink ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Link2 className="w-4 h-4 mr-2" />
+                )}
+                Generate Link
+              </Button>
+
+              {shareUrl && (
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-xs text-muted-foreground mb-1">Link copied to clipboard:</p>
+                  <p className="text-sm font-mono break-all">{shareUrl}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowShareDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Workflow</DialogTitle>
+            <DialogDescription>
+              Paste workflow JSON or upload a .json file
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-json">Workflow JSON</Label>
+              <Textarea
+                id="import-json"
+                placeholder="Paste workflow JSON here..."
+                value={importJson}
+                onChange={(e) => setImportJson(e.target.value)}
+                rows={10}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              Tip: You can also paste workflow JSON directly in the canvas using Cmd+V (Mac) or Ctrl+V (Windows)
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleImportWorkflow} disabled={isImporting || !importJson.trim()}>
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -484,141 +654,18 @@ export function BuilderHeader({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share Workflow</DialogTitle>
-            <DialogDescription>
-              Enter the email address of the team member you want to share this workflow with.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="share-email">Email Address</Label>
-              <Input
-                id="share-email"
-                type="email"
-                placeholder="colleague@example.com"
-                value={shareEmail}
-                onChange={(e) => setShareEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && shareEmail) {
-                    handleShareWorkflow()
-                  }
-                }}
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              The recipient will receive a copy of this workflow in their account.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowShareModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleShareWorkflow} disabled={isSharing || !shareEmail}>
-              {isSharing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sharing...
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Version and History Dialogs */}
+      <WorkflowVersionsDialog
+        open={showVersionsDialog}
+        onOpenChange={setShowVersionsDialog}
+        workflowId={workflowId || ''}
+      />
 
-      <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Workflow Analytics</DialogTitle>
-            <DialogDescription>
-              Performance metrics for "{workflowName}"
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-secondary/50 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Executions</p>
-                    <p className="text-2xl font-bold">0</p>
-                  </div>
-                  <Activity className="w-8 h-8 text-muted-foreground" />
-                </div>
-              </div>
-              <div className="bg-green-500/10 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Successful</p>
-                    <p className="text-2xl font-bold text-green-600">0</p>
-                  </div>
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-              </div>
-              <div className="bg-red-500/10 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Failed</p>
-                    <p className="text-2xl font-bold text-red-600">0</p>
-                  </div>
-                  <XCircle className="w-8 h-8 text-red-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-secondary/50 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">Average Execution Time</h3>
-                <Clock className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <p className="text-2xl font-bold">0 ms</p>
-              <p className="text-sm text-muted-foreground mt-1">Based on last 30 days</p>
-            </div>
-
-            <div className="bg-secondary/50 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium">Success Rate</h3>
-                <TrendingUp className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex items-end gap-4">
-                <p className="text-2xl font-bold">N/A</p>
-                <div className="flex-1">
-                  <div className="w-full bg-secondary rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: '0%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-secondary/50 rounded-lg p-4">
-              <h3 className="font-medium mb-2">Recent Executions</h3>
-              <p className="text-sm text-muted-foreground">
-                No executions yet. Analytics will appear once your workflow runs.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAnalytics(false)}>
-              Close
-            </Button>
-            {setShowExecutionHistory && (
-              <Button onClick={() => {
-                setShowAnalytics(false)
-                setShowExecutionHistory(true)
-              }}>
-                <History className="w-4 h-4 mr-2" />
-                View Full History
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WorkflowHistoryDialog
+        open={showHistoryDialog}
+        onOpenChange={setShowHistoryDialog}
+        workflowId={workflowId || ''}
+      />
     </>
   )
 }

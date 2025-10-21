@@ -38,7 +38,7 @@ export function NewHeader({ title, subtitle, actions }: NewHeaderProps) {
   }, [])
 
   return (
-    <div className="h-14 border-b bg-background flex items-center justify-between px-6">
+    <div className="h-14 bg-gray-50 dark:bg-gray-950 flex items-center justify-between px-6">
       {/* Left Side - Title and Subtitle */}
       <div className="flex-1 min-w-0">
         {title && (

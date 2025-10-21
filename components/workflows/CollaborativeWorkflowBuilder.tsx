@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { useSearchParams } from "next/navigation"
 import { ReactFlow, Background, Controls, Panel, BackgroundVariant, ReactFlowProvider } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
@@ -15,10 +16,13 @@ import { AIAgentConfigModal } from "./AIAgentConfigModal"
 import ErrorNotificationPopup from "./ErrorNotificationPopup"
 import { ReAuthNotification } from "@/components/integrations/ReAuthNotification"
 import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
-import { WorkflowToolbar } from "./builder/WorkflowToolbar"
+import { WorkflowHeader } from "./builder/WorkflowHeader"
+import { WorkflowVersionsDialog } from "./builder/WorkflowVersionsDialog"
+import { WorkflowHistoryDialog } from "./builder/WorkflowHistoryDialog"
 import { TriggerSelectionDialog } from "./builder/TriggerSelectionDialog"
 import { ActionSelectionDialog } from "./builder/ActionSelectionDialog"
 import { EmptyWorkflowState } from "./builder/EmptyWorkflowState"
+import { IntegrationsSidebar } from "./builder/IntegrationsSidebar"
 import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
 import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
@@ -28,6 +32,7 @@ import { TestModeDialog } from "./TestModeDialog"
 import { AirtableSetupPanel, type TemplateSetupRequirement, type TemplateSetupData } from "@/components/templates/AirtableSetupPanel"
 import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
 import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
+import { AIWorkflowBuilderChat } from "./ai-builder/AIWorkflowBuilderChat"
 
 // UI Components
 import { Button } from "@/components/ui/button"
@@ -201,7 +206,35 @@ function WorkflowBuilderContent() {
     deleteSelectedEdge,
   } = useWorkflowBuilder()
 
+  const searchParams = useSearchParams()
+  const reactAgentParam = searchParams?.get('reactAgent')
+
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
+  const [isReactAgentCollapsed, setIsReactAgentCollapsed] = React.useState(false)
+  const [showVersionsDialog, setShowVersionsDialog] = React.useState(false)
+  const [showHistoryDialog, setShowHistoryDialog] = React.useState(false)
+
+  // Check for reactAgent query parameter and open React Agent if present
+  React.useEffect(() => {
+    if (reactAgentParam === 'true' && isReactAgentCollapsed) {
+      setIsReactAgentCollapsed(false)
+    }
+  }, [reactAgentParam, isReactAgentCollapsed])
+
+  // Get connected integrations for React Agent
+  const connectedIntegrations = React.useMemo(() => {
+    const integrationStore = require('@/stores/integrationStore').useIntegrationStore.getState()
+    const storeIntegrations = integrationStore.integrations || []
+
+    const isConnectedStatus = (status?: string) => {
+      const v = (status || '').toLowerCase()
+      return v === 'connected' || v === 'authorized' || v === 'active' || v === 'valid' || v === 'ok' || v === 'ready'
+    }
+
+    return storeIntegrations
+      .filter(i => isConnectedStatus(i.status))
+      .map(i => i.provider)
+  }, [])
 
   const sourceTemplateId = React.useMemo(
     () => currentWorkflow?.source_template_id || editTemplateId || null,
@@ -275,87 +308,151 @@ function WorkflowBuilderContent() {
   return (
     <TooltipProvider>
     <div style={{ height: "100vh", position: "relative" }}>
-      {/* Top Toolbar */}
-      <WorkflowToolbar
+      {/* New Workflow Header */}
+      <WorkflowHeader
         workflowName={workflowName}
-        setWorkflowName={setWorkflowName}
-        hasUnsavedChanges={hasUnsavedChanges}
-        isSaving={isSaving}
-        isExecuting={isExecuting}
-        listeningMode={listeningMode}
-        handleSave={handleSave}
-        handleExecute={handleExecuteCallback}
-        handleResetLoadingStates={handleResetLoadingStates}
-        handleNavigation={handleNavigationCallback}
-        workflowStatus={currentWorkflow?.status}
-        handleToggleLive={handleToggleLive}
+        onWorkflowNameChange={setWorkflowName}
+        isActive={currentWorkflow?.status === 'active'}
+        onToggleActive={handleToggleLive}
         isUpdatingStatus={isUpdatingStatus}
-        currentWorkflow={currentWorkflow}
-        workflowId={currentWorkflow?.id}
-        editTemplateId={editTemplateId}
-        isTemplateEditing={isTemplateEditing}
-        handleTestSandbox={handleTestSandbox}
-        handleExecuteLive={handleExecuteLive}
-        handleExecuteLiveSequential={handleExecuteLiveSequential}
-        handleRunPreflight={openPreflightChecklist}
-        isRunningPreflight={isRunningPreflight}
-        isStepMode={isStepMode}
-        showSandboxPreview={showSandboxPreview}
-        setShowSandboxPreview={setShowSandboxPreview}
-        sandboxInterceptedActions={sandboxInterceptedActions}
-        showExecutionHistory={showExecutionHistory}
-        setShowExecutionHistory={setShowExecutionHistory}
-        getNodes={getNodes}
-        getEdges={getEdges}
-        setNodes={setNodes}
-        setEdges={setEdges}
-        handleConfigureNode={handleConfigureNode}
-        ensureOneAddActionPerChain={ensureOneAddActionPerChain}
-        handleUndo={handleUndo}
-        handleRedo={handleRedo}
+        onTestSandbox={handleTestSandbox}
+        onTestLive={handleExecuteLive}
+        onShowVersions={() => setShowVersionsDialog(true)}
+        onShowHistory={() => setShowHistoryDialog(true)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
-        selectedEdgeId={selectedEdgeId}
-        deleteSelectedEdge={deleteSelectedEdge}
-        onOpenTemplateSettings={isTemplateEditing ? handleOpenTemplateSettings : undefined}
-        templateSettingsLabel={templateSettingsLabel}
+        isSaving={isSaving}
+        onViewExecutionHistory={() => setShowExecutionHistory(true)}
       />
 
-      {nodes.length === 0 ? (
-        <EmptyWorkflowState onAddTrigger={handleOpenTriggerDialog} />
-      ) : (
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={optimizedOnNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onEdgeClick={handleEdgeClick}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodeDragStop={() => setHasUnsavedChanges(true)}
-          fitView
-          fitViewOptions={{
-            padding: 0.2,
-            includeHiddenNodes: false,
-            minZoom: 0.5,
-            maxZoom: 2,
-            offset: { x: 0, y: 40 }
+      {/* Main Layout with React Agent */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+        {/* React Agent Sidebar */}
+        <AIWorkflowBuilderChat
+          workflowId={currentWorkflow?.id}
+          nodes={nodes.map(node => ({
+            id: node.id,
+            type: node.type,
+            data: {
+              title: node.data?.title || '',
+              type: node.data?.type || '',
+              providerId: node.data?.providerId,
+              config: node.data?.config
+            }
+          }))}
+          onNodeAdd={(nodeType, config) => {
+            // Find the node component definition
+            const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+            if (!nodeComponent) {
+              logger.error('AI requested unknown node type:', nodeType)
+              return
+            }
+
+            // Check if it's a trigger or action
+            if (nodeComponent.isTrigger) {
+              // For triggers, add at the beginning
+              handleAddTrigger(nodeComponent, config)
+            } else {
+              // For actions, add to the last node in the workflow
+              const lastNode = nodes[nodes.length - 1]
+              if (lastNode) {
+                handleAddAction(nodeComponent, config, lastNode.id)
+              } else {
+                logger.warn('Cannot add action: no nodes in workflow')
+              }
+            }
           }}
-          className="bg-background"
-          proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{
-            type: 'custom',
-            style: {
-              strokeWidth: 2,
-              stroke: '#9ca3af',
-              strokeLinecap: 'round',
-              strokeLinejoin: 'round'
-            },
-            animated: false
+          onIntegrationPrompt={(provider) => {
+            // Open integrations page to connect the provider
+            handleNavigation(hasUnsavedChanges, `/integrations?connect=${provider}`)
           }}
-          defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
-        >
+          connectedIntegrations={connectedIntegrations}
+          className={isReactAgentCollapsed ? '' : 'w-[400px]'}
+          isCollapsed={isReactAgentCollapsed}
+          onToggleCollapse={() => setIsReactAgentCollapsed(!isReactAgentCollapsed)}
+          initialWelcomeMessage={reactAgentParam === 'true' ? "Welcome to the Workflow Builder! I'm React Agent, and I'm here to help you create powerful automations. You can build workflows visually using the canvas on the right, or tell me what you want to build and I'll help you set it up. What would you like to automate today?" : undefined}
+        />
+
+        {/* Workflow Canvas */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={optimizedOnNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onEdgeClick={handleEdgeClick}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodeDragStop={() => setHasUnsavedChanges(true)}
+            onDrop={(event) => {
+              event.preventDefault()
+
+              const reactFlowBounds = event.currentTarget.getBoundingClientRect()
+              const data = event.dataTransfer.getData('application/reactflow')
+
+              if (!data) return
+
+              const nodeData = JSON.parse(data)
+              const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeData.type)
+
+              if (!nodeComponent) return
+
+              // Get the position where the node was dropped
+              const position = {
+                x: event.clientX - reactFlowBounds.left,
+                y: event.clientY - reactFlowBounds.top - 60, // Adjust for toolbar
+              }
+
+              // Create a pending node to be configured
+              setPendingNode({
+                nodeComponent,
+                position,
+                sourceNodeId: nodes.length > 0 ? nodes[nodes.length - 1]?.id : undefined
+              })
+
+              // Open configuration modal
+              setConfiguringNode({
+                id: 'temp-' + Date.now(),
+                type: nodeComponent.type,
+                data: {
+                  title: nodeComponent.title,
+                  type: nodeComponent.type,
+                  providerId: nodeComponent.providerId,
+                  isTrigger: nodeComponent.isTrigger,
+                  config: {}
+                },
+                position
+              })
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+            }}
+            fitView
+            fitViewOptions={{
+              padding: 0.2,
+              includeHiddenNodes: false,
+              minZoom: 0.5,
+              maxZoom: 2,
+              offset: { x: 0, y: 40 }
+            }}
+            className="bg-background"
+            proOptions={{ hideAttribution: true }}
+            defaultEdgeOptions={{
+              type: 'custom',
+              style: {
+                strokeWidth: 2,
+                stroke: '#9ca3af',
+                strokeLinecap: 'round',
+                strokeLinejoin: 'round'
+              },
+              animated: false
+            }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
+          >
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="hsl(var(--muted))" />
           <Controls
             style={{
@@ -391,7 +488,17 @@ function WorkflowBuilderContent() {
             </Panel>
           )}
         </ReactFlow>
-      )}
+        </div>
+
+        {/* Integrations Sidebar */}
+        <IntegrationsSidebar
+          onNodeDragStart={(nodeComponent) => {
+            // Optional: Add visual feedback when dragging starts
+            logger.debug('Dragging node:', nodeComponent.title)
+          }}
+          className="w-[380px]"
+        />
+      </div>
 
       <TemplateSetupDialog
         open={showTemplateSetupDialog}
@@ -1590,6 +1697,20 @@ function WorkflowBuilderContent() {
         }}
         interceptedActions={sandboxInterceptedActions}
         isExecutingTest={isExecutingTest}
+      />
+
+      {/* Workflow Versions Dialog */}
+      <WorkflowVersionsDialog
+        open={showVersionsDialog}
+        onOpenChange={setShowVersionsDialog}
+        workflowId={currentWorkflow?.id || ''}
+      />
+
+      {/* Workflow History Dialog */}
+      <WorkflowHistoryDialog
+        open={showHistoryDialog}
+        onOpenChange={setShowHistoryDialog}
+        workflowId={currentWorkflow?.id || ''}
       />
     </div>
     </TooltipProvider>

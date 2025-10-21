@@ -54,22 +54,16 @@ export class AIActionsService {
   }
 
   async executeAIRouter(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug("🤖 Executing AI Router")
+    logger.debug("🤖 Executing AI Agent (Router Mode)")
 
     // Resolve variable references in config before executing
     const resolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
 
-    logger.debug("🤖 AI Router executing with resolved config")
+    logger.debug("🤖 AI Agent executing with resolved config")
 
-    // Call AI router action
-    const { executeAIRouter } = await import('@/lib/workflows/actions/aiRouterAction')
-    return await executeAIRouter(resolvedConfig, {
-      userId: context.userId,
-      workflowId: context.workflowId,
-      executionId: context.executionId,
-      input: this.buildRuntimeInput(context),
-      previousResults: context.results
-    })
+    // Call unified AI agent action
+    const { executeAIAgentAction } = await import('@/lib/workflows/actions/aiAgentAction')
+    return await executeAIAgentAction(resolvedConfig, this.buildRuntimeInput(context), context)
   }
 
   private async executeWithHandler(actionType: string, handler: () => Promise<any>) {

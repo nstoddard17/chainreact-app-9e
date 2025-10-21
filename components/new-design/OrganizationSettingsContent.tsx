@@ -268,7 +268,7 @@ export function OrganizationSettingsContent() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="h-full w-full space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold">Organization Settings</h2>

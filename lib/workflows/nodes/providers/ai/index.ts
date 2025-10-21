@@ -1,9 +1,6 @@
-import { Zap } from "lucide-react"
 import { NodeComponent } from "../../types"
 
-import { defaultActionSchema } from "./actions/default.schema"
-import { messageActionSchema } from "./actions/message.schema"
-import { aiRouterNode } from "./aiRouterNode"
+import { aiAgentNode } from "./aiAgentNode"
 import {
   summarizeActionSchema,
   extractActionSchema,
@@ -13,40 +10,28 @@ import {
   classifyActionSchema,
 } from "./actions/dataProcessing.schema"
 
-const aiMessageAction: NodeComponent = {
-  ...messageActionSchema,
-  icon: Zap
-}
-
-const legacyAgentAction: NodeComponent = {
-  ...defaultActionSchema,
-  icon: Zap,
-  deprecated: true,
-  replacedBy: "ai_message",
-  description: "Legacy AI Agent (use AI Message or AI Router instead)",
-  hideInActionSelection: true
-}
-
+/**
+ * AI Nodes - Unified and Specialized
+ *
+ * aiAgentNode: Main unified AI agent (replaces old ai_message and ai_router)
+ * Other nodes: Specialized single-purpose AI operations
+ */
 export const aiNodes: NodeComponent[] = [
-  aiMessageAction,
-  aiRouterNode,
-  summarizeActionSchema,
-  extractActionSchema,
-  sentimentActionSchema,
-  translateActionSchema,
-  generateActionSchema,
-  classifyActionSchema,
-  legacyAgentAction,
+  aiAgentNode,              // ⭐ NEW: Unified AI Agent (message + routing + hybrid)
+  summarizeActionSchema,    // Summarize text
+  extractActionSchema,      // Extract data
+  sentimentActionSchema,    // Analyze sentiment
+  translateActionSchema,    // Translate languages
+  generateActionSchema,     // Generate content
+  classifyActionSchema,     // Classify text
 ]
 
 export {
-  aiMessageAction,
-  aiRouterNode,
+  aiAgentNode,
   summarizeActionSchema,
   extractActionSchema,
   sentimentActionSchema,
   translateActionSchema,
   generateActionSchema,
   classifyActionSchema,
-  legacyAgentAction,
 }

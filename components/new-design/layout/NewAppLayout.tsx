@@ -13,7 +13,7 @@ interface NewAppLayoutProps {
 
 export function NewAppLayout({ children, title, subtitle, headerActions }: NewAppLayoutProps) {
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
       {/* Sidebar */}
       <NewSidebar />
 
@@ -23,8 +23,8 @@ export function NewAppLayout({ children, title, subtitle, headerActions }: NewAp
         <NewHeader title={title} subtitle={subtitle} actions={headerActions} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950">
+          <div className="h-full w-full pl-6 pr-6 py-6">
             {children}
           </div>
         </main>

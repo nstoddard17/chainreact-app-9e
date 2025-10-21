@@ -26,7 +26,9 @@ import {
   Zap,
   Clock,
   Workflow,
-  Mic
+  Mic,
+  Trash2,
+  X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/utils/supabase/client"
@@ -51,8 +53,9 @@ import {
   AppsGridRenderer
 } from './data-renderers'
 
-// Import voice mode component
-import { VoiceModeSimple } from './VoiceModeSimple'
+// Import voice components
+import { VoiceDictation } from './VoiceDictation'
+import { AIAssistantComingSoon } from './AIAssistantComingSoon'
 
 interface Message {
   id: string
@@ -151,8 +154,11 @@ export default function AIAssistantContent() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false)
   const [activeConversationTitle, setActiveConversationTitle] = useState<string>("New Chat")
   const [typingConversationId, setTypingConversationId] = useState<string | null>(null)
-  const [isVoiceModeActive, setIsVoiceModeActive] = useState(false)
+  const [isDictating, setIsDictating] = useState(false)
+  const [showAIAssistantModal, setShowAIAssistantModal] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
@@ -320,6 +326,57 @@ export default function AIAssistantContent() {
     } catch (error) {
       logger.error("Error saving conversation:", error)
       return null
+    }
+  }
+
+  const deleteConversation = async (convId: string) => {
+    try {
+      // OPTIMISTIC UPDATE: Remove from UI immediately
+      setConversations(prev => prev.filter(c => c.id !== convId))
+
+      // If we deleted the current conversation, start a new chat
+      if (conversationId === convId) {
+        startNewChat()
+      }
+
+      // Close confirmation dialog
+      setDeleteConfirmId(null)
+
+      // Background deletion (async, non-blocking)
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        logger.error("No session for delete")
+        return
+      }
+
+      // Fire and forget - don't await, allow multiple deletes in parallel
+      fetch(`/api/ai/conversations/${convId}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      }).then(response => {
+        if (!response.ok) {
+          logger.error("Background delete failed for conversation:", convId)
+          // Optionally: Could reload conversations here to restore if delete failed
+          // For now, we trust the optimistic update
+        }
+      }).catch(error => {
+        logger.error("Error in background delete:", error)
+      })
+
+      // No toast needed - instant UI feedback is better than notification
+
+    } catch (error) {
+      logger.error("Error deleting conversation:", error)
+      // Reload to restore state if optimistic update failed
+      await loadConversations()
+      toast({
+        title: "Error",
+        description: "Failed to delete conversation",
+        variant: "destructive",
+      })
     }
   }
 
@@ -913,33 +970,19 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     }
   }
 
-  const handleVoiceTranscript = async (text: string, role: 'user' | 'assistant') => {
-    // Add voice transcript to messages
-    const message: Message = {
-      id: Date.now().toString(),
-      role,
-      content: text,
-      timestamp: new Date(),
-      metadata: { type: "voice_transcript" as any }
-    }
+  const handleDictationUpdate = (text: string) => {
+    // Real-time update - replace entire input with transcribed text
+    setInput(text)
+  }
 
-    const newMessages = [...messages, message]
-    setMessages(newMessages)
+  const handleDictationTranscript = (text: string) => {
+    // Final transcript - set input field
+    setInput(text)
+  }
 
-    // Save to conversation if we have one
-    if (conversationId) {
-      await updateConversation(conversationId, newMessages)
-    } else if (role === 'user') {
-      // First message in voice mode - create conversation
-      const conversationTitle = generateConversationTitle(text)
-      setActiveConversationTitle(conversationTitle)
-      const newConversationId = await saveConversation(undefined, conversationTitle, newMessages)
-      if (newConversationId) {
-        setConversationId(newConversationId)
-        setTypingConversationId(newConversationId)
-        await loadConversations()
-      }
-    }
+  const handleStopDictation = () => {
+    // Stop dictation without transcribing
+    setIsDictating(false)
   }
 
   const renderMessageContent = (content: string) => {
@@ -1163,31 +1206,69 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                 </div>
               ) : (
                 conversations.map((conversation) => (
-                  <button
+                  <div
                     key={conversation.id}
-                    onClick={() => loadConversation(conversation.id)}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg hover:bg-muted transition-colors",
+                      "group relative w-full rounded-lg hover:bg-muted transition-colors",
                       conversationId === conversation.id && "bg-muted"
                     )}
                   >
-                    <div className="font-medium text-sm truncate mb-1">
-                      {typingConversationId === conversation.id ? (
-                        <TypingText
-                          text={conversation.title}
-                          onComplete={() => setTypingConversationId(null)}
-                        />
-                      ) : (
-                        conversation.title
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {conversation.preview}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {new Date(conversation.updated_at).toLocaleDateString()}
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => loadConversation(conversation.id)}
+                      className="w-full text-left p-3 pr-10"
+                    >
+                      <div className="font-medium text-sm truncate mb-1">
+                        {typingConversationId === conversation.id ? (
+                          <TypingText
+                            text={conversation.title}
+                            onComplete={() => setTypingConversationId(null)}
+                          />
+                        ) : (
+                          conversation.title
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {conversation.preview}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {new Date(conversation.updated_at).toLocaleDateString()}
+                      </div>
+                    </button>
+                    {/* Delete button with confirmation */}
+                    {deleteConfirmId === conversation.id ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteConversation(conversation.id)
+                          }}
+                          className="px-2 py-1 text-xs font-medium bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteConfirmId(null)
+                          }}
+                          className="px-2 py-1 text-xs font-medium bg-muted text-muted-foreground rounded hover:bg-muted/80"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteConfirmId(conversation.id)
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-opacity"
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    )}
+                  </div>
                 ))
               )}
             </div>
@@ -1701,25 +1782,70 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         {/* Input Area - At Bottom */}
         <div className="border-t bg-card px-8 py-4">
           <div className="w-full flex gap-3">
+            {/* AI Assistant Button */}
             <Button
-              onClick={() => setIsVoiceModeActive(true)}
+              onClick={() => setShowAIAssistantModal(true)}
               disabled={isLoading}
               size="lg"
               variant="outline"
               className="px-4"
-              title="Start voice conversation"
+              title="AI Voice Assistant (Coming Soon)"
             >
-              <Mic className="w-5 h-5" />
+              <Sparkles className="w-5 h-5" />
             </Button>
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about your integrations, workflows, or ChainReact..."
-              className="flex-1 h-12 text-base"
-              disabled={isLoading}
-              autoFocus
-            />
+
+            {/* Input with inline microphone */}
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask me anything about your integrations, workflows, or ChainReact..."
+                className="h-12 text-base pr-12"
+                disabled={isLoading}
+                autoFocus
+              />
+              {/* Microphone/X button inside input */}
+              <button
+                onClick={() => {
+                  if (isDictating) {
+                    handleStopDictation()
+                  } else {
+                    setIsDictating(true)
+                  }
+                }}
+                disabled={isLoading}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors",
+                  "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed",
+                  isDictating && "text-destructive hover:bg-destructive/10"
+                )}
+                title={isDictating ? "Stop dictation" : "Voice dictation"}
+              >
+                {isDictating ? (
+                  <X className="w-5 h-5" />
+                ) : (
+                  <Mic className="w-5 h-5 text-muted-foreground" />
+                )}
+              </button>
+
+              {/* Floating blue microphone that follows cursor */}
+              {isDictating && input && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${Math.min(input.length * 8 + 16, inputRef.current?.offsetWidth ? inputRef.current.offsetWidth - 60 : 0)}px`,
+                    top: '-32px',
+                  }}
+                >
+                  <div className="bg-blue-500 text-white rounded-full p-2 shadow-lg animate-pulse">
+                    <Mic className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Button
               onClick={handleSendMessage}
               disabled={isLoading || !input.trim()}
@@ -1736,11 +1862,19 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         </div>
       </div>
 
-      {/* Voice Mode Overlay */}
-      {isVoiceModeActive && (
-        <VoiceModeSimple
-          onClose={() => setIsVoiceModeActive(false)}
-          onTranscript={handleVoiceTranscript}
+      {/* Voice Dictation Overlay */}
+      {isDictating && (
+        <VoiceDictation
+          onTranscript={handleDictationTranscript}
+          onUpdate={handleDictationUpdate}
+          onClose={() => setIsDictating(false)}
+        />
+      )}
+
+      {/* AI Assistant Coming Soon Modal */}
+      {showAIAssistantModal && (
+        <AIAssistantComingSoon
+          onClose={() => setShowAIAssistantModal(false)}
         />
       )}
     </div>

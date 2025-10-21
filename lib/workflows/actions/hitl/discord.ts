@@ -15,7 +15,7 @@ export interface DiscordMessageResult {
 }
 
 /**
- * Send initial HITL message to Discord and create a thread for the conversation
+ * Send initial HITL message to Discord as a direct channel message (no thread)
  */
 export async function sendDiscordHITLMessage(
   userId: string,
@@ -26,14 +26,14 @@ export async function sendDiscordHITLMessage(
 ): Promise<DiscordMessageResult> {
   try {
     // Get Discord bot token from environment variables
-    // HITL uses the bot to send messages and create threads, not user's OAuth token
+    // HITL uses the bot to send messages directly in the channel
     const botToken = process.env.DISCORD_BOT_TOKEN
 
     if (!botToken) {
       throw new Error('Discord bot token not configured in environment variables')
     }
 
-    // Send the initial message
+    // Send the initial message directly to the channel (no thread)
     const messageResponse = await fetch(
       `https://discord.com/api/v10/channels/${channelId}/messages`,
       {
@@ -43,15 +43,7 @@ export async function sendDiscordHITLMessage(
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content: message,
-          embeds: [{
-            title: '💬 Workflow Waiting for Input',
-            description: 'This workflow needs your input to continue. Respond in this thread to have a conversation with the AI assistant.',
-            color: 0x5865F2, // Discord blurple
-            footer: {
-              text: `Conversation ID: ${conversationId.substring(0, 8)}`
-            }
-          }]
+          content: message
         })
       }
     )
@@ -63,45 +55,15 @@ export async function sendDiscordHITLMessage(
 
     const messageData = await messageResponse.json()
 
-    // Create a thread for the conversation
-    const threadResponse = await fetch(
-      `https://discord.com/api/v10/channels/${channelId}/messages/${messageData.id}/threads`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bot ${botToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: `Workflow Discussion - ${new Date().toLocaleString()}`,
-          auto_archive_duration: 60 // Archive after 1 hour of inactivity
-        })
-      }
-    )
-
-    if (!threadResponse.ok) {
-      const error = await threadResponse.text()
-      logger.warn('Failed to create Discord thread', { error })
-      // Thread creation failed, but message was sent - continue anyway
-      return {
-        success: true,
-        messageId: messageData.id,
-        channelId: channelId
-      }
-    }
-
-    const threadData = await threadResponse.json()
-
-    logger.info('HITL Discord message sent with thread', {
+    logger.info('HITL Discord message sent to channel', {
       messageId: messageData.id,
-      threadId: threadData.id,
+      channelId: channelId,
       conversationId
     })
 
     return {
       success: true,
       messageId: messageData.id,
-      threadId: threadData.id,
       channelId: channelId
     }
 
@@ -115,11 +77,11 @@ export async function sendDiscordHITLMessage(
 }
 
 /**
- * Send a follow-up message in the Discord thread
+ * Send a follow-up message in the Discord channel
  */
 export async function sendDiscordThreadMessage(
   userId: string,
-  threadId: string,
+  channelId: string,
   message: string
 ): Promise<boolean> {
   try {
@@ -131,7 +93,7 @@ export async function sendDiscordThreadMessage(
     }
 
     const response = await fetch(
-      `https://discord.com/api/v10/channels/${threadId}/messages`,
+      `https://discord.com/api/v10/channels/${channelId}/messages`,
       {
         method: 'POST',
         headers: {
@@ -152,7 +114,7 @@ export async function sendDiscordThreadMessage(
     return true
 
   } catch (error: any) {
-    logger.error('Error sending Discord thread message', { error: error.message })
+    logger.error('Error sending Discord channel message', { error: error.message })
     return false
   }
 }

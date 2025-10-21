@@ -103,4 +103,23 @@ export function WorkflowLoadingScreen() {
       />
     </div>
   )
+}
+
+// Full-screen overlay loading screen for page transitions
+export function FullScreenLoadingScreen({
+  title = "Loading",
+  description = "Preparing your page...",
+}: {
+  title?: string
+  description?: string
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+      <LoadingScreen
+        title={title}
+        description={description}
+        size="lg"
+      />
+    </div>
+  )
 } 
