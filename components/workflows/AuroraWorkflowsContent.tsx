@@ -581,17 +581,15 @@ export function AuroraWorkflowsContent() {
           <section className="grid gap-8 lg:grid-cols-[minmax(0,1.25fr),minmax(0,0.75fr)]">
             <div className="space-y-6">
               <div className="rounded-3xl border border-white/10 bg-white/10 p-6 shadow-lg shadow-slate-900/30">
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="w-full lg:max-w-lg">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
-                      <Input
-                        className="h-12 rounded-full border-white/10 bg-white/10 pl-10 pr-4 text-sm text-white placeholder:text-white/60 focus-visible:ring-white/40"
-                        placeholder="Search workflows by name, owner, or team..."
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                      />
-                    </div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/60" />
+                    <Input
+                      className="h-12 rounded-full border-white/10 bg-white/10 pl-10 pr-4 text-sm text-white placeholder:text-white/60 focus-visible:ring-white/40"
+                      placeholder="Search workflows by name, owner, or team..."
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                    />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {quickFilters.map((filter) => (
@@ -599,7 +597,7 @@ export function AuroraWorkflowsContent() {
                         key={filter.id}
                         variant="ghost"
                         className={cn(
-                          "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/15",
+                          "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/15 whitespace-nowrap",
                           viewMode === filter.id && "border-white/60 bg-white/20 text-white"
                         )}
                         onClick={() => setViewMode(filter.id)}

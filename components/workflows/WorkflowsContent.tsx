@@ -457,32 +457,34 @@ export default function WorkflowsContent() {
 
     const workflowId = deleteConfirmation.workflowId
 
-    // Add to deleting set
+    // OPTIMISTIC UPDATE: Remove from UI immediately
     setDeletingWorkflows(prev => new Set(prev).add(workflowId))
 
-    // Close dialog immediately to show loading state on card
+    // Close dialog immediately
     setDeleteConfirmation({ open: false, workflowId: null, workflowName: "" })
 
-    try {
-      await deleteWorkflowById(workflowId)
-      toast({
-        title: "Success",
-        description: "Workflow deleted successfully",
+    // Background deletion (fire and forget - non-blocking)
+    deleteWorkflowById(workflowId)
+      .then(() => {
+        logger.info('Workflow deleted successfully:', workflowId)
+        // Workflow is already removed from UI via the deletingWorkflows set
+        // No toast needed - instant UI feedback is better
       })
-    } catch (error) {
-      logger.error("Failed to delete workflow:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete workflow",
-        variant: "destructive",
+      .catch((error) => {
+        logger.error("Failed to delete workflow:", error)
+        toast({
+          title: "Error",
+          description: "Failed to delete workflow. Refreshing...",
+          variant: "destructive",
+        })
+        // Remove from deleting set and reload workflows to restore state
+        setDeletingWorkflows(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(workflowId)
+          return newSet
+        })
+        loadAllWorkflows() // Refresh to show accurate state
       })
-      // Remove from deleting set on error so user can try again
-      setDeletingWorkflows(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(workflowId)
-        return newSet
-      })
-    }
   }
 
   const openDeleteConfirmation = (id: string, name: string) => {

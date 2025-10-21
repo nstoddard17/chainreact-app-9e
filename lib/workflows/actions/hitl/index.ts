@@ -12,6 +12,7 @@ import type { HITLConfig } from './types'
 import { sendDiscordHITLMessage } from './discord'
 import { resolveValue } from '../core/resolveValue'
 import { generateInitialAssistantOpening, detectScenario, type ScenarioDescriptor } from './conversation'
+import { generateContextAwareMessage } from './enhancedConversation'
 
 /**
  * Create service role client for HITL database operations
@@ -556,19 +557,25 @@ export async function executeHITL(
     const fallback = buildFallbackOpening(scenario, input, contextText)
     contextSection = fallback.contextSection
 
-    // 6. Build initial message
+    // 6. Build initial message using enhanced conversation system
     let resolvedInitialMessage = ''
     if (config.autoDetectContext) {
-      // Auto-format message with optional custom introduction
-      if (config.customMessage) {
-        const resolvedCustom = await resolveValue(config.customMessage, input, userId, context)
-        const base = aiDraftedOpening || resolvedCustom
-        const contextBlock = contextSection || `**Data from previous step:**\n${contextText}`
-        resolvedInitialMessage = `${base}\n\n---\n\n${contextBlock}`
-      } else {
-        const header = aiDraftedOpening || fallback.opening
-        const contextBlock = contextSection || `**Data from the previous step:**\n${contextText}`
-        resolvedInitialMessage = `${header}\n\n---\n\n${contextBlock}\n\nLet me know what you think!`
+      // Use enhanced AI-powered message generation
+      try {
+        resolvedInitialMessage = await generateContextAwareMessage(input, config)
+      } catch (error: any) {
+        logger.warn('Failed to generate enhanced message, using fallback', { error: error.message })
+        // Fallback to original logic
+        if (config.customMessage) {
+          const resolvedCustom = await resolveValue(config.customMessage, input, userId, context)
+          const base = aiDraftedOpening || resolvedCustom
+          const contextBlock = contextSection || `**Data from previous step:**\n${contextText}`
+          resolvedInitialMessage = `${base}\n\n---\n\n${contextBlock}`
+        } else {
+          const header = aiDraftedOpening || fallback.opening
+          const contextBlock = contextSection || `**Data from the previous step:**\n${contextText}`
+          resolvedInitialMessage = `${header}\n\n---\n\n${contextBlock}\n\nLet me know what you think!`
+        }
       }
     } else {
       // Manual mode: use initialMessage field with variable resolution
@@ -696,6 +703,7 @@ export async function executeHITL(
     }
 
     // Update workflow execution to paused state using service role client
+    // IMPORTANT: Store testMode so it's preserved when resuming
     const { error: updateError } = await serviceClient
       .from('workflow_executions')
       .update({
@@ -715,6 +723,7 @@ export async function executeHITL(
           knowledge_base_count: knowledgeBase.length,
           channel_id: channelId,
           thread_id: threadId,
+          testMode: context.testMode || false, // Store test/sandbox mode
           input
         }
       })

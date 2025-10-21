@@ -1,5 +1,5 @@
 import { ActionResult } from './index'
-import { executeAIRouter } from './aiRouterAction'
+import { executeAIAgentAction } from './aiAgentAction'
 
 // AI Data Processing actions
 import {
@@ -193,6 +193,11 @@ import {
   executeWaitForTime
 } from './core'
 
+// Logic control actions
+import { executePath } from './logic/executePath'
+import { executeFilter } from './logic/executeFilter'
+import { executeHttpRequest } from './logic/executeHttpRequest'
+
 // HITL (Human-in-the-Loop) action
 import { executeHITL } from './hitl'
 
@@ -224,58 +229,6 @@ import { resolveValue as resolveValueCore } from './core/resolveValue'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Wrapper function for AI agent execution that adapts to the executeAction signature
- */
-async function executeAIAgentWrapper(
-  config: any,
-  userId: string,
-  input: Record<string, any>
-): Promise<ActionResult> {
-  try {
-    // Resolve any variable references in the config
-    const resolvedConfig = resolveValue(config, input)
-    
-    const result = await executeAIAgent({
-      userId,
-      config: resolvedConfig,
-      input,
-      workflowContext: {
-        nodes: [],
-        previousResults: input.nodeOutputs || {}
-      }
-    })
-    
-    return {
-      success: result.success,
-      output: {
-        output: result.output || "" // Structure matches outputSchema: { output: "AI response text" }
-      },
-      message: result.message || "AI Agent execution completed"
-    }
-  } catch (error: any) {
-    logger.error("AI Agent execution error:", error)
-    return {
-      success: false,
-      output: {},
-      message: error.message || "AI Agent execution failed"
-    }
-  }
-}
-
-/**
- * Helper function to resolve templated values
- */
-function resolveValue(value: any, input: Record<string, any>): any {
-  if (typeof value !== "string") return value
-  const match = value.match(/^{{(.*)}}$/)
-  if (match) {
-    const key = match[1]
-    return key.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
-  }
-  return value
-}
-
-/**
  * Helper to create ExecutionContext wrapper for actions using that pattern
  */
 function createExecutionContextWrapper(handler: Function) {
@@ -303,36 +256,44 @@ function createExecutionContextWrapper(handler: Function) {
   }
 }
 
-async function executeAIRouterWrapper(params: { config: any; userId: string; input: Record<string, any> }): Promise<ActionResult> {
-  const { config, userId, input } = params
+/**
+ * Unified AI Agent Wrapper
+ * Handles message generation, routing, and hybrid modes
+ */
+async function executeAIAgentWrapper(params: { config: any; userId: string; input: Record<string, any>; context?: any }): Promise<ActionResult> {
+  const { config, userId, input, context } = params
 
   try {
     const workflowId = input.workflowId || input.workflow?.id || 'unknown'
     const executionId = input.executionId || input.sessionId || 'unknown'
 
-    const result = await executeAIRouter(config, {
+    const executionContext: any = context || {
       userId,
       workflowId,
       executionId,
-      input,
-      previousResults: input.previousResults || {},
-      memoryContext: input.memoryContext
-    })
+      testMode: false,
+      data: input,
+      variables: {},
+      results: {}
+    }
+
+    const result = await executeAIAgentAction(config, input, executionContext)
 
     return {
       success: result.success,
-      output: result.output,
-      metadata: result.metadata,
-      selectedPaths: result.selectedPaths,
-      message: result.success ? 'AI routing decision completed' : 'AI routing decision failed'
+      data: result.data || {},
+      output: result.data || {},
+      nextNodeId: result.nextNodeId,
+      message: result.success ? 'AI Agent completed successfully' : 'AI Agent failed'
     }
   } catch (error: any) {
-    logger.error('AI Router execution error:', error)
+    logger.error('AI Agent execution error:', error)
     return {
       success: false,
       output: {},
-      message: error?.message || 'AI routing decision failed',
-      error: error?.message || 'AI routing decision failed'
+      data: {},
+      message: error?.message || 'AI Agent execution failed',
+      error: error?.message || 'AI Agent execution failed'
     }
   }
 }
@@ -341,8 +302,8 @@ async function executeAIRouterWrapper(params: { config: any; userId: string; inp
  * Central registry of all action handlers
  */
 export const actionHandlerRegistry: Record<string, Function> = {
-  // AI Router
-  "ai_router": executeAIRouterWrapper,
+  // Unified AI Agent (replaces ai_router and ai_message)
+  "ai_agent": executeAIAgentWrapper,
 
   // AI Data Processing actions - wrapped to handle new calling convention
   "ai_action_summarize": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -643,16 +604,26 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeIfThenCondition(params.config, params.userId, params.input),
   "delay": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeDelayAction(params.config, params.userId, params.input),
-  "ai_agent": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeAIAgentWrapper(params.config, params.userId, params.input),
-  "ai_message": async (params: { config: any; userId: string; input: Record<string, any> }) => {
-    const { executeAIMessage } = await import("../aiMessage")
-    return executeAIMessage({
+
+  // Logic control actions - Path, Filter, HTTP Request
+  "path": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executePath({
       config: params.config,
-      input: params.input,
-      userId: params.userId,
-    })
-  },
+      previousOutputs: params.input,
+      trigger: params.input.trigger
+    }),
+  "filter": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeFilter({
+      config: params.config,
+      previousOutputs: params.input,
+      trigger: params.input.trigger
+    }),
+  "http_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeHttpRequest({
+      config: params.config,
+      previousOutputs: params.input,
+      trigger: params.input.trigger
+    }),
 
   // HITL (Human-in-the-Loop) - needs execution context for pausing
   "hitl_conversation": (params: { config: any; userId: string; input: Record<string, any>; context?: any }) =>

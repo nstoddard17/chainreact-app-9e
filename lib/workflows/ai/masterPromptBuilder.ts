@@ -5,7 +5,7 @@
  */
 
 import { ACTION_METADATA, ActionMetadata, ActionExample } from './actionMetadata'
-import { AI_ROUTER_TEMPLATES } from '../nodes/providers/ai/aiRouterNode'
+import { AI_AGENT_ROUTER_TEMPLATES } from '../nodes/providers/ai/aiAgentNode'
 
 export interface PromptContext {
   template?: string // Router template being used
@@ -71,8 +71,8 @@ WORKFLOW CONTEXT:`
 - Description: ${context.workflowContext.description || 'No description'}`
   }
 
-  if (context.template && AI_ROUTER_TEMPLATES[context.template as keyof typeof AI_ROUTER_TEMPLATES]) {
-    const template = AI_ROUTER_TEMPLATES[context.template as keyof typeof AI_ROUTER_TEMPLATES]
+  if (context.template && AI_AGENT_ROUTER_TEMPLATES[context.template as keyof typeof AI_AGENT_ROUTER_TEMPLATES]) {
+    const template = AI_AGENT_ROUTER_TEMPLATES[context.template as keyof typeof AI_AGENT_ROUTER_TEMPLATES]
     prompt += `
 
 ROUTING TEMPLATE: ${template.name}
@@ -285,7 +285,7 @@ Respond with ONLY the generated value, no explanation.`
  * Build template-specific prompt overlay
  */
 export function buildTemplatePrompt(templateId: string): string {
-  const template = AI_ROUTER_TEMPLATES[templateId as keyof typeof AI_ROUTER_TEMPLATES]
+  const template = AI_AGENT_ROUTER_TEMPLATES[templateId as keyof typeof AI_AGENT_ROUTER_TEMPLATES]
   if (!template) return ''
   
   let prompt = `SPECIALIZED TEMPLATE: ${template.name}

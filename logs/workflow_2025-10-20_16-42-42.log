@@ -1,0 +1,235 @@
+=== Log Session Started: 2025-10-20T21:42:42.791Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T21:42:42.791Z] [INFO   ] File logging initialized
+[2025-10-20T21:42:42.791Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_16-42-42.log
+[2025-10-20T21:42:42.793Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T21:42:42.793Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_16-42-42.log
+[2025-10-20T21:42:42.793Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_16-42-42.log
+[2025-10-20T21:42:42.793Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_16-42-42.log
+[2025-10-20T21:42:42.793Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_16-42-42.log
+[2025-10-20T21:42:42.794Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T21:42:42.794Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T21:42:42.800Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.1s
+[2025-10-20T21:42:42.833Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T21:42:43.336Z] [INFO   ]  [37m[1m○[22m[39m Compiling /ai-assistant ...
+[2025-10-20T21:42:43.842Z] [INFO   ] 2025-10-20T21:42:43.842Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T21:42:45.632Z] [INFO   ] 2025-10-20T21:42:45.632Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T21:42:45.632Z] [INFO   ] 2025-10-20T21:42:45.632Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T21:42:46.032Z] [INFO   ] 2025-10-20T21:42:46.032Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T21:42:46.033Z] [INFO   ] 2025-10-20T21:42:46.033Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T21:42:47.163Z] [INFO   ] 2025-10-20T21:42:47.163Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T21:42:47.163Z] [INFO   ] 2025-10-20T21:42:47.163Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T21:42:47.765Z] [INFO   ] 2025-10-20T21:42:47.765Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"10aa9357bcff20ff4614dbe8c74e5208","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T21:42:47.765Z] [INFO   ] 2025-10-20T21:42:47.765Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T21:42:47.765Z] [INFO   ] 2025-10-20T21:42:47.765Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T21:42:47.766Z] [INFO   ] 2025-10-20T21:42:47.766Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T21:42:47.978Z] [INFO   ] 2025-10-20T21:42:47.978Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T21:42:47.982Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /ai-assistant in 5.1s (3924 modules)
+[2025-10-20T21:42:48.064Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T21:42:48.322Z] [INFO   ] 2025-10-20T21:42:48.322Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T21:42:48.322Z"}
+[2025-10-20T21:42:48.325Z] [INFO   ] 2025-10-20T21:42:48.325Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T21:42:48.325Z"}
+[2025-10-20T21:42:48.325Z] [INFO   ] 2025-10-20T21:42:48.325Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T21:42:48.325Z"}
+[2025-10-20T21:42:48.613Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 614ms (693 modules)
+[2025-10-20T21:42:48.619Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T21:42:48.850Z] [INFO   ] 2025-10-20T21:42:48.849Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T21:42:50.438Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/conversations ...
+[2025-10-20T21:42:51.032Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/conversations in 1168ms (4171 modules)
+[2025-10-20T21:42:54.811Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 219ms (3940 modules)
+[2025-10-20T21:42:54.919Z] [INFO   ] 2025-10-20T21:42:54.919Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T21:42:54.919Z","headers":{"referer":"check-console"}}
+[2025-10-20T21:42:55.064Z] [INFO   ] 2025-10-20T21:42:55.064Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T21:42:55.169Z] [INFO   ] 2025-10-20T21:42:55.169Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T21:43:05.699Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/transcribe ...
+[2025-10-20T21:43:06.028Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/transcribe in 1134ms (4040 modules)
+[2025-10-20T21:43:06.288Z] [INFO   ] 2025-10-20T21:43:06.288Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":48596,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:08.009Z] [INFO   ] 2025-10-20T21:43:08.009Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:08.835Z] [INFO   ] 2025-10-20T21:43:08.835Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":65}
+[2025-10-20T21:43:09.424Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/assistant ...
+[2025-10-20T21:43:10.555Z] [INFO   ] 2025-10-20T21:43:10.555Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":9}
+[2025-10-20T21:43:13.760Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/assistant in 4.8s (5956 modules)
+[2025-10-20T21:43:16.492Z] [INFO   ] 2025-10-20T21:43:16.492Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:16.493Z] [INFO   ] 2025-10-20T21:43:16.493Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:16.493Z] [INFO   ] 2025-10-20T21:43:16.493Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:16.493Z] [INFO   ] 2025-10-20T21:43:16.493Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:16.495Z] [INFO   ] 2025-10-20T21:43:16.495Z [DEBUG] 📝 Processing message: I was wondering if I could tell him right off the brick that I......
+[2025-10-20T21:43:16.495Z] [INFO   ] 2025-10-20T21:43:16.495Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:16.496Z] [INFO   ] 2025-10-20T21:43:16.496Z [DEBUG] 📝 Processing message: Here. Oh....
+[2025-10-20T21:43:16.496Z] [INFO   ] 2025-10-20T21:43:16.496Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:16.666Z] [INFO   ] 2025-10-20T21:43:16.666Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:16.678Z] [INFO   ] 2025-10-20T21:43:16.678Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.679Z] [INFO   ] 2025-10-20T21:43:16.679Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.679Z] [INFO   ] 2025-10-20T21:43:16.679Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.679Z] [INFO   ] 2025-10-20T21:43:16.679Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:16.680Z] [INFO   ] 2025-10-20T21:43:16.680Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:16.680Z] [INFO   ] 2025-10-20T21:43:16.680Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.745Z] [INFO   ] 2025-10-20T21:43:16.745Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:16.748Z] [INFO   ] 2025-10-20T21:43:16.748Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:16.768Z] [INFO   ] 2025-10-20T21:43:16.768Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:16.769Z] [INFO   ] 2025-10-20T21:43:16.769Z [DEBUG] 🧠 Starting intent analysis for message length: 65
+[2025-10-20T21:43:16.769Z] [INFO   ] 2025-10-20T21:43:16.769Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:16.851Z] [INFO   ] 2025-10-20T21:43:16.851Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:16.851Z] [INFO   ] 2025-10-20T21:43:16.851Z [DEBUG] 🧠 Starting intent analysis for message length: 9
+[2025-10-20T21:43:16.851Z] [INFO   ] 2025-10-20T21:43:16.851Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:17.044Z] [INFO   ] 2025-10-20T21:43:17.044Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:18.657Z] [INFO   ] 2025-10-20T21:43:18.657Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":10}
+[2025-10-20T21:43:18.670Z] [INFO   ] 2025-10-20T21:43:18.670Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:18.671Z] [INFO   ] 2025-10-20T21:43:18.671Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.671Z] [INFO   ] 2025-10-20T21:43:18.671Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.671Z] [INFO   ] 2025-10-20T21:43:18.671Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.672Z] [INFO   ] 2025-10-20T21:43:18.672Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:18.672Z] [INFO   ] 2025-10-20T21:43:18.672Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:18.734Z] [INFO   ] 2025-10-20T21:43:18.734Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:18.795Z] [INFO   ] 2025-10-20T21:43:18.795Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:18.796Z] [INFO   ] 2025-10-20T21:43:18.796Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:18.797Z] [INFO   ] 2025-10-20T21:43:18.797Z [DEBUG] 📝 Processing message: Thank you....
+[2025-10-20T21:43:18.797Z] [INFO   ] 2025-10-20T21:43:18.797Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:18.871Z] [INFO   ] 2025-10-20T21:43:18.871Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:18.900Z] [INFO   ] 2025-10-20T21:43:18.899Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:18.901Z] [INFO   ] 2025-10-20T21:43:18.901Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:18.967Z] [INFO   ] 2025-10-20T21:43:18.967Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:18.968Z] [INFO   ] 2025-10-20T21:43:18.968Z [DEBUG] 🧠 Starting intent analysis for message length: 10
+[2025-10-20T21:43:18.968Z] [INFO   ] 2025-10-20T21:43:18.968Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:19.759Z] [INFO   ] 2025-10-20T21:43:19.759Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":33}
+[2025-10-20T21:43:19.891Z] [INFO   ] 2025-10-20T21:43:19.891Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:19.891Z] [INFO   ] 2025-10-20T21:43:19.891Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:19.892Z] [INFO   ] 2025-10-20T21:43:19.892Z [DEBUG] 📝 Processing message: You're crazy. God, I'm not crazy....
+[2025-10-20T21:43:19.892Z] [INFO   ] 2025-10-20T21:43:19.892Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:19.986Z] [INFO   ] 2025-10-20T21:43:19.986Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.030Z] [INFO   ] 2025-10-20T21:43:20.030Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:20.114Z] [INFO   ] 2025-10-20T21:43:20.114Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:20.115Z] [INFO   ] 2025-10-20T21:43:20.114Z [DEBUG] 🧠 Starting intent analysis for message length: 33
+[2025-10-20T21:43:20.115Z] [INFO   ] 2025-10-20T21:43:20.115Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:20.235Z] [INFO   ] 2025-10-20T21:43:20.235Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":10}
+[2025-10-20T21:43:20.360Z] [INFO   ] 2025-10-20T21:43:20.360Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:20.361Z] [INFO   ] 2025-10-20T21:43:20.360Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:20.361Z] [INFO   ] 2025-10-20T21:43:20.361Z [DEBUG] 📝 Processing message: Thank you....
+[2025-10-20T21:43:20.361Z] [INFO   ] 2025-10-20T21:43:20.361Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:20.446Z] [INFO   ] 2025-10-20T21:43:20.446Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.523Z] [INFO   ] 2025-10-20T21:43:20.523Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:20.523Z] [INFO   ] 2025-10-20T21:43:20.523Z [DEBUG] 🧠 Starting intent analysis for message length: 10
+[2025-10-20T21:43:20.524Z] [INFO   ] 2025-10-20T21:43:20.524Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:20.574Z] [INFO   ] 2025-10-20T21:43:20.574Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:20.597Z] [INFO   ] 2025-10-20T21:43:20.597Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":29}
+[2025-10-20T21:43:20.739Z] [INFO   ] 2025-10-20T21:43:20.739Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:20.744Z] [INFO   ] 2025-10-20T21:43:20.744Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:20.744Z] [INFO   ] 2025-10-20T21:43:20.744Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:20.744Z] [INFO   ] 2025-10-20T21:43:20.744Z [DEBUG] 📝 Processing message: Can you hear what I'm saying?...
+[2025-10-20T21:43:20.744Z] [INFO   ] 2025-10-20T21:43:20.744Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:20.838Z] [INFO   ] 2025-10-20T21:43:20.838Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:20.921Z] [INFO   ] 2025-10-20T21:43:20.921Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:20.921Z] [INFO   ] 2025-10-20T21:43:20.921Z [DEBUG] 🧠 Starting intent analysis for message length: 29
+[2025-10-20T21:43:20.921Z] [INFO   ] 2025-10-20T21:43:20.921Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.106Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.107Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.107Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.107Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.107Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:21.107Z] [INFO   ] 2025-10-20T21:43:21.107Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:21.294Z] [INFO   ] 2025-10-20T21:43:21.294Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:21.565Z] [INFO   ] 2025-10-20T21:43:21.565Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:21.565Z] [INFO   ] 2025-10-20T21:43:21.565Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:21.566Z] [INFO   ] 2025-10-20T21:43:21.566Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:21.566Z] [INFO   ] 2025-10-20T21:43:21.566Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"acknowledge","specifiedIntegration":null}
+[2025-10-20T21:43:21.566Z] [INFO   ] 2025-10-20T21:43:21.566Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:21.566Z] [INFO   ] 2025-10-20T21:43:21.566Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:21.745Z] [INFO   ] 2025-10-20T21:43:21.745Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:22.183Z] [INFO   ] 2025-10-20T21:43:22.183Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:22.183Z] [INFO   ] 2025-10-20T21:43:22.183Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:22.183Z] [INFO   ] 2025-10-20T21:43:22.183Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:22.184Z] [INFO   ] 2025-10-20T21:43:22.183Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T21:43:22.184Z] [INFO   ] 2025-10-20T21:43:22.184Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:22.184Z] [INFO   ] 2025-10-20T21:43:22.184Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:22.333Z] [INFO   ] 2025-10-20T21:43:22.333Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:43:23.040Z] [INFO   ] 2025-10-20T21:43:23.039Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:25.358Z] [INFO   ] 2025-10-20T21:43:25.358Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":0}
+[2025-10-20T21:43:26.015Z] [INFO   ] 2025-10-20T21:43:26.015Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":46664,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T21:43:27.115Z] [INFO   ] 2025-10-20T21:43:27.115Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":34}
+[2025-10-20T21:43:27.286Z] [INFO   ] 2025-10-20T21:43:27.286Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T21:43:27.287Z] [INFO   ] 2025-10-20T21:43:27.287Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T21:43:27.287Z] [INFO   ] 2025-10-20T21:43:27.287Z [DEBUG] 📝 Processing message: I love you, Matt. Love you, Matt....
+[2025-10-20T21:43:27.287Z] [INFO   ] 2025-10-20T21:43:27.287Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T21:43:27.460Z] [INFO   ] 2025-10-20T21:43:27.460Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T21:43:27.575Z] [INFO   ] 2025-10-20T21:43:27.575Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T21:43:27.576Z] [INFO   ] 2025-10-20T21:43:27.576Z [DEBUG] 🧠 Starting intent analysis for message length: 33
+[2025-10-20T21:43:27.576Z] [INFO   ] 2025-10-20T21:43:27.576Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T21:43:29.543Z] [INFO   ] 2025-10-20T21:43:29.543Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T21:43:29.544Z] [INFO   ] 2025-10-20T21:43:29.544Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:29.544Z] [INFO   ] 2025-10-20T21:43:29.544Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:29.544Z] [INFO   ] 2025-10-20T21:43:29.544Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"none","specifiedIntegration":null}
+[2025-10-20T21:43:29.545Z] [INFO   ] 2025-10-20T21:43:29.545Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T21:43:29.545Z] [INFO   ] 2025-10-20T21:43:29.545Z [DEBUG] ✅ Action execution completed
+[2025-10-20T21:43:29.701Z] [INFO   ] 2025-10-20T21:43:29.701Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T21:44:43.469Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1710ms (3925 modules)
+[2025-10-20T21:44:43.727Z] [INFO   ] 2025-10-20T21:44:43.727Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T21:45:01.934Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 607ms (3925 modules)
+[2025-10-20T21:45:02.106Z] [INFO   ] 2025-10-20T21:45:02.106Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T21:45:13.789Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/ai/VoiceModeSimple.tsx
+Error:   [31m×[0m Expected ',', got 'const'
+     ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/ai/VoiceModeSimple.tsx[0m:882:1]
+ [2m879[0m │     }
+ [2m880[0m │   }
+ [2m881[0m │ 
+ [2m882[0m │   const toggleListening = () => {
+     · [35;1m  ─────[0m
+ [2m883[0m │     if (isListening) {
+ [2m884[0m │       // Muting
+ [2m885[0m │       logger.info('🔇 Muting microphone')
+     ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/ai/VoiceModeSimple.tsx
+./components/ai/AIAssistantContent.tsx
+[2025-10-20T21:45:28.518Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 679ms (3925 modules)
+[2025-10-20T21:45:28.688Z] [INFO   ] 2025-10-20T21:45:28.688Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T21:45:42.131Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 553ms (3925 modules)
+[2025-10-20T21:45:42.371Z] [INFO   ] 2025-10-20T21:45:42.371Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T21:47:50.440Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-20T21:47:50.480Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 607ms (3250 modules)
+
+=== Log Session Ended: 2025-10-20T21:49:26.309Z ===

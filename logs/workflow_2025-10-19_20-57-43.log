@@ -93,3 +93,88 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-20T17:54:27.909Z] [INFO   ]  ✓ Compiled in 214ms (2242 modules)
 [2025-10-20T17:54:39.201Z] [INFO   ]  ✓ Compiled in 206ms (2242 modules)
 [2025-10-20T17:54:58.348Z] [INFO   ]  ✓ Compiled in 364ms (2242 modules)
+[2025-10-20T19:38:19.232Z] [INFO   ]  ✓ Compiled in 474ms (2255 modules)
+[2025-10-21T02:53:04.442Z] [INFO   ]  ✓ Compiled in 1083ms (2242 modules)
+[2025-10-21T02:53:12.097Z] [INFO   ]  ✓ Compiled in 246ms (2242 modules)
+[2025-10-21T02:54:29.331Z] [INFO   ]  ✓ Compiled in 592ms (2242 modules)
+[2025-10-21T02:54:42.126Z] [INFO   ]  ✓ Compiled in 362ms (2243 modules)
+[2025-10-21T02:55:27.284Z] [INFO   ]  ✓ Compiled in 273ms (2243 modules)
+[2025-10-21T02:57:50.184Z] [INFO   ]  ✓ Compiled in 279ms (2256 modules)
+[2025-10-21T03:43:53.069Z] [INFO   ]  ✓ Compiled in 1298ms (2243 modules)
+[2025-10-21T03:49:23.485Z] [INFO   ]  ✓ Compiled in 546ms (2256 modules)
+[2025-10-21T03:49:23.847Z] [INFO   ]  ✓ Compiled in 188ms (2256 modules)
+[2025-10-21T03:49:24.272Z] [INFO   ]  ✓ Compiled in 194ms (2256 modules)
+[2025-10-21T04:19:01.102Z] [INFO   ]  ✓ Compiled in 1201ms (2243 modules)
+[2025-10-21T13:18:25.251Z] [INFO   ]  ✓ Compiled in 1392ms (2256 modules)
+[2025-10-21T13:18:51.775Z] [INFO   ]  ✓ Compiled in 278ms (2256 modules)
+[2025-10-21T13:26:44.745Z] [INFO   ]  ✓ Compiled in 469ms (2244 modules)
+[2025-10-21T13:27:54.576Z] [INFO   ]  ✓ Compiled in 809ms (2242 modules)
+[2025-10-21T13:28:18.148Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'executeAIAgentWrapper' has already been declared (146:19)
+|  * Unified AI Agent Wrapper
+|  * Handles message generation, routing, and hybrid modes
+>  */ async function executeAIAgentWrapper(params) {
+|     const { config, userId, input, context } = params;
+|     try {
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-21T13:28:24.872Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'executeAIAgentWrapper' has already been declared (146:19)
+|  * Unified AI Agent Wrapper
+|  * Handles message generation, routing, and hybrid modes
+>  */ async function executeAIAgentWrapper(params) {
+|     const { config, userId, input, context } = params;
+|     try {
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-21T13:28:40.208Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'executeAIAgentWrapper' has already been declared (146:19)
+|  * Unified AI Agent Wrapper
+|  * Handles message generation, routing, and hybrid modes
+>  */ async function executeAIAgentWrapper(params) {
+|     const { config, userId, input, context } = params;
+|     try {
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-21T13:28:57.647Z] [ERROR  ]  ⨯ ./lib/workflows/actions/registry.ts
+Module parse failed: Identifier 'executeAIAgentWrapper' has already been declared (146:19)
+|  * Unified AI Agent Wrapper
+|  * Handles message generation, routing, and hybrid modes
+>  */ async function executeAIAgentWrapper(params) {
+|     const { config, userId, input, context } = params;
+|     try {
+
+Import trace for requested module:
+./lib/workflows/actions/registry.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-21T13:35:59.499Z] [ERROR  ]  ⨯ ./lib/workflows/nodes/providers/ai/aiRouterNode.ts
+Error: 
+
+Caused by:
+    0: Failed to read source code from /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/lib/workflows/nodes/providers/ai/aiRouterNode.ts
+    1: No such file or directory (os error 2)
+
+Import trace for requested module:
+./lib/workflows/nodes/providers/ai/aiRouterNode.ts
+./lib/workflows/ai/masterPromptBuilder.ts
+./lib/workflows/ai/fieldProcessor.ts
+./lib/workflows/executeNode.ts
+./lib/execution/advancedExecutionEngine.ts
+./lib/integrations/discordGateway.ts
+[2025-10-21T13:36:54.563Z] [INFO   ]  ✓ Compiled in 931ms (2241 modules)
+[2025-10-21T13:37:06.496Z] [INFO   ]  ✓ Compiled in 175ms (2241 modules)
+[2025-10-21T13:37:06.621Z] [INFO   ]  ✓ Compiled in 121ms (2241 modules)

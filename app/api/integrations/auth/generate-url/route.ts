@@ -400,7 +400,9 @@ function generateGoogleAuthUrl(service: string, state: string): string {
     scope: scopes,
     state,
     access_type: "offline",
-    prompt: "consent",
+    // Use select_account to allow users to choose which Google account to connect
+    // This is better UX than "consent" which only shows if permissions changed
+    prompt: "select_account",
     include_granted_scopes: "true",
   })
 
@@ -492,6 +494,8 @@ async function generateTwitterAuthUrl(stateObject: any, supabase: any): Promise<
     state: state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
+    // Force account selection screen - allows users to choose which Twitter account to connect
+    force_login: "true",
   })
 
   logger.debug('🐦 Twitter OAuth URL Generation:')

@@ -2,11 +2,252 @@ import {
   GitBranch,
   Code,
   Clock,
-  Repeat
+  Repeat,
+  GitFork,
+  Filter,
+  Globe
 } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const logicNodes: NodeComponent[] = [
+  {
+    type: "path",
+    title: "Path",
+    description: "Route workflow based on multiple conditions with visual branches",
+    icon: GitFork,
+    category: "Logic",
+    providerId: "logic",
+    isTrigger: false,
+    testable: true,
+    producesOutput: true,
+    multipleOutputs: true, // This node can have multiple output connections
+    outputSchema: [
+      {
+        name: "pathTaken",
+        label: "Path Taken",
+        type: "string",
+        description: "Which path was taken (pathA, pathB, else)",
+        example: "pathA"
+      },
+      {
+        name: "conditionsMet",
+        label: "Conditions Met",
+        type: "boolean",
+        description: "Whether the conditions were met",
+        example: true
+      }
+    ],
+    configSchema: [
+      {
+        name: "paths",
+        label: "Conditional Paths",
+        type: "custom", // Will use custom CriteriaBuilder component
+        required: true,
+        description: "Define conditions for each path",
+        customComponent: "PathCriteriaBuilder"
+      }
+    ],
+  },
+  {
+    type: "filter",
+    title: "Filter",
+    description: "Stop workflow if conditions are not met",
+    icon: Filter,
+    category: "Logic",
+    providerId: "logic",
+    isTrigger: false,
+    testable: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "filterPassed",
+        label: "Filter Passed",
+        type: "boolean",
+        description: "Whether the filter conditions were met",
+        example: true
+      },
+      {
+        name: "reason",
+        label: "Stop Reason",
+        type: "string",
+        description: "Why the workflow was stopped (if filter failed)",
+        example: "Status does not equal 'active'"
+      }
+    ],
+    configSchema: [
+      {
+        name: "conditions",
+        label: "Filter Conditions",
+        type: "custom",
+        required: true,
+        description: "Workflow will stop if these conditions are not met",
+        customComponent: "FilterCriteriaBuilder"
+      },
+      {
+        name: "stopMessage",
+        label: "Stop Message",
+        type: "text",
+        placeholder: "Workflow stopped by filter",
+        description: "Custom message to show when workflow is stopped",
+        uiTab: "advanced"
+      }
+    ],
+  },
+  {
+    type: "http_request",
+    title: "HTTP Request",
+    description: "Send data to custom API endpoint",
+    icon: Globe,
+    category: "Logic",
+    providerId: "logic",
+    isTrigger: false,
+    testable: true,
+    producesOutput: true,
+    outputSchema: [
+      {
+        name: "status",
+        label: "Status Code",
+        type: "number",
+        description: "HTTP status code (200, 404, etc.)",
+        example: 200
+      },
+      {
+        name: "data",
+        label: "Response Data",
+        type: "object",
+        description: "Response body from the API",
+        example: { success: true, message: "Data received" }
+      },
+      {
+        name: "headers",
+        label: "Response Headers",
+        type: "object",
+        description: "Response headers from the API",
+        example: { "content-type": "application/json" }
+      }
+    ],
+    configSchema: [
+      {
+        name: "method",
+        label: "Request Method",
+        type: "select",
+        required: true,
+        defaultValue: "POST",
+        options: [
+          { value: "GET", label: "GET" },
+          { value: "POST", label: "POST" },
+          { value: "PUT", label: "PUT" },
+          { value: "PATCH", label: "PATCH" },
+          { value: "DELETE", label: "DELETE" }
+        ],
+        description: "HTTP method to use"
+      },
+      {
+        name: "url",
+        label: "URL",
+        type: "text",
+        required: true,
+        placeholder: "https://api.example.com/endpoint",
+        description: "The API endpoint URL",
+        hasVariablePicker: true
+      },
+      {
+        name: "headers",
+        label: "Headers",
+        type: "custom",
+        description: "HTTP headers to send with the request",
+        customComponent: "KeyValuePairs",
+        defaultValue: []
+      },
+      {
+        name: "queryParams",
+        label: "Query Parameters",
+        type: "custom",
+        description: "URL query parameters",
+        customComponent: "KeyValuePairs",
+        defaultValue: [],
+        visibilityCondition: {
+          field: "method",
+          operator: "equals",
+          value: "GET"
+        }
+      },
+      {
+        name: "body",
+        label: "Request Body",
+        type: "textarea",
+        placeholder: '{\n  "key": "value",\n  "data": "{{variable}}"\n}',
+        description: "Request body (JSON format)",
+        hasVariablePicker: true,
+        visibilityCondition: {
+          field: "method",
+          operator: "in",
+          value: ["POST", "PUT", "PATCH"]
+        }
+      },
+      {
+        name: "authType",
+        label: "Authentication",
+        type: "select",
+        defaultValue: "none",
+        options: [
+          { value: "none", label: "None" },
+          { value: "bearer", label: "Bearer Token" },
+          { value: "basic", label: "Basic Auth" },
+          { value: "apikey", label: "API Key" }
+        ],
+        description: "Authentication method",
+        uiTab: "advanced"
+      },
+      {
+        name: "authToken",
+        label: "Token / API Key",
+        type: "text",
+        placeholder: "sk_live_...",
+        description: "Authentication token or API key",
+        hasVariablePicker: true,
+        uiTab: "advanced",
+        visibilityCondition: {
+          field: "authType",
+          operator: "in",
+          value: ["bearer", "apikey"]
+        }
+      },
+      {
+        name: "authUsername",
+        label: "Username",
+        type: "text",
+        description: "Basic auth username",
+        uiTab: "advanced",
+        visibilityCondition: {
+          field: "authType",
+          operator: "equals",
+          value: "basic"
+        }
+      },
+      {
+        name: "authPassword",
+        label: "Password",
+        type: "password",
+        description: "Basic auth password",
+        uiTab: "advanced",
+        visibilityCondition: {
+          field: "authType",
+          operator: "equals",
+          value: "basic"
+        }
+      },
+      {
+        name: "timeout",
+        label: "Timeout (seconds)",
+        type: "number",
+        defaultValue: 30,
+        placeholder: "30",
+        description: "Request timeout in seconds",
+        uiTab: "advanced"
+      }
+    ],
+  },
   {
     type: "if_then_condition",
     title: "If/Then",

@@ -7,8 +7,8 @@ export function NewFooter() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="border-t bg-background mt-auto">
-      <div className="max-w-7xl mx-auto px-6 py-4">
+    <footer className="bg-gray-50 dark:bg-gray-950 mt-auto">
+      <div className="px-6 py-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Left Side - Copyright */}
           <div className="text-sm text-muted-foreground">

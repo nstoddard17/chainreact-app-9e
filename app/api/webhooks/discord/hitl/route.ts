@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { processConversationMessage } from '@/lib/workflows/actions/hitl/conversation'
+import { processEnhancedConversation } from '@/lib/workflows/actions/hitl/enhancedConversation'
 import { sendDiscordThreadMessage } from '@/lib/workflows/actions/hitl/discord'
 import { processConversationLearnings } from '@/lib/workflows/actions/hitl/memoryService'
 import type { ConversationMessage } from '@/lib/workflows/actions/hitl/types'
@@ -209,13 +210,14 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-    // Process message through AI (use stored system prompt with memory + knowledge base)
-    const { aiResponse, shouldContinue, extractedVariables, summary } =
-      await processConversationMessage(
+    // Process message through enhanced AI conversation system
+    const { aiResponse, shouldContinue, extractedVariables, summary, needsFileSearch, searchQuery } =
+      await processEnhancedConversation(
         content,
         conversationHistory,
         hitlConfig,
         contextData,
+        conversation.user_id,
         conversation.system_prompt || undefined // Use enhanced prompt with memory
       )
 
@@ -228,6 +230,64 @@ export async function POST(request: NextRequest) {
 
     // Send AI response back to Discord
     await sendDiscordThreadMessage(conversation.user_id, channelId, aiResponse)
+
+    // Handle file search if needed
+    if (needsFileSearch && searchQuery) {
+      logger.info('File search requested in HITL conversation', {
+        conversationId: conversation.id,
+        searchQuery
+      })
+
+      // Perform the actual file search
+      const { searchFiles, getConnectedStorageIntegrations } = await import('@/lib/workflows/actions/hitl/enhancedConversation')
+
+      const storageProviders = await getConnectedStorageIntegrations(conversation.user_id)
+
+      if (storageProviders.length === 0) {
+        await sendDiscordThreadMessage(
+          conversation.user_id,
+          channelId,
+          '❌ You don\'t have any storage integrations connected. Please connect Google Drive, OneDrive, or Notion to search for files.'
+        )
+      } else {
+        // Search across all connected providers
+        const searchResults = await searchFiles(conversation.user_id, searchQuery, storageProviders)
+
+        if (searchResults.length === 0) {
+          await sendDiscordThreadMessage(
+            conversation.user_id,
+            channelId,
+            `🔍 I searched for "${searchQuery}" but didn't find any matching files.`
+          )
+        } else {
+          // Format and display results
+          let resultsMessage = `🔍 **Found ${searchResults.length} result${searchResults.length === 1 ? '' : 's'} for "${searchQuery}":**\n\n`
+
+          searchResults.forEach((result, index) => {
+            const providerEmoji = {
+              'google-drive': '📁',
+              'google-docs': '📄',
+              'onedrive': '☁️',
+              'notion': '📝'
+            }[result.provider] || '📄'
+
+            resultsMessage += `${index + 1}. ${providerEmoji} **${result.name}**\n`
+            if (result.snippet) {
+              resultsMessage += `   _${result.snippet}_\n`
+            }
+            resultsMessage += `   🔗 ${result.url}\n\n`
+          })
+
+          resultsMessage += '\nWhich file would you like me to reference, or would you like me to continue with the original plan?'
+
+          await sendDiscordThreadMessage(
+            conversation.user_id,
+            channelId,
+            resultsMessage
+          )
+        }
+      }
+    }
 
     if (shouldContinue) {
       // User is ready to continue - finalize conversation and resume workflow
@@ -354,10 +414,13 @@ export async function POST(request: NextRequest) {
           conversation.user_id
         )
 
+        // Preserve test/sandbox mode from original execution
+        const originalTestMode = resumeData.testMode || execution.test_mode || false
+
         const executionContext = {
           userId: conversation.user_id,
           workflowId: conversation.workflow_id,
-          testMode: false,
+          testMode: originalTestMode, // FIX: Preserve original test mode instead of hardcoding false
           data: {
             ...resumeData.input,                              // Original workflow data
             ...conversationOutput,                             // HITL metadata (hitlStatus, summary, etc.)
@@ -368,6 +431,13 @@ export async function POST(request: NextRequest) {
           dataFlowManager,
           executionId: conversation.execution_id
         }
+
+        logger.info('[HITL Resume] Execution context created', {
+          executionId: conversation.execution_id,
+          testMode: originalTestMode,
+          preservedFromResume: !!resumeData.testMode,
+          preservedFromExecution: !!execution.test_mode
+        })
 
         // Execute next nodes
         const progressTracker = new ExecutionProgressTracker()

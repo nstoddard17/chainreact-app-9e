@@ -1,0 +1,263 @@
+=== Log Session Started: 2025-10-20T22:18:20.665Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T22:18:20.666Z] [INFO   ] File logging initialized
+[2025-10-20T22:18:20.666Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_17-18-20.log
+[2025-10-20T22:18:20.668Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T22:18:20.668Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_17-18-20.log
+[2025-10-20T22:18:20.668Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_17-18-20.log
+[2025-10-20T22:18:20.668Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_17-18-20.log
+[2025-10-20T22:18:20.668Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-20_17-18-20.log
+[2025-10-20T22:18:20.668Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T22:18:20.668Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T22:18:20.674Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.1s
+[2025-10-20T22:18:21.693Z] [INFO   ] 2025-10-20T22:18:21.692Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T22:18:23.459Z] [INFO   ] 2025-10-20T22:18:23.459Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T22:18:23.460Z] [INFO   ] 2025-10-20T22:18:23.460Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T22:18:23.679Z] [INFO   ] 2025-10-20T22:18:23.679Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T22:18:23.680Z] [INFO   ] 2025-10-20T22:18:23.680Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T22:18:23.853Z] [INFO   ] 2025-10-20T22:18:23.853Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T22:18:23.854Z] [INFO   ] 2025-10-20T22:18:23.854Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T22:18:24.095Z] [INFO   ] 2025-10-20T22:18:24.095Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"b9e92538b62a75da42e90ed69d3da65e","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T22:18:24.095Z] [INFO   ] 2025-10-20T22:18:24.095Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T22:18:24.105Z] [INFO   ] 2025-10-20T22:18:24.105Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T22:18:24.105Z] [INFO   ] 2025-10-20T22:18:24.105Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T22:18:24.285Z] [INFO   ] 2025-10-20T22:18:24.285Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T22:18:26.925Z] [INFO   ]  [37m[1m○[22m[39m Compiling /ai-assistant ...
+[2025-10-20T22:18:30.084Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /ai-assistant in 3.7s (3924 modules)
+[2025-10-20T22:18:30.502Z] [INFO   ] 2025-10-20T22:18:30.502Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T22:18:30.502Z"}
+[2025-10-20T22:18:30.506Z] [INFO   ] 2025-10-20T22:18:30.506Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T22:18:30.506Z"}
+[2025-10-20T22:18:30.506Z] [INFO   ] 2025-10-20T22:18:30.506Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T22:18:30.506Z"}
+[2025-10-20T22:18:30.824Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 723ms (693 modules)
+[2025-10-20T22:18:31.303Z] [INFO   ] 2025-10-20T22:18:31.302Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T22:18:32.685Z] [INFO   ]  [37m[1m○[22m[39m Compiling /middleware ...
+[2025-10-20T22:18:33.186Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 1002ms (4171 modules)
+[2025-10-20T22:18:37.239Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 362ms (3940 modules)
+[2025-10-20T22:18:37.316Z] [INFO   ] 2025-10-20T22:18:37.316Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T22:18:37.316Z","headers":{"referer":"check-console"}}
+[2025-10-20T22:18:37.508Z] [INFO   ] 2025-10-20T22:18:37.508Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T22:18:37.677Z] [INFO   ] 2025-10-20T22:18:37.677Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T22:18:51.047Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/transcribe ...
+[2025-10-20T22:18:51.475Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/transcribe in 1390ms (4040 modules)
+[2025-10-20T22:18:51.784Z] [INFO   ] 2025-10-20T22:18:51.784Z [INFO] Transcription request {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","audioSize":182870,"audioType":"audio/webm;codecs=opus"}
+[2025-10-20T22:18:53.080Z] [INFO   ] 2025-10-20T22:18:53.080Z [INFO] Transcription completed {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","textLength":59}
+[2025-10-20T22:18:53.672Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/assistant ...
+[2025-10-20T22:18:57.074Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/assistant in 3.9s (5956 modules)
+[2025-10-20T22:18:59.413Z] [INFO   ] 2025-10-20T22:18:59.413Z [DEBUG] 🤖 Starting AI Assistant message processing
+[2025-10-20T22:18:59.413Z] [INFO   ] 2025-10-20T22:18:59.413Z [DEBUG] ✅ OpenAI configuration validated
+[2025-10-20T22:18:59.414Z] [INFO   ] 2025-10-20T22:18:59.414Z [DEBUG] 📝 Processing message: Can you hear what I'm saying, but not the background noise?...
+[2025-10-20T22:18:59.414Z] [INFO   ] 2025-10-20T22:18:59.414Z [DEBUG] 🔐 Authenticating AI assistant request
+[2025-10-20T22:19:00.392Z] [INFO   ] 2025-10-20T22:19:00.391Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T22:19:00.392Z] [INFO   ] 2025-10-20T22:19:00.392Z [DEBUG] ✅ User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T22:19:00.392Z] [INFO   ] 2025-10-20T22:19:00.392Z [DEBUG] 📊 Checking AI usage limits for user: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T22:19:00.392Z] [INFO   ] 2025-10-20T22:19:00.392Z [DEBUG] 🧪 Usage limits disabled for testing
+[2025-10-20T22:19:00.392Z] [INFO   ] 2025-10-20T22:19:00.392Z [DEBUG] ✅ AI usage allowed: {"allowed":true,"limit":999999,"current":0}
+[2025-10-20T22:19:00.393Z] [INFO   ] 2025-10-20T22:19:00.393Z [DEBUG] 🔌 Fetching user integrations: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T22:19:00.506Z] [INFO   ] 2025-10-20T22:19:00.506Z [DEBUG] ✅ Integrations fetched: [{"provider":"notion","hasToken":true},{"provider":"mailchimp","hasToken":true},{"provider":"gmail","hasToken":true},{"provider":"google-sheets","hasToken":true},{"provider":"dropbox","hasToken":true},{"provider":"google-drive","hasToken":true},{"provider":"facebook","hasToken":true},{"provider":"trello","hasToken":true},{"provider":"slack","hasToken":true},{"provider":"google-docs","hasToken":true},{"provider":"twitter","hasToken":true},{"provider":"discord","hasToken":true},{"provider":"google-calendar","hasToken":true},{"provider":"airtable","hasToken":true}]
+[2025-10-20T22:19:00.507Z] [INFO   ] 2025-10-20T22:19:00.507Z [DEBUG] 🧠 Starting intent analysis for message length: 59
+[2025-10-20T22:19:00.507Z] [INFO   ] 2025-10-20T22:19:00.507Z [DEBUG] 🤖 Making OpenAI API call for intent analysis...
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] ✅ OpenAI API call completed
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] ✅ Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] 🧠 Intent analysis completed: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] 🎯 Starting action execution: {"intent":"general","action":"unknown","specifiedIntegration":null}
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] ✅ Action execution completed successfully
+[2025-10-20T22:19:02.750Z] [INFO   ] 2025-10-20T22:19:02.750Z [DEBUG] ✅ Action execution completed
+[2025-10-20T22:19:02.963Z] [INFO   ] 2025-10-20T22:19:02.963Z [DEBUG] ✅ AI Assistant processing completed successfully
+[2025-10-20T22:22:54.537Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 762ms (694 modules)
+[2025-10-20T22:22:54.720Z] [INFO   ] 2025-10-20T22:22:54.720Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:05:41.979Z] [INFO   ] 2025-10-20T23:05:41.979Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-20T23:44:26.302Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 845ms (694 modules)
+[2025-10-20T23:44:27.640Z] [INFO   ] 2025-10-20T23:44:27.640Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:44:27.848Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 513ms (694 modules)
+[2025-10-20T23:44:27.945Z] [INFO   ] 2025-10-20T23:44:27.945Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:44:47.451Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 298ms (694 modules)
+[2025-10-20T23:44:47.501Z] [INFO   ] 2025-10-20T23:44:47.501Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:44:47.897Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 244ms (694 modules)
+[2025-10-20T23:44:47.943Z] [INFO   ] 2025-10-20T23:44:47.943Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:45:13.705Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 393ms (694 modules)
+[2025-10-20T23:45:13.792Z] [INFO   ] 2025-10-20T23:45:13.792Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:45:15.190Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 253ms (694 modules)
+[2025-10-20T23:45:15.238Z] [INFO   ] 2025-10-20T23:45:15.238Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:45:15.516Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 225ms (694 modules)
+[2025-10-20T23:45:15.566Z] [INFO   ] 2025-10-20T23:45:15.566Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:45:16.445Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 275ms (694 modules)
+[2025-10-20T23:45:16.499Z] [INFO   ] 2025-10-20T23:45:16.499Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:45:18.366Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 401ms (694 modules)
+[2025-10-20T23:45:18.457Z] [INFO   ] 2025-10-20T23:45:18.456Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:52:59.750Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 543ms (694 modules)
+[2025-10-20T23:52:59.900Z] [INFO   ] 2025-10-20T23:52:59.900Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:25.278Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 322ms (694 modules)
+[2025-10-20T23:53:25.332Z] [INFO   ] 2025-10-20T23:53:25.332Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:26.841Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 331ms (694 modules)
+[2025-10-20T23:53:26.960Z] [INFO   ] 2025-10-20T23:53:26.960Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:27.207Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 263ms (694 modules)
+[2025-10-20T23:53:27.267Z] [INFO   ] 2025-10-20T23:53:27.267Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:28.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 277ms (694 modules)
+[2025-10-20T23:53:28.545Z] [INFO   ] 2025-10-20T23:53:28.545Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:42.093Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 342ms (694 modules)
+[2025-10-20T23:53:42.191Z] [INFO   ] 2025-10-20T23:53:42.191Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:53:56.462Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1811ms (3934 modules)
+[2025-10-20T23:53:56.764Z] [INFO   ] 2025-10-20T23:53:56.764Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:04.360Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 559ms (3934 modules)
+[2025-10-20T23:54:04.549Z] [INFO   ] 2025-10-20T23:54:04.549Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:04.587Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T23:54:04.767Z] [INFO   ] 2025-10-20T23:54:04.767Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:04.767Z"}
+[2025-10-20T23:54:04.770Z] [INFO   ] 2025-10-20T23:54:04.770Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:04.770Z"}
+[2025-10-20T23:54:04.770Z] [INFO   ] 2025-10-20T23:54:04.770Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T23:54:04.770Z"}
+[2025-10-20T23:54:05.202Z] [INFO   ] 2025-10-20T23:54:05.202Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:05.388Z] [ERROR  ]  [31m[1m⨯[22m[39m isVoiceModeActive is not defined
+ReferenceError: isVoiceModeActive is not defined
+    at AIAssistantContent (webpack-internal:///(ssr)/./components/ai/AIAssistantContent.tsx:2586:13)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-20T23:54:06.973Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 246ms (3249 modules)
+[2025-10-20T23:54:10.860Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 151ms (3251 modules)
+[2025-10-20T23:54:10.932Z] [INFO   ] 2025-10-20T23:54:10.932Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T23:54:10.932Z","headers":{"referer":"check-console"}}
+[2025-10-20T23:54:11.023Z] [INFO   ] 2025-10-20T23:54:11.023Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T23:54:11.162Z] [INFO   ] 2025-10-20T23:54:11.162Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T23:54:14.513Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 472ms (3940 modules)
+[2025-10-20T23:54:14.738Z] [INFO   ] 2025-10-20T23:54:14.738Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:14.738Z"}
+[2025-10-20T23:54:14.741Z] [INFO   ] 2025-10-20T23:54:14.741Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:14.741Z"}
+[2025-10-20T23:54:14.741Z] [INFO   ] 2025-10-20T23:54:14.741Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T23:54:14.741Z"}
+[2025-10-20T23:54:14.791Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T23:54:14.962Z] [INFO   ] 2025-10-20T23:54:14.962Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:15.113Z] [ERROR  ]  [31m[1m⨯[22m[39m isVoiceModeActive is not defined
+ReferenceError: isVoiceModeActive is not defined
+    at AIAssistantContent (webpack-internal:///(ssr)/./components/ai/AIAssistantContent.tsx:2562:13)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-20T23:54:19.730Z] [INFO   ] 2025-10-20T23:54:19.730Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T23:54:19.730Z","headers":{"referer":"check-console"}}
+[2025-10-20T23:54:19.942Z] [INFO   ] 2025-10-20T23:54:19.942Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T23:54:20.053Z] [INFO   ] 2025-10-20T23:54:20.053Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T23:54:28.713Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 855ms (3940 modules)
+[2025-10-20T23:54:28.974Z] [INFO   ] 2025-10-20T23:54:28.974Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:28.974Z"}
+[2025-10-20T23:54:28.977Z] [INFO   ] 2025-10-20T23:54:28.977Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:28.977Z"}
+[2025-10-20T23:54:28.977Z] [INFO   ] 2025-10-20T23:54:28.977Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T23:54:28.977Z"}
+[2025-10-20T23:54:29.011Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T23:54:29.235Z] [INFO   ] 2025-10-20T23:54:29.235Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:29.389Z] [ERROR  ]  [31m[1m⨯[22m[39m isVoiceModeActive is not defined
+ReferenceError: isVoiceModeActive is not defined
+    at AIAssistantContent (webpack-internal:///(ssr)/./components/ai/AIAssistantContent.tsx:2588:13)
+    at Object.react_stack_bottom_frame (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:292649)
+    at renderWithHooks (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:114080)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:128752)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:187713)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderChildrenArray (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:200308)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:195061)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at renderNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:203204)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:176646)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194584)
+    at renderNodeDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:193847)
+    at retryNode (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:194969)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:215436)
+    at Immediate.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:98974)
+    at process.processImmediate (node:internal/timers:511:21)
+    at process.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-20T23:54:34.749Z] [INFO   ] 2025-10-20T23:54:34.748Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T23:54:34.748Z","headers":{"referer":"check-console"}}
+[2025-10-20T23:54:34.836Z] [INFO   ] 2025-10-20T23:54:34.835Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T23:54:34.919Z] [INFO   ] 2025-10-20T23:54:34.919Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T23:54:36.484Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 920ms (3948 modules)
+[2025-10-20T23:54:36.745Z] [INFO   ] 2025-10-20T23:54:36.744Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:36.744Z"}
+[2025-10-20T23:54:36.748Z] [INFO   ] 2025-10-20T23:54:36.748Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-20T23:54:36.748Z"}
+[2025-10-20T23:54:36.748Z] [INFO   ] 2025-10-20T23:54:36.748Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-20T23:54:36.748Z"}
+[2025-10-20T23:54:36.781Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-20T23:54:36.941Z] [INFO   ] 2025-10-20T23:54:36.940Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:38.264Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/organizations in 343ms (3256 modules)
+[2025-10-20T23:54:38.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3260 modules)
+[2025-10-20T23:54:42.759Z] [INFO   ] 2025-10-20T23:54:42.759Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-20T23:54:42.759Z","headers":{"referer":"check-console"}}
+[2025-10-20T23:54:42.910Z] [INFO   ] 2025-10-20T23:54:42.910Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-20T23:54:43.003Z] [INFO   ] 2025-10-20T23:54:43.003Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-20T23:54:46.011Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 256ms (694 modules)
+[2025-10-20T23:54:46.095Z] [INFO   ] 2025-10-20T23:54:46.095Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:58.315Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 341ms (694 modules)
+[2025-10-20T23:54:58.392Z] [INFO   ] 2025-10-20T23:54:58.392Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:54:59.935Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 267ms (694 modules)
+[2025-10-20T23:54:59.992Z] [INFO   ] 2025-10-20T23:54:59.992Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:55:00.365Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 250ms (694 modules)
+[2025-10-20T23:55:00.419Z] [INFO   ] 2025-10-20T23:55:00.419Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:55:01.842Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 297ms (694 modules)
+[2025-10-20T23:55:01.903Z] [INFO   ] 2025-10-20T23:55:01.903Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:55:07.633Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 376ms (694 modules)
+[2025-10-20T23:55:07.740Z] [INFO   ] 2025-10-20T23:55:07.740Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:55:08.510Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 255ms (694 modules)
+[2025-10-20T23:55:08.560Z] [INFO   ] 2025-10-20T23:55:08.560Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-20T23:55:11.867Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 229ms (694 modules)
+[2025-10-20T23:55:11.919Z] [INFO   ] 2025-10-20T23:55:11.919Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+
+=== Log Session Ended: 2025-10-21T00:09:48.221Z ===

@@ -19,16 +19,18 @@ import { ReAuthNotification } from "@/components/integrations/ReAuthNotification
 import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 import { TriggerSelectionDialog } from "./builder/TriggerSelectionDialog"
 import { ActionSelectionDialog } from "./builder/ActionSelectionDialog"
-import { EmptyWorkflowState } from "./builder/EmptyWorkflowState"
 import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
 import { NodeDeletionModal } from "./builder/NodeDeletionModal"
 import { ExecutionStatusPanel } from "./ExecutionStatusPanel"
 import { TestModeDebugLog } from "./TestModeDebugLog"
 import { PreflightCheckDialog } from "./PreflightCheckDialog"
 import { TestModeDialog } from "./TestModeDialog"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { AirtableSetupPanel, type TemplateSetupData } from "@/components/templates/AirtableSetupPanel"
 import { TemplateSetupDialog } from "@/components/templates/TemplateSetupDialog"
 import { TemplateSettingsDrawer } from "./builder/TemplateSettingsDrawer"
+import { IntegrationsSidePanel } from "./builder/IntegrationsSidePanel"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -175,6 +177,7 @@ export function NewWorkflowBuilderContent() {
   } = useWorkflowBuilder()
 
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
+  const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = React.useState(false)
 
   const sourceTemplateId = React.useMemo(
     () => currentWorkflow?.source_template_id || editTemplateId || null,
@@ -222,6 +225,23 @@ export function NewWorkflowBuilderContent() {
     setIsTemplateSettingsOpen(true)
   }, [])
 
+  const handleNodeSelectFromPanel = React.useCallback((node: any) => {
+    // Create a pending node at the center of the viewport
+    const position = {
+      x: 400,
+      y: 200,
+    }
+
+    setConfiguringNode({
+      id: `temp-${Date.now()}`,
+      nodeComponent: node,
+      integration: null,
+      config: {},
+      position,
+      sourceNodeId: undefined,
+    })
+  }, [setConfiguringNode])
+
   if (isLoading) {
     return <WorkflowLoadingScreen />
   }
@@ -257,13 +277,10 @@ export function NewWorkflowBuilderContent() {
   }
 
   return (
-    <BuilderLayout headerProps={headerProps}>
+    <BuilderLayout headerProps={headerProps} workflowId={currentWorkflow?.id || null}>
       {/* ReactFlow Canvas */}
       <div style={{ height: "100%", width: "100%", position: "relative" }}>
-        {nodes.length === 0 ? (
-          <EmptyWorkflowState onAddTrigger={handleOpenTriggerDialog} />
-        ) : (
-          <ReactFlow
+        <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={optimizedOnNodesChange}
@@ -311,6 +328,18 @@ export function NewWorkflowBuilderContent() {
             />
             <CollaboratorCursors collaborators={collaborators || []} />
 
+            {/* Add Node Button */}
+            <Panel position="top-right" style={{ marginTop: '10px', marginRight: '10px' }}>
+              <Button
+                onClick={() => setIsIntegrationsPanelOpen(true)}
+                size="sm"
+                className="shadow-lg"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Node
+              </Button>
+            </Panel>
+
             {/* Airtable Setup Panel */}
             {sourceTemplateId && (
               <Panel
@@ -328,7 +357,13 @@ export function NewWorkflowBuilderContent() {
               </Panel>
             )}
           </ReactFlow>
-        )}
+
+        {/* Integrations Side Panel */}
+        <IntegrationsSidePanel
+          isOpen={isIntegrationsPanelOpen}
+          onClose={() => setIsIntegrationsPanelOpen(false)}
+          onNodeSelect={handleNodeSelectFromPanel}
+        />
       </div>
 
       {/* Template Setup Dialog */}

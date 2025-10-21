@@ -46,6 +46,9 @@ import { PayPalConfiguration } from './providers/PayPalConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
+import { PathConfiguration } from './providers/logic/PathConfiguration';
+import { FilterConfiguration } from './providers/logic/FilterConfiguration';
+import { HttpRequestConfiguration } from './providers/logic/HttpRequestConfiguration';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -1495,6 +1498,24 @@ function ConfigurationForm({
   if (nodeInfo?.type === 'if_then_condition') {
     logger.debug('🔀 [ConfigForm] Routing to If/Then configuration');
     return <IfThenConfiguration {...commonProps} />;
+  }
+
+  // Check for path router node
+  if (nodeInfo?.type === 'path') {
+    logger.debug('🛤️ [ConfigForm] Routing to Path configuration');
+    return <PathConfiguration {...commonProps} />;
+  }
+
+  // Check for filter node
+  if (nodeInfo?.type === 'filter') {
+    logger.debug('🔍 [ConfigForm] Routing to Filter configuration');
+    return <FilterConfiguration {...commonProps} />;
+  }
+
+  // Check for HTTP request node
+  if (nodeInfo?.type === 'http_request') {
+    logger.debug('🌐 [ConfigForm] Routing to HTTP Request configuration');
+    return <HttpRequestConfiguration {...commonProps} />;
   }
 
   // Gmail search email now uses GenericConfiguration like other actions

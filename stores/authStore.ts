@@ -33,8 +33,15 @@ interface Profile {
   email?: string
   provider?: string
   role?: string
+  tasks_used?: number
+  tasks_limit?: number
+  billing_period_start?: string
+  plan?: string
   created_at?: string
   updated_at?: string
+  ai_agent_preference?: 'always_show' | 'always_skip' | 'ask_later'
+  ai_agent_skip_count?: number
+  ai_agent_preference_updated_at?: string
 }
 
 interface AuthState {
@@ -451,14 +458,30 @@ export const useAuthStore = create<AuthState>()(
                 profile.role = deriveRoleFromMetadata()
               }
 
-              logger.debug('✅ [AUTH] Setting profile in state', {
-                profileId: profile.id,
-                role: profile.role,
-                hasUsername: !!profile.username,
-                timestamp: new Date().toISOString()
-              })
+              const currentProfile = get().profile
+              const currentUpdatedAt = currentProfile?.updated_at ? Date.parse(currentProfile.updated_at) : NaN
+              const fetchedUpdatedAt = profile.updated_at ? Date.parse(profile.updated_at) : NaN
 
-              set({ profile })
+              if (
+                currentProfile &&
+                !Number.isNaN(currentUpdatedAt) &&
+                !Number.isNaN(fetchedUpdatedAt) &&
+                currentUpdatedAt > fetchedUpdatedAt
+              ) {
+                logger.debug('⏭️ [AUTH] Skipping profile overwrite with stale data', {
+                  existingUpdatedAt: currentProfile.updated_at,
+                  fetchedUpdatedAt: profile.updated_at,
+                  timestamp: new Date().toISOString()
+                })
+              } else {
+                logger.debug('✅ [AUTH] Setting profile in state', {
+                  profileId: profile.id,
+                  role: profile.role,
+                  hasUsername: !!profile.username,
+                  timestamp: new Date().toISOString()
+                })
+                set({ profile })
+              }
 
               // Check for missing username and redirect if needed
               setTimeout(() => {
@@ -625,7 +648,29 @@ export const useAuthStore = create<AuthState>()(
                   }
                 }
 
-                set({ user, profile, error: null })
+                const existingProfile = get().profile
+                const existingUpdatedAt = existingProfile?.updated_at ? Date.parse(existingProfile.updated_at) : NaN
+                const incomingUpdatedAt = profile.updated_at ? Date.parse(profile.updated_at) : NaN
+                const keepExisting =
+                  existingProfile &&
+                  !Number.isNaN(existingUpdatedAt) &&
+                  !Number.isNaN(incomingUpdatedAt) &&
+                  existingUpdatedAt > incomingUpdatedAt
+
+                if (keepExisting) {
+                  logger.debug('⏭️ [AUTH] Preserving newer in-memory profile during auth state change', {
+                    existingUpdatedAt: existingProfile.updated_at,
+                    incomingUpdatedAt: profile.updated_at,
+                    timestamp: new Date().toISOString()
+                  })
+                }
+
+                set({
+                  user,
+                  profile:
+                    keepExisting ? existingProfile : profile,
+                  error: null
+                })
                 
                 // Check for missing username and redirect if needed
                 setTimeout(() => {
@@ -866,17 +911,11 @@ export const useAuthStore = create<AuthState>()(
           const { user } = get()
           if (!user) throw new Error("No user logged in")
 
-          // First, update the user metadata in Supabase Auth
-          const { error: authError } = await supabase.auth.updateUser({
-            data: {
-              full_name: updates.full_name,
-              avatar_url: updates.avatar_url,
-            },
-          })
+          const updatedAt = new Date().toISOString()
 
-          if (authError) throw authError
-
-          // Then, update the user_profiles table with all profile fields
+          // First, update the user_profiles table with all profile fields
+          // Do this BEFORE updating auth metadata so when auth state change refetches,
+          // the database will already have the new data
           const { error: profileError } = await supabase
             .from('user_profiles')
             .upsert({
@@ -892,12 +931,23 @@ export const useAuthStore = create<AuthState>()(
               phone_number: updates.phone_number,
               provider: updates.provider,
               avatar_url: updates.avatar_url,
-              updated_at: new Date().toISOString(),
+              updated_at: updatedAt,
             }, {
               onConflict: 'id'
             })
 
           if (profileError) throw profileError
+
+          // Then, update the user metadata in Supabase Auth
+          // This will trigger onAuthStateChange which will refetch the profile
+          const { error: authError } = await supabase.auth.updateUser({
+            data: {
+              full_name: updates.full_name,
+              avatar_url: updates.avatar_url,
+            },
+          })
+
+          if (authError) throw authError
 
           // Update the local state
           const { profile } = get()
@@ -914,6 +964,7 @@ export const useAuthStore = create<AuthState>()(
             ...(profile || {}),
             ...updates,
             id: user.id,
+            updated_at: updatedAt,
           } as Profile
 
           set({
