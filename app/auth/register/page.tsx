@@ -2,6 +2,7 @@
 
 import RegisterForm from "@/components/auth/RegisterForm"
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowLeft } from "lucide-react"
 
 // Floating Geometric Shapes
@@ -60,6 +61,15 @@ export default function RegisterPage() {
             </Link>
           </div>
           <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/logo_transparent.png"
+                alt="ChainReact Logo"
+                width={64}
+                height={64}
+                className="w-16 h-16"
+              />
+            </div>
             <h1 className="text-3xl font-bold text-white mb-2">Join ChainReact</h1>
             <p className="text-blue-200">Start automating your workflows today</p>
           </div>

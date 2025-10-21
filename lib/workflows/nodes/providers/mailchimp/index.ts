@@ -62,25 +62,68 @@ export const mailchimpNodes: NodeComponent[] = [
         ]
       },
       {
-        name: "merge_fields",
-        label: "Merge Fields",
-        type: "multiselect",
+        name: "first_name",
+        label: "First Name",
+        type: "text",
         required: false,
-        dynamic: "mailchimp_merge_fields",
-        dependsOn: "audience_id",
-        placeholder: "Select merge fields to set values for",
-        description: "Select which subscriber fields to populate"
+        placeholder: "John"
+      },
+      {
+        name: "last_name",
+        label: "Last Name",
+        type: "text",
+        required: false,
+        placeholder: "Doe"
+      },
+      {
+        name: "phone",
+        label: "Phone Number",
+        type: "text",
+        required: false,
+        placeholder: "+1234567890"
+      },
+      {
+        name: "address",
+        label: "Address",
+        type: "text",
+        required: false,
+        placeholder: "123 Main St"
+      },
+      {
+        name: "city",
+        label: "City",
+        type: "text",
+        required: false,
+        placeholder: "New York"
+      },
+      {
+        name: "state",
+        label: "State/Province",
+        type: "text",
+        required: false,
+        placeholder: "NY"
+      },
+      {
+        name: "zip",
+        label: "Zip/Postal Code",
+        type: "text",
+        required: false,
+        placeholder: "10001"
+      },
+      {
+        name: "country",
+        label: "Country",
+        type: "text",
+        required: false,
+        placeholder: "US"
       },
       {
         name: "tags",
-        label: "Tags",
-        type: "multiselect",
+        label: "Tags (Optional)",
+        type: "text",
         required: false,
-        dynamic: "mailchimp_tags",
-        dependsOn: "audience_id",
-        creatable: true,
-        placeholder: "Select existing tags or type to create new ones",
-        description: "Add tags to categorize this subscriber"
+        placeholder: "customer, vip, newsletter (comma-separated)",
+        description: "Add tags to categorize this subscriber (separate with commas)"
       }
     ]
   },
@@ -103,12 +146,15 @@ export const mailchimpNodes: NodeComponent[] = [
         loadOnMount: true
       },
       {
-        name: "email",
-        label: "Email Address",
-        type: "email",
+        name: "subscriber_email",
+        label: "Select Subscriber",
+        type: "select",
         required: true,
-        placeholder: "subscriber@example.com",
-        description: "The current email address of the subscriber"
+        dynamic: "mailchimp_subscribers",
+        dependsOn: "audience_id",
+        placeholder: "Search for subscriber by email...",
+        description: "Select the subscriber you want to update",
+        searchable: true
       },
       {
         name: "new_email",
@@ -120,7 +166,7 @@ export const mailchimpNodes: NodeComponent[] = [
       },
       {
         name: "status",
-        label: "Status",
+        label: "Status (Optional)",
         type: "select",
         required: false,
         options: [
@@ -128,17 +174,65 @@ export const mailchimpNodes: NodeComponent[] = [
           { value: "pending", label: "Pending" },
           { value: "unsubscribed", label: "Unsubscribed" },
           { value: "transactional", label: "Transactional" }
-        ]
+        ],
+        placeholder: "Keep current status",
+        description: "Leave empty to keep current status"
       },
       {
-        name: "merge_fields",
-        label: "Merge Fields",
-        type: "multiselect",
+        name: "first_name",
+        label: "First Name (Optional)",
+        type: "text",
         required: false,
-        dynamic: "mailchimp_merge_fields",
-        dependsOn: "audience_id",
-        placeholder: "Select merge fields to update",
-        description: "Select which subscriber fields to update"
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "last_name",
+        label: "Last Name (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "phone",
+        label: "Phone Number (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "address",
+        label: "Address (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "city",
+        label: "City (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "state",
+        label: "State/Province (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "zip",
+        label: "Zip/Postal Code (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
+      },
+      {
+        name: "country",
+        label: "Country (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "Leave empty to keep current value"
       }
     ]
   },

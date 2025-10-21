@@ -4,6 +4,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, X, User, LogOut, Crown } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
@@ -83,7 +84,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="flex items-center justify-between h-16">
             {/* Left: Logo */}
             <div className="flex-shrink-0 w-48">
-              <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+              <Link href="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2">
+                <Image
+                  src="/logo_transparent.png"
+                  alt="ChainReact Logo"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8"
+                />
                 <h1 className="text-2xl font-bold text-indigo-600 cursor-pointer">ChainReact</h1>
               </Link>
             </div>
@@ -366,7 +374,16 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-2xl font-bold mb-4 text-indigo-400">ChainReact</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <Image
+                  src="/logo_transparent.png"
+                  alt="ChainReact Logo"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8"
+                />
+                <h3 className="text-2xl font-bold text-indigo-400">ChainReact</h3>
+              </div>
               <p className="text-slate-400 mb-4">
                 Automate your workflows with ease. Connect apps, save time, and boost productivity.
               </p>

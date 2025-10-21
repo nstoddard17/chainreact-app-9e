@@ -215,6 +215,13 @@ import { hubspotGetContacts } from './hubspot/getContacts'
 import { hubspotGetCompanies } from './hubspot/getCompanies'
 import { hubspotGetDeals } from './hubspot/getDeals'
 import { mailchimpGetSubscribers } from './mailchimp/getSubscribers'
+import { mailchimpAddSubscriber } from './mailchimp/addSubscriber'
+import { mailchimpUpdateSubscriber } from './mailchimp/updateSubscriber'
+import { mailchimpRemoveSubscriber } from './mailchimp/removeSubscriber'
+import { mailchimpAddTag } from './mailchimp/addTag'
+import { mailchimpRemoveTag } from './mailchimp/removeTag'
+import { mailchimpSendCampaign } from './mailchimp/sendCampaign'
+import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
 import { stripeGetCustomers } from './stripe/getCustomers'
 import { stripeGetPayments } from './stripe/getPayments'
 
@@ -605,6 +612,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // Mailchimp actions
   "mailchimp_action_get_subscribers": createExecutionContextWrapper(mailchimpGetSubscribers),
+  "mailchimp_action_add_subscriber": createExecutionContextWrapper(mailchimpAddSubscriber),
+  "mailchimp_action_update_subscriber": createExecutionContextWrapper(mailchimpUpdateSubscriber),
+  "mailchimp_action_remove_subscriber": createExecutionContextWrapper(mailchimpRemoveSubscriber),
+  "mailchimp_action_add_tag": createExecutionContextWrapper(mailchimpAddTag),
+  "mailchimp_action_remove_tag": createExecutionContextWrapper(mailchimpRemoveTag),
+  "mailchimp_action_send_campaign": createExecutionContextWrapper(mailchimpSendCampaign),
+  "mailchimp_action_create_campaign": createExecutionContextWrapper(mailchimpCreateCampaign),
 
   // Stripe actions
   "stripe_action_get_customers": createExecutionContextWrapper(stripeGetCustomers),

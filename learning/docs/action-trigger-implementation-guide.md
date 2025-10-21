@@ -419,6 +419,119 @@ interface ActionResult {
 }
 ```
 
+### 🚨 CRITICAL: Error Handling Pattern
+
+**AS OF JANUARY 2025** - All action failures are now properly caught and reported.
+
+#### The Problem (Before Fix)
+Some actions would return `{success: false}` instead of throwing errors. The execution engine would treat this as a successful execution and mark the workflow as "success" even though the action failed silently.
+
+#### The Solution (Current Behavior)
+The execution engine ([executeNode.ts:519-554](../../lib/workflows/executeNode.ts#L519)) now validates the `ActionResult.success` field:
+
+```typescript
+// After handler executes, check if it actually succeeded
+if (result.success === false) {
+  const errorMessage = result.message || result.error || 'Action failed without error message'
+  const error = new Error(errorMessage)
+
+  // Create error log entry
+  // Store and log the error
+
+  throw error  // Fails the workflow execution
+}
+```
+
+#### What This Means for You
+
+**You can use EITHER pattern** - both will properly fail the workflow:
+
+**Pattern 1: Return error result (recommended)**
+```typescript
+export async function yourAction(config: any, userId: string, input: any): Promise<ActionResult> {
+  try {
+    // ... action logic
+
+    return {
+      success: true,
+      output: { /* ... */ },
+      message: 'Action completed'
+    }
+  } catch (error: any) {
+    return {
+      success: false,  // Engine will catch this and throw
+      output: {},
+      message: error.message || 'Action failed'
+    }
+  }
+}
+```
+
+**Pattern 2: Throw error**
+```typescript
+export async function yourAction(config: any, userId: string, input: any): Promise<ActionResult> {
+  // ... action logic
+
+  if (somethingWrong) {
+    throw new Error('Something went wrong')  // Engine catches this
+  }
+
+  return {
+    success: true,
+    output: { /* ... */ },
+    message: 'Action completed'
+  }
+}
+```
+
+Both patterns now result in:
+- ✅ Workflow execution fails
+- ✅ Error is logged properly
+- ✅ User sees the failure in the UI
+- ✅ No more silent failures
+
+#### Why Both Patterns Work
+
+The execution engine has **4 check points** where `success: false` is detected:
+1. Main action handler execution ([executeNode.ts:522](../../lib/workflows/executeNode.ts#L522))
+2. Generic action handler ([executeNode.ts:507](../../lib/workflows/executeNode.ts#L507))
+3. AI agent/message handlers ([executeNode.ts:413](../../lib/workflows/executeNode.ts#L413))
+4. Wait action handler ([executeNode.ts:355](../../lib/workflows/executeNode.ts#L355))
+
+**All** execution paths now validate the result and throw if `success === false`.
+
+#### Best Practice
+
+**Use Pattern 1** (return error result) because:
+- ✅ Gives you control over the error message
+- ✅ Allows you to include partial output data
+- ✅ Can set custom error properties
+- ✅ More explicit and readable
+- ✅ Easier to test
+
+**Example with rich error data:**
+```typescript
+catch (error: any) {
+  return {
+    success: false,
+    output: {
+      attemptedEmail: email,
+      partialResults: processedSoFar  // Useful for debugging
+    },
+    message: `Failed to send email to ${email}: ${error.message}`,
+    error: error.message  // Additional error field for context
+  }
+}
+```
+
+The engine will:
+1. Log all this data (including `output` and `error` fields)
+2. Create an error log entry with full context
+3. Throw with the `message` text
+4. Fail the workflow execution
+
+**Date Implemented:** January 21, 2025
+
 ## Common Patterns
 
 ### Pattern 1: Conditional Field Visibility
