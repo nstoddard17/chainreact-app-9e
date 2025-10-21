@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
