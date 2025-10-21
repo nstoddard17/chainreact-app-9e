@@ -1,9 +1,9 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 
 interface TemplateAccessResult {
-  supabase: ReturnType<typeof createSupabaseServerClient> extends Promise<infer T> ? T : any
+  supabase: ReturnType<typeof createSupabaseRouteHandlerClient> extends Promise<infer T> ? T : any
   user: any
   template: any
   errorResponse: NextResponse | null
@@ -12,7 +12,7 @@ interface TemplateAccessResult {
 
 export async function requireTemplateAccess(templateId: string): Promise<TemplateAccessResult> {
   cookies()
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   const {
     data: { user },

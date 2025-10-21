@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger'
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { searchParams } = new URL(request.url)
 
     const category = searchParams.get("category")
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error: userError,

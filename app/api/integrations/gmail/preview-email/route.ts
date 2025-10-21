@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
 import { google } from 'googleapis'
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const { labels, query, startDate, endDate, includeSpamTrash } = body || {}
 
     // Get authenticated user
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {

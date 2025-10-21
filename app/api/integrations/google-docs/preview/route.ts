@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
-import { createSupabaseServerClient } from "@/utils/supabase/server";
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server";
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core";
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseRouteHandlerClient();
     const { documentId, integrationId } = await request.json();
 
     if (!documentId) {

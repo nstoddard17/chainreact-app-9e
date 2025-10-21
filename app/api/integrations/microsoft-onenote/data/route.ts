@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { logger } from '@/lib/utils/logger'
 
 async function getServiceClient() {
@@ -132,7 +132,7 @@ async function buildResponse(
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {

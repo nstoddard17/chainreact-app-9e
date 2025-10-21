@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST() {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Remove users who haven't been seen in the last 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)

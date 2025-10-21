@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const nodeType = searchParams.get("nodeType")
     const providerId = searchParams.get("providerId")
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Missing required fields" , 400)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -148,7 +148,7 @@ export async function DELETE(request: NextRequest) {
     const providerId = searchParams.get("providerId")
     const fieldName = searchParams.get("fieldName")
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()

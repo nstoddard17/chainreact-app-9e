@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { healthMonitor } from "../../../src/infrastructure/health/provider-health-monitor"
 
 import { logger } from '@/lib/utils/logger'
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const includeProviders = url.searchParams.get('providers') !== 'false'
     
     // Check database connectivity
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data, error } = await supabase
       .from('user_profiles')
       .select('count', { count: 'exact', head: true })

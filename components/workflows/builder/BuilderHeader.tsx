@@ -54,7 +54,7 @@ interface BuilderHeaderProps {
   setShowExecutionHistory?: (show: boolean) => void
 }
 
-export function BuilderHeader({
+const BuilderHeaderComponent = ({
   workflowName,
   setWorkflowName,
   hasUnsavedChanges,
@@ -81,7 +81,7 @@ export function BuilderHeader({
   canUndo = false,
   canRedo = false,
   setShowExecutionHistory,
-}: BuilderHeaderProps) {
+}: BuilderHeaderProps) => {
   const router = useRouter()
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
@@ -94,6 +94,9 @@ export function BuilderHeader({
   const [isSharing, setIsSharing] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
 
+  // Track if we're in a save operation to prevent infinite loops
+  const isSavingRef = React.useRef(false)
+
   // Compute status badge
   const statusBadge = React.useMemo(() => {
     if (isExecuting) return { text: "Running", variant: "default" as const, color: "text-blue-600" }
@@ -105,6 +108,29 @@ export function BuilderHeader({
   const handleBackClick = React.useCallback(() => {
     router.push("/workflows")
   }, [router])
+
+  // Prevent infinite loop when saving on blur
+  const handleNameBlur = React.useCallback(() => {
+    // Prevent cascading saves
+    if (isSavingRef.current || isSaving || !hasUnsavedChanges) {
+      return
+    }
+
+    isSavingRef.current = true
+    handleSave().finally(() => {
+      // Reset after a short delay to allow for state updates
+      setTimeout(() => {
+        isSavingRef.current = false
+      }, 100)
+    })
+  }, [handleSave, isSaving, hasUnsavedChanges])
+
+  // Sync ref with isSaving state
+  React.useEffect(() => {
+    if (!isSaving) {
+      isSavingRef.current = false
+    }
+  }, [isSaving])
 
   const handleDuplicateClick = React.useCallback(() => {
     if (workflowId) {
@@ -183,7 +209,7 @@ export function BuilderHeader({
             <Input
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
-              onBlur={handleSave}
+              onBlur={handleNameBlur}
               className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 px-2 py-1 h-8 bg-transparent max-w-md"
               placeholder="Untitled Workflow"
             />
@@ -622,3 +648,30 @@ export function BuilderHeader({
     </>
   )
 }
+
+/**
+ * Memoized BuilderHeader component to prevent unnecessary re-renders.
+ * Custom comparison function checks primitive values to skip re-renders
+ * when only function references change (which happens frequently in parent).
+ */
+export const BuilderHeader = React.memo(BuilderHeaderComponent, (prevProps, nextProps) => {
+  // Compare primitive values that affect rendering
+  return (
+    prevProps.workflowName === nextProps.workflowName &&
+    prevProps.hasUnsavedChanges === nextProps.hasUnsavedChanges &&
+    prevProps.isSaving === nextProps.isSaving &&
+    prevProps.isExecuting === nextProps.isExecuting &&
+    prevProps.isUpdatingStatus === nextProps.isUpdatingStatus &&
+    prevProps.workflowId === nextProps.workflowId &&
+    prevProps.editTemplateId === nextProps.editTemplateId &&
+    prevProps.isTemplateEditing === nextProps.isTemplateEditing &&
+    prevProps.templateSettingsLabel === nextProps.templateSettingsLabel &&
+    prevProps.isRunningPreflight === nextProps.isRunningPreflight &&
+    prevProps.isStepMode === nextProps.isStepMode &&
+    prevProps.listeningMode === nextProps.listeningMode &&
+    prevProps.canUndo === nextProps.canUndo &&
+    prevProps.canRedo === nextProps.canRedo &&
+    prevProps.currentWorkflow?.status === nextProps.currentWorkflow?.status &&
+    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id
+  )
+})

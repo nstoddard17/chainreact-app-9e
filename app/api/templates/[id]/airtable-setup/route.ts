@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTemplateById } from '@/lib/templates/predefinedTemplates'
 import { generateSetupPackage } from '@/lib/templates/airtableSetupGenerator'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
 export async function GET(
@@ -17,7 +17,7 @@ export async function GET(
 
     // If not found in predefined, check database
     if (!template) {
-      const supabase = await createSupabaseServerClient()
+      const supabase = await createSupabaseRouteHandlerClient()
       const { data: dbTemplate } = await supabase
         .from('templates')
         .select('*')
