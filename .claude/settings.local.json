@@ -2,10 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(do if grep -q \"createSupabaseServerClient\" \"$file\")",
-      "Bash(then sed -i 's/createSupabaseServerClient/createSupabaseRouteHandlerClient/g' \"$file\")"
+      "Bash(then sed -i 's/createSupabaseServerClient/createSupabaseRouteHandlerClient/g' \"$file\")",
+      "Bash(npm run build:*)",
+      "Read(//c/Users/marcu/OneDrive/Shared/ChainReact/Logo/**)",
+      "Bash(dir:*)",
+      "Bash(node:*)"
     ],
-    "defaultMode": "acceptEdits",
     "deny": [],
-    "ask": []
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }
