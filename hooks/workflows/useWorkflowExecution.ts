@@ -314,96 +314,6 @@ export function useWorkflowExecution() {
     console.log('🧪 [Sandbox Mode] Dialog state set to true')
   }, [currentWorkflow, toast, testModeDialogOpen, isStepMode, isExecuting])
 
-  const handleRunTest = useCallback(async (nodes: Node[], edges: Edge[], testModeConfig: any, mockVariation?: string) => {
-    // Prevent duplicate executions
-    if (isExecutingTest) {
-      logger.debug('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
-      return
-    }
-
-    setIsExecutingTest(true)
-    setIsExecuting(true)
-    setIsStepMode(true)
-    setSandboxInterceptedActions([])
-    addDebugLog('info', 'Starting Sandbox Mode execution with test config', testModeConfig)
-
-    try {
-      logger.debug('🧪 [Sandbox Mode] Starting execution with test mode config:', testModeConfig)
-
-      // Execute workflow in sandbox mode with the chosen configuration
-      const response = await fetch('/api/workflows/execute', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workflowId: currentWorkflow.id,
-          testMode: true,  // This ensures actions are intercepted
-          testModeConfig,  // Pass the test mode configuration
-          mockVariation,   // Optional mock data variation
-          executionMode: 'sandbox',
-          inputData: {},
-          workflowData: {
-            nodes,
-            edges,
-          },
-          skipTriggers: testModeConfig.triggerMode === 'use_mock_data', // Only skip if using mock data
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to execute workflow')
-      }
-
-      const result = await response.json()
-
-      // Process intercepted actions
-      if (result.interceptedActions && Array.isArray(result.interceptedActions)) {
-        setSandboxInterceptedActions(result.interceptedActions)
-        setShowSandboxPreview(true)
-
-        addDebugLog('success', `Sandbox execution complete: ${result.interceptedActions.length} actions intercepted`)
-
-        toast({
-          title: "Sandbox Test Complete",
-          description: `${result.interceptedActions.length} actions were intercepted and can be reviewed`,
-        })
-      }
-
-      // Update node statuses based on results
-      if (result.results && Array.isArray(result.results)) {
-        result.results.forEach((nodeResult: any) => {
-          if (nodeResult.nodeId) {
-            setNodeStatuses(prev => ({
-              ...prev,
-              [nodeResult.nodeId]: nodeResult.success ? 'completed' : 'error'
-            }))
-          }
-        })
-      }
-
-    } catch (error: any) {
-      logger.error('❌ [Sandbox Mode] Execution error:', error)
-      addDebugLog('error', 'Sandbox execution failed', { error: error.message })
-
-      toast({
-        title: "Sandbox Test Failed",
-        description: error.message || "Failed to execute workflow in sandbox mode",
-        variant: "destructive",
-      })
-    } finally {
-      setIsExecuting(false)
-      setIsStepMode(false)
-      setActiveExecutionNodeId(null)
-
-      // Clear node statuses after delay
-      setTimeout(() => {
-        setNodeStatuses({})
-      }, 5000)
-    }
-  }, [isExecutingTest, currentWorkflow, toast, addDebugLog])
-
   // Monitor execution progress from webhook trigger
   const monitorExecution = useCallback(async (executionId: string, nodes: Node[]) => {
     setIsExecuting(true)
@@ -538,6 +448,259 @@ export function useWorkflowExecution() {
     }, 1000)
 
   }, [currentWorkflow, toast, addError, addDebugLog])
+
+  const handleRunTest = useCallback(async (nodes: Node[], edges: Edge[], testModeConfig: any, mockVariation?: string) => {
+    // Prevent duplicate executions
+    if (isExecutingTest) {
+      logger.debug('⚠️ [Sandbox Mode] Already executing, ignoring duplicate request');
+      return
+    }
+
+    // Close the test mode dialog immediately
+    setTestModeDialogOpen(false)
+
+    setIsExecutingTest(true)
+    setIsExecuting(true)
+    setIsStepMode(true)
+    setSandboxInterceptedActions([])
+    addDebugLog('info', 'Starting Sandbox Mode execution with test config', testModeConfig)
+
+    try {
+      logger.debug('🧪 [Sandbox Mode] Starting execution with test mode config:', testModeConfig)
+
+      // Check if we need to wait for real trigger
+      if (testModeConfig.triggerMode === 'wait_for_real') {
+        logger.debug('🎯 [Sandbox Mode] Using WAIT_FOR_REAL mode - starting test session')
+        addDebugLog('info', 'Activating trigger and waiting for real event...', {
+          timeout: testModeConfig.triggerTimeout || 300000
+        })
+
+        // Start test session - this activates the trigger and creates a "listening" session
+        const sessionResponse = await fetch(`/api/workflows/${currentWorkflow.id}/test-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            testModeConfig,
+            timeout: testModeConfig.triggerTimeout || 300000
+          }),
+        })
+
+        if (!sessionResponse.ok) {
+          const error = await sessionResponse.json()
+          throw new Error(error.error || 'Failed to start test session')
+        }
+
+        const sessionData = await sessionResponse.json()
+        const { sessionId } = sessionData
+
+        addDebugLog('success', 'Trigger activated - waiting for event', {
+          sessionId,
+          triggerType: sessionData.triggerType
+        })
+
+        toast({
+          title: "Waiting for Trigger",
+          description: `Listening for ${sessionData.triggerType}. Perform the action to trigger your workflow.`,
+        })
+
+        // Poll for session status updates
+        const pollInterval = 2000 // Poll every 2 seconds
+        const maxPolls = Math.floor((testModeConfig.triggerTimeout || 300000) / pollInterval)
+        let pollCount = 0
+
+        const checkSession = async (): Promise<boolean> => {
+          try {
+            const statusResponse = await fetch(`/api/workflows/${currentWorkflow.id}/test-session`)
+
+            if (!statusResponse.ok) {
+              throw new Error('Failed to check session status')
+            }
+
+            const statusData = await statusResponse.json()
+
+            if (!statusData.active) {
+              if (statusData.session?.status === 'expired') {
+                throw new Error('Test session timed out waiting for trigger')
+              }
+              return false
+            }
+
+            const { session, execution } = statusData
+
+            // Check if execution started
+            if (session.status === 'executing' && session.execution_id) {
+              addDebugLog('success', 'Trigger fired! Workflow execution started')
+
+              // Monitor the execution progress
+              await monitorExecution(session.execution_id, nodes)
+              return true
+            }
+
+            // Still listening
+            pollCount++
+            const remainingTime = Math.floor((maxPolls - pollCount) * pollInterval / 1000)
+            if (pollCount % 15 === 0) { // Log every 30 seconds
+              addDebugLog('info', `Still waiting for trigger... (${remainingTime}s remaining)`)
+            }
+
+            if (pollCount < maxPolls) {
+              setTimeout(() => checkSession(), pollInterval)
+            } else {
+              throw new Error('Test session timed out waiting for trigger')
+            }
+
+            return false
+          } catch (error: any) {
+            logger.error('❌ [Sandbox Mode] Session polling error:', error)
+            throw error
+          }
+        }
+
+        // Start polling
+        await checkSession()
+        return
+      }
+
+      // USE_MOCK_DATA mode - execute immediately with mock data
+      logger.debug('🧪 [Sandbox Mode] Using mock data mode')
+
+      // Simulate node execution visually by processing nodes in order
+      const triggerNode = nodes.find(n => n.data?.isTrigger)
+      if (triggerNode) {
+        addDebugLog('info', `Starting trigger node: ${triggerNode.data?.title || triggerNode.data?.type}`)
+        setActiveExecutionNodeId(triggerNode.id)
+        setNodeStatuses(prev => ({ ...prev, [triggerNode.id]: 'running' }))
+        await new Promise(resolve => setTimeout(resolve, 500)) // Visual delay
+      }
+
+      const response = await fetch('/api/workflows/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workflowId: currentWorkflow.id,
+          testMode: true,  // This ensures actions are intercepted
+          testModeConfig,  // Pass the test mode configuration
+          mockVariation,   // Optional mock data variation
+          executionMode: 'sandbox',
+          inputData: {},
+          workflowData: {
+            nodes,
+            edges,
+          },
+          skipTriggers: testModeConfig.triggerMode === 'use_mock_data', // Only skip if using mock data
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute workflow')
+      }
+
+      const result = await response.json()
+
+      // Mark trigger as completed
+      if (triggerNode) {
+        setNodeStatuses(prev => ({ ...prev, [triggerNode.id]: 'completed' }))
+        addDebugLog('success', `Trigger completed: ${triggerNode.data?.title || triggerNode.data?.type}`)
+      }
+
+      // Process results with visual feedback for each node
+      if (result.results && Array.isArray(result.results)) {
+        for (const nodeResult of result.results) {
+          if (nodeResult.nodeId) {
+            const node = nodes.find(n => n.id === nodeResult.nodeId)
+            if (node) {
+              // Show node as running
+              setActiveExecutionNodeId(nodeResult.nodeId)
+              setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: 'running' }))
+              addDebugLog('info', `Executing: ${node.data?.title || node.data?.type}`)
+
+              // Visual delay to show the transition
+              await new Promise(resolve => setTimeout(resolve, 400))
+
+              // Update to final status
+              const status = nodeResult.success ? 'completed' : 'error'
+              setNodeStatuses(prev => ({ ...prev, [nodeResult.nodeId]: status }))
+              addDebugLog(
+                nodeResult.success ? 'success' : 'error',
+                `${node.data?.title || node.data?.type} ${nodeResult.success ? 'completed' : 'failed'}`,
+                nodeResult.error ? { error: nodeResult.error } : undefined
+              )
+            }
+          }
+        }
+      }
+
+      setActiveExecutionNodeId(null)
+
+      // Process intercepted actions
+      if (result.interceptedActions && Array.isArray(result.interceptedActions)) {
+        setSandboxInterceptedActions(result.interceptedActions)
+        setShowSandboxPreview(true)
+
+        addDebugLog('success', `Sandbox execution complete: ${result.interceptedActions.length} actions intercepted`)
+
+        toast({
+          title: "Sandbox Test Complete",
+          description: `${result.interceptedActions.length} actions were intercepted and can be reviewed`,
+        })
+      }
+
+      // Handle paused execution (HITL)
+      if (result.paused) {
+        addDebugLog('info', 'Workflow paused for human input', {
+          conversationId: result.conversationId,
+          pausedNodeId: result.pausedNodeId
+        })
+
+        // Set the paused node to a "waiting" status
+        if (result.pausedNodeId) {
+          setNodeStatuses(prev => ({
+            ...prev,
+            [result.pausedNodeId]: 'running' // Keep showing as active/running while waiting
+          }))
+          setActiveExecutionNodeId(result.pausedNodeId)
+        }
+
+        toast({
+          title: "Workflow Paused",
+          description: "Human input required. Check your Discord channel to continue.",
+        })
+
+        // Set executing to false but keep the paused state visible
+        setIsExecuting(false)
+        setIsStepMode(false)
+        setIsExecutingTest(false)
+
+        // Don't clear the node status or active node - keep them visible
+        return // Exit early to skip the finally block cleanup
+      }
+
+    } catch (error: any) {
+      logger.error('❌ [Sandbox Mode] Execution error:', error)
+      addDebugLog('error', 'Sandbox execution failed', { error: error.message })
+
+      toast({
+        title: "Sandbox Test Failed",
+        description: error.message || "Failed to execute workflow in sandbox mode",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExecuting(false)
+      setIsStepMode(false)
+      setIsExecutingTest(false)
+      setActiveExecutionNodeId(null)
+
+      // Clear node statuses after delay
+      setTimeout(() => {
+        setNodeStatuses({})
+      }, 5000)
+    }
+  }, [isExecutingTest, currentWorkflow, toast, addDebugLog, monitorExecution])
 
   // Start listening for webhook trigger
   const startWebhookListening = useCallback(async (nodes: Node[]) => {

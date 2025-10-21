@@ -165,37 +165,38 @@ export class AIActionExecutionService {
   }
 
   private getGeneralResponse(): ActionExecutionResult {
+    const greetings = [
+      "Hello! I'm here to help you get the most out of ChainReact.",
+      "Hi there! Great to see you.",
+      "Hey! Ready to streamline your workflows?",
+      "Welcome! Let's get you set up.",
+    ]
+
+    const greeting = greetings[Math.floor(Math.random() * greetings.length)]
+
     return {
-      content: `I can help you with:
+      content: `${greeting} Here's what I can help you with:
 
-**Your Integrations**
-- View and manage your connected apps (Gmail, Slack, Notion, etc.)
-- Connect new integrations
-- Check integration status
+### 🔗 Integrations & Connections
+Manage your connected apps—Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
 
-**Your Workflows**
-- List, activate, and deactivate workflows
-- Check workflow status
-- Get workflow information
+### ⚡ Workflows & Automation
+View your workflows, check their status, activate or pause them, and get detailed insights into how they're performing.
 
-**Your Data**
-- Query calendars, emails, files, and more
-- Search across all your connected apps
-- View productivity data (Notion, Airtable, Trello)
+### 📊 Data & Insights
+Query your calendars, browse emails, search files, and pull data from all your productivity tools like Notion, Airtable, and Trello.
 
-**App Knowledge**
-- Learn how to use ChainReact
-- Get help with features
-- Troubleshooting tips
+### 💡 Help & Guidance
+Learn how to build powerful workflows, discover ChainReact features, and get expert tips to optimize your automation.
 
-What would you like to do?`,
+**What would you like to explore first?**`,
       metadata: { type: "general_help" }
     }
   }
 
   getFallbackResponse(): ActionExecutionResult {
     return {
-      content: "I can help you with your integrations, workflows, and data across all your connected apps. What would you like to know or do?",
+      content: "I'm here to help! I can assist you with managing your integrations, optimizing your workflows, and accessing data across all your connected apps. What would you like to explore?",
       metadata: { type: "fallback" }
     }
   }

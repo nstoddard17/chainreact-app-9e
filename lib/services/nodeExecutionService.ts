@@ -154,8 +154,16 @@ export class NodeExecutionService {
       // This ensures the next node receives the actual data, not the wrapper
       const dataToPass = nodeResult?.output || nodeResult
 
-      // Execute connected nodes
-      await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
+      // Execute connected nodes ONLY if this node succeeded
+      // If a node fails (success: false), stop the workflow at this point
+      if (nodeResult?.success !== false) {
+        await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
+      } else {
+        logger.warn(`⚠️ Node ${node.id} failed, stopping execution of connected nodes`, {
+          error: nodeResult?.error,
+          message: nodeResult?.message
+        })
+      }
 
       const executionTime = Date.now() - startTime
       logger.debug(`✅ Node ${node.id} completed in ${executionTime}ms`)
