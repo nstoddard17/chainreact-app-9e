@@ -1,0 +1,93 @@
+=== Log Session Started: 2025-10-20T03:47:29.918Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T03:47:29.918Z] [INFO   ] File logging initialized
+[2025-10-20T03:47:29.918Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-47-29.log
+[2025-10-20T03:47:29.921Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T03:47:29.921Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-47-29.log
+[2025-10-20T03:47:29.921Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-47-29.log
+[2025-10-20T03:47:29.921Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-47-29.log
+[2025-10-20T03:47:29.921Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_22-47-29.log
+[2025-10-20T03:47:29.921Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T03:47:29.921Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T03:47:29.938Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.1s
+[2025-10-20T03:47:30.991Z] [INFO   ] 2025-10-20T03:47:30.991Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T03:47:32.832Z] [INFO   ] 2025-10-20T03:47:32.832Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T03:47:32.832Z] [INFO   ] 2025-10-20T03:47:32.832Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T03:47:33.027Z] [INFO   ] 2025-10-20T03:47:33.027Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T03:47:33.028Z] [INFO   ] 2025-10-20T03:47:33.028Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T03:47:33.209Z] [INFO   ] 2025-10-20T03:47:33.209Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T03:47:33.211Z] [INFO   ] 2025-10-20T03:47:33.210Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T03:47:33.423Z] [INFO   ] 2025-10-20T03:47:33.423Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"d2c3916b7b62bb1beeff31142a073ab3","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T03:47:33.423Z] [INFO   ] 2025-10-20T03:47:33.423Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T03:47:33.423Z] [INFO   ] 2025-10-20T03:47:33.423Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:47:33.434Z] [INFO   ] 2025-10-20T03:47:33.433Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T03:47:33.617Z] [INFO   ] 2025-10-20T03:47:33.617Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T03:47:46.862Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/execute ...
+[2025-10-20T03:47:49.961Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/execute in 3.7s (4686 modules)
+[2025-10-20T03:47:52.546Z] [INFO   ] 2025-10-20T03:47:52.546Z [DEBUG] === Workflow Execution Started (Refactored) ===
+[2025-10-20T03:47:52.547Z] [INFO   ] 2025-10-20T03:47:52.547Z [DEBUG] 📊 [Execute Route] Request content-length: 46930
+[2025-10-20T03:47:52.548Z] [INFO   ] 2025-10-20T03:47:52.548Z [DEBUG] 📊 [Execute Route] Request body text length: 46914
+[2025-10-20T03:47:52.548Z] [INFO   ] 2025-10-20T03:47:52.548Z [DEBUG] 📊 [Execute Route] Workflow data received: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","hasWorkflowData":true,"nodesCount":4,"nodeTypes":[{"id":"trigger-1760813764735","type":"gmail_trigger_new_email"},{"id":"action-1760841495900","type":"hitl_conversation"},{"id":"action-1760841551096","type":"discord_action_send_message"},{"id":"add-action-action-1760841551096"}],"hasTestModeConfig":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes","showDetailedSteps":true,"captureStepData":true}}
+[2025-10-20T03:47:52.548Z] [INFO   ] 2025-10-20T03:47:52.548Z [DEBUG] Execution parameters: {"workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","testMode":true,"executionMode":"sandbox","effectiveTestMode":true,"skipTriggers":true,"hasInputData":true,"hasWorkflowData":true}
+[2025-10-20T03:47:52.949Z] [INFO   ] 2025-10-20T03:47:52.949Z [DEBUG] Workflow found: {"id":"8340b576-0b3d-4af6-8e9b-8769b61147d1","name":"test","nodesCount":3}
+[2025-10-20T03:47:53.188Z] [INFO   ] 2025-10-20T03:47:53.188Z [DEBUG] User authenticated: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:47:53.189Z] [INFO   ] 2025-10-20T03:47:53.189Z [DEBUG] Skipping trigger node: trigger-1760813764735 (gmail_trigger_new_email)
+[2025-10-20T03:47:53.189Z] [INFO   ] 2025-10-20T03:47:53.189Z [DEBUG] Workflow structure: {"originalNodesCount":4,"filteredNodesCount":2,"skippedUINodes":2,"edgesCount":1,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:47:53.189Z] [INFO   ] 2025-10-20T03:47:53.189Z [DEBUG] Action nodes found (triggers skipped): 2
+[2025-10-20T03:47:53.189Z] [INFO   ] 2025-10-20T03:47:53.189Z [DEBUG] Starting workflow execution with effectiveTestMode: true
+[2025-10-20T03:47:53.190Z] [INFO   ] 2025-10-20T03:47:53.190Z [DEBUG] 🚀 Starting workflow execution service {"testMode":true,"testModeConfig":{"triggerMode":"use_mock_data","actionMode":"intercept_writes"}}
+[2025-10-20T03:47:53.190Z] [INFO   ] 2025-10-20T03:47:53.190Z [DEBUG] Executing workflow with: {"originalNodesCount":2,"validNodesCount":2,"skippedNodes":0,"connectionsCount":1,"usingWorkflowData":true,"nodeTypes":["hitl_conversation","discord_action_send_message"]}
+[2025-10-20T03:47:53.190Z] [INFO   ] 2025-10-20T03:47:53.190Z [DEBUG] ⚙️ Fallback: starting from 1 root action node(s) (no triggers present)
+[2025-10-20T03:47:53.191Z] [INFO   ] 2025-10-20T03:47:53.190Z [DEBUG] 🔄 ExecutionProgressTracker.initialize called {"executionId":"exec-1760932073190-vzadm","workflowId":"8340b576-0b3d-4af6-8e9b-8769b61147d1","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","totalNodes":2}
+[2025-10-20T03:47:53.298Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-20T03:47:53.302Z] [INFO   ] 2025-10-20T03:47:53.302Z [DEBUG] ✅ Execution progress tracker initialized: 703bb207-5104-44dc-bbbf-05a365884a23
+[2025-10-20T03:47:53.527Z] [INFO   ] 2025-10-20T03:47:53.527Z [DEBUG] 📝 Started execution history tracking: 7323da4f-8a2c-44ef-8c2d-af40ac11920b
+[2025-10-20T03:47:53.527Z] [INFO   ] 2025-10-20T03:47:53.527Z [DEBUG] 🔧 Creating execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:47:53.539Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 741ms (4688 modules)
+[2025-10-20T03:47:53.640Z] [INFO   ] 2025-10-20T03:47:53.639Z [DEBUG] 📊 Loaded 0 workflow variables
+[2025-10-20T03:47:53.640Z] [INFO   ] 2025-10-20T03:47:53.640Z [DEBUG] ✅ Created execution context with userId: a3e3a51a-175c-4b59-ad03-227ba12a18b0
+[2025-10-20T03:47:53.640Z] [INFO   ] 2025-10-20T03:47:53.640Z [DEBUG] 📍 Starting execution with 1 starting nodes
+[2025-10-20T03:47:53.640Z] [INFO   ] 2025-10-20T03:47:53.640Z [DEBUG] 🎯 Executing action node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:47:53.640Z] [INFO   ] 2025-10-20T03:47:53.640Z [DEBUG] Updating execution progress: {"currentNodeId":"action-1760841495900","currentNodeName":"Ask Human via Chat","progressPercentage":0}
+[2025-10-20T03:47:53.725Z] [INFO   ] 2025-10-20T03:47:53.725Z [DEBUG] 🔧 Executing node: action-1760841495900 (hitl_conversation)
+[2025-10-20T03:47:53.874Z] [INFO   ] 2025-10-20T03:47:53.874Z [DEBUG] 📝 Recorded step 1: hitl_conversation (action-1760841495900)
+[2025-10-20T03:47:53.875Z] [INFO   ] 2025-10-20T03:47:53.875Z [DEBUG] 💬 Executing HITL conversation node
+[2025-10-20T03:47:53.878Z] [INFO   ] 2025-10-20T03:47:53.878Z [DEBUG] 🔍 Resolving variable: {{*}}
+[2025-10-20T03:47:53.878Z] [INFO   ] 2025-10-20T03:47:53.878Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:47:53.878Z] [INFO   ] 2025-10-20T03:47:53.878Z [DEBUG] [HITL] No external memory document configured
+[2025-10-20T03:47:53.879Z] [INFO   ] 2025-10-20T03:47:53.878Z [DEBUG] 🔍 Resolving variable: **Workflow Paused for Review**
+
+Here's the data from the previous step:
+{{*}}
+
+Let me know when you're ready to continue!
+[2025-10-20T03:47:53.879Z] [INFO   ] 2025-10-20T03:47:53.879Z [DEBUG] 🔍 Available input keys: 
+[2025-10-20T03:47:54.071Z] [INFO   ] 2025-10-20T03:47:54.070Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429677482881192008","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n\nLet me know when you're re","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:47:54.071Z] [INFO   ] 2025-10-20T03:47:54.071Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:47:54.265Z] [INFO   ] 2025-10-20T03:47:54.265Z [DEBUG] 📡 Discord event received: MESSAGE_UPDATE
+[2025-10-20T03:47:54.274Z] [INFO   ] 2025-10-20T03:47:54.274Z [DEBUG] 📡 Discord event received: THREAD_CREATE
+[2025-10-20T03:47:54.288Z] [INFO   ] 2025-10-20T03:47:54.288Z [DEBUG] 📡 Discord event received: THREAD_MEMBER_UPDATE
+[2025-10-20T03:47:54.304Z] [INFO   ] 2025-10-20T03:47:54.304Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429677483741024317","channelId":"1429677482881192008","guildId":"1378950884045623406","content":"","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:47:54.304Z] [INFO   ] 2025-10-20T03:47:54.304Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:47:54.414Z] [INFO   ] 2025-10-20T03:47:54.413Z [INFO] HITL Discord message sent with thread {"messageId":"1429677482881192008","threadId":"1429677482881192008","conversationId":"hitl_exec-1760932073190-vzadm_action-1760841495900_1760932073879"}
+[2025-10-20T03:47:54.500Z] [ERROR  ] 2025-10-20T03:47:54.500Z [ERROR] Failed to create HITL conversation {"error":{"code":"22P02","details":null,"hint":null,"message":"invalid input syntax for type uuid: \"exec-1760932073190-vzadm\""}}
+[2025-10-20T03:47:54.501Z] [ERROR  ] 2025-10-20T03:47:54.501Z [ERROR] HITL execution error {"error":"Failed to create conversation record: invalid input syntax for type uuid: \"exec-1760932073190-vzadm\""}
+[2025-10-20T03:47:54.501Z] [INFO   ] 2025-10-20T03:47:54.501Z [DEBUG] 💾 Stored output for node action-1760841495900: {"success":false,"dataKeys":["success","error","message"]}
+[2025-10-20T03:47:54.501Z] [WARN   ] 2025-10-20T03:47:54.501Z [WARN] ⚠️ Node action-1760841495900 failed, stopping execution of connected nodes {"error":"Failed to create conversation record: invalid input syntax for type uuid: \"exec-1760932073190-vzadm\"","message":"HITL failed: Failed to create conversation record: invalid input syntax for type uuid: \"exec-1760932073190-vzadm\""}
+[2025-10-20T03:47:54.501Z] [INFO   ] 2025-10-20T03:47:54.501Z [DEBUG] ✅ Node action-1760841495900 completed in 776ms
+[2025-10-20T03:47:54.660Z] [INFO   ] 2025-10-20T03:47:54.659Z [DEBUG] ✅ Step action-1760841495900 completed (775ms)
+[2025-10-20T03:47:54.660Z] [INFO   ] 2025-10-20T03:47:54.660Z [DEBUG]    Node action-1760841495900 execution result: {"success":false,"hasError":true,"hasResults":false}
+[2025-10-20T03:47:54.660Z] [INFO   ] 2025-10-20T03:47:54.660Z [DEBUG] Updating execution progress: {"completedNodes":[],"failedNodes":[{"nodeId":"action-1760841495900","error":"Failed to create conversation record: invalid input syntax for type uuid: \"exec-1760932073190-vzadm\""}],"progressPercentage":0}
+[2025-10-20T03:47:54.746Z] [INFO   ] 2025-10-20T03:47:54.746Z [DEBUG] ✅ Workflow execution completed with 1 results
+[2025-10-20T03:47:54.747Z] [INFO   ] 2025-10-20T03:47:54.747Z [DEBUG] Updating execution progress: {"status":"failed","errorMessage":"Workflow execution completed with errors","progressPercentage":100}
+[2025-10-20T03:47:54.831Z] [INFO   ] 2025-10-20T03:47:54.831Z [DEBUG] ✅ Execution failed
+[2025-10-20T03:47:54.907Z] [INFO   ] 2025-10-20T03:47:54.907Z [DEBUG] ✅ Execution 7323da4f-8a2c-44ef-8c2d-af40ac11920b completed
+[2025-10-20T03:47:54.908Z] [INFO   ] 2025-10-20T03:47:54.907Z [DEBUG] Workflow execution completed successfully
+[2025-10-20T03:49:03.712Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-20T03:49:04.180Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1034ms (2678 modules)
+
+=== Log Session Ended: 2025-10-20T04:01:22.734Z ===

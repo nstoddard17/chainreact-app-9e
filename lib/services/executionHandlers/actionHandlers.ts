@@ -343,42 +343,22 @@ export class ActionNodeHandlers {
     logger.debug("💬 Executing HITL conversation node")
 
     const config = node.data.config || {}
-    const channel = config.channel || "discord"
 
-    // In test mode, return a mock response immediately
-    if (context.testMode) {
-      logger.debug("Test mode: Simulating HITL conversation")
-      return {
-        success: true,
-        output: {
-          status: "simulated",
-          conversationSummary: "Test mode: Conversation would pause here and wait for human response",
-          messagesCount: 0,
-          duration: 0,
-          extractedVariables: {},
-          conversationHistory: [],
-          testMode: true
-        }
+    // Import and execute the actual HITL action
+    // HITL should pause execution even in test mode - it's a critical interaction point
+    const { executeHITL } = await import('@/lib/workflows/actions/hitl')
+
+    return await executeHITL(
+      config,
+      context.userId,
+      context.data,
+      {
+        workflowId: context.workflowId,
+        nodeId: node.id,
+        executionId: context.executionId,
+        testMode: context.testMode
       }
-    }
-
-    // For now, return an error indicating this feature is not fully implemented
-    // TODO: Implement full HITL conversation logic with Discord integration
-    logger.warn("HITL conversation attempted but not fully implemented yet")
-
-    return {
-      success: false,
-      output: {
-        status: "not_implemented",
-        error: "HITL conversation feature is not yet fully implemented",
-        conversationSummary: "This feature will pause the workflow and allow human interaction via chat",
-        messagesCount: 0,
-        duration: 0,
-        extractedVariables: {},
-        conversationHistory: []
-      },
-      message: "HITL conversation is not yet fully implemented. In test mode, it will simulate a successful conversation."
-    }
+    )
   }
 
 

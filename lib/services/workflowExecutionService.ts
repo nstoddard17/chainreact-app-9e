@@ -158,14 +158,32 @@ export class WorkflowExecutionService {
       }
     }
 
-    // Generate execution ID
-    const executionId = `exec-${Date.now()}-${Math.random().toString(36).substring(7)}`
+    // Create UUID-based execution record in workflow_executions table
+    // This is required for HITL which references this table
+    const { data: executionRecord, error: execError } = await supabase
+      .from("workflow_executions")
+      .insert({
+        workflow_id: workflow.id,
+        user_id: userId,
+        status: "running",
+        input_data: inputData ?? {},
+        started_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (execError) {
+      logger.error('Failed to create workflow execution record:', execError)
+      throw new Error(`Failed to create execution record: ${execError.message}`)
+    }
+
+    const executionId = executionRecord.id // This is a UUID
 
     // Initialize progress tracker for live mode
     const progressTracker = new ExecutionProgressTracker()
     await progressTracker.initialize(executionId, workflow.id, userId, nodes.length)
 
-    // Start execution history tracking
+    // Start execution history tracking (for detailed step tracking)
     let executionHistoryId: string | null = null
     try {
       executionHistoryId = await executionHistoryService.startExecution(
@@ -243,6 +261,22 @@ export class WorkflowExecutionService {
       if (result?.pauseExecution) {
         logger.info(`⏸️  Workflow paused at node ${startNode.id} (HITL conversation initiated)`)
 
+        // Update workflow_executions record to paused status
+        const { error: pauseError } = await supabase
+          .from("workflow_executions")
+          .update({
+            status: "paused",
+            paused_node_id: startNode.id,
+            paused_at: new Date().toISOString(),
+            resume_data: result.output,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", executionId)
+
+        if (pauseError) {
+          logger.error('Failed to update execution to paused status:', pauseError)
+        }
+
         // Update progress tracker to paused state
         await progressTracker.pause(startNode.id, startNode.data.title || 'Human input required')
 
@@ -293,14 +327,29 @@ export class WorkflowExecutionService {
     const hasErrors = failedNodeIds.length > 0
     await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow execution completed with errors' : undefined)
 
+    // Update workflow_executions record to completed status
+    const finalStatus = hasErrors ? "failed" : "completed"
+    const { error: completeError } = await supabase
+      .from("workflow_executions")
+      .update({
+        status: finalStatus,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", executionId)
+
+    if (completeError) {
+      logger.error('Failed to update execution to completed status:', completeError)
+    }
+
     // Complete execution history tracking
     if (executionHistoryId) {
       try {
         await executionHistoryService.completeExecution(
           executionHistoryId,
-          'completed',
+          finalStatus,
           results,
-          undefined
+          hasErrors ? `Workflow completed with ${failedNodeIds.length} error(s)` : undefined
         )
       } catch (error) {
         logger.error('Failed to complete execution history:', error)
@@ -320,7 +369,7 @@ export class WorkflowExecutionService {
     return {
       results,
       executionHistoryId,
-      success: true,
+      success: !hasErrors,
       executionId
     }
   }

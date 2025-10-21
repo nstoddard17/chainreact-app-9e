@@ -1,0 +1,85 @@
+=== Log Session Started: 2025-10-20T01:57:43.205Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-20T01:57:43.205Z] [INFO   ] File logging initialized
+[2025-10-20T01:57:43.205Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_20-57-43.log
+[2025-10-20T01:57:43.208Z] [INFO   ] 📁 File logging enabled
+[2025-10-20T01:57:43.208Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_20-57-43.log
+[2025-10-20T01:57:43.208Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_20-57-43.log
+[2025-10-20T01:57:43.208Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_20-57-43.log
+[2025-10-20T01:57:43.208Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-19_20-57-43.log
+[2025-10-20T01:57:43.208Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-20T01:57:43.208Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-20T01:57:43.221Z] [INFO   ]  ✓ Ready in 3.2s
+[2025-10-20T01:57:44.252Z] [INFO   ] 2025-10-20T01:57:44.252Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-20T01:57:47.156Z] [INFO   ] 2025-10-20T01:57:47.156Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-20T01:57:47.156Z] [INFO   ] 2025-10-20T01:57:47.156Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T01:57:47.476Z] [INFO   ] 2025-10-20T01:57:47.476Z [DEBUG] Discord Gateway initialization complete
+[2025-10-20T01:57:47.478Z] [INFO   ] 2025-10-20T01:57:47.478Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-20T01:57:47.645Z] [INFO   ] 2025-10-20T01:57:47.645Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T01:57:47.646Z] [INFO   ] 2025-10-20T01:57:47.646Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T01:57:47.878Z] [INFO   ] 2025-10-20T01:57:47.878Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"e07fb1973faeeb8f2367aa1790f22c36","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T01:57:47.878Z] [INFO   ] 2025-10-20T01:57:47.878Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T01:57:47.884Z] [INFO   ] 2025-10-20T01:57:47.884Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T01:57:47.893Z] [INFO   ] 2025-10-20T01:57:47.893Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T01:57:48.149Z] [INFO   ] 2025-10-20T01:57:48.149Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T02:10:52.385Z] [INFO   ] 2025-10-20T02:10:52.376Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429653064377434197","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"Test","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T02:10:52.388Z] [INFO   ] 2025-10-20T02:10:52.388Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T02:54:36.081Z] [INFO   ] 2025-10-20T02:54:36.074Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429664069362909305","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"Test","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T02:54:36.083Z] [INFO   ] 2025-10-20T02:54:36.083Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T02:54:59.422Z] [INFO   ] 2025-10-20T02:54:59.421Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T02:55:01.636Z] [INFO   ] 2025-10-20T02:55:01.634Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T02:55:02.836Z] [INFO   ] 2025-10-20T02:55:02.836Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T03:01:58.924Z] [INFO   ] 2025-10-20T03:01:58.923Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429665927011766272","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"Test","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:01:58.925Z] [INFO   ] 2025-10-20T03:01:58.924Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:02:56.634Z] [INFO   ] 2025-10-20T03:02:56.633Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429666168750477327","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"Test","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:02:56.637Z] [INFO   ] 2025-10-20T03:02:56.635Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:05:40.218Z] [INFO   ]  ✓ Compiled in 960ms (2241 modules)
+[2025-10-20T03:29:24.151Z] [INFO   ] 2025-10-20T03:29:24.137Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429672827401015398","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n\nLet me know when you're re","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:29:24.154Z] [INFO   ] 2025-10-20T03:29:24.154Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:29:24.286Z] [INFO   ] 2025-10-20T03:29:24.286Z [DEBUG] 📡 Discord event received: MESSAGE_UPDATE
+[2025-10-20T03:29:24.305Z] [INFO   ] 2025-10-20T03:29:24.305Z [DEBUG] 📡 Discord event received: THREAD_CREATE
+[2025-10-20T03:29:24.307Z] [INFO   ] 2025-10-20T03:29:24.307Z [DEBUG] 📡 Discord event received: THREAD_MEMBER_UPDATE
+[2025-10-20T03:29:24.320Z] [INFO   ] 2025-10-20T03:29:24.320Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429672828319563838","channelId":"1429672827401015398","guildId":"1378950884045623406","content":"","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:29:24.320Z] [INFO   ] 2025-10-20T03:29:24.320Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:38:30.159Z] [INFO   ] 2025-10-20T03:38:30.157Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T03:38:31.300Z] [INFO   ] 2025-10-20T03:38:31.300Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T03:47:54.082Z] [INFO   ] 2025-10-20T03:47:54.081Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429677482881192008","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n\nLet me know when you're re","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:47:54.083Z] [INFO   ] 2025-10-20T03:47:54.083Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T03:47:54.274Z] [INFO   ] 2025-10-20T03:47:54.274Z [DEBUG] 📡 Discord event received: MESSAGE_UPDATE
+[2025-10-20T03:47:54.275Z] [INFO   ] 2025-10-20T03:47:54.275Z [DEBUG] 📡 Discord event received: THREAD_CREATE
+[2025-10-20T03:47:54.275Z] [INFO   ] 2025-10-20T03:47:54.275Z [DEBUG] 📡 Discord event received: THREAD_MEMBER_UPDATE
+[2025-10-20T03:47:54.304Z] [INFO   ] 2025-10-20T03:47:54.300Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429677483741024317","channelId":"1429677482881192008","guildId":"1378950884045623406","content":"","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T03:47:54.304Z] [INFO   ] 2025-10-20T03:47:54.304Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T04:14:08.324Z] [INFO   ] 2025-10-20T04:14:08.323Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429684085772652678","channelId":"1378950885044125758","guildId":"1378950884045623406","content":"**Workflow Paused for Review**\n\nHere's the data from the previous step:\n\n\nLet me know when you're re","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T04:14:08.325Z] [INFO   ] 2025-10-20T04:14:08.325Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T04:14:08.499Z] [INFO   ] 2025-10-20T04:14:08.499Z [DEBUG] 📡 Discord event received: MESSAGE_UPDATE
+[2025-10-20T04:14:08.509Z] [INFO   ] 2025-10-20T04:14:08.509Z [DEBUG] 📡 Discord event received: THREAD_CREATE
+[2025-10-20T04:14:08.515Z] [INFO   ] 2025-10-20T04:14:08.514Z [DEBUG] 📡 Discord event received: THREAD_MEMBER_UPDATE
+[2025-10-20T04:14:08.534Z] [INFO   ] 2025-10-20T04:14:08.534Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429684086624096256","channelId":"1429684085772652678","guildId":"1378950884045623406","content":"","author":"ChainReact-Bot","isBot":true}
+[2025-10-20T04:14:08.535Z] [INFO   ] 2025-10-20T04:14:08.535Z [DEBUG] 🤖 Ignoring bot message
+[2025-10-20T04:14:19.079Z] [INFO   ] 2025-10-20T04:14:19.078Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T04:14:19.853Z] [INFO   ] 2025-10-20T04:14:19.853Z [DEBUG] 📡 Discord event received: MESSAGE_DELETE
+[2025-10-20T04:14:28.187Z] [INFO   ] 2025-10-20T04:14:28.186Z [DEBUG] 📡 Discord event received: THREAD_MEMBERS_UPDATE
+[2025-10-20T04:14:28.188Z] [INFO   ] 2025-10-20T04:14:28.188Z [DEBUG] 🔵 Discord MESSAGE_CREATE received: {"messageId":"1429684168618545285","channelId":"1429684085772652678","guildId":"1378950884045623406","content":"there is no data?","author":"fpsrookie"}
+[2025-10-20T04:14:28.188Z] [INFO   ] 2025-10-20T04:14:28.188Z [DEBUG] 💬 Processing user message for workflows
+[2025-10-20T04:14:28.195Z] [INFO   ] 2025-10-20T04:14:28.195Z [DEBUG] 📍 Using development URL: https://9b7007881520.ngrok-free.app (NEXT_PUBLIC_WEBHOOK_HTTPS_URL)
+[2025-10-20T04:14:28.195Z] [INFO   ] 2025-10-20T04:14:28.195Z [DEBUG] 📤 Sending Discord message to workflow endpoint: https://9b7007881520.ngrok-free.app/api/workflow/discord
+[2025-10-20T04:14:28.197Z] [INFO   ] 2025-10-20T04:14:28.195Z [DEBUG] 📨 Message details: {"messageId":"1429684168618545285","channelId":"1429684085772652678","guildId":"1378950884045623406","content":"there is no data?...","author":"fpsrookie"}
+[2025-10-20T04:14:28.401Z] [ERROR  ] 2025-10-20T04:14:28.400Z [ERROR] Failed to process Discord message for workflows: 404
+[2025-10-20T04:16:55.432Z] [INFO   ]  ✓ Compiled in 1031ms (2241 modules)
+[2025-10-20T04:17:02.695Z] [INFO   ]  ✓ Compiled in 229ms (2241 modules)
+[2025-10-20T04:17:21.414Z] [INFO   ]  ✓ Compiled in 311ms (2241 modules)
+[2025-10-20T04:29:04.982Z] [INFO   ] 2025-10-20T04:29:04.981Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-20T04:29:05.037Z] [INFO   ] 2025-10-20T04:29:05.037Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-20T04:29:05.450Z] [INFO   ] 2025-10-20T04:29:05.450Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-20T04:29:05.453Z] [INFO   ] 2025-10-20T04:29:05.453Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-20T04:29:05.621Z] [INFO   ] 2025-10-20T04:29:05.621Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"e56d50d9ef645494e507d2bdf75ea046","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-20T04:29:05.622Z] [INFO   ] 2025-10-20T04:29:05.621Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-20T04:29:05.625Z] [INFO   ] 2025-10-20T04:29:05.625Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T04:29:05.632Z] [INFO   ] 2025-10-20T04:29:05.632Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-20T04:29:05.827Z] [INFO   ] 2025-10-20T04:29:05.827Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-20T06:19:16.754Z] [INFO   ] 2025-10-20T06:19:16.752Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
