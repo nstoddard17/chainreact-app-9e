@@ -10,7 +10,7 @@ import type {
   TemplateSetupOverview,
   TemplateSetupRequirementResponse,
 } from '@/types/templateSetup'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 interface TemplateWithSetup {
   id: string
@@ -31,7 +31,7 @@ async function getTemplate(templateId: string): Promise<TemplateWithSetup | null
     return predefined as TemplateWithSetup
   }
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data, error } = await supabase
     .from('templates')
     .select('*')
@@ -116,7 +116,7 @@ export async function GET(
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const overviewSource = template.draft_setup_overview ?? template.setup_overview ?? null
     const primarySetupTarget = template.primary_setup_target ?? null
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 import { getTemplateById } from "@/lib/templates/predefinedTemplates"
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { getDecryptedAccessToken } from "@/lib/workflows/actions/core/getDecryptedAccessToken"
 import type { AirtableTableSchema } from "@/types/templateSetup"
 
@@ -29,7 +29,7 @@ async function loadTemplate(templateId: string): Promise<TemplateWithSetup | nul
     return predefined as TemplateWithSetup
   }
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data, error } = await supabase
     .from("templates")
     .select("*")
@@ -332,7 +332,7 @@ export async function POST(
       )
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },
       error,

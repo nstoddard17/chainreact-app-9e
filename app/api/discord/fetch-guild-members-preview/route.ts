@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { fetchDiscordGuildMembers } from '@/lib/workflows/actions/discord'
 
 import { logger } from '@/lib/utils/logger'
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from session
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {

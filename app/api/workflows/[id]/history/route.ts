@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
 
 import { logger } from '@/lib/utils/logger'
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()
@@ -50,7 +50,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Check authentication
     const { data: { user } } = await supabase.auth.getUser()

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       , 400)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Check if user has a connected Microsoft Outlook integration
     const { data: integration, error: integrationError } = await supabase

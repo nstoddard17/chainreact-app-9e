@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { generateDynamicWorkflow } from "@/lib/ai/dynamicWorkflowAI"
 import { nodeRegistry, getAllNodes } from "@/lib/workflows/nodes/registry"
@@ -11,7 +11,7 @@ import { logger } from '@/lib/utils/logger'
 export async function POST(request: NextRequest) {
   try {
     cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get authenticated user
     const {

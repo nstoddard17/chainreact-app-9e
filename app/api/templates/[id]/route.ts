@@ -1,12 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 
 async function requireTemplateAccess(templateId: string) {
   cookies()
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
 
   const {
     data: { user },

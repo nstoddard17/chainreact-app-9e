@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
@@ -37,7 +37,7 @@ interface ChatRequest {
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Check for admin test mode
     const testUserId = request.headers.get('X-Test-User-Id')

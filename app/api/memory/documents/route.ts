@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 
 /**
@@ -17,7 +17,7 @@ import { logger } from '@/lib/utils/logger'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

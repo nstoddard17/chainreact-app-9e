@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { processConversationMessage } from '@/lib/workflows/actions/hitl/conversation'
 import { sendDiscordThreadMessage } from '@/lib/workflows/actions/hitl/discord'
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find HITL conversation for this channel (active or timeout)
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     const { data: conversation, error } = await supabase
       .from('hitl_conversations')

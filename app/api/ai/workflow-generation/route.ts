@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { generateWorkflowFromPrompt } from "@/lib/ai/workflowGenerator"
 
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     logger.debug("🔍 Workflow generation API called")
     cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get authenticated user
     const {
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     cookies()
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Get authenticated user
     const {
