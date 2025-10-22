@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { sendDiscordThreadMessage } from '@/lib/workflows/actions/hitl/discord'
 
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     logger.info('[HITL Timeout] Starting timeout check')
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Find all active conversations that have passed their timeout
     const { data: expiredConversations, error: fetchError } = await supabase

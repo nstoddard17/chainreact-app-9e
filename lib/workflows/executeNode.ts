@@ -350,18 +350,37 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     try {
       const result = await handler(processedConfig, userId, input)
       const executionTime = Date.now() - startTime
-      
+
+      // Check if the action actually succeeded
+      if (result.success === false) {
+        const errorMessage = result.message || result.error || 'Wait action failed'
+        const error = new Error(errorMessage)
+
+        const errorEntry = createExecutionLogEntry(node, 'error', {
+          input: { config: processedConfig, previousOutputs: input?.previousResults },
+          error: { message: errorMessage, details: result.error, output: result.output },
+          executionTime
+        })
+
+        if (workflowId) {
+          storeExecutionLog(workflowId, errorEntry)
+          logger.error('[Wait Failed]', formatExecutionLogEntry(errorEntry))
+        }
+
+        throw error
+      }
+
       const logEntry = createExecutionLogEntry(node, 'completed', {
         input: { config: processedConfig, previousOutputs: input?.previousResults },
         output: result.output || result,
         executionTime
       })
-      
+
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
         logger.debug('[Wait Completed]', formatExecutionLogEntry(logEntry))
       }
-      
+
       return result
     } catch (error: any) {
       const executionTime = Date.now() - startTime
@@ -389,18 +408,37 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     try {
       const result = await aiHandler({ config: processedConfig, userId, input })
       const executionTime = Date.now() - startTime
-      
+
+      // Check if the action actually succeeded
+      if (result.success === false) {
+        const errorMessage = result.message || result.error || `${type} failed`
+        const error = new Error(errorMessage)
+
+        const errorEntry = createExecutionLogEntry(node, 'error', {
+          input: { config: processedConfig, previousOutputs: input?.previousResults },
+          error: { message: errorMessage, details: result.error, output: result.output },
+          executionTime
+        })
+
+        if (workflowId) {
+          storeExecutionLog(workflowId, errorEntry)
+          logger.error(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Failed]`, formatExecutionLogEntry(errorEntry))
+        }
+
+        throw error
+      }
+
       const logEntry = createExecutionLogEntry(node, 'completed', {
         input: { config: processedConfig, previousOutputs: input?.previousResults },
         output: result.output || result,
         executionTime
       })
-      
+
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
         logger.debug(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
       }
-      
+
       return result
     } catch (error: any) {
       const executionTime = Date.now() - startTime
@@ -464,18 +502,37 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
         input
       )
       const executionTime = Date.now() - startTime
-      
+
+      // Check if the action actually succeeded
+      if (result.success === false) {
+        const errorMessage = result.message || result.error || 'Generic action failed'
+        const error = new Error(errorMessage)
+
+        const errorEntry = createExecutionLogEntry(node, 'error', {
+          input: { config: processedConfig, previousOutputs: input?.previousResults },
+          error: { message: errorMessage, details: result.error, output: result.output },
+          executionTime
+        })
+
+        if (workflowId) {
+          storeExecutionLog(workflowId, errorEntry)
+          logger.error('[Generic Action Failed]', formatExecutionLogEntry(errorEntry))
+        }
+
+        throw error
+      }
+
       const logEntry = createExecutionLogEntry(node, 'completed', {
         input: { config: processedConfig, previousOutputs: input?.previousResults },
         output: result.output || result,
         executionTime
       })
-      
+
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
         logger.debug('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
       }
-      
+
       return result
     } catch (error: any) {
       const executionTime = Date.now() - startTime
@@ -515,7 +572,44 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   try {
     const result = await handler({ config: processedConfig, userId, input })
     const executionTime = Date.now() - startTime
-    
+
+    // CRITICAL: Check if the action actually succeeded
+    // Some actions return {success: false} instead of throwing errors
+    // This check ensures ALL failures are caught and properly reported
+    if (result.success === false) {
+      const errorMessage = result.message || result.error || 'Action failed without error message'
+      const error = new Error(errorMessage)
+
+      // Create error log entry
+      const errorLogEntry = createExecutionLogEntry(
+        node,
+        'error',
+        {
+          trigger: node.data.isTrigger ? input?.trigger : undefined,
+          input: { config: processedConfig, previousOutputs: input?.previousResults },
+          error: {
+            message: errorMessage,
+            details: result.error || result.details,
+            output: result.output
+          },
+          executionTime
+        }
+      )
+
+      // Store and log the error
+      if (workflowId) {
+        storeExecutionLog(workflowId, errorLogEntry)
+        const formattedLog = formatExecutionLogEntry(errorLogEntry)
+        logger.error('[Execution Failed]', formattedLog)
+        // Add to backend logger for debug modal
+        if (input?.executionId) {
+          logError(input.executionId, '[Execution Failed]', formattedLog)
+        }
+      }
+
+      throw error
+    }
+
     // Create success log entry
     const successLogEntry = createExecutionLogEntry(
       node,
@@ -527,7 +621,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
         executionTime
       }
     )
-    
+
     // Store and log the success
     if (workflowId) {
       storeExecutionLog(workflowId, successLogEntry)
@@ -538,7 +632,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
         logSuccess(input.executionId, '[Execution Completed]', formattedLog)
       }
     }
-    
+
     return result
   } catch (error: any) {
     const executionTime = Date.now() - startTime

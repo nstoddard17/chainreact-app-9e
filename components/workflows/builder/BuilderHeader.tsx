@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react"
+import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -74,7 +74,7 @@ interface BuilderHeaderProps {
   setShowExecutionHistory?: (show: boolean) => void
 }
 
-export function BuilderHeader({
+const BuilderHeaderComponent = ({
   workflowName,
   setWorkflowName,
   hasUnsavedChanges = false,
@@ -101,59 +101,124 @@ export function BuilderHeader({
   canUndo = false,
   canRedo = false,
   setShowExecutionHistory,
-}: BuilderHeaderProps) {
+}: BuilderHeaderProps) => {
+  const { toast } = useToast()
+  const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
+  const { profile } = useAuthStore()
+  const isAdmin = profile?.role === "admin"
+
   const [isEditingName, setIsEditingName] = useState(false)
   const [showVersionsDialog, setShowVersionsDialog] = useState(false)
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  // Share dialog state
-  const [shareEmail, setShareEmail] = useState('')
-  const [shareMode, setShareMode] = useState<'view' | 'edit' | 'duplicate'>('view')
-  const [shareUrl, setShareUrl] = useState('')
+  const [shareEmail, setShareEmail] = useState("")
+  const [shareMode, setShareMode] = useState<"view" | "edit" | "duplicate">("view")
+  const [shareUrl, setShareUrl] = useState("")
   const [isGeneratingLink, setIsGeneratingLink] = useState(false)
-
-  // Import dialog state
-  const [importJson, setImportJson] = useState('')
+  const [importJson, setImportJson] = useState("")
   const [isImporting, setIsImporting] = useState(false)
 
-  const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
-  const { toast } = useToast()
+  const isSavingRef = useRef(false)
 
-  const isActive = currentWorkflow?.status === 'active'
+  const statusBadge = useMemo(() => {
+    if (isExecuting) {
+      return { text: "Running", className: "bg-blue-50 text-blue-600 border-blue-200" }
+    }
+    if (isSaving) {
+      return { text: "Saving…", className: "bg-muted text-muted-foreground border-muted" }
+    }
+    if (hasUnsavedChanges) {
+      return { text: "Unsaved", className: "bg-orange-50 text-orange-600 border-orange-300" }
+    }
+    return null
+  }, [hasUnsavedChanges, isExecuting, isSaving])
+
+  const isTemplateInstance = Boolean(editTemplateId || currentWorkflow?.source_template_id)
+
+  const canDeleteWorkflow =
+    isAdmin || (!isTemplateInstance && (!currentWorkflow?.user_id || currentWorkflow?.user_id === profile?.id))
+
+  const handleNameCommit = useCallback(() => {
+    setIsEditingName(false)
+
+    if (!handleSave) {
+      return
+    }
+
+    if (isSavingRef.current || isSaving || !hasUnsavedChanges) {
+      return
+    }
+
+    isSavingRef.current = true
+    handleSave().finally(() => {
+      setTimeout(() => {
+        isSavingRef.current = false
+      }, 100)
+    })
+  }, [handleSave, hasUnsavedChanges, isSaving])
+
+  useEffect(() => {
+    if (!isSaving) {
+      isSavingRef.current = false
+    }
+  }, [isSaving])
+
+  const handleDuplicateClick = useCallback(() => {
+    if (workflowId) {
+      duplicateWorkflow(workflowId)
+    }
+  }, [duplicateWorkflow, workflowId])
+
+  const handleDeleteClick = useCallback(() => {
+    if (!canDeleteWorkflow) {
+      toast({
+        title: "Permission denied",
+        description: "You do not have permission to delete this workflow.",
+        variant: "destructive",
+      })
+      return
+    }
+    setShowDeleteConfirm(true)
+  }, [canDeleteWorkflow, toast])
+
+  const handleConfirmDelete = useCallback(() => {
+    if (workflowId && canDeleteWorkflow) {
+      deleteWorkflow(workflowId)
+      setShowDeleteConfirm(false)
+    }
+  }, [canDeleteWorkflow, deleteWorkflow, workflowId])
+
+  const isActive = currentWorkflow?.status === "active"
 
   const handleGenerateShareLink = async () => {
     if (!workflowId) return
 
     setIsGeneratingLink(true)
     try {
-      // Generate shareable URL based on mode
       const baseUrl = window.location.origin
-      let url = ''
+      let url = ""
 
-      if (shareMode === 'view') {
+      if (shareMode === "view") {
         url = `${baseUrl}/workflows/view/${workflowId}`
-      } else if (shareMode === 'edit') {
+      } else if (shareMode === "edit") {
         url = `${baseUrl}/workflows/builder/${workflowId}?collaborative=true`
       } else {
         url = `${baseUrl}/workflows/duplicate/${workflowId}`
       }
 
       setShareUrl(url)
-
-      // Copy to clipboard
       await navigator.clipboard.writeText(url)
 
       toast({
-        title: "Link Copied!",
-        description: "Share link has been copied to clipboard",
+        title: "Link copied",
+        description: "Share link has been copied to your clipboard.",
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
-        description: "Failed to generate share link",
+        description: "Failed to generate share link.",
         variant: "destructive",
       })
     } finally {
@@ -165,7 +230,7 @@ export function BuilderHeader({
     if (!shareEmail || !workflowId) {
       toast({
         title: "Error",
-        description: "Please enter a valid email address",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       })
       return
@@ -177,12 +242,12 @@ export function BuilderHeader({
         title: "Success",
         description: `Workflow shared with ${shareEmail}`,
       })
-      setShareEmail('')
+      setShareEmail("")
       setShowShareDialog(false)
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
-        description: "Failed to share workflow",
+        description: "Failed to share workflow.",
         variant: "destructive",
       })
     }
@@ -197,32 +262,29 @@ export function BuilderHeader({
         description: currentWorkflow.description,
         nodes: currentWorkflow.nodes,
         connections: currentWorkflow.connections,
-        version: '1.0',
+        version: "1.0",
         exported_at: new Date().toISOString(),
       }
 
       const json = JSON.stringify(exportData, null, 2)
-
-      // Copy to clipboard
       await navigator.clipboard.writeText(json)
 
-      // Also trigger download
-      const blob = new Blob([json], { type: 'application/json' })
+      const blob = new Blob([json], { type: "application/json" })
       const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '_')}.json`
-      a.click()
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, "_")}.json`
+      anchor.click()
       URL.revokeObjectURL(url)
 
       toast({
-        title: "Workflow Exported",
-        description: "JSON copied to clipboard and downloaded",
+        title: "Workflow exported",
+        description: "JSON copied to clipboard and downloaded.",
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
-        description: "Failed to export workflow",
+        description: "Failed to export workflow.",
         variant: "destructive",
       })
     }
@@ -232,7 +294,7 @@ export function BuilderHeader({
     if (!importJson.trim()) {
       toast({
         title: "Error",
-        description: "Please paste workflow JSON",
+        description: "Please paste workflow JSON.",
         variant: "destructive",
       })
       return
@@ -240,30 +302,25 @@ export function BuilderHeader({
 
     try {
       setIsImporting(true)
-
       const data = JSON.parse(importJson)
 
-      // Validate required fields
       if (!data.nodes || !data.connections) {
-        throw new Error('Invalid workflow format')
+        throw new Error("Invalid workflow format")
       }
 
       // TODO: Implement backend API to import workflow
-      // For now, just show success
       toast({
-        title: "Workflow Imported",
-        description: "Workflow has been imported successfully",
+        title: "Workflow imported",
+        description: "Workflow has been imported successfully.",
       })
 
-      setImportJson('')
+      setImportJson("")
       setShowImportDialog(false)
-
-      // Reload page to show imported workflow
       window.location.reload()
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
-        description: "Invalid workflow JSON format",
+        description: "Invalid workflow JSON format.",
         variant: "destructive",
       })
     } finally {
@@ -271,61 +328,53 @@ export function BuilderHeader({
     }
   }
 
-  const handleDuplicateClick = () => {
-    if (workflowId) {
-      duplicateWorkflow(workflowId)
-    }
-  }
-
-  const handleDeleteClick = () => {
-    setShowDeleteConfirm(true)
-  }
-
-  const handleConfirmDelete = () => {
-    if (workflowId) {
-      deleteWorkflow(workflowId)
-      setShowDeleteConfirm(false)
-    }
-  }
-
   return (
     <>
       <div className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0">
-        {/* Left Side - Workflow Name */}
         <div className="flex-1 min-w-0 flex items-center gap-3">
           {isEditingName ? (
             <Input
               value={workflowName}
-              onChange={(e) => setWorkflowName(e.target.value)}
-              onBlur={() => setIsEditingName(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') setIsEditingName(false)
-                if (e.key === 'Escape') setIsEditingName(false)
+              onChange={(event) => setWorkflowName(event.target.value)}
+              onBlur={handleNameCommit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  handleNameCommit()
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setIsEditingName(false)
+                }
               }}
               autoFocus
-              className="h-8 max-w-xs"
+              className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 px-2 py-1 h-8 bg-transparent max-w-md"
+              placeholder="Untitled Workflow"
             />
           ) : (
             <div
               onClick={() => setIsEditingName(true)}
               className="cursor-pointer hover:bg-accent px-2 py-1 rounded-md transition-colors"
             >
-              <h1 className="text-xl font-semibold truncate">{workflowName || "Untitled Workflow"}</h1>
+              <h1 className="text-xl font-semibold truncate">
+                {workflowName || "Untitled Workflow"}
+              </h1>
             </div>
           )}
 
-          {/* Auto-save indicator */}
-          {isSaving && (
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span className="hidden sm:inline">Saving...</span>
-            </div>
+          {statusBadge && (
+            <span
+              className={cn(
+                "text-xs px-2 py-0.5 rounded-md border",
+                statusBadge.className
+              )}
+            >
+              {statusBadge.text}
+            </span>
           )}
         </div>
 
-        {/* Right Side - Actions */}
         <div className="flex items-center gap-3">
-          {/* Undo/Redo */}
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -349,7 +398,6 @@ export function BuilderHeader({
             </Button>
           </div>
 
-          {/* Versions Button */}
           <Button
             variant="outline"
             size="sm"
@@ -360,24 +408,26 @@ export function BuilderHeader({
             <span>Versions</span>
           </Button>
 
-          {/* History Button */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowHistoryDialog(true)}
+            onClick={() => {
+              setShowHistoryDialog(true)
+              setShowExecutionHistory?.(true)
+            }}
             className="hidden sm:flex items-center gap-2"
           >
             <History className="w-4 h-4" />
             <span>History</span>
           </Button>
 
-          {/* Test Buttons */}
           <div className="flex items-center gap-2">
             {handleTestSandbox && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleTestSandbox}
+                disabled={isLiveTestingDisabled}
                 className="flex items-center gap-2"
               >
                 <TestTube className="w-4 h-4" />
@@ -390,24 +440,56 @@ export function BuilderHeader({
                 variant="outline"
                 size="sm"
                 onClick={handleExecuteLive}
+                disabled={isLiveTestingDisabled}
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
                 <span className="hidden sm:inline">Live Test</span>
               </Button>
             )}
+
+            {handleExecuteLiveSequential && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExecuteLiveSequential}
+                disabled={isLiveTestingDisabled}
+                className="hidden sm:flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                <span>Sequential</span>
+              </Button>
+            )}
+
+            {handleRunPreflight && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRunPreflight}
+                disabled={isRunningPreflight}
+                className="hidden sm:flex items-center gap-2"
+              >
+                {isRunningPreflight ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <History className="w-4 h-4" />
+                )}
+                <span>Preflight</span>
+              </Button>
+            )}
           </div>
 
-          {/* Publish Button */}
           {handleToggleLive && (
             <Button
-              variant={isActive ? "default" : "default"}
+              variant="default"
               size="sm"
               onClick={handleToggleLive}
               disabled={isUpdatingStatus}
               className={cn(
                 "flex items-center gap-2",
-                isActive ? "bg-green-600 hover:bg-green-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"
+                isActive
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
               )}
             >
               {isUpdatingStatus ? (
@@ -419,7 +501,6 @@ export function BuilderHeader({
             </Button>
           )}
 
-          {/* More Options Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -444,12 +525,11 @@ export function BuilderHeader({
 
               <DropdownMenuItem onClick={handleDuplicateClick} disabled={isDuplicating}>
                 <Copy className="w-4 h-4 mr-2" />
-                {isDuplicating ? 'Duplicating...' : 'Duplicate Workflow'}
+                {isDuplicating ? "Duplicating…" : "Duplicate Workflow"}
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
-              {/* Mobile-only items */}
               <DropdownMenuItem onClick={() => setShowVersionsDialog(true)} className="sm:hidden">
                 <GitBranch className="w-4 h-4 mr-2" />
                 Versions
@@ -462,114 +542,102 @@ export function BuilderHeader({
 
               <DropdownMenuSeparator className="sm:hidden" />
 
-              <DropdownMenuItem onClick={handleDeleteClick} disabled={isDeleting} className="text-destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                {isDeleting ? 'Deleting...' : 'Delete Workflow'}
-              </DropdownMenuItem>
+              {canDeleteWorkflow && (
+                <DropdownMenuItem
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  className="text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isDeleting ? "Deleting…" : "Delete Workflow"}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Share Workflow</DialogTitle>
-            <DialogDescription>
-              Share this workflow with your team or generate a shareable link
-            </DialogDescription>
+            <DialogDescription>Invite teammates or share a link to this workflow.</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* Share with team member */}
+          <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label htmlFor="share-email">Share with team member</Label>
+              <Label htmlFor="share-email">Invite by email</Label>
               <div className="flex gap-2">
                 <Input
                   id="share-email"
-                  type="email"
-                  placeholder="colleague@example.com"
+                  placeholder="teammate@example.com"
                   value={shareEmail}
-                  onChange={(e) => setShareEmail(e.target.value)}
+                  onChange={(event) => setShareEmail(event.target.value)}
                 />
                 <Button onClick={handleShareWithEmail} disabled={!shareEmail}>
                   <Users className="w-4 h-4 mr-2" />
-                  Share
+                  Invite
                 </Button>
               </div>
             </div>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or</span>
-              </div>
-            </div>
-
-            {/* Generate shareable link */}
-            <div className="space-y-3">
-              <Label>Generate shareable link</Label>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="view-mode" className="text-sm font-normal">
-                    View only
-                  </Label>
-                  <Switch
-                    id="view-mode"
-                    checked={shareMode === 'view'}
-                    onCheckedChange={(checked) => checked && setShareMode('view')}
-                  />
+            <div className="space-y-2">
+              <Label>Shareable link</Label>
+              <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                <div>
+                  <div className="text-sm font-medium">Share mode</div>
+                  <div className="text-xs text-muted-foreground">
+                    Choose the access level for the link
+                  </div>
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="edit-mode" className="text-sm font-normal">
-                    Collaborative editing
-                  </Label>
-                  <Switch
-                    id="edit-mode"
-                    checked={shareMode === 'edit'}
-                    onCheckedChange={(checked) => checked && setShareMode('edit')}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="duplicate-mode" className="text-sm font-normal">
-                    Create duplicate
-                  </Label>
-                  <Switch
-                    id="duplicate-mode"
-                    checked={shareMode === 'duplicate'}
-                    onCheckedChange={(checked) => checked && setShareMode('duplicate')}
-                  />
+                <div className="flex items-center gap-2">
+                  <select
+                    value={shareMode}
+                    onChange={(event) =>
+                      setShareMode(event.target.value as "view" | "edit" | "duplicate")
+                    }
+                    className="h-8 rounded-md border bg-background px-2 text-sm"
+                  >
+                    <option value="view">View only</option>
+                    <option value="edit">Collaborate</option>
+                    <option value="duplicate">Duplicate</option>
+                  </select>
+                  <Button onClick={handleGenerateShareLink} disabled={isGeneratingLink}>
+                    {isGeneratingLink ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-4 h-4 mr-2" />
+                        Copy link
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
-
-              <Button
-                onClick={handleGenerateShareLink}
-                className="w-full"
-                disabled={isGeneratingLink}
-              >
-                {isGeneratingLink ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Link2 className="w-4 h-4 mr-2" />
-                )}
-                Generate Link
-              </Button>
 
               {shareUrl && (
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-xs text-muted-foreground mb-1">Link copied to clipboard:</p>
-                  <p className="text-sm font-mono break-all">{shareUrl}</p>
+                <div className="rounded-md border bg-muted px-3 py-2 text-xs font-mono break-all">
+                  {shareUrl}
                 </div>
               )}
             </div>
-          </div>
 
+            {isTemplateEditing && (
+              <div className="flex items-center justify-between rounded-md border px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium">Template settings sidebar</div>
+                  <div className="text-xs text-muted-foreground">
+                    Quickly update key template information in the sidebar editor.
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={onOpenTemplateSettings}>
+                  {templateSettingsLabel || "Open settings"}
+                </Button>
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowShareDialog(false)}>
               Close
@@ -578,34 +646,29 @@ export function BuilderHeader({
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Import Workflow</DialogTitle>
-            <DialogDescription>
-              Paste workflow JSON or upload a .json file
-            </DialogDescription>
+            <DialogDescription>Paste workflow JSON or upload a .json file.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="import-json">Workflow JSON</Label>
               <Textarea
                 id="import-json"
-                placeholder="Paste workflow JSON here..."
+                placeholder="Paste workflow JSON here…"
                 value={importJson}
-                onChange={(e) => setImportJson(e.target.value)}
+                onChange={(event) => setImportJson(event.target.value)}
                 rows={10}
                 className="font-mono text-xs"
               />
             </div>
-
             <div className="text-sm text-muted-foreground">
-              Tip: You can also paste workflow JSON directly in the canvas using Cmd+V (Mac) or Ctrl+V (Windows)
+              Tip: You can also paste workflow JSON directly onto the canvas using Cmd+V (Mac) or
+              Ctrl+V (Windows).
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowImportDialog(false)}>
               Cancel
@@ -614,7 +677,7 @@ export function BuilderHeader({
               {isImporting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Importing...
+                  Importing…
                 </>
               ) : (
                 <>
@@ -627,13 +690,13 @@ export function BuilderHeader({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Workflow</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{workflowName}"? This action cannot be undone.
+              Are you sure you want to delete “{workflowName || "Untitled Workflow"}”? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -644,28 +707,48 @@ export function BuilderHeader({
               {isDeleting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Deleting...
+                  Deleting…
                 </>
               ) : (
-                'Delete Workflow'
+                "Delete Workflow"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Version and History Dialogs */}
       <WorkflowVersionsDialog
         open={showVersionsDialog}
         onOpenChange={setShowVersionsDialog}
-        workflowId={workflowId || ''}
+        workflowId={workflowId || ""}
       />
 
       <WorkflowHistoryDialog
         open={showHistoryDialog}
-        onOpenChange={setShowHistoryDialog}
-        workflowId={workflowId || ''}
+        onOpenChange={handleHistoryDialogToggle}
+        workflowId={workflowId || ""}
       />
     </>
   )
 }
+
+export const BuilderHeader = React.memo(
+  BuilderHeaderComponent,
+  (prevProps, nextProps) =>
+    prevProps.workflowName === nextProps.workflowName &&
+    prevProps.hasUnsavedChanges === nextProps.hasUnsavedChanges &&
+    prevProps.isSaving === nextProps.isSaving &&
+    prevProps.isExecuting === nextProps.isExecuting &&
+    prevProps.isUpdatingStatus === nextProps.isUpdatingStatus &&
+    prevProps.workflowId === nextProps.workflowId &&
+    prevProps.editTemplateId === nextProps.editTemplateId &&
+    prevProps.isTemplateEditing === nextProps.isTemplateEditing &&
+    prevProps.templateSettingsLabel === nextProps.templateSettingsLabel &&
+    prevProps.isRunningPreflight === nextProps.isRunningPreflight &&
+    prevProps.isStepMode === nextProps.isStepMode &&
+    prevProps.listeningMode === nextProps.listeningMode &&
+    prevProps.canUndo === nextProps.canUndo &&
+    prevProps.canRedo === nextProps.canRedo &&
+    prevProps.currentWorkflow?.status === nextProps.currentWorkflow?.status &&
+    prevProps.currentWorkflow?.source_template_id === nextProps.currentWorkflow?.source_template_id
+)

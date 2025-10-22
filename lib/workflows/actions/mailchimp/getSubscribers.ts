@@ -1,6 +1,6 @@
 import { ActionResult } from '../index'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
+import { getMailchimpAuth } from './utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -12,7 +12,8 @@ export async function mailchimpGetSubscribers(
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
-    const accessToken = await getDecryptedAccessToken(context.userId, "mailchimp")
+    // Get Mailchimp auth with proper data center
+    const { accessToken, dc } = await getMailchimpAuth(context.userId)
 
     // Resolve dynamic values
     const audienceId = context.dataFlowManager.resolveVariable(config.audience_id)
@@ -23,9 +24,6 @@ export async function mailchimpGetSubscribers(
     if (!audienceId) {
       throw new Error("Audience is required")
     }
-
-    // Get the data center from the access token
-    const dc = accessToken.split('-').pop()
 
     // Build query params
     const params = new URLSearchParams({

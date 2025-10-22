@@ -4,12 +4,15 @@ import { useNodesState, useEdgesState, useReactFlow, type Node, type Edge, type 
 import { useToast } from '@/hooks/use-toast'
 
 // Store imports
-import { useWorkflowStore, type Workflow, type WorkflowNode, type WorkflowConnection } from '@/stores/workflowStore'
-import { useCollaborationStore } from '@/stores/collaborationStore'
+import { type Workflow, type WorkflowNode, type WorkflowConnection } from '@/stores/workflowStore'
+import { useWorkflowStore } from '@/stores/workflowStore'
 import { useIntegrationStore } from '@/stores/integrationStore'
-import { useWorkflowErrorStore } from '@/stores/workflowErrorStore'
+import { useCollaborationStore } from '@/stores/collaborationStore'
 
-// Custom hooks
+// Custom hooks - Refactored for better performance
+import { useWorkflowState } from './useWorkflowState'
+import { useWorkflowNodes } from './useWorkflowNodes'
+import { useWorkflowSaveActions } from './useWorkflowSaveActions'
 import { useWorkflowExecution } from './useWorkflowExecution'
 import { useWorkflowDialogs } from './useWorkflowDialogs'
 import { useIntegrationSelection } from './useIntegrationSelection'
@@ -101,40 +104,48 @@ export function useWorkflowBuilder() {
   const isTemplateEditing = Boolean(editTemplateId && !workflowId)
   const { toast } = useToast()
 
-  // Store hooks - Using selective subscriptions to prevent unnecessary re-renders
-  const workflows = useWorkflowStore(state => state.workflows)
-  const currentWorkflow = useWorkflowStore(state => state.currentWorkflow)
-  const setCurrentWorkflow = useWorkflowStore(state => state.setCurrentWorkflow)
-  const updateWorkflow = useWorkflowStore(state => state.updateWorkflow)
-  const removeNode = useWorkflowStore(state => state.removeNode)
-  const workflowLoading = useWorkflowStore(state => state.loading)
-  const fetchWorkflows = useWorkflowStore(state => state.fetchWorkflows)
-  const addWorkflowToStore = useWorkflowStore(state => state.addWorkflowToStore)
-
-  const joinCollaboration = useCollaborationStore(state => state.joinCollaboration)
-  const leaveCollaboration = useCollaborationStore(state => state.leaveCollaboration)
-  const collaborators = useCollaborationStore(state => state.collaborators)
-
-  const getConnectedProviders = useIntegrationStore(state => state.getConnectedProviders)
-  const integrationsLoading = useIntegrationStore(state => state.loading)
-
-  const addError = useWorkflowErrorStore(state => state.addError)
-  const setErrorStoreWorkflow = useWorkflowErrorStore(state => state.setCurrentWorkflow)
-  const getLatestErrorForNode = useWorkflowErrorStore(state => state.getLatestErrorForNode)
+  // Store hooks - Now using useWorkflowState with shallow equality
+  const {
+    workflows,
+    currentWorkflow,
+    setCurrentWorkflow,
+    updateWorkflow,
+    removeNode,
+    workflowLoading,
+    fetchWorkflows,
+    addWorkflowToStore,
+    joinCollaboration,
+    leaveCollaboration,
+    collaborators,
+    getConnectedProviders,
+    integrationsLoading,
+    addError,
+    setErrorStoreWorkflow,
+    getLatestErrorForNode,
+  } = useWorkflowState()
   
-  // Store onClick handlers for AddActionNodes - needs to be before setNodes
-  const addActionHandlersRef = useRef<Record<string, () => void>>({})
+  // React Flow state - Now using useWorkflowNodes hook
+  const {
+    nodes,
+    edges,
+    selectedEdgeId,
+    setSelectedEdgeId,
+    setNodes,
+    setEdges,
+    onNodesChange,
+    // Note: We override optimizedOnNodesChange below with more advanced logic for AI agent chains
+    onEdgesChange,
+    fitView,
+    getNodes,
+    getEdges,
+    nodeTypes,
+    edgeTypes,
+    addActionHandlersRef,
+  } = useWorkflowNodes()
+
   const deletedTriggerBackupRef = useRef<{ node: Node; edges: Edge[] } | null>(null)
   const collaborationWorkflowIdRef = useRef<string | null>(null)
   const timeoutToastShownRef = useRef<boolean>(false)
-
-  // React Flow state
-  const [nodes, setNodesInternal, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const { fitView, getNodes, getEdges } = useReactFlow()
-
-  // Edge selection state for deletion
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
 
   // Additional states needed by the main component
   const [cachedIntegrationStatus, setCachedIntegrationStatus] = useState<Map<string, boolean>>(new Map())
@@ -151,58 +162,15 @@ export function useWorkflowBuilder() {
     directFetchErrorRef.current = null
   }, [workflowId])
 
-  // Custom setNodes that preserves onClick handlers for AddActionNodes
-  const setNodes = useCallback((updater: Node[] | ((nodes: Node[]) => Node[])) => {
-    setNodesInternal(currentNodes => {
-      const incoming = typeof updater === 'function' ? updater(currentNodes) : updater
-
-      // Sanitize nodes: drop malformed, fix missing titles, and restore AddAction handlers
-      const sanitized: Node[] = []
-      for (const node of incoming) {
-        // Always allow UI addAction nodes
-        if (node.type === 'addAction') {
-          const withHandler = addActionHandlersRef.current[node.id]
-            ? { ...node, data: { ...(node.data || {}), onClick: addActionHandlersRef.current[node.id] } }
-            : node
-          sanitized.push(withHandler)
-          continue
-        }
-
-        const nodeType = (node as any)?.data?.type
-        const isTrigger = Boolean((node as any)?.data?.isTrigger)
-        if (!nodeType && !isTrigger) {
-          logger.warn('[WorkflowBuilder] Dropping malformed node without data.type', { id: node.id, type: node.type })
-          continue
-        }
-
-        // Ensure a stable, human-readable title
-        const existingTitle = (node as any)?.data?.title
-        if (!existingTitle || (typeof existingTitle === 'string' && existingTitle.trim().length === 0) || existingTitle === 'Unnamed Action') {
-          const component = ALL_NODE_COMPONENTS.find(c => c.type === nodeType)
-          const safeTitle = component?.title || nodeType || (isTrigger ? 'Trigger' : 'Action')
-          sanitized.push({
-            ...node,
-            data: { ...(node.data as any), title: safeTitle }
-          })
-        } else {
-          sanitized.push(node)
-        }
-      }
-
-      return sanitized
-    })
-  }, [])
-
   // Workflow metadata
   const [workflowName, setWorkflowName] = useState("")
   const [workflowDescription, setWorkflowDescription] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isTemplateLoading, setIsTemplateLoading] = useState(false)
   const [listeningMode, setListeningMode] = useState(false)
   const [hasShownLoading, setHasShownLoading] = useState(false)
   const isProcessingChainsRef = useRef(false)
-  const justSavedRef = useRef(false)
+  // justSavedRef now comes from useWorkflowSaveActions hook
   const isCleaningAddActionsRef = useRef(false)
   const templateLoadStateRef = useRef<{ id: string; status: "pending" | "fulfilled" | "rejected" } | null>(null)
   const [templateDraftMetadata, setTemplateDraftMetadata] = useState<TemplateDraftMetadata>({
@@ -537,19 +505,33 @@ export function useWorkflowBuilder() {
     setEdges
   )
 
-  // Memoized node and edge types
-  const nodeTypes = useMemo(() => ({
-    custom: CustomNode,
-    addAction: AddActionNode,
-    insertAction: InsertActionNode as any,
-    chainPlaceholder: ChainPlaceholderNode,
-  }), [])
-  
-  const edgeTypes = useMemo(() => ({
-    custom: CustomEdgeWithButton,
-    straight: SimpleStraightEdge,
-    rounded: RoundedEdge,
-  }), [])
+  // Save actions hook - provides stable handleSave and handleToggleLive
+  const saveActionsHook = useWorkflowSaveActions({
+    currentWorkflow,
+    setCurrentWorkflow,
+    updateWorkflow,
+    workflowName,
+    workflowDescription,
+    nodes,
+    edges,
+    getNodes,
+    getEdges,
+    isTemplateEditing,
+    editTemplateId,
+    saveTemplateDraft,
+    setHasUnsavedChanges,
+    hasUnsavedChanges,
+  })
+
+  // Extract save actions (note: we keep local serializeWorkflowState for saveTemplateDraft)
+  const {
+    isSaving,
+    isUpdatingStatus,
+    handleSave,
+    handleToggleLive,
+    justSavedRef,
+    // serializeWorkflowState - using local version below
+  } = saveActionsHook
 
   // Load initial data in parallel with proper error handling
   useEffect(() => {
@@ -609,7 +591,7 @@ export function useWorkflowBuilder() {
 
   // Update nodes with execution status for live highlighting
   useEffect(() => {
-    setNodesInternal(currentNodes => {
+    setNodes(currentNodes => {
       return currentNodes.map(node => {
         // If not executing and not listening, clear all execution status
         if (!executionHook.isExecuting && !executionHook.isListeningForWebhook && !executionHook.isPaused) {
@@ -685,7 +667,7 @@ export function useWorkflowBuilder() {
     })
 
     // Update nodes with validation state
-    setNodesInternal(currentNodes => {
+    setNodes(currentNodes => {
       return currentNodes.map(node => {
         const newValidationState = validationMap.get(node.id)
         if (newValidationState) {
@@ -891,7 +873,7 @@ export function useWorkflowBuilder() {
       }
     })
 
-    setNodesInternal(existingNodes =>
+    setNodes(existingNodes =>
       existingNodes.map(node => {
         const validationState = validationMap.get(node.id)
         if (!validationState) return node
@@ -2141,273 +2123,7 @@ export function useWorkflowBuilder() {
     }))
   }, [currentWorkflow?.id, currentWorkflow?.name, workflowName, setCurrentWorkflow])
 
-  // Handle save
-  const handleSave = useCallback(async () => {
-    const { workflowNodes, workflowConnections } = serializeWorkflowState()
-
-    if (isTemplateEditing) {
-      if (!editTemplateId) {
-        toast({
-          title: "Error",
-          description: "Missing template identifier",
-          variant: "destructive",
-        })
-        return
-      }
-
-      try {
-        setIsSaving(true)
-
-        const metaResponse = await fetch(`/api/templates/${editTemplateId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: workflowName,
-            description: workflowDescription,
-          }),
-        })
-
-        const metaBody = await metaResponse.json().catch(() => ({}))
-        if (!metaResponse.ok) {
-          throw new Error(metaBody.error || 'Failed to update template details')
-        }
-
-        const savedDraft = await saveTemplateDraft({
-          nodes: workflowNodes,
-          connections: workflowConnections,
-        })
-
-        if (currentWorkflow) {
-          setCurrentWorkflow({
-            ...currentWorkflow,
-            name: workflowName,
-            description: workflowDescription,
-            nodes: workflowNodes,
-            connections: workflowConnections,
-            status: (savedDraft?.status as Workflow['status']) || currentWorkflow.status,
-            updated_at: new Date().toISOString(),
-          })
-        }
-
-        toast({
-          title: "Template draft saved",
-          description: "Your template draft has been updated.",
-        })
-      } catch (error: any) {
-        logger.error('Error updating template draft:', error)
-        setHasUnsavedChanges(true)
-        toast({
-          title: "Error",
-          description: error?.message || "Failed to save template draft",
-          variant: "destructive",
-        })
-      } finally {
-        setIsSaving(false)
-      }
-
-      return
-    }
-
-    if (!currentWorkflow?.id) {
-      toast({
-        title: "Error",
-        description: "No workflow to save",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setIsSaving(true)
-
-      await updateWorkflow(currentWorkflow.id, {
-        name: workflowName,
-        description: workflowDescription,
-        nodes: workflowNodes,
-        connections: workflowConnections,
-      })
-
-      justSavedRef.current = true
-      setHasUnsavedChanges(false)
-
-      setTimeout(() => {
-        justSavedRef.current = false
-      }, 500)
-
-      if (editTemplateId) {
-        try {
-          const response = await fetch(`/api/templates/${editTemplateId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              nodes: workflowNodes,
-              connections: workflowConnections,
-            }),
-          })
-
-          const errorBody = !response.ok ? await response.json().catch(() => ({})) : null
-          if (!response.ok) {
-            throw new Error(errorBody?.error || 'Failed to update template')
-          }
-
-          toast({
-            title: "Success",
-            description: "Workflow and template saved successfully",
-          })
-        } catch (templateError) {
-          logger.error('Error updating template:', templateError)
-          toast({
-            title: "Warning",
-            description: "Workflow saved, but failed to update template",
-            variant: "destructive",
-          })
-        }
-      } else {
-        toast({
-          title: "Success",
-          description: "Workflow saved successfully",
-        })
-      }
-    } catch (error) {
-      logger.error('Error saving workflow:', error)
-      toast({
-        title: "Error",
-        description: "Failed to save workflow",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }, [
-    serializeWorkflowState,
-    isTemplateEditing,
-    editTemplateId,
-    toast,
-    workflowName,
-    workflowDescription,
-    saveTemplateDraft,
-    currentWorkflow,
-    setCurrentWorkflow,
-    setHasUnsavedChanges,
-    updateWorkflow,
-  ])
-
-  // Handle toggling workflow live status
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
-  
-  const handleToggleLive = useCallback(async () => {
-    if (isTemplateEditing) {
-      toast({
-        title: "Unavailable",
-        description: "Templates cannot be activated",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!currentWorkflow?.id) {
-      toast({
-        title: "Error",
-        description: "No workflow to activate",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (hasUnsavedChanges) {
-      toast({
-        title: "Save Required",
-        description: "Please save your changes before activating the workflow",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Check for nodes with missing required fields (only when activating, not deactivating)
-    if (currentWorkflow.status !== 'active') {
-      const nodesWithErrors = nodes.filter(node => {
-        const validationState = node.data?.validationState
-        if (!validationState || validationState.isValid) return false
-
-        // Check if there are missing required fields
-        const missingFields = validationState.missingRequired || []
-        const allRequiredFields = validationState.allRequiredFields || []
-
-        return missingFields.length > 0 || allRequiredFields.length > 0
-      })
-
-      if (nodesWithErrors.length > 0) {
-        const nodeNames = nodesWithErrors
-          .map(n => n.data?.title || n.data?.type || 'Unknown')
-          .join(', ')
-
-        toast({
-          title: "Missing Required Fields",
-          description: `Cannot activate workflow. The following nodes have missing required fields: ${nodeNames}. Please configure all required fields before activating.`,
-          variant: "destructive",
-        })
-        return
-      }
-    }
-
-    try {
-      setIsUpdatingStatus(true)
-
-      const isActivating = currentWorkflow.status !== 'active'
-      const endpoint = isActivating ? 'activate' : 'deactivate'
-
-      logger.debug(`${isActivating ? 'Activating' : 'Deactivating'} workflow:`, {
-        workflowId: currentWorkflow.id,
-        currentStatus: currentWorkflow.status
-      })
-
-      // Use dedicated activate/deactivate endpoints
-      const response = await fetch(`/api/workflows/${currentWorkflow.id}/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Failed to ${endpoint} workflow`)
-      }
-
-      const data = await response.json()
-      logger.debug(`${endpoint} result:`, data)
-
-      // Update local state with the new workflow data
-      setCurrentWorkflow({
-        ...currentWorkflow,
-        ...data
-      })
-
-      // Show appropriate success message
-      const successMessage = isActivating
-        ? 'Workflow is now live and listening for triggers'
-        : 'Workflow deactivated. All triggers and webhooks have been cleaned up.'
-
-      toast({
-        title: "Success",
-        description: successMessage,
-        variant: isActivating ? 'default' : 'secondary',
-      })
-    } catch (error: any) {
-      logger.error(`Error ${currentWorkflow.status === 'active' ? 'deactivating' : 'activating'} workflow:`, error)
-      toast({
-        title: "Error",
-        description: error?.message || `Failed to ${currentWorkflow.status === 'active' ? 'deactivate' : 'activate'} workflow`,
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdatingStatus(false)
-    }
-  }, [currentWorkflow, hasUnsavedChanges, setCurrentWorkflow, toast, nodes, edges, isTemplateEditing])
+  // Note: handleSave and handleToggleLive now come from useWorkflowSaveActions hook above
 
   // Use refs for undo/redo handlers to avoid initialization issues
   const handleUndoRef = useRef<(() => void) | null>(null)

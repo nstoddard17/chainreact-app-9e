@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Missing user_id" , 400)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Remove user from presence table
     const { error } = await supabase

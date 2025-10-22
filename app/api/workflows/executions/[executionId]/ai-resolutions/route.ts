@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -13,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ executionId: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { executionId } = await params
 
     // Get current user
@@ -87,7 +87,7 @@ export async function GET_WORKFLOW(
   workflowId: string
 ) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()

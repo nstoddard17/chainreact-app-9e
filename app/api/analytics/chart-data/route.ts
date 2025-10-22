@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { subDays, format, eachDayOfInterval, startOfDay } from 'date-fns';
 
 import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseRouteHandlerClient();
 
     const { data: { user } } = await supabase.auth.getUser();
 
