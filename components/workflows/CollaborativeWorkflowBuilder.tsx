@@ -210,7 +210,10 @@ function WorkflowBuilderContent() {
   const reactAgentParam = searchParams?.get('reactAgent')
 
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
-  const [isReactAgentCollapsed, setIsReactAgentCollapsed] = React.useState(false)
+  // Initialize React Agent as open if reactAgent=true in URL
+  const [isReactAgentCollapsed, setIsReactAgentCollapsed] = React.useState(() => {
+    return reactAgentParam !== 'true'
+  })
   const [showVersionsDialog, setShowVersionsDialog] = React.useState(false)
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false)
 

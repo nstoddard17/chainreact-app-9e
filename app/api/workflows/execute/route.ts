@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
+import { sendWorkflowErrorNotifications, extractErrorMessage } from '@/lib/notifications/errorHandler'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -434,11 +435,41 @@ export async function POST(request: Request) {
       stack: error.stack,
       name: error.name
     })
-    
+
+    // Send error notifications if workflow is available
+    try {
+      // Try to get workflow data from earlier in the function scope
+      // Note: This assumes 'workflow' variable is accessible here
+      // If not in scope, we'd need to refetch or restructure
+      const supabase = await createSupabaseRouteHandlerClient()
+      const { data: workflowForNotification } = await supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", (error as any).workflowId || body?.workflowId)
+        .single()
+
+      if (workflowForNotification) {
+        // Send error notifications asynchronously (don't block the error response)
+        sendWorkflowErrorNotifications(
+          workflowForNotification,
+          {
+            message: extractErrorMessage(error),
+            stack: error.stack,
+            executionId: (error as any).executionId
+          }
+        ).catch((notifError) => {
+          logger.error('Failed to send error notifications:', notifError)
+        })
+      }
+    } catch (notificationError) {
+      // Don't let notification failures prevent error response
+      logger.error('Error while attempting to send notifications:', notificationError)
+    }
+
     // Return more detailed error information
     return errorResponse(error.message || "Workflow execution failed", 500, {
         details: error.stack,
-        message: error.message 
+        message: error.message
       })
   }
 }

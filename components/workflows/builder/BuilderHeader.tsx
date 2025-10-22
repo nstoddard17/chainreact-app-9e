@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +39,7 @@ import {
   Share2,
   Link2,
   Users,
+  ArrowLeft,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useWorkflowActions } from "@/hooks/workflows/useWorkflowActions"
@@ -102,6 +104,7 @@ const BuilderHeaderComponent = ({
   canRedo = false,
   setShowExecutionHistory,
 }: BuilderHeaderProps) => {
+  const router = useRouter()
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
   const { profile } = useAuthStore()
@@ -121,6 +124,8 @@ const BuilderHeaderComponent = ({
   const [isImporting, setIsImporting] = useState(false)
 
   const isSavingRef = useRef(false)
+
+  const isLiveTestingDisabled = isExecuting || isSaving
 
   const statusBadge = useMemo(() => {
     if (isExecuting) {
@@ -332,6 +337,15 @@ const BuilderHeaderComponent = ({
     <>
       <div className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0">
         <div className="flex-1 min-w-0 flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/workflows')}
+            className="shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+
           {isEditingName ? (
             <Input
               value={workflowName}
@@ -445,36 +459,6 @@ const BuilderHeaderComponent = ({
               >
                 <Play className="w-4 h-4" />
                 <span className="hidden sm:inline">Live Test</span>
-              </Button>
-            )}
-
-            {handleExecuteLiveSequential && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExecuteLiveSequential}
-                disabled={isLiveTestingDisabled}
-                className="hidden sm:flex items-center gap-2"
-              >
-                <Play className="w-4 h-4" />
-                <span>Sequential</span>
-              </Button>
-            )}
-
-            {handleRunPreflight && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRunPreflight}
-                disabled={isRunningPreflight}
-                className="hidden sm:flex items-center gap-2"
-              >
-                {isRunningPreflight ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <History className="w-4 h-4" />
-                )}
-                <span>Preflight</span>
               </Button>
             )}
           </div>
@@ -725,7 +709,7 @@ const BuilderHeaderComponent = ({
 
       <WorkflowHistoryDialog
         open={showHistoryDialog}
-        onOpenChange={handleHistoryDialogToggle}
+        onOpenChange={setShowHistoryDialog}
         workflowId={workflowId || ""}
       />
     </>
