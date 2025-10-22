@@ -311,7 +311,7 @@ export function NewWorkflowBuilderContent() {
             }}
             defaultViewport={{ x: 0, y: 0, zoom: 1.2 }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} color="hsl(var(--muted))" />
+            <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="hsl(var(--muted-foreground))" style={{ opacity: 0.2 }} />
             <Controls
               style={{
                 position: 'absolute',

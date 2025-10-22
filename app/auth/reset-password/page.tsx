@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Loader2, CheckCircle, XCircle, Lock } from "lucide-react"
 import Link from "next/link"
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -243,5 +243,21 @@ export default function ResetPasswordPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }

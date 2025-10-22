@@ -206,23 +206,26 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: Integra
       {/* Categories */}
       <div className="p-4 border-b">
         <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
-            <Button
-              key={cat.id}
-              variant={selectedCategory === cat.id ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory(cat.id)}
-              className="flex items-center gap-1"
-            >
-              <cat.icon className="w-3 h-3" />
-              {cat.label}
-              {cat.id === 'personal' && personalNodes.size > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
-                  {personalNodes.size}
-                </Badge>
-              )}
-            </Button>
-          ))}
+          {categories.map((cat) => {
+            const Icon = cat.icon
+            return (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedCategory(cat.id)}
+                className="flex items-center gap-1"
+              >
+                <Icon className="w-3 h-3" />
+                {cat.label}
+                {cat.id === 'personal' && personalNodes.size > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                    {personalNodes.size}
+                  </Badge>
+                )}
+              </Button>
+            )
+          })}
         </div>
       </div>
 
