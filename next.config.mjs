@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Allow ngrok and other dev tunneling services
@@ -191,7 +193,7 @@ const nextConfig = {
                   /node_modules[/\\]/.test(module.identifier())
               },
               name(module) {
-                const hash = require('crypto').createHash('sha1')
+                const hash = crypto.createHash('sha1')
                 hash.update(module.identifier())
                 return hash.digest('hex').substring(0, 8)
               },
@@ -206,7 +208,7 @@ const nextConfig = {
             },
             shared: {
               name(module, chunks) {
-                return require('crypto')
+                return crypto
                   .createHash('sha1')
                   .update(chunks.reduce((acc, chunk) => acc + chunk.name, ''))
                   .digest('hex')

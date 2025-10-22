@@ -28,3 +28,5 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-22T02:55:47.497Z] [INFO   ] 2025-10-22T02:55:47.497Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
 [2025-10-22T02:56:09.030Z] [INFO   ]    Reload env: .env.local
 [2025-10-22T02:56:09.300Z] [INFO   ]  ✓ Compiled in 266ms (2268 modules)
+[2025-10-22T02:59:13.180Z] [INFO   ]  ✓ Compiled in 183ms (2255 modules)
+[2025-10-22T02:59:51.900Z] [WARN   ]  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...
