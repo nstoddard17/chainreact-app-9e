@@ -31,7 +31,14 @@ export async function sendSMS(to: string, message: string): Promise<boolean> {
     }
 
     // Import Twilio dynamically (only when needed)
-    const twilio = (await import('twilio')).default
+    let twilio
+    try {
+      twilio = (await import('twilio')).default
+    } catch (importError) {
+      logger.error('Twilio package not installed. Install with: npm install twilio')
+      return false
+    }
+
     const client = twilio(accountSid, authToken)
 
     // Send SMS
