@@ -566,10 +566,6 @@ export function AIAgentBuilderContent() {
     setIsCreatingWorkflow(true)
     try {
       const workflow = await createWorkflow("New Workflow", "Created from React Agent")
-      toast({
-        title: "Workflow created",
-        description: "Redirecting to workflow builder...",
-      })
       router.push(`/workflows/builder/${workflow.id}?reactAgent=true`)
     } catch (error) {
       logger.error("Failed to create workflow:", error)
@@ -816,7 +812,7 @@ export function AIAgentBuilderContent() {
                     disabled={isCreatingWorkflow}
                     className="text-xs text-muted-foreground/80 hover:text-foreground transition-all duration-200 px-3 py-1.5 rounded-full hover:bg-accent border border-transparent hover:border-border disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isCreatingWorkflow ? "Creating workflow..." : "Start building without React AI agent"}
+                    {isCreatingWorkflow ? "Creating workflow..." : "Start building with React AI agent"}
                   </button>
                 </div>
               </div>
@@ -919,18 +915,6 @@ export function AIAgentBuilderContent() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Skip to Builder Button - Fixed at bottom */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <Button
-          variant="outline"
-          onClick={handleSkipToBuilder}
-          className="shadow-lg bg-background/95 backdrop-blur-sm hover:bg-accent border-2"
-        >
-          <Zap className="w-4 h-4 mr-2" />
-          Skip to Manual Builder
-        </Button>
       </div>
 
       {/* AI Agent Preference Modal */}

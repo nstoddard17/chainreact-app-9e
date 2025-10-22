@@ -15,13 +15,18 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
-import { Save, Mail, MessageSquare, Bell, Phone, Info } from "lucide-react"
+import { Save, Mail, MessageSquare, Bell, Phone, Info, ChevronDown, ChevronUp } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 interface WorkflowSettings {
   name: string
@@ -52,6 +57,13 @@ interface SettingsTabProps {
 export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
+  const [slackChannels, setSlackChannels] = useState<Array<{ id: string; name: string }>>([])
+  const [discordChannels, setDiscordChannels] = useState<Array<{ id: string; name: string }>>([])
+  const [isSlackConnected, setIsSlackConnected] = useState(false)
+  const [isDiscordConnected, setIsDiscordConnected] = useState(false)
+  const [loadingSlackChannels, setLoadingSlackChannels] = useState(false)
+  const [loadingDiscordChannels, setLoadingDiscordChannels] = useState(false)
   const [settings, setSettings] = useState<WorkflowSettings>({
     name: '',
     description: '',
@@ -64,13 +76,14 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
     auto_retry_enabled: false,
     max_retries: 3,
     retry_strategy: 'exponential',
-    timeout_seconds: 300,
+    timeout_seconds: undefined,
     concurrent_execution_limit: undefined,
     ...initialSettings,
   })
 
   useEffect(() => {
     fetchSettings()
+    checkIntegrations()
   }, [workflowId])
 
   const fetchSettings = async () => {
@@ -83,6 +96,94 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
     } catch (error) {
       console.error('Failed to fetch workflow settings:', error)
     }
+  }
+
+  const checkIntegrations = async () => {
+    try {
+      const response = await fetch('/api/integrations')
+      const data = await response.json()
+
+      if (data.integrations) {
+        const slack = data.integrations.find((i: any) => i.provider === 'slack' && i.status === 'connected')
+        const discord = data.integrations.find((i: any) => i.provider === 'discord' && i.status === 'connected')
+
+        setIsSlackConnected(!!slack)
+        setIsDiscordConnected(!!discord)
+
+        if (slack) {
+          fetchSlackChannels()
+        }
+        if (discord) {
+          fetchDiscordChannels()
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check integrations:', error)
+    }
+  }
+
+  const fetchSlackChannels = async () => {
+    setLoadingSlackChannels(true)
+    try {
+      const response = await fetch('/api/integrations/slack/data?type=slack_channels')
+      const data = await response.json()
+
+      if (data.options) {
+        setSlackChannels(data.options.map((ch: any) => ({ id: ch.value, name: ch.label })))
+      }
+    } catch (error) {
+      console.error('Failed to fetch Slack channels:', error)
+    } finally {
+      setLoadingSlackChannels(false)
+    }
+  }
+
+  const fetchDiscordChannels = async () => {
+    setLoadingDiscordChannels(true)
+    try {
+      // First get the guild ID from integrations
+      const intResponse = await fetch('/api/integrations')
+      const intData = await intResponse.json()
+      const discordInt = intData.integrations?.find((i: any) => i.provider === 'discord')
+
+      if (discordInt?.credentials?.guild_id) {
+        const response = await fetch(`/api/integrations/discord/data?type=discord_channels&guildId=${discordInt.credentials.guild_id}`)
+        const data = await response.json()
+
+        if (data.options) {
+          setDiscordChannels(data.options.map((ch: any) => ({ id: ch.value, name: ch.label })))
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch Discord channels:', error)
+    } finally {
+      setLoadingDiscordChannels(false)
+    }
+  }
+
+  const handleConnectIntegration = (provider: string) => {
+    // Open integration connection in new window and refresh on complete
+    const width = 600
+    const height = 700
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+
+    const popup = window.open(
+      `/apps?connect=${provider}`,
+      '_blank',
+      `width=${width},height=${height},left=${left},top=${top}`
+    )
+
+    // Poll for popup close
+    const checkPopup = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkPopup)
+        // Refresh integrations after OAuth complete
+        setTimeout(() => {
+          checkIntegrations()
+        }, 1000)
+      }
+    }, 500)
   }
 
   const handleSave = async () => {
@@ -115,24 +216,53 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
     }
   }
 
-  const updateSetting = <K extends keyof WorkflowSettings>(
+  const updateSetting = async <K extends keyof WorkflowSettings>(
     key: K,
     value: WorkflowSettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+
+    // Auto-save
+    await saveSettings(newSettings)
   }
 
-  const updateNotificationChannel = (
+  const updateNotificationChannel = async (
     channel: keyof WorkflowSettings['error_notification_channels'],
     value: string
   ) => {
-    setSettings(prev => ({
-      ...prev,
+    const newSettings = {
+      ...settings,
       error_notification_channels: {
-        ...prev.error_notification_channels,
+        ...settings.error_notification_channels,
         [channel]: value,
       },
-    }))
+    }
+    setSettings(newSettings)
+
+    // Auto-save
+    await saveSettings(newSettings)
+  }
+
+  const saveSettings = async (settingsToSave: WorkflowSettings) => {
+    try {
+      // Remove name and description from settings since we're not managing them here anymore
+      const { name, description, ...settingsOnly } = settingsToSave
+
+      const response = await fetch(`/api/workflows/${workflowId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settingsOnly),
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save settings')
+      }
+    } catch (error: any) {
+      console.error('Failed to auto-save settings:', error)
+    }
   }
 
   const getRetryDelays = () => {
@@ -150,64 +280,20 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="border-b bg-background p-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Workflow Settings</h2>
-          <p className="text-sm text-muted-foreground">
-            Configure error handling, notifications, and advanced options
-          </p>
-        </div>
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <>
-              <div className="w-4 h-4 border-2 border-background border-t-foreground rounded-full animate-spin mr-2" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Settings Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-8">
-        {/* General Settings */}
-        <section className="space-y-4">
+    <TooltipProvider>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="border-b bg-background p-4">
           <div>
-            <h3 className="text-lg font-semibold mb-1">General</h3>
-            <p className="text-sm text-muted-foreground">Basic workflow information</p>
+            <h2 className="text-lg font-semibold">Workflow Settings</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure error handling, notifications, and advanced options. All changes are saved automatically.
+            </p>
           </div>
+        </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Workflow Name</Label>
-              <Input
-                id="name"
-                value={settings.name}
-                onChange={(e) => updateSetting('name', e.target.value)}
-                placeholder="My Workflow"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={settings.description}
-                onChange={(e) => updateSetting('description', e.target.value)}
-                placeholder="What does this workflow do?"
-                rows={3}
-              />
-            </div>
-          </div>
-        </section>
-
-        <Separator />
+        {/* Settings Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-8">
 
         {/* Error Handling */}
         <section className="space-y-4">
@@ -224,7 +310,17 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
           <div className="space-y-4 p-4 border rounded-lg">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="error-notifications">Error Notifications</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="error-notifications">Error Notifications</Label>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-4 h-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>When enabled, you'll receive instant alerts via your chosen channels (email, Slack, Discord, or SMS) whenever this workflow encounters an error or fails to complete.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Get notified when this workflow fails
                 </p>
@@ -265,22 +361,36 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
                     <Switch
                       checked={settings.error_notification_slack}
                       onCheckedChange={(checked) => updateSetting('error_notification_slack', checked)}
+                      disabled={!isSlackConnected}
                     />
                     <MessageSquare className="w-4 h-4 text-muted-foreground" />
                     <Label>Slack</Label>
                   </div>
-                  {settings.error_notification_slack && (
+                  {!isSlackConnected && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleConnectIntegration('slack')}
+                      className="ml-6"
+                    >
+                      Connect Slack
+                    </Button>
+                  )}
+                  {isSlackConnected && settings.error_notification_slack && (
                     <Select
                       value={settings.error_notification_channels.slack_channel || ''}
                       onValueChange={(value) => updateNotificationChannel('slack_channel', value)}
+                      disabled={loadingSlackChannels}
                     >
                       <SelectTrigger className="ml-6">
-                        <SelectValue placeholder="Select channel" />
+                        <SelectValue placeholder={loadingSlackChannels ? "Loading channels..." : "Select channel"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="#alerts">#alerts</SelectItem>
-                        <SelectItem value="#notifications">#notifications</SelectItem>
-                        <SelectItem value="#errors">#errors</SelectItem>
+                        {slackChannels.map(channel => (
+                          <SelectItem key={channel.id} value={channel.id}>
+                            #{channel.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -292,22 +402,36 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
                     <Switch
                       checked={settings.error_notification_discord}
                       onCheckedChange={(checked) => updateSetting('error_notification_discord', checked)}
+                      disabled={!isDiscordConnected}
                     />
                     <MessageSquare className="w-4 h-4 text-muted-foreground" />
                     <Label>Discord</Label>
                   </div>
-                  {settings.error_notification_discord && (
+                  {!isDiscordConnected && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleConnectIntegration('discord')}
+                      className="ml-6"
+                    >
+                      Connect Discord
+                    </Button>
+                  )}
+                  {isDiscordConnected && settings.error_notification_discord && (
                     <Select
                       value={settings.error_notification_channels.discord_channel || ''}
                       onValueChange={(value) => updateNotificationChannel('discord_channel', value)}
+                      disabled={loadingDiscordChannels}
                     >
                       <SelectTrigger className="ml-6">
-                        <SelectValue placeholder="Select channel" />
+                        <SelectValue placeholder={loadingDiscordChannels ? "Loading channels..." : "Select channel"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="alerts">alerts</SelectItem>
-                        <SelectItem value="notifications">notifications</SelectItem>
-                        <SelectItem value="errors">errors</SelectItem>
+                        {discordChannels.map(channel => (
+                          <SelectItem key={channel.id} value={channel.id}>
+                            #{channel.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
@@ -421,31 +545,58 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
         <Separator />
 
         {/* Advanced Settings */}
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-1">Advanced</h3>
-            <p className="text-sm text-muted-foreground">
-              Performance and execution settings
-            </p>
-          </div>
+        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
+          <CollapsibleTrigger className="flex items-center justify-between w-full p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+            <div className="text-left">
+              <h3 className="text-lg font-semibold mb-1">Advanced</h3>
+              <p className="text-sm text-muted-foreground">
+                Performance and execution settings
+              </p>
+            </div>
+            {isAdvancedOpen ? (
+              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+            )}
+          </CollapsibleTrigger>
 
-          <div className="space-y-4">
+          <CollapsibleContent className="mt-4 space-y-4 pl-4">
             <div className="space-y-2">
-              <Label htmlFor="timeout">Execution Timeout (seconds)</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="timeout">Execution Timeout (seconds)</Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Sets a maximum time limit for your workflow to complete. If the workflow runs longer than this, it will be automatically stopped. Leave empty to allow workflows to run indefinitely (useful for long-running processes).</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="timeout"
                 type="number"
                 value={settings.timeout_seconds || ''}
                 onChange={(e) => updateSetting('timeout_seconds', parseInt(e.target.value) || undefined)}
-                placeholder="300"
+                placeholder="No timeout"
               />
               <p className="text-xs text-muted-foreground">
-                Maximum time allowed for workflow execution. Leave empty for no timeout.
+                Leave empty for no timeout
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="concurrent-limit">Concurrent Execution Limit</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="concurrent-limit">Concurrent Execution Limit</Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Limits how many instances of this workflow can run at the same time. This is useful for workflows that access rate-limited APIs or need to prevent resource overload. Leave empty to allow unlimited concurrent executions.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="concurrent-limit"
                 type="number"
@@ -454,12 +605,13 @@ export function SettingsTab({ workflowId, initialSettings }: SettingsTabProps) {
                 placeholder="Unlimited"
               />
               <p className="text-xs text-muted-foreground">
-                Maximum number of concurrent executions. Leave empty for unlimited.
+                Leave empty for unlimited
               </p>
             </div>
-          </div>
-        </section>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
+    </TooltipProvider>
   )
 }

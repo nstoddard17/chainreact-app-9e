@@ -126,9 +126,9 @@ export function NewSidebar() {
       </div>
 
       {/* New Workflow Button */}
-      <div className="px-3 pt-2 pb-4">
+      <div className="px-3 pt-2 pb-2">
         <Button
-          onClick={() => router.push('/workflows/new')}
+          onClick={() => router.push('/workflows/ai-agent')}
           className="w-full justify-center gap-2 h-10"
           size="default"
         >
@@ -138,7 +138,7 @@ export function NewSidebar() {
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto py-4">
+      <div className="flex-1 overflow-y-auto pt-2 pb-4">
         <nav className="px-3 space-y-1">
           {mainNav.map((item) => {
             const Icon = item.icon

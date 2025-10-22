@@ -120,15 +120,24 @@ export async function PUT(
       concurrent_execution_limit,
     }
 
+    // Prepare update object - only include name/description if provided
+    const updateData: any = {
+      settings,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (name !== undefined) {
+      updateData.name = name
+    }
+
+    if (description !== undefined) {
+      updateData.description = description
+    }
+
     // Update workflow
     const { data, error } = await supabase
       .from('workflows')
-      .update({
-        name,
-        description,
-        settings,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', workflowId)
       .eq('user_id', user.id)
       .select()

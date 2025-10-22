@@ -9,7 +9,7 @@ import { Globe, ChevronLeft } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { KeyValuePairs, KeyValuePair } from '../../fields/KeyValuePairs';
-import { VariablePicker } from '../../VariablePicker';
+import { VariablePicker } from '../../../VariablePicker';
 
 interface HttpRequestConfigurationProps {
   values: Record<string, any>;
