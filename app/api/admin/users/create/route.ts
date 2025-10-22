@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
 
@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     
     // Verify admin authorization
     const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   Home,
@@ -44,16 +45,24 @@ export function AppSidebar() {
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200">
         {!collapsed && (
           <Link href="/home" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <Image
+              src="/logo_transparent.png"
+              alt="ChainReact Logo"
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
             <span className="font-bold text-lg text-slate-900">ChainReact</span>
           </Link>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center mx-auto">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          <Image
+            src="/logo_transparent.png"
+            alt="ChainReact Logo"
+            width={32}
+            height={32}
+            className="w-8 h-8 mx-auto"
+          />
         )}
       </div>
 

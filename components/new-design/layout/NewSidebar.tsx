@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -113,9 +114,13 @@ export function NewSidebar() {
       {/* Logo */}
       <div className="h-14 flex items-center px-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <Zap className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <Image
+            src="/logo_transparent.png"
+            alt="ChainReact Logo"
+            width={40}
+            height={40}
+            className="w-10 h-10"
+          />
           <span className="font-semibold text-lg">ChainReact</span>
         </div>
       </div>

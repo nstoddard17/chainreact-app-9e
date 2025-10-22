@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 
 const getSupabase = async () => {
   cookies()
-  return await createSupabaseServerClient()
+  return await createSupabaseRouteHandlerClient()
 }
 const getAdminSupabase = () => createAdminClient()
 

@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { getOutlookEnhancedRecipients } from "./handlers/enhanced-recipients"
 import { getOutlookCalendars } from "./handlers/calendars"
 
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       return errorResponse('Data type required' , 400)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Data type required' , 400)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {

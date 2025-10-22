@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
 import { executionHistoryService } from '@/lib/services/executionHistoryService'
@@ -32,7 +32,7 @@ export async function POST(
       conversationId
     })
 
-    const supabase = await createSupabaseServerClient()
+    const supabase = await createSupabaseRouteHandlerClient()
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

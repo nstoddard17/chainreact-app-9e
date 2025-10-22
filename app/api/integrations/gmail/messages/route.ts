@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
 
 async function fetchGmailMessages(integrationId?: string) {
-  const supabase = await createSupabaseServerClient()
+  const supabase = await createSupabaseRouteHandlerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
