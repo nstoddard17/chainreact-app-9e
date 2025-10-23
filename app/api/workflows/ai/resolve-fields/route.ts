@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { processAIFields, ProcessingContext } from '@/lib/workflows/ai/fieldProcessor'
 import { discoverActions } from '@/lib/workflows/ai/fieldProcessor'
+import { handleCorsPreFlight } from '@/lib/utils/cors'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -242,15 +243,13 @@ async function handlePreview(params: {
 }
 
 /**
- * OPTIONS handler for CORS
+ * OPTIONS handler for CORS preflight
+ * Uses secure origin validation - only allows requests from trusted domains
  */
 export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
+  return handleCorsPreFlight(request, {
+    allowCredentials: true,
+    allowedMethods: ['POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 }
