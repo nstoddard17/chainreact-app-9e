@@ -26,13 +26,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     // Redirect non-admin users
-    if (profile && profile.role !== 'admin') {
+    if (profile && profile.admin !== true) {
       router.push('/dashboard')
     }
   }, [profile, router])
 
   useEffect(() => {
-    if (profile?.role === 'admin') {
+    if (profile?.admin === true) {
       fetchUserStats()
     }
   }, [profile, fetchUserStats])
@@ -47,7 +47,7 @@ export default function AdminPage() {
   }
 
   // Redirect non-admin users
-  if (profile.role !== 'admin') {
+  if (profile.admin !== true) {
     return null
   }
 

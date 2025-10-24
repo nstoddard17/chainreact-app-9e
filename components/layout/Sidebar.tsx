@@ -94,7 +94,7 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
   const pathname = usePathname()
   const router = useRouter()
   const { profile } = useAuthStore()
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.admin === true
   const userRole = (profile?.role || 'free') as UserRole
   const [upgradeOverlay, setUpgradeOverlay] = useState<{
     requiredRole: UserRole

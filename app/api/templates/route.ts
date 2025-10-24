@@ -27,11 +27,11 @@ export async function GET(request: NextRequest) {
     if (user && !userError) {
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("role")
+        .select("admin")
         .eq("id", user.id)
         .maybeSingle()
 
-      isAdmin = profile?.role === "admin"
+      isAdmin = profile?.admin === true
     }
 
     const requestingAdminScope = scope === "admin"

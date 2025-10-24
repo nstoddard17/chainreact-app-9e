@@ -205,7 +205,7 @@ export function TemplateGallery() {
   const { toast } = useToast()
   const { profile } = useAuthStore()
   const { addWorkflowToStore } = useWorkflowStore()
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.admin === true
 
   useEffect(() => {
     fetchTemplates()

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     // Check if user is admin
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
-      .select("role")
+      .select("admin")
       .eq("id", user.id)
       .single()
 
@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       return errorResponse("Failed to verify admin status", 500)
     }
 
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || profile.admin !== true) {
       return jsonResponse(
-        { error: `Only admins can send invitations. Your role: ${profile?.role || 'user'}` },
+        { error: `Only admins can send invitations.` },
         { status: 403 }
       )
     }

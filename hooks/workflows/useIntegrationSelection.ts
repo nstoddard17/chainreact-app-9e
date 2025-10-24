@@ -293,7 +293,7 @@ export function useIntegrationSelection() {
 
     // Add HubSpot and Mailchimp to coming soon for non-admin and non-beta users
     const userRole = profile?.role?.toLowerCase()
-    const isAdmin = userRole === 'admin'
+    const isAdmin = profile?.admin === true
     const isBetaTester = userRole === 'beta-pro'
 
     if (!isAdmin && !isBetaTester) {

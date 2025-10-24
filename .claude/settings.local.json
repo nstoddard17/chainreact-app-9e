@@ -6,7 +6,8 @@
       "Bash(npm run build:*)",
       "Read(//c/Users/marcu/OneDrive/Shared/ChainReact/Logo/**)",
       "Bash(dir:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": [],

@@ -76,7 +76,7 @@ export default function LandingPage() {
   const { signOut, profile, initialize, initialized } = useAuthStore()
 
   const userRole = (profile?.role as UserRole) || 'free'
-  const isAdmin = userRole === 'admin'
+  const isAdmin = profile?.admin === true
 
   // Initialize auth on mount if not already initialized (non-blocking)
   useEffect(() => {

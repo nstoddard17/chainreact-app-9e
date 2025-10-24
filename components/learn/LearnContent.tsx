@@ -142,7 +142,7 @@ export default function LearnContent() {
   const [saving, setSaving] = useState(false)
   const { profile } = useAuthStore()
 
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.admin === true
 
   useEffect(() => {
     fetchResources()
