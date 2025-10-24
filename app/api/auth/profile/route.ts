@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     } = await adminClient
       .from('user_profiles')
       .select(
-        'id, email, username, full_name, first_name, last_name, role, provider, avatar_url, company, job_title, secondary_email, phone_number, created_at, updated_at'
+        'id, email, username, full_name, first_name, last_name, role, admin, provider, avatar_url, company, job_title, secondary_email, phone_number, created_at, updated_at'
       )
       .eq('id', user.id)
       .maybeSingle()
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
       .from('user_profiles')
       .insert(insertPayload)
       .select(
-        'id, email, username, full_name, first_name, last_name, role, provider, avatar_url, company, job_title, secondary_email, phone_number, created_at, updated_at'
+        'id, email, username, full_name, first_name, last_name, role, admin, provider, avatar_url, company, job_title, secondary_email, phone_number, created_at, updated_at'
       )
       .single()
 

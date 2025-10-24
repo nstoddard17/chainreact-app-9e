@@ -43,7 +43,7 @@ export function RoleBadge({ role, size = 'md', showIcon = true, className = '' }
 export function RoleBadgeCompact({ role, className = '' }: { role: UserRole; className?: string }) {
   const roleInfo = getRoleInfo(role)
   const Icon = roleIcons[role as keyof typeof roleIcons]
-  
+
   return (
     <div className={`inline-flex items-center space-x-1 ${roleInfo.color} ${className}`}>
       {Icon && <Icon className="w-3 h-3" />}
