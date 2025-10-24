@@ -741,20 +741,30 @@ export function useWorkflowBuilder() {
   }, [dialogsHook])
 
   const handleNodeConfigure = useCallback((id: string) => {
+    console.log('🔍 [handleNodeConfigure] Called with id:', id)
     const nodeToConfig = nodesRef.current.find(n => n.id === id)
+    console.log('🔍 [handleNodeConfigure] Found node:', !!nodeToConfig, nodeToConfig?.data?.type)
     if (nodeToConfig) {
       // Manual triggers should open the trigger selection dialog instead of config modal
       if (nodeToConfig.data?.type === 'manual') {
+        console.log('🔍 [handleNodeConfigure] Opening trigger dialog')
         dialogsHook.setShowTriggerDialog(true)
         return
       }
 
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfig.data?.type)
+      console.log('🔍 [handleNodeConfigure] Setting configuringNode:', {
+        hasNodeComponent: !!nodeComponent,
+        nodeComponentType: nodeComponent?.type
+      })
       configHook.setConfiguringNode({
         id: nodeToConfig.id,
-        nodeComponent: ALL_NODE_COMPONENTS.find(c => c.type === nodeToConfig.data?.type),
+        nodeComponent: nodeComponent,
         integration: null,
         config: nodeToConfig.data?.config || {}
       })
+    } else {
+      console.log('🔍 [handleNodeConfigure] Node NOT found')
     }
   }, [configHook, dialogsHook])
 
@@ -793,6 +803,43 @@ export function useWorkflowBuilder() {
       })
     )
   }, [setNodes])
+
+  // Context menu handlers
+  const handleTestNode = useCallback((nodeId: string) => {
+    // TODO: Implement test single node functionality
+    console.log('Test node:', nodeId)
+    toast({
+      title: "Test Node",
+      description: "Testing individual node functionality (coming soon)",
+    })
+  }, [toast])
+
+  const handleTestFlowFromHere = useCallback((nodeId: string) => {
+    // TODO: Implement test flow from specific node
+    console.log('Test flow from node:', nodeId)
+    toast({
+      title: "Test Flow",
+      description: "Testing workflow from this node (coming soon)",
+    })
+  }, [toast])
+
+  const handleFreezeNode = useCallback((nodeId: string) => {
+    // TODO: Implement freeze node (skip execution)
+    console.log('Freeze node:', nodeId)
+    toast({
+      title: "Freeze Node",
+      description: "Node will be skipped during execution (coming soon)",
+    })
+  }, [toast])
+
+  const handleStopNode = useCallback((nodeId: string) => {
+    // TODO: Implement stop node execution
+    console.log('Stop node:', nodeId)
+    toast({
+      title: "Stop Node",
+      description: "Stopping node execution (coming soon)",
+    })
+  }, [toast])
 
   const runPreflightCheck = useCallback((options: RunPreflightOptions = {}) => {
     const { openOnSuccess = false, openOnFailure = true } = options
@@ -1454,7 +1501,11 @@ export function useWorkflowBuilder() {
               onDelete: handleNodeDelete,
               onEditingStateChange: handleNodeEditingStateChange,
               onRename: handleNodeRename,
-              onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined
+              onAddChain: node.data?.type === 'ai_agent' ? handleNodeAddChain : undefined,
+              onTestNode: handleTestNode,
+              onTestFlowFromHere: handleTestFlowFromHere,
+              onFreeze: handleFreezeNode,
+              onStop: handleStopNode
             }
           }))
 
@@ -1924,7 +1975,11 @@ export function useWorkflowBuilder() {
               onDelete: handleNodeDelete,
               onEditingStateChange: handleNodeEditingStateChange,
               onRename: handleNodeRename,
-              onAddChain: safeData.type === 'ai_agent' ? handleNodeAddChain : undefined
+              onAddChain: safeData.type === 'ai_agent' ? handleNodeAddChain : undefined,
+              onTestNode: handleTestNode,
+              onTestFlowFromHere: handleTestFlowFromHere,
+              onFreeze: handleFreezeNode,
+              onStop: handleStopNode
             }
           }
         })
@@ -2337,7 +2392,11 @@ export function useWorkflowBuilder() {
           onConfigure: handleNodeConfigure,
           onDelete: handleNodeDelete,
           onEditingStateChange: handleNodeEditingStateChange,
-          onRename: handleNodeRename
+          onRename: handleNodeRename,
+          onTestNode: handleTestNode,
+          onTestFlowFromHere: handleTestFlowFromHere,
+          onFreeze: handleFreezeNode,
+          onStop: handleStopNode
         }
       }
 
@@ -2596,7 +2655,12 @@ export function useWorkflowBuilder() {
         onConfigure: handleNodeConfigure,
         onDelete: handleNodeDelete,
         onEditingStateChange: handleNodeEditingStateChange,
-        onRename: handleNodeRename
+        onRename: handleNodeRename,
+        onTestNode: handleTestNode,
+        onTestFlowFromHere: handleTestFlowFromHere,
+        onFreeze: handleFreezeNode,
+        onStop: handleStopNode,
+        onRun: handleRunNode
       }
     }
 
@@ -2785,6 +2849,10 @@ export function useWorkflowBuilder() {
         onEditingStateChange: handleNodeEditingStateChange,
         onRename: handleNodeRename,
         onAddChain: nodeComponent.type === 'ai_agent' ? handleNodeAddChain : undefined,
+        onTestNode: handleTestNode,
+        onTestFlowFromHere: handleTestFlowFromHere,
+        onFreeze: handleFreezeNode,
+        onStop: handleStopNode,
         // Preserve AI agent chain metadata if this is part of a chain
         ...(parentAIAgentId && {
           isAIAgentChild: true,
@@ -3198,30 +3266,8 @@ export function useWorkflowBuilder() {
     const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === nodeToDelete.data?.type)
     const isTriggerNode = nodeComponent?.isTrigger === true
 
-    // If deleting a trigger, show trigger selection dialog instead
-    if (isTriggerNode) {
-      // Store the deleted trigger info for potential restoration
-      deletedTriggerBackupRef.current = {
-        node: { ...nodeToDelete },
-        edges: currentEdges.filter(e => e.source === nodeId || e.target === nodeId)
-      }
-
-      // Close the deletion modal
-      dialogsHook.setDeletingNode(null)
-
-      // First, actually delete the node
-      setNodes((prevNodes) => prevNodes.filter(n => n.id !== nodeId))
-      setEdges((prevEdges) => prevEdges.filter(e => e.source !== nodeId && e.target !== nodeId))
-      setHasUnsavedChanges(true)
-
-      // Small delay to ensure deletion is processed
-      setTimeout(() => {
-        // Now open the trigger selection dialog
-        dialogsHook.setShowTriggerDialog(true)
-      }, 100)
-
-      return
-    }
+    // Note: Trigger selection dialog removed - triggers now deleted like any other node
+    // Users can add new triggers via the IntegrationsSidePanel if needed
 
     // Check if this is an AI Agent node
     const isAIAgent = nodeToDelete.data?.type === 'ai_agent'
@@ -3453,11 +3499,7 @@ export function useWorkflowBuilder() {
 
     dialogsHook.setDeletingNode(null)
 
-    // Show success toast
-    toast({
-      title: "Node deleted",
-      description: "The node has been removed from the workflow",
-    })
+    // Toast notification removed per user request
   }, [setNodes, setEdges, getEdges, getNodes, handleAddActionClick, handleAddNodeBetween, removeNode, setHasUnsavedChanges, configHook, dialogsHook, toast, ensureOneAddActionPerChain])
 
   const forceUpdate = useCallback(() => {
@@ -3646,6 +3688,10 @@ export function useWorkflowBuilder() {
     handleNodeEditingStateChange,
     handleNodeRename,
     handleNodeAddChain,
+    handleTestNode,
+    handleTestFlowFromHere,
+    handleFreezeNode,
+    handleStopNode,
     openTriggerDialog,
     nodeNeedsConfiguration,
     confirmDeleteNode,

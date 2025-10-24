@@ -62,12 +62,17 @@ export function AIFieldWrapper({
   
   // Check if field is the recordId field for update record
   const isRecordIdField = field.name === 'recordId' && nodeInfo?.type === 'airtable_action_update_record';
-  
-  // Check if field supports AI (all fields except recordId, and only if onAIToggle is provided)
-  const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable && !!onAIToggle;
-  
+
+  // Check if field supports AI:
+  // 1. Must have field.supportsAI explicitly set to true in schema, OR
+  // 2. Legacy fallback: all fields except recordId (for backwards compatibility)
+  // Also requires: not readonly, not non-editable, and onAIToggle callback provided
+  const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable && !!onAIToggle &&
+    (field.supportsAI === true || field.supportsAI === undefined); // undefined = legacy behavior
+
   logger.debug('🎯 [AIFieldWrapper] Rendering:', {
     fieldName: field.name,
+    fieldSupportsAI: field.supportsAI,
     isAIEnabled,
     hasOnAIToggle: !!onAIToggle,
     isReadOnly,

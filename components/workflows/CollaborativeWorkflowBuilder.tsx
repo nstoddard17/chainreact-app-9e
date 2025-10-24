@@ -19,8 +19,7 @@ import { WorkflowLoadingScreen } from "@/components/ui/loading-screen"
 import { WorkflowHeader } from "./builder/WorkflowHeader"
 import { WorkflowVersionsDialog } from "./builder/WorkflowVersionsDialog"
 import { WorkflowHistoryDialog } from "./builder/WorkflowHistoryDialog"
-import { TriggerSelectionDialog } from "./builder/TriggerSelectionDialog"
-import { ActionSelectionDialog } from "./builder/ActionSelectionDialog"
+// TriggerSelectionDialog and ActionSelectionDialog removed - using IntegrationsSidePanel instead
 import { EmptyWorkflowState } from "./builder/EmptyWorkflowState"
 import { IntegrationsSidebar } from "./builder/IntegrationsSidebar"
 import { UnsavedChangesModal } from "./builder/UnsavedChangesModal"
@@ -42,6 +41,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ArrowLeft } from "lucide-react"
 
 import { logger } from '@/lib/utils/logger'
+import { useAuthStore } from '@/stores/authStore'
 
 function WorkflowBuilderContent() {
   const {
@@ -208,21 +208,57 @@ function WorkflowBuilderContent() {
 
   const searchParams = useSearchParams()
   const reactAgentParam = searchParams?.get('reactAgent')
+  const aiChatParam = searchParams?.get('aiChat')
+  const initialPromptParam = searchParams?.get('initialPrompt')
 
   const [isTemplateSettingsOpen, setIsTemplateSettingsOpen] = React.useState(false)
-  // Initialize React Agent as open if reactAgent=true in URL
+
+  // Get user profile to check AI agent preference
+  const { profile } = useAuthStore()
+
+  // Initialize React Agent based on user preference
   const [isReactAgentCollapsed, setIsReactAgentCollapsed] = React.useState(() => {
-    return reactAgentParam !== 'true'
+    // If reactAgent=true or aiChat=true in URL, always open
+    if (reactAgentParam === 'true' || aiChatParam === 'true') {
+      return false
+    }
+
+    // Check user's AI agent preference
+    const aiAgentPref = profile?.ai_agent_preference
+
+    // If user has set 'always_skip', collapse it
+    if (aiAgentPref === 'always_skip') {
+      return true
+    }
+
+    // Otherwise, open by default ('always_show', 'ask_later', or no preference)
+    return false
   })
+
   const [showVersionsDialog, setShowVersionsDialog] = React.useState(false)
   const [showHistoryDialog, setShowHistoryDialog] = React.useState(false)
+  const [hasInitiallyOpened, setHasInitiallyOpened] = React.useState(false)
 
-  // Check for reactAgent query parameter and open React Agent if present
+  // Open React Agent on initial load (unless user has preference to always skip)
   React.useEffect(() => {
-    if (reactAgentParam === 'true' && isReactAgentCollapsed) {
+    if (!hasInitiallyOpened) {
+      const aiAgentPref = profile?.ai_agent_preference
+
+      // Only collapse if user explicitly chose 'always_skip'
+      if (aiAgentPref !== 'always_skip') {
+        setIsReactAgentCollapsed(false)
+      }
+
+      setHasInitiallyOpened(true)
+    }
+  }, [hasInitiallyOpened, profile])
+
+  // Check for reactAgent or aiChat query parameters and open React Agent if present
+  React.useEffect(() => {
+    if ((reactAgentParam === 'true' || aiChatParam === 'true') && isReactAgentCollapsed) {
       setIsReactAgentCollapsed(false)
     }
-  }, [reactAgentParam, isReactAgentCollapsed])
+  }, [reactAgentParam, aiChatParam, isReactAgentCollapsed])
 
   // Get connected integrations for React Agent
   const connectedIntegrations = React.useMemo(() => {
@@ -376,6 +412,7 @@ function WorkflowBuilderContent() {
           isCollapsed={isReactAgentCollapsed}
           onToggleCollapse={() => setIsReactAgentCollapsed(!isReactAgentCollapsed)}
           initialWelcomeMessage={reactAgentParam === 'true' ? "Welcome to the Workflow Builder! I'm React Agent, and I'm here to help you create powerful automations. You can build workflows visually using the canvas on the right, or tell me what you want to build and I'll help you set it up. What would you like to automate today?" : undefined}
+          initialPrompt={initialPromptParam ? decodeURIComponent(initialPromptParam) : undefined}
         />
 
         {/* Workflow Canvas */}
@@ -524,56 +561,7 @@ function WorkflowBuilderContent() {
         />
       )}
 
-      {/* Dialogs */}
-      <TriggerSelectionDialog
-        open={showTriggerDialog}
-        onOpenChange={handleTriggerDialogClose}
-        selectedIntegration={selectedIntegration}
-        setSelectedIntegration={setSelectedIntegration}
-        selectedTrigger={selectedTrigger}
-        setSelectedTrigger={setSelectedTrigger}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filterCategory={filterCategory}
-        setFilterCategory={setFilterCategory}
-        showConnectedOnly={showConnectedOnly}
-        setShowConnectedOnly={setShowConnectedOnly}
-        availableIntegrations={availableIntegrations}
-        categories={categories}
-        renderLogo={renderLogo}
-        isIntegrationConnected={isIntegrationConnected}
-        filterIntegrations={filterIntegrations}
-        getDisplayedTriggers={getDisplayedTriggers}
-        onTriggerSelect={handleTriggerSelect}
-        loadingIntegrations={loadingIntegrations}
-        refreshIntegrations={refreshIntegrations}
-      />
-
-      <ActionSelectionDialog
-        open={showActionDialog}
-        onOpenChange={setShowActionDialog}
-        selectedIntegration={selectedIntegration}
-        setSelectedIntegration={setSelectedIntegration}
-        selectedAction={selectedAction}
-        setSelectedAction={setSelectedAction}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        filterCategory={filterCategory}
-        setFilterCategory={setFilterCategory}
-        showConnectedOnly={showConnectedOnly}
-        setShowConnectedOnly={setShowConnectedOnly}
-        availableIntegrations={availableIntegrations}
-        categories={categories}
-        renderLogo={renderLogo}
-        isIntegrationConnected={isIntegrationConnected}
-        filterIntegrations={filterIntegrations}
-        getDisplayedActions={getDisplayedActions}
-        onActionSelect={handleActionSelect}
-        handleActionDialogClose={handleActionDialogClose}
-        nodes={nodes}
-        loadingIntegrations={loadingIntegrations}
-        refreshIntegrations={refreshIntegrations}
-      />
+      {/* Dialogs - TriggerSelectionDialog and ActionSelectionDialog removed, using IntegrationsSidebar instead */}
 
       {/* Configuration Modals */}
       {configuringNode && (

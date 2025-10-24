@@ -5,16 +5,19 @@ import {
   Repeat,
   GitFork,
   Filter,
-  Globe
+  Globe,
+  Split,
+  Timer,
+  Braces
 } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const logicNodes: NodeComponent[] = [
   {
     type: "path",
-    title: "Path",
-    description: "Route workflow based on multiple conditions with visual branches",
-    icon: GitFork,
+    title: "Path Router",
+    description: "Route workflow to different paths based on multiple conditions",
+    icon: Split,
     category: "Logic",
     providerId: "logic",
     isTrigger: false,
@@ -51,7 +54,7 @@ export const logicNodes: NodeComponent[] = [
   {
     type: "filter",
     title: "Filter",
-    description: "Stop workflow if conditions are not met",
+    description: "Continue only if specific conditions are met, otherwise stop workflow",
     icon: Filter,
     category: "Logic",
     providerId: "logic",
@@ -96,7 +99,7 @@ export const logicNodes: NodeComponent[] = [
   {
     type: "http_request",
     title: "HTTP Request",
-    description: "Send data to custom API endpoint",
+    description: "Send HTTP requests to any API endpoint with custom headers and body",
     icon: Globe,
     category: "Logic",
     providerId: "logic",

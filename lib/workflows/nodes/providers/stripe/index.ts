@@ -205,6 +205,14 @@ export const stripeNodes: NodeComponent[] = [
         required: false,
         defaultValue: 100,
         placeholder: "Number of customers to retrieve (max 100)"
+      },
+      {
+        name: "starting_after",
+        label: "Starting After (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "cus_1234567890",
+        tooltip: "Customer ID to start after for pagination. Use to retrieve the next page of results."
       }
     ],
     outputSchema: [
@@ -247,6 +255,30 @@ export const stripeNodes: NodeComponent[] = [
         required: false,
         defaultValue: 100,
         placeholder: "Number of payments to retrieve (max 100)"
+      },
+      {
+        name: "status",
+        label: "Filter by Status (Optional)",
+        type: "select",
+        required: false,
+        options: [
+          { value: "requires_payment_method", label: "Requires Payment Method" },
+          { value: "requires_confirmation", label: "Requires Confirmation" },
+          { value: "requires_action", label: "Requires Action" },
+          { value: "processing", label: "Processing" },
+          { value: "requires_capture", label: "Requires Capture" },
+          { value: "canceled", label: "Canceled" },
+          { value: "succeeded", label: "Succeeded" }
+        ],
+        tooltip: "Filter payments by their status"
+      },
+      {
+        name: "starting_after",
+        label: "Starting After (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "pi_1234567890",
+        tooltip: "Payment intent ID to start after for pagination. Use to retrieve the next page of results."
       }
     ],
     outputSchema: [

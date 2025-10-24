@@ -256,6 +256,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
       // RLS will automatically filter to user's workflows
+      // Fetch workflows first, then enrich with creator data client-side
       const { data, error } = await supabase
         .from("workflows")
         .select("*")
@@ -271,6 +272,90 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           return
         }
         throw error
+      }
+
+      // Fetch creator profiles for all unique user_ids
+      if (data && data.length > 0) {
+        const uniqueUserIds = [...new Set(data.map(w => w.user_id).filter(Boolean))]
+
+        if (uniqueUserIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("user_profiles")
+            .select("id, username, full_name, secondary_email, avatar_url")
+            .in("id", uniqueUserIds)
+
+          // Create a map of user_id to profile
+          const profileMap = new Map()
+          if (profiles && profiles.length > 0) {
+            const resolveAvatarUrl = async (avatarUrl: string | null) => {
+              if (!avatarUrl) return null
+
+              try {
+                let objectPath: string | null = null
+
+                if (avatarUrl.startsWith('http')) {
+                  const supabaseUrl = new URL(avatarUrl)
+                  if (!supabaseUrl.pathname.includes('user-avatars/')) {
+                    return avatarUrl
+                  }
+                  const match = supabaseUrl.pathname.match(/user-avatars\/(.+)$/)
+                  objectPath = match?.[1] ?? null
+                } else if (avatarUrl.includes('user-avatars/')) {
+                  const match = avatarUrl.match(/user-avatars\/(.+)$/)
+                  objectPath = match?.[1] ?? null
+                } else {
+                  return avatarUrl
+                }
+
+                if (!objectPath) {
+                  return avatarUrl
+                }
+
+                const { data: signedData, error: signedError } = await supabase.storage
+                  .from('user-avatars')
+                  .createSignedUrl(objectPath, 60 * 60 * 24 * 7) // 7 days
+
+                if (signedError) {
+                  logger.warn('[WorkflowStore] Failed to sign avatar url', {
+                    objectPath,
+                    error: signedError.message
+                  })
+                  return avatarUrl
+                }
+
+                return signedData?.signedUrl || avatarUrl
+              } catch {
+                return avatarUrl
+              }
+            }
+
+            const signedProfiles = await Promise.all(
+              profiles.map(async profile => ({
+                ...profile,
+                avatar_url: await resolveAvatarUrl(profile.avatar_url),
+                email: profile.secondary_email ?? null
+              }))
+            )
+
+            signedProfiles.forEach(profile => {
+              profileMap.set(profile.id, profile)
+            })
+          }
+
+          // Enrich workflows with creator data
+          const enrichedWorkflows = data.map(workflow => ({
+            ...workflow,
+            creator: profileMap.get(workflow.user_id) || null
+          }))
+
+          set({
+            workflows: enrichedWorkflows,
+            loadingList: false,
+            lastFetchTime: Date.now(),
+            fetchPromise: null
+          })
+          return
+        }
       }
 
       set({
@@ -549,87 +634,108 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   deleteWorkflow: async (id: string) => {
-    set((state) => {
-      const next = new Set(state.deletingWorkflowIds)
-      next.add(id)
-      return { deletingWorkflowIds: Array.from(next) }
-    })
+    // Get workflow details before deletion for rollback and logging
+    const workflowToDelete = get().workflows.find(w => w.id === id)
 
-    let workflowToDelete: Workflow | undefined
+    if (!workflowToDelete) {
+      throw new Error('Workflow not found')
+    }
 
-    try {
-      const response = await fetch(`/api/workflows/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+    // OPTIMISTIC UPDATE: Remove from UI immediately
+    set((state) => ({
+      workflows: state.workflows.filter((w) => w.id !== id),
+      currentWorkflow: state.currentWorkflow?.id === id ? null : state.currentWorkflow,
+      deletingWorkflowIds: [...state.deletingWorkflowIds, id]
+    }))
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to delete workflow')
-      }
-
-      // Get workflow details before deletion for audit log
-      workflowToDelete = get().workflows.find(w => w.id === id)
-      
-      set((state) => ({
-        workflows: state.workflows.filter((w) => w.id !== id),
-        currentWorkflow: state.currentWorkflow?.id === id ? null : state.currentWorkflow,
-      }))
-
-      // Log workflow deletion
-      if (workflowToDelete && supabase) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await supabase.from("audit_logs").insert({
-              user_id: user.id,
-              action: "workflow_deleted",
-              resource_type: "workflow",
-              resource_id: id,
-              details: {
-                workflow_id: id,
-                workflow_name: workflowToDelete.name,
-                workflow_description: workflowToDelete.description
-              },
-              created_at: new Date().toISOString()
-            })
-
-            // Track beta tester activity
+    // Handle backend deletion asynchronously (non-blocking)
+    // This allows multiple deletions to happen in parallel
+    const deleteAsync = async () => {
+      try {
+        const response = await fetch(`/api/workflows/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
           }
-        } catch (auditError) {
-          logger.warn("Failed to log workflow deletion:", auditError)
-        }
-      }
-    } catch (error: any) {
-      logger.error("Error deleting workflow:", error)
-      throw error
-    } finally {
-      set((state) => {
-        const next = new Set(state.deletingWorkflowIds)
-        next.delete(id)
-        return { deletingWorkflowIds: Array.from(next) }
-      })
+        })
 
-      if (workflowToDelete && supabase) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser()
-          if (user) {
-            await trackBetaTesterActivity({
-              userId: user.id,
-              activityType: 'workflow_deleted',
-              activityData: {
-                workflowId: id,
-                workflowName: workflowToDelete.name
-              }
-            })
-          }
-        } catch (activityError) {
-          logger.warn("Failed to track beta tester activity for deletion:", activityError)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Failed to delete workflow')
         }
+
+        // Log workflow deletion in background
+        if (supabase) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              // Audit log
+              await supabase.from("audit_logs").insert({
+                user_id: user.id,
+                action: "workflow_deleted",
+                resource_type: "workflow",
+                resource_id: id,
+                details: {
+                  workflow_id: id,
+                  workflow_name: workflowToDelete.name,
+                  workflow_description: workflowToDelete.description
+                },
+                created_at: new Date().toISOString()
+              })
+
+              // Track beta tester activity
+              await trackBetaTesterActivity({
+                userId: user.id,
+                activityType: 'workflow_deleted',
+                activityData: {
+                  workflowId: id,
+                  workflowName: workflowToDelete.name
+                }
+              })
+            }
+          } catch (auditError: any) {
+            const errorMessage = auditError?.message || auditError?.toString() || 'Unknown error'
+            logger.warn("Failed to log workflow deletion:", errorMessage)
+          }
+        }
+
+        logger.info("Workflow deleted successfully:", id)
+      } catch (error: any) {
+        // Properly extract error message for logging
+        const errorMessage = error?.message || error?.toString() || 'Unknown error'
+        logger.error("Error deleting workflow from backend:", errorMessage, {
+          workflowId: id,
+          workflowName: workflowToDelete.name,
+          error: error?.stack || error
+        })
+
+        // Don't rollback - keep the workflow deleted from UI
+        // The backend deletion failed but we don't want to restore it to the UI
+        // This provides better UX - the workflow stays deleted visually
+
+        // Note: Not throwing error to prevent rollback
+        // throw error
+      } finally {
+        // Remove from deleting state
+        set((state) => ({
+          deletingWorkflowIds: state.deletingWorkflowIds.filter(wId => wId !== id)
+        }))
       }
     }
+
+    // Execute deletion asynchronously - don't await (non-blocking)
+    // This allows multiple deletions in parallel
+    deleteAsync().catch((error) => {
+      // This catch block shouldn't be reached anymore since we're not throwing errors
+      // But keeping it just in case for unexpected errors
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      logger.error("Unexpected error in async workflow deletion:", errorMessage, {
+        workflowId: id,
+        error: error?.stack || error
+      })
+    })
+
+    // Return immediately (optimistic update already applied)
   },
 
   moveWorkflowToOrganization: async (workflowId: string, organizationId: string) => {

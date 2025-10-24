@@ -21,6 +21,7 @@ import {
   X
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { logger } from "@/lib/utils/logger"
 import { useAuthStore } from "@/stores/authStore"
 import {
   Dialog,
@@ -36,12 +37,17 @@ interface Message {
   content: string
   timestamp: Date
   status?: 'pending' | 'complete' | 'error'
-  actionType?: 'add_node' | 'connect_integration' | 'configure_node'
+  actionType?: 'plan_workflow' | 'add_node' | 'connect_app' | 'configure_node'
   metadata?: {
     nodeId?: string
     nodeName?: string
     provider?: string
-    integrationConnected?: boolean
+    appConnected?: boolean
+    workflowSteps?: Array<{
+      nodeType: string
+      nodeName: string
+      description: string
+    }>
   }
 }
 
@@ -66,6 +72,7 @@ interface AIWorkflowBuilderChatProps {
   isCollapsed?: boolean
   onToggleCollapse?: () => void
   initialWelcomeMessage?: string
+  initialPrompt?: string // Auto-send this prompt on mount
 }
 
 export function AIWorkflowBuilderChat({
@@ -77,9 +84,18 @@ export function AIWorkflowBuilderChat({
   className,
   isCollapsed = false,
   onToggleCollapse,
-  initialWelcomeMessage
+  initialWelcomeMessage,
+  initialPrompt
 }: AIWorkflowBuilderChatProps) {
   const { user } = useAuthStore()
+
+  // Debug logging
+  logger.info('[AIWorkflowBuilderChat] Component mounted/updated', {
+    workflowId,
+    hasInitialPrompt: !!initialPrompt,
+    initialPrompt,
+    isCollapsed
+  })
 
   const defaultWelcomeMessage = "Hi! I'm React Agent, your AI workflow assistant. I can help you build workflows using natural language. Try saying something like 'When I get a new email, send it to Slack' or choose a template below!"
 
@@ -98,6 +114,7 @@ export function AIWorkflowBuilderChat({
   const [contextNodes, setContextNodes] = useState<WorkflowNode[]>([])
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -108,6 +125,120 @@ export function AIWorkflowBuilderChat({
       }
     }
   }, [messages])
+
+  // Auto-send initial prompt if provided
+  useEffect(() => {
+    logger.info('[AIWorkflowBuilderChat] useEffect triggered', {
+      hasInitialPrompt: !!initialPrompt,
+      initialPrompt,
+      hasProcessedInitialPrompt,
+      isLoading,
+      isCollapsed,
+      messagesLength: messages.length,
+      firstMessageRole: messages[0]?.role
+    })
+
+    // Don't process if collapsed - wait until it opens
+    if (isCollapsed) {
+      logger.info('[AIWorkflowBuilderChat] Skipping - chat is collapsed')
+      return
+    }
+
+    // Only process if we have an initial prompt and haven't processed it yet
+    if (!initialPrompt || hasProcessedInitialPrompt || isLoading) {
+      logger.info('[AIWorkflowBuilderChat] Early return from useEffect', {
+        reason: !initialPrompt ? 'no initial prompt' : hasProcessedInitialPrompt ? 'already processed' : 'is loading'
+      })
+      return
+    }
+
+    // Make sure we only have the welcome message (no user messages yet)
+    if (messages.length !== 1 || messages[0].role !== 'assistant') {
+      logger.info('[AIWorkflowBuilderChat] Early return - wrong message state', {
+        messagesLength: messages.length,
+        firstMessageRole: messages[0]?.role
+      })
+      return
+    }
+
+    logger.info('[AIWorkflowBuilderChat] Processing initial prompt:', initialPrompt)
+    setHasProcessedInitialPrompt(true)
+
+    // Manually trigger the send logic
+    const sendInitialMessage = async () => {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: initialPrompt,
+        timestamp: new Date()
+      }
+
+      setMessages(prev => [...prev, userMessage])
+      setInput(initialPrompt) // Show in input for visibility
+      setIsLoading(true)
+
+      try {
+        logger.info('[AIWorkflowBuilderChat] Sending to API:', { workflowId, initialPrompt })
+
+        const response = await fetch('/api/ai/workflow-builder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: initialPrompt,
+            workflowId,
+            connectedIntegrations,
+            conversationHistory: [],
+            contextNodes: []
+          })
+        })
+
+        if (!response.ok) throw new Error('Failed to get AI response')
+
+        const data = await response.json()
+        logger.info('[AIWorkflowBuilderChat] Received AI response:', data)
+
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date(),
+          status: data.status || 'complete',
+          actionType: data.actionType,
+          metadata: data.metadata
+        }
+
+        setMessages(prev => [...prev, assistantMessage])
+
+        // If AI wants to add a node, call the handler
+        if (data.actionType === 'add_node' && data.nodeType && onNodeAdd) {
+          logger.info('[AIWorkflowBuilderChat] Adding node:', data.nodeType)
+          onNodeAdd(data.nodeType, data.config || {})
+        }
+
+        // If AI wants to connect app
+        if (data.actionType === 'connect_app' && data.provider && onIntegrationPrompt) {
+          logger.info('[AIWorkflowBuilderChat] Prompting app connection:', data.provider)
+          onIntegrationPrompt(data.provider)
+        }
+
+      } catch (error) {
+        logger.error('[AIWorkflowBuilderChat] Error sending initial message:', error)
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'system',
+          content: "I'm sorry, I encountered an error processing your request. Please try again.",
+          timestamp: new Date(),
+          status: 'error'
+        }
+        setMessages(prev => [...prev, errorMessage])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Small delay to ensure UI is ready
+    setTimeout(sendInitialMessage, 300)
+  }, [initialPrompt, hasProcessedInitialPrompt, isLoading, isCollapsed, messages, workflowId, connectedIntegrations, onNodeAdd, onIntegrationPrompt])
 
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return
@@ -163,7 +294,7 @@ export function AIWorkflowBuilderChat({
       // Handle actions
       if (data.actionType === 'add_node' && onNodeAdd) {
         onNodeAdd(data.nodeType, data.config)
-      } else if (data.actionType === 'connect_integration' && onIntegrationPrompt) {
+      } else if (data.actionType === 'connect_app' && onIntegrationPrompt) {
         onIntegrationPrompt(data.provider)
       }
 
@@ -414,18 +545,39 @@ export function AIWorkflowBuilderChat({
                         )}
                       </div>
                     )}
-                    {message.actionType === 'connect_integration' && (
+                    {message.actionType === 'connect_app' && (
                       <div className="flex items-center gap-2 text-xs">
                         <LinkIcon className="w-3 h-3" />
                         <span className="font-medium">
-                          {message.metadata.integrationConnected
+                          {message.metadata.appConnected
                             ? `Connected: ${message.metadata.provider}`
                             : `Connect ${message.metadata.provider}`
                           }
                         </span>
-                        {message.metadata.integrationConnected && (
+                        {message.metadata.appConnected && (
                           <CheckCircle className="w-3 h-3 text-green-500 ml-auto" />
                         )}
+                      </div>
+                    )}
+
+                    {/* Continue Button for Workflow Plan */}
+                    {message.actionType === 'plan_workflow' && message.metadata?.workflowSteps && (
+                      <div className="mt-4">
+                        <Button
+                          onClick={async () => {
+                            // Send confirmation message to continue building
+                            setInput("Yes, continue building the workflow")
+                            // Trigger the send after a brief delay to ensure state is updated
+                            setTimeout(() => {
+                              handleSendMessage()
+                            }, 50)
+                          }}
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          disabled={isLoading}
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Continue Building
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -438,8 +590,16 @@ export function AIWorkflowBuilderChat({
               </div>
 
               {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="User avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.email?.charAt(0).toUpperCase() || 'U'}</span>
+                  )}
                 </div>
               )}
             </div>

@@ -7,7 +7,6 @@
 
 import { logger } from '@/lib/utils/logger'
 import { sendWorkflowErrorEmail } from './email'
-import { sendSMS, formatPhoneNumber } from './sms'
 import { sendWorkflowErrorSlack } from './slack'
 import { sendWorkflowErrorDiscord } from './discord'
 
@@ -110,6 +109,8 @@ export async function sendWorkflowErrorNotifications(
   // Send SMS Notification
   if (settings.error_notification_sms && channels.sms_phone) {
     try {
+      // Dynamically import SMS functions only when needed (Twilio is optional dependency)
+      const { sendSMS, formatPhoneNumber } = await import('./sms')
       const formattedPhone = formatPhoneNumber(channels.sms_phone)
       const smsMessage = `ChainReact Alert: Workflow "${workflowName}" failed. Error: ${errorMessage.substring(0, 100)}${errorMessage.length > 100 ? '...' : ''}`
 

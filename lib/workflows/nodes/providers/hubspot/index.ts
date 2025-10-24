@@ -1108,6 +1108,14 @@ const hubspotActionGetContacts: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Value to match"
+    },
+    {
+      name: "properties",
+      label: "Properties to Retrieve (Optional)",
+      type: "array",
+      required: false,
+      placeholder: JSON.stringify(["firstname", "lastname", "email"], null, 2),
+      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"firstname\", \"lastname\", \"email\", \"company\"]"
     }
   ],
   outputSchema: [
@@ -1157,6 +1165,14 @@ const hubspotActionGetCompanies: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Value to match"
+    },
+    {
+      name: "properties",
+      label: "Properties to Retrieve (Optional)",
+      type: "array",
+      required: false,
+      placeholder: JSON.stringify(["name", "domain", "industry"], null, 2),
+      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"name\", \"domain\", \"industry\", \"city\"]"
     }
   ],
   outputSchema: [
@@ -1206,6 +1222,14 @@ const hubspotActionGetDeals: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Value to match"
+    },
+    {
+      name: "properties",
+      label: "Properties to Retrieve (Optional)",
+      type: "array",
+      required: false,
+      placeholder: JSON.stringify(["dealname", "dealstage", "amount"], null, 2),
+      tooltip: "Customize which properties to retrieve. Leave empty for defaults. Example: [\"dealname\", \"dealstage\", \"amount\", \"closedate\"]"
     }
   ],
   outputSchema: [

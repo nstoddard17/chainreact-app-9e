@@ -492,6 +492,43 @@ export function AIAgentBuilderContent() {
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return
 
+    // Check if this is the first message BEFORE updating any state
+    const isFirstMessage = messages.length === 0
+    const messageText = input // Store before clearing
+
+    if (isFirstMessage) {
+      // Redirect immediately without updating UI state
+      try {
+        setIsLoading(true)
+
+        // Create a new workflow
+        const workflow = await createWorkflow("New Workflow", "Created from AI Agent")
+
+        if (!workflow || !workflow.id) {
+          throw new Error('Failed to create workflow')
+        }
+
+        logger.info('Created workflow:', workflow.id)
+
+        // Redirect immediately - no toast, no delay
+        const url = `/workflows/builder/${workflow.id}?aiChat=true&initialPrompt=${encodeURIComponent(messageText)}`
+        logger.info('Redirecting to:', url)
+        router.push(url)
+
+        return
+      } catch (error) {
+        logger.error('Failed to create workflow:', error)
+        toast({
+          title: "Error",
+          description: "Failed to create workflow. Please try again.",
+          variant: "destructive"
+        })
+        setIsLoading(false)
+        return
+      }
+    }
+
+    // Only update UI state if NOT redirecting (for subsequent messages)
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -504,12 +541,13 @@ export function AIAgentBuilderContent() {
     setIsLoading(true)
 
     try {
-      // Call AI workflow builder API
+
+      // For subsequent messages (shouldn't happen on this page, but just in case)
       const response = await fetch('/api/ai/workflow-builder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: input,
+          message: messageText,
           connectedIntegrations: connectedProviders,
           conversationHistory: messages.slice(-5)
         })
@@ -529,17 +567,6 @@ export function AIAgentBuilderContent() {
       }
 
       setMessages(prev => [...prev, assistantMessage])
-
-      // If AI wants to create workflow, redirect to builder
-      if (data.actionType === 'create_workflow') {
-        toast({
-          title: "Creating workflow...",
-          description: "Opening workflow builder with your automation",
-        })
-        setTimeout(() => {
-          router.push('/workflows/new')
-        }, 1000)
-      }
 
     } catch (error) {
       const errorMessage: Message = {
@@ -658,7 +685,7 @@ export function AIAgentBuilderContent() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push('/workflows')}
+                onClick={handleSkipToBuilder}
                 className="shrink-0 hover:bg-accent"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -737,7 +764,7 @@ export function AIAgentBuilderContent() {
                     }}
                     placeholder=""
                     rows={4}
-                    className="w-full text-base pl-4 pr-14 py-4 bg-card border-0 rounded-2xl transition-all duration-200 focus-visible:outline-none shadow-md hover:shadow-lg focus-visible:shadow-xl resize-none"
+                    className="w-full text-base pl-4 pr-14 py-4 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-2xl transition-all duration-200 outline-none focus:outline-none focus:ring-0 focus:border-gray-200 dark:focus:border-zinc-700 shadow-md hover:shadow-lg focus:shadow-xl resize-none"
                     style={{ lineHeight: '1.5rem' }}
                     disabled={isLoading}
                   />
@@ -810,9 +837,19 @@ export function AIAgentBuilderContent() {
                   <button
                     onClick={handleStartBuilding}
                     disabled={isCreatingWorkflow}
-                    className="text-xs text-muted-foreground/80 hover:text-foreground transition-all duration-200 px-3 py-1.5 rounded-full hover:bg-accent border border-transparent hover:border-border disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="relative text-xs text-muted-foreground/80 hover:text-foreground transition-all duration-200 px-3 py-1.5 rounded-full hover:bg-accent border border-transparent hover:border-border disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
                   >
-                    {isCreatingWorkflow ? "Creating workflow..." : "Start building with React AI agent"}
+                    <span className="relative z-10">
+                      {isCreatingWorkflow ? "Creating workflow..." : "Start building with React AI agent"}
+                    </span>
+                    {!isCreatingWorkflow && (
+                      <span
+                        className="absolute inset-0 w-[200%] animate-[shimmer_3s_ease-in-out_infinite]"
+                        style={{
+                          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)',
+                        }}
+                      />
+                    )}
                   </button>
                 </div>
               </div>
@@ -855,8 +892,16 @@ export function AIAgentBuilderContent() {
                     </div>
 
                     {message.role === 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold shrink-0">
-                        {user?.email?.charAt(0).toUpperCase() || 'U'}
+                      <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
+                        {user?.user_metadata?.avatar_url ? (
+                          <img
+                            src={user.user_metadata.avatar_url}
+                            alt="User avatar"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{user?.email?.charAt(0).toUpperCase() || 'U'}</span>
+                        )}
                       </div>
                     )}
                   </div>

@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
@@ -540,6 +540,57 @@ export function SettingsContent() {
                             checked={notifications.workflow_failure}
                             onCheckedChange={(checked) => setNotifications({ ...notifications, workflow_failure: checked })}
                             className="data-[state=checked]:bg-red-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-border" />
+
+                {/* AI Agent Preferences */}
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold mb-1">AI Agent Settings</h3>
+                    <p className="text-xs text-muted-foreground mb-4">Control how the AI agent appears when creating workflows</p>
+                    <div className="space-y-3">
+                      <div className="group">
+                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-primary/50 transition-all duration-200">
+                          <div className="flex items-start gap-4 flex-1">
+                            <div className="mt-1 p-2.5 rounded-lg bg-primary/10">
+                              <Sparkles className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="space-y-1 flex-1">
+                              <Label className="text-sm font-semibold cursor-pointer">Show React Agent Chat</Label>
+                              <p className="text-xs text-muted-foreground leading-relaxed">
+                                Automatically open the AI assistant when opening the workflow builder
+                              </p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={profile?.ai_agent_preference !== 'always_skip'}
+                            onCheckedChange={async (checked) => {
+                              try {
+                                await updateProfile({
+                                  ai_agent_preference: checked ? 'always_show' : 'always_skip',
+                                  ai_agent_skip_count: 0
+                                })
+                                toast({
+                                  title: "Preference updated",
+                                  description: checked
+                                    ? "React Agent will now appear when you create workflows"
+                                    : "React Agent will stay hidden when you create workflows"
+                                })
+                              } catch (error) {
+                                toast({
+                                  title: "Error",
+                                  description: "Failed to update preference. Please try again.",
+                                  variant: "destructive"
+                                })
+                              }
+                            }}
+                            className="data-[state=checked]:bg-primary"
                           />
                         </div>
                       </div>

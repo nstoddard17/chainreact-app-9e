@@ -43,8 +43,18 @@ export function useNodeConfiguration(
   setEdges?: React.Dispatch<React.SetStateAction<any[]>>
 ) {
   const { toast } = useToast()
-  const [configuringNode, setConfiguringNode] = useState<ConfiguringNode | null>(null)
+  const [configuringNodeInternal, setConfiguringNodeInternal] = useState<ConfiguringNode | null>(null)
   const [pendingNode, setPendingNodeInternal] = useState<PendingNode | null>(null)
+
+  // Wrapper to set configuringNode
+  const setConfiguringNode = useCallback((node: ConfiguringNode | null) => {
+    console.log('🔍 [useNodeConfiguration] setConfiguringNode called:', {
+      hasNode: !!node,
+      nodeId: node?.id,
+      nodeComponentType: node?.nodeComponent?.type
+    })
+    setConfiguringNodeInternal(node)
+  }, [])
 
   // Wrapper to log pending node changes
   const setPendingNode = useCallback((node: PendingNode | null) => {
@@ -252,7 +262,7 @@ export function useNodeConfiguration(
   }, [currentWorkflowId, nodes])
 
   return {
-    configuringNode,
+    configuringNode: configuringNodeInternal,
     setConfiguringNode,
     pendingNode,
     setPendingNode,

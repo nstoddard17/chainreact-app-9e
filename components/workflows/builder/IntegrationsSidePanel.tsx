@@ -1,25 +1,21 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Button } from "@/components/ui/button"
+import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
-  Search,
   X,
-  ChevronRight,
-  ChevronDown,
-  Star,
   Zap,
   Play,
   Database,
   Sparkles,
   Grid3x3,
+  ArrowRight,
 } from "lucide-react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/availableNodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
-import { cn } from "@/lib/utils"
 
 interface IntegrationsSidePanelProps {
   isOpen: boolean
@@ -27,328 +23,156 @@ interface IntegrationsSidePanelProps {
   onNodeSelect: (node: NodeComponent) => void
 }
 
-type Category = 'all' | 'triggers' | 'actions' | 'data-enrichment' | 'database' | 'personal'
-
-interface CategorizedNode {
-  node: NodeComponent
-  category: string
-}
+type Category = 'all' | 'trigger' | 'action' | 'integration' | 'data-enrichment' | 'database'
 
 export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect }: IntegrationsSidePanelProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set())
-  const [personalNodes, setPersonalNodes] = useState<Set<string>>(new Set())
 
-  // Helper function to format provider names
-  const formatProviderName = (providerId: string): string => {
-    return providerId
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-  }
+  // Filter and categorize nodes
+  const filteredNodes = useMemo(() => {
+    let nodes = ALL_NODE_COMPONENTS.filter(node => node.providerId && node.providerId !== 'generic')
 
-  // Categorize nodes
-  const categorizedNodes = useMemo(() => {
-    const nodes: CategorizedNode[] = []
+    // Filter by category
+    if (selectedCategory === 'trigger') {
+      nodes = nodes.filter(n => n.isTrigger)
+    } else if (selectedCategory === 'action') {
+      nodes = nodes.filter(n => !n.isTrigger)
+    } else if (selectedCategory === 'integration') {
+      nodes = nodes.filter(n => !['ai', 'logic', 'automation', 'misc'].includes(n.providerId || ''))
+    } else if (selectedCategory === 'data-enrichment') {
+      nodes = nodes.filter(n =>
+        n.type.includes('enrich') ||
+        n.type.includes('extract') ||
+        n.type.includes('ai_') ||
+        n.providerId === 'ai'
+      )
+    } else if (selectedCategory === 'database') {
+      nodes = nodes.filter(n =>
+        n.providerId === 'airtable' ||
+        n.providerId === 'google-sheets' ||
+        n.type.includes('database') ||
+        n.type.includes('query')
+      )
+    }
 
-    ALL_NODE_COMPONENTS.forEach((node) => {
-      if (!node.providerId || node.providerId === 'generic') {
-        return
-      }
-
-      // Determine category
-      let category = 'actions'
-
-      if (node.isTrigger) {
-        category = 'triggers'
-      } else if (
-        node.type.includes('enrich') ||
-        node.type.includes('extract') ||
-        node.type.includes('ai_') ||
-        node.providerId === 'ai'
-      ) {
-        category = 'data-enrichment'
-      } else if (
-        node.providerId === 'airtable' ||
-        node.providerId === 'google-sheets' ||
-        node.type.includes('database') ||
-        node.type.includes('query')
-      ) {
-        category = 'database'
-      }
-
-      nodes.push({ node, category })
-    })
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      nodes = nodes.filter(n =>
+        n.title.toLowerCase().includes(query) ||
+        n.providerId?.toLowerCase().includes(query) ||
+        (n.description && n.description.toLowerCase().includes(query))
+      )
+    }
 
     return nodes
-  }, [])
-
-  // Group by provider
-  const groupedByProvider = useMemo(() => {
-    const filtered = categorizedNodes.filter((item) => {
-      // Filter by category
-      if (selectedCategory === 'personal') {
-        return personalNodes.has(item.node.type)
-      }
-      if (selectedCategory === 'triggers' && !item.node.isTrigger) return false
-      if (selectedCategory === 'actions' && item.node.isTrigger) return false
-      if (selectedCategory === 'data-enrichment' && item.category !== 'data-enrichment') return false
-      if (selectedCategory === 'database' && item.category !== 'database') return false
-
-      // Filter by search query
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        return (
-          item.node.title.toLowerCase().includes(query) ||
-          item.node.providerId?.toLowerCase().includes(query)
-        )
-      }
-
-      return true
-    })
-
-    const grouped = new Map<string, NodeComponent[]>()
-
-    filtered.forEach(({ node }) => {
-      const providerId = node.providerId || 'other'
-      if (!grouped.has(providerId)) {
-        grouped.set(providerId, [])
-      }
-      grouped.get(providerId)!.push(node)
-    })
-
-    return Array.from(grouped.entries())
-      .map(([providerId, nodes]) => ({
-        providerId,
-        providerName: formatProviderName(providerId),
-        icon: nodes[0].icon,
-        triggers: nodes.filter((n) => n.isTrigger),
-        actions: nodes.filter((n) => !n.isTrigger),
-      }))
-      .sort((a, b) => a.providerName.localeCompare(b.providerName))
-  }, [categorizedNodes, selectedCategory, searchQuery, personalNodes, formatProviderName])
-
-  const toggleProvider = (providerId: string) => {
-    setExpandedProviders((prev) => {
-      const next = new Set(prev)
-      if (next.has(providerId)) {
-        next.delete(providerId)
-      } else {
-        next.add(providerId)
-      }
-      return next
-    })
-  }
-
-  const togglePersonal = (nodeType: string) => {
-    setPersonalNodes((prev) => {
-      const next = new Set(prev)
-      if (next.has(nodeType)) {
-        next.delete(nodeType)
-      } else {
-        next.add(nodeType)
-      }
-      // Save to localStorage
-      localStorage.setItem('personal-nodes', JSON.stringify(Array.from(next)))
-      return next
-    })
-  }
-
-  // Load personal nodes from localStorage on mount
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('personal-nodes')
-      if (saved) {
-        try {
-          setPersonalNodes(new Set(JSON.parse(saved)))
-        } catch (e) {
-          // Ignore
-        }
-      }
-    }
-  })
+  }, [selectedCategory, searchQuery])
 
   const categories = [
     { id: 'all' as Category, label: 'All', icon: Grid3x3 },
-    { id: 'triggers' as Category, label: 'Triggers', icon: Play },
-    { id: 'actions' as Category, label: 'Actions', icon: Zap },
+    { id: 'trigger' as Category, label: 'Trigger', icon: Play },
+    { id: 'action' as Category, label: 'Action', icon: Zap },
+    { id: 'integration' as Category, label: 'Integration', icon: Sparkles },
     { id: 'data-enrichment' as Category, label: 'Data Enrichment', icon: Sparkles },
     { id: 'database' as Category, label: 'Database', icon: Database },
-    { id: 'personal' as Category, label: 'Personal', icon: Star },
   ]
 
-  if (!isOpen) return null
-
   return (
-    <div className="absolute top-0 right-0 h-full w-[400px] bg-background border-l border-border shadow-lg z-50 flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">Add Node</h2>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="w-4 h-4" />
+    <div className="h-full w-full bg-background border-l border-border shadow-lg z-50 flex flex-col">
+      {/* Header with Search */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b">
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+          <ArrowRight className="w-4 h-4" />
         </Button>
-      </div>
-
-      {/* Search */}
-      <div className="p-4 border-b">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <h2 className="text-base font-semibold whitespace-nowrap">Nodes Catalog</h2>
+        <div className="flex-1 relative">
           <Input
-            placeholder="Search integrations..."
+            placeholder="Search for node or functionality"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="h-9 text-sm px-3"
           />
         </div>
       </div>
 
       {/* Categories */}
-      <div className="p-4 border-b">
-        <div className="flex flex-wrap gap-2">
+      <div className="border-b">
+        <div className="flex items-center justify-between px-4 py-2">
           {categories.map((cat) => {
             const Icon = cat.icon
             return (
               <Button
                 key={cat.id}
-                variant={selectedCategory === cat.id ? "default" : "outline"}
+                variant={selectedCategory === cat.id ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex items-center gap-1"
+                className="flex-1 h-8 text-xs"
               >
-                <Icon className="w-3 h-3" />
                 {cat.label}
-                {cat.id === 'personal' && personalNodes.size > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
-                    {personalNodes.size}
-                  </Badge>
-                )}
               </Button>
             )
           })}
         </div>
       </div>
 
-      {/* Integrations List */}
+      {/* Nodes List */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
-          {groupedByProvider.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {selectedCategory === 'personal' ? (
-                <>
-                  <Star className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">No personal nodes yet</p>
-                  <p className="text-xs mt-1">Click the star icon on any node to add it here</p>
-                </>
-              ) : (
-                <>
-                  <Search className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">No integrations found</p>
-                </>
-              )}
+        <div className="p-4 space-y-1">
+          {filteredNodes.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="text-sm">No nodes found</p>
+              <p className="text-xs mt-1">Try adjusting your search or category</p>
             </div>
           ) : (
-            groupedByProvider.map((group) => (
-              <div key={group.providerId} className="border rounded-lg overflow-hidden">
-                {/* Provider Header */}
-                <button
-                  onClick={() => toggleProvider(group.providerId)}
-                  className="w-full flex items-center justify-between p-3 hover:bg-accent transition-colors"
+            filteredNodes.map((node) => {
+              const NodeIcon = node.icon
+              // For logic and AI nodes, use the unique node icon instead of provider logo
+              const shouldUseNodeIcon = ['logic', 'ai'].includes(node.providerId || '')
+              const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
+
+              const handleDragStart = (e: React.DragEvent) => {
+                e.dataTransfer.effectAllowed = 'copy'
+                e.dataTransfer.setData('application/reactflow', JSON.stringify({
+                  type: 'node',
+                  nodeData: node
+                }))
+              }
+
+              return (
+                <div
+                  key={node.type}
+                  draggable
+                  onDragStart={handleDragStart}
+                  className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-accent transition-colors cursor-grab active:cursor-grabbing group"
                 >
-                  <div className="flex items-center gap-3">
-                    {group.icon && <span className="text-xl">{group.icon}</span>}
-                    <div className="text-left">
-                      <h3 className="font-medium">{group.providerName}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {group.triggers.length} trigger{group.triggers.length !== 1 ? 's' : ''} • {group.actions.length} action{group.actions.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
+                  {/* Icon */}
+                  <div className="shrink-0 w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center p-1.5">
+                    {providerLogo ? (
+                      <Image
+                        src={providerLogo}
+                        alt={node.providerId || ''}
+                        width={28}
+                        height={28}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : NodeIcon ? (
+                      <NodeIcon className="w-5 h-5 text-foreground" />
+                    ) : null}
                   </div>
-                  {expandedProviders.has(group.providerId) ? (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </button>
 
-                {/* Nodes List */}
-                {expandedProviders.has(group.providerId) && (
-                  <div className="border-t bg-muted/30">
-                    {/* Triggers */}
-                    {group.triggers.length > 0 && (
-                      <div className="p-2">
-                        <p className="text-xs font-medium text-muted-foreground px-2 py-1">Triggers</p>
-                        {group.triggers.map((node) => (
-                          <button
-                            key={node.type}
-                            onClick={() => {
-                              onNodeSelect(node)
-                              onClose()
-                            }}
-                            className="w-full flex items-center justify-between p-2 rounded hover:bg-background transition-colors text-left group"
-                          >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              {node.icon && <span className="text-sm">{node.icon}</span>}
-                              <span className="text-sm truncate">{node.title}</span>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                togglePersonal(node.type)
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Star
-                                className={cn(
-                                  "w-3 h-3",
-                                  personalNodes.has(node.type) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"
-                                )}
-                              />
-                            </button>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    {group.actions.length > 0 && (
-                      <div className="p-2">
-                        <p className="text-xs font-medium text-muted-foreground px-2 py-1">Actions</p>
-                        {group.actions.map((node) => (
-                          <button
-                            key={node.type}
-                            onClick={() => {
-                              onNodeSelect(node)
-                              onClose()
-                            }}
-                            className="w-full flex items-center justify-between p-2 rounded hover:bg-background transition-colors text-left group"
-                          >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              {node.icon && <span className="text-sm">{node.icon}</span>}
-                              <span className="text-sm truncate">{node.title}</span>
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                togglePersonal(node.type)
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Star
-                                className={cn(
-                                  "w-3 h-3",
-                                  personalNodes.has(node.type) ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"
-                                )}
-                              />
-                            </button>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-sm leading-tight mb-0.5">
+                      {node.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {node.description}
+                    </p>
                   </div>
-                )}
-              </div>
-            ))
+                </div>
+              )
+            })
           )}
         </div>
       </ScrollArea>

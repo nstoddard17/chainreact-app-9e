@@ -359,11 +359,11 @@ export function NewSidebar() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Starter:</span>
-                    <span className="font-medium">750 tasks/month</span>
+                    <span className="font-medium">1,000 tasks/month</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Professional:</span>
-                    <span className="font-medium">2,000 tasks/month</span>
+                    <span className="font-medium">5,000 tasks/month</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Team:</span>
@@ -408,7 +408,7 @@ export function NewSidebar() {
 
       {/* Upgrade Plan Modal */}
       <Dialog open={upgradePlanModalOpen} onOpenChange={setUpgradePlanModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[1400px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
               <Crown className="w-6 h-6 text-primary" />
@@ -419,7 +419,7 @@ export function NewSidebar() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-6">
             {/* Starter Plan */}
             <div className="rounded-lg border-2 bg-card p-6 space-y-4">
               <div className="space-y-2">
@@ -593,111 +593,153 @@ export function NewSidebar() {
 
       {/* Get Free Tasks Modal */}
       <Dialog open={freeCreditsModalOpen} onOpenChange={setFreeCreditsModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-[1400px] max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Get Free Tasks</DialogTitle>
             <p className="text-muted-foreground mt-2">Choose from the options below to earn additional tasks</p>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 py-6">
             {/* Share Your Success */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-6 space-y-5 hover:border-primary/50 transition-colors">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Share Your Success</h3>
-                  <div className="flex items-center gap-1.5 text-base font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
+            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+              <div className="space-y-2 flex-1">
+                <div className="flex flex-col gap-2">
+                  <h3 className="font-semibold text-base">Share Your Success</h3>
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
                     <span>1500</span>
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed min-h-[60px]">
-                  Earn 1500 tasks instantly. Share your success story on LinkedIn or X. Screenshot and email to{" "}
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Share your success story on LinkedIn or X. Screenshot and email to{" "}
                   <a href="mailto:hello@chainreact.com" className="text-primary hover:underline font-medium">
                     hello@chainreact.com
                   </a>
                 </p>
               </div>
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2">
                 <Input
                   placeholder="Paste your post URL"
                   value={socialPostUrl}
                   onChange={(e) => setSocialPostUrl(e.target.value)}
-                  className="h-10"
+                  className="h-10 text-sm"
                 />
                 <Button
-                  className="w-full h-10"
+                  className="w-full h-10 text-sm"
                   disabled={!socialPostUrl}
-                  onClick={() => {
-                    toast({
-                      title: "Submission Received!",
-                      description: "We'll verify your post and add 1,500 tasks within 24 hours."
-                    })
-                    setSocialPostUrl("")
-                    setFreeCreditsModalOpen(false)
+                  onClick={async () => {
+                    try {
+                      // Detect platform from URL
+                      let platform: 'twitter' | 'linkedin' | 'x' = 'x'
+                      if (socialPostUrl.includes('linkedin.com')) {
+                        platform = 'linkedin'
+                      } else if (socialPostUrl.includes('twitter.com') || socialPostUrl.includes('x.com')) {
+                        platform = socialPostUrl.includes('x.com') ? 'x' : 'twitter'
+                      } else {
+                        toast({
+                          title: "Invalid URL",
+                          description: "Please enter a valid LinkedIn or X (Twitter) post URL",
+                          variant: "destructive"
+                        })
+                        return
+                      }
+
+                      // Submit to API
+                      const response = await fetch('/api/social-posts/submit', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ postUrl: socialPostUrl, platform })
+                      })
+
+                      const data = await response.json()
+
+                      if (!response.ok) {
+                        toast({
+                          title: "Submission Failed",
+                          description: data.error || "Failed to submit post",
+                          variant: "destructive"
+                        })
+                        return
+                      }
+
+                      toast({
+                        title: "Success! 🎉",
+                        description: data.message || "1,500 tasks added! We'll verify your post in 7 days."
+                      })
+
+                      setSocialPostUrl("")
+                      setFreeCreditsModalOpen(false)
+
+                      // Refresh page to update task count
+                      window.location.reload()
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to submit post. Please try again.",
+                        variant: "destructive"
+                      })
+                    }
                   }}
                 >
-                  Share & Earn Tasks
+                  Share & Earn
                 </Button>
               </div>
             </div>
 
             {/* Invite Friends */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-6 space-y-5 hover:border-primary/50 transition-colors">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Invite Friends</h3>
-                  <div className="flex items-center gap-1.5 text-base font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
+            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+              <div className="space-y-2 flex-1">
+                <div className="flex flex-col gap-2">
+                  <h3 className="font-semibold text-base">Invite Friends</h3>
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
                     <span>1000</span>
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed min-h-[60px]">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Get 1000 tasks per friend. Help your team discover ChainReact. Win-win for everyone.
                 </p>
               </div>
-              <div className="space-y-3 pt-2">
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={userReferralLink}
-                    className="text-xs font-mono h-10"
-                  />
-                  <Button
-                    variant="outline"
-                    size="default"
-                    className="h-10 px-4"
-                    onClick={() => {
-                      navigator.clipboard.writeText(userReferralLink)
-                      toast({
-                        title: "Copied!",
-                        description: "Referral link copied"
-                      })
-                    }}
-                  >
-                    Copy
-                  </Button>
-                </div>
+              <div className="space-y-2">
+                <Input
+                  readOnly
+                  value={userReferralLink}
+                  className="text-xs font-mono h-10"
+                />
+                <Button
+                  variant="outline"
+                  className="w-full h-10 text-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(userReferralLink)
+                    toast({
+                      title: "Copied!",
+                      description: "Referral link copied"
+                    })
+                  }}
+                >
+                  Copy Link
+                </Button>
               </div>
             </div>
 
             {/* Quick Feedback Call */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-6 space-y-5 hover:border-primary/50 transition-colors">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Quick Feedback Call</h3>
-                  <div className="flex items-center gap-1.5 text-base font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full">
+            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+              <div className="space-y-2 flex-1">
+                <div className="flex flex-col gap-2">
+                  <h3 className="font-semibold text-base">Feedback Call</h3>
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full w-fit">
                     <span>500</span>
-                    <Zap className="w-4 h-4" />
+                    <Zap className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed min-h-[60px]">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   10 minutes = 500 tasks. Share your experience and help shape ChainReact's future.
                 </p>
               </div>
-              <div className="pt-2">
+              <div>
                 <Button
                   variant="outline"
-                  className="w-full h-10"
+                  className="w-full h-10 text-sm"
                   onClick={() => {
                     toast({
                       title: "Coming Soon",
@@ -705,30 +747,30 @@ export function NewSidebar() {
                     })
                   }}
                 >
-                  Book Your Call Now
+                  Book Call
                 </Button>
               </div>
             </div>
 
             {/* Redeem Coupon */}
-            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-6 space-y-5 hover:border-primary/50 transition-colors">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Redeem Coupon</h3>
-                  <Zap className="w-5 h-5 text-primary" />
+            <div className="rounded-xl border-2 bg-gradient-to-br from-primary/5 to-transparent p-5 space-y-4 hover:border-primary/50 transition-colors flex flex-col">
+              <div className="space-y-2 flex-1">
+                <div className="flex flex-col gap-2">
+                  <h3 className="font-semibold text-base">Redeem Coupon</h3>
+                  <Zap className="w-4 h-4 text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed min-h-[60px]">
+                <p className="text-xs text-muted-foreground leading-relaxed">
                   Have a coupon code? Enter your code below to redeem tasks.
                 </p>
               </div>
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2">
                 <Input
                   placeholder="Enter coupon code"
-                  className="h-10"
+                  className="h-10 text-sm"
                 />
                 <Button
                   variant="outline"
-                  className="w-full h-10"
+                  className="w-full h-10 text-sm"
                   disabled
                 >
                   Redeem

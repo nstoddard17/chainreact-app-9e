@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseServiceClient } from '@/utils/supabase/server'
 
 import { logger } from '@/lib/utils/logger'
 
-// Initialize Supabase with service role for admin access
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function GET(request: NextRequest) {
   try {
+    // Initialize Supabase with service role for admin access
+    const supabase = await createSupabaseServiceClient()
+
     // TODO: Add proper admin authentication check here
     // For now, this is a placeholder - you should verify the user is an admin
-    
+
     // Get current month dates
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)

@@ -16,7 +16,7 @@ export async function stripeGetPayments(
 
     // Resolve dynamic values
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
-    const customerId = context.dataFlowManager.resolveVariable(config.customer)
+    const customerId = context.dataFlowManager.resolveVariable(config.customerId) // Fixed: changed from config.customer to config.customerId
     const status = context.dataFlowManager.resolveVariable(config.status)
     const startingAfter = context.dataFlowManager.resolveVariable(config.starting_after)
 

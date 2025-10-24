@@ -15,6 +15,7 @@ import { StripeTriggerLifecycle } from './providers/StripeTriggerLifecycle'
 import { ShopifyTriggerLifecycle } from './providers/ShopifyTriggerLifecycle'
 import { NotionTriggerLifecycle } from './providers/NotionTriggerLifecycle'
 import { HubSpotTriggerLifecycle } from './providers/HubSpotTriggerLifecycle'
+import { ConditionalTriggerLifecycle } from './providers/ConditionalTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -104,6 +105,14 @@ triggerLifecycleManager.registerProvider({
   lifecycle: new HubSpotTriggerLifecycle(),
   requiresExternalResources: true,
   description: 'HubSpot webhook subscriptions for CRM object events'
+})
+
+// Register Utility Conditional Trigger
+triggerLifecycleManager.registerProvider({
+  providerId: 'utility',
+  lifecycle: new ConditionalTriggerLifecycle(),
+  requiresExternalResources: false, // Uses polling/cron, not webhooks
+  description: 'Conditional trigger for scheduled condition checking'
 })
 
 // TODO: Register remaining providers:

@@ -19,7 +19,7 @@ import { NodeComponent } from "../../types"
 export const aiAgentNode: NodeComponent = {
   type: "ai_agent",
   title: "AI Agent",
-  description: "Autonomous AI that generates content, makes decisions, and intelligently routes workflows",
+  description: "Get Custom AI Responses Using ChatGPT or Gemini",
   icon: Sparkles,
   category: "AI & Automation",
   providerId: "ai",
@@ -43,16 +43,19 @@ export const aiAgentNode: NodeComponent = {
       placeholder: `Tell the AI what you want it to do. It will automatically figure out the rest!
 
 Examples:
-• "Analyze this customer email and decide if it's a bug report, feature request, or support question"
-• "Draft a professional response to {{trigger.email.body}}"
-• "Review this content for quality and decide if it should be approved or needs revision"
-• "Generate a personalized email based on {{trigger.user.name}} and their purchase history"
+• "Summarize this article in 3 bullet points"
+• "Extract the customer name, email, and order number from {{trigger.email.body}}"
+• "Analyze the sentiment of this review and classify as positive, negative, or neutral"
+• "Translate {{trigger.message}} to Spanish"
+• "Generate a professional response to this customer inquiry"
+• "Classify this support ticket as bug, feature request, or question"
+• "Draft a follow-up email based on {{trigger.user.name}} and their purchase history"
 
 The AI will:
-✓ Generate content if needed for the next step
+✓ Summarize, extract, translate, or generate content as requested
+✓ Classify and analyze sentiment based on your prompt
 ✓ Route to the best path if you have multiple outputs
-✓ Make intelligent decisions based on context
-✓ Extract data for downstream nodes`,
+✓ Make intelligent decisions based on context`,
       description: "Describe the task. The AI figures out if it needs to generate content, route, or both!",
       uiTab: "general"
     },

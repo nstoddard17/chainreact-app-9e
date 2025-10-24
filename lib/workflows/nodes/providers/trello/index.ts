@@ -236,7 +236,8 @@ export const trelloNodes: NodeComponent[] = [
         required: true,
         placeholder: "Enter card name",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "The title that will appear on the card"
+        tooltip: "The title that will appear on the card",
+        supportsAI: true
       },
       {
         name: "desc",
@@ -245,7 +246,8 @@ export const trelloNodes: NodeComponent[] = [
         required: false,
         placeholder: "Enter card description (supports Markdown)",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "Detailed description of the card. Supports Markdown formatting."
+        tooltip: "Detailed description of the card. Supports Markdown formatting.",
+        supportsAI: true
       },
 
       // Position
@@ -348,7 +350,8 @@ export const trelloNodes: NodeComponent[] = [
         required: false,
         placeholder: "123 Main St, City, State",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "Physical address associated with the card"
+        tooltip: "Physical address associated with the card",
+        supportsAI: true
       },
       {
         name: "locationName",
@@ -357,7 +360,8 @@ export const trelloNodes: NodeComponent[] = [
         required: false,
         placeholder: "Office Building A",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "Name of the location"
+        tooltip: "Name of the location",
+        supportsAI: true
       },
       {
         name: "coordinates",
@@ -366,7 +370,8 @@ export const trelloNodes: NodeComponent[] = [
         required: false,
         placeholder: "latitude,longitude",
         hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "GPS coordinates in format: latitude,longitude"
+        tooltip: "GPS coordinates in format: latitude,longitude",
+        supportsAI: true
       }
     ],
     outputSchema: [
@@ -423,8 +428,8 @@ export const trelloNodes: NodeComponent[] = [
         helperText: "Copy all lists and cards from an existing board (overrides template if provided)",
         loadOnMount: true
       },
-      { name: "name", label: "Board Name", type: "text", required: true, placeholder: "Enter board name" },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Board description" },
+      { name: "name", label: "Board Name", type: "text", required: true, placeholder: "Enter board name", supportsAI: true },
+      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Board description", supportsAI: true },
       { name: "visibility", label: "Visibility", type: "select", required: true, defaultValue: "workspace", options: [
         { value: "private", label: "Private" },
         { value: "public", label: "Public" },
@@ -443,7 +448,7 @@ export const trelloNodes: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "boardId", label: "Board", type: "select", required: true, dynamic: "trello_boards", placeholder: "Select a board", loadOnMount: true },
-      { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } } },
+      { name: "name", label: "List Name", type: "text", required: true, placeholder: "Enter list name", hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } }, supportsAI: true },
       {
         name: "position",
         label: "List Position",
