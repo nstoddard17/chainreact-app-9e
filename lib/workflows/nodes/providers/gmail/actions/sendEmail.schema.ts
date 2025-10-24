@@ -103,5 +103,14 @@ export const sendEmailActionSchema: NodeComponent = {
       maxSize: 25 * 1024 * 1024, // 25MB limit (Gmail's attachment limit)
       description: "Attach files from your computer or select files from previous workflow nodes"
     },
+    {
+      name: "signature",
+      label: "Email Signature (Optional)",
+      type: "rich-text",
+      required: false,
+      placeholder: "Best regards,\nYour Name",
+      supportsAI: true,
+      description: "Optional email signature to append at the end of your message. Supports rich text formatting."
+    },
   ],
 }

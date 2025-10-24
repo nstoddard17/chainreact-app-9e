@@ -26,3 +26,66 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-22T03:00:12.842Z] [INFO   ] 2025-10-22T03:00:12.842Z [DEBUG] 📡 Discord event received: GUILD_CREATE
 [2025-10-22T03:00:12.854Z] [INFO   ] 2025-10-22T03:00:12.854Z [DEBUG] 📡 Discord event received: GUILD_CREATE
 [2025-10-22T03:00:13.058Z] [INFO   ] 2025-10-22T03:00:13.058Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-22T04:07:35.675Z] [INFO   ]  ✓ Compiled in 1410ms (2268 modules)
+[2025-10-22T04:08:18.131Z] [INFO   ]  ✓ Compiled in 277ms (2268 modules)
+[2025-10-22T04:45:12.144Z] [INFO   ]  ✓ Compiled in 1442ms (2251 modules)
+[2025-10-22T04:45:24.931Z] [INFO   ]  ✓ Compiled in 438ms (2251 modules)
+[2025-10-22T04:45:37.203Z] [INFO   ]  ✓ Compiled in 844ms (2251 modules)
+[2025-10-22T04:50:52.031Z] [INFO   ]  ✓ Compiled in 1318ms (2251 modules)
+[2025-10-22T05:15:53.703Z] [INFO   ] 2025-10-22T05:15:53.701Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-22T05:15:53.759Z] [INFO   ] 2025-10-22T05:15:53.759Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-22T05:15:54.166Z] [INFO   ] 2025-10-22T05:15:54.166Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-22T05:15:54.168Z] [INFO   ] 2025-10-22T05:15:54.168Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-22T05:15:54.375Z] [INFO   ] 2025-10-22T05:15:54.375Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"9503116aabc51d01b0e9cfc5fb63e58e","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-22T05:15:54.376Z] [INFO   ] 2025-10-22T05:15:54.375Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-22T05:15:54.380Z] [INFO   ] 2025-10-22T05:15:54.380Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-22T05:15:54.388Z] [INFO   ] 2025-10-22T05:15:54.387Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-22T05:15:54.598Z] [INFO   ] 2025-10-22T05:15:54.598Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-22T06:04:01.894Z] [INFO   ] 2025-10-22T06:04:01.893Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-22T15:54:18.808Z] [INFO   ]  ✓ Compiled in 2.1s (2251 modules)
+[2025-10-22T15:54:23.982Z] [INFO   ]  ✓ Compiled in 642ms (2251 modules)
+[2025-10-22T15:54:30.503Z] [INFO   ]  ✓ Compiled in 300ms (2251 modules)
+[2025-10-22T15:58:03.750Z] [INFO   ]  ✓ Compiled in 667ms (2251 modules)
+[2025-10-22T20:49:21.459Z] [INFO   ]  ✓ Compiled in 1157ms (2264 modules)
+[2025-10-22T20:49:39.724Z] [INFO   ]  ✓ Compiled in 136ms (2264 modules)
+[2025-10-22T21:04:20.219Z] [INFO   ]  ✓ Compiled in 669ms (2251 modules)
+[2025-10-22T21:04:27.636Z] [INFO   ]  ✓ Compiled in 169ms (2257 modules)
+[2025-10-22T21:09:55.772Z] [INFO   ]  ✓ Compiled in 787ms (2257 modules)
+[2025-10-22T21:10:03.156Z] [INFO   ]  ✓ Compiled in 202ms (2257 modules)
+[2025-10-22T21:10:08.918Z] [INFO   ]  ✓ Compiled in 201ms (2257 modules)
+[2025-10-22T21:10:14.329Z] [INFO   ]  ✓ Compiled in 217ms (2257 modules)
+[2025-10-22T21:10:20.497Z] [INFO   ]  ✓ Compiled in 419ms (2257 modules)
+[2025-10-22T21:13:58.981Z] [INFO   ]  ✓ Compiled in 370ms (2257 modules)
+[2025-10-22T21:14:04.100Z] [INFO   ]  ✓ Compiled in 124ms (2257 modules)
+[2025-10-22T21:14:09.673Z] [INFO   ]  ✓ Compiled in 121ms (2257 modules)
+[2025-10-22T21:14:15.245Z] [INFO   ]  ✓ Compiled in 114ms (2257 modules)
+[2025-10-22T21:14:22.591Z] [INFO   ]  ✓ Compiled in 117ms (2257 modules)
+[2025-10-22T21:14:28.330Z] [INFO   ]  ✓ Compiled in 130ms (2257 modules)
+[2025-10-23T01:00:03.545Z] [INFO   ]    Reload env: .env.local
+[2025-10-23T01:00:04.608Z] [INFO   ]  ✓ Compiled in 1041ms (2270 modules)
+[2025-10-23T01:02:28.811Z] [INFO   ]  ✓ Compiled in 404ms (2257 modules)
+[2025-10-23T01:02:36.295Z] [INFO   ]  ✓ Compiled in 486ms (2257 modules)
+[2025-10-23T01:02:49.460Z] [INFO   ]  ✓ Compiled in 249ms (2257 modules)
+[2025-10-23T01:30:42.948Z] [INFO   ]  ✓ Compiled in 760ms (2270 modules)
+[2025-10-23T01:44:07.647Z] [INFO   ]  ✓ Compiled in 261ms (2270 modules)
+[2025-10-23T01:44:20.707Z] [INFO   ]  ✓ Compiled in 117ms (2270 modules)
+[2025-10-23T02:25:43.370Z] [INFO   ]  ✓ Compiled in 1336ms (2257 modules)
+[2025-10-23T02:26:55.940Z] [INFO   ]  ✓ Compiled in 431ms (2257 modules)
+[2025-10-23T02:27:04.546Z] [INFO   ]  ✓ Compiled in 324ms (2264 modules)
+[2025-10-23T02:34:01.883Z] [INFO   ]  ✓ Compiled in 644ms (2277 modules)
+[2025-10-23T02:36:20.932Z] [INFO   ]  ✓ Compiled in 1003ms (2264 modules)
+[2025-10-23T02:36:40.730Z] [INFO   ]  ✓ Compiled in 311ms (2269 modules)
+[2025-10-23T03:46:46.490Z] [INFO   ]  ✓ Compiled in 688ms (2269 modules)
+[2025-10-23T03:46:51.002Z] [INFO   ]  ✓ Compiled in 578ms (2273 modules)
+[2025-10-23T04:20:41.620Z] [INFO   ]    Reload env: .env.local
+[2025-10-23T04:20:42.669Z] [INFO   ]  ✓ Compiled in 1022ms (2286 modules)
+[2025-10-23T04:27:28.241Z] [INFO   ]  ✓ Compiled in 1459ms (2273 modules)
+[2025-10-23T04:27:31.901Z] [INFO   ]  ✓ Compiled in 152ms (2273 modules)
+[2025-10-23T04:27:37.606Z] [INFO   ]  ✓ Compiled in 161ms (2273 modules)
+[2025-10-23T04:27:43.901Z] [INFO   ]  ✓ Compiled in 143ms (2272 modules)
+[2025-10-23T04:27:52.402Z] [INFO   ]  ✓ Compiled in 187ms (2272 modules)
+[2025-10-23T04:27:57.042Z] [INFO   ]  ✓ Compiled in 153ms (2272 modules)
+[2025-10-23T04:28:01.746Z] [INFO   ]  ✓ Compiled in 171ms (2273 modules)
+[2025-10-23T04:28:19.173Z] [INFO   ]  ✓ Compiled in 171ms (2273 modules)
+
+=== Log Session Ended: 2025-10-23T04:43:00.128Z ===

@@ -1,37 +1,23 @@
 import { NodeComponent } from "../../types"
 
 import { aiAgentNode } from "./aiAgentNode"
-import {
-  summarizeActionSchema,
-  extractActionSchema,
-  sentimentActionSchema,
-  translateActionSchema,
-  generateActionSchema,
-  classifyActionSchema,
-} from "./actions/dataProcessing.schema"
 
 /**
- * AI Nodes - Unified and Specialized
+ * AI Nodes - Single Versatile AI Agent
  *
- * aiAgentNode: Main unified AI agent (replaces old ai_message and ai_router)
- * Other nodes: Specialized single-purpose AI operations
+ * aiAgentNode: Unified AI agent that handles all AI operations based on the prompt:
+ * - Summarization
+ * - Data extraction
+ * - Sentiment analysis
+ * - Translation
+ * - Content generation
+ * - Text classification
+ * - And any other AI task based on natural language instructions
  */
 export const aiNodes: NodeComponent[] = [
-  aiAgentNode,              // ⭐ NEW: Unified AI Agent (message + routing + hybrid)
-  summarizeActionSchema,    // Summarize text
-  extractActionSchema,      // Extract data
-  sentimentActionSchema,    // Analyze sentiment
-  translateActionSchema,    // Translate languages
-  generateActionSchema,     // Generate content
-  classifyActionSchema,     // Classify text
+  aiAgentNode,  // ⭐ Single versatile AI Agent - handles everything via prompt
 ]
 
 export {
   aiAgentNode,
-  summarizeActionSchema,
-  extractActionSchema,
-  sentimentActionSchema,
-  translateActionSchema,
-  generateActionSchema,
-  classifyActionSchema,
 }

@@ -1,0 +1,63 @@
+=== Log Session Started: 2025-10-23T03:25:04.776Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-23T03:25:04.776Z] [INFO   ] File logging initialized
+[2025-10-23T03:25:04.776Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-25-04.log
+[2025-10-23T03:25:04.783Z] [INFO   ] Deleted old log file: workflow_2025-10-15_20-14-21.log
+[2025-10-23T03:25:04.784Z] [INFO   ] 📁 File logging enabled
+[2025-10-23T03:25:04.784Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-25-04.log
+[2025-10-23T03:25:04.784Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-25-04.log
+[2025-10-23T03:25:04.784Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-25-04.log
+[2025-10-23T03:25:04.784Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-25-04.log
+[2025-10-23T03:25:04.784Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-23T03:25:04.784Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-23T03:25:04.801Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.2s
+[2025-10-23T03:25:05.846Z] [INFO   ] 2025-10-23T03:25:05.846Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-23T03:25:07.782Z] [INFO   ] 2025-10-23T03:25:07.782Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-23T03:25:07.782Z] [INFO   ] 2025-10-23T03:25:07.782Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-23T03:25:08.204Z] [INFO   ] 2025-10-23T03:25:08.204Z [DEBUG] Discord Gateway initialization complete
+[2025-10-23T03:25:08.205Z] [INFO   ] 2025-10-23T03:25:08.205Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-23T03:25:08.389Z] [INFO   ] 2025-10-23T03:25:08.389Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-23T03:25:08.390Z] [INFO   ] 2025-10-23T03:25:08.390Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-23T03:25:08.778Z] [INFO   ] 2025-10-23T03:25:08.778Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"d8c4ad0a1e9ead18f4ee58beabd6d220","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-23T03:25:08.778Z] [INFO   ] 2025-10-23T03:25:08.778Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-23T03:25:08.791Z] [INFO   ] 2025-10-23T03:25:08.791Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T03:25:08.797Z] [INFO   ] 2025-10-23T03:25:08.797Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T03:25:08.978Z] [INFO   ] 2025-10-23T03:25:08.978Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-23T03:46:46.506Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 707ms (2269 modules)
+[2025-10-23T03:46:50.676Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 252ms (2273 modules)
+[2025-10-23T03:52:46.483Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 256ms (233 modules)
+[2025-10-23T03:52:47.280Z] [INFO   ] 2025-10-23T03:52:47.280Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12624879881}
+[2025-10-23T03:52:47.824Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-23T03:52:52.844Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.5s (4030 modules)
+[2025-10-23T03:52:53.279Z] [INFO   ] 2025-10-23T03:52:53.279Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T03:52:53.279Z"}
+[2025-10-23T03:52:53.283Z] [INFO   ] 2025-10-23T03:52:53.283Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T03:52:53.283Z"}
+[2025-10-23T03:52:53.283Z] [INFO   ] 2025-10-23T03:52:53.283Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T03:52:53.283Z"}
+[2025-10-23T03:52:53.674Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 817ms (728 modules)
+[2025-10-23T03:52:53.910Z] [INFO   ] 2025-10-23T03:52:53.909Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T03:52:54.653Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-23T03:52:54.985Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 858ms (4039 modules)
+[2025-10-23T03:52:55.149Z] [INFO   ] 2025-10-23T03:52:55.149Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T03:52:55.149Z","headers":{"referer":"check-console"}}
+[2025-10-23T03:52:55.300Z] [INFO   ] 2025-10-23T03:52:55.300Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T03:52:55.466Z] [INFO   ] 2025-10-23T03:52:55.466Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T03:52:56.457Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-23T03:52:57.060Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1110ms (4047 modules)
+[2025-10-23T03:54:16.209Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 491ms (728 modules)
+[2025-10-23T03:54:16.536Z] [INFO   ] 2025-10-23T03:54:16.536Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12624969137}
+[2025-10-23T03:54:16.691Z] [INFO   ] 2025-10-23T03:54:16.691Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T03:54:33.547Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 303ms (728 modules)
+[2025-10-23T03:54:33.781Z] [INFO   ] 2025-10-23T03:54:33.781Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12624986382}
+[2025-10-23T03:54:33.857Z] [INFO   ] 2025-10-23T03:54:33.857Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T03:56:21.127Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 417ms (728 modules)
+[2025-10-23T03:56:21.388Z] [INFO   ] 2025-10-23T03:56:21.388Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625093989}
+[2025-10-23T03:56:21.460Z] [INFO   ] 2025-10-23T03:56:21.460Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T03:57:25.649Z] [INFO   ] 2025-10-23T03:57:25.649Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625158250}
+[2025-10-23T03:57:25.842Z] [INFO   ] 2025-10-23T03:57:25.842Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T03:57:25.842Z"}
+[2025-10-23T03:57:25.847Z] [INFO   ] 2025-10-23T03:57:25.847Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T03:57:25.847Z"}
+[2025-10-23T03:57:25.847Z] [INFO   ] 2025-10-23T03:57:25.847Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T03:57:25.847Z"}
+[2025-10-23T03:57:26.076Z] [INFO   ] 2025-10-23T03:57:26.075Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+
+=== Log Session Ended: 2025-10-23T03:57:32.505Z ===

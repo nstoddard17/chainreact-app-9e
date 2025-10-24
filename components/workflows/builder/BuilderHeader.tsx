@@ -40,12 +40,24 @@ import {
   Link2,
   Users,
   ArrowLeft,
+  Settings,
+  Code2,
+  Clock,
+  Zap,
+  RotateCcw,
+  FolderGit2,
+  Layers,
+  Archive,
+  Files,
+  Workflow,
+  CloudCog,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useWorkflowActions } from "@/hooks/workflows/useWorkflowActions"
 import { useToast } from "@/hooks/use-toast"
 import { WorkflowVersionsDialog } from "./WorkflowVersionsDialog"
 import { WorkflowHistoryDialog } from "./WorkflowHistoryDialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface BuilderHeaderProps {
   workflowName: string
@@ -347,7 +359,8 @@ const BuilderHeaderComponent = ({
           </Button>
 
           {isEditingName ? (
-            <Input
+            <input
+              type="text"
               value={workflowName}
               onChange={(event) => setWorkflowName(event.target.value)}
               onBlur={handleNameCommit}
@@ -362,8 +375,10 @@ const BuilderHeaderComponent = ({
                 }
               }}
               autoFocus
-              className="text-lg font-semibold border-none shadow-none focus-visible:ring-0 px-2 py-1 h-8 bg-transparent max-w-md"
+              className="text-xl font-semibold border-none outline-none ring-0 px-2 py-1 bg-transparent max-w-md"
+              style={{ boxShadow: 'none', border: 'none', height: 'auto' }}
               placeholder="Untitled Workflow"
+              maxLength={100}
             />
           ) : (
             <div
@@ -412,43 +427,55 @@ const BuilderHeaderComponent = ({
             </Button>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowVersionsDialog(true)}
-            className="hidden sm:flex items-center gap-2"
-          >
-            <GitBranch className="w-4 h-4" />
-            <span>Versions</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setShowHistoryDialog(true)
-              setShowExecutionHistory?.(true)
-            }}
-            className="hidden sm:flex items-center gap-2"
-          >
-            <History className="w-4 h-4" />
-            <span>History</span>
-          </Button>
-
           <div className="flex items-center gap-2">
-            {handleTestSandbox && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTestSandbox}
-                disabled={isLiveTestingDisabled}
-                className="flex items-center gap-2"
-              >
-                <TestTube className="w-4 h-4" />
-                <span className="hidden sm:inline">Sandbox</span>
-              </Button>
-            )}
+            <TooltipProvider>
+              {/* Run via API Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      // TODO: Implement Run via API functionality
+                      toast({ title: "Run via API", description: "Coming soon!" })
+                    }}
+                  >
+                    <CloudCog className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Run via API</TooltipContent>
+              </Tooltip>
 
+              {/* History Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowHistoryDialog(true)}
+                  >
+                    <History className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>History</TooltipContent>
+              </Tooltip>
+
+              {/* Versions Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowVersionsDialog(true)}
+                  >
+                    <Layers className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Versions</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Test Button */}
             {handleExecuteLive && (
               <Button
                 variant="outline"
@@ -458,32 +485,49 @@ const BuilderHeaderComponent = ({
                 className="flex items-center gap-2"
               >
                 <Play className="w-4 h-4" />
-                <span className="hidden sm:inline">Live Test</span>
+                <span>Test</span>
               </Button>
             )}
-          </div>
 
-          {handleToggleLive && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleToggleLive}
-              disabled={isUpdatingStatus}
-              className={cn(
-                "flex items-center gap-2",
-                isActive
-                  ? "bg-green-600 hover:bg-green-700 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white"
-              )}
-            >
-              {isUpdatingStatus ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Rocket className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">{isActive ? "Published" : "Publish"}</span>
-            </Button>
-          )}
+            {/* Publish Button */}
+            {handleToggleLive && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleToggleLive}
+                disabled={isUpdatingStatus}
+                className={cn(
+                  "flex items-center gap-2",
+                  isActive
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                )}
+              >
+                {isUpdatingStatus ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Rocket className="w-4 h-4" />
+                )}
+                <span>{isActive ? "Published" : "Publish"}</span>
+              </Button>
+            )}
+
+            <TooltipProvider>
+              {/* Share Button */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowShareDialog(true)}
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Share</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -492,10 +536,6 @@ const BuilderHeaderComponent = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => setShowShareDialog(true)}>
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Workflow
-              </DropdownMenuItem>
 
               <DropdownMenuItem onClick={handleExportWorkflow}>
                 <Download className="w-4 h-4 mr-2" />
@@ -519,12 +559,26 @@ const BuilderHeaderComponent = ({
                 Versions
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => setShowHistoryDialog(true)} className="sm:hidden">
+              <DropdownMenuItem onClick={() => {
+                setShowHistoryDialog(true)
+                setShowExecutionHistory?.(true)
+              }}>
                 <History className="w-4 h-4 mr-2" />
-                Execution History
+                Workflow History
               </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="sm:hidden" />
+              <DropdownMenuItem onClick={() => {
+                // TODO: Open workflow settings dialog
+                toast({
+                  title: "Workflow Settings",
+                  description: "Settings will be available when publishing the workflow.",
+                })
+              }}>
+                <Settings className="w-4 h-4 mr-2" />
+                Workflow Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
 
               {canDeleteWorkflow && (
                 <DropdownMenuItem

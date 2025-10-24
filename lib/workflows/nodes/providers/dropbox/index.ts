@@ -70,7 +70,8 @@ const dropboxActionUploadFile: NodeComponent = {
       type: "text",
       required: true,
       placeholder: "Enter file name (e.g., document.txt, report.pdf) - auto-filled when uploading files",
-      description: "File name for the created file. Will be automatically populated when you upload files."
+      description: "File name for the created file. Will be automatically populated when you upload files.",
+      supportsAI: true
     },
     {
       name: "sourceType",
@@ -104,7 +105,8 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "https://example.com/file.pdf",
       description: "Direct URL to a publicly accessible file (e.g., image, PDF, document). The file will be downloaded and uploaded to Dropbox.",
-      visibilityCondition: { field: "sourceType", operator: "equals", value: "url" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "url" },
+      supportsAI: true
     },
     {
       name: "fileContent",
@@ -113,7 +115,8 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "Enter text content for the file",
       description: "Text content to create a text file. The file will be saved with the specified file name.",
-      visibilityCondition: { field: "sourceType", operator: "equals", value: "text" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "text" },
+      supportsAI: true
     },
     {
       name: "fileFromNode",
@@ -122,7 +125,8 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "{{node-id.file}}",
       description: "Variable containing file data (base64, buffer, or file object) from a previous node. Use this for files generated or processed by other nodes in your workflow.",
-      visibilityCondition: { field: "sourceType", operator: "equals", value: "node" }
+      visibilityCondition: { field: "sourceType", operator: "equals", value: "node" },
+      supportsAI: true
     },
     {
       name: "path",
@@ -134,8 +138,9 @@ const dropboxActionUploadFile: NodeComponent = {
       required: false,
       placeholder: "Select or type a folder path",
       description: "Choose an existing folder or type a new folder name to create it. Leave empty for root folder.",
-      helperText: "Tip: Type a new folder name to create it automatically"
-    },
+      helperText: "Tip: Type a new folder name to create it automatically",
+      supportsAI: true
+    }
   ],
 }
 

@@ -46,7 +46,8 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Email Address",
         type: "email",
         required: true,
-        placeholder: "subscriber@example.com"
+        placeholder: "subscriber@example.com",
+        supportsAI: true
       },
       {
         name: "status",
@@ -66,56 +67,64 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "First Name",
         type: "text",
         required: false,
-        placeholder: "John"
+        placeholder: "John",
+        supportsAI: true
       },
       {
         name: "last_name",
         label: "Last Name",
         type: "text",
         required: false,
-        placeholder: "Doe"
+        placeholder: "Doe",
+        supportsAI: true
       },
       {
         name: "phone",
         label: "Phone Number",
         type: "text",
         required: false,
-        placeholder: "+1234567890"
+        placeholder: "+1234567890",
+        supportsAI: true
       },
       {
         name: "address",
         label: "Address",
         type: "text",
         required: false,
-        placeholder: "123 Main St"
+        placeholder: "123 Main St",
+        supportsAI: true
       },
       {
         name: "city",
         label: "City",
         type: "text",
         required: false,
-        placeholder: "New York"
+        placeholder: "New York",
+        supportsAI: true
       },
       {
         name: "state",
         label: "State/Province",
         type: "text",
         required: false,
-        placeholder: "NY"
+        placeholder: "NY",
+        supportsAI: true
       },
       {
         name: "zip",
         label: "Zip/Postal Code",
         type: "text",
         required: false,
-        placeholder: "10001"
+        placeholder: "10001",
+        supportsAI: true
       },
       {
         name: "country",
         label: "Country",
         type: "text",
         required: false,
-        placeholder: "US"
+        placeholder: "US",
+        supportsAI: true
       },
       {
         name: "tags",
@@ -123,7 +132,8 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "customer, vip, newsletter (comma-separated)",
-        description: "Add tags to categorize this subscriber (separate with commas)"
+        description: "Add tags to categorize this subscriber (separate with commas)",
+        supportsAI: true
       }
     ]
   },
@@ -162,7 +172,8 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "email",
         required: false,
         placeholder: "newemail@example.com",
-        description: "Leave empty to keep current email"
+        description: "Leave empty to keep current email",
+        supportsAI: true
       },
       {
         name: "status",
@@ -183,56 +194,64 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "First Name (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "last_name",
         label: "Last Name (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "phone",
         label: "Phone Number (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "address",
         label: "Address (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "city",
         label: "City (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "state",
         label: "State/Province (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "zip",
         label: "Zip/Postal Code (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       },
       {
         name: "country",
         label: "Country (Optional)",
         type: "text",
         required: false,
-        placeholder: "Leave empty to keep current value"
+        placeholder: "Leave empty to keep current value",
+        supportsAI: true
       }
     ]
   },
@@ -259,7 +278,8 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Email Address",
         type: "email",
         required: true,
-        placeholder: "subscriber@example.com"
+        placeholder: "subscriber@example.com",
+        supportsAI: true
       },
       {
         name: "delete_permanently",
@@ -294,7 +314,8 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Email Address",
         type: "email",
         required: true,
-        placeholder: "subscriber@example.com"
+        placeholder: "subscriber@example.com",
+        supportsAI: true
       },
       {
         name: "tags",
@@ -332,7 +353,8 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Email Address",
         type: "email",
         required: true,
-        placeholder: "subscriber@example.com"
+        placeholder: "subscriber@example.com",
+        supportsAI: true
       },
       {
         name: "tags",
@@ -403,42 +425,48 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Subject Line",
         type: "text",
         required: true,
-        placeholder: "Your email subject"
+        placeholder: "Your email subject",
+        supportsAI: true
       },
       {
         name: "preview_text",
         label: "Preview Text",
         type: "text",
         required: false,
-        placeholder: "Text shown in email preview"
+        placeholder: "Text shown in email preview",
+        supportsAI: true
       },
       {
         name: "from_name",
         label: "From Name",
         type: "text",
         required: true,
-        placeholder: "Your Company"
+        placeholder: "Your Company",
+        supportsAI: true
       },
       {
         name: "reply_to",
         label: "Reply To Email",
         type: "email",
         required: true,
-        placeholder: "reply@example.com"
+        placeholder: "reply@example.com",
+        supportsAI: true
       },
       {
         name: "html_content",
         label: "HTML Content",
         type: "textarea",
         required: false,
-        placeholder: "Your email HTML content"
+        placeholder: "Your email HTML content",
+        supportsAI: true
       },
       {
         name: "text_content",
         label: "Plain Text Content",
         type: "textarea",
         required: false,
-        placeholder: "Your email plain text content"
+        placeholder: "Your email plain text content",
+        supportsAI: true
       }
     ]
   },
@@ -481,6 +509,15 @@ export const mailchimpNodes: NodeComponent[] = [
         required: false,
         defaultValue: 100,
         placeholder: "Number of subscribers to retrieve (max 1000)"
+      },
+      {
+        name: "offset",
+        label: "Offset (Optional)",
+        type: "number",
+        required: false,
+        defaultValue: 0,
+        placeholder: "Starting position for pagination",
+        tooltip: "Skip this many subscribers before returning results. Use for pagination in combination with limit."
       }
     ],
     outputSchema: [

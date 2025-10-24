@@ -1,0 +1,237 @@
+=== Log Session Started: 2025-10-24T03:44:34.822Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-24T03:44:34.822Z] [INFO   ] File logging initialized
+[2025-10-24T03:44:34.822Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_22-44-34.log
+[2025-10-24T03:44:34.825Z] [INFO   ] 📁 File logging enabled
+[2025-10-24T03:44:34.825Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_22-44-34.log
+[2025-10-24T03:44:34.825Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_22-44-34.log
+[2025-10-24T03:44:34.825Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_22-44-34.log
+[2025-10-24T03:44:34.825Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_22-44-34.log
+[2025-10-24T03:44:34.825Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-24T03:44:34.825Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-24T03:44:34.832Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.1s
+[2025-10-24T03:44:34.955Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 119ms (233 modules)
+[2025-10-24T03:44:35.264Z] [INFO   ] 2025-10-24T03:44:35.263Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12710787864}
+[2025-10-24T03:44:35.807Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-24T03:44:35.827Z] [INFO   ] 2025-10-24T03:44:35.827Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-24T03:44:37.637Z] [INFO   ] 2025-10-24T03:44:37.637Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-24T03:44:37.637Z] [INFO   ] 2025-10-24T03:44:37.637Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-24T03:44:37.855Z] [INFO   ] 2025-10-24T03:44:37.855Z [DEBUG] Discord Gateway initialization complete
+[2025-10-24T03:44:37.857Z] [INFO   ] 2025-10-24T03:44:37.857Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-24T03:44:38.273Z] [INFO   ] 2025-10-24T03:44:38.273Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-24T03:44:38.274Z] [INFO   ] 2025-10-24T03:44:38.274Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-24T03:44:38.476Z] [INFO   ] 2025-10-24T03:44:38.475Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"3316f40d3b73dabb20d6a1053b12b3d0","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-24T03:44:38.476Z] [INFO   ] 2025-10-24T03:44:38.476Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-24T03:44:38.477Z] [INFO   ] 2025-10-24T03:44:38.477Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-24T03:44:38.477Z] [INFO   ] 2025-10-24T03:44:38.477Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-24T03:44:39.412Z] [INFO   ] 2025-10-24T03:44:39.412Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-24T03:44:40.962Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 5.7s (4041 modules)
+[2025-10-24T03:44:41.343Z] [INFO   ] 2025-10-24T03:44:41.343Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:44:41.343Z"}
+[2025-10-24T03:44:41.346Z] [INFO   ] 2025-10-24T03:44:41.346Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:44:41.346Z"}
+[2025-10-24T03:44:41.346Z] [INFO   ] 2025-10-24T03:44:41.346Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-24T03:44:41.346Z"}
+[2025-10-24T03:44:41.670Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 694ms (733 modules)
+[2025-10-24T03:44:41.824Z] [INFO   ] 2025-10-24T03:44:41.824Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:44:42.522Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-24T03:44:43.955Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1932ms (4050 modules)
+[2025-10-24T03:44:44.097Z] [INFO   ] 2025-10-24T03:44:44.097Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-24T03:44:44.097Z","headers":{"referer":"check-console"}}
+[2025-10-24T03:44:44.245Z] [INFO   ] 2025-10-24T03:44:44.245Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-24T03:44:44.370Z] [INFO   ] 2025-10-24T03:44:44.370Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-24T03:44:45.777Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-24T03:44:46.085Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 809ms (4058 modules)
+[2025-10-24T03:46:08.209Z] [INFO   ] 2025-10-24T03:46:08.208Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12710880809}
+[2025-10-24T03:46:08.819Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-24T03:46:09.389Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 1128ms (4053 modules)
+[2025-10-24T03:46:09.775Z] [INFO   ] 2025-10-24T03:46:09.774Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:46:09.908Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/user/avatar in 235ms (3339 modules)
+[2025-10-24T03:46:19.016Z] [INFO   ] 2025-10-24T03:46:19.016Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12710891617}
+[2025-10-24T03:46:19.576Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-24T03:46:21.577Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 2.5s (6004 modules)
+[2025-10-24T03:46:22.466Z] [INFO   ] 2025-10-24T03:46:22.466Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:46:23.811Z] [INFO   ] 2025-10-24T03:46:23.810Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12710896411}
+[2025-10-24T03:46:24.014Z] [INFO   ] 2025-10-24T03:46:24.014Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:46:24.014Z"}
+[2025-10-24T03:46:24.027Z] [INFO   ] 2025-10-24T03:46:24.027Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:46:24.027Z"}
+[2025-10-24T03:46:24.027Z] [INFO   ] 2025-10-24T03:46:24.027Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-24T03:46:24.027Z"}
+[2025-10-24T03:46:24.238Z] [INFO   ] 2025-10-24T03:46:24.238Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:46:24.660Z] [INFO   ] 2025-10-24T03:46:24.660Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-24T03:46:25.237Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 357ms (4315 modules)
+[2025-10-24T03:46:25.838Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 0ms (4317 modules)
+[2025-10-24T03:46:26.613Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 567ms (6016 modules)
+[2025-10-24T03:46:26.725Z] [INFO   ] 2025-10-24T03:46:26.725Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-24T03:46:26.725Z","headers":{"referer":"check-console"}}
+[2025-10-24T03:46:26.855Z] [INFO   ] 2025-10-24T03:46:26.855Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-24T03:46:26.944Z] [INFO   ] 2025-10-24T03:46:26.944Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-24T03:46:28.151Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 491ms (2407 modules)
+[2025-10-24T03:46:30.581Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-24T03:46:30.582Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:46:30.583Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:46:30.583Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-24T03:46:30.583Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-24T03:46:57.724Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-24T03:46:57.727Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 502ms (6018 modules)
+[2025-10-24T03:49:16.640Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1881ms (6013 modules)
+[2025-10-24T03:49:16.885Z] [INFO   ] 2025-10-24T03:49:16.884Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12711069485}
+[2025-10-24T03:49:17.215Z] [INFO   ] 2025-10-24T03:49:17.215Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:49:17.945Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-24T03:49:17.950Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 520ms (6001 modules)
+[2025-10-24T03:49:18.787Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-24T03:49:19.097Z] [INFO   ] 2025-10-24T03:49:19.097Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12711071698}
+[2025-10-24T03:49:19.127Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 335ms (4313 modules)
+[2025-10-24T03:49:19.230Z] [INFO   ] 2025-10-24T03:49:19.230Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-24T03:49:19.230Z","headers":{"referer":"check-console"}}
+[2025-10-24T03:49:19.470Z] [INFO   ] 2025-10-24T03:49:19.470Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:49:19.470Z"}
+[2025-10-24T03:49:19.482Z] [INFO   ] 2025-10-24T03:49:19.482Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:49:19.482Z"}
+[2025-10-24T03:49:19.482Z] [INFO   ] 2025-10-24T03:49:19.482Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-24T03:49:19.482Z"}
+[2025-10-24T03:49:19.547Z] [INFO   ] 2025-10-24T03:49:19.547Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-24T03:49:19.569Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-24T03:49:19.570Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-24T03:49:19.571Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-24T03:49:19.639Z] [INFO   ] 2025-10-24T03:49:19.638Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-24T03:49:19.705Z] [INFO   ] 2025-10-24T03:49:19.705Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:49:20.057Z] [INFO   ] 2025-10-24T03:49:20.057Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-24T03:49:20.515Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 403ms (4315 modules)
+[2025-10-24T03:49:21.228Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4317 modules)
+[2025-10-24T03:49:21.512Z] [INFO   ] 2025-10-24T03:49:21.512Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-24T03:49:21.512Z","headers":{"referer":"check-console"}}
+[2025-10-24T03:49:21.591Z] [INFO   ] 2025-10-24T03:49:21.591Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-24T03:49:21.791Z] [INFO   ] 2025-10-24T03:49:21.791Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-24T03:49:22.099Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-24T03:49:22.136Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 641ms (4320 modules)
+[2025-10-24T03:49:24.324Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-24T03:49:24.324Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:49:24.324Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:49:24.324Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-24T03:49:24.324Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-24T03:49:37.903Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1336ms (6032 modules)
+[2025-10-24T03:49:37.941Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-24T03:49:38.127Z] [INFO   ] 2025-10-24T03:49:38.127Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12711090728}
+[2025-10-24T03:49:38.178Z] [INFO   ] 2025-10-24T03:49:38.177Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12711090778}
+[2025-10-24T03:49:38.471Z] [INFO   ] 2025-10-24T03:49:38.471Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:49:38.590Z] [INFO   ] 2025-10-24T03:49:38.590Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:49:38.590Z"}
+[2025-10-24T03:49:38.602Z] [INFO   ] 2025-10-24T03:49:38.602Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-24T03:49:38.602Z"}
+[2025-10-24T03:49:38.602Z] [INFO   ] 2025-10-24T03:49:38.602Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-24T03:49:38.602Z"}
+[2025-10-24T03:49:38.828Z] [INFO   ] 2025-10-24T03:49:38.828Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:49:39.094Z] [INFO   ] 2025-10-24T03:49:39.094Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-24T03:49:39.696Z] [INFO   ] 2025-10-24T03:49:39.696Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-24T03:49:39.696Z","headers":{"referer":"check-console"}}
+[2025-10-24T03:49:39.777Z] [INFO   ] 2025-10-24T03:49:39.777Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-24T03:49:39.859Z] [INFO   ] 2025-10-24T03:49:39.859Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-24T03:49:42.470Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-24T03:49:42.470Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:49:42.470Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'dropbox',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-24T03:49:42.470Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-24T03:49:42.470Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-24T03:49:53.179Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 639ms (2421 modules)
+[2025-10-24T03:49:53.515Z] [INFO   ] 2025-10-24T03:49:53.515Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/defe170e-c84c-4b31-96b8-0620bed5c6a7","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12711106116}
+[2025-10-24T03:49:53.647Z] [INFO   ] 2025-10-24T03:49:53.647Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T03:52:15.657Z] [ERROR  ] 2025-10-24T03:52:15.655Z [ERROR] AI call failed: {}
+[2025-10-24T03:52:15.659Z] [ERROR  ] 2025-10-24T03:52:15.658Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+
+=== Log Session Ended: 2025-10-24T03:52:23.027Z ===

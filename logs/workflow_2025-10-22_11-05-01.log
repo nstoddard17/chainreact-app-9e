@@ -1,0 +1,902 @@
+=== Log Session Started: 2025-10-22T16:05:01.738Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-22T16:05:01.739Z] [INFO   ] File logging initialized
+[2025-10-22T16:05:01.739Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_11-05-01.log
+[2025-10-22T16:05:01.743Z] [INFO   ] 📁 File logging enabled
+[2025-10-22T16:05:01.743Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_11-05-01.log
+[2025-10-22T16:05:01.743Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_11-05-01.log
+[2025-10-22T16:05:01.743Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_11-05-01.log
+[2025-10-22T16:05:01.743Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_11-05-01.log
+[2025-10-22T16:05:01.743Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-22T16:05:01.743Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-22T16:05:01.760Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3s
+[2025-10-22T16:05:02.812Z] [INFO   ] 2025-10-22T16:05:02.811Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-22T16:05:04.500Z] [INFO   ] 2025-10-22T16:05:04.500Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-22T16:05:04.500Z] [INFO   ] 2025-10-22T16:05:04.500Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-22T16:05:06.217Z] [INFO   ] 2025-10-22T16:05:06.216Z [DEBUG] Discord Gateway initialization complete
+[2025-10-22T16:05:06.219Z] [INFO   ] 2025-10-22T16:05:06.219Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-22T16:05:06.367Z] [INFO   ] 2025-10-22T16:05:06.367Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-22T16:05:06.369Z] [INFO   ] 2025-10-22T16:05:06.369Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-22T16:05:06.926Z] [INFO   ] 2025-10-22T16:05:06.926Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"5cb8002937d07a57414792cf7e1cba34","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-22T16:05:06.926Z] [INFO   ] 2025-10-22T16:05:06.926Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-22T16:05:06.927Z] [INFO   ] 2025-10-22T16:05:06.927Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-22T16:05:06.934Z] [INFO   ] 2025-10-22T16:05:06.934Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-22T16:05:07.279Z] [INFO   ] 2025-10-22T16:05:07.279Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-22T16:06:34.208Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 146ms (233 modules)
+[2025-10-22T16:06:34.842Z] [INFO   ] 2025-10-22T16:06:34.841Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12582507442}
+[2025-10-22T16:06:35.400Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-22T16:06:39.983Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 5.1s (5827 modules)
+[2025-10-22T16:06:40.651Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 631ms (1636 modules)
+[2025-10-22T16:06:40.960Z] [INFO   ] 2025-10-22T16:06:40.959Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T16:06:40.959Z"}
+[2025-10-22T16:06:40.972Z] [INFO   ] 2025-10-22T16:06:40.972Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T16:06:40.972Z"}
+[2025-10-22T16:06:40.972Z] [INFO   ] 2025-10-22T16:06:40.972Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T16:06:40.972Z"}
+[2025-10-22T16:06:41.376Z] [INFO   ] 2025-10-22T16:06:41.375Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T16:06:41.977Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-22T16:06:44.105Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 2.7s (5839 modules)
+[2025-10-22T16:06:44.271Z] [INFO   ] 2025-10-22T16:06:44.271Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T16:06:44.271Z","headers":{"referer":"check-console"}}
+[2025-10-22T16:06:44.469Z] [INFO   ] 2025-10-22T16:06:44.469Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T16:06:44.601Z] [INFO   ] 2025-10-22T16:06:44.601Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T16:07:15.329Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 392ms (5841 modules)
+[2025-10-22T16:07:41.368Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 930ms (5855 modules)
+[2025-10-22T16:07:41.672Z] [INFO   ] 2025-10-22T16:07:41.672Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12582574273}
+[2025-10-22T16:07:41.921Z] [INFO   ] 2025-10-22T16:07:41.921Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T16:07:42.465Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 404ms (5843 modules)
+[2025-10-22T16:07:43.045Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T16:07:43.227Z] [INFO   ] 2025-10-22T16:07:43.227Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12582575828}
+[2025-10-22T16:07:43.477Z] [INFO   ] 2025-10-22T16:07:43.476Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T16:07:43.476Z"}
+[2025-10-22T16:07:43.487Z] [INFO   ] 2025-10-22T16:07:43.487Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T16:07:43.487Z"}
+[2025-10-22T16:07:43.487Z] [INFO   ] 2025-10-22T16:07:43.487Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T16:07:43.487Z"}
+[2025-10-22T16:07:43.718Z] [INFO   ] 2025-10-22T16:07:43.717Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T16:07:44.603Z] [INFO   ] 2025-10-22T16:07:44.603Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T16:07:44.603Z","headers":{"referer":"check-console"}}
+[2025-10-22T16:07:44.699Z] [INFO   ] 2025-10-22T16:07:44.699Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T16:07:44.798Z] [INFO   ] 2025-10-22T16:07:44.798Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T16:08:13.687Z] [INFO   ] 2025-10-22T16:08:13.687Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12582606288}
+[2025-10-22T16:08:14.150Z] [INFO   ] 2025-10-22T16:08:14.150Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T16:08:14.418Z] [INFO   ] 2025-10-22T16:08:14.418Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T16:08:14.418Z","headers":{"referer":"check-console"}}
+[2025-10-22T16:08:14.514Z] [INFO   ] 2025-10-22T16:08:14.514Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T16:08:14.607Z] [INFO   ] 2025-10-22T16:08:14.607Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T16:09:15.775Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1437ms (5855 modules)
+[2025-10-22T16:09:16.119Z] [INFO   ] 2025-10-22T16:09:16.119Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12582668720}
+[2025-10-22T16:09:16.288Z] [INFO   ] 2025-10-22T16:09:16.288Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T16:09:16.678Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 247ms (4221 modules)
+[2025-10-22T16:25:55.744Z] [INFO   ] 2025-10-22T16:25:55.743Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-22T18:42:08.374Z] [INFO   ] 2025-10-22T18:42:08.372Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12591840973}
+[2025-10-22T18:42:08.719Z] [INFO   ] 2025-10-22T18:42:08.719Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:42:08.719Z"}
+[2025-10-22T18:42:08.730Z] [INFO   ] 2025-10-22T18:42:08.730Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:42:08.730Z"}
+[2025-10-22T18:42:08.730Z] [INFO   ] 2025-10-22T18:42:08.730Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:42:08.730Z"}
+[2025-10-22T18:42:09.017Z] [INFO   ] 2025-10-22T18:42:09.017Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:42:10.216Z] [INFO   ] 2025-10-22T18:42:10.216Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:42:10.216Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:42:10.341Z] [INFO   ] 2025-10-22T18:42:10.341Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:42:10.464Z] [INFO   ] 2025-10-22T18:42:10.464Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:43:25.078Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1310ms (5846 modules)
+[2025-10-22T18:43:25.386Z] [INFO   ] 2025-10-22T18:43:25.385Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12591917986}
+[2025-10-22T18:43:25.644Z] [INFO   ] 2025-10-22T18:43:25.643Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:43:26.052Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 254ms (4212 modules)
+[2025-10-22T18:43:31.781Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 818ms (5848 modules)
+[2025-10-22T18:43:32.051Z] [INFO   ] 2025-10-22T18:43:32.051Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12591924652}
+[2025-10-22T18:43:32.271Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 286ms (4215 modules)
+[2025-10-22T18:43:32.622Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4217 modules)
+[2025-10-22T18:43:32.800Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T18:43:33.023Z] [INFO   ] 2025-10-22T18:43:33.023Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:43:33.023Z"}
+[2025-10-22T18:43:33.035Z] [INFO   ] 2025-10-22T18:43:33.034Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:43:33.034Z"}
+[2025-10-22T18:43:33.035Z] [INFO   ] 2025-10-22T18:43:33.035Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:43:33.035Z"}
+[2025-10-22T18:43:33.316Z] [ERROR  ] 2025-10-22T18:43:33.316Z [ERROR] Collaboration join error: {"code":"ECONNRESET"}
+[2025-10-22T18:43:33.421Z] [INFO   ] 2025-10-22T18:43:33.421Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:43:33.992Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-22T18:43:34.221Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 831ms (4219 modules)
+[2025-10-22T18:43:38.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 305ms (4221 modules)
+[2025-10-22T18:43:38.175Z] [INFO   ] 2025-10-22T18:43:38.175Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:43:38.175Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:43:38.266Z] [INFO   ] 2025-10-22T18:43:38.266Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:43:38.362Z] [INFO   ] 2025-10-22T18:43:38.362Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:43:39.796Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1098ms (5857 modules)
+[2025-10-22T18:43:39.995Z] [INFO   ] 2025-10-22T18:43:39.995Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12591932596}
+[2025-10-22T18:43:40.172Z] [INFO   ] 2025-10-22T18:43:40.172Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:46:12.388Z] [INFO   ] 2025-10-22T18:46:12.387Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592084988}
+[2025-10-22T18:46:12.579Z] [INFO   ] 2025-10-22T18:46:12.579Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:46:12.579Z"}
+[2025-10-22T18:46:12.599Z] [INFO   ] 2025-10-22T18:46:12.599Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:46:12.599Z"}
+[2025-10-22T18:46:12.599Z] [INFO   ] 2025-10-22T18:46:12.599Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:46:12.599Z"}
+[2025-10-22T18:46:12.869Z] [INFO   ] 2025-10-22T18:46:12.868Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:46:13.895Z] [INFO   ] 2025-10-22T18:46:13.895Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:46:13.895Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:46:14.032Z] [INFO   ] 2025-10-22T18:46:14.032Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:46:14.145Z] [INFO   ] 2025-10-22T18:46:14.145Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:47:17.205Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.7s (5855 modules)
+[2025-10-22T18:47:17.462Z] [INFO   ] 2025-10-22T18:47:17.462Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592150063}
+[2025-10-22T18:47:17.727Z] [INFO   ] 2025-10-22T18:47:17.726Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:47:18.205Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 327ms (4221 modules)
+[2025-10-22T18:47:27.708Z] [INFO   ] 2025-10-22T18:47:27.707Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592160308}
+[2025-10-22T18:47:27.924Z] [INFO   ] 2025-10-22T18:47:27.924Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:47:27.924Z"}
+[2025-10-22T18:47:27.935Z] [INFO   ] 2025-10-22T18:47:27.935Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:47:27.935Z"}
+[2025-10-22T18:47:27.935Z] [INFO   ] 2025-10-22T18:47:27.935Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:47:27.935Z"}
+[2025-10-22T18:47:28.230Z] [INFO   ] 2025-10-22T18:47:28.230Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:47:28.799Z] [INFO   ] 2025-10-22T18:47:28.799Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:47:28.799Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:47:28.977Z] [INFO   ] 2025-10-22T18:47:28.977Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:47:29.095Z] [INFO   ] 2025-10-22T18:47:29.095Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:49:51.350Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1384ms (5846 modules)
+[2025-10-22T18:49:51.802Z] [INFO   ] 2025-10-22T18:49:51.802Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592304403}
+[2025-10-22T18:49:51.828Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 296ms (4212 modules)
+[2025-10-22T18:49:52.075Z] [INFO   ] 2025-10-22T18:49:52.074Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:49:52.717Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T18:49:52.949Z] [INFO   ] 2025-10-22T18:49:52.949Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592305550}
+[2025-10-22T18:49:53.073Z] [INFO   ] 2025-10-22T18:49:53.073Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:49:53.073Z"}
+[2025-10-22T18:49:53.085Z] [INFO   ] 2025-10-22T18:49:53.085Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:49:53.085Z"}
+[2025-10-22T18:49:53.085Z] [INFO   ] 2025-10-22T18:49:53.085Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:49:53.085Z"}
+[2025-10-22T18:49:53.316Z] [INFO   ] 2025-10-22T18:49:53.316Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:49:53.997Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 250ms (4214 modules)
+[2025-10-22T18:49:54.290Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4216 modules)
+[2025-10-22T18:49:58.320Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-22T18:49:58.434Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 613ms (4218 modules)
+[2025-10-22T18:49:58.538Z] [INFO   ] 2025-10-22T18:49:58.538Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:49:58.538Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:49:58.706Z] [INFO   ] 2025-10-22T18:49:58.706Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:49:58.805Z] [INFO   ] 2025-10-22T18:49:58.805Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:50:15.000Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1412ms (5854 modules)
+[2025-10-22T18:50:15.291Z] [INFO   ] 2025-10-22T18:50:15.291Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592327892}
+[2025-10-22T18:50:15.497Z] [INFO   ] 2025-10-22T18:50:15.497Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:50:16.334Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-22T18:50:16.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 689ms (4221 modules)
+[2025-10-22T18:50:33.268Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1830ms (5857 modules)
+[2025-10-22T18:50:33.648Z] [INFO   ] 2025-10-22T18:50:33.648Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592346249}
+[2025-10-22T18:50:33.893Z] [INFO   ] 2025-10-22T18:50:33.893Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:51:23.292Z] [INFO   ] 2025-10-22T18:51:23.292Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592395893}
+[2025-10-22T18:51:23.577Z] [INFO   ] 2025-10-22T18:51:23.577Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:51:23.576Z"}
+[2025-10-22T18:51:23.594Z] [INFO   ] 2025-10-22T18:51:23.594Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:51:23.594Z"}
+[2025-10-22T18:51:23.594Z] [INFO   ] 2025-10-22T18:51:23.594Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:51:23.594Z"}
+[2025-10-22T18:51:23.902Z] [INFO   ] 2025-10-22T18:51:23.902Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:51:24.665Z] [INFO   ] 2025-10-22T18:51:24.665Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:51:24.665Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:51:24.776Z] [INFO   ] 2025-10-22T18:51:24.775Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:51:24.891Z] [INFO   ] 2025-10-22T18:51:24.891Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:56:41.146Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1488ms (5848 modules)
+[2025-10-22T18:56:41.458Z] [INFO   ] 2025-10-22T18:56:41.458Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592714059}
+[2025-10-22T18:56:41.628Z] [INFO   ] 2025-10-22T18:56:41.628Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:56:42.041Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 248ms (4214 modules)
+[2025-10-22T18:56:47.600Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 551ms (5850 modules)
+[2025-10-22T18:56:47.990Z] [INFO   ] 2025-10-22T18:56:47.990Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592720591}
+[2025-10-22T18:56:48.015Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 252ms (4217 modules)
+[2025-10-22T18:56:48.256Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4217 modules)
+[2025-10-22T18:56:48.495Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4217 modules)
+[2025-10-22T18:56:48.667Z] [INFO   ] 2025-10-22T18:56:48.667Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:56:48.667Z"}
+[2025-10-22T18:56:48.667Z] [INFO   ] 2025-10-22T18:56:48.667Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:56:48.667Z"}
+[2025-10-22T18:56:48.667Z] [INFO   ] 2025-10-22T18:56:48.667Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:56:48.667Z"}
+[2025-10-22T18:56:48.700Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T18:56:48.930Z] [INFO   ] 2025-10-22T18:56:48.930Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:56:49.423Z] [ERROR  ] 2025-10-22T18:56:49.423Z [ERROR] Collaboration join error: {}
+[2025-10-22T18:56:50.154Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/auth/profile ...
+[2025-10-22T18:56:50.712Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 1157ms (4219 modules)
+[2025-10-22T18:56:55.119Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 304ms (4221 modules)
+[2025-10-22T18:56:55.228Z] [INFO   ] 2025-10-22T18:56:55.228Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:56:55.228Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:56:55.307Z] [INFO   ] 2025-10-22T18:56:55.306Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:56:55.413Z] [INFO   ] 2025-10-22T18:56:55.413Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:57:16.226Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1601ms (5857 modules)
+[2025-10-22T18:57:16.578Z] [INFO   ] 2025-10-22T18:57:16.578Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592749179}
+[2025-10-22T18:57:16.907Z] [INFO   ] 2025-10-22T18:57:16.906Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:58:27.457Z] [INFO   ] 2025-10-22T18:58:27.457Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592820058}
+[2025-10-22T18:58:27.638Z] [INFO   ] 2025-10-22T18:58:27.638Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:58:27.638Z"}
+[2025-10-22T18:58:27.660Z] [INFO   ] 2025-10-22T18:58:27.660Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:58:27.660Z"}
+[2025-10-22T18:58:27.660Z] [INFO   ] 2025-10-22T18:58:27.660Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:58:27.660Z"}
+[2025-10-22T18:58:27.919Z] [INFO   ] 2025-10-22T18:58:27.919Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:58:28.602Z] [INFO   ] 2025-10-22T18:58:28.602Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:58:28.602Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:58:28.733Z] [INFO   ] 2025-10-22T18:58:28.733Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:58:28.825Z] [INFO   ] 2025-10-22T18:58:28.824Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T18:59:01.024Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1929ms (5855 modules)
+[2025-10-22T18:59:01.340Z] [INFO   ] 2025-10-22T18:59:01.340Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592853941}
+[2025-10-22T18:59:01.520Z] [INFO   ] 2025-10-22T18:59:01.520Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:59:01.910Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 260ms (4221 modules)
+[2025-10-22T18:59:05.015Z] [INFO   ] 2025-10-22T18:59:05.015Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592857616}
+[2025-10-22T18:59:05.228Z] [INFO   ] 2025-10-22T18:59:05.227Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:59:05.227Z"}
+[2025-10-22T18:59:05.239Z] [INFO   ] 2025-10-22T18:59:05.238Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T18:59:05.238Z"}
+[2025-10-22T18:59:05.239Z] [INFO   ] 2025-10-22T18:59:05.239Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T18:59:05.239Z"}
+[2025-10-22T18:59:05.500Z] [INFO   ] 2025-10-22T18:59:05.499Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T18:59:06.284Z] [INFO   ] 2025-10-22T18:59:06.283Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T18:59:06.283Z","headers":{"referer":"check-console"}}
+[2025-10-22T18:59:06.459Z] [INFO   ] 2025-10-22T18:59:06.459Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T18:59:06.572Z] [INFO   ] 2025-10-22T18:59:06.572Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:00:50.597Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1702ms (5846 modules)
+[2025-10-22T19:00:51.141Z] [INFO   ] 2025-10-22T19:00:51.141Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592963742}
+[2025-10-22T19:00:51.379Z] [INFO   ] 2025-10-22T19:00:51.379Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:00:51.869Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 297ms (4212 modules)
+[2025-10-22T19:01:14.730Z] [INFO   ] 2025-10-22T19:01:14.730Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12592987331}
+[2025-10-22T19:01:15.044Z] [INFO   ] 2025-10-22T19:01:15.044Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:01:15.044Z"}
+[2025-10-22T19:01:15.055Z] [INFO   ] 2025-10-22T19:01:15.055Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:01:15.055Z"}
+[2025-10-22T19:01:15.055Z] [INFO   ] 2025-10-22T19:01:15.055Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:01:15.055Z"}
+[2025-10-22T19:01:15.302Z] [INFO   ] 2025-10-22T19:01:15.302Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:01:16.334Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 402ms (4214 modules)
+[2025-10-22T19:01:16.808Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:01:16.883Z] [INFO   ] 2025-10-22T19:01:16.883Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:01:16.883Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:01:17.086Z] [INFO   ] 2025-10-22T19:01:17.086Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:01:17.213Z] [INFO   ] 2025-10-22T19:01:17.213Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:02:23.116Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1742ms (5855 modules)
+[2025-10-22T19:02:23.423Z] [INFO   ] 2025-10-22T19:02:23.423Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593056024}
+[2025-10-22T19:02:23.656Z] [INFO   ] 2025-10-22T19:02:23.656Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:02:24.129Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 300ms (4221 modules)
+[2025-10-22T19:02:26.336Z] [INFO   ] 2025-10-22T19:02:26.336Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593058937}
+[2025-10-22T19:02:26.558Z] [INFO   ] 2025-10-22T19:02:26.558Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:02:26.558Z"}
+[2025-10-22T19:02:26.570Z] [INFO   ] 2025-10-22T19:02:26.569Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:02:26.569Z"}
+[2025-10-22T19:02:26.570Z] [INFO   ] 2025-10-22T19:02:26.570Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:02:26.570Z"}
+[2025-10-22T19:02:26.804Z] [INFO   ] 2025-10-22T19:02:26.804Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:02:27.333Z] [INFO   ] 2025-10-22T19:02:27.333Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:02:27.333Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:02:27.466Z] [INFO   ] 2025-10-22T19:02:27.466Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:02:27.633Z] [INFO   ] 2025-10-22T19:02:27.633Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:05:16.199Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1848ms (5846 modules)
+[2025-10-22T19:05:16.501Z] [INFO   ] 2025-10-22T19:05:16.501Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593229102}
+[2025-10-22T19:05:16.689Z] [INFO   ] 2025-10-22T19:05:16.689Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:05:17.135Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 287ms (4212 modules)
+[2025-10-22T19:05:51.471Z] [INFO   ] 2025-10-22T19:05:51.471Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593264072}
+[2025-10-22T19:05:51.834Z] [INFO   ] 2025-10-22T19:05:51.834Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:05:51.834Z"}
+[2025-10-22T19:05:51.845Z] [INFO   ] 2025-10-22T19:05:51.844Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:05:51.844Z"}
+[2025-10-22T19:05:51.845Z] [INFO   ] 2025-10-22T19:05:51.845Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:05:51.845Z"}
+[2025-10-22T19:05:52.220Z] [INFO   ] 2025-10-22T19:05:52.220Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:05:53.292Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 461ms (4214 modules)
+[2025-10-22T19:05:53.698Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:05:53.754Z] [INFO   ] 2025-10-22T19:05:53.754Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:05:53.753Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:05:53.850Z] [INFO   ] 2025-10-22T19:05:53.850Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:05:53.952Z] [INFO   ] 2025-10-22T19:05:53.952Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:07:06.408Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1725ms (5846 modules)
+[2025-10-22T19:07:06.714Z] [INFO   ] 2025-10-22T19:07:06.714Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593339315}
+[2025-10-22T19:07:06.955Z] [INFO   ] 2025-10-22T19:07:06.955Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:07:07.427Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 289ms (4212 modules)
+[2025-10-22T19:07:10.253Z] [INFO   ] 2025-10-22T19:07:10.252Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593342853}
+[2025-10-22T19:07:10.513Z] [INFO   ] 2025-10-22T19:07:10.513Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:07:10.513Z"}
+[2025-10-22T19:07:10.527Z] [INFO   ] 2025-10-22T19:07:10.527Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:07:10.527Z"}
+[2025-10-22T19:07:10.527Z] [INFO   ] 2025-10-22T19:07:10.527Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:07:10.527Z"}
+[2025-10-22T19:07:10.779Z] [INFO   ] 2025-10-22T19:07:10.779Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:07:11.710Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 370ms (4214 modules)
+[2025-10-22T19:07:11.975Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:07:12.033Z] [INFO   ] 2025-10-22T19:07:12.033Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:07:12.033Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:07:12.184Z] [INFO   ] 2025-10-22T19:07:12.184Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:07:12.309Z] [INFO   ] 2025-10-22T19:07:12.309Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:07:21.454Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 829ms (5857 modules)
+[2025-10-22T19:07:21.714Z] [INFO   ] 2025-10-22T19:07:21.714Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593354315}
+[2025-10-22T19:07:21.903Z] [INFO   ] 2025-10-22T19:07:21.902Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:07:33.542Z] [INFO   ] 2025-10-22T19:07:33.542Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593366143}
+[2025-10-22T19:07:33.951Z] [INFO   ] 2025-10-22T19:07:33.951Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:07:33.951Z"}
+[2025-10-22T19:07:33.982Z] [INFO   ] 2025-10-22T19:07:33.982Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:07:33.982Z"}
+[2025-10-22T19:07:33.982Z] [INFO   ] 2025-10-22T19:07:33.982Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:07:33.982Z"}
+[2025-10-22T19:07:34.711Z] [INFO   ] 2025-10-22T19:07:34.710Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:07:35.393Z] [INFO   ] 2025-10-22T19:07:35.392Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:07:35.392Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:07:35.546Z] [INFO   ] 2025-10-22T19:07:35.546Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:07:35.635Z] [INFO   ] 2025-10-22T19:07:35.635Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:08:55.917Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1594ms (5846 modules)
+[2025-10-22T19:08:56.259Z] [INFO   ] 2025-10-22T19:08:56.259Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593448860}
+[2025-10-22T19:08:56.483Z] [INFO   ] 2025-10-22T19:08:56.483Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:08:56.884Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 260ms (4212 modules)
+[2025-10-22T19:08:59.711Z] [INFO   ] 2025-10-22T19:08:59.711Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593452312}
+[2025-10-22T19:08:59.992Z] [INFO   ] 2025-10-22T19:08:59.992Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:08:59.992Z"}
+[2025-10-22T19:09:00.003Z] [INFO   ] 2025-10-22T19:09:00.003Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:09:00.003Z"}
+[2025-10-22T19:09:00.003Z] [INFO   ] 2025-10-22T19:09:00.003Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:09:00.003Z"}
+[2025-10-22T19:09:00.263Z] [INFO   ] 2025-10-22T19:09:00.262Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:09:01.028Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 467ms (4214 modules)
+[2025-10-22T19:09:01.453Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:09:01.509Z] [INFO   ] 2025-10-22T19:09:01.509Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:09:01.509Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:09:01.615Z] [INFO   ] 2025-10-22T19:09:01.615Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:09:01.739Z] [INFO   ] 2025-10-22T19:09:01.738Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:09:04.156Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 706ms (5857 modules)
+[2025-10-22T19:09:04.381Z] [INFO   ] 2025-10-22T19:09:04.381Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593456982}
+[2025-10-22T19:09:04.597Z] [INFO   ] 2025-10-22T19:09:04.597Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:09:08.143Z] [INFO   ] 2025-10-22T19:09:08.143Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593460744}
+[2025-10-22T19:09:08.303Z] [INFO   ] 2025-10-22T19:09:08.302Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:09:08.302Z"}
+[2025-10-22T19:09:08.314Z] [INFO   ] 2025-10-22T19:09:08.314Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:09:08.314Z"}
+[2025-10-22T19:09:08.314Z] [INFO   ] 2025-10-22T19:09:08.314Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:09:08.314Z"}
+[2025-10-22T19:09:08.560Z] [INFO   ] 2025-10-22T19:09:08.559Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:09:09.050Z] [INFO   ] 2025-10-22T19:09:09.050Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:09:09.050Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:09:09.145Z] [INFO   ] 2025-10-22T19:09:09.145Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:09:09.236Z] [INFO   ] 2025-10-22T19:09:09.236Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:10:11.742Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1472ms (5857 modules)
+[2025-10-22T19:10:12.038Z] [INFO   ] 2025-10-22T19:10:12.038Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593524639}
+[2025-10-22T19:10:12.258Z] [INFO   ] 2025-10-22T19:10:12.258Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:10:16.100Z] [INFO   ] 2025-10-22T19:10:16.100Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593528701}
+[2025-10-22T19:10:16.247Z] [INFO   ] 2025-10-22T19:10:16.247Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:10:16.247Z"}
+[2025-10-22T19:10:16.258Z] [INFO   ] 2025-10-22T19:10:16.258Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:10:16.258Z"}
+[2025-10-22T19:10:16.258Z] [INFO   ] 2025-10-22T19:10:16.258Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:10:16.258Z"}
+[2025-10-22T19:10:16.479Z] [INFO   ] 2025-10-22T19:10:16.478Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:10:17.090Z] [INFO   ] 2025-10-22T19:10:17.090Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:10:17.090Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:10:17.188Z] [INFO   ] 2025-10-22T19:10:17.188Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:10:17.293Z] [INFO   ] 2025-10-22T19:10:17.293Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:11:42.795Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1909ms (5846 modules)
+[2025-10-22T19:11:43.120Z] [INFO   ] 2025-10-22T19:11:43.120Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593615721}
+[2025-10-22T19:11:43.332Z] [INFO   ] 2025-10-22T19:11:43.332Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:11:43.785Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 287ms (4212 modules)
+[2025-10-22T19:11:46.316Z] [INFO   ] 2025-10-22T19:11:46.316Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593618917}
+[2025-10-22T19:11:46.549Z] [INFO   ] 2025-10-22T19:11:46.549Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:11:46.549Z"}
+[2025-10-22T19:11:46.560Z] [INFO   ] 2025-10-22T19:11:46.560Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:11:46.560Z"}
+[2025-10-22T19:11:46.561Z] [INFO   ] 2025-10-22T19:11:46.561Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:11:46.561Z"}
+[2025-10-22T19:11:46.819Z] [INFO   ] 2025-10-22T19:11:46.818Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:11:47.905Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 420ms (4214 modules)
+[2025-10-22T19:11:48.166Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:11:48.231Z] [INFO   ] 2025-10-22T19:11:48.231Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:11:48.230Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:11:48.416Z] [INFO   ] 2025-10-22T19:11:48.416Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:11:48.553Z] [INFO   ] 2025-10-22T19:11:48.553Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:11:51.869Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1557ms (5857 modules)
+[2025-10-22T19:11:52.106Z] [INFO   ] 2025-10-22T19:11:52.106Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593624707}
+[2025-10-22T19:11:52.288Z] [INFO   ] 2025-10-22T19:11:52.288Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:12:03.709Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 711ms (5857 modules)
+[2025-10-22T19:12:03.987Z] [INFO   ] 2025-10-22T19:12:03.987Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593636588}
+[2025-10-22T19:12:04.178Z] [INFO   ] 2025-10-22T19:12:04.178Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:12:04.178Z"}
+[2025-10-22T19:12:04.189Z] [INFO   ] 2025-10-22T19:12:04.189Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:12:04.189Z"}
+[2025-10-22T19:12:04.189Z] [INFO   ] 2025-10-22T19:12:04.189Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:12:04.189Z"}
+[2025-10-22T19:12:04.762Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:12:04.766Z] [INFO   ] 2025-10-22T19:12:04.766Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:12:05.584Z] [INFO   ] 2025-10-22T19:12:05.583Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:12:05.583Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:12:05.681Z] [INFO   ] 2025-10-22T19:12:05.681Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:12:05.779Z] [INFO   ] 2025-10-22T19:12:05.779Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:15:38.728Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1606ms (5846 modules)
+[2025-10-22T19:15:39.147Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 242ms (4212 modules)
+[2025-10-22T19:15:39.285Z] [INFO   ] 2025-10-22T19:15:39.285Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593851886}
+[2025-10-22T19:15:39.458Z] [INFO   ] 2025-10-22T19:15:39.458Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:15:40.074Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:15:40.344Z] [INFO   ] 2025-10-22T19:15:40.344Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593852945}
+[2025-10-22T19:15:40.473Z] [INFO   ] 2025-10-22T19:15:40.473Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:15:40.473Z"}
+[2025-10-22T19:15:40.485Z] [INFO   ] 2025-10-22T19:15:40.485Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:15:40.485Z"}
+[2025-10-22T19:15:40.485Z] [INFO   ] 2025-10-22T19:15:40.485Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:15:40.485Z"}
+[2025-10-22T19:15:40.766Z] [INFO   ] 2025-10-22T19:15:40.765Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:15:41.502Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 258ms (4214 modules)
+[2025-10-22T19:15:41.711Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4216 modules)
+[2025-10-22T19:15:45.323Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 599ms (5852 modules)
+[2025-10-22T19:15:45.622Z] [INFO   ] 2025-10-22T19:15:45.622Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12593858223}
+[2025-10-22T19:15:45.809Z] [INFO   ] 2025-10-22T19:15:45.809Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:15:46.461Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-22T19:15:46.671Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 838ms (4218 modules)
+[2025-10-22T19:15:46.773Z] [INFO   ] 2025-10-22T19:15:46.773Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:15:46.773Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:15:46.862Z] [INFO   ] 2025-10-22T19:15:46.862Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:15:47.077Z] [INFO   ] 2025-10-22T19:15:47.077Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:15:48.534Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-22T19:15:48.566Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 584ms (4221 modules)
+[2025-10-22T19:19:02.141Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.3s (5846 modules)
+[2025-10-22T19:19:02.452Z] [INFO   ] 2025-10-22T19:19:02.452Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594055053}
+[2025-10-22T19:19:02.665Z] [INFO   ] 2025-10-22T19:19:02.665Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:19:03.089Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 273ms (4212 modules)
+[2025-10-22T19:24:48.173Z] [INFO   ] 2025-10-22T19:24:48.172Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594400773}
+[2025-10-22T19:24:48.575Z] [INFO   ] 2025-10-22T19:24:48.574Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:24:48.574Z"}
+[2025-10-22T19:24:48.586Z] [INFO   ] 2025-10-22T19:24:48.586Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:24:48.586Z"}
+[2025-10-22T19:24:48.586Z] [INFO   ] 2025-10-22T19:24:48.586Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:24:48.586Z"}
+[2025-10-22T19:24:48.951Z] [INFO   ] 2025-10-22T19:24:48.950Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:24:50.730Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-22T19:24:50.771Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1069ms (4210 modules)
+[2025-10-22T19:24:51.025Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4217 modules)
+[2025-10-22T19:24:51.076Z] [INFO   ] 2025-10-22T19:24:51.076Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:24:51.076Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:24:51.195Z] [INFO   ] 2025-10-22T19:24:51.195Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:24:51.352Z] [INFO   ] 2025-10-22T19:24:51.352Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:25:21.972Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 219ms (4219 modules)
+[2025-10-22T19:26:57.789Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1764ms (5846 modules)
+[2025-10-22T19:26:58.204Z] [INFO   ] 2025-10-22T19:26:58.204Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594530805}
+[2025-10-22T19:26:58.396Z] [INFO   ] 2025-10-22T19:26:58.396Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:26:58.958Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 408ms (4212 modules)
+[2025-10-22T19:27:42.379Z] [INFO   ] 2025-10-22T19:27:42.377Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594574978}
+[2025-10-22T19:27:42.690Z] [INFO   ] 2025-10-22T19:27:42.690Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:27:42.690Z"}
+[2025-10-22T19:27:42.702Z] [INFO   ] 2025-10-22T19:27:42.702Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:27:42.702Z"}
+[2025-10-22T19:27:42.702Z] [INFO   ] 2025-10-22T19:27:42.702Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:27:42.702Z"}
+[2025-10-22T19:27:43.043Z] [INFO   ] 2025-10-22T19:27:43.042Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:27:44.186Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 428ms (4214 modules)
+[2025-10-22T19:27:44.423Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:27:44.482Z] [INFO   ] 2025-10-22T19:27:44.482Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:27:44.482Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:27:44.646Z] [INFO   ] 2025-10-22T19:27:44.646Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:27:44.772Z] [INFO   ] 2025-10-22T19:27:44.772Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:30:12.047Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1457ms (5846 modules)
+[2025-10-22T19:30:12.371Z] [INFO   ] 2025-10-22T19:30:12.371Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594724972}
+[2025-10-22T19:30:12.598Z] [INFO   ] 2025-10-22T19:30:12.598Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:30:13.125Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 289ms (4212 modules)
+[2025-10-22T19:30:23.551Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:30:24.048Z] [INFO   ] 2025-10-22T19:30:24.048Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594736649}
+[2025-10-22T19:30:24.407Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 1210ms (5848 modules)
+[2025-10-22T19:30:25.023Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:30:25.235Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 0ms (4215 modules)
+[2025-10-22T19:30:25.712Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1ms (4217 modules)
+[2025-10-22T19:30:25.952Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4217 modules)
+[2025-10-22T19:30:26.163Z] [INFO   ] 2025-10-22T19:30:26.161Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:30:26.161Z"}
+[2025-10-22T19:30:26.163Z] [INFO   ] 2025-10-22T19:30:26.163Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:30:26.163Z"}
+[2025-10-22T19:30:26.163Z] [INFO   ] 2025-10-22T19:30:26.163Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:30:26.163Z"}
+[2025-10-22T19:30:26.519Z] [INFO   ] 2025-10-22T19:30:26.516Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:30:27.168Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 0ms (4217 modules)
+[2025-10-22T19:30:27.334Z] [ERROR  ] 2025-10-22T19:30:27.334Z [ERROR] Collaboration join error: {}
+[2025-10-22T19:30:27.571Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/auth/profile in 0ms (4217 modules)
+[2025-10-22T19:30:28.456Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 0ms (4219 modules)
+[2025-10-22T19:30:28.708Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:30:28.767Z] [INFO   ] 2025-10-22T19:30:28.767Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:30:28.767Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:30:28.922Z] [INFO   ] 2025-10-22T19:30:28.922Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:30:29.088Z] [INFO   ] 2025-10-22T19:30:29.088Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:33:46.038Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 2.1s (5846 modules)
+[2025-10-22T19:33:46.505Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 277ms (4212 modules)
+[2025-10-22T19:33:46.783Z] [INFO   ] 2025-10-22T19:33:46.783Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594939384}
+[2025-10-22T19:33:46.975Z] [INFO   ] 2025-10-22T19:33:46.975Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:33:46.978Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:33:47.328Z] [INFO   ] 2025-10-22T19:33:47.328Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594939929}
+[2025-10-22T19:33:47.443Z] [INFO   ] 2025-10-22T19:33:47.443Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:33:47.443Z"}
+[2025-10-22T19:33:47.454Z] [INFO   ] 2025-10-22T19:33:47.454Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:33:47.454Z"}
+[2025-10-22T19:33:47.454Z] [INFO   ] 2025-10-22T19:33:47.454Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:33:47.454Z"}
+[2025-10-22T19:33:47.717Z] [INFO   ] 2025-10-22T19:33:47.716Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:33:48.680Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 359ms (4214 modules)
+[2025-10-22T19:33:48.925Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4221 modules)
+[2025-10-22T19:33:48.996Z] [INFO   ] 2025-10-22T19:33:48.996Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:33:48.996Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:33:49.111Z] [INFO   ] 2025-10-22T19:33:49.111Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:33:49.288Z] [INFO   ] 2025-10-22T19:33:49.288Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:34:13.437Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1212ms (5857 modules)
+[2025-10-22T19:34:13.739Z] [INFO   ] 2025-10-22T19:34:13.738Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594966339}
+[2025-10-22T19:34:13.929Z] [INFO   ] 2025-10-22T19:34:13.929Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:34:14.337Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:34:14.593Z] [INFO   ] 2025-10-22T19:34:14.593Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594967194}
+[2025-10-22T19:34:14.689Z] [INFO   ] 2025-10-22T19:34:14.689Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:34:14.689Z"}
+[2025-10-22T19:34:14.700Z] [INFO   ] 2025-10-22T19:34:14.700Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-22T19:34:14.700Z"}
+[2025-10-22T19:34:14.700Z] [INFO   ] 2025-10-22T19:34:14.700Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-22T19:34:14.700Z"}
+[2025-10-22T19:34:14.922Z] [INFO   ] 2025-10-22T19:34:14.922Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-22T19:34:15.677Z] [INFO   ] 2025-10-22T19:34:15.677Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-22T19:34:15.677Z","headers":{"referer":"check-console"}}
+[2025-10-22T19:34:15.820Z] [INFO   ] 2025-10-22T19:34:15.820Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-22T19:34:15.902Z] [INFO   ] 2025-10-22T19:34:15.902Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-22T19:34:39.857Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1472:1]
+ [2m1469[0m │             </div>
+ [2m1470[0m │           </div>
+ [2m1471[0m │         </div>
+ [2m1472[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1473[0m │ 
+ [2m1474[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1475[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:34:40.117Z] [INFO   ] 2025-10-22T19:34:40.117Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594992718}
+[2025-10-22T19:34:42.923Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-22T19:34:43.865Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1472:1]
+ [2m1469[0m │             </div>
+ [2m1470[0m │           </div>
+ [2m1471[0m │         </div>
+ [2m1472[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1473[0m │ 
+ [2m1474[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1475[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:34:44.153Z] [INFO   ] 2025-10-22T19:34:44.153Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594996754}
+[2025-10-22T19:34:44.386Z] [INFO   ] 2025-10-22T19:34:44.386Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594996987}
+[2025-10-22T19:34:44.643Z] [INFO   ] 2025-10-22T19:34:44.643Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12594997244}
+[2025-10-22T19:34:54.702Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1485:1]
+ [2m1482[0m │             </div>
+ [2m1483[0m │           </div>
+ [2m1484[0m │         </div>
+ [2m1485[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1486[0m │ 
+ [2m1487[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1488[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:35:01.580Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:37:17.810Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expression expected
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m      ─[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+  [31m×[0m Unterminated regexp literal
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m       ─────[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:37:22.670Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:37:59.216Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expression expected
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m      ─[0m
+ [2m1492[0m │       </div>
+ [2m1493[0m │ 
+ [2m1494[0m │       {/* ReactAgent Toggle Button (when closed) */}
+      ╰────
+  [31m×[0m Unterminated regexp literal
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m       ─────[0m
+ [2m1492[0m │       </div>
+ [2m1493[0m │ 
+ [2m1494[0m │       {/* ReactAgent Toggle Button (when closed) */}
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:38:22.010Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expression expected
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m      ─[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+  [31m×[0m Unterminated regexp literal
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m       ─────[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:39:20.304Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:40:33.704Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1252:1]
+ [2m1249[0m │         interceptedActions={sandboxInterceptedActions}
+ [2m1250[0m │         isExecuting={isExecuting || isExecutingTest}
+ [2m1251[0m │       />
+ [2m1252[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1253[0m │ 
+ [2m1254[0m │       {/* ReactAgent Chat Panel */}
+ [2m1255[0m │       <div
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:40:56.491Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:42:13.214Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expression expected
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m      ─[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+  [31m×[0m Unterminated regexp literal
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m       ─────[0m
+ [2m1492[0m │ 
+ [2m1493[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1494[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:42:45.549Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:42:51.238Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expression expected
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m      ─[0m
+ [2m1492[0m │       </div>
+ [2m1493[0m │ 
+ [2m1494[0m │       {/* ReactAgent Toggle Button (when closed) */}
+      ╰────
+  [31m×[0m Unterminated regexp literal
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1491:1]
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+ [2m1491[0m │       </div>
+      · [35;1m       ─────[0m
+ [2m1492[0m │       </div>
+ [2m1493[0m │ 
+ [2m1494[0m │       {/* ReactAgent Toggle Button (when closed) */}
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:43:14.696Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected corresponding JSX closing tag for <BuilderLayout>
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:1490:1]
+ [2m1487[0m │             </div>
+ [2m1488[0m │           </div>
+ [2m1489[0m │         </div>
+ [2m1490[0m │       </div>
+      · [35;1m        ───[0m
+ [2m1491[0m │ 
+ [2m1492[0m │       {/* ReactAgent Toggle Button (when closed) */}
+ [2m1493[0m │       {!isReactAgentOpen && (
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-22T19:44:38.552Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 5.1s (6167 modules)
+[2025-10-22T19:44:38.675Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-22T19:44:39.323Z] [INFO   ] 2025-10-22T19:44:39.323Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12595591924}
+[2025-10-22T19:44:39.328Z] [INFO   ] 2025-10-22T19:44:39.328Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/bb9c7281-19df-4c2e-b2d4-7ea7bff1ef2a","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12595591929}
+[2025-10-22T19:44:39.745Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:188:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-22T19:44:39.905Z] [ERROR  ]  [31m[1m⨯[22m[39m Failed to generate static paths for /workflows/builder/[id]:
+[2025-10-22T19:44:39.906Z] [ERROR  ] Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-22T19:44:39.999Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-22T19:44:40.118Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:188:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-22T19:44:40.326Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-22T19:44:40.347Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+
+=== Log Session Ended: 2025-10-22T20:19:47.719Z ===

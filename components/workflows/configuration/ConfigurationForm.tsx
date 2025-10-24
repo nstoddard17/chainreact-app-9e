@@ -50,6 +50,14 @@ import { PathConfiguration } from './providers/logic/PathConfiguration';
 import { FilterConfiguration } from './providers/logic/FilterConfiguration';
 import { HttpRequestConfiguration } from './providers/logic/HttpRequestConfiguration';
 
+// Utility nodes
+import { TransformerConfiguration } from './providers/utility/TransformerConfiguration';
+import { FileUploadConfiguration } from './providers/utility/FileUploadConfiguration';
+import { ExtractWebsiteDataConfiguration } from './providers/utility/ExtractWebsiteDataConfiguration';
+import { ConditionalTriggerConfiguration } from './providers/utility/ConditionalTriggerConfiguration';
+import { GoogleSearchConfiguration } from './providers/utility/GoogleSearchConfiguration';
+import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfiguration';
+
 import { logger } from '@/lib/utils/logger'
 
 interface ConfigurationFormProps {
@@ -1516,6 +1524,37 @@ function ConfigurationForm({
   if (nodeInfo?.type === 'http_request') {
     logger.debug('🌐 [ConfigForm] Routing to HTTP Request configuration');
     return <HttpRequestConfiguration {...commonProps} />;
+  }
+
+  // Utility nodes
+  if (nodeInfo?.type === 'transformer') {
+    logger.debug('🔧 [ConfigForm] Routing to Transformer configuration');
+    return <TransformerConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'file_upload') {
+    logger.debug('📁 [ConfigForm] Routing to File Upload configuration');
+    return <FileUploadConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'extract_website_data') {
+    logger.debug('🌐 [ConfigForm] Routing to Extract Website Data configuration');
+    return <ExtractWebsiteDataConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'conditional_trigger') {
+    logger.debug('⚡ [ConfigForm] Routing to Conditional Trigger configuration');
+    return <ConditionalTriggerConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'google_search') {
+    logger.debug('🔍 [ConfigForm] Routing to Google Search configuration');
+    return <GoogleSearchConfiguration {...commonProps} />;
+  }
+
+  if (nodeInfo?.type === 'tavily_search') {
+    logger.debug('🔎 [ConfigForm] Routing to Tavily Search configuration');
+    return <TavilySearchConfiguration {...commonProps} />;
   }
 
   // Gmail search email now uses GenericConfiguration like other actions

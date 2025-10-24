@@ -24,11 +24,14 @@ import { twitterNodes } from "./providers/twitter"
 import { outlookNodes } from "./providers/outlook"
 import { hubspotNodes } from "./providers/hubspot"
 import { googleDocsNodes } from "./providers/google-docs"
+import { googleAnalyticsNodes } from "./providers/google-analytics"
 import { facebookNodes } from "./providers/facebook"
 import { onedriveNodes } from "./providers/onedrive"
 import { onenoteNodes } from "./providers/onenote"
 import { dropboxNodes } from "./providers/dropbox"
+import { shopifyNodes } from "./providers/shopify"
 import { miscNodes } from "./providers/misc"
+import { utilityNodes } from "./providers/utility"
 import { OUTPUT_SCHEMA_FALLBACKS } from "./outputSchemaFallbacks"
 
 // Migration complete! All 247 nodes have been extracted and organized by provider
@@ -44,6 +47,7 @@ const BASE_NODE_COMPONENTS: NodeComponent[] = [
   ...googleCalendarNodes,
   ...googleDriveNodes,
   ...googleSheetsNodes,
+  ...googleAnalyticsNodes,
   ...microsoftExcelNodes,
   ...googleDocsNodes,
   ...githubNodes,
@@ -61,7 +65,9 @@ const BASE_NODE_COMPONENTS: NodeComponent[] = [
   ...onedriveNodes,
   ...onenoteNodes,
   ...dropboxNodes,
+  ...shopifyNodes,
   ...miscNodes,
+  ...utilityNodes,
 ]
 
 export const ALL_NODE_COMPONENTS: NodeComponent[] = BASE_NODE_COMPONENTS.map((node) => {

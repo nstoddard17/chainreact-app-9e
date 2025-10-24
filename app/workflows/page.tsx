@@ -1,15 +1,10 @@
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { HomeContentWithPreloader } from "@/components/new-design/HomeContent"
+import { WorkflowsPageContent } from "@/components/workflows/WorkflowsPageContent"
 import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = 'force-dynamic'
 
-export default async function NewHomePage() {
+export default async function WorkflowsPage() {
   await requireUsername()
 
-  return (
-    <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
-      <HomeContentWithPreloader />
-    </NewAppLayout>
-  )
+  return <WorkflowsPageContent />
 }

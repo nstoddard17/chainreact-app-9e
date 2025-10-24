@@ -1,0 +1,793 @@
+=== Log Session Started: 2025-10-23T23:47:51.687Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-23T23:47:51.687Z] [INFO   ] File logging initialized
+[2025-10-23T23:47:51.687Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_18-47-51.log
+[2025-10-23T23:47:51.692Z] [INFO   ] Deleted old log file: workflow_2025-10-16_13-33-18.log
+[2025-10-23T23:47:51.692Z] [INFO   ] 📁 File logging enabled
+[2025-10-23T23:47:51.692Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_18-47-51.log
+[2025-10-23T23:47:51.692Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_18-47-51.log
+[2025-10-23T23:47:51.692Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_18-47-51.log
+[2025-10-23T23:47:51.692Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-23_18-47-51.log
+[2025-10-23T23:47:51.692Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-23T23:47:51.693Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-23T23:47:51.710Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.2s
+[2025-10-23T23:47:52.732Z] [INFO   ] 2025-10-23T23:47:52.732Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-23T23:47:54.356Z] [INFO   ] 2025-10-23T23:47:54.356Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-23T23:47:54.356Z] [INFO   ] 2025-10-23T23:47:54.356Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-23T23:47:54.596Z] [INFO   ] 2025-10-23T23:47:54.596Z [DEBUG] Discord Gateway initialization complete
+[2025-10-23T23:47:54.598Z] [INFO   ] 2025-10-23T23:47:54.597Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-23T23:47:54.775Z] [INFO   ] 2025-10-23T23:47:54.775Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-23T23:47:54.776Z] [INFO   ] 2025-10-23T23:47:54.776Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-23T23:47:55.242Z] [INFO   ] 2025-10-23T23:47:55.241Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"328b8d26e4874980656c5da9f5667b2c","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-23T23:47:55.242Z] [INFO   ] 2025-10-23T23:47:55.242Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-23T23:47:55.243Z] [INFO   ] 2025-10-23T23:47:55.243Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T23:47:55.257Z] [INFO   ] 2025-10-23T23:47:55.257Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T23:47:55.485Z] [INFO   ] 2025-10-23T23:47:55.485Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-23T23:47:58.762Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 165ms (233 modules)
+[2025-10-23T23:47:59.864Z] [INFO   ] 2025-10-23T23:47:59.863Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696592464}
+[2025-10-23T23:48:00.437Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-23T23:48:05.310Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 5.4s (5890 modules)
+[2025-10-23T23:48:05.895Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 562ms (1656 modules)
+[2025-10-23T23:48:06.460Z] [INFO   ] 2025-10-23T23:48:06.460Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:48:06.460Z"}
+[2025-10-23T23:48:06.471Z] [INFO   ] 2025-10-23T23:48:06.471Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:48:06.471Z"}
+[2025-10-23T23:48:06.471Z] [INFO   ] 2025-10-23T23:48:06.471Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:48:06.471Z"}
+[2025-10-23T23:48:06.899Z] [INFO   ] 2025-10-23T23:48:06.898Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:48:07.353Z] [INFO   ] 2025-10-23T23:48:07.353Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"when I get an email send it to slack"}
+[2025-10-23T23:48:08.215Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-23T23:48:10.682Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 3s (6615 modules)
+[2025-10-23T23:48:11.047Z] [INFO   ] 2025-10-23T23:48:11.047Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:48:11.047Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:48:11.346Z] [INFO   ] 2025-10-23T23:48:11.346Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:48:11.474Z] [INFO   ] 2025-10-23T23:48:11.474Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:48:42.255Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 435ms (5904 modules)
+[2025-10-23T23:48:51.229Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1950ms (5918 modules)
+[2025-10-23T23:48:51.507Z] [INFO   ] 2025-10-23T23:48:51.506Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696644107}
+[2025-10-23T23:48:51.800Z] [INFO   ] 2025-10-23T23:48:51.800Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:48:52.576Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/leave ...
+[2025-10-23T23:48:52.772Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 709ms (5906 modules)
+[2025-10-23T23:48:53.752Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T23:48:53.981Z] [INFO   ] 2025-10-23T23:48:53.981Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696646582}
+[2025-10-23T23:48:54.265Z] [INFO   ] 2025-10-23T23:48:54.264Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:48:54.264Z"}
+[2025-10-23T23:48:54.276Z] [INFO   ] 2025-10-23T23:48:54.276Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:48:54.276Z"}
+[2025-10-23T23:48:54.276Z] [INFO   ] 2025-10-23T23:48:54.276Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:48:54.276Z"}
+[2025-10-23T23:48:54.352Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.352Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.352Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.357Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.357Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.358Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.359Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.359Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.359Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:48:54.532Z] [INFO   ] 2025-10-23T23:48:54.531Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:48:54.964Z] [INFO   ] 2025-10-23T23:48:54.964Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"when I get an email send it to slack"}
+[2025-10-23T23:48:56.010Z] [INFO   ] 2025-10-23T23:48:56.010Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:48:56.010Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:48:56.142Z] [INFO   ] 2025-10-23T23:48:56.142Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:48:56.391Z] [INFO   ] 2025-10-23T23:48:56.391Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:48:57.805Z] [ERROR  ] 2025-10-23T23:48:57.805Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:48:58.063Z] [ERROR  ] 2025-10-23T23:48:58.063Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:49:10.726Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 817ms (5920 modules)
+[2025-10-23T23:49:10.986Z] [INFO   ] 2025-10-23T23:49:10.986Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696663587}
+[2025-10-23T23:49:11.277Z] [INFO   ] 2025-10-23T23:49:11.277Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:49:17.634Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 746ms (5920 modules)
+[2025-10-23T23:49:18.314Z] [INFO   ] 2025-10-23T23:49:18.313Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696670914}
+[2025-10-23T23:49:18.632Z] [INFO   ] 2025-10-23T23:49:18.632Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:49:18.632Z"}
+[2025-10-23T23:49:18.645Z] [INFO   ] 2025-10-23T23:49:18.645Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:49:18.645Z"}
+[2025-10-23T23:49:18.646Z] [INFO   ] 2025-10-23T23:49:18.645Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:49:18.645Z"}
+[2025-10-23T23:49:18.911Z] [INFO   ] 2025-10-23T23:49:18.911Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:49:19.262Z] [INFO   ] 2025-10-23T23:49:19.262Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"when I get an email send it to slack"}
+[2025-10-23T23:49:19.276Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T23:49:19.280Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:19.281Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:20.473Z] [INFO   ] 2025-10-23T23:49:20.473Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:49:20.473Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:49:20.502Z] [ERROR  ] 2025-10-23T23:49:20.502Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:49:20.587Z] [ERROR  ] 2025-10-23T23:49:20.586Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:49:20.638Z] [INFO   ] 2025-10-23T23:49:20.638Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:49:20.917Z] [INFO   ] 2025-10-23T23:49:20.917Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:49:38.466Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 515ms (1656 modules)
+[2025-10-23T23:49:38.956Z] [INFO   ] 2025-10-23T23:49:38.955Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696691556}
+[2025-10-23T23:49:39.093Z] [INFO   ] 2025-10-23T23:49:39.092Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:49:47.707Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 808ms (5918 modules)
+[2025-10-23T23:49:47.755Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T23:49:47.959Z] [INFO   ] 2025-10-23T23:49:47.959Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696700560}
+[2025-10-23T23:49:48.221Z] [INFO   ] 2025-10-23T23:49:48.221Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:49:48.221Z"}
+[2025-10-23T23:49:48.234Z] [INFO   ] 2025-10-23T23:49:48.234Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:49:48.234Z"}
+[2025-10-23T23:49:48.234Z] [INFO   ] 2025-10-23T23:49:48.234Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:49:48.234Z"}
+[2025-10-23T23:49:48.291Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.292Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.293Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.294Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.295Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.295Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.296Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.296Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.296Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.303Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.303Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.303Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:49:48.437Z] [INFO   ] 2025-10-23T23:49:48.437Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:49:48.635Z] [INFO   ] 2025-10-23T23:49:48.635Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"when I get an email send it to slack"}
+[2025-10-23T23:49:49.108Z] [ERROR  ] 2025-10-23T23:49:49.107Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:49:49.702Z] [INFO   ] 2025-10-23T23:49:49.702Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:49:49.702Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:49:49.868Z] [INFO   ] 2025-10-23T23:49:49.868Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:49:49.957Z] [INFO   ] 2025-10-23T23:49:49.957Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:50:20.771Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 352ms (4264 modules)
+[2025-10-23T23:50:39.477Z] [INFO   ] 2025-10-23T23:50:39.476Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696752077}
+[2025-10-23T23:50:40.048Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-23T23:50:41.046Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 1502ms (5992 modules)
+[2025-10-23T23:50:41.392Z] [INFO   ] 2025-10-23T23:50:41.392Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:50:42.997Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T23:50:43.472Z] [INFO   ] 2025-10-23T23:50:43.472Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/ad926121-3228-4b46-9ad8-fe22a99bf587","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696756073}
+[2025-10-23T23:50:43.723Z] [INFO   ] 2025-10-23T23:50:43.723Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:50:43.723Z"}
+[2025-10-23T23:50:43.736Z] [INFO   ] 2025-10-23T23:50:43.736Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:50:43.736Z"}
+[2025-10-23T23:50:43.736Z] [INFO   ] 2025-10-23T23:50:43.736Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:50:43.736Z"}
+[2025-10-23T23:50:43.797Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.798Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.798Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.799Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:43.988Z] [INFO   ] 2025-10-23T23:50:43.988Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:50:44.232Z] [INFO   ] 2025-10-23T23:50:44.232Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"when I get an email send it to slack"}
+[2025-10-23T23:50:45.652Z] [INFO   ] 2025-10-23T23:50:45.652Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:50:45.651Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:50:45.760Z] [INFO   ] 2025-10-23T23:50:45.760Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:50:45.852Z] [INFO   ] 2025-10-23T23:50:45.852Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:50:46.410Z] [ERROR  ] 2025-10-23T23:50:46.409Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:50:46.479Z] [ERROR  ] 2025-10-23T23:50:46.479Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:50:48.392Z] [INFO   ] 2025-10-23T23:50:48.391Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696760992}
+[2025-10-23T23:50:48.622Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.623Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.623Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.627Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.627Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.627Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-23T23:50:48.762Z] [INFO   ] 2025-10-23T23:50:48.762Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:50:49.011Z] [ERROR  ] 2025-10-23T23:50:49.011Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:50:49.341Z] [ERROR  ] 2025-10-23T23:50:49.341Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:50:49.560Z] [INFO   ] 2025-10-23T23:50:49.560Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:50:49.560Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:50:49.650Z] [INFO   ] 2025-10-23T23:50:49.650Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:50:49.742Z] [INFO   ] 2025-10-23T23:50:49.742Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:50:51.537Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-23T23:50:52.230Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1686ms (6000 modules)
+[2025-10-23T23:51:00.305Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/[id] ...
+[2025-10-23T23:51:04.654Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/[id] in 5.2s (8199 modules)
+[2025-10-23T23:51:07.017Z] [INFO   ] 2025-10-23T23:51:07.017Z [DEBUG] 📝 Registered trigger provider: microsoft
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: microsoft-outlook
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: teams
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: microsoft-onenote
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: onedrive
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: airtable
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: discord
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: slack
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: gmail
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: google-calendar
+[2025-10-23T23:51:07.018Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: google-drive
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.018Z [DEBUG] 📝 Registered trigger provider: google-sheets
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: google-docs
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: stripe
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: shopify
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: notion
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: hubspot
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] 📝 Registered trigger provider: utility
+[2025-10-23T23:51:07.019Z] [INFO   ] 2025-10-23T23:51:07.019Z [DEBUG] ✅ Trigger lifecycle providers registered: ["microsoft","microsoft-outlook","teams","microsoft-onenote","onedrive","airtable","discord","slack","gmail","google-calendar","google-drive","google-sheets","google-docs","stripe","shopify","notion","hubspot","utility"]
+[2025-10-23T23:51:07.130Z] [INFO   ] 2025-10-23T23:51:07.130Z [DEBUG] ℹ️ No trigger resources found for workflow ad926121-3228-4b46-9ad8-fe22a99bf587
+[2025-10-23T23:51:07.130Z] [INFO   ] 2025-10-23T23:51:07.130Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"ad926121-3228-4b46-9ad8-fe22a99bf587"}
+[2025-10-23T23:51:07.186Z] [INFO   ] 2025-10-23T23:51:07.186Z [DEBUG] 🔗 Unregistering all webhooks for workflow ad926121-3228-4b46-9ad8-fe22a99bf587
+[2025-10-23T23:51:07.187Z] [INFO   ] 2025-10-23T23:51:07.187Z [DEBUG] ℹ️ No trigger resources found for workflow 79b19126-88ce-4f9d-ae83-f3a7cfa32f32
+[2025-10-23T23:51:07.187Z] [INFO   ] 2025-10-23T23:51:07.187Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"79b19126-88ce-4f9d-ae83-f3a7cfa32f32"}
+[2025-10-23T23:51:07.187Z] [INFO   ] 2025-10-23T23:51:07.187Z [DEBUG] 🔗 Unregistering all webhooks for workflow 79b19126-88ce-4f9d-ae83-f3a7cfa32f32
+[2025-10-23T23:51:07.190Z] [INFO   ] 2025-10-23T23:51:07.190Z [DEBUG] ℹ️ No trigger resources found for workflow 10404382-ed9e-47cf-a079-e7a959aaa367
+[2025-10-23T23:51:07.190Z] [INFO   ] 2025-10-23T23:51:07.190Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"10404382-ed9e-47cf-a079-e7a959aaa367"}
+[2025-10-23T23:51:07.190Z] [INFO   ] 2025-10-23T23:51:07.190Z [DEBUG] 🔗 Unregistering all webhooks for workflow 10404382-ed9e-47cf-a079-e7a959aaa367
+[2025-10-23T23:51:07.191Z] [INFO   ] 2025-10-23T23:51:07.191Z [DEBUG] ℹ️ No trigger resources found for workflow a3b878f7-bc2a-4376-a53c-f68e4e889987
+[2025-10-23T23:51:07.191Z] [INFO   ] 2025-10-23T23:51:07.191Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"a3b878f7-bc2a-4376-a53c-f68e4e889987"}
+[2025-10-23T23:51:07.191Z] [INFO   ] 2025-10-23T23:51:07.191Z [DEBUG] 🔗 Unregistering all webhooks for workflow a3b878f7-bc2a-4376-a53c-f68e4e889987
+[2025-10-23T23:51:07.217Z] [INFO   ] 2025-10-23T23:51:07.217Z [DEBUG] ℹ️ No trigger resources found for workflow 3f905c96-2def-464e-8a1b-29e145cb875a
+[2025-10-23T23:51:07.217Z] [INFO   ] 2025-10-23T23:51:07.217Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"3f905c96-2def-464e-8a1b-29e145cb875a"}
+[2025-10-23T23:51:07.218Z] [INFO   ] 2025-10-23T23:51:07.218Z [DEBUG] 🔗 Unregistering all webhooks for workflow 3f905c96-2def-464e-8a1b-29e145cb875a
+[2025-10-23T23:51:07.276Z] [INFO   ] 2025-10-23T23:51:07.276Z [DEBUG] ℹ️ No trigger resources found for workflow 9c3ee14d-a012-43fd-a1fd-56fa6feb08ac
+[2025-10-23T23:51:07.276Z] [INFO   ] 2025-10-23T23:51:07.276Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"9c3ee14d-a012-43fd-a1fd-56fa6feb08ac"}
+[2025-10-23T23:51:07.276Z] [INFO   ] 2025-10-23T23:51:07.276Z [DEBUG] 🔗 Unregistering all webhooks for workflow 9c3ee14d-a012-43fd-a1fd-56fa6feb08ac
+[2025-10-23T23:51:07.283Z] [INFO   ] 2025-10-23T23:51:07.283Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.283Z] [INFO   ] 2025-10-23T23:51:07.283Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"a3b878f7-bc2a-4376-a53c-f68e4e889987"}
+[2025-10-23T23:51:07.284Z] [INFO   ] 2025-10-23T23:51:07.284Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.284Z] [INFO   ] 2025-10-23T23:51:07.284Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"ad926121-3228-4b46-9ad8-fe22a99bf587"}
+[2025-10-23T23:51:07.286Z] [INFO   ] 2025-10-23T23:51:07.286Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.286Z] [INFO   ] 2025-10-23T23:51:07.286Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"79b19126-88ce-4f9d-ae83-f3a7cfa32f32"}
+[2025-10-23T23:51:07.297Z] [INFO   ] 2025-10-23T23:51:07.297Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.297Z] [INFO   ] 2025-10-23T23:51:07.297Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"3f905c96-2def-464e-8a1b-29e145cb875a"}
+[2025-10-23T23:51:07.301Z] [INFO   ] 2025-10-23T23:51:07.301Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.301Z] [INFO   ] 2025-10-23T23:51:07.301Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"10404382-ed9e-47cf-a079-e7a959aaa367"}
+[2025-10-23T23:51:07.358Z] [INFO   ] 2025-10-23T23:51:07.358Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:07.358Z] [INFO   ] 2025-10-23T23:51:07.358Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"9c3ee14d-a012-43fd-a1fd-56fa6feb08ac"}
+[2025-10-23T23:51:07.988Z] [INFO   ] 2025-10-23T23:51:07.988Z [DEBUG] ℹ️ No trigger resources found for workflow 51f26279-46e6-48be-9652-54bdc26e36dc
+[2025-10-23T23:51:07.989Z] [INFO   ] 2025-10-23T23:51:07.989Z [DEBUG] ♻️ Deleted lifecycle-managed triggers before deleting workflow {"workflowId":"51f26279-46e6-48be-9652-54bdc26e36dc"}
+[2025-10-23T23:51:07.989Z] [INFO   ] 2025-10-23T23:51:07.989Z [DEBUG] 🔗 Unregistering all webhooks for workflow 51f26279-46e6-48be-9652-54bdc26e36dc
+[2025-10-23T23:51:08.062Z] [INFO   ] 2025-10-23T23:51:08.062Z [DEBUG] No webhooks found for this workflow
+[2025-10-23T23:51:08.062Z] [INFO   ] 2025-10-23T23:51:08.062Z [DEBUG] ♻️ Unregistered legacy webhooks before deleting workflow {"workflowId":"51f26279-46e6-48be-9652-54bdc26e36dc"}
+[2025-10-23T23:51:15.477Z] [INFO   ] 2025-10-23T23:51:15.477Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696788078}
+[2025-10-23T23:51:15.769Z] [INFO   ] 2025-10-23T23:51:15.769Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:51:15.769Z"}
+[2025-10-23T23:51:15.773Z] [INFO   ] 2025-10-23T23:51:15.773Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:51:15.773Z"}
+[2025-10-23T23:51:15.773Z] [INFO   ] 2025-10-23T23:51:15.773Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:51:15.773Z"}
+[2025-10-23T23:51:15.989Z] [INFO   ] 2025-10-23T23:51:15.988Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:51:16.854Z] [INFO   ] 2025-10-23T23:51:16.854Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:51:16.854Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:51:17.000Z] [INFO   ] 2025-10-23T23:51:17.000Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:51:17.112Z] [INFO   ] 2025-10-23T23:51:17.112Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:51:59.600Z] [ERROR  ] 2025-10-23T23:51:59.600Z [ERROR] AI call failed: {}
+[2025-10-23T23:51:59.602Z] [ERROR  ] 2025-10-23T23:51:59.602Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:52:04.630Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1950ms (8206 modules)
+[2025-10-23T23:52:05.642Z] [INFO   ] 2025-10-23T23:52:05.641Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696838242}
+[2025-10-23T23:52:05.886Z] [INFO   ] 2025-10-23T23:52:05.885Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:52:15.937Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1837ms (6015 modules)
+[2025-10-23T23:52:16.425Z] [INFO   ] 2025-10-23T23:52:16.425Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696849026}
+[2025-10-23T23:52:16.684Z] [INFO   ] 2025-10-23T23:52:16.684Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:52:33.580Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1651ms (5984 modules)
+[2025-10-23T23:52:33.958Z] [INFO   ] 2025-10-23T23:52:33.958Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696866559}
+[2025-10-23T23:52:34.243Z] [INFO   ] 2025-10-23T23:52:34.243Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:52:41.443Z] [ERROR  ] 2025-10-23T23:52:41.442Z [ERROR] AI call failed: {}
+[2025-10-23T23:52:41.443Z] [ERROR  ] 2025-10-23T23:52:41.443Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:52:49.785Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1296ms (5984 modules)
+[2025-10-23T23:52:50.134Z] [INFO   ] 2025-10-23T23:52:50.134Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696882735}
+[2025-10-23T23:52:50.312Z] [INFO   ] 2025-10-23T23:52:50.312Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:52:59.434Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T23:52:59.955Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1764ms (5984 modules)
+[2025-10-23T23:53:00.148Z] [INFO   ] 2025-10-23T23:53:00.148Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696892749}
+[2025-10-23T23:53:00.384Z] [INFO   ] 2025-10-23T23:53:00.383Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:53:00.383Z"}
+[2025-10-23T23:53:00.387Z] [INFO   ] 2025-10-23T23:53:00.387Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:53:00.387Z"}
+[2025-10-23T23:53:00.387Z] [INFO   ] 2025-10-23T23:53:00.387Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:53:00.387Z"}
+[2025-10-23T23:53:00.436Z] [INFO   ] 2025-10-23T23:53:00.436Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696893037}
+[2025-10-23T23:53:00.689Z] [INFO   ] 2025-10-23T23:53:00.688Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:53:00.710Z] [INFO   ] 2025-10-23T23:53:00.710Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:53:01.995Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 473ms (4300 modules)
+[2025-10-23T23:53:03.204Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4306 modules)
+[2025-10-23T23:53:03.328Z] [INFO   ] 2025-10-23T23:53:03.328Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:53:03.328Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:53:03.333Z] [ERROR  ] 2025-10-23T23:53:03.333Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:53:03.482Z] [INFO   ] 2025-10-23T23:53:03.482Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:53:03.621Z] [INFO   ] 2025-10-23T23:53:03.621Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:53:04.687Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/workflows/folders ...
+[2025-10-23T23:53:04.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/workflows/folders in 631ms (4308 modules)
+[2025-10-23T23:53:05.026Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4314 modules)
+[2025-10-23T23:53:10.470Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 787ms (6015 modules)
+[2025-10-23T23:53:10.497Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T23:53:10.714Z] [INFO   ] 2025-10-23T23:53:10.714Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696903315}
+[2025-10-23T23:53:10.763Z] [INFO   ] 2025-10-23T23:53:10.763Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696903364}
+[2025-10-23T23:53:10.951Z] [INFO   ] 2025-10-23T23:53:10.951Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:53:11.065Z] [INFO   ] 2025-10-23T23:53:11.065Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:53:11.065Z"}
+[2025-10-23T23:53:11.068Z] [INFO   ] 2025-10-23T23:53:11.068Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T23:53:11.068Z"}
+[2025-10-23T23:53:11.068Z] [INFO   ] 2025-10-23T23:53:11.068Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T23:53:11.068Z"}
+[2025-10-23T23:53:11.280Z] [INFO   ] 2025-10-23T23:53:11.280Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:53:12.071Z] [INFO   ] 2025-10-23T23:53:12.070Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T23:53:12.070Z","headers":{"referer":"check-console"}}
+[2025-10-23T23:53:12.209Z] [INFO   ] 2025-10-23T23:53:12.209Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T23:53:12.330Z] [INFO   ] 2025-10-23T23:53:12.330Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T23:53:16.102Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1032ms (6015 modules)
+[2025-10-23T23:53:16.358Z] [INFO   ] 2025-10-23T23:53:16.358Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696908959}
+[2025-10-23T23:53:16.544Z] [INFO   ] 2025-10-23T23:53:16.544Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T23:53:20.477Z] [ERROR  ] 2025-10-23T23:53:20.477Z [ERROR] AI call failed: {}
+[2025-10-23T23:53:20.478Z] [ERROR  ] 2025-10-23T23:53:20.478Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:53:29.227Z] [ERROR  ] 2025-10-23T23:53:29.226Z [ERROR] AI call failed: {}
+[2025-10-23T23:53:29.227Z] [ERROR  ] 2025-10-23T23:53:29.227Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:53:29.529Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 4.1s (6015 modules)
+[2025-10-23T23:53:29.842Z] [INFO   ] 2025-10-23T23:53:29.842Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696922443}
+[2025-10-23T23:53:30.009Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:32.358Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-23T23:53:36.178Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T23:53:38.434Z] [INFO   ] 2025-10-23T23:53:38.434Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696931035}
+[2025-10-23T23:53:41.868Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 11.9s (6355 modules)
+[2025-10-23T23:53:42.281Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:42.444Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at listOnTimeout (node:internal/timers:575:9)
+    at process.processTimers (node:internal/timers:549:7)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:42.548Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.007Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js'
+    at Object.readFileSync (node:fs:443:20)
+    at defaultLoadImpl (node:internal/modules/cjs/loader:1117:17)
+    at loadSource (node:internal/modules/cjs/loader:1750:20)
+    at Object..js (node:internal/modules/cjs/loader:1882:44)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.321Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fpage&page=%2Fworkflows%2Fpage&appPaths=%2Fworkflows%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:168:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.428Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at listOnTimeout (node:internal/timers:575:9)
+    at process.processTimers (node:internal/timers:549:7)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.441Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.531Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.532Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T23:53:44.733Z] [INFO   ] 2025-10-23T23:53:44.732Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12696937333}
+[2025-10-23T23:53:46.989Z] [ERROR  ] 2025-10-23T23:53:46.989Z [ERROR] Stream workflow error: {"code":"ERR_INVALID_STATE"}
+[2025-10-23T23:54:41.850Z] [ERROR  ] ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+[2025-10-23T23:54:41.853Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+[2025-10-23T23:54:41.853Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/server-development/22.pack.gz'
+[2025-10-23T23:54:42.397Z] [ERROR  ] ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+[2025-10-23T23:54:42.398Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+[2025-10-23T23:54:42.398Z] [ERROR  ]  [31m[1m⨯[22m[39m unhandledRejection:  ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+Error: ENOENT: no such file or directory, stat '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/cache/webpack/client-development/26.pack.gz'
+[2025-10-23T23:56:02.017Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1219ms (1851 modules)
+[2025-10-23T23:56:09.166Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 370ms (1851 modules)
+
+=== Log Session Ended: 2025-10-23T23:59:20.147Z ===

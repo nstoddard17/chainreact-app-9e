@@ -91,13 +91,9 @@ class ChunkErrorHandler {
   }
 
   private attemptSoftReload() {
-    // Try to reload the current route without full page reload
-    if (typeof window !== 'undefined' && window.location) {
-      // Use Next.js router if available
-      const router = (window as any).next?.router
-      if (router) {
-        router.reload()
-      }
+    // Reload the page to fetch the new chunks
+    if (typeof window !== 'undefined') {
+      window.location.reload()
     }
   }
 

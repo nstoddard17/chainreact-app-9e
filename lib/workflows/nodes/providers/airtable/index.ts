@@ -217,6 +217,15 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Select a table",
         description: "Choose the table to create records in",
         dependsOn: "baseId"
+      },
+      {
+        name: "fields",
+        label: "Fields",
+        type: "object",
+        required: false,
+        placeholder: "Enter field values as JSON",
+        description: "Field values to set. Use variables like {{trigger.name}} to pull data from previous nodes.",
+        supportsAI: true
       }
     ],
     outputSchema: [
@@ -282,11 +291,11 @@ export const airtableNodes: NodeComponent[] = [
       {
         name: "fields",
         label: "Record Fields",
-        type: "custom",
+        type: "object",
         required: true,
-        description: "Configure the fields and values for the updated record",
+        description: "Field values to update. Use variables like {{trigger.name}} to pull data from previous nodes.",
         dependsOn: "tableName",
-        hidden: true
+        supportsAI: true
       }
     ]
   },
@@ -330,7 +339,8 @@ export const airtableNodes: NodeComponent[] = [
         placeholder: "Search across all text fields...",
         description: "Search for keywords across all text fields in the table",
         hidden: true,
-        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" }
+        visibilityCondition: { field: "tableName", operator: "equals", value: "!empty" },
+        supportsAI: true
       },
       {
         name: "filterField",
@@ -438,7 +448,8 @@ export const airtableNodes: NodeComponent[] = [
         required: false,
         placeholder: "{Status} = 'Active'",
         description: "Advanced Airtable filter formula (will be combined with other filters using AND logic)",
-        advanced: true
+        advanced: true,
+        supportsAI: true
       }
     ]
   },

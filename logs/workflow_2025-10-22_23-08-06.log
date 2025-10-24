@@ -1,0 +1,397 @@
+=== Log Session Started: 2025-10-23T04:08:06.167Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-23T04:08:06.167Z] [INFO   ] File logging initialized
+[2025-10-23T04:08:06.167Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_23-08-06.log
+[2025-10-23T04:08:06.171Z] [INFO   ] 📁 File logging enabled
+[2025-10-23T04:08:06.171Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_23-08-06.log
+[2025-10-23T04:08:06.171Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_23-08-06.log
+[2025-10-23T04:08:06.171Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_23-08-06.log
+[2025-10-23T04:08:06.171Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_23-08-06.log
+[2025-10-23T04:08:06.171Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-23T04:08:06.171Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-23T04:08:06.189Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 3.1s
+[2025-10-23T04:08:06.296Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 103ms (233 modules)
+[2025-10-23T04:08:06.628Z] [INFO   ] 2025-10-23T04:08:06.627Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625799228}
+[2025-10-23T04:08:07.151Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-23T04:08:07.174Z] [INFO   ] 2025-10-23T04:08:07.174Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-23T04:08:09.161Z] [INFO   ] 2025-10-23T04:08:09.161Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-23T04:08:09.162Z] [INFO   ] 2025-10-23T04:08:09.162Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-23T04:08:09.286Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T04:08:09.610Z] [INFO   ] 2025-10-23T04:08:09.610Z [DEBUG] Discord Gateway initialization complete
+[2025-10-23T04:08:09.611Z] [INFO   ] 2025-10-23T04:08:09.611Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-23T04:08:09.861Z] [INFO   ] 2025-10-23T04:08:09.861Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-23T04:08:09.862Z] [INFO   ] 2025-10-23T04:08:09.862Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-23T04:08:10.057Z] [INFO   ] 2025-10-23T04:08:10.057Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"b284c19f75b80a4b77f25a042a286f3a","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-23T04:08:10.057Z] [INFO   ] 2025-10-23T04:08:10.057Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-23T04:08:10.059Z] [INFO   ] 2025-10-23T04:08:10.059Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T04:08:10.059Z] [INFO   ] 2025-10-23T04:08:10.059Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T04:08:11.088Z] [INFO   ] 2025-10-23T04:08:11.088Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-23T04:08:12.715Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 6.1s (4028 modules)
+[2025-10-23T04:08:12.822Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T04:08:13.235Z] [INFO   ] 2025-10-23T04:08:13.234Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:08:13.234Z"}
+[2025-10-23T04:08:13.239Z] [INFO   ] 2025-10-23T04:08:13.239Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:08:13.239Z"}
+[2025-10-23T04:08:13.239Z] [INFO   ] 2025-10-23T04:08:13.239Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:08:13.239Z"}
+[2025-10-23T04:08:13.628Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 898ms (727 modules)
+[2025-10-23T04:08:13.759Z] [INFO   ] 2025-10-23T04:08:13.759Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:08:14.485Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-23T04:08:16.121Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 2.1s (4037 modules)
+[2025-10-23T04:08:16.315Z] [INFO   ] 2025-10-23T04:08:16.315Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:08:16.315Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:08:16.490Z] [INFO   ] 2025-10-23T04:08:16.490Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:08:16.601Z] [INFO   ] 2025-10-23T04:08:16.601Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:08:17.642Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-23T04:08:17.745Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 713ms (4045 modules)
+[2025-10-23T04:08:46.006Z] [INFO   ] 2025-10-23T04:08:46.006Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625838607}
+[2025-10-23T04:08:46.265Z] [INFO   ] 2025-10-23T04:08:46.265Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:08:46.265Z"}
+[2025-10-23T04:08:46.269Z] [INFO   ] 2025-10-23T04:08:46.268Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:08:46.268Z"}
+[2025-10-23T04:08:46.269Z] [INFO   ] 2025-10-23T04:08:46.269Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:08:46.269Z"}
+[2025-10-23T04:08:46.507Z] [INFO   ] 2025-10-23T04:08:46.507Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:08:46.854Z] [INFO   ] 2025-10-23T04:08:46.853Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:08:46.853Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:08:46.989Z] [INFO   ] 2025-10-23T04:08:46.989Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:08:47.090Z] [INFO   ] 2025-10-23T04:08:47.090Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:09:22.562Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1104ms (4059 modules)
+[2025-10-23T04:09:22.592Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:09:22.829Z] [INFO   ] 2025-10-23T04:09:22.829Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625875430}
+[2025-10-23T04:09:22.881Z] [INFO   ] 2025-10-23T04:09:22.881Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625875482}
+[2025-10-23T04:09:23.095Z] [INFO   ] 2025-10-23T04:09:23.095Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:23.245Z] [INFO   ] 2025-10-23T04:09:23.244Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:23.244Z"}
+[2025-10-23T04:09:23.249Z] [INFO   ] 2025-10-23T04:09:23.249Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:23.249Z"}
+[2025-10-23T04:09:23.249Z] [INFO   ] 2025-10-23T04:09:23.249Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:09:23.249Z"}
+[2025-10-23T04:09:23.465Z] [INFO   ] 2025-10-23T04:09:23.465Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:23.814Z] [INFO   ] 2025-10-23T04:09:23.814Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:09:23.814Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:09:23.952Z] [INFO   ] 2025-10-23T04:09:23.952Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:09:24.037Z] [INFO   ] 2025-10-23T04:09:24.037Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:09:30.054Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 585ms (4059 modules)
+[2025-10-23T04:09:30.074Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:09:30.300Z] [INFO   ] 2025-10-23T04:09:30.300Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625882901}
+[2025-10-23T04:09:30.332Z] [INFO   ] 2025-10-23T04:09:30.332Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625882933}
+[2025-10-23T04:09:30.548Z] [INFO   ] 2025-10-23T04:09:30.548Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:30.697Z] [INFO   ] 2025-10-23T04:09:30.697Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:30.697Z"}
+[2025-10-23T04:09:30.701Z] [INFO   ] 2025-10-23T04:09:30.701Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:30.701Z"}
+[2025-10-23T04:09:30.701Z] [INFO   ] 2025-10-23T04:09:30.701Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:09:30.701Z"}
+[2025-10-23T04:09:30.891Z] [INFO   ] 2025-10-23T04:09:30.891Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:31.331Z] [INFO   ] 2025-10-23T04:09:31.331Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:09:31.331Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:09:31.442Z] [INFO   ] 2025-10-23T04:09:31.442Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:09:31.603Z] [INFO   ] 2025-10-23T04:09:31.603Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:09:40.534Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 604ms (4059 modules)
+[2025-10-23T04:09:40.557Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:09:40.784Z] [INFO   ] 2025-10-23T04:09:40.784Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625893385}
+[2025-10-23T04:09:40.810Z] [INFO   ] 2025-10-23T04:09:40.810Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625893411}
+[2025-10-23T04:09:40.995Z] [INFO   ] 2025-10-23T04:09:40.994Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:41.104Z] [INFO   ] 2025-10-23T04:09:41.104Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:41.104Z"}
+[2025-10-23T04:09:41.108Z] [INFO   ] 2025-10-23T04:09:41.108Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:09:41.108Z"}
+[2025-10-23T04:09:41.108Z] [INFO   ] 2025-10-23T04:09:41.108Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:09:41.108Z"}
+[2025-10-23T04:09:41.308Z] [INFO   ] 2025-10-23T04:09:41.308Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:09:41.774Z] [INFO   ] 2025-10-23T04:09:41.774Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:09:41.774Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:09:41.900Z] [INFO   ] 2025-10-23T04:09:41.900Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:09:41.974Z] [INFO   ] 2025-10-23T04:09:41.974Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:20:36.243Z] [INFO   ] 2025-10-23T04:20:36.243Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12626548844}
+[2025-10-23T04:20:36.505Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at outlineTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:93315)
+    at renderFunctionComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:87241)
+    at renderElement (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:105170)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:106790)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.629Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.747Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at getOutlinedModel (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:356069)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363908
+    at ResponseInstance._fromJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363999)
+    at JSON.parse (<anonymous>)
+    at initializeModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346268)
+    at resolveModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:344574)
+    at processFullStringRow (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:382926)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385329
+    at processBinaryChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385401)
+    at progress (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:386929)
+[2025-10-23T04:20:36.750Z] [ERROR  ]  [31m[1m⨯[22m[39m Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+Error: Could not find the module "/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js#SegmentViewNode" in the React Client Manifest. This is probably a bug in the React Server Components bundler.
+    at resolveClientReferenceMetadata (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:66176)
+    at serializeClientReference (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:100999)
+    at renderModelDestructive (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:118836)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:98406
+    at Array.toJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:99536)
+    at stringify (<anonymous>)
+    at emitChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:141249)
+    at retryTask (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:142352)
+    at performWork (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:143770)
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:23:148010
+    at node:internal/process/task_queues:151:7
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+[2025-10-23T04:20:36.891Z] [ERROR  ] Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at getOutlinedModel (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:356069)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363908
+    at ResponseInstance._fromJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363999)
+    at JSON.parse (<anonymous>)
+    at initializeModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346268)
+    at resolveModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:344574)
+    at processFullStringRow (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:382926)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385329
+    at processBinaryChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385401)
+    at progress (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:386929)
+[2025-10-23T04:20:37.043Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at getOutlinedModel (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:356069)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363908
+    at ResponseInstance._fromJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363999)
+    at JSON.parse (<anonymous>)
+    at initializeModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346268)
+    at resolveModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:344574)
+    at processFullStringRow (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:382926)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385329
+    at processBinaryChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385401)
+    at progress (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:386929)
+[2025-10-23T04:20:37.159Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot read properties of undefined (reading 'call')
+TypeError: Cannot read properties of undefined (reading 'call')
+    at Object.__webpack_require__ [as require] (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:25:43)
+    at Object.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:28541)
+    at globalThis.__next_require__ (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:38:29364)
+    at requireModule (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:318257)
+    at initializeModuleChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346827)
+    at getOutlinedModel (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:356069)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363908
+    at ResponseInstance._fromJSON (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:363999)
+    at JSON.parse (<anonymous>)
+    at initializeModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:346268)
+    at resolveModelChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:344574)
+    at processFullStringRow (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:382926)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385329
+    at processBinaryChunk (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:385401)
+    at progress (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:2:386929)
+[2025-10-23T04:20:37.377Z] [INFO   ] 2025-10-23T04:20:37.377Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:20:37.789Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-23T04:20:37.886Z] [INFO   ] 2025-10-23T04:20:37.886Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12626550487}
+[2025-10-23T04:20:38.075Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:20:38.315Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1149ms (4371 modules)
+[2025-10-23T04:20:38.823Z] [INFO   ] 2025-10-23T04:20:38.822Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:20:41.642Z] [INFO   ]  [37m[1m [22m[39m Reload env: .env.local
+[2025-10-23T04:20:41.747Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T04:20:42.193Z] [INFO   ] 2025-10-23T04:20:42.192Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12626554793}
+[2025-10-23T04:20:42.799Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1479ms (4604 modules)
+[2025-10-23T04:20:43.044Z] [INFO   ] 2025-10-23T04:20:43.044Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:20:43.044Z"}
+[2025-10-23T04:20:43.047Z] [INFO   ] 2025-10-23T04:20:43.047Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:20:43.047Z"}
+[2025-10-23T04:20:43.047Z] [INFO   ] 2025-10-23T04:20:43.047Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:20:43.047Z"}
+[2025-10-23T04:20:43.136Z] [ERROR  ]  [31m[1m⨯[22m[39m self is not defined
+ReferenceError: self is not defined
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/middleware.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at DevServer.loadNodeMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1126:28)
+    at DevServer.runMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1236:43)
+    at async DevServer.runMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:297:28)
+    at async NextNodeServer.handleCatchallMiddlewareRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:447:26)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:922:28)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async handleRoute (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:323:33)
+    at async resolveRoutes (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:586:28)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:288:96)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T04:20:43.256Z] [INFO   ] 2025-10-23T04:20:43.256Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:20:43.723Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-23T04:20:43.799Z] [ERROR  ]  [31m[1m⨯[22m[39m self is not defined
+ReferenceError: self is not defined
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/middleware.js:1:1)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at DevServer.loadNodeMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1126:28)
+    at DevServer.runMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:1236:43)
+    at async DevServer.runMiddleware (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:297:28)
+    at async NextNodeServer.handleCatchallMiddlewareRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:447:26)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:922:28)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async handleRoute (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:323:33)
+    at async resolveRoutes (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:586:28)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:288:96)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+
+=== Log Session Ended: 2025-10-23T04:20:43.838Z ===

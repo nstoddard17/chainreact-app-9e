@@ -48,7 +48,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import AIAgentVisualChainBuilderWrapper from './AIAgentVisualChainBuilder'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
-import { ActionSelectionDialog } from './builder/ActionSelectionDialog'
+// ActionSelectionDialog removed - using IntegrationsSidePanel/inline action selection
 import { useIntegrationSelection } from '@/hooks/workflows/useIntegrationSelection'
 import { APIKeySelector, ModelSelector } from './APIKeySelector'
 
@@ -2085,37 +2085,7 @@ export function AIAgentConfigModal({
         </div>
       </DialogContentWithoutClose>
 
-      {/* Action Selector Dialog - Using shared ActionSelectionDialog component */}
-      {showActionDialog && availableIntegrations && categories && renderLogo && isIntegrationConnected && filterIntegrations && getDisplayedActions && (
-        <ActionSelectionDialog
-          open={showActionDialog}
-          onOpenChange={setShowActionDialog || (() => {})}
-          selectedIntegration={selectedIntegration || null}
-          setSelectedIntegration={setSelectedIntegration || (() => {})}
-          selectedAction={selectedAction || null}
-          setSelectedAction={setSelectedAction || (() => {})}
-          searchQuery={searchQuery || ''}
-          setSearchQuery={setSearchQuery || (() => {})}
-          filterCategory={filterCategory || 'all'}
-          setFilterCategory={setFilterCategory || (() => {})}
-          showConnectedOnly={showConnectedOnly || false}
-          setShowConnectedOnly={setShowConnectedOnly || (() => {})}
-          availableIntegrations={availableIntegrations}
-          categories={categories}
-          renderLogo={renderLogo}
-          isIntegrationConnected={isIntegrationConnected}
-          filterIntegrations={filterIntegrations}
-          getDisplayedActions={getDisplayedActions}
-          onActionSelect={(integration, action) => {
-            // Use local handleActionSelection which respects isAIMode (defaulted to true)
-            handleActionSelection(action)
-          }}
-          handleActionDialogClose={handleActionDialogClose}
-          nodes={nodes}
-          loadingIntegrations={loadingIntegrations}
-          refreshIntegrations={refreshIntegrations}
-        />
-      )}
+      {/* Action Selector Dialog - Removed, now using inline action selection or IntegrationsSidePanel */}
 
       {/* Node Configuration Dialog */}
       {configuringNodeId && configuringNodeData && (

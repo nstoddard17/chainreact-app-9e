@@ -405,23 +405,28 @@ export function HomeContent() {
   const handleDelete = async () => {
     if (!deleteDialog.workflowId) return
 
-    setLoading(prev => ({ ...prev, [`delete-${deleteDialog.workflowId}`]: true }))
+    const workflowId = deleteDialog.workflowId
+    const workflowName = deleteDialog.workflowName
+
+    // Close dialog immediately
+    setDeleteDialog({ open: false, workflowId: null, workflowName: '' })
+
+    // Show success toast immediately (optimistic)
+    toast({
+      title: "Workflow Deleted",
+      description: `"${workflowName}" has been deleted.`,
+    })
 
     try {
-      await deleteWorkflow(deleteDialog.workflowId)
-      toast({
-        title: "Workflow Deleted",
-        description: `"${deleteDialog.workflowName}" has been deleted.`,
-      })
-      setDeleteDialog({ open: false, workflowId: null, workflowName: '' })
+      // Deletion happens in background (optimistic update already applied)
+      await deleteWorkflow(workflowId)
     } catch (error: any) {
+      // If deletion fails, workflow will be restored by store rollback
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete workflow",
+        title: "Failed to Delete",
+        description: error.message || "Failed to delete workflow. It has been restored.",
         variant: "destructive"
       })
-    } finally {
-      setLoading(prev => ({ ...prev, [`delete-${deleteDialog.workflowId}`]: false }))
     }
   }
 
@@ -1472,13 +1477,8 @@ export function HomeContent() {
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={loading[`delete-${deleteDialog.workflowId}`]}
             >
-              {loading[`delete-${deleteDialog.workflowId}`] ? (
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4 mr-2" />
-              )}
+              <Trash2 className="w-4 h-4 mr-2" />
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

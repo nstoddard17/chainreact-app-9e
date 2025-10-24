@@ -137,57 +137,57 @@ export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-2xl">
             Upgrade to {planInfo.name}
             {planToShow === 'professional' && (
               <Badge variant="default" className="text-xs">Most Popular</Badge>
             )}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-base">
             {featureName} is available on the {planInfo.name} plan
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-8 py-2">
           {/* Current Plan Badge */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
             <div>
               <div className="text-sm text-muted-foreground">Current Plan</div>
-              <div className="font-medium capitalize">{currentPlan}</div>
+              <div className="font-semibold text-lg capitalize">{currentPlan}</div>
             </div>
             <div className="text-right">
               <div className="text-sm text-muted-foreground">Upgrade to</div>
-              <div className="font-medium">{planInfo.name}</div>
+              <div className="font-semibold text-lg">{planInfo.name}</div>
             </div>
           </div>
 
           {/* Pricing */}
-          <div className="text-center py-4">
-            <div className="text-4xl font-bold">
+          <div className="text-center py-6 bg-gradient-to-br from-primary/5 to-transparent rounded-lg border">
+            <div className="text-5xl font-bold">
               ${planInfo.price}
               {planInfo.price > 0 && (
-                <span className="text-lg text-muted-foreground font-normal">/{planInfo.billingPeriod}</span>
+                <span className="text-xl text-muted-foreground font-normal">/{planInfo.billingPeriod}</span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mt-2">{planInfo.description}</p>
+            <p className="text-base text-muted-foreground mt-3">{planInfo.description}</p>
           </div>
 
           {/* Key Features */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium">What's included:</div>
-            <div className="grid grid-cols-1 gap-2">
+          <div className="space-y-4">
+            <div className="text-base font-semibold">What's included:</div>
+            <div className="grid grid-cols-2 gap-4">
               {keyFeatures.map((feature, index) => {
                 const Icon = feature.icon
                 return (
-                  <div key={index} className="flex items-center gap-3 text-sm">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-primary" />
+                  <div key={index} className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                    <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="flex-1">
-                      <span className="text-muted-foreground">{feature.label}:</span>{' '}
-                      <span className="font-medium">{feature.value}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-muted-foreground">{feature.label}</div>
+                      <div className="font-semibold truncate">{feature.value}</div>
                     </div>
                   </div>
                 )
@@ -196,11 +196,12 @@ export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: 
           </div>
 
           {/* CTA Buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-4 pt-2">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="flex-1"
+              className="flex-1 h-11"
+              size="lg"
             >
               Maybe Later
             </Button>
@@ -210,14 +211,15 @@ export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: 
                 console.log('Upgrade to:', planToShow)
                 onOpenChange(false)
               }}
-              className="flex-1"
+              className="flex-1 h-11"
+              size="lg"
             >
               Upgrade Now
             </Button>
           </div>
 
           {/* Additional Info */}
-          <p className="text-xs text-center text-muted-foreground">
+          <p className="text-sm text-center text-muted-foreground pt-2">
             No credit card required for 14-day free trial
           </p>
         </div>

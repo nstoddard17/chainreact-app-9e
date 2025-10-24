@@ -42,6 +42,14 @@ import {
   getGoogleDocument
 } from './googleDocs'
 
+// Google Analytics actions
+import {
+  sendGoogleAnalyticsEvent,
+  getGoogleAnalyticsRealtimeData,
+  runGoogleAnalyticsReport,
+  getGoogleAnalyticsUserActivity
+} from './google-analytics'
+
 // Airtable actions
 import {
   moveAirtableRecord,
@@ -374,7 +382,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
     shareGoogleDocument(params.config, params.userId, params.input),
   "google_docs_action_get_document": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getGoogleDocument(params.config, params.userId, params.input),
-  
+
+  // Google Analytics actions - wrapped with ExecutionContext pattern
+  "google_analytics_action_send_event": createExecutionContextWrapper(sendGoogleAnalyticsEvent),
+  "google_analytics_action_get_realtime_data": createExecutionContextWrapper(getGoogleAnalyticsRealtimeData),
+  "google_analytics_action_run_report": createExecutionContextWrapper(runGoogleAnalyticsReport),
+  "google_analytics_action_get_user_activity": createExecutionContextWrapper(getGoogleAnalyticsUserActivity),
+
   // Airtable actions - wrapped to handle new calling convention
   "airtable_action_move_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
     moveAirtableRecord(params.config, params.userId, params.input),

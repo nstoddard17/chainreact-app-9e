@@ -355,16 +355,56 @@ Generate ONLY the content, no explanations or metadata.`;
 
 /**
  * Utility function to check if a field supports AI generation
+ *
+ * Checks both:
+ * 1. Field schema's supportsAI property (new schema-driven approach)
+ * 2. Hardcoded AI_FIELD_TEMPLATES (legacy fallback)
+ *
+ * @param actionType - The action type (e.g., 'gmail_action_send_email')
+ * @param fieldName - The field name (e.g., 'subject')
+ * @param fieldSchema - Optional field schema to check supportsAI property
  */
-export function supportsAIGeneration(actionType: string, fieldName: string): boolean {
+export function supportsAIGeneration(
+  actionType: string,
+  fieldName: string,
+  fieldSchema?: { supportsAI?: boolean }
+): boolean {
+  // Check if field explicitly has supportsAI in schema
+  if (fieldSchema?.supportsAI === true) {
+    return true;
+  }
+
+  // Fallback to hardcoded templates for backwards compatibility
   return !!(AI_FIELD_TEMPLATES[actionType]?.[fieldName]);
 }
 
 /**
  * Get all AI-generateable fields for an action
+ *
+ * Returns fields from both:
+ * 1. Fields with supportsAI: true in schema
+ * 2. Hardcoded AI_FIELD_TEMPLATES (legacy)
+ *
+ * @param actionType - The action type
+ * @param configSchema - Optional config schema to check for supportsAI fields
  */
-export function getAIGenerateableFields(actionType: string): string[] {
-  return Object.keys(AI_FIELD_TEMPLATES[actionType] || {});
+export function getAIGenerateableFields(
+  actionType: string,
+  configSchema?: Array<{ name: string; supportsAI?: boolean }>
+): string[] {
+  const templateFields = Object.keys(AI_FIELD_TEMPLATES[actionType] || {});
+
+  if (!configSchema) {
+    return templateFields;
+  }
+
+  // Add schema fields that have supportsAI: true
+  const schemaFields = configSchema
+    .filter(field => field.supportsAI === true)
+    .map(field => field.name);
+
+  // Combine and deduplicate
+  return [...new Set([...templateFields, ...schemaFields])];
 }
 
 /**

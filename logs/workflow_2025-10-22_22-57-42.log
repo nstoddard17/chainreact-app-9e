@@ -1,0 +1,149 @@
+=== Log Session Started: 2025-10-23T03:57:42.178Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-23T03:57:42.178Z] [INFO   ] File logging initialized
+[2025-10-23T03:57:42.178Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-57-42.log
+[2025-10-23T03:57:42.182Z] [INFO   ] 📁 File logging enabled
+[2025-10-23T03:57:42.182Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-57-42.log
+[2025-10-23T03:57:42.182Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-57-42.log
+[2025-10-23T03:57:42.182Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-57-42.log
+[2025-10-23T03:57:42.182Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-22_22-57-42.log
+[2025-10-23T03:57:42.182Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-23T03:57:42.182Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-23T03:57:42.207Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 6.3s
+[2025-10-23T03:57:43.191Z] [INFO   ] 2025-10-23T03:57:43.191Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-23T03:57:44.956Z] [INFO   ] 2025-10-23T03:57:44.956Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-23T03:57:44.956Z] [INFO   ] 2025-10-23T03:57:44.956Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-23T03:57:45.748Z] [INFO   ] 2025-10-23T03:57:45.748Z [DEBUG] Discord Gateway initialization complete
+[2025-10-23T03:57:45.749Z] [INFO   ] 2025-10-23T03:57:45.749Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-23T03:57:45.934Z] [INFO   ] 2025-10-23T03:57:45.933Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-23T03:57:45.934Z] [INFO   ] 2025-10-23T03:57:45.934Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-23T03:57:46.139Z] [INFO   ] 2025-10-23T03:57:46.139Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"0652ff8569fcd44611a879b72566d2e1","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-23T03:57:46.139Z] [INFO   ] 2025-10-23T03:57:46.139Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-23T03:57:46.140Z] [INFO   ] 2025-10-23T03:57:46.140Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T03:57:46.152Z] [INFO   ] 2025-10-23T03:57:46.152Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-23T03:57:46.321Z] [INFO   ] 2025-10-23T03:57:46.321Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-23T04:00:16.819Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 194ms (233 modules)
+[2025-10-23T04:00:17.234Z] [INFO   ] 2025-10-23T04:00:17.233Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625329834}
+[2025-10-23T04:00:17.764Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows ...
+[2025-10-23T04:00:21.293Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows in 4s (4030 modules)
+[2025-10-23T04:00:21.708Z] [INFO   ] 2025-10-23T04:00:21.708Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:00:21.708Z"}
+[2025-10-23T04:00:21.712Z] [INFO   ] 2025-10-23T04:00:21.712Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:00:21.712Z"}
+[2025-10-23T04:00:21.712Z] [INFO   ] 2025-10-23T04:00:21.712Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:00:21.712Z"}
+[2025-10-23T04:00:22.046Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 732ms (728 modules)
+[2025-10-23T04:00:22.189Z] [INFO   ] 2025-10-23T04:00:22.189Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:00:22.973Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-23T04:00:23.313Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 881ms (4039 modules)
+[2025-10-23T04:00:23.490Z] [INFO   ] 2025-10-23T04:00:23.489Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:00:23.489Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:00:23.698Z] [INFO   ] 2025-10-23T04:00:23.698Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:00:23.797Z] [INFO   ] 2025-10-23T04:00:23.797Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:00:24.744Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/analytics/workflow-stats ...
+[2025-10-23T04:00:25.319Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 1076ms (4047 modules)
+[2025-10-23T04:03:42.880Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1377ms (4030 modules)
+[2025-10-23T04:03:43.172Z] [INFO   ] 2025-10-23T04:03:43.172Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625535773}
+[2025-10-23T04:03:43.415Z] [INFO   ] 2025-10-23T04:03:43.415Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:03:48.908Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 487ms (4030 modules)
+[2025-10-23T04:03:49.158Z] [INFO   ] 2025-10-23T04:03:49.157Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625541758}
+[2025-10-23T04:03:49.349Z] [INFO   ] 2025-10-23T04:03:49.349Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:04:00.709Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 900ms (4028 modules)
+[2025-10-23T04:04:00.927Z] [INFO   ] 2025-10-23T04:04:00.927Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625553528}
+[2025-10-23T04:04:01.086Z] [INFO   ] 2025-10-23T04:04:01.086Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:04:19.373Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 756ms (4028 modules)
+[2025-10-23T04:04:19.424Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:04:19.617Z] [INFO   ] 2025-10-23T04:04:19.617Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625572218}
+[2025-10-23T04:04:19.662Z] [INFO   ] 2025-10-23T04:04:19.662Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625572263}
+[2025-10-23T04:04:19.815Z] [INFO   ] 2025-10-23T04:04:19.815Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:04:19.961Z] [INFO   ] 2025-10-23T04:04:19.961Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:04:19.961Z"}
+[2025-10-23T04:04:19.964Z] [INFO   ] 2025-10-23T04:04:19.964Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-23T04:04:19.964Z"}
+[2025-10-23T04:04:19.964Z] [INFO   ] 2025-10-23T04:04:19.964Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-23T04:04:19.964Z"}
+[2025-10-23T04:04:20.220Z] [INFO   ] 2025-10-23T04:04:20.220Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-23T04:04:21.527Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-23T04:04:21.694Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 985ms (3320 modules)
+[2025-10-23T04:04:21.897Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3324 modules)
+[2025-10-23T04:04:22.026Z] [INFO   ] 2025-10-23T04:04:22.026Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-23T04:04:22.026Z","headers":{"referer":"check-console"}}
+[2025-10-23T04:04:22.114Z] [INFO   ] 2025-10-23T04:04:22.114Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-23T04:04:22.199Z] [INFO   ] 2025-10-23T04:04:22.199Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-23T04:04:23.430Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/analytics/workflow-stats in 301ms (3326 modules)
+[2025-10-23T04:04:23.660Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (3332 modules)
+[2025-10-23T04:07:54.082Z] [INFO   ] 2025-10-23T04:07:54.081Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625786681}
+[2025-10-23T04:07:54.250Z] [ERROR  ]  [31m[1m⨯[22m[39m Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/workflows/folders/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+Error: Cannot find module './95873.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/api/workflows/folders/route.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/options.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/swc/index.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/parse-module.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/analysis/get-page-static-info.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at __webpack_require__.f.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:200:28)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:108:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:107:67)
+    at Array.map (<anonymous>)
+    at __webpack_require__.X (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js:159:22)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js:2:42585
+    at Object.<anonymous> (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/page.js:2:42782)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js:99:80)
+    at loadComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:899:36)
+    at async DevServer.findPageComponents (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:705:16)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1460:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-23T04:07:54.942Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-23T04:07:55.173Z] [INFO   ] 2025-10-23T04:07:55.173Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12625787774}
+[2025-10-23T04:07:55.246Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload when ?608e changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+[2025-10-23T04:07:55.536Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 1280ms (4354 modules)
+[2025-10-23T04:07:55.981Z] [INFO   ] 2025-10-23T04:07:55.981Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+
+=== Log Session Ended: 2025-10-23T04:07:57.821Z ===
