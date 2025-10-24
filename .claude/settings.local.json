@@ -7,7 +7,8 @@
       "Read(//c/Users/marcu/OneDrive/Shared/ChainReact/Logo/**)",
       "Bash(dir:*)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(supabase db pull:*)"
     ],
     "deny": [],
     "ask": [],

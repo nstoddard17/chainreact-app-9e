@@ -95,7 +95,8 @@ export default function Sidebar({ isMobileMenuOpen, onMobileMenuChange, isCollap
   const router = useRouter()
   const { profile } = useAuthStore()
   const isAdmin = profile?.admin === true
-  const userRole = (profile?.role || 'free') as UserRole
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role || 'free') as UserRole)
   const [upgradeOverlay, setUpgradeOverlay] = useState<{
     requiredRole: UserRole
     featureName: string

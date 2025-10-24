@@ -73,8 +73,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const displayName = getDisplayName()
-  const userRole = (profile?.role as UserRole) || 'free'
   const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   return (
     <div className="min-h-screen bg-white">

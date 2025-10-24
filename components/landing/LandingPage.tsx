@@ -75,8 +75,9 @@ export default function LandingPage() {
   const { isAuthenticated, user } = useAuth()
   const { signOut, profile, initialize, initialized } = useAuthStore()
 
-  const userRole = (profile?.role as UserRole) || 'free'
   const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   // Initialize auth on mount if not already initialized (non-blocking)
   useEffect(() => {

@@ -22,7 +22,9 @@ export default function AdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
 
-  const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   useEffect(() => {
     // Redirect non-admin users
