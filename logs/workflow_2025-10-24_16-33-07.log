@@ -266,3 +266,6 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-24T21:49:21.432Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1462ms (6039 modules)
 [2025-10-24T21:49:21.687Z] [INFO   ] 2025-10-24T21:49:21.687Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12775874288}
 [2025-10-24T21:49:21.832Z] [INFO   ] 2025-10-24T21:49:21.832Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-24T21:49:28.309Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1636ms (6025 modules)
+[2025-10-24T21:49:28.572Z] [INFO   ] 2025-10-24T21:49:28.572Z [DEBUG] [Middleware] Username check: {"path":"/workflows","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"admin","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12775881173}
+[2025-10-24T21:49:28.720Z] [INFO   ] 2025-10-24T21:49:28.719Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}

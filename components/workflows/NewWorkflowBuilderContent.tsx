@@ -1001,7 +1001,8 @@ export function NewWorkflowBuilderContent() {
                           aiTestSummary: eventData.summary || eventData.error || node.data.aiTestSummary,
                           needsSetup: true,
                           aiFallbackFields: node.data.aiFallbackFields,
-                          autoExpand: true
+                          autoExpand: true,
+                          executionStatus: 'error'
                         }
                       })
                     }
