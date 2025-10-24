@@ -119,7 +119,7 @@ const WorkflowToolbarComponent = function WorkflowToolbar({
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, shareWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
   const { profile } = useAuthStore()
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.admin === true
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareEmail, setShareEmail] = useState('')

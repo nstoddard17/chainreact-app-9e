@@ -74,7 +74,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
   const displayName = getDisplayName()
   const userRole = (profile?.role as UserRole) || 'free'
-  const isAdmin = userRole === 'admin'
+  const isAdmin = profile?.admin === true
 
   return (
     <div className="min-h-screen bg-white">

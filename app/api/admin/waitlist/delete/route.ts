@@ -32,7 +32,7 @@ export async function DELETE(request: Request) {
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
-      .select("role")
+      .select("admin")
       .eq("id", user.id)
       .single()
 
@@ -48,12 +48,12 @@ export async function DELETE(request: Request) {
       return errorResponse("User profile not found", 404)
     }
 
-    logger.debug("User role:", profile.role)
+    logger.debug("User admin status:", profile.admin)
 
-    if (profile.role !== 'admin') {
-      logger.debug("User is not admin. Role:", profile.role)
+    if (profile.admin !== true) {
+      logger.debug("User is not admin. Admin status:", profile.admin)
       return jsonResponse(
-        { error: `Only admins can delete waitlist entries. Your role: ${profile.role || 'user'}` },
+        { error: `Only admins can delete waitlist entries.` },
         { status: 403 }
       )
     }

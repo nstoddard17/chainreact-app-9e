@@ -16,14 +16,14 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    // Get current user's profile to check admin role
+    // Get current user's profile to check admin status
     const { data: currentProfile } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('admin')
       .eq('id', currentUser.id)
       .single()
 
-    if (currentProfile?.role !== 'admin') {
+    if (currentProfile?.admin !== true) {
       return errorResponse('Admin access required' , 403)
     }
 

@@ -16,11 +16,11 @@ export async function GET() {
     // Check if user is admin
     const { data: userProfile } = await supabase
         .from('user_profiles')
-        .select('role')
+        .select('admin')
         .eq('id', user.id)
         .single()
 
-    if (!userProfile || userProfile.role !== 'admin') {
+    if (!userProfile || userProfile.admin !== true) {
         return errorResponse("Admin access required" , 403)
     }
 
