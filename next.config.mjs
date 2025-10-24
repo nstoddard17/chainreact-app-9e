@@ -55,28 +55,74 @@ const nextConfig = {
             key: 'Link',
             value: '<https://fonts.googleapis.com>; rel=dns-prefetch',
           },
-          // Prevent aggressive caching for HTML pages
+          // Prevent caching of sensitive/personalized HTML pages
           {
             key: 'Cache-Control',
             value: isDev
               ? 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0'
-              : 'no-store, must-revalidate',
+              : 'no-cache, no-store, must-revalidate, private',
           },
-          // Security: Prevent MIME-sniffing attacks
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+          // Security Headers
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
-          // Additional headers to prevent caching in dev
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "upgrade-insecure-requests"
+            ].join('; '),
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: [
+              'camera=()',
+              'microphone=()',
+              'geolocation=()',
+              'payment=()',
+              'usb=()',
+              'magnetometer=()',
+              'gyroscope=()',
+              'accelerometer=()',
+              'ambient-light-sensor=()',
+              'autoplay=()',
+              'encrypted-media=()',
+              'picture-in-picture=()',
+              'sync-xhr=()',
+              'midi=()',
+              'display-capture=()',
+              'fullscreen=(self)',
+            ].join(', '),
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          // Additional cache control for proxy servers
           ...(isDev ? [
-            {
-              key: 'Pragma',
-              value: 'no-cache',
-            },
-            {
-              key: 'Expires',
-              value: '0',
-            },
             {
               key: 'Surrogate-Control',
               value: 'no-store',

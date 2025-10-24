@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
-import { 
-  searchActions, 
-  rankActions, 
+import {
+  searchActions,
+  rankActions,
   findSimilarActions,
   suggestActions,
   extractIntent,
   matchIntentToActions
 } from '@/lib/workflows/ai/semanticSearch'
+import { handleCorsPreFlight } from '@/lib/utils/cors'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -225,15 +226,13 @@ async function handleIntent(params: {
 }
 
 /**
- * OPTIONS handler for CORS
+ * OPTIONS handler for CORS preflight
+ * Uses secure origin validation - only allows requests from trusted domains
  */
 export async function OPTIONS(request: NextRequest) {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
+  return handleCorsPreFlight(request, {
+    allowCredentials: true,
+    allowedMethods: ['POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 }

@@ -449,4 +449,44 @@ Positioning: Start 400,100 | Vertical 160-200px | Horizontal 400px branches
 - Inline styles for white text: `style={{ color: 'white' }}`
 
 ## Security
+
+### CORS Security - MANDATORY
+**CRITICAL**: All API routes MUST use secure CORS configuration
+- **NEVER use `Access-Control-Allow-Origin: *`** with credentials
+- **ALWAYS validate origins** against whitelist using `/lib/utils/cors.ts`
+- **Guide**: `/learning/docs/cors-security-guide.md`
+- **Security Fix**: `/learning/walkthroughs/cors-security-fix.md`
+
+**Quick Reference:**
+```typescript
+import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
+
+// OPTIONS handler
+export async function OPTIONS(request: NextRequest) {
+  return handleCorsPreFlight(request, {
+    allowCredentials: true,
+    allowedMethods: ['POST', 'OPTIONS'],
+  })
+}
+
+// Add CORS to response
+const response = NextResponse.json(data)
+return addCorsHeaders(response, request, { allowCredentials: true })
+```
+
+**Allowed Origins** (in `/lib/utils/cors.ts`):
+- Production: `https://www.chainreact.app`, `https://chainreact.app`
+- Development: `localhost:3000`, ngrok (set `NGROK_URL` env var)
+
+**Security Headers** (automatically included):
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Content-Security-Policy: frame-ancestors 'none'` (clickjacking protection)
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+
+**Clickjacking Defense**: Dual protection via `X-Frame-Options: DENY` + `CSP: frame-ancestors 'none'`
+
+### General Security
 No token logging, encrypted storage, scope validation, OAuth best practices, audit logs

@@ -21,9 +21,22 @@ const pageAccessRules = {
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
-  
+
+  // Security: Block potentially dangerous HTTP methods (TRACE, TRACK)
+  // These methods can be used for XSS attacks and server fingerprinting
+  const method = req.method.toUpperCase()
+  if (method === 'TRACE' || method === 'TRACK') {
+    return new NextResponse('Method Not Allowed', {
+      status: 405,
+      headers: {
+        'Allow': 'GET, POST, PUT, DELETE, OPTIONS, HEAD',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    })
+  }
+
   // Skip middleware for auth pages, API routes, and static files
-  if (pathname.startsWith('/auth/login') || 
+  if (pathname.startsWith('/auth/login') ||
       pathname.startsWith('/auth/register') ||
       pathname.startsWith('/api/') ||
       pathname.startsWith('/_next/') ||
