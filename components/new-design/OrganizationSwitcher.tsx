@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Check, ChevronsUpDown, Plus, Building2, Loader2, Settings, User } from "lucide-react"
+import { Check, ChevronsUpDown, Plus, Building2, Loader2, Settings, User, Crown, Star, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
+import { type UserRole } from "@/lib/utils/roles"
 
 interface Organization {
   id: string
@@ -39,12 +40,33 @@ interface Organization {
 
 export function OrganizationSwitcher() {
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+
+  // Get user role for badge icon
+  const isAdmin = profile?.admin === true
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
+
+  // Map roles to icons
+  const getRoleIcon = () => {
+    switch (userRole) {
+      case 'admin':
+        return Crown
+      case 'pro':
+      case 'beta-pro':
+        return Star
+      case 'enterprise':
+        return Shield
+      default:
+        return User
+    }
+  }
+
+  const RoleIcon = getRoleIcon()
 
   // Form state
   const [orgName, setOrgName] = useState("")
@@ -177,7 +199,7 @@ export function OrganizationSwitcher() {
             className={`gap-2 ${currentOrg.is_personal ? '' : 'max-w-[200px]'}`}
           >
             {currentOrg.is_personal ? (
-              <User className="w-4 h-4 flex-shrink-0" />
+              <RoleIcon className={`w-4 h-4 flex-shrink-0 ${userRole === 'admin' ? 'text-red-500' : ''}`} />
             ) : (
               <Building2 className="w-4 h-4 flex-shrink-0" />
             )}

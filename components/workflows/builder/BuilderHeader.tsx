@@ -120,7 +120,7 @@ const BuilderHeaderComponent = ({
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
   const { profile } = useAuthStore()
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = profile?.admin === true
 
   const [isEditingName, setIsEditingName] = useState(false)
   const [showVersionsDialog, setShowVersionsDialog] = useState(false)

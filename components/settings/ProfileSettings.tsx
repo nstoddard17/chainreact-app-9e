@@ -74,7 +74,9 @@ export default function ProfileSettings() {
     }
   }
 
-  const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
   const isBetaTester = userRole === 'beta-pro'
 
   return (

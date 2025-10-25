@@ -1,4 +1,4 @@
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { TemplateGallery } from "@/components/templates/TemplateGallery"
 import { requireUsername } from "@/utils/checkUsername"
 
@@ -11,10 +11,10 @@ export default async function WorkflowTemplatesPage() {
   await requireUsername()
 
   return (
-    <AppLayout title="Templates">
+    <NewAppLayout title="Templates" subtitle="Pre-built workflows ready to use">
       <div className="p-6">
         <TemplateGallery />
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

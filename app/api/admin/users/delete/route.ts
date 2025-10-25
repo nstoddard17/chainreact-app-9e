@@ -15,14 +15,14 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    // Get current user's profile to check admin role
+    // Get current user's profile to check admin status
     const { data: currentProfile } = await supabase
       .from('user_profiles')
-      .select('role')
+      .select('admin')
       .eq('id', currentUser.id)
       .single()
 
-    if (currentProfile?.role !== 'admin') {
+    if (currentProfile?.admin !== true) {
       return errorResponse('Admin access required' , 403)
     }
 
@@ -50,12 +50,12 @@ export async function POST(request: NextRequest) {
     // Get user profile to check if they're an admin
     const { data: userProfile } = await adminSupabase
       .from('user_profiles')
-      .select('role, full_name, username')
+      .select('admin, full_name, username')
       .eq('id', userId)
       .single()
 
     // Prevent deletion of other admin accounts (optional safety measure)
-    if (userProfile?.role === 'admin') {
+    if (userProfile?.admin === true) {
       return errorResponse('Cannot delete admin accounts' , 400)
     }
 

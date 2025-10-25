@@ -53,7 +53,7 @@ async function requireTemplateAccess(templateId: string) {
     }
   }
 
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = profile?.admin === true
   const createdBy =
     (template as any)?.created_by ??
     (template as any)?.user_id ??

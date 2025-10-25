@@ -6,7 +6,6 @@ import type { NextRequest } from 'next/server'
 
 // Define page access rules
 const pageAccessRules = {
-  '/dashboard': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/workflows': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/integrations': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/learn': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
@@ -106,7 +105,7 @@ export async function middleware(req: NextRequest) {
     // Use admin client to bypass RLS
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('role, username, provider')
+      .select('role, username, provider, admin')
       .eq('id', user.id)
       .single()
 
@@ -174,14 +173,34 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/auth/setup-username', req.url))
     }
 
-    const userRole = profile?.role || 'free'
+    // Check if user is admin - admins can access everything
+    const isAdmin = profile?.admin === true
+    const userRole = isAdmin ? 'admin' : (profile?.role || 'free')
+
+    // DEBUG: Log admin check for /admin route
+    if (pathname === '/admin') {
+      console.log('🔍 MIDDLEWARE - Admin route check:', {
+        pathname,
+        profileAdmin: profile?.admin,
+        profileRole: profile?.role,
+        isAdmin,
+        userRole,
+        hasProfile: !!profile
+      })
+    }
 
     // Check if the page has access rules
     const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
-    
+
     if (allowedRoles && !allowedRoles.includes(userRole)) {
-      // Redirect to dashboard if user doesn't have access
-      return NextResponse.redirect(new URL('/dashboard', req.url))
+      console.log('🚫 MIDDLEWARE - Access denied:', {
+        pathname,
+        userRole,
+        allowedRoles,
+        redirecting: true
+      })
+      // Redirect to workflows if user doesn't have access
+      return NextResponse.redirect(new URL('/workflows', req.url))
     }
 
     return res
@@ -235,7 +254,6 @@ function getUsageField(resourceType: string): string | null {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
     '/workflows/:path*',
     '/integrations/:path*',
     '/analytics/:path*',

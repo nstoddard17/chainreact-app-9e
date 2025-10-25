@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
 import { useAuthStore } from "@/stores/authStore"
@@ -70,7 +70,7 @@ export default function AnalyticsContent() {
   ]
 
   return (
-    <AppLayout title="Analytics">
+    <NewAppLayout title="Analytics">
       <div className="space-y-6">
         {/* Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -236,6 +236,6 @@ export default function AnalyticsContent() {
           </Card>
         </div>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

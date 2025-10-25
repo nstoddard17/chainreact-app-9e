@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Settings, CreditCard, Bell, Shield, Key, Trash2, Sparkles } from "lucide-react"
@@ -138,7 +138,7 @@ export default function SettingsContent() {
   const currentHeader = tabHeaders[activeTab as keyof typeof tabHeaders]
 
   return (
-    <AppLayout title="Settings">
+    <NewAppLayout title="Settings">
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-4xl font-bold tracking-tight">{currentHeader.title}</h1>
@@ -198,6 +198,6 @@ export default function SettingsContent() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

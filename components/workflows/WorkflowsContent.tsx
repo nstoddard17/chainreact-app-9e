@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -676,27 +676,27 @@ export default function WorkflowsContent() {
 
   if (refreshing && !hasWorkflows && !forceShowContent) {
     return (
-      <AppLayout title="Workflows">
+      <NewAppLayout title="Workflows">
         <div className="flex items-center justify-center h-64">
           <LightningLoader size="xl" color="primary" />
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   if (error) {
     return (
-      <AppLayout title="Workflows">
+      <NewAppLayout title="Workflows">
         <div className="flex flex-col items-center justify-center h-64">
           <div className="text-red-500 mb-4">Error loading workflows: {error}</div>
           <Button onClick={() => { setForceShowContent(false); refreshWorkflows(); }}>Retry</Button>
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   return (
-    <AppLayout title="Workflows">
+    <NewAppLayout title="Workflows">
       <div className="space-y-8 p-6">
         {refreshing && hasWorkflows && (
           <div className="flex items-center justify-between rounded border border-border bg-card/60 px-3 py-2 text-sm text-muted-foreground">
@@ -1328,6 +1328,6 @@ export default function WorkflowsContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-    </AppLayout>
+    </NewAppLayout>
   )
 }

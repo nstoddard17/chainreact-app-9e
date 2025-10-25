@@ -76,6 +76,9 @@ export function NewSidebar() {
   const [referralLink, setReferralLink] = useState("")
   const { toast } = useToast()
 
+  // Check if user is admin
+  const isAdmin = profile?.admin === true
+
   // Generate referral link based on user ID
   const userReferralLink = profile?.id
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/signup?ref=${profile.id}`
@@ -92,6 +95,10 @@ export function NewSidebar() {
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
     { label: "Organization", href: "/organization-settings", icon: Users },
   ]
+
+  const adminNav: NavItem[] = isAdmin ? [
+    { label: "Admin Panel", href: "/admin", icon: Crown },
+  ] : []
 
   const isActive = (href: string) => {
     if (href === "/workflows") {
@@ -190,6 +197,37 @@ export function NewSidebar() {
             )
           })}
         </nav>
+
+        {/* Admin Navigation - Only show for admins */}
+        {isAdmin && adminNav.length > 0 && (
+          <nav className="px-3 space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
+            {adminNav.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+
+              return (
+                <button
+                  key={item.href}
+                  onClick={() => {
+                    console.log('🔴 Admin nav clicked:', item.href)
+                    console.log('🔴 Attempting navigation...')
+                    // Use window.location for now to bypass any router issues
+                    window.location.href = item.href
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    active
+                      ? "bg-red-100 dark:bg-red-900/30 text-red-900 dark:text-red-100 font-semibold"
+                      : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  )}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
+          </nav>
+        )}
       </div>
 
       {/* Tasks Widget */}

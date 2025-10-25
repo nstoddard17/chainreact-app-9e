@@ -6,10 +6,11 @@ import { type UserRole, hasPermission, canAccessFeature, getRoleInfo, getRoleLim
 export function useRolePermissions() {
   const { profile } = useAuthStore()
   const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = profile?.admin === true
 
   return {
     userRole,
-    isAdmin: userRole === 'admin',
+    isAdmin,
     isPro: userRole === 'pro' || userRole === 'business' || userRole === 'enterprise' || userRole === 'admin',
     isBusiness: userRole === 'business' || userRole === 'enterprise' || userRole === 'admin',
     isEnterprise: userRole === 'enterprise' || userRole === 'admin',
@@ -33,7 +34,7 @@ export function useRolePermissions() {
     canUseAdvancedIntegrations: () => hasPermission(userRole, 'pro'),
     canUseTeamFeatures: () => hasPermission(userRole, 'business'),
     canUseEnterpriseFeatures: () => hasPermission(userRole, 'enterprise'),
-    canManageUsers: () => userRole === 'admin',
+    canManageUsers: () => isAdmin,
     
     // Feature access
     canUseAnalytics: () => canAccessFeature(userRole, 'Advanced analytics'),

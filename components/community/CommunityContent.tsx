@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -490,7 +490,7 @@ export default function CommunityContent() {
   }
 
   return (
-    <AppLayout title="Community" subtitle="Connect, learn, and share with fellow automation enthusiasts">
+    <NewAppLayout title="Community" subtitle="Connect, learn, and share with fellow automation enthusiasts">
       <div className="space-y-8">
         {/* Search and Filters */}
         <div className="flex flex-col lg:flex-row gap-4">
@@ -1058,6 +1058,6 @@ export default function CommunityContent() {
           </Card>
         </div>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

@@ -44,8 +44,9 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
     }
   }
 
-  const userRole = (profile?.role as UserRole) || 'free'
-  const isAdmin = userRole === 'admin'
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   return (
     <header className="h-14 sm:h-16 bg-background border-b border-border flex items-center justify-between px-3 sm:px-6 shrink-0">

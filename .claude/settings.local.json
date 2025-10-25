@@ -6,7 +6,17 @@
       "Bash(npm run build:*)",
       "Read(//c/Users/marcu/OneDrive/Shared/ChainReact/Logo/**)",
       "Bash(dir:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(find:*)",
+      "Bash(supabase db pull:*)",
+      "Bash(supabase migration new:*)",
+      "Bash(npx supabase:*)",
+      "Bash(for file in components/analytics/AnalyticsContent.tsx components/community/CommunityContent.tsx components/dashboard/DashboardContent.tsx components/enterprise/EnterpriseContent.tsx components/integrations/IntegrationsContent.tsx components/learn/LearnContent.tsx components/profile/ProfileContent.tsx components/settings/SettingsContent.tsx components/teams/OrganizationContent.tsx components/teams/TeamsContent.tsx components/workflows/WorkflowsContent.tsx components/workflows/WorkflowsPageContent.tsx components/workflows/WorkflowBuilder.tsx)",
+      "Bash(do sed -i 's|import AppLayout from \"\"@/components/layout/AppLayout\"\"|import { NewAppLayout } from \"\"@/components/new-design/layout/NewAppLayout\"\"|g' \"$file\")",
+      "Bash(done)",
+      "Bash(do sed -i 's|<AppLayout|<NewAppLayout|g; s|</AppLayout>|</NewAppLayout>|g' \"$file\")",
+      "Bash(cat:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": [],

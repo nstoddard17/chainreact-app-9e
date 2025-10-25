@@ -11,7 +11,7 @@ import { SSOConfiguration } from "./SSOConfiguration"
 import { DeploymentManagement } from "./DeploymentManagement"
 import { EnterpriseIntegrations } from "./EnterpriseIntegrations"
 import { ComplianceCenter } from "./ComplianceCenter"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 
 export function EnterpriseContent() {
   const {
@@ -64,7 +64,7 @@ export function EnterpriseContent() {
   ]
 
   return (
-    <AppLayout title="Enterprise" subtitle="Manage enterprise-grade security, compliance, and deployment options">
+    <NewAppLayout title="Enterprise" subtitle="Manage enterprise-grade security, compliance, and deployment options">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Enterprise Settings Button */}
         <div className="flex justify-end">
@@ -118,6 +118,6 @@ export function EnterpriseContent() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

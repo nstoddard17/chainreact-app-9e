@@ -54,52 +54,14 @@ export async function GET() {
             createdAtMap.set(authUser.id, authUser.created_at)
         })
 
-        // Get online users from Supabase Realtime Presence channel
-        // Create a temporary channel to query presence state
-        const channel = supabase.channel('presence-room-query', {
-            config: {
-                presence: {
-                    key: user.id,
-                },
-            },
-        });
+        // Get online users (active in last 5 minutes) using service client
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+        const { data: onlineUsers } = await adminSupabase
+            .from('user_presence')
+            .select('id')
+            .gte('last_seen', fiveMinutesAgo.toISOString())
 
-        // Subscribe to the channel to get presence state
-        const presenceData = await new Promise<any[]>((resolve) => {
-            const timeout = setTimeout(() => resolve([]), 3000);
-
-            channel
-                .on('presence', { event: 'sync' }, () => {
-                    clearTimeout(timeout);
-                    const state = channel.presenceState();
-                    const users = Object.values(state).flat();
-                    resolve(users);
-                })
-                .subscribe(async (status) => {
-                    if (status === 'SUBSCRIBED') {
-                        // Track briefly to sync state
-                        await channel.track({
-                            user_id: user.id,
-                            query_only: true,
-                        });
-                    }
-                });
-        });
-
-        // Clean up the channel
-        try {
-            await channel.untrack();
-            await channel.unsubscribe();
-        } catch (e) {
-            // Ignore cleanup errors
-        }
-
-        // Extract user IDs from presence data
-        const onlineUserIds = new Set(
-            presenceData
-                .filter((p: any) => p.user_id && !p.query_only)
-                .map((p: any) => p.user_id)
-        )
+        const onlineUserIds = new Set(onlineUsers?.map(u => u.id) || [])
 
         // Format the data for the component with real email addresses
         const usersWithOnlineStatus = profiles?.map((profile: any) => ({
@@ -117,4 +79,4 @@ export async function GET() {
     } catch (error: any) {
         return errorResponse(error.message , 500)
     }
-}
+} 

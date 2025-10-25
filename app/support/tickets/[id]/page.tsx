@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import AppLayout from '@/components/layout/AppLayout'
+import { NewAppLayout } from '@/components/new-design/layout/NewAppLayout'
 import { 
   ArrowLeft, 
   Send, 
@@ -235,17 +235,17 @@ export default function TicketDetailPage() {
 
   if (loading) {
     return (
-      <AppLayout title="Loading Ticket..." subtitle="">
+      <NewAppLayout title="Loading Ticket..." subtitle="">
         <div className="flex items-center justify-center py-8">
           <LightningLoader size="lg" color="blue" />
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   if (!ticket) {
     return (
-      <AppLayout title="Ticket Not Found" subtitle="">
+      <NewAppLayout title="Ticket Not Found" subtitle="">
         <div className="flex flex-col items-center justify-center py-8">
           <h3 className="text-lg font-medium mb-2">Ticket not found</h3>
           <p className="text-muted-foreground mb-4">The ticket you're looking for doesn't exist or you don't have access to it.</p>
@@ -254,14 +254,14 @@ export default function TicketDetailPage() {
             Back to Support
           </Button>
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   const CategoryIcon = categoryIcons[ticket.category]
 
   return (
-    <AppLayout title={`Ticket ${ticket.ticket_number}`} subtitle={ticket.subject}>
+    <NewAppLayout title={`Ticket ${ticket.ticket_number}`} subtitle={ticket.subject}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -484,6 +484,6 @@ export default function TicketDetailPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 } 
