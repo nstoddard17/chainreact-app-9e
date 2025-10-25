@@ -950,22 +950,32 @@ export function NewWorkflowBuilderContent() {
                     {
                       type: 'update',
                       id: eventData.nodeId,
-                      item: (node: any) => ({
-                        ...node,
-                        data: {
-                          ...node.data,
-                          description: eventData.description || node.data.description,
-                          aiStatus: eventData.status || 'configured',
-                          aiBadgeText: eventData.badgeText || 'Configuring',
-                          aiBadgeVariant: eventData.badgeVariant || 'info',
-                          autoExpand: true,
-                          needsSetup: eventData.badgeVariant === 'warning',
-                          aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
-                          aiProgressConfig: [],
-                          config: eventData.config || node.data.config,
-                          executionStatus: eventData.executionStatus || 'running'
+                      item: (node: any) => {
+                        const alreadyReady = node.data?.aiStatus === 'ready'
+                        const nextStatus = alreadyReady ? node.data.aiStatus : (eventData.status || 'configured')
+                        const nextBadgeText = alreadyReady ? node.data.aiBadgeText : (eventData.badgeText || 'Configuring')
+                        const nextBadgeVariant = alreadyReady ? node.data.aiBadgeVariant : (eventData.badgeVariant || 'info')
+                        const nextExecutionStatus = alreadyReady ? node.data.executionStatus : (eventData.executionStatus || 'running')
+                        const nextProgress = alreadyReady ? node.data.aiProgressConfig : []
+                        const nextNeedsSetup = alreadyReady ? node.data.needsSetup : (eventData.badgeVariant === 'warning')
+
+                        return {
+                          ...node,
+                          data: {
+                            ...node.data,
+                            description: eventData.description || node.data.description,
+                            aiStatus: nextStatus,
+                            aiBadgeText: nextBadgeText,
+                            aiBadgeVariant: nextBadgeVariant,
+                            autoExpand: true,
+                            needsSetup: nextNeedsSetup,
+                            aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
+                            aiProgressConfig: nextProgress,
+                            config: eventData.config || node.data.config,
+                            executionStatus: nextExecutionStatus
+                          }
                         }
-                      })
+                      }
                     }
                   ])
                 }
@@ -1155,6 +1165,7 @@ export function NewWorkflowBuilderContent() {
               }
 
               case 'node_complete':
+                console.log('[FRONTEND] node_complete event received:', eventData)
                 // Update node config status to complete
                 setNodeConfigStatus(prev => ({
                   ...prev,

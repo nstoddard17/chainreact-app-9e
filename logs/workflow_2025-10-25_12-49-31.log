@@ -1,0 +1,178 @@
+=== Log Session Started: 2025-10-25T17:49:31.766Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-25T17:49:31.767Z] [INFO   ] File logging initialized
+[2025-10-25T17:49:31.767Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-25_12-49-31.log
+[2025-10-25T17:49:31.773Z] [INFO   ] 📁 File logging enabled
+[2025-10-25T17:49:31.773Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-25_12-49-31.log
+[2025-10-25T17:49:31.773Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-25_12-49-31.log
+[2025-10-25T17:49:31.773Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-25_12-49-31.log
+[2025-10-25T17:49:31.773Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-25_12-49-31.log
+[2025-10-25T17:49:31.773Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-25T17:49:31.773Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-25T17:49:31.793Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-25T17:49:32.812Z] [INFO   ] 2025-10-25T17:49:32.812Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-25T17:49:34.546Z] [INFO   ] 2025-10-25T17:49:34.546Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-25T17:49:34.546Z] [INFO   ] 2025-10-25T17:49:34.546Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-25T17:49:34.781Z] [INFO   ] 2025-10-25T17:49:34.781Z [DEBUG] Discord Gateway initialization complete
+[2025-10-25T17:49:34.782Z] [INFO   ] 2025-10-25T17:49:34.782Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-25T17:49:34.971Z] [INFO   ] 2025-10-25T17:49:34.971Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-25T17:49:34.971Z] [INFO   ] 2025-10-25T17:49:34.971Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-25T17:49:35.124Z] [INFO   ] 2025-10-25T17:49:35.123Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"f93e5c1f6917b3d901ab5030e6ce7954","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-25T17:49:35.124Z] [INFO   ] 2025-10-25T17:49:35.124Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-25T17:49:35.125Z] [INFO   ] 2025-10-25T17:49:35.125Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T17:49:35.136Z] [INFO   ] 2025-10-25T17:49:35.136Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T17:49:35.327Z] [INFO   ] 2025-10-25T17:49:35.327Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-25T17:49:39.261Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 228ms (233 modules)
+[2025-10-25T17:49:39.601Z] [INFO   ] 2025-10-25T17:49:39.601Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/7c82f322-7966-4803-8a11-6d489d0209f8","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12847892202}
+[2025-10-25T17:49:40.210Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-25T17:49:45.215Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 5.6s (5902 modules)
+[2025-10-25T17:49:45.930Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 609ms (1662 modules)
+[2025-10-25T17:49:46.425Z] [INFO   ] 2025-10-25T17:49:46.425Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T17:49:47.695Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-25T17:49:48.732Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 1540ms (5909 modules)
+[2025-10-25T17:49:48.888Z] [INFO   ] 2025-10-25T17:49:48.888Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T17:49:48.888Z","headers":{"referer":"check-console"}}
+[2025-10-25T17:49:49.015Z] [INFO   ] 2025-10-25T17:49:49.015Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T17:49:49.133Z] [INFO   ] 2025-10-25T17:49:49.133Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T17:49:50.355Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 416ms (2460 modules)
+[2025-10-25T17:49:52.725Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-25T17:49:52.727Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'dropbox',
+  'twitter',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T17:49:52.727Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'dropbox',
+  'twitter',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T17:49:52.727Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-25T17:49:52.727Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-25T17:50:15.940Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send any new email received to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow whenever a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, allowing it to respond to incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel with the content of the new email.',
+  reasoning: 'This action is necessary to fulfill the user\'s request to send the email content to Slack.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger node, which activates when a new email is received. This triggers the Slack action node to send the email content to a designated Slack channel.'
+}
+[2025-10-25T17:50:15.941Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow whenever a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, allowing it to respond to incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel with the content of the new email.',
+  reasoning: 'This action is necessary to fulfill the user\'s request to send the email content to Slack.'
+}
+]
+[2025-10-25T17:50:15.941Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-25T17:50:16.044Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-25T17:50:17.000Z] [INFO   ] [STREAM] Preparing Trigger on New Email (node-1761414615941-0)
+[2025-10-25T17:50:17.802Z] [INFO   ] [STREAM] Starting configuration for Trigger on New Email (node-1761414615941-0)
+[2025-10-25T17:50:19.818Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 477ms (5912 modules)
+[2025-10-25T17:50:40.443Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-25T17:50:40.641Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 727ms (5914 modules)
+[2025-10-25T17:53:53.289Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1573ms (4158 modules)
+[2025-10-25T17:54:31.948Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 503ms (1660 modules)
+[2025-10-25T17:55:00.110Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 402ms (1660 modules)
+[2025-10-25T17:55:20.112Z] [ERROR  ] 2025-10-25T17:55:20.112Z [ERROR] AI call failed: {}
+[2025-10-25T17:55:20.113Z] [INFO   ] [STREAM] Config result: {
+  success: false,
+  hasConfig: false,
+  configKeys: [],
+  finalConfigKeys: [ 'from' ],
+  fallbackFields: [ 'from' ]
+}
+[2025-10-25T17:55:20.113Z] [INFO   ] [STREAM] Configuring 1 fields for Trigger on New Email: from
+[2025-10-25T17:55:20.114Z] [INFO   ] [STREAM] Setting field from = inbox@placeholder.com for Trigger on New Email
+[2025-10-25T17:55:20.917Z] [INFO   ] [STREAM] Skipping test for trigger Trigger on New Email
+[2025-10-25T17:55:22.721Z] [INFO   ] [STREAM] Preparing Send Message to Slack (node-1761414616043-1)
+[2025-10-25T17:55:23.523Z] [INFO   ] [STREAM] Starting configuration for Send Message to Slack (node-1761414616043-1)
+[2025-10-25T17:55:39.504Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 618ms (1660 modules)
+[2025-10-25T17:55:40.347Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 457ms (2519 modules)
+[2025-10-25T18:00:25.648Z] [ERROR  ] 2025-10-25T18:00:25.647Z [ERROR] AI call failed: {}
+[2025-10-25T18:00:25.650Z] [INFO   ] [STREAM] Config result: {
+  success: false,
+  hasConfig: false,
+  configKeys: [],
+  finalConfigKeys: [ 'channel', 'message' ],
+  fallbackFields: [ 'channel', 'message' ]
+}
+[2025-10-25T18:00:25.650Z] [INFO   ] [STREAM] Configuring 2 fields for Send Message to Slack: channel, message
+[2025-10-25T18:00:25.650Z] [INFO   ] [STREAM] Setting field channel = Select a channel for Send Message to Slack
+[2025-10-25T18:00:25.954Z] [INFO   ] [STREAM] Setting field message =  for Send Message to Slack
+[2025-10-25T18:38:31.689Z] [INFO   ] 2025-10-25T18:38:31.687Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12850824288}
+[2025-10-25T18:38:32.357Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-25T18:38:33.833Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 2s (4798 modules)
+[2025-10-25T18:38:34.312Z] [INFO   ] 2025-10-25T18:38:34.312Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T18:38:34.312Z"}
+[2025-10-25T18:38:34.315Z] [INFO   ] 2025-10-25T18:38:34.315Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T18:38:34.315Z"}
+[2025-10-25T18:38:34.315Z] [INFO   ] 2025-10-25T18:38:34.315Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T18:38:34.315Z"}
+[2025-10-25T18:38:34.609Z] [INFO   ] 2025-10-25T18:38:34.608Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T18:38:35.805Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-25T18:38:36.044Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 764ms (4802 modules)
+[2025-10-25T18:38:39.722Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 307ms (3153 modules)
+[2025-10-25T18:38:39.909Z] [INFO   ] 2025-10-25T18:38:39.909Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T18:38:39.908Z","headers":{"referer":"check-console"}}
+[2025-10-25T18:38:40.033Z] [INFO   ] 2025-10-25T18:38:40.033Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T18:38:40.191Z] [INFO   ] 2025-10-25T18:38:40.191Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+
+=== Log Session Ended: 2025-10-25T18:38:46.479Z ===

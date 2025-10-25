@@ -4,12 +4,10 @@ import React, { memo, useState, useRef, useEffect, useMemo } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
-import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
-import { NodeAIIndicator } from "./nodes/AINodeIndicators"
 import { NodeContextMenu } from "./NodeContextMenu"
 
 import { logger } from '@/lib/utils/logger'
@@ -260,53 +258,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }
   
   // Get execution status indicator for corner
-  const getExecutionStatusIndicator = () => {
-    if (!executionStatus && !isListening) return null
-    
-    switch (executionStatus) {
-      case 'running':
-        return (
-          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <LightningLoader size="sm" color="yellow" />
-          </div>
-        )
-      case 'success':
-      case 'completed':
-        return (
-          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-              <span className="text-white text-xs">✓</span>
-            </div>
-          </div>
-        )
-      case 'error':
-        return (
-          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-              <span className="text-white text-xs">✕</span>
-            </div>
-          </div>
-        )
-      case 'waiting':
-        return (
-          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-purple-500" />
-          </div>
-        )
-      case 'pending':
-        return (
-          <div className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center">
-            <LightningLoader size="sm" color="blue" />
-          </div>
-        )
-      default:
-        return isListening && isTrigger ? (
-          <div className="absolute top-2 right-2 w-4 h-4 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-indigo-500" />
-          </div>
-        ) : null
-    }
-  }
+  const getExecutionStatusIndicator = () => null
 
   // Get error label for top-left corner
   const getErrorLabel = () => {
@@ -661,16 +613,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     let statusText = 'Configuring'
     let badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
+    let showSpinner = false
 
     switch (aiStatus) {
       case 'testing':
       case 'retesting':
         statusText = 'Testing'
         badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200'
+        showSpinner = true
         break
       case 'fixing':
         statusText = 'Fixing'
         badgeClass = 'bg-orange-100 text-orange-700 border border-orange-200'
+        showSpinner = true
         break
       case 'testing_successful':
         statusText = 'Testing is Successful'
@@ -683,11 +638,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
       default:
         statusText = 'Configuring'
         badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
+        showSpinner = true
         break
     }
 
     return (
       <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+        {showSpinner && <Loader2 className="w-3 h-3 animate-spin" />}
         <span>{statusText}</span>
       </div>
     )
@@ -723,11 +680,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
         data-testid={`node-${id}`}
         onDoubleClick={handleDoubleClick}
       >
-      {/* AI indicators for AI-powered nodes (includes chain badges) - Skip for ai_agent type */}
-      {type !== 'ai_agent' && (
-        <NodeAIIndicator node={{ id, data: { ...data, config, type, parentChainIndex, isAIAgentChild, parentAIAgentId } }} />
-      )}
-
       {/* Execution status indicator */}
       {getExecutionStatusIndicator()}
       {/* Error label */}
