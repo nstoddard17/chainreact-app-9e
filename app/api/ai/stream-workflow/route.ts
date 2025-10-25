@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
       model = 'auto', // 'auto', 'gpt-4o-mini', 'gpt-4o'
       approvedPlan = null, // If user approved a plan, continue building from it
       viewport = null, // Viewport dimensions to position nodes correctly
-      autoApprove = false // Skip approval step and build immediately (for React agent)
+      autoApprove = false, // Skip approval step and build immediately (for React agent)
+      clarifications = {} // User-provided clarifications from analysis phase
     } = body
 
     if (!prompt && !approvedPlan) {
@@ -417,7 +418,8 @@ export async function POST(request: NextRequest) {
               previousNodes: createdNodes.slice(0, i),
               prompt,
               model: configModel,
-              userId: user.id
+              userId: user.id,
+              clarifications // Pass clarifications to config generation
             })
             const configDuration = Date.now() - configStartTime
             console.log(`[STREAM] generateNodeConfig completed in ${configDuration}ms for ${plannedNode.title}`)
@@ -1061,8 +1063,21 @@ Provide the minimal configuration changes needed to fix this error.`
   }
 }
 
-async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, model, userId }: any) {
+async function generateNodeConfig({ node, nodeComponent, previousNodes, prompt, model, userId, clarifications = {} }: any) {
   try {
+    // Check if there are clarifications for this node
+    const nodeClarifications = Object.entries(clarifications).filter(([key, value]) => {
+      // Match clarification to this node based on questionId pattern (e.g., "slack_channel" for slack nodes)
+      return key.includes(nodeComponent.providerId) || key.includes(nodeComponent.type)
+    })
+
+    let clarificationContext = ''
+    if (nodeClarifications.length > 0) {
+      clarificationContext = '\n\nUSER PROVIDED CLARIFICATIONS:\n' +
+        nodeClarifications.map(([key, value]) => `- ${key}: ${value}`).join('\n') +
+        '\n\nIMPORTANT: Use these exact values for the corresponding fields. Do not use placeholders.'
+    }
+
     // Build context from previous nodes
     const context = previousNodes.map((n: any) => ({
       title: n.data.title,
@@ -1080,12 +1095,14 @@ Previous Nodes in Workflow:
 ${context.map((n: any) => `- ${n.title} (outputs: ${n.outputs.join(', ')})`).join('\n')}
 
 Schema: ${JSON.stringify(nodeComponent.schema, null, 2)}
+${clarificationContext}
 
 Generate a complete configuration that:
 1. Uses variables from previous nodes when appropriate (e.g., {{trigger.email}})
 2. Fills all required fields
 3. Uses sensible defaults for optional fields
 4. Matches the user's goal
+${clarificationContext ? '5. CRITICAL: Use the exact values from USER PROVIDED CLARIFICATIONS above - these are not suggestions, they are required values the user has specified' : ''}
 
 Return JSON:
 {

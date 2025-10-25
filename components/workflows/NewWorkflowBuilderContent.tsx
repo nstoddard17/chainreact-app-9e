@@ -26,6 +26,7 @@ import { PreflightCheckDialog } from "./PreflightCheckDialog"
 import { TestModeDialog } from "./TestModeDialog"
 import { StatusBadge } from "./ai-builder/StatusBadge"
 import { WorkflowPlan } from "./ai-builder/WorkflowPlan"
+import { ClarificationQuestion } from "./ai-builder/ClarificationQuestion"
 import { PulsingPlaceholders } from "./ai-builder/PulsingPlaceholders"
 import { MissingIntegrationsBadges } from "./ai-builder/MissingIntegrationsBadges"
 import { WorkflowBuildProgress } from "./ai-builder/WorkflowBuildProgress"
@@ -286,6 +287,12 @@ export function NewWorkflowBuilderContent() {
   const [isPlacingNodes, setIsPlacingNodes] = React.useState(false) // Track when placing nodes on canvas
   const [workflowCompletionMessage, setWorkflowCompletionMessage] = React.useState<string | null>(null) // Completion message to show after plan
 
+  // Clarification system states
+  const [clarificationQuestions, setClarificationQuestions] = React.useState<any[]>([])
+  const [clarificationAnswers, setClarificationAnswers] = React.useState<Record<string, any>>({})
+  const [showClarifications, setShowClarifications] = React.useState(false)
+  const [waitingForClarifications, setWaitingForClarifications] = React.useState(false)
+
   // Enhanced node configuration tracking
   const [nodeConfigStatus, setNodeConfigStatus] = React.useState<{
     nodeId: string | null
@@ -418,8 +425,9 @@ export function NewWorkflowBuilderContent() {
   const streamControllerRef = React.useRef<AbortController | null>(null)
 
   // ReactAgent submit handler with SSE streaming
-  const handleReactAgentSubmit = React.useCallback(async () => {
-    if (!reactAgentInput.trim() || isReactAgentLoading) return
+  const handleReactAgentSubmit = React.useCallback(async (overrideMessage?: string) => {
+    const messageToSend = overrideMessage || reactAgentInput.trim()
+    if (!messageToSend || isReactAgentLoading) return
 
     // CRITICAL: Wait for integrations to be ready before proceeding
     if (!integrationsReady) {
@@ -435,7 +443,7 @@ export function NewWorkflowBuilderContent() {
       return
     }
 
-    const userMessage = reactAgentInput.trim()
+    const userMessage = messageToSend
     setReactAgentInput('')
     setIsReactAgentLoading(true)
 
@@ -496,6 +504,49 @@ export function NewWorkflowBuilderContent() {
         defaultZoom,
         reactFlowInstance: !!reactFlowInstance
       })
+
+      // STEP 1: Analyze request for clarifications FIRST
+      logger.info('[CLARIFICATION] Analyzing request for required clarifications...')
+      setReactAgentStatus('Analyzing your request...')
+
+      const analysisResponse = await fetch('/api/ai/analyze-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: userMessage,
+          connectedIntegrations
+        })
+      })
+
+      if (!analysisResponse.ok) {
+        throw new Error('Failed to analyze request')
+      }
+
+      const analysisResult = await analysisResponse.json()
+      logger.info('[CLARIFICATION] Analysis result:', analysisResult)
+
+      // STEP 2: If clarifications needed, show questions and STOP
+      if (analysisResult.needsClarification && analysisResult.questions.length > 0) {
+        logger.info('[CLARIFICATION] Showing clarification questions:', analysisResult.questions)
+
+        setClarificationQuestions(analysisResult.questions)
+        setShowClarifications(true)
+        setWaitingForClarifications(true)
+        setIsReactAgentLoading(false)
+        setReactAgentStatus('')
+
+        // Add message to chat
+        setReactAgentMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'I need a bit more information to build this workflow for you. Please answer the questions below.',
+          timestamp: new Date()
+        }])
+
+        return // STOP HERE - wait for user to answer
+      }
+
+      // STEP 3: No clarifications needed, proceed with building
+      logger.info('[CLARIFICATION] No clarifications needed, proceeding with workflow build')
 
       // Start streaming from SSE endpoint
       const response = await fetch('/api/ai/stream-workflow', {
@@ -1318,666 +1369,16 @@ export function NewWorkflowBuilderContent() {
       logger.info('[NewWorkflowBuilderContent] Current reactAgentInput:', reactAgentInput)
 
       // Since state updates are async, we need to manually trigger with the decoded prompt
-      // We'll directly add the message and call the API instead of using handleReactAgentSubmit
+      // Call handleReactAgentSubmit to ensure clarification flow is used
       if (isReactAgentLoading) {
         logger.warn('[NewWorkflowBuilderContent] Already loading, skipping')
         return
       }
 
-      // Clear input and add user message
-      setReactAgentInput('')
-      setIsReactAgentLoading(true)
-
-      const newUserMessage = {
-        role: 'user' as const,
-        content: decodedPrompt,
-        timestamp: new Date()
-      }
-      // Append to existing messages instead of replacing
-      setReactAgentMessages(prev => [...prev, newUserMessage])
-
-      // Now trigger the actual API call by calling handleReactAgentSubmit
-      // But we need to ensure reactAgentInput has the value
-      // Actually, let's just inline the API call here
-      logger.info('[NewWorkflowBuilderContent] Calling API directly with prompt:', decodedPrompt)
-
-      // We'll create a mini version of the send logic here
-      ;(async () => {
-        try {
-          logger.info('[NewWorkflowBuilderContent] Fetching API with:', {
-            prompt: decodedPrompt,
-            workflowId: currentWorkflow?.id
-          })
-
-          const connectedIntegrations = getConnectedProviders()
-          logger.info('[NewWorkflowBuilderContent] Connected integrations for initial prompt:', connectedIntegrations)
-
-          const response = await fetch('/api/ai/stream-workflow', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt: decodedPrompt,
-              workflowId: currentWorkflow?.id,
-              connectedIntegrations,
-              conversationHistory: [],
-              contextNodes: [],
-              testNodes: true,
-              model: 'auto',
-              autoApprove: false, // Show plan and wait for user approval
-              viewport: {
-                width: window.innerWidth - (isReactAgentOpen ? 448 : 0),
-                height: window.innerHeight,
-                chatPanelWidth: isReactAgentOpen ? 448 : 0,
-                defaultZoom: 0.75
-              }
-            })
-          })
-
-          logger.info('[NewWorkflowBuilderContent] API response status:', response.status, response.ok)
-
-          if (!response.ok) {
-            throw new Error('Failed to start workflow building')
-          }
-
-          logger.info('[NewWorkflowBuilderContent] API call successful, processing stream...')
-
-          // Read SSE stream
-          const reader = response.body?.getReader()
-          const decoder = new TextDecoder()
-
-          if (!reader) {
-            throw new Error('No response body')
-          }
-
-          let buffer = ''
-          let currentAIMessage = ''
-
-          logger.info('[NewWorkflowBuilderContent] Starting to read stream...')
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) {
-              logger.info('[NewWorkflowBuilderContent] Stream complete')
-              break
-            }
-
-            buffer += decoder.decode(value, { stream: true })
-            const lines = buffer.split('\n\n')
-            buffer = lines.pop() || ''
-
-            for (const line of lines) {
-              if (!line.trim() || !line.startsWith('data: ')) continue
-
-              try {
-                const eventData = JSON.parse(line.substring(6))
-                logger.info('[NewWorkflowBuilderContent] Received event:', eventData.type)
-
-                switch (eventData.type) {
-                  case 'thinking':
-                    setReactAgentStatus('Analyzing request...')
-                    // Don't add message - status badge shows this
-                    break
-
-                  case 'checking_prerequisites':
-                    setReactAgentStatus('Checking prerequisites...')
-                    // Don't add message - status badge shows this
-                    break
-
-                  case 'missing_apps':
-                    setReactAgentStatus('')
-                    setIsReactAgentLoading(false)
-                    // Store missing integrations for badge display
-                    setMissingIntegrations(eventData.missingApps.map((app: string) => ({
-                      provider: app.toLowerCase().replace(/\s+/g, '-'),
-                      name: app
-                    })))
-                    setShowMissingApps(true)
-                    // Remove the last message (no text needed, badges will show)
-                    setReactAgentMessages(prev => {
-                      if (prev.length > 0 && prev[prev.length - 1].role === 'assistant') {
-                        return prev.slice(0, -1)
-                      }
-                      return prev
-                    })
-                    break
-
-                  case 'check_setup':
-                    setReactAgentStatus('')
-                    const setupMessage = eventData.message + '\n\n' +
-                      eventData.setupItems.map((item: any) =>
-                        `• ${item.description} (${item.app})`
-                      ).join('\n')
-                    currentAIMessage = `${currentAIMessage}\n\n${setupMessage}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-                    break
-
-                  case 'planning':
-                    setReactAgentStatus('Planning workflow...')
-                    // Don't add message - status badge shows this
-                    break
-
-                  case 'show_plan':
-                    setReactAgentStatus('')
-                    setWorkflowPlan(eventData.nodes.map((n: any) => ({
-                      title: n.title,
-                      description: n.description,
-                      type: n.isTrigger ? 'trigger' : 'action',
-                      providerId: n.providerId
-                    })))
-                    setApprovedPlanData(eventData.plan) // Save full plan for building
-                    setShowPlanApproval(true)
-                    setIsReactAgentLoading(false) // Stop loading - waiting for user
-                    // Don't add message - WorkflowPlan component has its own header
-                    break
-
-                  case 'auto_building_plan':
-                    // This case should no longer happen since we removed auto-approve
-                    // But handle it the same as show_plan just in case
-                    console.log('[INITIAL_PROMPT] Received auto_building_plan (unexpected)')
-                    setWorkflowPlan(eventData.nodes.map((n: any) => ({
-                      title: n.title,
-                      description: n.description || `${n.type} node`,
-                      type: n.type,
-                      providerId: n.providerId
-                    })))
-                    setShowPlanApproval(true)
-                    setIsPlanBuilding(false) // Show continue button
-                    setIsReactAgentLoading(false) // Stop loading spinner
-                    // Don't add message - WorkflowPlan component has its own header
-                    break
-
-                  case 'creating_all_nodes':
-                    // Starting to create all nodes at once
-                    setIsPlacingNodes(true) // Show pulsing placeholders
-                    setReactAgentStatus(eventData.message || 'Creating workflow structure...')
-                    currentAIMessage = `${currentAIMessage}\n\n${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-                    break
-
-                  case 'configuration_progress':
-                    // Update progress indicator for which node is being configured
-                    setIsPlacingNodes(false) // Hide pulsing placeholders when configuration starts
-                    setReactAgentStatus(eventData.message || `Configuring node ${eventData.currentNode} of ${eventData.totalNodes}`)
-                    setConfigurationProgress({
-                      currentNode: eventData.currentNode,
-                      totalNodes: eventData.totalNodes,
-                      nodeName: eventData.nodeName,
-                      status: 'configuring'
-                    })
-                    break
-
-                  case 'node_preparing':
-                    // Update node status from pending to preparing
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: 'preparing',
-                              aiBadgeText: 'Preparing',
-                              aiBadgeVariant: 'info',
-                              isPending: false,
-                              autoExpand: true
-                            }
-                          })
-                        }
-                      ])
-                      // Update progress status
-                      setConfigurationProgress(prev => {
-                        if (!prev) return prev
-                        return {
-                          ...prev,
-                          status: 'preparing'
-                        }
-                      })
-                    }
-                    break
-
-                  case 'node_creating':
-                    setReactAgentStatus('Creating nodes...')
-                    // Add progress updates to current message
-                    currentAIMessage = `${currentAIMessage}\n${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: 'preparing',
-                              aiBadgeText: 'Preparing',
-                              aiBadgeVariant: 'info',
-                              autoExpand: true,
-                              aiFallbackFields: [],
-                              aiProgressConfig: [],
-                              testData: {},
-                              config: node.data?.config ?? {}
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'node_configuring':
-                    setReactAgentStatus('Configuring node...')
-                    // Add progress updates to current message
-                    currentAIMessage = `${currentAIMessage}\n${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-
-                    setConfigurationProgress(prev => {
-                      if (!prev) return prev
-                      return {
-                        ...prev,
-                        currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
-                        nodeName: eventData.nodeName || prev.nodeName,
-                        status: 'configuring'
-                      }
-                    })
-                    setReactAgentStatus(eventData.message || `Configuring ${eventData.nodeName || ''}...`)
-
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: eventData.status || 'configuring',
-                              aiBadgeText: eventData.badgeText || 'Configuring',
-                              aiBadgeVariant: eventData.badgeVariant || 'info',
-                              autoExpand: true,
-                              testData: {},
-                              aiProgressConfig: []
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'node_testing':
-                    setReactAgentStatus('Testing node...')
-                    // Add progress updates to current message
-                    currentAIMessage = `${currentAIMessage}\n${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-
-                    setConfigurationProgress(prev => {
-                      if (!prev) return prev
-                      return {
-                        ...prev,
-                        currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
-                        nodeName: eventData.nodeName || prev.nodeName,
-                        status: 'testing'
-                      }
-                    })
-                    setReactAgentStatus(eventData.message || `Testing ${eventData.nodeName || ''}...`)
-
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: 'testing',
-                              aiBadgeText: 'Testing',
-                              aiBadgeVariant: 'info',
-                              autoExpand: true,
-                              testData: {},
-                              aiProgressConfig: node.data?.aiProgressConfig || []
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'node_created':
-                    // Don't show message for pending nodes
-                    if (!eventData.isPending) {
-                      currentAIMessage = `${currentAIMessage}\n✓ ${eventData.message || 'Node created'}`
-                      setReactAgentMessages(prev => {
-                        const lastMsg = prev[prev.length - 1]
-                        if (lastMsg && lastMsg.role === 'assistant') {
-                          return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                        }
-                        return prev
-                      })
-                    }
-
-                    // Add node to canvas with onConfigure and onDelete functions
-                    if (eventData.node) {
-                      // Enhanced node with configuration callbacks
-                      const enhancedNode = {
-                        ...eventData.node,
-                        data: {
-                          ...eventData.node.data,
-                          onConfigure: (nodeId: string) => {
-                            console.log('[NODE] Opening configuration for:', nodeId)
-                            const nodeToConfig = nodes.find(n => n.id === nodeId) || eventData.node
-                            setConfiguringNode(nodeToConfig)
-                          },
-                          onDelete: (nodeId: string) => {
-                            console.log('[NODE] Deleting node:', nodeId)
-                            optimizedOnNodesChange([{ type: 'remove', id: nodeId }])
-                          }
-                        }
-                      }
-                      optimizedOnNodesChange([{ type: 'add', item: enhancedNode }])
-
-                      // Auto-pan after all nodes are created (only for the last node)
-                      if (!eventData.isPending) {
-                        setTimeout(() => {
-                          fitViewWithChatPanel()
-                        }, 120)
-                      }
-                    }
-                    break
-
-                  case 'field_configured':
-                    console.log('[INITIAL_PROMPT] field_configured:', eventData)
-                    // Update node with this specific field in real-time
-                    if (eventData.nodeId && eventData.fieldKey) {
-                      console.log('[INITIAL_PROMPT] Adding field to node config:', eventData.fieldKey, '=', eventData.fieldValue)
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: eventData.status || node.data.aiStatus || 'configuring',
-                              aiBadgeText: eventData.badgeText || node.data.aiBadgeText || 'Configuring',
-                              aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant || 'info',
-                              config: {
-                                ...node.data.config,
-                                [eventData.fieldKey]: eventData.fieldValue
-                              },
-                              aiProgressConfig: [
-                                ...(Array.isArray(node.data.aiProgressConfig) ? node.data.aiProgressConfig.filter((field: any) => field.key !== eventData.fieldKey) : []),
-                                {
-                                  key: eventData.fieldKey,
-                                  value: eventData.fieldValue,
-                                  displayValue: eventData.displayValue,
-                                  viaFallback: eventData.viaFallback
-                                }
-                              ]
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'test_data_field':
-                    // Show test data populating in the node
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: eventData.status || 'testing',
-                              aiBadgeText: eventData.badgeText || node.data.aiBadgeText,
-                              aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant,
-                              testData: {
-                                ...(node.data.testData || {}),
-                                [eventData.fieldKey]: eventData.fieldValue
-                              }
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'edge_created':
-                    if (eventData.edge) {
-                      onEdgesChange([{ type: 'add', item: eventData.edge }])
-                    }
-                    break
-
-                  case 'field_configured':
-                    console.log('[INITIAL_PROMPT] field_configured:', eventData)
-                    // Update node with this specific field in real-time
-                    if (eventData.nodeId && eventData.fieldKey) {
-                      console.log('[INITIAL_PROMPT] Adding field to node config:', eventData.fieldKey, '=', eventData.fieldValue)
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: eventData.status || node.data.aiStatus || 'configuring',
-                              aiBadgeText: eventData.badgeText || node.data.aiBadgeText || 'Configuring',
-                              aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant || 'info',
-                              config: {
-                                ...node.data.config,
-                                [eventData.fieldKey]: eventData.fieldValue
-                              },
-                              aiProgressConfig: [
-                                ...(Array.isArray(node.data.aiProgressConfig) ? node.data.aiProgressConfig.filter((field: any) => field.key !== eventData.fieldKey) : []),
-                                {
-                                  key: eventData.fieldKey,
-                                  value: eventData.fieldValue,
-                                  displayValue: eventData.displayValue,
-                                  viaFallback: eventData.viaFallback
-                                }
-                              ]
-                            }
-                          })
-                        }
-                      ])
-                    }
-                    break
-
-                  case 'node_configured':
-                  case 'node_complete': {
-                    if (eventData.type === 'node_complete') {
-                      console.log('[CONTINUE] node_complete event received:', {
-                        nodeId: eventData.nodeId,
-                        status: eventData.status,
-                        badgeText: eventData.badgeText,
-                        badgeVariant: eventData.badgeVariant,
-                        skipTest: eventData.skipTest,
-                        fallbackFields: eventData.fallbackFields
-                      })
-                    }
-                    currentAIMessage = `${currentAIMessage}\n${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-
-                setConfigurationProgress(prev => {
-                  if (!prev) return prev
-                  const isComplete = eventData.type === 'node_complete'
-                  return {
-                    ...prev,
-                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
-                    nodeName: eventData.nodeName || prev.nodeName,
-                    status: isComplete ? 'complete' : 'configuring'
-                  }
-                })
-                if (eventData.type === 'node_complete') {
-                  setReactAgentStatus('')
-                }
-
-                    if (eventData.nodeId) {
-                      optimizedOnNodesChange([
-                        {
-                          type: 'update',
-                          id: eventData.nodeId,
-                          item: (node: any) => {
-                            const isComplete = eventData.type === 'node_complete'
-                            const isTrigger = Boolean(eventData.skipTest)
-                            const fallbackCandidates = eventData.fallbackFields ?? node.data?.aiFallbackFields ?? []
-                            const hasFallback = Array.isArray(fallbackCandidates) && fallbackCandidates.length > 0
-
-                            const nextStatus = isComplete
-                              ? 'ready'
-                              : (eventData.status || node.data?.aiStatus)
-
-                            // FIXED: For node_complete, always use the values from eventData (which come from backend)
-                            // Don't fall back to node.data values which may be stale from node_configured
-                            let nextBadgeVariant = isComplete
-                              ? (eventData.badgeVariant || 'success')
-                              : (eventData.badgeVariant || node.data?.aiBadgeVariant)
-                            let nextBadgeText = isComplete
-                              ? (eventData.badgeText || 'Successful')
-                              : (eventData.badgeText || node.data?.aiBadgeText)
-                            const nextExecutionStatus = isComplete
-                              ? (eventData.executionStatus || 'completed')
-                              : node.data.executionStatus
-
-                            if (isTrigger && isComplete) {
-                              if (hasFallback) {
-                                nextBadgeVariant = 'warning'
-                                nextBadgeText = 'Setup required'
-                              } else {
-                                nextBadgeVariant = 'success'
-                                nextBadgeText = 'Successful'
-                              }
-                            }
-
-                            if (isComplete) {
-                              console.log('[CONTINUE] Applying node_complete update:', {
-                                nodeId: node.id,
-                                isTrigger,
-                                hasFallback,
-                                prevStatus: node.data.aiStatus,
-                                nextStatus,
-                                nextBadgeText,
-                                nextBadgeVariant,
-                                nextExecutionStatus
-                              })
-                            }
-
-                            const nextNeedsSetup = nextBadgeVariant === 'warning'
-
-                            return {
-                              ...node,
-                              data: {
-                                ...node.data,
-                                aiStatus: nextStatus,
-                                aiBadgeText: nextBadgeText,
-                                aiBadgeVariant: nextBadgeVariant,
-                                autoExpand: true,
-                                needsSetup: nextNeedsSetup,
-                                aiFallbackFields: fallbackCandidates,
-                                aiProgressConfig: isComplete ? [] : node.data.aiProgressConfig,
-                                config: eventData.config || node.data.config,
-                                testData: eventData.preview ? (eventData.preview || {}) : node.data.testData,
-                                executionStatus: nextExecutionStatus
-                              }
-                            }
-                          }
-                        }
-                      ])
-                    }
-                    break
-                  }
-
-              case 'workflow_complete':
-                // Final success message
-                currentAIMessage = `${currentAIMessage}\n\n✓ ${eventData.message || 'Workflow complete! Your automation is ready.'}`
-                setReactAgentMessages(prev => {
-                  const lastMsg = prev[prev.length - 1]
-                  if (lastMsg && lastMsg.role === 'assistant') {
-                    return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                  }
-                  return prev
-                })
-                // Stop loading animation and clear status
-                setIsReactAgentLoading(false)
-                setReactAgentStatus('')
-                setIsPlacingNodes(false)
-                setConfigurationProgress(null)  // Clear progress indicator
-                break
-
-                  case 'error':
-                    currentAIMessage = `${currentAIMessage}\n\n❌ Error: ${eventData.message}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-                    // Stop loading on error too and clear status
-                    setIsReactAgentLoading(false)
-                    setReactAgentStatus('')
-                    break
-                }
-              } catch (parseError) {
-                logger.error('Failed to parse SSE event:', parseError)
-              }
-            }
-          }
-        } catch (error) {
-          logger.error('Error processing initial prompt:', error)
-          setReactAgentMessages(prev => [...prev, {
-            role: 'assistant' as const,
-            content: 'Sorry, I encountered an error. Please try again.',
-            timestamp: new Date()
-          }])
-        } finally {
-          setIsReactAgentLoading(false)
-          setReactAgentStatus('')
-        }
-      })()
+      // Call handleReactAgentSubmit with the decoded prompt
+      // This ensures the clarification flow is triggered
+      logger.info('[NewWorkflowBuilderContent] Calling handleReactAgentSubmit with prompt:', decodedPrompt)
+      handleReactAgentSubmit(decodedPrompt)
     }, 500)
   }, [initialPromptParam, hasProcessedInitialPrompt, isReactAgentLoading, isReactAgentOpen, currentWorkflow, optimizedOnNodesChange, onEdgesChange, reactAgentInput, integrationsReady, integrations, getConnectedProviders])
 
@@ -2892,6 +2293,126 @@ export function NewWorkflowBuilderContent() {
                     </div>
                   </div>
                 ))}
+
+                {/* Show clarification questions BEFORE plan */}
+                {showClarifications && clarificationQuestions.length > 0 && (
+                  <div className="space-y-3">
+                    {clarificationQuestions.map((question) => (
+                      <ClarificationQuestion
+                        key={question.id}
+                        question={question}
+                        answer={clarificationAnswers[question.id]}
+                        onAnswer={(questionId, answer) => {
+                          setClarificationAnswers(prev => ({
+                            ...prev,
+                            [questionId]: answer
+                          }))
+                        }}
+                      />
+                    ))}
+
+                    {/* Submit clarifications button */}
+                    {Object.keys(clarificationAnswers).length >= clarificationQuestions.filter(q => q.required).length && (
+                      <Button
+                        onClick={async () => {
+                          logger.info('[CLARIFICATION] User submitted answers:', clarificationAnswers)
+
+                          // Hide clarifications, proceed with workflow build
+                          setShowClarifications(false)
+                          setWaitingForClarifications(false)
+                          setIsReactAgentLoading(true)
+                          setReactAgentStatus('Building your workflow...')
+
+                          try {
+                            // Get the original user prompt from messages
+                            const originalPrompt = reactAgentMessages.find(m => m.role === 'user')?.content || ''
+
+                            // Get connected integrations
+                            const connectedIntegrations = getConnectedProviders()
+
+                            // Calculate viewport
+                            const chatPanelWidth = isReactAgentOpen ? REACT_AGENT_PANEL_WIDTH : 0
+                            const availableWidth = window.innerWidth - chatPanelWidth
+                            const availableHeight = window.innerHeight
+
+                            // Call stream-workflow with clarifications
+                            const response = await fetch('/api/ai/stream-workflow', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                prompt: originalPrompt,
+                                workflowId: currentWorkflow?.id,
+                                connectedIntegrations,
+                                clarifications: clarificationAnswers,
+                                conversationHistory: reactAgentMessages.map(msg => ({
+                                  role: msg.role,
+                                  content: msg.content
+                                })),
+                                contextNodes: [],
+                                testNodes: true,
+                                model: 'auto',
+                                autoApprove: false,
+                                viewport: {
+                                  width: availableWidth,
+                                  height: availableHeight,
+                                  chatPanelWidth,
+                                  defaultZoom: 0.75
+                                }
+                              })
+                            })
+
+                            if (!response.ok) {
+                              throw new Error('Failed to start workflow building')
+                            }
+
+                            // Process stream (same as initial handler)
+                            const reader = response.body?.getReader()
+                            const decoder = new TextDecoder()
+                            if (!reader) throw new Error('No response body')
+
+                            let buffer = ''
+
+                            while (true) {
+                              const { done, value } = await reader.read()
+                              if (done) break
+
+                              buffer += decoder.decode(value, { stream: true })
+                              const lines = buffer.split('\n\n')
+                              buffer = lines.pop() || ''
+
+                              for (const line of lines) {
+                                if (!line.trim() || !line.startsWith('data: ')) continue
+
+                                const eventData = JSON.parse(line.substring(6))
+
+                                // Handle show_plan event
+                                if (eventData.type === 'show_plan') {
+                                  setWorkflowPlan(eventData.plan.nodes)
+                                  setApprovedPlanData(eventData.plan)
+                                  setShowPlanApproval(true)
+                                  setIsReactAgentLoading(false)
+                                  setReactAgentStatus('')
+                                }
+                              }
+                            }
+                          } catch (error) {
+                            logger.error('[CLARIFICATION] Error building workflow:', error)
+                            setIsReactAgentLoading(false)
+                            setReactAgentStatus('')
+                            setReactAgentMessages(prev => [...prev, {
+                              role: 'assistant',
+                              content: 'Sorry, there was an error building your workflow. Please try again.',
+                              timestamp: new Date()
+                            }])
+                          }
+                        }}
+                        className="w-full"
+                      >
+                        Continue Building Workflow
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Show workflow plan (always keep visible once shown) */}
                 {showPlanApproval && workflowPlan && (
