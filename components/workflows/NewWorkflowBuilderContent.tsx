@@ -1821,6 +1821,16 @@ export function NewWorkflowBuilderContent() {
 
                   case 'node_configured':
                   case 'node_complete': {
+                    if (eventData.type === 'node_complete') {
+                      console.log('[CONTINUE] node_complete event received:', {
+                        nodeId: eventData.nodeId,
+                        status: eventData.status,
+                        badgeText: eventData.badgeText,
+                        badgeVariant: eventData.badgeVariant,
+                        skipTest: eventData.skipTest,
+                        fallbackFields: eventData.fallbackFields
+                      })
+                    }
                     currentAIMessage = `${currentAIMessage}\n${eventData.message}`
                     setReactAgentMessages(prev => {
                       const lastMsg = prev[prev.length - 1]
@@ -1870,6 +1880,19 @@ export function NewWorkflowBuilderContent() {
                                 nextBadgeVariant = 'success'
                                 nextBadgeText = nextBadgeText || 'Successful'
                               }
+                            }
+
+                            if (isComplete) {
+                              console.log('[CONTINUE] Applying node_complete update:', {
+                                nodeId: node.id,
+                                isTrigger,
+                                hasFallback,
+                                prevStatus: node.data.aiStatus,
+                                nextStatus,
+                                nextBadgeText,
+                                nextBadgeVariant,
+                                nextExecutionStatus
+                              })
                             }
 
                             const nextNeedsSetup = nextBadgeVariant === 'warning'

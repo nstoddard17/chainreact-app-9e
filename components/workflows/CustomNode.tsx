@@ -420,7 +420,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }
 
   // Don't show badge during AI operations
-  const isAIActive = aiStatus && aiStatus !== 'ready' && aiStatus !== 'error'
+  const isAIActive = aiStatus && aiStatus !== 'ready' && aiStatus !== 'error' && executionStatus !== 'completed'
   const badgeLabel = !isAIActive ? (aiBadgeText || (needsSetup && !error && !hasValidationIssues ? 'Setup required' : null)) : null
   const resolvedBadgeVariant = badgeLabel
     ? (aiBadgeText ? (aiBadgeVariant || 'info') : 'warning')
@@ -597,6 +597,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const statusIndicator = React.useMemo(() => {
     if (!aiStatus) return null
 
+    if (executionStatus === 'completed') {
+      return null
+    }
+
     if (aiStatus === 'error') {
       return (
         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 border border-red-200">
@@ -663,6 +667,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
     aiStatus,
     autoExpand
   ])
+
+  useEffect(() => {
+    console.log('[CUSTOMNODE STATUS]', {
+      nodeId: id,
+      aiStatus,
+      aiBadgeText,
+      aiBadgeVariant,
+      executionStatus,
+      needsSetup,
+      fallbackFields
+    })
+  }, [id, aiStatus, aiBadgeText, aiBadgeVariant, executionStatus, needsSetup, fallbackFields])
 
   return (
     <NodeContextMenu
