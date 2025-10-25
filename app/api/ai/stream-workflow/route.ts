@@ -408,7 +408,9 @@ export async function POST(request: NextRequest) {
               userPreference: model
             })
 
-            // Generate configuration
+            // Generate configuration with timeout
+            console.log(`[STREAM] Calling generateNodeConfig for ${plannedNode.title}...`)
+            const configStartTime = Date.now()
             const configResult = await generateNodeConfig({
               node: plannedNode,
               nodeComponent,
@@ -417,6 +419,8 @@ export async function POST(request: NextRequest) {
               model: configModel,
               userId: user.id
             })
+            const configDuration = Date.now() - configStartTime
+            console.log(`[STREAM] generateNodeConfig completed in ${configDuration}ms for ${plannedNode.title}`)
 
             const { finalConfig, fallbackFields, reasoning, usedFallback } = buildConfigWithFallback({
               nodeComponent,
@@ -558,6 +562,14 @@ export async function POST(request: NextRequest) {
 
               // Wait before starting next node
               await sleep(1500)  // Changed to match non-trigger delay
+              console.log(`[STREAM] Trigger complete, continuing to next node (loop iteration ${i} of ${plan.nodes.length - 1})`)
+
+              // Check if stream is still alive
+              if (request.signal.aborted) {
+                console.log(`[STREAM] WARNING: Client disconnected after trigger, aborting workflow build`)
+                controller.close()
+                return
+              }
             } else {
               // Test action and logic nodes
               node.data.aiStatus = 'testing'
@@ -751,7 +763,10 @@ export async function POST(request: NextRequest) {
 
             // Brief pause before starting next node
             await sleep(300)
+            console.log(`[STREAM] Completed node ${i + 1} of ${plan.nodes.length}, moving to next iteration`)
           }
+
+          console.log(`[STREAM] All nodes configured and tested, sending workflow_complete event`)
 
           // Phase 3: Workflow Complete
           sendEvent('workflow_complete', {
@@ -878,35 +893,50 @@ async function callAI({ prompt, model, temperature, responseFormat }: any) {
       throw new Error('OpenAI API key not configured')
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        ...(responseFormat === 'json' && {
-          response_format: { type: 'json_object' }
-        })
-      }),
-    })
+    // Create an AbortController for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error?.message || 'AI API request failed')
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+          ...(responseFormat === 'json' && {
+            response_format: { type: 'json_object' }
+          })
+        }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'AI API request failed')
+      }
+
+      const data = await response.json()
+      const content = data.choices[0].message.content
+
+      if (responseFormat === 'json') {
+        return { success: true, ...JSON.parse(content) }
+      }
+
+      return { success: true, content }
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId)
+      if (fetchError.name === 'AbortError') {
+        throw new Error('AI API request timed out after 30 seconds')
+      }
+      throw fetchError
     }
-
-    const data = await response.json()
-    const content = data.choices[0].message.content
-
-    if (responseFormat === 'json') {
-      return { success: true, ...JSON.parse(content) }
-    }
-
-    return { success: true, content }
   } catch (error: any) {
     logger.error('AI call failed:', error)
     return { success: false, error: error.message }
