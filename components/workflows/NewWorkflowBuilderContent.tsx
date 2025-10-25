@@ -284,6 +284,7 @@ export function NewWorkflowBuilderContent() {
   const [approvedPlanData, setApprovedPlanData] = React.useState<any>(null)
   const [isPlanBuilding, setIsPlanBuilding] = React.useState(false) // Track if building started
   const [isPlacingNodes, setIsPlacingNodes] = React.useState(false) // Track when placing nodes on canvas
+  const [workflowCompletionMessage, setWorkflowCompletionMessage] = React.useState<string | null>(null) // Completion message to show after plan
 
   // Enhanced node configuration tracking
   const [nodeConfigStatus, setNodeConfigStatus] = React.useState<{
@@ -2894,18 +2895,19 @@ export function NewWorkflowBuilderContent() {
 
                 {/* Show workflow plan (always keep visible once shown) */}
                 {showPlanApproval && workflowPlan && (
-                  <WorkflowPlan
-                    nodes={workflowPlan}
-                    isBuilding={isPlanBuilding}
-                    onContinue={async () => {
+                  <>
+                    <WorkflowPlan
+                      nodes={workflowPlan}
+                      isBuilding={isPlanBuilding}
+                      onContinue={async () => {
                         // CRITICAL: Ensure integrations are ready
                         if (!integrationsReady) {
                           logger.warn('[Continue Building] Integrations not ready yet')
                           return
                         }
 
-                        // Keep plan visible but hide button
-                        setIsPlanBuilding(true)
+                        // Keep plan visible but hide button permanently
+                        setIsPlanBuilding(true)  // This will permanently hide the button
                         setIsReactAgentLoading(true)
                         setReactAgentStatus('Building workflow...')
                         setIsPlacingNodes(true)
@@ -3442,20 +3444,16 @@ export function NewWorkflowBuilderContent() {
 
                                 case 'workflow_complete':
                                   console.log('[CONTINUE] Workflow complete!')
-                                  // Add completion message to chat
-                                  setReactAgentMessages(prev => [...prev, {
-                                    role: 'assistant',
-                                    content: '✅ Workflow complete! All nodes are configured and ready. You can test it, make changes, or activate it from the workflow settings.',
-                                    timestamp: new Date()
-                                  }])
+                                  // Set completion message to show AFTER the plan
+                                  setWorkflowCompletionMessage('Workflow configuration complete. All nodes have been successfully configured and are ready for use. You can now test the workflow, make adjustments, or activate it in your workflow settings.')
                                   setTimeout(() => {
                                     fitViewWithChatPanel()
                                   }, 200)
                                   setIsReactAgentLoading(false)
                                   setReactAgentStatus('')
                                   setIsPlacingNodes(false)
-                                  // Keep plan visible: setShowPlanApproval(false) removed
-                                  setIsPlanBuilding(false)  // This will hide the Continue button
+                                  // Keep plan visible AND keep button hidden: don't reset isPlanBuilding
+                                  // setIsPlanBuilding remains true to keep button hidden permanently
                                   setConfigurationProgress(null)
                                   break
 
@@ -3469,18 +3467,28 @@ export function NewWorkflowBuilderContent() {
                           setIsReactAgentLoading(false)
                           setReactAgentStatus('')
                           setIsPlacingNodes(false)
-                          setIsPlanBuilding(false)
+                          // Don't reset isPlanBuilding - keep button hidden even on error
                           setConfigurationProgress(null)
                           setShowPlanApproval(true)
                         } finally {
                           setIsReactAgentLoading(false)
                           setReactAgentStatus('')
                           setIsPlacingNodes(false)
-                          setIsPlanBuilding(false)
+                          // Don't reset isPlanBuilding - keep button hidden permanently
                         }
                       }}
                     />
-                  )}
+
+                    {/* Completion message - appears after the plan */}
+                    {workflowCompletionMessage && (
+                      <div className="flex justify-start">
+                        <div className="max-w-[80%] rounded-lg px-4 py-3 bg-accent text-foreground">
+                          <p className="text-sm whitespace-pre-wrap">{workflowCompletionMessage}</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* Status indicators always appear at the bottom after all messages and plan */}
                 {/* Show pulsing placeholders when placing nodes */}
