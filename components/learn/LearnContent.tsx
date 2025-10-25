@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -336,7 +336,7 @@ export default function LearnContent() {
 
   if (loading) {
     return (
-      <AppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
+      <NewAppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
         <div className="space-y-6">
           <div className="animate-pulse">
             <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg mb-6"></div>
@@ -347,12 +347,12 @@ export default function LearnContent() {
             </div>
           </div>
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   return (
-    <AppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
+    <NewAppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
       <div className="space-y-6">
         {/* Quick Start Section - Moved to Top */}
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
@@ -605,6 +605,6 @@ export default function LearnContent() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

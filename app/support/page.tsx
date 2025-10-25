@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertCircle, Plus, MessageSquare, Clock, CheckCircle, XCircle, AlertTriangle, Bug, Zap, Settings, CreditCard, HelpCircle, FileText } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -485,7 +485,7 @@ export default function SupportPage() {
   const closedTickets = tickets.filter(ticket => ticket.status === 'closed' || ticket.status === 'resolved')
 
   return (
-    <AppLayout title="Support Center" subtitle="Get help with ChainReact and track your support tickets">
+    <NewAppLayout title="Support Center" subtitle="Get help with ChainReact and track your support tickets">
       <div className="space-y-6">
         {/* Create Ticket Button */}
         <div className="flex items-center justify-end">
@@ -709,6 +709,6 @@ export default function SupportPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }
