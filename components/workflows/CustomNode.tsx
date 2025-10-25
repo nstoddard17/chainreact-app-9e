@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Settings, Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -173,7 +173,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   useEffect(() => {
     const hasConfig = config && Object.keys(config).length > 0
     const hasTestData = testData && Object.keys(testData).length > 0
-    const isActiveStatus = ['preparing', 'creating', 'configuring', 'testing'].includes(aiStatus || '')
+    const isActiveStatus = ['preparing', 'creating', 'configuring', 'testing', 'testing_successful'].includes(aiStatus || '')
 
     console.log('[CUSTOMNODE] 📊 Effect check:', {
       nodeId: id,
@@ -522,7 +522,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const testDataEntries = useMemo(() => Object.entries(testData || {}), [testData])
   const hasConfigEntries = configEntries.length > 0
   const hasTestEntries = testDataEntries.length > 0
-  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'ready'].includes(aiStatus || '')
+  const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful', 'ready'].includes(aiStatus || '')
   const displayConfigEntries = useMemo(() => {
     if (configEntries.length > 0) return configEntries
     if (progressConfigEntries.length > 0) {
@@ -642,29 +642,27 @@ function CustomNode({ id, data, selected }: NodeProps) {
       )
     }
 
-    const activeStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing'])
+    const activeStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing', 'testing_successful'])
     if (!activeStatuses.has(aiStatus)) {
       return null
     }
 
     let statusText = 'Configuring'
     let badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-    let IconComponent: React.ElementType = Loader2
-    let iconClass = 'w-3 h-3'
-    let animate = true
 
     switch (aiStatus) {
       case 'testing':
       case 'retesting':
         statusText = 'Testing'
         badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200'
-        IconComponent = TestTube
-        animate = false
         break
       case 'fixing':
         statusText = 'Fixing'
         badgeClass = 'bg-orange-100 text-orange-700 border border-orange-200'
-        IconComponent = Settings
+        break
+      case 'testing_successful':
+        statusText = 'Testing is Successful'
+        badgeClass = 'bg-emerald-100 text-emerald-700 border border-emerald-200'
         break
       case 'preparing':
       case 'creating':
@@ -673,14 +671,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
       default:
         statusText = 'Configuring'
         badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
-        IconComponent = Loader2
-        animate = true
         break
     }
 
     return (
       <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-        <IconComponent className={`${animate ? 'animate-spin' : ''} ${iconClass}`} />
         <span>{statusText}</span>
       </div>
     )
@@ -967,7 +962,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
             )}
             {fallbackFields.length > 0 && (
               <div className="px-3 pb-3 text-[11px] text-amber-600">
-                Highlighted fields were auto-filled. Review them to tailor this step to your workflow.
+                Highlighted fields were auto-filled and may require edits to fit your workflow.
               </div>
             )}
           </div>

@@ -3085,30 +3085,32 @@ export function useWorkflowBuilder() {
     const nonUpdateChanges = changes.filter((change: any) => change.type !== 'update')
 
     if (updateChanges.length > 0) {
-      const updateMap = new Map(updateChanges.map((change: any) => [change.id, change]))
-
       setNodes(currentNodes => {
         let mutated = false
+        let updatedNodes = currentNodes
 
-        const nextNodes = currentNodes.map(node => {
-          const change = updateMap.get(node.id)
-          if (!change) return node
+        updateChanges.forEach((change: any) => {
+          updatedNodes = updatedNodes.map(node => {
+            if (node.id !== change.id) return node
 
-          const applyUpdate = change.item
-          let updatedNode = typeof applyUpdate === 'function'
-            ? applyUpdate(node)
-            : (applyUpdate || node)
+            const applyUpdate = change.item
+            let updatedNode = typeof applyUpdate === 'function'
+              ? applyUpdate(node)
+              : (applyUpdate || node)
 
-          // Ensure we always hand ReactFlow a new reference when data changes
-          if (updatedNode === node) {
-            updatedNode = { ...node }
-          }
+            if (updatedNode === node) {
+              updatedNode = { ...node }
+            }
 
-          mutated = mutated || updatedNode !== node
-          return updatedNode
+            if (updatedNode !== node) {
+              mutated = true
+            }
+
+            return updatedNode
+          })
         })
 
-        return mutated ? nextNodes : currentNodes
+        return mutated ? updatedNodes : currentNodes
       })
 
       // Record change for undo/redo history after ReactFlow updates
