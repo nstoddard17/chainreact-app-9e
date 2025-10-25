@@ -1,4 +1,4 @@
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import CustomWebhookManager from "@/components/webhooks/CustomWebhookManager"
 import IntegrationWebhookManager from "@/components/webhooks/IntegrationWebhookManager"
 import WebhookConfigurationPanel from "@/components/webhooks/WebhookConfigurationPanel"
@@ -7,8 +7,8 @@ import { Webhook, Zap, Settings } from "lucide-react"
 
 export default function WebhooksPage() {
   return (
-    <AppLayout 
-      title="Webhooks" 
+    <NewAppLayout
+      title="Webhooks"
       subtitle="Manage custom webhooks and integration webhook URLs"
     >
       <Tabs defaultValue="configuration" className="w-full">
@@ -39,6 +39,6 @@ export default function WebhooksPage() {
           <IntegrationWebhookManager />
         </TabsContent>
       </Tabs>
-    </AppLayout>
+    </NewAppLayout>
   )
 } 

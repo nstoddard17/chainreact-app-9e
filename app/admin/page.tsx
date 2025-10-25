@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { useAdminStore } from "@/stores/adminStore"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
 import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
 import BetaTestersContent from "@/components/admin/BetaTestersContent"
@@ -54,7 +54,7 @@ export default function AdminPage() {
   }
 
   return (
-    <AppLayout title="Admin Panel" subtitle="System administration and user management">
+    <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
       <div className="h-full w-full p-6 space-y-8">
         {/* Admin Header */}
         <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-200/20 rounded-2xl p-6">
@@ -252,6 +252,6 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 } 

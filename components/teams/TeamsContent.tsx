@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { useOrganizationStore } from "@/stores/organizationStore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -63,16 +63,16 @@ export default function TeamsContent() {
 
   if (loading) {
     return (
-      <AppLayout title="Teams">
+      <NewAppLayout title="Teams">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   return (
-    <AppLayout title="Teams" subtitle="Manage your organizations and team collaboration">
+    <NewAppLayout title="Teams" subtitle="Manage your organizations and team collaboration">
       <div className="space-y-6">
         <RoleGuard requiredRole="business">
           <div className="flex justify-end">
@@ -195,6 +195,6 @@ export default function TeamsContent() {
 
         <CreateOrganizationDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }
