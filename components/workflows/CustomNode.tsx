@@ -484,10 +484,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const summaryClasses = summaryVariantStyles[summaryVariant] || summaryVariantStyles.info
   const fallbackFields = Array.isArray(aiFallbackFields) ? aiFallbackFields : []
 
+  const isCommentKey = React.useCallback((rawKey: string | number | symbol): boolean => {
+    if (typeof rawKey !== 'string') return false
+    const trimmed = rawKey.trim().toLowerCase()
+    if (!trimmed) return false
+    return trimmed.startsWith('//') ||
+      trimmed.startsWith('/*') ||
+      trimmed.startsWith('#') ||
+      trimmed.startsWith('comment') ||
+      trimmed.startsWith('note') ||
+      trimmed.startsWith('assuming ')
+  }, [])
+
   const progressConfigEntries = useMemo(() => {
     if (!Array.isArray(aiProgressConfig)) return []
-    return aiProgressConfig
-  }, [aiProgressConfig])
+    return aiProgressConfig.filter(entry => entry && !isCommentKey(entry.key))
+  }, [aiProgressConfig, isCommentKey])
 
   const progressFallbackKeys = useMemo(() => {
     const set = new Set<string>()
@@ -500,7 +512,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   }, [progressConfigEntries])
 
   const configEntries = useMemo(() => {
-    const baseEntries = Object.entries(config || {})
+    const baseEntries = Object.entries(config || {}).filter(([key]) => !isCommentKey(key))
     if (baseEntries.length > 0) {
       return baseEntries
     }
@@ -508,7 +520,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return progressConfigEntries.map(({ key, value }) => [key, value]) as [string, any][]
     }
     return []
-  }, [config, progressConfigEntries])
+  }, [config, progressConfigEntries, isCommentKey])
 
   const configDisplayOverrides = useMemo(() => {
     const map = new Map<string, string>()
