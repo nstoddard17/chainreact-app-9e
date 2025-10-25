@@ -15,7 +15,8 @@
       "Bash(do sed -i 's|import AppLayout from \"\"@/components/layout/AppLayout\"\"|import { NewAppLayout } from \"\"@/components/new-design/layout/NewAppLayout\"\"|g' \"$file\")",
       "Bash(done)",
       "Bash(do sed -i 's|<AppLayout|<NewAppLayout|g; s|</AppLayout>|</NewAppLayout>|g' \"$file\")",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(psql:*)"
     ],
     "deny": [],
     "ask": [],
