@@ -57,11 +57,11 @@ export async function requireTemplateAccess(templateId: string): Promise<Templat
       user,
       template: null,
       errorResponse: NextResponse.json({ error: "Template not found" }, { status: 404 }),
-      isAdmin: profile?.role === "admin",
+      isAdmin: profile?.admin === true,
     }
   }
 
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = profile?.admin === true
   const createdBy =
     template?.created_by ??
     template?.user_id ??

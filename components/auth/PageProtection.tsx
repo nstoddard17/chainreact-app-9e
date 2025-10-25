@@ -17,8 +17,10 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
   const { profile, user, loading, initialized } = useAuthStore()
   const pathname = usePathname()
   const router = useRouter()
-  
-  const userRole = (profile?.role || 'free') as UserRole
+
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role || 'free') as UserRole)
 
   useEffect(() => {
     // Don't redirect if we're in the middle of a sign-out process

@@ -19,7 +19,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { useWorkflowStore, type WorkflowNode, type WorkflowConnection } from "@/stores/workflowStore"
 import { useUXStore } from "@/stores/uxStore"
 import WorkflowToolbar from "./WorkflowToolbar"
@@ -335,7 +335,7 @@ export default function WorkflowBuilder() {
 
   if (!currentWorkflow) {
     return (
-      <AppLayout title="Workflow Builder">
+      <NewAppLayout title="Workflow Builder">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-lg font-medium text-slate-900 mb-2">No workflow selected</div>
@@ -344,12 +344,12 @@ export default function WorkflowBuilder() {
             </div>
           </div>
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
   return (
-    <AppLayout title="Workflow Builder">
+    <NewAppLayout title="Workflow Builder">
       <div className="h-full flex flex-col">
         {/* Enhanced Toolbar */}
         <div className="flex items-center justify-between p-4 bg-card border-b border-border">
@@ -538,6 +538,6 @@ export default function WorkflowBuilder() {
           {/* ConfigurationPanel removed - component doesn't exist */}
         </div>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

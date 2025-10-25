@@ -84,7 +84,7 @@ export default function UserRoleManagement() {
   const [showPassword, setShowPassword] = useState(false)
 
   // Check if current user is admin
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.admin === true
 
   useEffect(() => {
     if (isAdmin) {

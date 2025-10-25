@@ -15,18 +15,20 @@ interface RoleGuardProps {
   showFallback?: boolean
 }
 
-export function RoleGuard({ 
-  children, 
-  requiredRole, 
+export function RoleGuard({
+  children,
+  requiredRole,
   requiredOrganizationRole,
   requiredPermission,
   fallback = null,
-  showFallback = false 
+  showFallback = false
 }: RoleGuardProps) {
   const { profile } = useAuthStore()
   const { currentOrganization } = useOrganizationStore()
-  
-  const userRole = (profile?.role || 'free') as UserRole
+
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role || 'free') as UserRole)
   
   // Check if user has required system role
   if (requiredRole && !hasPermission(userRole, requiredRole)) {

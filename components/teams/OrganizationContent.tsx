@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +38,7 @@ export default function OrganizationContent({ organization }: Props) {
   }
 
   return (
-    <AppLayout title="Organization">
+    <NewAppLayout title="Organization">
       <div className="space-y-6">
         {/* Organization Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
@@ -167,6 +167,6 @@ export default function OrganizationContent({ organization }: Props) {
           )}
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import ProfileSettings from "@/components/settings/ProfileSettings"
 import { useEffect } from "react"
 import { useUserProfileStore, loadUserProfile, UserProfile } from "@/stores/userProfileStore"
@@ -33,14 +33,14 @@ export default function ProfileContent() {
   // Handle loading state
   if (loading && !profile) {
     return (
-      <AppLayout title="Profile">
+      <NewAppLayout title="Profile">
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
             <p className="text-lg text-muted-foreground">Loading profile...</p>
           </div>
         </div>
-      </AppLayout>
+      </NewAppLayout>
     )
   }
 
@@ -59,7 +59,7 @@ export default function ProfileContent() {
   }
 
   return (
-    <AppLayout title="Profile">
+    <NewAppLayout title="Profile">
       <div className="max-w-4xl mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground">Profile</h1>
@@ -68,7 +68,7 @@ export default function ProfileContent() {
 
         <ProfileSettings />
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 }
 

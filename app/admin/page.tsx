@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { useAdminStore } from "@/stores/adminStore"
-import AppLayout from "@/components/layout/AppLayout"
+import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import UserRoleManagement from "@/components/admin/UserRoleManagement"
 import AIUsageAdmin from "@/components/admin/AIUsageAdmin"
 import BetaTestersContent from "@/components/admin/BetaTestersContent"
@@ -22,23 +22,31 @@ export default function AdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
 
-  const userRole = (profile?.role as UserRole) || 'free'
+  const isAdmin = profile?.admin === true
+  // If user is admin, show admin badge; otherwise show their role badge
+  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
+
+  // Debug logging
+  console.log('🔍 Admin Page Debug:', {
+    hasProfile: !!profile,
+    admin: profile?.admin,
+    adminType: typeof profile?.admin,
+    isAdmin,
+    profileData: profile
+  })
 
   useEffect(() => {
-    // Redirect non-admin users
-    if (profile && profile.role !== 'admin') {
-      router.push('/dashboard')
-    }
-  }, [profile, router])
-
-  useEffect(() => {
-    if (profile?.role === 'admin') {
-      fetchUserStats()
+    if (profile?.admin === true) {
+      console.log('✅ Admin verified, fetching user stats...')
+      fetchUserStats().catch(error => {
+        console.error('❌ Failed to fetch user stats:', error)
+      })
     }
   }, [profile, fetchUserStats])
 
-  // Show loading while checking permissions
+  // Show loading while profile loads
   if (!profile) {
+    console.log('⏳ Waiting for profile to load...')
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <LightningLoader size="lg" color="primary" />
@@ -46,13 +54,30 @@ export default function AdminPage() {
     )
   }
 
-  // Redirect non-admin users
-  if (profile.role !== 'admin') {
-    return null
+  // After profile loads, check if admin
+  if (profile.admin !== true) {
+    console.log('🚫 Access denied - not admin', { admin: profile.admin, profile })
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">You do not have admin privileges.</p>
+          <p className="text-sm text-muted-foreground">Admin status: {String(profile.admin)}</p>
+          <button
+            onClick={() => router.push('/workflows')}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          >
+            Go to Workflows
+          </button>
+        </div>
+      </div>
+    )
   }
 
+  console.log('✅ Admin access granted!', { admin: profile.admin })
+
   return (
-    <AppLayout title="Admin Panel" subtitle="System administration and user management">
+    <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
       <div className="h-full w-full p-6 space-y-8">
         {/* Admin Header */}
         <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-200/20 rounded-2xl p-6">
@@ -250,6 +275,6 @@ export default function AdminPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </NewAppLayout>
   )
 } 
