@@ -912,12 +912,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       <div className="space-y-1">
                         <div
                           className={cn(
-                            'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px] flex items-center',
+                            'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px]',
                             isFallback ? 'border-amber-300 bg-amber-50/40 text-amber-800' : 'border-border'
                           )}
                         >
                           {formattedConfigValue ? (
-                            <span className="leading-relaxed break-words w-full">{formattedConfigValue}</span>
+                            <span className="leading-relaxed break-words whitespace-pre-wrap block">{formattedConfigValue}</span>
                           ) : (
                             <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Filling…</span>
                           )}
