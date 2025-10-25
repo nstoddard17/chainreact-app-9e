@@ -29,3 +29,4 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-24T17:43:51.899Z] [WARN   ] 2025-10-24T17:43:51.898Z [WARN] Discord Gateway connection appears unhealthy, forcing reconnection
 [2025-10-24T18:01:22.141Z] [WARN   ] 2025-10-24T18:01:22.140Z [WARN] Discord Gateway connection appears unhealthy, forcing reconnection
 [2025-10-24T18:01:22.152Z] [INFO   ] 2025-10-24T18:01:22.151Z [DEBUG] Discord Gateway closed, persistent reconnect disabled
+[2025-10-24T21:49:35.713Z] [WARN   ]  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...

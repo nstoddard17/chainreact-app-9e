@@ -66,3 +66,4 @@ Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
 [2025-10-23T16:53:23.525Z] [INFO   ]  ✓ Compiled in 105ms (2274 modules)
 [2025-10-23T16:53:30.567Z] [INFO   ]  ✓ Compiled in 116ms (2274 modules)
 [2025-10-23T17:24:32.830Z] [INFO   ]  ✓ Compiled in 213ms (2287 modules)
+[2025-10-24T21:49:35.739Z] [WARN   ]  ⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...

@@ -3077,26 +3077,64 @@ export function useWorkflowBuilder() {
 
   // Additional handlers needed
   const optimizedOnNodesChange = useCallback((changes: any) => {
-    // Handle parent-child movement for add action nodes
-    const positionChanges = changes.filter((change: any) => change.type === 'position')
+    if (!Array.isArray(changes) || changes.length === 0) {
+      return
+    }
+
+    const updateChanges = changes.filter((change: any) => change.type === 'update')
+    const nonUpdateChanges = changes.filter((change: any) => change.type !== 'update')
+
+    if (updateChanges.length > 0) {
+      const updateMap = new Map(updateChanges.map((change: any) => [change.id, change]))
+
+      setNodes(currentNodes => {
+        let mutated = false
+
+        const nextNodes = currentNodes.map(node => {
+          const change = updateMap.get(node.id)
+          if (!change) return node
+
+          const applyUpdate = change.item
+          let updatedNode = typeof applyUpdate === 'function'
+            ? applyUpdate(node)
+            : (applyUpdate || node)
+
+          // Ensure we always hand ReactFlow a new reference when data changes
+          if (updatedNode === node) {
+            updatedNode = { ...node }
+          }
+
+          mutated = mutated || updatedNode !== node
+          return updatedNode
+        })
+
+        return mutated ? nextNodes : currentNodes
+      })
+
+      // Record change for undo/redo history after ReactFlow updates
+      setTimeout(() => {
+        const updatedNodes = getNodes()
+        const updatedEdges = getEdges()
+        trackChangeRef.current?.(updatedNodes, updatedEdges)
+      }, 0)
+    }
+
+    // Handle parent-child movement for add action nodes using remaining changes
+    const positionChanges = nonUpdateChanges.filter((change: any) => change.type === 'position')
 
     if (positionChanges.length > 0) {
-      // Find add action nodes that need to move with their parent
       const additionalChanges: any[] = []
       const currentNodes = getNodes()
 
-      // Check if any node has finished being dragged (dragging === false)
       const hasFinishedDragging = positionChanges.some((change: any) => change.dragging === false)
 
       positionChanges.forEach((change: any) => {
         if (change.dragging !== false && !change.id.startsWith('add-action-')) {
-          // This is a parent node being dragged, find its add action node
           const addActionId = `add-action-${change.id}`
           const addActionNode = currentNodes.find(n => n.id === addActionId)
           const parentNode = currentNodes.find(n => n.id === change.id)
 
           if (addActionNode && change.position) {
-            // Use tighter spacing for AI agent chains (120px) vs regular nodes (160px)
             const isChainNode = Boolean(addActionNode.data?.parentAIAgentId)
             const spacing = isChainNode ? 120 : 160
 
@@ -3105,7 +3143,6 @@ export function useWorkflowBuilder() {
               data: parentNode?.data ?? addActionNode.data
             })
 
-            // Move the add action node with the parent
             additionalChanges.push({
               id: addActionId,
               type: 'position',
@@ -3118,10 +3155,8 @@ export function useWorkflowBuilder() {
         }
       })
 
-      // Apply all changes including parent and child movements
-      onNodesChange([...changes, ...additionalChanges])
+      onNodesChange([...nonUpdateChanges, ...additionalChanges])
 
-      // Track change for undo/redo when dragging ends
       if (hasFinishedDragging) {
         setTimeout(() => {
           const updatedNodes = getNodes()
@@ -3129,11 +3164,10 @@ export function useWorkflowBuilder() {
           trackChangeRef.current?.(updatedNodes, updatedEdges)
         }, 100)
       }
-    } else {
-      // No position changes, apply normally
-      onNodesChange(changes)
+    } else if (nonUpdateChanges.length > 0) {
+      onNodesChange(nonUpdateChanges)
     }
-  }, [onNodesChange, getNodes, getEdges])
+  }, [setNodes, onNodesChange, getNodes, getEdges])
 
   const handleConfigureNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId)

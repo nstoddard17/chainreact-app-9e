@@ -1,0 +1,458 @@
+=== Log Session Started: 2025-10-25T02:09:52.836Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-25T02:09:52.836Z] [INFO   ] File logging initialized
+[2025-10-25T02:09:52.836Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-09-52.log
+[2025-10-25T02:09:52.842Z] [INFO   ] 📁 File logging enabled
+[2025-10-25T02:09:52.842Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-09-52.log
+[2025-10-25T02:09:52.843Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-09-52.log
+[2025-10-25T02:09:52.843Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-09-52.log
+[2025-10-25T02:09:52.843Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-09-52.log
+[2025-10-25T02:09:52.843Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-25T02:09:52.843Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-25T02:09:52.857Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.8s
+[2025-10-25T02:09:52.981Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 119ms (233 modules)
+[2025-10-25T02:09:53.268Z] [INFO   ] 2025-10-25T02:09:53.268Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791505869}
+[2025-10-25T02:09:53.803Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/ai-agent ...
+[2025-10-25T02:09:53.914Z] [INFO   ] 2025-10-25T02:09:53.914Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-25T02:09:55.788Z] [INFO   ] 2025-10-25T02:09:55.787Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-25T02:09:55.788Z] [INFO   ] 2025-10-25T02:09:55.788Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-25T02:09:55.945Z] [INFO   ] 2025-10-25T02:09:55.944Z [DEBUG] Discord Gateway initialization complete
+[2025-10-25T02:09:55.947Z] [INFO   ] 2025-10-25T02:09:55.947Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-25T02:09:56.105Z] [INFO   ] 2025-10-25T02:09:56.104Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-25T02:09:56.105Z] [INFO   ] 2025-10-25T02:09:56.105Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-25T02:09:56.509Z] [INFO   ] 2025-10-25T02:09:56.509Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"5472b88a8dba525eeae4dc118f1d506a","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-25T02:09:56.509Z] [INFO   ] 2025-10-25T02:09:56.509Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-25T02:09:56.510Z] [INFO   ] 2025-10-25T02:09:56.510Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T02:09:56.510Z] [INFO   ] 2025-10-25T02:09:56.510Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T02:09:57.303Z] [INFO   ] 2025-10-25T02:09:57.302Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-25T02:09:58.439Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 5.2s (3725 modules)
+[2025-10-25T02:09:58.851Z] [INFO   ] 2025-10-25T02:09:58.851Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:09:58.851Z"}
+[2025-10-25T02:09:58.854Z] [INFO   ] 2025-10-25T02:09:58.854Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:09:58.854Z"}
+[2025-10-25T02:09:58.854Z] [INFO   ] 2025-10-25T02:09:58.854Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T02:09:58.854Z"}
+[2025-10-25T02:09:59.180Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 698ms (597 modules)
+[2025-10-25T02:09:59.330Z] [INFO   ] 2025-10-25T02:09:59.330Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:10:00.222Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-25T02:10:01.793Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 2.3s (3732 modules)
+[2025-10-25T02:10:05.713Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-25T02:10:05.737Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 564ms (3734 modules)
+[2025-10-25T02:10:05.826Z] [INFO   ] 2025-10-25T02:10:05.826Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T02:10:05.826Z","headers":{"referer":"check-console"}}
+[2025-10-25T02:10:05.906Z] [INFO   ] 2025-10-25T02:10:05.905Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T02:10:05.986Z] [INFO   ] 2025-10-25T02:10:05.986Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T02:10:11.827Z] [INFO   ] 2025-10-25T02:10:11.826Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791524427}
+[2025-10-25T02:10:12.400Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-25T02:10:14.322Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/builder/[id] in 2.4s (5929 modules)
+[2025-10-25T02:10:15.358Z] [INFO   ] 2025-10-25T02:10:15.358Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:10:16.432Z] [INFO   ] 2025-10-25T02:10:16.432Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791529033}
+[2025-10-25T02:10:16.620Z] [INFO   ] 2025-10-25T02:10:16.620Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:10:16.620Z"}
+[2025-10-25T02:10:16.634Z] [INFO   ] 2025-10-25T02:10:16.634Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:10:16.634Z"}
+[2025-10-25T02:10:16.634Z] [INFO   ] 2025-10-25T02:10:16.634Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T02:10:16.634Z"}
+[2025-10-25T02:10:16.862Z] [INFO   ] 2025-10-25T02:10:16.862Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:10:17.305Z] [INFO   ] 2025-10-25T02:10:17.305Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-25T02:10:17.931Z] [INFO   ] 2025-10-25T02:10:17.931Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T02:10:17.931Z","headers":{"referer":"check-console"}}
+[2025-10-25T02:10:18.026Z] [INFO   ] 2025-10-25T02:10:18.026Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T02:10:18.162Z] [INFO   ] 2025-10-25T02:10:18.162Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T02:10:18.521Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/join ...
+[2025-10-25T02:10:18.549Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 540ms (5932 modules)
+[2025-10-25T02:10:19.497Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/stream-workflow ...
+[2025-10-25T02:10:19.509Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 579ms (2467 modules)
+[2025-10-25T02:10:21.486Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-25T02:10:21.487Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:10:21.487Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:10:21.487Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-25T02:10:21.487Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-25T02:10:27.739Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send an email they receive to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, as it captures the event of receiving a new email.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This action sends the content of the received email to Slack, fulfilling the user\'s request.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger for new emails, which then connects to the Slack action to send the email content to a specified Slack channel.'
+}
+[2025-10-25T02:10:27.740Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, as it captures the event of receiving a new email.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This action sends the content of the received email to Slack, fulfilling the user\'s request.'
+}
+]
+[2025-10-25T02:10:27.740Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-25T02:10:27.846Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-25T02:10:28.438Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/leave in 443ms (5934 modules)
+[2025-10-25T02:10:28.537Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-25T02:10:28.752Z] [INFO   ] 2025-10-25T02:10:28.752Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791541353}
+[2025-10-25T02:10:29.045Z] [INFO   ] 2025-10-25T02:10:29.045Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:10:29.045Z"}
+[2025-10-25T02:10:29.046Z] [INFO   ] 2025-10-25T02:10:29.046Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:10:29.046Z"}
+[2025-10-25T02:10:29.046Z] [INFO   ] 2025-10-25T02:10:29.046Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T02:10:29.046Z"}
+[2025-10-25T02:10:29.171Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:10:29.171Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:10:29.172Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:10:29.308Z] [INFO   ] 2025-10-25T02:10:29.308Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:10:29.762Z] [INFO   ] 2025-10-25T02:10:29.761Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-25T02:10:30.072Z] [INFO   ] 2025-10-25T02:10:30.072Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T02:10:30.072Z","headers":{"referer":"check-console"}}
+[2025-10-25T02:10:30.166Z] [INFO   ] 2025-10-25T02:10:30.166Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T02:10:30.273Z] [INFO   ] 2025-10-25T02:10:30.272Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T02:10:33.083Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-25T02:10:33.084Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:10:33.084Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:10:33.084Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-25T02:10:33.084Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-25T02:10:44.083Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send an email they receive to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, capturing incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This node is necessary to relay the content of the received email to Slack.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger for new emails, which then connects to the Slack action to send the email content to a designated Slack channel.'
+}
+[2025-10-25T02:10:44.083Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, capturing incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This node is necessary to relay the content of the received email to Slack.'
+}
+]
+[2025-10-25T02:10:44.084Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-25T02:10:44.333Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-25T02:10:45.288Z] [INFO   ] [STREAM] Preparing Trigger on New Email (node-1761358244083-0)
+[2025-10-25T02:10:46.091Z] [INFO   ] [STREAM] Starting configuration for Trigger on New Email (node-1761358244083-0)
+[2025-10-25T02:14:02.043Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1734ms (5920 modules)
+[2025-10-25T02:14:02.120Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-25T02:14:02.608Z] [INFO   ] 2025-10-25T02:14:02.607Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791755208}
+[2025-10-25T02:14:03.023Z] [INFO   ] 2025-10-25T02:14:03.023Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:14:03.023Z"}
+[2025-10-25T02:14:03.036Z] [INFO   ] 2025-10-25T02:14:03.036Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:14:03.036Z"}
+[2025-10-25T02:14:03.036Z] [INFO   ] 2025-10-25T02:14:03.036Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T02:14:03.036Z"}
+[2025-10-25T02:14:03.115Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:14:03.115Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:14:03.116Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:14:03.337Z] [INFO   ] 2025-10-25T02:14:03.335Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:14:03.711Z] [INFO   ] 2025-10-25T02:14:03.711Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-25T02:14:04.173Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 405ms (4270 modules)
+[2025-10-25T02:14:04.580Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4272 modules)
+[2025-10-25T02:14:05.346Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 376ms (4274 modules)
+[2025-10-25T02:14:05.964Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4277 modules)
+[2025-10-25T02:14:06.037Z] [INFO   ] 2025-10-25T02:14:06.037Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T02:14:06.037Z","headers":{"referer":"check-console"}}
+[2025-10-25T02:14:06.122Z] [INFO   ] 2025-10-25T02:14:06.122Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T02:14:06.221Z] [INFO   ] 2025-10-25T02:14:06.221Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T02:14:09.220Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-25T02:14:09.222Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:14:09.222Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'google-drive',
+  'facebook',
+  'google-docs',
+  'trello',
+  'slack',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:14:09.222Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-25T02:14:09.223Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-25T02:14:36.489Z] [ERROR  ] 2025-10-25T02:14:36.489Z [ERROR] AI call failed: {}
+[2025-10-25T02:14:36.490Z] [INFO   ] [STREAM] Config result: {
+  success: false,
+  hasConfig: false,
+  configKeys: [],
+  finalConfigKeys: [ 'from' ],
+  fallbackFields: [ 'from' ]
+}
+[2025-10-25T02:14:36.490Z] [INFO   ] [STREAM] Configuring 1 fields for Trigger on New Email: from
+[2025-10-25T02:14:36.490Z] [INFO   ] [STREAM] Setting field from = inbox@placeholder.com for Trigger on New Email
+[2025-10-25T02:14:36.491Z] [ERROR  ] 2025-10-25T02:14:36.491Z [ERROR] Stream workflow error: {"message":"Invalid state: Controller is already closed","stack":"TypeError: Invalid state: Controller is already closed\n    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1077:13)\n    at sendEvent (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:58:32)\n    at Object.start (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:438:29)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)","name":"TypeError","fullError":"{\n  \"code\": \"ERR_INVALID_STATE\"\n}"}
+[2025-10-25T02:14:37.153Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/collaboration/collaborators ...
+[2025-10-25T02:14:37.179Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 600ms (5934 modules)
+[2025-10-25T02:14:41.817Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3242:1]
+ [2m3239[0m │                   )}
+ [2m3240[0m │                 </div>
+ [2m3241[0m │               </ScrollArea>
+ [2m3242[0m │             )}
+      · [35;1m             ▲[0m
+ [2m3243[0m │ 
+ [2m3244[0m │             {/* Chat input - Fixed at bottom */}
+ [2m3245[0m │             <div className="mt-auto mb-4 relative">
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:14:50.189Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3242:1]
+ [2m3239[0m │                   )}
+ [2m3240[0m │                 </div>
+ [2m3241[0m │               </ScrollArea>
+ [2m3242[0m │             )}
+      · [35;1m             ▲[0m
+ [2m3243[0m │ 
+ [2m3244[0m │             {/* Chat input - Fixed at bottom */}
+ [2m3245[0m │             <div className="mt-auto mb-4 relative">
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:15:07.532Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-25T02:15:08.201Z] [INFO   ] 2025-10-25T02:15:08.201Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791820802}
+[2025-10-25T02:15:08.431Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3242:1]
+ [2m3239[0m │                   )}
+ [2m3240[0m │                 </div>
+ [2m3241[0m │               </ScrollArea>
+ [2m3242[0m │             )}
+      · [35;1m             ▲[0m
+ [2m3243[0m │ 
+ [2m3244[0m │             {/* Chat input - Fixed at bottom */}
+ [2m3245[0m │             <div className="mt-auto mb-4 relative">
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:15:08.776Z] [INFO   ] 2025-10-25T02:15:08.776Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791821377}
+[2025-10-25T02:15:09.025Z] [INFO   ] 2025-10-25T02:15:09.025Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/498cb917-d8fd-4d29-acf0-29bb3e8f0530","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12791821626}
+[2025-10-25T02:15:10.089Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3250:1]
+ [2m3247[0m │                   )}
+ [2m3248[0m │                 </div>
+ [2m3249[0m │               </ScrollArea>
+ [2m3250[0m │             )}
+      · [35;1m             ▲[0m
+ [2m3251[0m │ 
+ [2m3252[0m │             {/* Chat input - Fixed at bottom */}
+ [2m3253[0m │             <div className="mt-auto mb-4 relative">
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:16:09.444Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3251:1]
+ [2m3248[0m │                   )}
+ [2m3249[0m │                 </div>
+ [2m3250[0m │               </ScrollArea>
+ [2m3251[0m │             )}
+      · [35;1m             ▲[0m
+ [2m3252[0m │ 
+ [2m3253[0m │             {/* Chat input - Fixed at bottom */}
+ [2m3254[0m │             <div className="mt-auto mb-4 relative">
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+
+=== Log Session Ended: 2025-10-25T02:19:32.331Z ===

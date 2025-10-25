@@ -1,7 +1,7 @@
 "use client"
 
 import React, { memo, useState, useRef, useEffect, useMemo } from "react"
-import { Handle, Position, type NodeProps } from "@xyflow/react"
+import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { Settings, Trash2, TestTube, Plus, Edit2, Layers, Unplug, Sparkles, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
@@ -70,10 +70,20 @@ interface CustomNodeData {
 }
 
 function CustomNode({ id, data, selected }: NodeProps) {
+  const updateNodeInternalsHook = useUpdateNodeInternals?.()
+  const reactFlowInstance = useReactFlow()
+  const updateNodeInternals = typeof updateNodeInternalsHook === 'function'
+    ? updateNodeInternalsHook
+    : typeof reactFlowInstance?.updateNodeInternals === 'function'
+      ? reactFlowInstance.updateNodeInternals
+      : null
   const nodeData = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
-  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(() => Boolean(nodeData.autoExpand)) // Track if config section is expanded
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(() => {
+    // Auto-expand when configuring or if autoExpand is set
+    return Boolean(nodeData.autoExpand) || nodeData.aiStatus === 'configuring'
+  }) // Track if config section is expanded
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -145,6 +155,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
     return !isConnected
   })()
 
+  // Auto-expand when status changes to configuring
+  useEffect(() => {
+    if (aiStatus === 'configuring' && !isConfigExpanded) {
+      setIsConfigExpanded(true)
+    }
+  }, [aiStatus])
+
   // Handle title editing
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -158,10 +175,25 @@ function CustomNode({ id, data, selected }: NodeProps) {
     const hasTestData = testData && Object.keys(testData).length > 0
     const isActiveStatus = ['preparing', 'creating', 'configuring', 'testing'].includes(aiStatus || '')
 
+    console.log('[CUSTOMNODE] 📊 Effect check:', {
+      nodeId: id,
+      title: title,
+      hasConfig,
+      hasTestData,
+      isActiveStatus,
+      autoExpand,
+      aiStatus,
+      isConfigExpanded,
+      configKeys: config ? Object.keys(config) : [],
+      configValues: config,
+      aiProgressConfig
+    })
+
     if (!isConfigExpanded && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
+      console.log('[CUSTOMNODE] 📈 Expanding node:', id)
       setIsConfigExpanded(true)
     }
-  }, [autoExpand, config, testData, aiStatus, isConfigExpanded])
+  }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title])
   
   const handleStartEditTitle = () => {
     setEditedTitle(title || component?.title || 'Unnamed Action')
@@ -203,33 +235,28 @@ function CustomNode({ id, data, selected }: NodeProps) {
   
   // Get execution status styling with enhanced visual feedback
   const getExecutionStatusStyle = () => {
+    // AI statuses now drive styling via aiOutline
+    if (aiStatus) {
+      return ""
+    }
+
     if (!executionStatus && !isListening) return ""
-    
-    let cssClass = ""
-    
+
     switch (executionStatus) {
       case 'running':
-        cssClass = "border-2 border-yellow-500 shadow-lg shadow-yellow-200"
-        break
+        return "border-2 border-yellow-500 shadow-lg shadow-yellow-200"
       case 'success':
       case 'completed':
-        cssClass = "border-2 border-green-500 shadow-lg shadow-green-200"
-        break
+        return "border-2 border-green-500 shadow-lg shadow-green-200"
       case 'error':
-        cssClass = "border-2 border-red-500 shadow-lg shadow-red-200"
-        break
+        return "border-2 border-red-500 shadow-lg shadow-red-200"
       case 'pending':
-        cssClass = "border-2 border-blue-500 shadow-lg shadow-blue-200"
-        break
+        return "border-2 border-blue-500 shadow-lg shadow-blue-200"
       case 'waiting':
-        cssClass = "border-2 border-purple-500 shadow-lg shadow-purple-200"
-        break
+        return "border-2 border-purple-500 shadow-lg shadow-purple-200"
       default:
-        cssClass = isListening && isTrigger ? "border-2 border-indigo-500 border-dashed shadow-lg shadow-indigo-200" : ""
-        break
+        return isListening && isTrigger ? "border-2 border-indigo-500 border-dashed shadow-lg shadow-indigo-200" : ""
     }
-    
-    return cssClass
   }
   
   // Get execution status indicator for corner
@@ -496,36 +523,46 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const hasConfigEntries = configEntries.length > 0
   const hasTestEntries = testDataEntries.length > 0
   const showConfigSection = hasConfigEntries || ['preparing', 'creating', 'configuring', 'configured', 'testing', 'ready'].includes(aiStatus || '')
-  const showConfigSkeleton = !hasConfigEntries && ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
+  const displayConfigEntries = useMemo(() => {
+    if (configEntries.length > 0) return configEntries
+    if (progressConfigEntries.length > 0) {
+      return progressConfigEntries.map(field => [field.key, field.value] as [string, any])
+    }
+    return [] as [string, any][]
+  }, [configEntries, progressConfigEntries])
+  const compactConfigEntries = useMemo(() => (
+    isConfigExpanded ? displayConfigEntries : displayConfigEntries.slice(0, 4)
+  ), [displayConfigEntries, isConfigExpanded])
+  const extraConfigCount = Math.max(displayConfigEntries.length - compactConfigEntries.length, 0)
+  const showConfigSkeleton = displayConfigEntries.length === 0 && ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
   const showTestingSection = hasTestEntries || aiStatus === 'testing'
   const showTestingSkeleton = !hasTestEntries && aiStatus === 'testing'
 
-  const visibleConfigEntries = useMemo(() => {
-    return isConfigExpanded ? configEntries : configEntries.slice(0, 3)
-  }, [configEntries, isConfigExpanded])
-
-  const hiddenConfigCount = Math.max(configEntries.length - visibleConfigEntries.length, 0)
 
   const aiOutline = useMemo(() => {
     if (selected) {
-      return { borderClass: 'border-primary', shadowClass: '' }
+      return { borderClass: 'border-primary', shadowClass: '', backgroundClass: 'bg-white', ringClass: 'ring-4 ring-primary/20 ring-offset-2' }
     }
 
     if (isIntegrationDisconnected) {
       return {
         borderClass: 'border-red-500',
-        shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.4)]'
+        shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.4)]',
+        backgroundClass: 'bg-white',
+        ringClass: 'ring-4 ring-red-200 ring-offset-2'
       }
     }
 
     if (error) {
-      return { borderClass: 'border-destructive', shadowClass: '' }
+      return { borderClass: 'border-destructive', shadowClass: '', backgroundClass: 'bg-card', ringClass: '' }
     }
 
     if (hasValidationIssues) {
       return {
         borderClass: 'border-red-400',
-        shadowClass: 'shadow-[0_0_0_2px_rgba(248,113,113,0.35)]'
+        shadowClass: 'shadow-[0_0_0_2px_rgba(248,113,113,0.35)]',
+        backgroundClass: 'bg-card',
+        ringClass: ''
       }
     }
 
@@ -533,78 +570,135 @@ function CustomNode({ id, data, selected }: NodeProps) {
       case 'preparing':
       case 'creating':
       case 'configuring':
+      case 'configured':
         return {
           borderClass: 'border-sky-500',
-          shadowClass: 'shadow-[0_0_0_3px_rgba(56,189,248,0.25)]'
+          shadowClass: 'shadow-[0_0_0_3px_rgba(56,189,248,0.25)]',
+          backgroundClass: 'bg-white',
+          ringClass: 'ring-4 ring-sky-100 ring-offset-2'
         }
       case 'testing':
+      case 'retesting':
         return {
           borderClass: 'border-amber-500',
-          shadowClass: 'shadow-[0_0_0_3px_rgba(251,191,36,0.28)]'
+          shadowClass: 'shadow-[0_0_0_3px_rgba(251,191,36,0.28)]',
+          backgroundClass: 'bg-white',
+          ringClass: 'ring-4 ring-amber-100 ring-offset-2'
         }
       case 'ready':
         return {
           borderClass: 'border-emerald-500',
-          shadowClass: 'shadow-[0_0_0_3px_rgba(16,185,129,0.28)]'
+          shadowClass: 'shadow-[0_0_0_3px_rgba(16,185,129,0.28)]',
+          backgroundClass: 'bg-white',
+          ringClass: 'ring-4 ring-emerald-100 ring-offset-2'
         }
       case 'error':
         return {
           borderClass: 'border-red-500',
-          shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.28)]'
+          shadowClass: 'shadow-[0_0_0_3px_rgba(239,68,68,0.28)]',
+          backgroundClass: 'bg-white',
+          ringClass: 'ring-4 ring-red-100 ring-offset-2'
         }
       default:
         return {
           borderClass: 'border-border',
-          shadowClass: ''
+          shadowClass: '',
+          backgroundClass: 'bg-card',
+          ringClass: ''
         }
     }
   }, [aiStatus, selected, isIntegrationDisconnected, error, hasValidationIssues])
 
-  const { borderClass, shadowClass } = aiOutline
+  const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
-  const renderStatusIndicator = () => {
-    // Don't show for error states or when there's no status
-    if (!aiStatus || aiStatus === 'error') return null
+  const idleStatus = React.useMemo(() => {
+    if (aiStatus === 'ready' || aiStatus === 'complete') {
+      return { text: 'Successful', tone: 'success' as const }
+    }
+    if (!aiStatus) {
+      if (executionStatus === 'pending') {
+        return { text: 'Pending', tone: 'pending' as const }
+      }
+      if (executionStatus === 'completed') {
+        return { text: 'Successful', tone: 'success' as const }
+      }
+      return null
+    }
+    if (aiStatus === 'pending') {
+      return { text: 'Pending', tone: 'pending' as const }
+    }
+    return null
+  }, [aiStatus, executionStatus])
 
-    let statusText = ''
-    let showLoader = true
-    let statusColor = 'text-muted-foreground'
-    let Icon = Loader2
+  const statusIndicator = React.useMemo(() => {
+    if (!aiStatus) return null
 
-    switch(aiStatus) {
+    if (aiStatus === 'error') {
+      return (
+        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 border border-red-200">
+          <AlertTriangle className="w-3 h-3" />
+          <span>Needs Attention</span>
+        </div>
+      )
+    }
+
+    const activeStatuses = new Set(['preparing', 'creating', 'configuring', 'configured', 'testing', 'retesting', 'fixing'])
+    if (!activeStatuses.has(aiStatus)) {
+      return null
+    }
+
+    let statusText = 'Configuring'
+    let badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
+    let IconComponent: React.ElementType = Loader2
+    let iconClass = 'w-3 h-3'
+    let animate = true
+
+    switch (aiStatus) {
+      case 'testing':
+      case 'retesting':
+        statusText = 'Testing'
+        badgeClass = 'bg-amber-100 text-amber-700 border border-amber-200'
+        IconComponent = TestTube
+        animate = false
+        break
+      case 'fixing':
+        statusText = 'Fixing'
+        badgeClass = 'bg-orange-100 text-orange-700 border border-orange-200'
+        IconComponent = Settings
+        break
       case 'preparing':
       case 'creating':
       case 'configuring':
       case 'configured':
-        statusText = 'Configuring'
-        statusColor = 'text-sky-600'
-        break
-      case 'testing':
-      case 'retesting':
-        statusText = 'Testing'
-        statusColor = 'text-amber-600'
-        break
-      case 'fixing':
-        statusText = 'Fixing'
-        statusColor = 'text-orange-600'
-        break
-      case 'ready':
-        statusText = 'Done'
-        showLoader = false
-        statusColor = 'text-emerald-600'
-        Icon = CheckCircle2
-        break
       default:
-        statusText = 'Processing'
+        statusText = 'Configuring'
+        badgeClass = 'bg-sky-100 text-sky-700 border border-sky-200'
+        IconComponent = Loader2
+        animate = true
+        break
     }
 
     return (
-      <div className={`flex items-center gap-1.5 text-xs font-normal ${statusColor}`}>
-        <Icon className={showLoader ? "w-3 h-3 animate-spin" : "w-3 h-3"} />
+      <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
+        <IconComponent className={`${animate ? 'animate-spin' : ''} ${iconClass}`} />
         <span>{statusText}</span>
       </div>
     )
-  }
+  }, [aiStatus])
+
+  useEffect(() => {
+    if (typeof updateNodeInternals === 'function') {
+      updateNodeInternals(id)
+    }
+  }, [
+    id,
+    updateNodeInternals,
+    isConfigExpanded,
+    configEntries.length,
+    testDataEntries.length,
+    aiStatus,
+    autoExpand
+  ])
 
   return (
     <NodeContextMenu
@@ -616,7 +710,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       onDelete={onDelete}
     >
       <div
-        className={`relative w-[450px] bg-card rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} hover:shadow-md transition-all duration-200 ${
+        className={`relative w-[450px] ${backgroundClass} rounded-lg shadow-sm border-2 group ${borderClass} ${shadowClass} ${ringClass} transition-all duration-200 ${
           nodeHasConfiguration() ? "cursor-pointer" : ""
         } ${getExecutionStatusStyle()}`}
         data-testid={`node-${id}`}
@@ -715,8 +809,20 @@ function CustomNode({ id, data, selected }: NodeProps) {
                       {title || (component && component.title) || 'Unnamed Action'}
                     </h3>
                     {/* Show either the status indicator OR the badge, not both */}
-                    {renderStatusIndicator()}
-                    {!isAIActive && badgeLabel && !error && !hasValidationIssues && (
+                    {statusIndicator}
+                    {!statusIndicator && idleStatus && (
+                      idleStatus.tone === 'success' ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {idleStatus.text}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {idleStatus.text}
+                        </span>
+                      )
+                    )}
+                    {!statusIndicator && !idleStatus && !isAIActive && badgeLabel && !error && !hasValidationIssues && (
                       <span className={`inline-flex items-center rounded-full text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 flex-shrink-0 ${badgeClasses}`}>
                         {badgeLabel}
                       </span>
@@ -766,182 +872,141 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       </div>
 
-      {(showConfigSection || showTestingSection || aiTestSummary) && (
-        <div className="border-t border-border bg-muted/20">
-          {/* Expand/Collapse Header */}
-          <div
-            className="px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors noDrag noPan"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsConfigExpanded(!isConfigExpanded)
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="text-xs font-medium text-muted-foreground">
-              {isConfigExpanded ? 'Configuration & Test Data' : 'Quick Preview'}
+      <div className="px-3 pb-3 space-y-3">
+        {(showConfigSection || showConfigSkeleton) && (
+          <div className="rounded-xl border border-border/60 bg-background/70 shadow-sm">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border/50">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Auto-configured fields</p>
+                <p className="text-[11px] text-muted-foreground/80">Populated live while the agent configures this node.</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsConfigExpanded(prev => !prev)
+                }}
+              >
+                {isConfigExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </div>
-            {isConfigExpanded ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+
+            {showConfigSkeleton && displayConfigEntries.length === 0 ? (
+              <div className="px-3 py-4 space-y-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={`config-skeleton-${index}`} className="space-y-2">
+                    <div className="h-3 w-24 bg-muted rounded animate-pulse" style={{ animationDelay: `${index * 60}ms` }} />
+                    <div className="h-8 w-full bg-muted/60 rounded-md animate-pulse" style={{ animationDelay: `${index * 60 + 40}ms` }} />
+                  </div>
+                ))}
+              </div>
             ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              <div className="divide-y divide-border/60">
+                {compactConfigEntries.map(([key, value], index) => {
+                  const liveValue = (testData || {})[key]
+                  const hasLiveValue = hasRenderableValue(liveValue)
+                  const configuredDisplay = configDisplayOverrides.get(key)
+                  const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value)
+                  const hasConfiguredValue = configuredDisplay !== undefined
+                    ? configuredDisplay.trim().length > 0
+                    : hasRenderableValue(value)
+                  const isFallback = fallbackFields.includes(key) || progressFallbackKeys.has(key)
+                  const isConfiguringPhase = ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
+                  const animationDelay = isAIActive && isConfiguringPhase ? `${index * 45}ms` : '0ms'
+
+                  return (
+                    <div
+                      key={key}
+                      className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs transition-all duration-300"
+                      style={{
+                        animation: isAIActive && isConfiguringPhase ? 'fadeInUp 0.3s ease-out forwards' : undefined,
+                        animationDelay
+                      }}
+                    >
+                      <div className={`font-semibold uppercase tracking-wide ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                        {getFieldLabel(key)}
+                      </div>
+                      <div className="space-y-1">
+                        <div
+                          className={cn(
+                            'rounded-md border px-3 py-1.5 bg-white/80 shadow-sm text-foreground min-h-[32px] flex items-center',
+                            isFallback ? 'border-amber-300 bg-amber-50/40 text-amber-800' : 'border-border'
+                          )}
+                        >
+                          {formattedConfigValue ? (
+                            <span className="leading-relaxed break-words w-full">{formattedConfigValue}</span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Filling…</span>
+                          )}
+                        </div>
+                        {hasLiveValue && (
+                          <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span className="break-words">{formatDisplayValue(liveValue)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {extraConfigCount > 0 && (
+              <div className="px-3 py-2 text-[11px] text-muted-foreground/80">
+                Showing {compactConfigEntries.length} of {displayConfigEntries.length} fields · <button className="underline" onClick={(e) => { e.stopPropagation(); setIsConfigExpanded(true) }} type="button">Show all</button>
+              </div>
+            )}
+            {fallbackFields.length > 0 && (
+              <div className="px-3 pb-3 text-[11px] text-amber-600">
+                Highlighted fields were auto-filled. Review them to tailor this step to your workflow.
+              </div>
             )}
           </div>
+        )}
 
-          {showConfigSection && (
-            <div className="border-t border-border/30">
-              <div className="px-3 py-2 space-y-1.5">
-                {showConfigSkeleton ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, index) => (
-                      <div key={`config-skeleton-${index}`} className="space-y-1">
-                        <div
-                          className="h-3 w-24 bg-muted rounded animate-pulse"
-                          style={{ animationDelay: `${index * 80}ms` }}
-                        />
-                        <div
-                          className="h-4 w-full bg-muted/70 rounded animate-pulse"
-                          style={{ animationDelay: `${index * 80 + 80}ms` }}
-                        />
-                      </div>
-                    ))}
+        {showTestingSection && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 shadow-inner">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-emerald-200/80">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Live sample data</p>
+                <p className="text-[11px] text-emerald-700/80">Captured during the latest test run.</p>
+              </div>
+              <TestTube className="h-4 w-4 text-emerald-600" />
+            </div>
+            {showTestingSkeleton ? (
+              <div className="px-3 py-4 space-y-2">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div key={`test-skeleton-${index}`} className="h-8 w-full bg-emerald-100/70 rounded-md animate-pulse" style={{ animationDelay: `${index * 70}ms` }} />
+                ))}
+              </div>
+            ) : (
+              <div className="divide-y divide-emerald-200/70">
+                {testDataEntries.map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs">
+                    <div className="font-semibold uppercase tracking-wide text-emerald-700">{getFieldLabel(key)}</div>
+                    <div className="flex items-start gap-1 text-emerald-800">
+                      <CheckCircle2 className="h-3 w-3 mt-0.5" />
+                      <span className="break-words leading-relaxed">{formatDisplayValue(value)}</span>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    {visibleConfigEntries.map(([key, value], index) => {
-                      const liveValue = (testData || {})[key]
-                      const hasLiveValue = hasRenderableValue(liveValue)
-                      const configuredDisplay = configDisplayOverrides.get(key)
-                      const formattedConfigValue = configuredDisplay ?? formatDisplayValue(value)
-                      const hasConfiguredValue = configuredDisplay !== undefined
-                        ? configuredDisplay.trim().length > 0
-                        : hasRenderableValue(value)
-                      const isFallback = fallbackFields.includes(key) || progressFallbackKeys.has(key)
-                      const isConfiguringPhase = ['preparing', 'configuring'].includes(aiStatus || '')
-                      const animationDelay = isAIActive && isConfiguringPhase ? `${index * 50}ms` : '0ms'
-
-                      return (
-                        <div
-                          key={key}
-                          className={`flex items-start gap-3 text-xs transition-all duration-300 ${isFallback ? 'text-amber-600' : ''}`}
-                          style={{
-                            animation: isAIActive && isConfiguringPhase ? 'fadeInUp 0.35s ease-out forwards' : undefined,
-                            animationDelay
-                          }}
-                        >
-                          <span className={`mt-1 min-w-[90px] font-medium ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                            {getFieldLabel(key)}
-                          </span>
-                          <div className="flex-1 space-y-1.5">
-                            <div
-                              className={cn(
-                                "flex items-center justify-between rounded border px-2.5 py-1.5 text-xs transition-colors",
-                                hasLiveValue && hasConfiguredValue ? "text-muted-foreground/70 line-through" : "text-foreground",
-                                isFallback ? "border-amber-400 bg-amber-50/20" : "border-border bg-background/60"
-                              )}
-                            >
-                              <span className="truncate">{formattedConfigValue || 'Loading…'}</span>
-                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                            </div>
-                            {hasLiveValue && (
-                              <div
-                                className="flex items-center gap-1 text-[11px] font-medium text-emerald-600"
-                                style={{
-                                  animation: (aiStatus === 'testing' || aiStatus === 'ready') ? 'fadeInUp 0.3s ease-out forwards' : undefined,
-                                  animationDelay: `${index * 50}ms`
-                                }}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                <span className="break-all">
-                                  {formatDisplayValue(liveValue)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {!isConfigExpanded && hiddenConfigCount > 0 && (
-                      <div className="text-xs text-muted-foreground italic">
-                        +{hiddenConfigCount} more fields
-                      </div>
-                    )}
-                    {fallbackFields.length > 0 && (
-                      <div className={`text-[11px] text-amber-600 ${isConfigExpanded ? 'mt-2' : 'mt-1'}`}>
-                        Highlighted fields were auto-filled. Update them to dial in your workflow.
-                      </div>
-                    )}
-                  </>
+                ))}
+                {testDataEntries.length === 0 && (
+                  <div className="px-3 py-4 text-xs text-emerald-700/70">No sample data returned yet.</div>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
-          {showTestingSection && (
-            <div className="border-t border-border/30">
-              <div className="px-3 py-2 bg-muted/20">
-                <div className="text-xs font-medium text-foreground">Test Results</div>
-              </div>
-
-              <div className="px-3 py-2 space-y-1.5">
-                {showTestingSkeleton ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 2 }).map((_, index) => (
-                      <div key={`test-skeleton-${index}`} className="space-y-1">
-                        <div
-                          className="h-3 w-28 bg-muted rounded animate-pulse"
-                          style={{ animationDelay: `${index * 90}ms` }}
-                        />
-                        <div
-                          className="h-4 w-full bg-muted/70 rounded animate-pulse"
-                          style={{ animationDelay: `${index * 90 + 80}ms` }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    {(isConfigExpanded
-                      ? testDataEntries
-                      : testDataEntries.filter(([_, value]) => hasRenderableValue(value)).slice(0, 3)
-                    ).map(([key, value], index) => {
-                      const animationDelay = isAIActive && aiStatus === 'testing' ? `${index * 50}ms` : '0ms'
-
-                      return (
-                        <div
-                          key={key}
-                          className="flex items-start gap-2 text-xs transition-all duration-300"
-                          style={{
-                            animation: isAIActive && aiStatus === 'testing' ? 'fadeInUp 0.3s ease-out forwards' : 'none',
-                            animationDelay,
-                            opacity: isAIActive && aiStatus === 'testing' ? 0 : 1
-                          }}
-                        >
-                          <span className="min-w-[90px] font-medium text-emerald-600">{getFieldLabel(key)}</span>
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-[2px]" />
-                          <span className="text-foreground flex-1 break-all">
-                            {formatDisplayValue(value)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                    {!isConfigExpanded && testDataEntries.filter(([_, value]) => hasRenderableValue(value)).length > 3 && (
-                      <div className="text-xs text-muted-foreground italic">
-                        +{testDataEntries.filter(([_, value]) => hasRenderableValue(value)).length - 3} more fields
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-          {aiTestSummary && (
-            <div className={`px-3 py-2 ${summaryClasses}`}>
-              <p className="text-xs leading-relaxed">{aiTestSummary}</p>
-            </div>
-          )}
-        </div>
-      )}
-
+        {aiTestSummary && (
+          <div className={cn('rounded-xl border px-3 py-3 text-xs leading-relaxed', summaryClasses)}>
+            {aiTestSummary}
+          </div>
+        )}
+      </div>
       {/* CSS for field animations */}
       <style jsx>{`
         @keyframes fadeInUp {

@@ -26,10 +26,12 @@ import { PreflightCheckDialog } from "./PreflightCheckDialog"
 import { TestModeDialog } from "./TestModeDialog"
 import { StatusBadge } from "./ai-builder/StatusBadge"
 import { WorkflowPlan } from "./ai-builder/WorkflowPlan"
+import { PulsingPlaceholders } from "./ai-builder/PulsingPlaceholders"
 import { MissingIntegrationsBadges } from "./ai-builder/MissingIntegrationsBadges"
+import { WorkflowBuildProgress } from "./ai-builder/WorkflowBuildProgress"
 import { NodeConfigurationStatus } from "./ai-builder/NodeConfigurationStatus"
 import { Button } from "@/components/ui/button"
-import { Plus, X, ArrowRight, Trash2, Database, Play, Zap, FastForward, Pause, ChevronDown, Info, MessageSquare, ChevronLeft, HelpCircle, AtSign, ArrowLeft, Sparkles } from "lucide-react"
+import { Plus, X, ArrowRight, Trash2, Database, Play, Zap, FastForward, Pause, ChevronDown, Info, MessageSquare, ChevronLeft, HelpCircle, AtSign, ArrowLeft, Sparkles, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
@@ -271,10 +273,17 @@ export function NewWorkflowBuilderContent() {
   const [isReactAgentLoading, setIsReactAgentLoading] = React.useState(false)
   const [reactAgentStatus, setReactAgentStatus] = React.useState<string>('')
   const [selectedContextNodes, setSelectedContextNodes] = React.useState<string[]>([])
+  const [configurationProgress, setConfigurationProgress] = React.useState<{
+    currentNode: number
+    totalNodes: number
+    nodeName: string
+    status: 'preparing' | 'configuring' | 'testing' | 'complete' | 'error'
+  } | null>(null)
   const [workflowPlan, setWorkflowPlan] = React.useState<Array<{ title: string, description: string, type: 'trigger' | 'action' }> | null>(null)
   const [showPlanApproval, setShowPlanApproval] = React.useState(false)
   const [approvedPlanData, setApprovedPlanData] = React.useState<any>(null)
   const [isPlanBuilding, setIsPlanBuilding] = React.useState(false) // Track if building started
+  const [isPlacingNodes, setIsPlacingNodes] = React.useState(false) // Track when placing nodes on canvas
 
   // Enhanced node configuration tracking
   const [nodeConfigStatus, setNodeConfigStatus] = React.useState<{
@@ -504,6 +513,7 @@ export function NewWorkflowBuilderContent() {
           contextNodes,
           testNodes: true, // Enable testing
           model: 'auto', // Auto-select model
+          autoApprove: false, // Show plan and wait for user approval
           viewport: {
             width: availableWidth,
             height: availableHeight,
@@ -622,6 +632,7 @@ export function NewWorkflowBuilderContent() {
 
               case 'node_creating': {
                 const creatingNodeName = eventData.nodeName || 'node'
+                console.log('[FRONTEND] node_creating event:', eventData)
 
                 setNodeConfigStatus({
                   nodeId: eventData.nodeId,
@@ -632,6 +643,7 @@ export function NewWorkflowBuilderContent() {
                 })
 
                 if (eventData.nodeId) {
+                  console.log('[FRONTEND] Updating node to preparing:', eventData.nodeId)
                   optimizedOnNodesChange([
                     {
                       type: 'update',
@@ -648,7 +660,7 @@ export function NewWorkflowBuilderContent() {
                           testData: {},
                           aiProgressConfig: [],
                           config: node.data?.config ?? {},
-                          executionStatus: 'pending'
+                          executionStatus: eventData.executionStatus || 'pending'
                         }
                       })
                     }
@@ -671,6 +683,8 @@ export function NewWorkflowBuilderContent() {
               }
 
               case 'node_configuring':
+                console.log('[FRONTEND] node_configuring event:', eventData)
+
                 if (eventData.nodeId) {
                   setNodeConfigStatus(prev => ({
                     ...prev,
@@ -686,7 +700,18 @@ export function NewWorkflowBuilderContent() {
                     timestamp: new Date()
                   }])
                 }
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'configuring'
+                  }
+                })
+                setReactAgentStatus(eventData.message || `Configuring ${eventData.nodeName || ''}...`)
                 if (eventData.nodeId) {
+                  console.log('[FRONTEND] Updating node to configuring:', eventData.nodeId)
                   optimizedOnNodesChange([
                     {
                       type: 'update',
@@ -695,13 +720,13 @@ export function NewWorkflowBuilderContent() {
                         ...node,
                         data: {
                           ...node.data,
-                          aiStatus: eventData.status || 'configuring',
-                          aiBadgeText: eventData.badgeText || 'Configuring',
-                          aiBadgeVariant: eventData.badgeVariant || 'info',
+                          aiStatus: 'configuring',  // Fixed: force configuring status
+                          aiBadgeText: 'Configuring',
+                          aiBadgeVariant: 'info',
                           autoExpand: true,
                           testData: {},
                           aiProgressConfig: [],
-                          executionStatus: 'running'
+                          executionStatus: eventData.executionStatus || 'running'
                         }
                       })
                     }
@@ -725,6 +750,15 @@ export function NewWorkflowBuilderContent() {
                     timestamp: new Date()
                   }])
                 }
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'testing'
+                  }
+                })
                 if (eventData.nodeId) {
                   optimizedOnNodesChange([
                     {
@@ -740,7 +774,7 @@ export function NewWorkflowBuilderContent() {
                           autoExpand: true,
                           testData: {},
                           aiProgressConfig: node.data?.aiProgressConfig || [],
-                          executionStatus: 'running'
+                          executionStatus: eventData.executionStatus || 'running'
                         }
                       })
                     }
@@ -787,6 +821,8 @@ export function NewWorkflowBuilderContent() {
                 break
 
               case 'field_configured':
+                console.log('[FRONTEND] field_configured event:', eventData)
+
                 // Update node config status with field being configured
                 if (eventData.fieldKey) {
                   setNodeConfigStatus(prev => {
@@ -819,6 +855,7 @@ export function NewWorkflowBuilderContent() {
 
                 // Update node with this specific field in real-time
                 if (eventData.nodeId) {
+                  console.log('[FRONTEND] Adding field to node config:', eventData.fieldKey, '=', eventData.fieldValue)
                   optimizedOnNodesChange([
                     {
                       type: 'update',
@@ -870,10 +907,12 @@ export function NewWorkflowBuilderContent() {
                           aiStatus: eventData.status || node.data.aiStatus,
                           aiBadgeText: eventData.badgeText || node.data.aiBadgeText,
                           aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant,
+                          aiProgressConfig: node.data?.aiProgressConfig || [],
                           testData: {
                             ...(node.data.testData || {}),
                             [eventData.fieldKey]: eventData.fieldValue
-                          }
+                          },
+                          executionStatus: eventData.executionStatus || node.data.executionStatus
                         }
                       })
                     }
@@ -924,7 +963,7 @@ export function NewWorkflowBuilderContent() {
                           aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
                           aiProgressConfig: [],
                           config: eventData.config || node.data.config,
-                          executionStatus: 'running'
+                          executionStatus: eventData.executionStatus || 'running'
                         }
                       })
                     }
@@ -941,6 +980,15 @@ export function NewWorkflowBuilderContent() {
                     timestamp: new Date()
                   }])
                 }
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'complete'
+                  }
+                })
                 if (eventData.nodeId) {
                   optimizedOnNodesChange([
                     {
@@ -959,7 +1007,7 @@ export function NewWorkflowBuilderContent() {
                           autoExpand: true,
                           aiProgressConfig: [],
                           testData: eventData.preview || node.data.testData,
-                          executionStatus: 'completed'
+                          executionStatus: eventData.executionStatus || 'completed'
                         }
                       })
                     }
@@ -978,6 +1026,16 @@ export function NewWorkflowBuilderContent() {
                     message: eventData.error || 'Test failed'
                   }
                 }))
+
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'error'
+                  }
+                })
 
                 if (eventData.message) {
                   setReactAgentMessages(prev => [...prev, {
@@ -1002,7 +1060,7 @@ export function NewWorkflowBuilderContent() {
                           needsSetup: true,
                           aiFallbackFields: node.data.aiFallbackFields,
                           autoExpand: true,
-                          executionStatus: 'error'
+                          executionStatus: eventData.executionStatus || 'error'
                         }
                       })
                     }
@@ -1027,6 +1085,14 @@ export function NewWorkflowBuilderContent() {
                     timestamp: new Date()
                   }])
                 }
+
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    status: 'configuring'
+                  }
+                })
                 break
               }
 
@@ -1071,6 +1137,14 @@ export function NewWorkflowBuilderContent() {
                     timestamp: new Date()
                   }])
                 }
+
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    status: 'testing'
+                  }
+                })
                 break
               }
 
@@ -1092,10 +1166,11 @@ export function NewWorkflowBuilderContent() {
                         ...node,
                         data: {
                           ...node.data,
-                          aiStatus: 'ready',
-                          aiBadgeText: 'Complete',
-                          aiBadgeVariant: 'success',
-                          autoExpand: true
+                          aiStatus: eventData.status || 'ready',
+                          aiBadgeText: eventData.badgeText || 'Successful',
+                          aiBadgeVariant: eventData.badgeVariant || 'success',
+                          autoExpand: true,
+                          executionStatus: eventData.executionStatus || 'completed'
                         }
                       })
                     }
@@ -1269,7 +1344,14 @@ export function NewWorkflowBuilderContent() {
               conversationHistory: [],
               contextNodes: [],
               testNodes: true,
-              model: 'auto'
+              model: 'auto',
+              autoApprove: false, // Show plan and wait for user approval
+              viewport: {
+                width: window.innerWidth - (isReactAgentOpen ? 448 : 0),
+                height: window.innerHeight,
+                chatPanelWidth: isReactAgentOpen ? 448 : 0,
+                defaultZoom: 0.75
+              }
             })
           })
 
@@ -1376,6 +1458,79 @@ export function NewWorkflowBuilderContent() {
                     // Don't add message - WorkflowPlan component has its own header
                     break
 
+                  case 'auto_building_plan':
+                    // This case should no longer happen since we removed auto-approve
+                    // But handle it the same as show_plan just in case
+                    console.log('[INITIAL_PROMPT] Received auto_building_plan (unexpected)')
+                    setWorkflowPlan(eventData.nodes.map((n: any) => ({
+                      title: n.title,
+                      description: n.description || `${n.type} node`,
+                      type: n.type,
+                      providerId: n.providerId
+                    })))
+                    setShowPlanApproval(true)
+                    setIsPlanBuilding(false) // Show continue button
+                    setIsReactAgentLoading(false) // Stop loading spinner
+                    // Don't add message - WorkflowPlan component has its own header
+                    break
+
+                  case 'creating_all_nodes':
+                    // Starting to create all nodes at once
+                    setIsPlacingNodes(true) // Show pulsing placeholders
+                    setReactAgentStatus(eventData.message || 'Creating workflow structure...')
+                    currentAIMessage = `${currentAIMessage}\n\n${eventData.message}`
+                    setReactAgentMessages(prev => {
+                      const lastMsg = prev[prev.length - 1]
+                      if (lastMsg && lastMsg.role === 'assistant') {
+                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
+                      }
+                      return prev
+                    })
+                    break
+
+                  case 'configuration_progress':
+                    // Update progress indicator for which node is being configured
+                    setIsPlacingNodes(false) // Hide pulsing placeholders when configuration starts
+                    setReactAgentStatus(eventData.message || `Configuring node ${eventData.currentNode} of ${eventData.totalNodes}`)
+                    setConfigurationProgress({
+                      currentNode: eventData.currentNode,
+                      totalNodes: eventData.totalNodes,
+                      nodeName: eventData.nodeName,
+                      status: 'configuring'
+                    })
+                    break
+
+                  case 'node_preparing':
+                    // Update node status from pending to preparing
+                    if (eventData.nodeId) {
+                      optimizedOnNodesChange([
+                        {
+                          type: 'update',
+                          id: eventData.nodeId,
+                          item: (node: any) => ({
+                            ...node,
+                            data: {
+                              ...node.data,
+                              aiStatus: 'preparing',
+                              aiBadgeText: 'Preparing',
+                              aiBadgeVariant: 'info',
+                              isPending: false,
+                              autoExpand: true
+                            }
+                          })
+                        }
+                      ])
+                      // Update progress status
+                      setConfigurationProgress(prev => {
+                        if (!prev) return prev
+                        return {
+                          ...prev,
+                          status: 'preparing'
+                        }
+                      })
+                    }
+                    break
+
                   case 'node_creating':
                     setReactAgentStatus('Creating nodes...')
                     // Add progress updates to current message
@@ -1424,6 +1579,17 @@ export function NewWorkflowBuilderContent() {
                       return prev
                     })
 
+                    setConfigurationProgress(prev => {
+                      if (!prev) return prev
+                      return {
+                        ...prev,
+                        currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                        nodeName: eventData.nodeName || prev.nodeName,
+                        status: 'configuring'
+                      }
+                    })
+                    setReactAgentStatus(eventData.message || `Configuring ${eventData.nodeName || ''}...`)
+
                     if (eventData.nodeId) {
                       optimizedOnNodesChange([
                         {
@@ -1458,6 +1624,17 @@ export function NewWorkflowBuilderContent() {
                       return prev
                     })
 
+                    setConfigurationProgress(prev => {
+                      if (!prev) return prev
+                      return {
+                        ...prev,
+                        currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                        nodeName: eventData.nodeName || prev.nodeName,
+                        status: 'testing'
+                      }
+                    })
+                    setReactAgentStatus(eventData.message || `Testing ${eventData.nodeName || ''}...`)
+
                     if (eventData.nodeId) {
                       optimizedOnNodesChange([
                         {
@@ -1481,30 +1658,52 @@ export function NewWorkflowBuilderContent() {
                     break
 
                   case 'node_created':
-                    // Show completion message
-                    currentAIMessage = `${currentAIMessage}\n✓ ${eventData.message || 'Node created'}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
+                    // Don't show message for pending nodes
+                    if (!eventData.isPending) {
+                      currentAIMessage = `${currentAIMessage}\n✓ ${eventData.message || 'Node created'}`
+                      setReactAgentMessages(prev => {
+                        const lastMsg = prev[prev.length - 1]
+                        if (lastMsg && lastMsg.role === 'assistant') {
+                          return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
+                        }
+                        return prev
+                      })
+                    }
 
-                    // Add node to canvas
+                    // Add node to canvas with onConfigure and onDelete functions
                     if (eventData.node) {
-                      optimizedOnNodesChange([{ type: 'add', item: eventData.node }])
+                      // Enhanced node with configuration callbacks
+                      const enhancedNode = {
+                        ...eventData.node,
+                        data: {
+                          ...eventData.node.data,
+                          onConfigure: (nodeId: string) => {
+                            console.log('[NODE] Opening configuration for:', nodeId)
+                            const nodeToConfig = nodes.find(n => n.id === nodeId) || eventData.node
+                            setConfiguringNode(nodeToConfig)
+                          },
+                          onDelete: (nodeId: string) => {
+                            console.log('[NODE] Deleting node:', nodeId)
+                            optimizedOnNodesChange([{ type: 'remove', id: nodeId }])
+                          }
+                        }
+                      }
+                      optimizedOnNodesChange([{ type: 'add', item: enhancedNode }])
 
-                      // Auto-pan to keep new nodes visible next to the chat panel
-                      setTimeout(() => {
-                        fitViewWithChatPanel()
-                      }, 120)
+                      // Auto-pan after all nodes are created (only for the last node)
+                      if (!eventData.isPending) {
+                        setTimeout(() => {
+                          fitViewWithChatPanel()
+                        }, 120)
+                      }
                     }
                     break
 
                   case 'field_configured':
+                    console.log('[INITIAL_PROMPT] field_configured:', eventData)
                     // Update node with this specific field in real-time
-                    if (eventData.nodeId) {
+                    if (eventData.nodeId && eventData.fieldKey) {
+                      console.log('[INITIAL_PROMPT] Adding field to node config:', eventData.fieldKey, '=', eventData.fieldValue)
                       optimizedOnNodesChange([
                         {
                           type: 'update',
@@ -1567,9 +1766,44 @@ export function NewWorkflowBuilderContent() {
                     }
                     break
 
+                  case 'field_configured':
+                    console.log('[INITIAL_PROMPT] field_configured:', eventData)
+                    // Update node with this specific field in real-time
+                    if (eventData.nodeId && eventData.fieldKey) {
+                      console.log('[INITIAL_PROMPT] Adding field to node config:', eventData.fieldKey, '=', eventData.fieldValue)
+                      optimizedOnNodesChange([
+                        {
+                          type: 'update',
+                          id: eventData.nodeId,
+                          item: (node: any) => ({
+                            ...node,
+                            data: {
+                              ...node.data,
+                              aiStatus: eventData.status || node.data.aiStatus || 'configuring',
+                              aiBadgeText: eventData.badgeText || node.data.aiBadgeText || 'Configuring',
+                              aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant || 'info',
+                              config: {
+                                ...node.data.config,
+                                [eventData.fieldKey]: eventData.fieldValue
+                              },
+                              aiProgressConfig: [
+                                ...(Array.isArray(node.data.aiProgressConfig) ? node.data.aiProgressConfig.filter((field: any) => field.key !== eventData.fieldKey) : []),
+                                {
+                                  key: eventData.fieldKey,
+                                  value: eventData.fieldValue,
+                                  displayValue: eventData.displayValue,
+                                  viaFallback: eventData.viaFallback
+                                }
+                              ]
+                            }
+                          })
+                        }
+                      ])
+                    }
+                    break
+
                   case 'node_configured':
-                  case 'node_tested':
-                  case 'node_complete':
+                  case 'node_complete': {
                     currentAIMessage = `${currentAIMessage}\n${eventData.message}`
                     setReactAgentMessages(prev => {
                       const lastMsg = prev[prev.length - 1]
@@ -1578,6 +1812,20 @@ export function NewWorkflowBuilderContent() {
                       }
                       return prev
                     })
+
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  const isComplete = eventData.type === 'node_complete'
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: isComplete ? 'complete' : 'configuring'
+                  }
+                })
+                if (eventData.type === 'node_complete') {
+                  setReactAgentStatus('')
+                }
 
                     if (eventData.nodeId) {
                       optimizedOnNodesChange([
@@ -1603,21 +1851,24 @@ export function NewWorkflowBuilderContent() {
                       ])
                     }
                     break
+                  }
 
-                  case 'workflow_complete':
-                    // Final success message
-                    currentAIMessage = `${currentAIMessage}\n\n✓ ${eventData.message || 'Workflow complete! Your automation is ready.'}`
-                    setReactAgentMessages(prev => {
-                      const lastMsg = prev[prev.length - 1]
-                      if (lastMsg && lastMsg.role === 'assistant') {
-                        return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
-                      }
-                      return prev
-                    })
-                    // Stop loading animation and clear status
-                    setIsReactAgentLoading(false)
-                    setReactAgentStatus('')
-                    break
+              case 'workflow_complete':
+                // Final success message
+                currentAIMessage = `${currentAIMessage}\n\n✓ ${eventData.message || 'Workflow complete! Your automation is ready.'}`
+                setReactAgentMessages(prev => {
+                  const lastMsg = prev[prev.length - 1]
+                  if (lastMsg && lastMsg.role === 'assistant') {
+                    return [...prev.slice(0, -1), { ...lastMsg, content: currentAIMessage }]
+                  }
+                  return prev
+                })
+                // Stop loading animation and clear status
+                setIsReactAgentLoading(false)
+                setReactAgentStatus('')
+                setIsPlacingNodes(false)
+                setConfigurationProgress(null)  // Clear progress indicator
+                break
 
                   case 'error':
                     currentAIMessage = `${currentAIMessage}\n\n❌ Error: ${eventData.message}`
@@ -2543,34 +2794,43 @@ export function NewWorkflowBuilderContent() {
             </div>
 
             {/* Chat messages */}
-            {reactAgentMessages.length > 0 && (
-              <ScrollArea className="flex-1 pr-2">
-                <div className="space-y-4 py-4">
-                  {reactAgentMessages.map((msg, index) => (
+            <ScrollArea className="flex-1 pr-2">
+              <div className="space-y-4 py-4">
+                {reactAgentMessages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
                     <div
-                      key={index}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-accent text-foreground'
+                      }`}
                     >
-                      <div
-                        className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-accent text-foreground'
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                        <p className="text-xs opacity-70 mt-1">
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
                     </div>
-                  ))}
-                  {/* Show workflow plan first, then status badge below it */}
-                  {showPlanApproval && workflowPlan && (
-                    <WorkflowPlan
-                      nodes={workflowPlan}
-                      isBuilding={isPlanBuilding}
-                      onContinue={async () => {
+                  </div>
+                ))}
+
+                {reactAgentStatus && (
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                      <span>{reactAgentStatus}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show workflow plan first, then status badge below it */}
+                {showPlanApproval && workflowPlan && (
+                  <WorkflowPlan
+                    nodes={workflowPlan}
+                    isBuilding={isPlanBuilding}
+                    onContinue={async () => {
                         // CRITICAL: Ensure integrations are ready
                         if (!integrationsReady) {
                           logger.warn('[Continue Building] Integrations not ready yet')
@@ -2581,6 +2841,7 @@ export function NewWorkflowBuilderContent() {
                         setIsPlanBuilding(true)
                         setIsReactAgentLoading(true)
                         setReactAgentStatus('Building workflow...')
+                        setIsPlacingNodes(true)
 
                         // Call API with approved plan
                         try {
@@ -2653,6 +2914,59 @@ export function NewWorkflowBuilderContent() {
                               console.log('[CONTINUE] Received event:', eventData.type, eventData)
 
                               switch (eventData.type) {
+                                case 'configuration_progress':
+                                  setIsPlacingNodes(false)
+                                  setReactAgentStatus(eventData.message || `Configuring node ${eventData.currentNode} of ${eventData.totalNodes}`)
+                                  setConfigurationProgress({
+                                    currentNode: eventData.currentNode,
+                                    totalNodes: eventData.totalNodes,
+                                    nodeName: eventData.nodeName,
+                                    status: 'configuring'
+                                  })
+                                  break
+
+                                case 'node_preparing':
+                                  setReactAgentStatus(eventData.message || 'Preparing node...')
+                                  setConfigurationProgress(prev => {
+                                    if (!prev) {
+                                      return {
+                                        currentNode: (eventData.nodeIndex ?? 0) + 1,
+                                        totalNodes: eventData.totalNodes ?? workflowPlan?.length ?? 1,
+                                        nodeName: eventData.nodeName || '',
+                                        status: 'preparing'
+                                      }
+                                    }
+                                    return {
+                                      ...prev,
+                                      currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                                      nodeName: eventData.nodeName || prev.nodeName,
+                                      status: 'preparing'
+                                    }
+                                  })
+                                  if (eventData.nodeId) {
+                                    optimizedOnNodesChange([
+                                      {
+                                        type: 'update',
+                                        id: eventData.nodeId,
+                                        item: (node: any) => ({
+                                          ...node,
+                                          data: {
+                                            ...node.data,
+                                            aiStatus: 'preparing',
+                                            aiBadgeText: 'Preparing',
+                                            aiBadgeVariant: 'info',
+                                            aiFallbackFields: [],
+                                            aiProgressConfig: [],
+                                            testData: {},
+                                            autoExpand: true,
+                                            executionStatus: eventData.executionStatus || 'pending'
+                                          }
+                                        })
+                                      }
+                                    ])
+                                  }
+                                  break
+
                                 case 'node_created':
                                   if (eventData.node) {
                                     console.log('[CONTINUE NODE] Adding node:', {
@@ -2661,7 +2975,24 @@ export function NewWorkflowBuilderContent() {
                                       title: eventData.node.data?.title
                                     })
 
-                                    optimizedOnNodesChange([{ type: 'add', item: eventData.node }])
+                                    // Add onConfigure and onDelete functions to the node data
+                                    const enhancedNode = {
+                                      ...eventData.node,
+                                      data: {
+                                        ...eventData.node.data,
+                                        onConfigure: (nodeId: string) => {
+                                          console.log('[NODE] Opening configuration for:', nodeId)
+                                          const nodeToConfig = nodes.find(n => n.id === nodeId) || eventData.node
+                                          setConfiguringNode(nodeToConfig)
+                                        },
+                                        onDelete: (nodeId: string) => {
+                                          console.log('[NODE] Deleting node:', nodeId)
+                                          optimizedOnNodesChange([{ type: 'remove', id: nodeId }])
+                                        }
+                                      }
+                                    }
+
+                                    optimizedOnNodesChange([{ type: 'add', item: enhancedNode }])
 
                                     setTimeout(() => {
                                       fitViewWithChatPanel()
@@ -2683,6 +3014,7 @@ export function NewWorkflowBuilderContent() {
                                   break
 
                                 case 'node_configuring':
+                                  console.log('[CONTINUE] node_configuring:', eventData)
                                   if (eventData.nodeId) {
                                     optimizedOnNodesChange([
                                       {
@@ -2692,9 +3024,9 @@ export function NewWorkflowBuilderContent() {
                                           ...node,
                                           data: {
                                             ...node.data,
-                                            aiStatus: eventData.status || 'configuring',
-                                            aiBadgeText: eventData.badgeText || 'Configuring',
-                                            aiBadgeVariant: eventData.badgeVariant || 'info',
+                                            aiStatus: 'configuring',
+                                            aiBadgeText: 'Configuring',
+                                            aiBadgeVariant: 'info',
                                             autoExpand: true
                                           }
                                         })
@@ -2704,12 +3036,38 @@ export function NewWorkflowBuilderContent() {
                                   break
 
                                 case 'field_configured':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
-                                        item: (node: any) => ({
+                                console.log('[CONTINUE] 🔵 field_configured event received:', {
+                                  nodeId: eventData.nodeId,
+                                  fieldKey: eventData.fieldKey,
+                                  fieldValue: eventData.fieldValue,
+                                  displayValue: eventData.displayValue,
+                                  viaFallback: eventData.viaFallback,
+                                  status: eventData.status,
+                                  badgeText: eventData.badgeText,
+                                  fullEventData: eventData
+                                })
+                                if (eventData.nodeId) {
+                                  console.log('[CONTINUE] 🟢 Updating node config:', eventData.fieldKey, '=', eventData.fieldValue)
+
+                                  // Get current node before update - use reactFlowInstance to get latest state
+                                  const currentNodes = reactFlowInstance?.getNodes() || []
+                                  const currentNode = currentNodes.find(n => n.id === eventData.nodeId)
+                                  console.log('[CONTINUE] 🟡 Current node before update:', {
+                                    nodeId: eventData.nodeId,
+                                    exists: !!currentNode,
+                                    totalNodesInFlow: currentNodes.length,
+                                    currentConfig: currentNode?.data?.config,
+                                    currentAiProgressConfig: currentNode?.data?.aiProgressConfig,
+                                    currentAiStatus: currentNode?.data?.aiStatus,
+                                    currentAutoExpand: currentNode?.data?.autoExpand
+                                  })
+
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
+                                      item: (node: any) => {
+                                        const updatedNode = {
                                           ...node,
                                           data: {
                                             ...node.data,
@@ -2721,44 +3079,79 @@ export function NewWorkflowBuilderContent() {
                                               ? Array.from(new Set([...(node.data.aiFallbackFields || []), eventData.fieldKey]))
                                               : node.data.aiFallbackFields,
                                             aiProgressConfig: [
-                                              ...(Array.isArray(node.data.aiProgressConfig) ? node.data.aiProgressConfig.filter((field: any) => field.key !== eventData.fieldKey) : []),
-                                              {
-                                                key: eventData.fieldKey,
-                                                value: eventData.fieldValue,
-                                                displayValue: eventData.displayValue,
-                                                viaFallback: eventData.viaFallback
-                                              }
-                                            ],
-                                            config: {
-                                              ...node.data.config,
-                                              [eventData.fieldKey]: eventData.fieldValue
+                                            ...(Array.isArray(node.data.aiProgressConfig) ? node.data.aiProgressConfig.filter((field: any) => field.key !== eventData.fieldKey) : []),
+                                            {
+                                              key: eventData.fieldKey,
+                                              value: eventData.fieldValue,
+                                              displayValue: eventData.displayValue,
+                                              viaFallback: eventData.viaFallback
                                             }
-                                          }
-                                        })
+                                          ]
+                                          // Don't update config here - only aiProgressConfig
+                                          // config will be set when node_configured fires
+                                        }
                                       }
-                                    ])
-                                  }
-                                  break
 
-                                case 'node_configured':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
+                                      console.log('[CONTINUE] 🟣 Updated node:', {
+                                        nodeId: eventData.nodeId,
+                                        updatedConfig: updatedNode.data.config,
+                                        updatedAiProgressConfig: updatedNode.data.aiProgressConfig,
+                                        updatedAiStatus: updatedNode.data.aiStatus,
+                                        updatedAutoExpand: updatedNode.data.autoExpand,
+                                        fullUpdatedData: updatedNode.data
+                                      })
+
+                                      return updatedNode
+                                    }
+                                  }
+                                ])
+
+                                  // Log nodes after update - use reactFlowInstance
+                                  setTimeout(() => {
+                                    const allNodes = reactFlowInstance?.getNodes() || []
+                                    const updatedNode = allNodes.find(n => n.id === eventData.nodeId)
+                                    console.log('[CONTINUE] 🔴 Node after update in state:', {
+                                      nodeId: eventData.nodeId,
+                                      exists: !!updatedNode,
+                                      totalNodesInFlow: allNodes.length,
+                                      config: updatedNode?.data?.config,
+                                      aiProgressConfig: updatedNode?.data?.aiProgressConfig,
+                                      aiStatus: updatedNode?.data?.aiStatus,
+                                      autoExpand: updatedNode?.data?.autoExpand
+                                    })
+                                  }, 50)
+                                }
+                                break
+
+                              case 'node_configured':
+                                setConfigurationProgress(prev => {
+                                  if (!prev) return prev
+                                  return {
+                                    ...prev,
+                                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                                    nodeName: eventData.nodeName || prev.nodeName,
+                                    status: 'configuring'
+                                  }
+                                })
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
                                         item: (node: any) => ({
                                           ...node,
                                           data: {
                                             ...node.data,
                                             description: eventData.description || node.data.description,
                                             aiStatus: eventData.status || 'configured',
-                                            aiBadgeText: eventData.badgeText || 'Configured',
+                                            aiBadgeText: eventData.badgeText || 'Configuring',
                                             aiBadgeVariant: eventData.badgeVariant || 'info',
                                             autoExpand: true,
                                             needsSetup: eventData.badgeVariant === 'warning',
                                             aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
-                                            aiProgressConfig: [],
-                                            config: eventData.config || node.data.config
+                                          aiProgressConfig: [],
+                                            config: eventData.config || node.data.config,
+                                            executionStatus: eventData.executionStatus || 'running'
                                           }
                                         })
                                       }
@@ -2766,12 +3159,21 @@ export function NewWorkflowBuilderContent() {
                                   }
                                   break
 
-                                case 'node_testing':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
+                              case 'node_testing':
+                                setConfigurationProgress(prev => {
+                                  if (!prev) return prev
+                                  return {
+                                    ...prev,
+                                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                                    nodeName: eventData.nodeName || prev.nodeName,
+                                    status: 'testing'
+                                  }
+                                })
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
                                         item: (node: any) => ({
                                           ...node,
                                           data: {
@@ -2781,7 +3183,8 @@ export function NewWorkflowBuilderContent() {
                                             aiBadgeVariant: eventData.badgeVariant || 'info',
                                             autoExpand: true,
                                             aiProgressConfig: node.data?.aiProgressConfig || [],
-                                            testData: {}
+                                            testData: {},
+                                            executionStatus: eventData.executionStatus || 'running'
                                           }
                                         })
                                       }
@@ -2789,51 +3192,62 @@ export function NewWorkflowBuilderContent() {
                                   }
                                   break
 
-                                case 'test_data_field':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
-                                        item: (node: any) => ({
-                                          ...node,
-                                          data: {
-                                            ...node.data,
-                                            autoExpand: true,
-                                            aiStatus: eventData.status || node.data.aiStatus,
-                                            aiBadgeText: eventData.badgeText || node.data.aiBadgeText,
-                                            aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant,
-                                            aiProgressConfig: node.data?.aiProgressConfig || [],
-                                            testData: {
-                                              ...(node.data.testData || {}),
-                                              [eventData.fieldKey]: eventData.fieldValue
-                                            }
+                              case 'test_data_field':
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
+                                      item: (node: any) => ({
+                                        ...node,
+                                        data: {
+                                          ...node.data,
+                                          autoExpand: true,
+                                          aiStatus: eventData.status || node.data.aiStatus,
+                                          aiBadgeText: eventData.badgeText || node.data.aiBadgeText,
+                                          aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant,
+                                          aiProgressConfig: node.data?.aiProgressConfig || [],
+                                          testData: {
+                                            ...(node.data.testData || {}),
+                                            [eventData.fieldKey]: eventData.fieldValue
                                           }
-                                        })
-                                      }
-                                    ])
-                                  }
-                                  break
+                                        }
+                                      })
+                                    }
+                                  ])
+                                }
+                                break
 
-                                case 'node_tested':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
+                              case 'node_tested':
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'complete'
+                  }
+                })
+                setReactAgentStatus(eventData.message || `${eventData.nodeName || 'Node'} ready!`)
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
                                         item: (node: any) => ({
                                           ...node,
                                           data: {
                                             ...node.data,
                                             aiStatus: eventData.status || 'ready',
-                                            aiBadgeText: eventData.badgeText || 'See Results',
+                                            aiBadgeText: eventData.badgeText || 'Successful',
                                             aiBadgeVariant: eventData.badgeVariant || 'success',
                                             aiTestSummary: eventData.summary || node.data.aiTestSummary,
                                             needsSetup: eventData.badgeVariant === 'warning',
                                             aiFallbackFields: node.data.aiFallbackFields,
                                             autoExpand: true,
                                             aiProgressConfig: [],
-                                            testData: eventData.preview || node.data.testData
+                                            testData: eventData.preview || node.data.testData,
+                                            executionStatus: 'completed'
                                           }
                                         })
                                       }
@@ -2841,27 +3255,38 @@ export function NewWorkflowBuilderContent() {
                                   }
                                   break
 
-                                case 'node_test_failed':
-                                  if (eventData.nodeId) {
-                                    optimizedOnNodesChange([
-                                      {
-                                        type: 'update',
-                                        id: eventData.nodeId,
+                              case 'node_test_failed':
+                setConfigurationProgress(prev => {
+                  if (!prev) return prev
+                  return {
+                    ...prev,
+                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                    nodeName: eventData.nodeName || prev.nodeName,
+                    status: 'error'
+                  }
+                })
+                setReactAgentStatus(eventData.message || `Issue testing ${eventData.nodeName || 'node'}`)
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
                                 item: (node: any) => ({
                                   ...node,
                                   data: {
                                     ...node.data,
-                                    aiStatus: eventData.status || 'error',
-                                    aiBadgeText: eventData.badgeText || 'Needs Attention',
-                                    aiBadgeVariant: eventData.badgeVariant || 'warning',
-                                    aiTestSummary: eventData.summary || eventData.error || node.data.aiTestSummary,
-                                    needsSetup: true,
-                                    aiFallbackFields: node.data.aiFallbackFields,
-                                    autoExpand: true
-                                  }
-                                })
-                              }
-                            ])
+                                            aiStatus: eventData.status || 'error',
+                                            aiBadgeText: eventData.badgeText || 'Needs Attention',
+                                            aiBadgeVariant: eventData.badgeVariant || 'warning',
+                                            aiTestSummary: eventData.summary || eventData.error || node.data.aiTestSummary,
+                                            needsSetup: true,
+                                            aiFallbackFields: node.data.aiFallbackFields,
+                                            autoExpand: true,
+                                            executionStatus: 'error'
+                                          }
+                                        })
+                                      }
+                                    ])
                                   }
                                   break
 
@@ -2879,6 +3304,7 @@ export function NewWorkflowBuilderContent() {
                                   }, 200)
                                   setIsReactAgentLoading(false)
                                   setReactAgentStatus('')
+                                  setIsPlacingNodes(false)
                                   setShowPlanApproval(false)
                                   setIsPlanBuilding(false)
                                   break
@@ -2892,25 +3318,27 @@ export function NewWorkflowBuilderContent() {
                           logger.error('Error building approved plan:', error)
                           setIsReactAgentLoading(false)
                           setReactAgentStatus('')
+                          setIsPlacingNodes(false)
+                          setIsPlanBuilding(false)
+                          setConfigurationProgress(null)
+                          setShowPlanApproval(true)
+                        } finally {
+                          setIsReactAgentLoading(false)
+                          setReactAgentStatus('')
+                          setIsPlacingNodes(false)
+                          setIsPlanBuilding(false)
                         }
                       }}
                     />
                   )}
-                  {/* Enhanced node configuration status display */}
-                  {nodeConfigStatus.status !== 'idle' ? (
-                    <NodeConfigurationStatus
-                      status={nodeConfigStatus.status}
-                      fields={nodeConfigStatus.fields}
-                      testResult={nodeConfigStatus.testResult}
-                      fixAttempt={nodeConfigStatus.fixAttempt}
-                      nodeName={nodeConfigStatus.nodeName}
+                  {/* Show pulsing placeholders when placing nodes */}
+                  {isPlacingNodes && !configurationProgress && (
+                    <PulsingPlaceholders
+                      count={workflowPlan?.length || 3}
+                      message="Placing nodes on canvas..."
                     />
-                  ) : (
-                    // Show general status when not configuring a specific node
-                    isReactAgentLoading && reactAgentStatus && (
-                      <StatusBadge status={reactAgentStatus} />
-                    )
                   )}
+                  {/* Removed progress indicators - they now show on the nodes themselves */}
                   {showMissingApps && missingIntegrations.length > 0 && (
                     <MissingIntegrationsBadges
                       missingIntegrations={missingIntegrations}
@@ -2922,7 +3350,6 @@ export function NewWorkflowBuilderContent() {
                   )}
                 </div>
               </ScrollArea>
-            )}
 
             {/* Chat input - Fixed at bottom */}
             <div className="mt-auto mb-4 relative">

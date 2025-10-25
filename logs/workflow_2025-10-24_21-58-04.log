@@ -1,0 +1,441 @@
+=== Log Session Started: 2025-10-25T02:58:04.473Z ===
+Node Version: v23.7.0
+Platform: darwin
+Working Directory: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e
+================================================================================
+
+[2025-10-25T02:58:04.474Z] [INFO   ] File logging initialized
+[2025-10-25T02:58:04.474Z] [INFO   ] Log file: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-58-04.log
+[2025-10-25T02:58:04.479Z] [INFO   ] Deleted old log file: workflow_2025-10-17_20-27-14.log
+[2025-10-25T02:58:04.479Z] [INFO   ] 📁 File logging enabled
+[2025-10-25T02:58:04.479Z] [INFO   ] 📝 Logs will be written to: /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-58-04.log
+[2025-10-25T02:58:04.479Z] [INFO   ] 💡 To view logs in real-time: tail -f /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-58-04.log
+[2025-10-25T02:58:04.479Z] [INFO   ] 💡 To view all logs: cat /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-58-04.log
+[2025-10-25T02:58:04.479Z] [INFO   ] 💡 To share logs: Copy the file at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/logs/workflow_2025-10-24_21-58-04.log
+[2025-10-25T02:58:04.479Z] [INFO   ] --------------------------------------------------------------------------------
+[2025-10-25T02:58:04.480Z] [DEBUG  ] 📁 File logging system initialized
+[2025-10-25T02:58:04.494Z] [INFO   ]  [32m[1m✓[22m[39m Ready in 2.9s
+[2025-10-25T02:58:05.514Z] [INFO   ] 2025-10-25T02:58:05.514Z [DEBUG] 🤖 Discord bot configured, initializing gateway connection in background...
+[2025-10-25T02:58:07.223Z] [INFO   ] 2025-10-25T02:58:07.223Z [DEBUG] Initializing Discord Gateway connection (singleton)...
+[2025-10-25T02:58:07.223Z] [INFO   ] 2025-10-25T02:58:07.223Z [DEBUG] 🔑 Discord bot token loaded
+[2025-10-25T02:58:07.434Z] [INFO   ] 2025-10-25T02:58:07.433Z [DEBUG] Discord Gateway initialization complete
+[2025-10-25T02:58:07.435Z] [INFO   ] 2025-10-25T02:58:07.435Z [DEBUG] ✅ Discord bot gateway connection initialized
+[2025-10-25T02:58:07.611Z] [INFO   ] 2025-10-25T02:58:07.611Z [DEBUG] Discord Gateway WebSocket connection established
+[2025-10-25T02:58:07.611Z] [INFO   ] 2025-10-25T02:58:07.611Z [DEBUG] 🔑 Sending identify with intents: {"GUILDS":true,"GUILD_MEMBERS":true,"GUILD_INVITES":true,"GUILD_MESSAGES":true,"MESSAGE_CONTENT":true,"intentsValue":33347}
+[2025-10-25T02:58:07.766Z] [INFO   ] 2025-10-25T02:58:07.766Z [DEBUG] 🎉 Discord bot ready! {"sessionId":"624b5191def09d3cd0d191cdab3e0880","username":"ChainReact-Bot","userId":"1378595955212812308","guildCount":2}
+[2025-10-25T02:58:07.766Z] [INFO   ] 2025-10-25T02:58:07.766Z [DEBUG] 📋 Initializing invite cache...
+[2025-10-25T02:58:07.767Z] [INFO   ] 2025-10-25T02:58:07.767Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T02:58:07.778Z] [INFO   ] 2025-10-25T02:58:07.777Z [DEBUG] 📡 Discord event received: GUILD_CREATE
+[2025-10-25T02:58:08.065Z] [INFO   ] 2025-10-25T02:58:08.065Z [DEBUG] ✅ Cached 3 invites for guild 1378950884045623406
+[2025-10-25T02:58:08.300Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /middleware in 197ms (233 modules)
+[2025-10-25T02:58:08.672Z] [INFO   ] 2025-10-25T02:58:08.672Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e77f1f4a-4934-460d-a11b-1b6bf4ad82be","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794401273}
+[2025-10-25T02:58:09.299Z] [INFO   ]  [37m[1m○[22m[39m Compiling /workflows/builder/[id] ...
+[2025-10-25T02:58:13.972Z] [INFO   ] 2025-10-25T02:58:13.972Z [DEBUG] [Middleware] Username check: {"path":"/workflows/ai-agent","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794406573}
+[2025-10-25T02:58:14.797Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /workflows/ai-agent in 6.1s (5916 modules)
+[2025-10-25T02:58:15.193Z] [INFO   ] 2025-10-25T02:58:15.193Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:58:15.193Z"}
+[2025-10-25T02:58:15.195Z] [INFO   ] 2025-10-25T02:58:15.195Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-25T02:58:15.195Z"}
+[2025-10-25T02:58:15.195Z] [INFO   ] 2025-10-25T02:58:15.195Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-25T02:58:15.195Z"}
+[2025-10-25T02:58:15.449Z] [INFO   ] 2025-10-25T02:58:15.449Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:58:16.566Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/presence/count ...
+[2025-10-25T02:58:16.594Z] [INFO   ] 2025-10-25T02:58:16.593Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:58:16.939Z] [INFO   ] 2025-10-25T02:58:16.939Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-25T02:58:17.901Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/presence/count in 1864ms (5923 modules)
+[2025-10-25T02:58:21.724Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations in 353ms (5925 modules)
+[2025-10-25T02:58:21.812Z] [INFO   ] 2025-10-25T02:58:21.812Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-25T02:58:21.812Z","headers":{"referer":"check-console"}}
+[2025-10-25T02:58:21.928Z] [INFO   ] 2025-10-25T02:58:21.928Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-25T02:58:22.004Z] [INFO   ] 2025-10-25T02:58:22.004Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-25T02:58:23.662Z] [INFO   ] 2025-10-25T02:58:23.662Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794416263}
+[2025-10-25T02:58:24.012Z] [INFO   ] 2025-10-25T02:58:24.011Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-25T02:58:24.822Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 500ms (5928 modules)
+[2025-10-25T02:58:25.632Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/ai/stream-workflow ...
+[2025-10-25T02:58:25.746Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 614ms (2465 modules)
+[2025-10-25T02:58:29.091Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-25T02:58:29.093Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'google-drive',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:58:29.093Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'google-drive',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-25T02:58:29.094Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-25T02:58:29.094Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-25T02:58:35.240Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send any new email they receive to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow whenever a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, as it detects incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel with the content of the email.',
+  reasoning: 'This node is needed to fulfill the user\'s request to send the email content to Slack.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger node, which activates when a new email is received. This triggers the Slack action node to send the email content to a specified Slack channel.'
+}
+[2025-10-25T02:58:35.241Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow whenever a new email is received in the user\'s Gmail account.',
+  reasoning: 'This is the starting point of the workflow, as it detects incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel with the content of the email.',
+  reasoning: 'This node is needed to fulfill the user\'s request to send the email content to Slack.'
+}
+]
+[2025-10-25T02:58:35.242Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-25T02:58:35.343Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-25T02:58:36.298Z] [INFO   ] [STREAM] Preparing Trigger on New Email (node-1761361115241-0)
+[2025-10-25T02:58:37.099Z] [INFO   ] [STREAM] Starting configuration for Trigger on New Email (node-1761361115241-0)
+[2025-10-25T02:58:43.570Z] [INFO   ] [STREAM] Config result: {
+  success: true,
+  hasConfig: true,
+  configKeys: [ 'node_type', 'trigger', 'options' ],
+  finalConfigKeys: [ 'node_type', 'trigger', 'options', 'from' ],
+  fallbackFields: [ 'from' ]
+}
+[2025-10-25T02:58:43.570Z] [INFO   ] [STREAM] Configuring 4 fields for Trigger on New Email: node_type, trigger, options, from
+[2025-10-25T02:58:43.571Z] [INFO   ] [STREAM] Setting field node_type = gmail_trigger_new_email for Trigger on New Email
+[2025-10-25T02:58:43.873Z] [INFO   ] [STREAM] Setting field trigger = [object Object] for Trigger on New Email
+[2025-10-25T02:58:44.176Z] [INFO   ] [STREAM] Setting field options = [object Object] for Trigger on New Email
+[2025-10-25T02:58:44.478Z] [INFO   ] [STREAM] Setting field from = inbox@placeholder.com for Trigger on New Email
+[2025-10-25T02:58:45.284Z] [INFO   ] [STREAM] Skipping test for trigger Trigger on New Email
+[2025-10-25T02:58:47.090Z] [INFO   ] [STREAM] Preparing Send Message to Slack (node-1761361115342-1)
+[2025-10-25T02:58:47.892Z] [INFO   ] [STREAM] Starting configuration for Send Message to Slack (node-1761361115342-1)
+[2025-10-25T02:58:55.831Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/collaborators in 477ms (5930 modules)
+[2025-10-25T02:59:54.491Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected a semicolon
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3093:1]
+ [2m3090[0m │                                             [eventData.fieldKey]: eventData.fieldValue
+ [2m3091[0m │                                           }
+ [2m3092[0m │                                         }
+ [2m3093[0m │                                       })
+      · [35;1m                                       ─[0m
+ [2m3094[0m │                                     }
+ [2m3095[0m │                                   ])
+ [2m3096[0m │                                 }
+      ╰────
+  [31m×[0m Expected '</', got ']'
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3095:1]
+ [2m3092[0m │                                         }
+ [2m3093[0m │                                       })
+ [2m3094[0m │                                     }
+ [2m3095[0m │                                   ])
+      · [35;1m                                  ─[0m
+ [2m3096[0m │                                 }
+ [2m3097[0m │                                 break
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:59:56.255Z] [INFO   ]  [37m[1m○[22m[39m Compiling /_error ...
+[2025-10-25T02:59:56.309Z] [INFO   ] 2025-10-25T02:59:56.309Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794508910}
+[2025-10-25T02:59:56.473Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected a semicolon
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3093:1]
+ [2m3090[0m │                                             [eventData.fieldKey]: eventData.fieldValue
+ [2m3091[0m │                                           }
+ [2m3092[0m │                                         }
+ [2m3093[0m │                                       })
+      · [35;1m                                       ─[0m
+ [2m3094[0m │                                     }
+ [2m3095[0m │                                   ])
+ [2m3096[0m │                                 }
+      ╰────
+  [31m×[0m Expected '</', got ']'
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3095:1]
+ [2m3092[0m │                                         }
+ [2m3093[0m │                                       })
+ [2m3094[0m │                                     }
+ [2m3095[0m │                                   ])
+      · [35;1m                                  ─[0m
+ [2m3096[0m │                                 }
+ [2m3097[0m │                                 break
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T02:59:56.847Z] [INFO   ] 2025-10-25T02:59:56.847Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794509448}
+[2025-10-25T02:59:57.096Z] [INFO   ] 2025-10-25T02:59:57.096Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794509697}
+[2025-10-25T02:59:57.188Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:59:57.190Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T02:59:57.191Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-25T03:00:10.452Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected '</', got ')'
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3105:1]
+ [2m3102[0m │                                         })
+ [2m3103[0m │ 
+ [2m3104[0m │                                         return updatedNode
+ [2m3105[0m │                                       })
+      · [35;1m                                       ─[0m
+ [2m3106[0m │                                     }
+ [2m3107[0m │                                   ])
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T03:00:20.503Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected '</', got ')'
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3105:1]
+ [2m3102[0m │                                         })
+ [2m3103[0m │ 
+ [2m3104[0m │                                         return updatedNode
+ [2m3105[0m │                                       })
+      · [35;1m                                       ─[0m
+ [2m3106[0m │                                     }
+ [2m3107[0m │                                   ])
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T03:00:30.537Z] [ERROR  ]  [31m[1m⨯[22m[39m ./components/workflows/NewWorkflowBuilderContent.tsx
+Error:   [31m×[0m Expected '</', got ')'
+      ╭─[[36;1;4m/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/components/workflows/NewWorkflowBuilderContent.tsx[0m:3105:1]
+ [2m3102[0m │                                         })
+ [2m3103[0m │ 
+ [2m3104[0m │                                         return updatedNode
+ [2m3105[0m │                                       })
+      · [35;1m                                       ─[0m
+ [2m3106[0m │                                     }
+ [2m3107[0m │                                   ])
+      ╰────
+
+Caused by:
+    Syntax Error
+
+Import trace for requested module:
+./components/workflows/NewWorkflowBuilderContent.tsx
+./components/workflows/NewWorkflowBuilderClient.tsx
+[2025-10-25T03:01:30.566Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /_error in 2.4s (6256 modules)
+[2025-10-25T03:01:30.644Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-25T03:01:30.902Z] [INFO   ] 2025-10-25T03:01:30.902Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794603503}
+[2025-10-25T03:01:30.922Z] [INFO   ] 2025-10-25T03:01:30.922Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/a20f999c-80b1-45bc-9284-d7115260c45e","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12794603523}
+[2025-10-25T03:01:31.362Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:188:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-25T03:01:31.551Z] [ERROR  ]  [31m[1m⨯[22m[39m Failed to generate static paths for /workflows/builder/[id]:
+[2025-10-25T03:01:31.551Z] [ERROR  ] Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+Error: Cannot find module './vendor-chunks/@supabase.js'
+Require stack:
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/webpack-runtime.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/server/app/workflows/builder/[id]/page.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-components.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/build/utils.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/static-paths-worker.js
+- /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1394:15)
+    at /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:57:36
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1050:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1055:22)
+    at Function._load (node:internal/modules/cjs/loader:1204:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1480:12)
+    at mod.require (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/require-hook.js:68:28)
+    at require (node:internal/modules/helpers:135:16)
+[2025-10-25T03:01:31.690Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processTimers (node:internal/timers:546:9)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:408:21)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-25T03:01:31.883Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at AppPageRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:28483)
+    at AppPageRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/app-page.runtime.dev.js:40:36772)
+    at async handler (webpack-internal:///(rsc)/./node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js?name=app%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&page=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&appPaths=%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage&pagePath=private-next-app-dir%2Fworkflows%2Fbuilder%2F%5Bid%5D%2Fpage.tsx&appDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e%2Fapp&pageExtensions=tsx&pageExtensions=ts&pageExtensions=jsx&pageExtensions=js&rootDir=%2FUsers%2Fnathanielstoddard%2Fchainreact-app%2Fchainreact-app-9e&isDev=true&tsconfigPath=tsconfig.json&basePath=&assetPrefix=&nextConfigOutput=&preferredRegion=&middlewareConfig=e30%3D&isGlobalNotFoundEnabled=!:188:27)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderPageComponent (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1474:24)
+    at async DevServer.renderToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1514:32)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async NextNodeServer.handleCatchallRenderRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/next-server.js:393:17)
+    at async DevServer.handleRequestImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:916:17)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:437:24)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:485:13)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-25T03:01:32.086Z] [ERROR  ]  [31m[1m⨯[22m[39m ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:131864)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/compiled/next-server/pages.runtime.dev.js:1:140087)
+    at async handler (webpack-internal:///(pages-dir-node)/./node_modules/next/dist/server/route-modules/pages/pages-handler.js:50:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async DevServer.renderErrorToResponseImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1742:24)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-25T03:01:32.098Z] [ERROR  ] ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+Error: ENOENT: no such file or directory, open '/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/.next/routes-manifest.json'
+    at readFileSync (node:fs:443:20)
+    at loadManifest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:41:41)
+    at loadManifestFromRelativePath (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/load-manifest.external.js:84:16)
+    at PagesRouteModule.loadManifests (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:115:17)
+    at PagesRouteModule.prepare (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/route-module.js:285:38)
+    at async handler (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/route-modules/pages/pages-handler.js:52:31)
+    at async DevServer.renderToResponseWithComponentsImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1422:9)
+    at async pipe.req.req (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1610:30)
+    at async DevServer.pipeImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/base-server.js:1025:25)
+    at async /Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:399:20
+    at async Span.traceAsyncFn (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/trace/trace.js:157:20)
+    at async DevServer.handleRequest (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/dev/next-dev-server.js:395:24)
+    at async invokeRender (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:240:21)
+    at async requestHandlerImpl (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/router-server.js:497:24)
+    at async Server.requestListener (/Users/nathanielstoddard/chainreact-app/chainreact-app-9e/node_modules/next/dist/server/lib/start-server.js:226:13)
+[2025-10-25T03:03:50.438Z] [ERROR  ] 2025-10-25T03:03:50.437Z [ERROR] AI call failed: {}
+[2025-10-25T03:03:50.440Z] [INFO   ] [STREAM] Config result: {
+  success: false,
+  hasConfig: false,
+  configKeys: [],
+  finalConfigKeys: [ 'channel', 'message' ],
+  fallbackFields: [ 'channel', 'message' ]
+}
+[2025-10-25T03:03:50.440Z] [INFO   ] [STREAM] Configuring 2 fields for Send Message to Slack: channel, message
+[2025-10-25T03:03:50.440Z] [INFO   ] [STREAM] Setting field channel = Select a channel for Send Message to Slack
+[2025-10-25T03:03:50.441Z] [ERROR  ] 2025-10-25T03:03:50.440Z [ERROR] Stream workflow error: {"message":"Invalid state: Controller is already closed","stack":"TypeError: Invalid state: Controller is already closed\n    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1077:13)\n    at sendEvent (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:58:32)\n    at Object.start (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:438:29)","name":"TypeError","fullError":"{\n  \"code\": \"ERR_INVALID_STATE\"\n}"}
+
+=== Log Session Ended: 2025-10-25T03:04:34.912Z ===
