@@ -25,6 +25,15 @@ export function SettingsContent() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [activeSection, setActiveSection] = useState<SettingsSection>('profile')
+
+  // DEBUG: Log profile data to see admin field
+  console.log('🔍 SETTINGS PAGE - Profile Debug:', {
+    hasProfile: !!profile,
+    admin: profile?.admin,
+    adminType: typeof profile?.admin,
+    role: profile?.role,
+    fullProfile: profile
+  })
   const [notifications, setNotifications] = useState({
     email: true,
     slack: false,

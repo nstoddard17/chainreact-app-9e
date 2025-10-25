@@ -208,7 +208,12 @@ export function NewSidebar() {
               return (
                 <button
                   key={item.href}
-                  onClick={() => router.push(item.href)}
+                  onClick={() => {
+                    console.log('🔴 Admin nav clicked:', item.href)
+                    console.log('🔴 Attempting navigation...')
+                    // Use window.location for now to bypass any router issues
+                    window.location.href = item.href
+                  }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                     active

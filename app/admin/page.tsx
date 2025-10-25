@@ -26,21 +26,27 @@ export default function AdminPage() {
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
-  useEffect(() => {
-    // Redirect non-admin users
-    if (profile && profile.admin !== true) {
-      router.push('/dashboard')
-    }
-  }, [profile, router])
+  // Debug logging
+  console.log('🔍 Admin Page Debug:', {
+    hasProfile: !!profile,
+    admin: profile?.admin,
+    adminType: typeof profile?.admin,
+    isAdmin,
+    profileData: profile
+  })
 
   useEffect(() => {
     if (profile?.admin === true) {
-      fetchUserStats()
+      console.log('✅ Admin verified, fetching user stats...')
+      fetchUserStats().catch(error => {
+        console.error('❌ Failed to fetch user stats:', error)
+      })
     }
   }, [profile, fetchUserStats])
 
-  // Show loading while checking permissions
+  // Show loading while profile loads
   if (!profile) {
+    console.log('⏳ Waiting for profile to load...')
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
         <LightningLoader size="lg" color="primary" />
@@ -48,10 +54,27 @@ export default function AdminPage() {
     )
   }
 
-  // Redirect non-admin users
+  // After profile loads, check if admin
   if (profile.admin !== true) {
-    return null
+    console.log('🚫 Access denied - not admin', { admin: profile.admin, profile })
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-muted-foreground mb-4">You do not have admin privileges.</p>
+          <p className="text-sm text-muted-foreground">Admin status: {String(profile.admin)}</p>
+          <button
+            onClick={() => router.push('/workflows')}
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          >
+            Go to Workflows
+          </button>
+        </div>
+      </div>
+    )
   }
+
+  console.log('✅ Admin access granted!', { admin: profile.admin })
 
   return (
     <NewAppLayout title="Admin Panel" subtitle="System administration and user management">

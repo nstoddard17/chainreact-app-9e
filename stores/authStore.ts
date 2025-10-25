@@ -151,8 +151,8 @@ export const useAuthStore = create<AuthState>()(
                 } else if (data.session) {
                   // Clear the hash
                   window.location.hash = ''
-                  // Redirect to dashboard
-                  window.location.href = '/dashboard'
+                  // Redirect to workflows
+                  window.location.href = '/workflows'
                   clearInitTimeout()
                   return
                 }
