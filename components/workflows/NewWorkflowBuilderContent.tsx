@@ -1865,20 +1865,29 @@ export function NewWorkflowBuilderContent() {
                             const fallbackCandidates = eventData.fallbackFields ?? node.data?.aiFallbackFields ?? []
                             const hasFallback = Array.isArray(fallbackCandidates) && fallbackCandidates.length > 0
 
-                            const nextStatus = eventData.status || (isComplete ? 'ready' : node.data?.aiStatus)
-                            let nextBadgeVariant = eventData.badgeVariant || (isComplete ? 'success' : node.data?.aiBadgeVariant)
-                            let nextBadgeText = eventData.badgeText || (isComplete ? 'Successful' : node.data?.aiBadgeText)
+                            const nextStatus = isComplete
+                              ? 'ready'
+                              : (eventData.status || node.data?.aiStatus)
+
+                            // FIXED: For node_complete, always use the values from eventData (which come from backend)
+                            // Don't fall back to node.data values which may be stale from node_configured
+                            let nextBadgeVariant = isComplete
+                              ? (eventData.badgeVariant || 'success')
+                              : (eventData.badgeVariant || node.data?.aiBadgeVariant)
+                            let nextBadgeText = isComplete
+                              ? (eventData.badgeText || 'Successful')
+                              : (eventData.badgeText || node.data?.aiBadgeText)
                             const nextExecutionStatus = isComplete
                               ? (eventData.executionStatus || 'completed')
                               : node.data.executionStatus
 
-                            if (isTrigger) {
+                            if (isTrigger && isComplete) {
                               if (hasFallback) {
                                 nextBadgeVariant = 'warning'
                                 nextBadgeText = 'Setup required'
                               } else {
                                 nextBadgeVariant = 'success'
-                                nextBadgeText = nextBadgeText || 'Successful'
+                                nextBadgeText = 'Successful'
                               }
                             }
 
@@ -3225,6 +3234,82 @@ export function NewWorkflowBuilderContent() {
                                     ])
                                   }
                                   break
+
+                              case 'node_complete':
+                                console.log('[CONTINUE] node_complete event received:', {
+                                  nodeId: eventData.nodeId,
+                                  status: eventData.status,
+                                  badgeText: eventData.badgeText,
+                                  badgeVariant: eventData.badgeVariant,
+                                  skipTest: eventData.skipTest,
+                                  executionStatus: eventData.executionStatus
+                                })
+                                setConfigurationProgress(prev => {
+                                  if (!prev) return prev
+                                  return {
+                                    ...prev,
+                                    currentNode: eventData.nodeIndex !== undefined ? eventData.nodeIndex + 1 : prev.currentNode,
+                                    nodeName: eventData.nodeName || prev.nodeName,
+                                    status: 'complete'
+                                  }
+                                })
+                                setReactAgentStatus('')
+
+                                if (eventData.nodeId) {
+                                  optimizedOnNodesChange([
+                                    {
+                                      type: 'update',
+                                      id: eventData.nodeId,
+                                      item: (node: any) => {
+                                        const isTrigger = Boolean(eventData.skipTest)
+                                        const fallbackCandidates = eventData.fallbackFields ?? node.data?.aiFallbackFields ?? []
+                                        const hasFallback = Array.isArray(fallbackCandidates) && fallbackCandidates.length > 0
+
+                                        // For node_complete, use eventData values with proper defaults
+                                        let nextBadgeVariant = eventData.badgeVariant || 'success'
+                                        let nextBadgeText = eventData.badgeText || 'Successful'
+
+                                        // Special handling for triggers with fallback fields
+                                        if (isTrigger && hasFallback) {
+                                          nextBadgeVariant = 'warning'
+                                          nextBadgeText = 'Setup required'
+                                        } else if (isTrigger) {
+                                          nextBadgeVariant = 'success'
+                                          nextBadgeText = 'Successful'
+                                        }
+
+                                        console.log('[CONTINUE] Applying node_complete update:', {
+                                          nodeId: node.id,
+                                          isTrigger,
+                                          hasFallback,
+                                          prevStatus: node.data.aiStatus,
+                                          nextStatus: 'ready',
+                                          nextBadgeText,
+                                          nextBadgeVariant,
+                                          executionStatus: eventData.executionStatus || 'completed'
+                                        })
+
+                                        return {
+                                          ...node,
+                                          data: {
+                                            ...node.data,
+                                            aiStatus: 'ready',
+                                            aiBadgeText: nextBadgeText,
+                                            aiBadgeVariant: nextBadgeVariant,
+                                            autoExpand: true,
+                                            needsSetup: nextBadgeVariant === 'warning',
+                                            aiFallbackFields: fallbackCandidates,
+                                            aiProgressConfig: [],
+                                            config: eventData.config || node.data.config,
+                                            testData: eventData.preview || node.data.testData,
+                                            executionStatus: eventData.executionStatus || 'completed'
+                                          }
+                                        }
+                                      }
+                                    }
+                                  ])
+                                }
+                                break
 
                               case 'node_testing':
                                 setConfigurationProgress(prev => {
