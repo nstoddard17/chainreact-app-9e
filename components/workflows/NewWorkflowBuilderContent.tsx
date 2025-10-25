@@ -2892,16 +2892,7 @@ export function NewWorkflowBuilderContent() {
                   </div>
                 ))}
 
-                {reactAgentStatus && (
-                  <div className="flex justify-start">
-                    <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                      <span>{reactAgentStatus}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Show workflow plan first, then status badge below it */}
+                {/* Show workflow plan (always keep visible once shown) */}
                 {showPlanApproval && workflowPlan && (
                   <WorkflowPlan
                     nodes={workflowPlan}
@@ -3463,8 +3454,8 @@ export function NewWorkflowBuilderContent() {
                                   setIsReactAgentLoading(false)
                                   setReactAgentStatus('')
                                   setIsPlacingNodes(false)
-                                  setShowPlanApproval(false)
-                                  setIsPlanBuilding(false)
+                                  // Keep plan visible: setShowPlanApproval(false) removed
+                                  setIsPlanBuilding(false)  // This will hide the Continue button
                                   setConfigurationProgress(null)
                                   break
 
@@ -3490,23 +3481,36 @@ export function NewWorkflowBuilderContent() {
                       }}
                     />
                   )}
-                  {/* Show pulsing placeholders when placing nodes */}
-                  {isPlacingNodes && !configurationProgress && (
-                    <PulsingPlaceholders
-                      count={workflowPlan?.length || 3}
-                      message="Placing nodes on canvas..."
-                    />
-                  )}
-                  {/* Removed progress indicators - they now show on the nodes themselves */}
-                  {showMissingApps && missingIntegrations.length > 0 && (
-                    <MissingIntegrationsBadges
-                      missingIntegrations={missingIntegrations}
-                      onConnect={(provider) => {
-                        // Navigate to integrations page
-                        window.location.href = '/integrations'
-                      }}
-                    />
-                  )}
+
+                {/* Status indicators always appear at the bottom after all messages and plan */}
+                {/* Show pulsing placeholders when placing nodes */}
+                {isPlacingNodes && !configurationProgress && (
+                  <PulsingPlaceholders
+                    count={workflowPlan?.length || 3}
+                    message="Placing nodes on canvas..."
+                  />
+                )}
+
+                {/* Status badge - appears at bottom during active work */}
+                {reactAgentStatus && (
+                  <div className="flex justify-start">
+                    <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-accent/40 px-3 py-2 text-xs text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                      <span>{reactAgentStatus}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing integrations badges */}
+                {showMissingApps && missingIntegrations.length > 0 && (
+                  <MissingIntegrationsBadges
+                    missingIntegrations={missingIntegrations}
+                    onConnect={(provider) => {
+                      // Navigate to integrations page
+                      window.location.href = '/integrations'
+                    }}
+                  />
+                )}
                 </div>
               </ScrollArea>
 
