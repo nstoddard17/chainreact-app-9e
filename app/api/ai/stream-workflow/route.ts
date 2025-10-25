@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
       testNodes = true, // Whether to test each node as it's built
       model = 'auto', // 'auto', 'gpt-4o-mini', 'gpt-4o'
       approvedPlan = null, // If user approved a plan, continue building from it
-      viewport = null // Viewport dimensions to position nodes correctly
+      viewport = null, // Viewport dimensions to position nodes correctly
+      autoApprove = false // Skip approval step and build immediately (for React agent)
     } = body
 
     if (!prompt && !approvedPlan) {
@@ -60,6 +61,17 @@ export async function POST(request: NextRequest) {
         try {
           let plan: any
 
+          // Get available nodes (needed for both approved plans and new plans)
+          const availableNodes = ALL_NODE_COMPONENTS.map(node => ({
+            type: node.type,
+            name: node.name,
+            providerId: node.providerId,
+            isTrigger: node.isTrigger,
+            description: node.description || '',
+            category: node.category || 'misc',
+            schema: node.schema // Include schema for smart config
+          }))
+
           // If we have an approved plan, skip prerequisites and planning
           if (approvedPlan) {
             plan = approvedPlan
@@ -75,17 +87,6 @@ export async function POST(request: NextRequest) {
               step: 1,
               totalSteps: 5
             })
-
-          // Get available nodes
-          const availableNodes = ALL_NODE_COMPONENTS.map(node => ({
-            type: node.type,
-            name: node.name,
-            providerId: node.providerId,
-            isTrigger: node.isTrigger,
-            description: node.description || '',
-            category: node.category || 'misc',
-            schema: node.schema // Include schema for smart config
-          }))
 
           // Step 1: Analyze what apps are needed
           const prerequisitePrompt = buildPrerequisitePrompt({
@@ -177,20 +178,25 @@ export async function POST(request: NextRequest) {
           })
 
           // Call AI to plan workflow (using GPT-4o-mini for speed)
-          const plan = await callAI({
+          const planResult = await callAI({
             prompt: planningPrompt,
             model: 'gpt-4o-mini',
             temperature: 0.3,
             responseFormat: 'json'
           })
 
-          if (!plan.success) {
-            sendEvent('error', { message: 'Failed to plan workflow', error: plan.error })
+          if (!planResult.success) {
+            sendEvent('error', { message: 'Failed to plan workflow', error: planResult.error })
             controller.close()
             return
           }
 
-            // Phase 4: Show Plan & Wait for Approval
+          // Assign to outer scope plan variable (exclude the success property)
+          const { success, ...planData } = planResult
+          plan = planData
+
+          // Phase 4: Show Plan & Wait for Approval (unless autoApprove is true)
+          if (!autoApprove) {
             sendEvent('show_plan', {
               message: "Here's what I'm going to build for you:",
               nodes: plan.nodes.map((n: any) => {
@@ -216,21 +222,55 @@ export async function POST(request: NextRequest) {
             return
           }
 
-          // Phase 2: Build nodes one by one
+          // If autoApprove is true, send a non-blocking plan preview and continue building
+          console.log('[STREAM] Auto-approving plan, continuing to build immediately')
+          console.log('[STREAM] Plan structure:', {
+            hasNodes: !!plan.nodes,
+            nodeCount: plan.nodes?.length,
+            planKeys: Object.keys(plan)
+          })
+
+          if (!plan.nodes || !Array.isArray(plan.nodes)) {
+            console.error('[STREAM] Invalid plan structure - missing nodes array:', plan)
+            sendEvent('error', {
+              message: 'Invalid workflow plan structure',
+              details: 'Plan is missing nodes array'
+            })
+            controller.close()
+            return
+          }
+
+          sendEvent('auto_building_plan', {
+            message: "Building your workflow...",
+            nodes: plan.nodes.map((n: any) => {
+              const nodeDef = availableNodes.find((an: any) => an.type === n.type)
+              return {
+                type: n.type,
+                title: n.title,
+                description: n.description,
+                providerId: nodeDef?.providerId || 'generic',
+                isTrigger: nodeDef?.isTrigger || false
+              }
+            })
+          })
+        }
+
+        // Phase 2: Create all nodes first with "pending" status
+          console.log('[STREAM] Phase 2: Starting node creation, plan:', plan)
           const createdNodes = []
           const createdEdges = []
+          const nodeComponents = []
 
+          sendEvent('creating_all_nodes', {
+            message: 'Creating workflow structure...',
+            totalNodes: plan.nodes.length
+          })
+
+          console.log('[STREAM] Plan nodes:', plan.nodes)
+
+          // Step 1: Create all nodes with pending status
           for (let i = 0; i < plan.nodes.length; i++) {
             const plannedNode = plan.nodes[i]
-
-            // Check if client disconnected
-            if (request.signal.aborted) {
-              logger.info('Client disconnected, stopping workflow build')
-              controller.close()
-              return
-            }
-
-            // Step 1: Create node - Skip first event, we'll send it after creating the node object
 
             // Find node component
             const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === plannedNode.type)
@@ -245,7 +285,6 @@ export async function POST(request: NextRequest) {
             // Create node on canvas
             const nodeId = `node-${Date.now()}-${i}`
             const position = calculateNodePosition(i, createdNodes, viewport)
-
             const nodeDescription = plannedNode.description || nodeComponent.description || ''
 
             const node = {
@@ -260,47 +299,106 @@ export async function POST(request: NextRequest) {
                 isTrigger: nodeComponent.isTrigger,
                 config: {},
                 needsSetup: false,
-                aiStatus: 'preparing',
-                aiBadgeText: 'Preparing',
-                aiBadgeVariant: 'info',
-                autoExpand: true
+                aiStatus: 'pending',
+                aiBadgeText: 'Pending',
+                aiBadgeVariant: 'default',
+                autoExpand: false,
+                isPending: true
               }
             }
 
             createdNodes.push(node)
+            nodeComponents.push(nodeComponent)
 
-            // Send node_creating event with proper status
-            sendEvent('node_creating', {
+            // Send event to add the node with pending status
+            sendEvent('node_created', {
+              message: `Added ${plannedNode.title}`,
+              node,
+              nodeIndex: i,
+              isPending: true
+            })
+
+            await sleep(100) // Small delay for visual effect
+          }
+
+          // Step 2: Create all edges between nodes
+          for (let i = 1; i < createdNodes.length; i++) {
+            const edge = {
+              id: `edge-${createdNodes[i - 1].id}-${createdNodes[i].id}`,
+              source: createdNodes[i - 1].id,
+              target: createdNodes[i].id,
+              type: 'default'
+            }
+            createdEdges.push(edge)
+
+            sendEvent('edge_created', {
+              edge,
+              message: `Connected ${createdNodes[i - 1].data.title} → ${createdNodes[i].data.title}`
+            })
+
+            await sleep(50) // Small delay for visual effect
+          }
+
+          // Wait a moment to let users see the complete structure
+          await sleep(800)
+
+          // Phase 3: Configure and test each node sequentially
+          for (let i = 0; i < plan.nodes.length; i++) {
+            const plannedNode = plan.nodes[i]
+            const node = createdNodes[i]
+            const nodeComponent = nodeComponents[i]
+
+            if (!node || !nodeComponent) continue
+
+            // Check if client disconnected
+            if (request.signal.aborted) {
+              logger.info('Client disconnected, stopping workflow build')
+              controller.close()
+              return
+            }
+
+            // Update progress indicator
+            sendEvent('configuration_progress', {
+              currentNode: i + 1,
+              totalNodes: plan.nodes.length,
+              nodeName: plannedNode.title,
+              message: `Configuring node ${i + 1} of ${plan.nodes.length}: ${plannedNode.title}`
+            })
+
+            // Step 3a: Change node from pending to preparing
+            node.data.aiStatus = 'preparing'
+            node.data.aiBadgeText = 'Preparing'
+            node.data.aiBadgeVariant = 'info'
+            node.data.isPending = false
+            node.data.autoExpand = true
+
+            console.log(`[STREAM] Preparing ${plannedNode.title} (${node.id})`)
+            sendEvent('node_preparing', {
               message: `Preparing ${plannedNode.title}...`,
               nodeIndex: i,
-              nodeId: nodeId,
+              nodeId: node.id,
               nodeName: plannedNode.title,
-              totalNodes: plan.nodes.length,
               status: 'preparing'
             })
 
-            // Wait to show the preparing state visually
-            await sleep(800)
-
-            sendEvent('node_created', {
-              message: `✓ ${plannedNode.title} created`,
-              node,
-              nodeIndex: i
-            })
+            await sleep(800)  // Show preparing state
 
             // Step 2: Configure node - change status to "Configuring"
             node.data.aiStatus = 'configuring'
             node.data.aiBadgeText = 'Configuring'
             node.data.aiBadgeVariant = 'info'
+            console.log(`[STREAM] Starting configuration for ${plannedNode.title} (${node.id})`)
             sendEvent('node_configuring', {
               message: `Configuring ${plannedNode.title}...`,
               nodeIndex: i,
-              nodeId: nodeId,
+              nodeId: node.id,
               nodeName: plannedNode.title,
               status: node.data.aiStatus,
               badgeText: node.data.aiBadgeText,
               badgeVariant: node.data.aiBadgeVariant
             })
+
+            await sleep(500)  // Wait for configuring state to show
 
             // Determine which model to use for configuration
             const configModel = selectModelForTask({
@@ -327,7 +425,16 @@ export async function POST(request: NextRequest) {
               prompt
             })
 
+            console.log(`[STREAM] Config result:`, {
+              success: configResult.success,
+              hasConfig: !!configResult.config,
+              configKeys: Object.keys(configResult.config || {}),
+              finalConfigKeys: Object.keys(finalConfig),
+              fallbackFields
+            })
+
             if (!configResult.success && fallbackFields.length === 0) {
+              console.log(`[STREAM] ERROR: Failed to configure ${plannedNode.title}`)
               sendEvent('error', {
                 message: `Failed to configure ${plannedNode.title}`,
                 error: configResult.error,
@@ -338,11 +445,32 @@ export async function POST(request: NextRequest) {
 
             // Update node with config field-by-field for visual effect
             const configFields = Object.entries(finalConfig)
+            console.log(`[STREAM] Configuring ${configFields.length} fields for ${plannedNode.title}: ${Object.keys(finalConfig).join(', ')}`)
+
+            // If no config fields for trigger, add a default one to show something
+            if (configFields.length === 0 && nodeComponent.isTrigger) {
+              console.log(`[STREAM] No config for trigger, adding default`)
+              sendEvent('field_configured', {
+                message: `Trigger will activate on events`,
+                nodeId: node.id,
+                nodeIndex: i,
+                fieldKey: 'status',
+                fieldValue: 'Ready to receive events',
+                displayValue: 'Ready to receive events',
+                fieldIndex: 0,
+                totalFields: 1,
+                status: 'configuring',
+                badgeText: 'Configuring',
+                badgeVariant: 'info'
+              })
+            }
+
             for (let fieldIndex = 0; fieldIndex < configFields.length; fieldIndex++) {
               const [fieldKey, fieldValue] = configFields[fieldIndex]
 
               // Add field to node config
               node.data.config[fieldKey] = fieldValue
+              console.log(`[STREAM] Setting field ${fieldKey} = ${fieldValue} for ${plannedNode.title}`)
 
               // Format display value for the field
               let displayValue = ''
@@ -361,7 +489,7 @@ export async function POST(request: NextRequest) {
               // Send event for this field
               sendEvent('field_configured', {
                 message: `Setting ${formatFieldName(fieldKey)}...`,
-                nodeId: nodeId,
+                nodeId: node.id,
                 nodeIndex: i,
                 fieldKey,
                 fieldValue,
@@ -374,7 +502,7 @@ export async function POST(request: NextRequest) {
                 badgeVariant: 'info'
               })
 
-              await sleep(100) // Brief pause to show each field being set
+              await sleep(300) // Pause to show each field being set visually
             }
 
             node.data.aiStatus = 'configured'
@@ -387,7 +515,7 @@ export async function POST(request: NextRequest) {
 
             sendEvent('node_configured', {
               message: `✓ ${plannedNode.title} configured`,
-              nodeId: nodeId,
+              nodeId: node.id,
               config: finalConfig,
               nodeIndex: i,
               reasoning: reasoning || configResult.reasoning, // Why AI chose these values
@@ -398,37 +526,72 @@ export async function POST(request: NextRequest) {
               fallbackFields
             })
 
-            // Step 3: ALWAYS test node to ensure it works
-            node.data.aiStatus = 'testing'
-            node.data.aiBadgeText = 'Testing'
-            node.data.aiBadgeVariant = 'info'
-            sendEvent('node_testing', {
-              message: `Testing ${plannedNode.title}...`,
-              nodeId: nodeId,
-              nodeIndex: i,
-              status: node.data.aiStatus,
-              badgeText: node.data.aiBadgeText,
-              badgeVariant: node.data.aiBadgeVariant
-            })
+            // Add wait after configuration for all nodes
+            await sleep(500)
 
-            // Test with retry logic for fixing errors
-            let testResult = await testNode({
-              node,
-              previousNodes: createdNodes.slice(0, i),
-              userId: user.id,
-              supabase
-            })
+            // Step 3: Test node (skip for triggers)
+            if (nodeComponent.isTrigger) {
+              console.log(`[STREAM] Skipping test for trigger ${plannedNode.title}`)
 
-            // If test failed, try to fix the configuration
-            let retryCount = 0
-            const MAX_RETRIES = 2
+              // Skip testing for trigger nodes - they activate on events
+              node.data.aiStatus = 'ready'
+              node.data.aiBadgeText = 'Successful'
+              node.data.aiBadgeVariant = 'success'
+              node.data.executionStatus = 'completed'
 
-            while (!testResult.success && retryCount < MAX_RETRIES) {
+              sendEvent('node_complete', {
+                message: `✅ ${plannedNode.title} configured (trigger will activate on events)`,
+                nodeId: node.id,
+                nodeName: plannedNode.title,
+                nodeIndex: i,
+                totalNodes: plan.nodes.length,
+                skipTest: true,
+                testResult: {
+                  success: true,
+                  message: 'Trigger configured - will activate when events occur'
+                },
+                status: 'ready',
+                badgeText: node.data.aiBadgeText,
+                badgeVariant: node.data.aiBadgeVariant,
+                executionStatus: node.data.executionStatus
+              })
+
+              // Wait before starting next node
+              await sleep(1500)  // Changed to match non-trigger delay
+            } else {
+              // Test action and logic nodes
+              node.data.aiStatus = 'testing'
+              node.data.aiBadgeText = 'Testing'
+              node.data.aiBadgeVariant = 'info'
+              sendEvent('node_testing', {
+                message: `Testing ${plannedNode.title}...`,
+                nodeId: node.id,
+                nodeIndex: i,
+                status: node.data.aiStatus,
+                badgeText: node.data.aiBadgeText,
+                badgeVariant: node.data.aiBadgeVariant
+              })
+
+              // Test with retry logic for fixing errors
+              let testResult = await testNode({
+                node,
+                previousNodes: createdNodes.slice(0, i),
+                userId: user.id,
+                supabase,
+                userPrompt: prompt,
+                workflowContext: plan.description || prompt
+              })
+
+              // If test failed, try to fix the configuration
+              let retryCount = 0
+              const MAX_RETRIES = 2
+
+              while (!testResult.success && retryCount < MAX_RETRIES) {
               retryCount++
 
               sendEvent('node_fixing', {
                 message: `Fixing configuration issue (attempt ${retryCount}/${MAX_RETRIES})...`,
-                nodeId: nodeId,
+                nodeId: node.id,
                 nodeIndex: i,
                 error: testResult.error,
                 attempt: retryCount
@@ -456,7 +619,7 @@ export async function POST(request: NextRequest) {
 
                     sendEvent('field_fixed', {
                       message: `Fixed ${formatFieldName(fixKey)}`,
-                      nodeId: nodeId,
+                      nodeId: node.id,
                       fieldKey: fixKey,
                       oldValue: node.data.config[fixKey],
                       newValue: fixValue,
@@ -470,7 +633,7 @@ export async function POST(request: NextRequest) {
                 // Re-test with fixed configuration
                 sendEvent('node_retesting', {
                   message: `Re-testing with fixed configuration...`,
-                  nodeId: nodeId,
+                  nodeId: node.id,
                   nodeIndex: i
                 })
 
@@ -478,7 +641,9 @@ export async function POST(request: NextRequest) {
                   node,
                   previousNodes: createdNodes.slice(0, i),
                   userId: user.id,
-                  supabase
+                  supabase,
+                  userPrompt: prompt,
+                  workflowContext: plan.description || prompt
                 })
               } else {
                 // Could not generate a fix, exit retry loop
@@ -495,7 +660,7 @@ export async function POST(request: NextRequest) {
 
                     sendEvent('test_data_field', {
                       message: `${formatFieldName(testFieldKey)}: ${formatFieldValue(testFieldValue)}`,
-                      nodeId: nodeId,
+                      nodeId: node.id,
                       nodeIndex: i,
                       fieldKey: testFieldKey,
                       fieldValue: testFieldValue,
@@ -508,8 +673,9 @@ export async function POST(request: NextRequest) {
                 }
 
                 node.data.aiStatus = 'ready'
-                node.data.aiBadgeText = 'Ready'
+                node.data.aiBadgeText = 'Successful'
                 node.data.aiBadgeVariant = 'success'
+                node.data.executionStatus = 'completed'
                 node.data.needsSetup = false
                 node.data.aiTestSummary = usedFallback
                   ? `${testResult.summary} Review the highlighted fields to tailor this node to your workflow.`
@@ -517,24 +683,26 @@ export async function POST(request: NextRequest) {
 
                 sendEvent('node_tested', {
                   message: `✓ ${plannedNode.title} tested successfully`,
-                  nodeId: nodeId,
+                  nodeId: node.id,
                   preview: testResult.preview,
                   nodeIndex: i,
                   summary: node.data.aiTestSummary,
                   status: node.data.aiStatus,
                   badgeText: node.data.aiBadgeText,
-                  badgeVariant: node.data.aiBadgeVariant
+                  badgeVariant: node.data.aiBadgeVariant,
+                  executionStatus: node.data.executionStatus
                 })
 
                 // Update node status to complete/ready
                 node.data.aiStatus = 'ready'
-                node.data.aiBadgeText = 'Complete'
+                node.data.aiBadgeText = 'Successful'
                 node.data.aiBadgeVariant = 'success'
+                node.data.executionStatus = 'completed'
 
                 // Send node complete event with test results
                 sendEvent('node_complete', {
                   message: `✅ ${plannedNode.title} is ready`,
-                  nodeId: nodeId,
+                  nodeId: node.id,
                   nodeName: plannedNode.title,
                   nodeIndex: i,
                   totalNodes: plan.nodes.length,
@@ -542,7 +710,10 @@ export async function POST(request: NextRequest) {
                     success: true,
                     message: testResult.summary || 'Configuration tested successfully'
                   },
-                  status: 'ready'
+                  status: 'ready',
+                  badgeText: node.data.aiBadgeText,
+                  badgeVariant: node.data.aiBadgeVariant,
+                  executionStatus: node.data.executionStatus
                 })
 
                 // Wait before starting next node to ensure completion is visible
@@ -551,17 +722,19 @@ export async function POST(request: NextRequest) {
                 node.data.aiStatus = 'error'
                 node.data.aiBadgeText = 'Needs Attention'
                 node.data.aiBadgeVariant = 'danger'
+                node.data.executionStatus = 'error'
                 node.data.aiTestSummary = testResult.summary || testResult.error || null
                 sendEvent('node_test_failed', {
                   message: `⚠️ ${plannedNode.title} test failed: ${testResult.error}`,
-                  nodeId: nodeId,
+                  nodeId: node.id,
                   error: testResult.error,
                   nodeIndex: i,
                   canContinue: testResult.canContinue, // Can we proceed despite failure?
                   summary: testResult.summary,
                   status: node.data.aiStatus,
                   badgeText: node.data.aiBadgeText,
-                  badgeVariant: node.data.aiBadgeVariant
+                  badgeVariant: node.data.aiBadgeVariant,
+                  executionStatus: node.data.executionStatus
                 })
 
                 // If critical failure, stop building
@@ -574,22 +747,7 @@ export async function POST(request: NextRequest) {
                   return
                 }
               }
-
-            // Step 4: Create edge to previous node
-            if (i > 0) {
-              const edge = {
-                id: `edge-${createdNodes[i - 1].id}-${nodeId}`,
-                source: createdNodes[i - 1].id,
-                target: nodeId,
-                type: 'custom'
-              }
-              createdEdges.push(edge)
-
-              sendEvent('edge_created', {
-                message: `Connected ${createdNodes[i - 1].data.title} → ${plannedNode.title}`,
-                edge
-              })
-            }
+            } // End of else block (testing for non-trigger nodes)
 
             // Brief pause before starting next node
             await sleep(300)
@@ -606,9 +764,13 @@ export async function POST(request: NextRequest) {
 
           // Close stream
           controller.close()
-
         } catch (error: any) {
-          logger.error('Stream workflow error:', error)
+          logger.error('Stream workflow error:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            fullError: JSON.stringify(error, null, 2)
+          })
           sendEvent('error', {
             message: error.message || 'An error occurred while building workflow',
             error: error.toString()
@@ -914,14 +1076,35 @@ Return JSON:
   }
 }
 
-async function testNode({ node, previousNodes, userId, supabase }: any) {
+async function testNode({ node, previousNodes, userId, supabase, userPrompt, workflowContext }: any) {
   try {
     const config = node?.data?.config || {}
     const isTrigger = Boolean(node?.data?.isTrigger)
+
+    // Import the mock data generator
+    const { generateContextualMockData } = await import('@/lib/workflows/testing/generateContextualMockData')
+
+    // Get previous node's output if available
+    const previousNodeOutput = previousNodes?.length > 0
+      ? previousNodes[previousNodes.length - 1].testData
+      : null
+
+    // Generate contextual mock data
+    const mockData = await generateContextualMockData({
+      nodeType: node.data.type,
+      nodeTitle: node.data.title,
+      providerId: node.data.providerId,
+      userPrompt,
+      previousNodeOutput,
+      workflowContext,
+      nodeConfig: config
+    })
+
     const preview = buildTestPreview({
       node,
       config,
-      previousNodes
+      previousNodes,
+      mockData
     })
 
     const summary = buildTestSummary({
@@ -930,6 +1113,9 @@ async function testNode({ node, previousNodes, userId, supabase }: any) {
       config,
       isTrigger
     })
+
+    // Store the mock data on the node for the next node to use
+    node.testData = mockData
 
     return {
       success: true,
@@ -961,9 +1147,9 @@ function getNodeOutputs(node: any): string[] {
 function calculateNodePosition(index: number, existingNodes: any[], viewport: any = null) {
   // Constants
   const NODE_WIDTH = 450 // From CustomNode.tsx
-  const NODE_HEIGHT = 200 // Approximate height
-  const BASE_HORIZONTAL_SPACING = 550 // 450px node + 100px gap for edges
-  const VERTICAL_SPACING = 260 // Space between rows
+  const NODE_HEIGHT = 260 // Allow room for expanded active nodes
+  const BASE_HORIZONTAL_SPACING = 580 // Comfortable spacing between horizontally connected nodes
+  const VERTICAL_SPACING = NODE_HEIGHT + 140 // Extra room if a wrap to next row is required
   const BASE_PADDING = 80 // Padding from viewport edges
 
   // If no viewport info provided, use legacy positioning
@@ -983,26 +1169,40 @@ function calculateNodePosition(index: number, existingNodes: any[], viewport: an
 
   // Calculate visible area in world coordinates (accounting for zoom)
   const effectiveViewportWidth = (viewport.width + chatPanelWidth) / zoom
+  const builderViewportWidth = viewport.width / zoom
   const visibleHeight = viewport.height / zoom
 
   const horizontalPadding = chatPanelWidth > 0 ? BASE_PADDING / 2 : BASE_PADDING
-  const availableWidth = Math.max(effectiveViewportWidth - (horizontalPadding * 2), NODE_WIDTH + 40)
-  const horizontalSpacing = Math.min(Math.max(NODE_WIDTH + 80, availableWidth / 3), BASE_HORIZONTAL_SPACING)
+  const availableWidth = Math.max(builderViewportWidth - (horizontalPadding * 2), NODE_WIDTH + 40)
 
-  // Calculate how many nodes fit in one row
-  const nodesPerRow = Math.max(1, Math.floor(availableWidth / horizontalSpacing))
+  // Determine how many nodes comfortably fit per row (limit to 5 for readability)
+  const maxNodesPerRow = Math.max(1, Math.floor(availableWidth / (NODE_WIDTH + 120)))
+  const nodesPerRow = Math.max(1, Math.min(maxNodesPerRow || 1, 5))
 
-  // Calculate row and column for this node
+  const totalNodes = existingNodes.length + 1 // Include the node currently being placed
   const row = Math.floor(index / nodesPerRow)
   const col = index % nodesPerRow
 
-  // Position the node in world coordinates
-  const x = horizontalPadding + (col * horizontalSpacing)
+  // Compute spacing between nodes for this layout
+  let horizontalSpacing = NODE_WIDTH + 120
+  if (nodesPerRow > 1) {
+    const maxRowSpacing = Math.max(1, nodesPerRow - 1)
+    const spaceForGaps = Math.max(availableWidth - NODE_WIDTH, NODE_WIDTH)
+    const computedSpacing = spaceForGaps / maxRowSpacing
+    horizontalSpacing = Math.max(NODE_WIDTH + 120, Math.min(BASE_HORIZONTAL_SPACING, computedSpacing))
+  }
+
+  const nodesInThisRow = Math.min(nodesPerRow, totalNodes - row * nodesPerRow)
+  const rowWidth = (nodesInThisRow - 1) * horizontalSpacing + NODE_WIDTH
+  const centerOffset = horizontalPadding + Math.max(0, (availableWidth - rowWidth) / 2)
+
+  const x = centerOffset + (col * horizontalSpacing)
   const y = BASE_PADDING + (row * VERTICAL_SPACING)
 
   console.log('[POSITION] Node', index, ':', {
     viewport: { width: viewport.width, height: viewport.height, zoom, chatPanelWidth },
     effectiveViewportWidth,
+    builderViewportWidth,
     visibleHeight,
     availableWidth,
     nodesPerRow,
@@ -1018,7 +1218,7 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function buildTestPreview({ node, config, previousNodes }: any) {
+function buildTestPreview({ node, config, previousNodes, mockData }: any) {
   const timestamp = new Date().toISOString()
   const normalizedConfig = Object.entries(config || {}).reduce((acc: Record<string, any>, [key, value]) => {
     acc[key] = value
@@ -1026,14 +1226,15 @@ function buildTestPreview({ node, config, previousNodes }: any) {
   }, {})
 
   if (node?.data?.isTrigger) {
+    // Use the contextual mock data for triggers
     return {
       eventSource: node.data.title,
       sampleTimestamp: timestamp,
       samplePayloadSummary: `Mock event generated for ${node.data.title}`,
-      capturedFields: Object.keys(normalizedConfig).length ? Object.keys(normalizedConfig) : ['subject', 'body', 'created_at'],
-      sampleData: {
+      capturedFields: mockData ? Object.keys(mockData).slice(0, 5) : ['id', 'type', 'timestamp'],
+      sampleData: mockData || {
         id: `${node.id}-sample`,
-        subject: 'Sample event subject',
+        type: 'event',
         preview: 'This is representative data provided for review.',
         created_at: timestamp
       }
@@ -1041,6 +1242,27 @@ function buildTestPreview({ node, config, previousNodes }: any) {
   }
 
   const upstream = previousNodes && previousNodes.length > 0 ? previousNodes[previousNodes.length - 1] : null
+
+  // For action nodes, show the mock data as output
+  if (mockData) {
+    // Limit preview to key fields to avoid overwhelming the UI
+    const previewData = typeof mockData === 'object' && !Array.isArray(mockData)
+      ? Object.fromEntries(Object.entries(mockData).slice(0, 5))
+      : mockData
+
+    return {
+      runTimestamp: timestamp,
+      upstreamSource: upstream ? upstream.data?.title : null,
+      outputPreview: `Processed data from ${node.data?.title}`,
+      configuredFields: normalizedConfig,
+      testOutput: previewData,
+      result: {
+        status: 'success',
+        notes: 'Test executed with contextual mock data'
+      }
+    }
+  }
+
   return {
     runTimestamp: timestamp,
     upstreamSource: upstream ? upstream.data?.title : null,

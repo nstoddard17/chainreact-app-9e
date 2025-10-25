@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workflow Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { color: #333; }
+        .section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Workflow Builder Test</h1>
+
+    <div class="section">
+        <h2>Test Scenarios</h2>
+        <p>Click a button to simulate the AI agent flow:</p>
+
+        <button class="button" onclick="testWorkflow('when I get an email, send it to Slack')">
+            Test: Email → Slack
+        </button>
+
+        <button class="button" onclick="testWorkflow('when a new row is added to Airtable, send a Discord message')">
+            Test: Airtable → Discord
+        </button>
+
+        <button class="button" onclick="testWorkflow('when someone fills out my Google Form, add them to Mailchimp')">
+            Test: Google Form → Mailchimp
+        </button>
+
+        <div style="margin-top: 20px;">
+            <input type="text" id="customPrompt" placeholder="Or enter your own prompt..." />
+            <button class="button" onclick="testCustom()">Test Custom Prompt</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Output</h2>
+        <div id="output" class="output">Waiting for test...</div>
+    </div>
+
+    <script>
+        let workflowId = null;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '📝';
+            output.innerHTML += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clear() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        async function testCustom() {
+            const prompt = document.getElementById('customPrompt').value;
+            if (!prompt) {
+                log('Please enter a prompt', 'error');
+                return;
+            }
+            await testWorkflow(prompt);
+        }
+
+        async function testWorkflow(prompt) {
+            clear();
+            log('Starting test with prompt: "' + prompt + '"');
+
+            try {
+                // Step 1: Create workflow (simulating what AI agent page does)
+                log('Creating workflow...');
+                const createResponse = await fetch('http://localhost:3001/api/workflows', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        name: 'Test Workflow ' + new Date().toISOString(),
+                        description: 'Created by AI test',
+                        nodes: [],
+                        connections: [],
+                        category: 'other',
+                        is_active: false
+                    })
+                });
+
+                if (!createResponse.ok) {
+                    throw new Error('Failed to create workflow: ' + createResponse.status);
+                }
+
+                const workflow = await createResponse.json();
+                workflowId = workflow.id;
+                log('Created workflow with ID: ' + workflowId, 'success');
+
+                // Step 2: Build the redirect URL
+                const encodedPrompt = encodeURIComponent(prompt);
+                const redirectUrl = `http://localhost:3001/workflows/builder/${workflowId}?aiChat=true&initialPrompt=${encodedPrompt}`;
+                log('Would redirect to: ' + redirectUrl);
+
+                // Step 3: Call the stream workflow API directly
+                log('Calling stream workflow API with autoApprove=true...');
+                const streamResponse = await fetch('http://localhost:3001/api/ai/stream-workflow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        workflowId: workflowId,
+                        connectedIntegrations: ['gmail', 'slack', 'airtable', 'discord', 'google-forms', 'mailchimp'],
+                        conversationHistory: [],
+                        contextNodes: [],
+                        testNodes: true,
+                        model: 'auto',
+                        autoApprove: true,
+                        viewport: {
+                            width: 1200,
+                            height: 800,
+                            chatPanelWidth: 448,
+                            defaultZoom: 0.75
+                        }
+                    })
+                });
+
+                if (!streamResponse.ok) {
+                    throw new Error('Failed to stream workflow: ' + streamResponse.status);
+                }
+
+                // Step 4: Process the SSE stream
+                log('Processing stream...');
+                const reader = streamResponse.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.trim() || !line.startsWith('data: ')) continue;
+
+                        try {
+                            const event = JSON.parse(line.substring(6));
+
+                            // Log important events
+                            switch (event.type) {
+                                case 'thinking':
+                                    log('🤔 ' + event.message);
+                                    break;
+                                case 'checking_prerequisites':
+                                    log('🔍 ' + event.message);
+                                    break;
+                                case 'missing_apps':
+                                    log('⚠️ Missing apps: ' + event.missingApps.join(', '), 'error');
+                                    break;
+                                case 'auto_building_plan':
+                                    log('🏗️ Auto-building workflow...', 'success');
+                                    if (event.nodes) {
+                                        event.nodes.forEach(n => log('  • ' + n.title + ' (' + n.type + ')'));
+                                    }
+                                    break;
+                                case 'creating_all_nodes':
+                                    log('📦 ' + event.message);
+                                    break;
+                                case 'node_created':
+                                    if (event.isPending) {
+                                        log('  ⏳ Added pending node: ' + event.node.data.title);
+                                    }
+                                    break;
+                                case 'edge_created':
+                                    log('  🔗 ' + event.message);
+                                    break;
+                                case 'configuration_progress':
+                                    log('⚙️ ' + event.message);
+                                    break;
+                                case 'node_preparing':
+                                    log('  🔧 Preparing: ' + event.nodeName);
+                                    break;
+                                case 'node_configuring':
+                                    log('  ⚙️ Configuring: ' + event.nodeName);
+                                    break;
+                                case 'field_configured':
+                                    log('    • ' + event.fieldKey + ' = ' + event.displayValue);
+                                    break;
+                                case 'node_testing':
+                                    log('  🧪 Testing: ' + event.nodeName);
+                                    break;
+                                case 'node_complete':
+                                    log('  ✅ Complete: ' + event.nodeName, 'success');
+                                    break;
+                                case 'workflow_complete':
+                                    log('🎉 ' + event.message, 'success');
+                                    break;
+                                case 'error':
+                                    log('❌ Error: ' + event.message, 'error');
+                                    break;
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse event:', e);
+                        }
+                    }
+                }
+
+                log('Test complete!', 'success');
+                log('You can now visit the workflow at: ' + redirectUrl);
+
+            } catch (error) {
+                log('Error: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
