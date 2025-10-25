@@ -85,8 +85,9 @@ const nextConfig = {
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-              "upgrade-insecure-requests"
-            ].join('; '),
+              // Temporarily disabled for local dev - re-enable in production
+              // "upgrade-insecure-requests"
+            ].filter(Boolean).join('; '),
           },
           {
             key: 'X-XSS-Protection',
