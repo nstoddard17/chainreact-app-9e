@@ -3087,13 +3087,13 @@ export function useWorkflowBuilder() {
     if (updateChanges.length > 0) {
       setNodes(currentNodes => {
         let mutated = false
-        let updatedNodes = currentNodes
+        let nextNodes = currentNodes
 
-        updateChanges.forEach((change: any) => {
-          updatedNodes = updatedNodes.map(node => {
+        for (const change of updateChanges) {
+          const applyUpdate = change.item
+          nextNodes = nextNodes.map(node => {
             if (node.id !== change.id) return node
 
-            const applyUpdate = change.item
             let updatedNode = typeof applyUpdate === 'function'
               ? applyUpdate(node)
               : (applyUpdate || node)
@@ -3108,9 +3108,9 @@ export function useWorkflowBuilder() {
 
             return updatedNode
           })
-        })
+        }
 
-        return mutated ? updatedNodes : currentNodes
+        return mutated ? nextNodes : currentNodes
       })
 
       // Record change for undo/redo history after ReactFlow updates

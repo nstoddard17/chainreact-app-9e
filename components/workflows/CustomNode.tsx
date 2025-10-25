@@ -546,7 +546,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     isConfigExpanded ? displayConfigEntries : displayConfigEntries.slice(0, 4)
   ), [displayConfigEntries, isConfigExpanded])
   const extraConfigCount = Math.max(displayConfigEntries.length - compactConfigEntries.length, 0)
-  const showConfigSkeleton = displayConfigEntries.length === 0 && ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
+  const showConfigSkeleton = !hasConfigEntries && ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
   const showTestingSection = hasTestEntries || aiStatus === 'testing'
   const showTestingSkeleton = !hasTestEntries && aiStatus === 'testing'
 
