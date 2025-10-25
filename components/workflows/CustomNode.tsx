@@ -914,16 +914,22 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     : hasRenderableValue(value)
                   const isFallback = fallbackFields.includes(key) || progressFallbackKeys.has(key)
                   const isConfiguringPhase = ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
-                  const animationDelay = isAIActive && isConfiguringPhase ? `${index * 45}ms` : '0ms'
+                  const animationDelay = `${index * 45}ms`
+                  const rowAnimationStyle: React.CSSProperties | undefined = isAIActive && isConfiguringPhase
+                    ? {
+                        animationName: 'fadeInUp',
+                        animationDuration: '0.3s',
+                        animationTimingFunction: 'ease-out',
+                        animationFillMode: 'forwards',
+                        animationDelay
+                      }
+                    : undefined
 
                   return (
                     <div
                       key={key}
                       className="grid grid-cols-[120px_1fr] gap-3 px-3 py-3 text-xs transition-all duration-300"
-                      style={{
-                        animation: isAIActive && isConfiguringPhase ? 'fadeInUp 0.3s ease-out forwards' : undefined,
-                        animationDelay
-                      }}
+                      style={rowAnimationStyle}
                     >
                       <div className={`font-semibold uppercase tracking-wide ${isFallback ? 'text-amber-600' : 'text-muted-foreground'}`}>
                         {getFieldLabel(key)}
