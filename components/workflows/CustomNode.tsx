@@ -1079,7 +1079,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Input handle - Half-moon on left side */}
+      {/* Input handle - Half-moon on left side - Fixed to align with header center */}
       {!isTrigger && (
         <Handle
           type="target"
@@ -1088,21 +1088,21 @@ function CustomNode({ id, data, selected }: NodeProps) {
           style={{
             visibility: data.isTrigger ? "hidden" : "visible",
             left: "0px",
-            top: "50%",
-            transform: "translateY(-50%)",
+            top: "40px",  // Fixed position to align with header/icon center
+            transform: "none",
           }}
         />
       )}
 
-      {/* Output handle - Half-moon on right side - ALWAYS show for all nodes */}
+      {/* Output handle - Half-moon on right side - ALWAYS show for all nodes - Fixed to align with header center */}
       <Handle
         type="source"
         position={Position.Right}
         className="!w-3 !h-6 !rounded-l-full !rounded-r-none !bg-border !border-2 !border-background !shadow-sm hover:!scale-110 !transition-transform"
         style={{
           right: "0px",
-          top: "50%",
-          transform: "translateY(-50%)",
+          top: "40px",  // Fixed position to align with header/icon center
+          transform: "none",
         }}
       />
     </div>

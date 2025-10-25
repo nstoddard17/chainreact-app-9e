@@ -3451,6 +3451,12 @@ export function NewWorkflowBuilderContent() {
 
                                 case 'workflow_complete':
                                   console.log('[CONTINUE] Workflow complete!')
+                                  // Add completion message to chat
+                                  setReactAgentMessages(prev => [...prev, {
+                                    role: 'assistant',
+                                    content: '✅ Workflow complete! All nodes are configured and ready. You can test it, make changes, or activate it from the workflow settings.',
+                                    timestamp: new Date()
+                                  }])
                                   setTimeout(() => {
                                     fitViewWithChatPanel()
                                   }, 200)
@@ -3459,6 +3465,7 @@ export function NewWorkflowBuilderContent() {
                                   setIsPlacingNodes(false)
                                   setShowPlanApproval(false)
                                   setIsPlanBuilding(false)
+                                  setConfigurationProgress(null)
                                   break
 
                                 default:
