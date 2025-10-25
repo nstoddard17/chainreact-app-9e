@@ -990,6 +990,12 @@ export function NewWorkflowBuilderContent() {
                   }
                 })
                 if (eventData.nodeId) {
+                  const isTrigger = Boolean(eventData.skipTest)
+                  const nextStatus = isTrigger ? (eventData.status || 'ready') : 'testing_successful'
+                  const nextBadgeText = isTrigger ? (eventData.badgeText || 'Successful') : 'Testing is Successful'
+                  const nextBadgeVariant = isTrigger ? (eventData.badgeVariant || 'success') : 'success'
+                  const nextExecutionStatus = eventData.executionStatus || 'completed'
+
                   optimizedOnNodesChange([
                     {
                       type: 'update',
@@ -998,16 +1004,16 @@ export function NewWorkflowBuilderContent() {
                         ...node,
                         data: {
                           ...node.data,
-                          aiStatus: eventData.status || 'ready',
-                          aiBadgeText: eventData.badgeText || 'Successful',
-                          aiBadgeVariant: eventData.badgeVariant || 'success',
+                          aiStatus: nextStatus,
+                          aiBadgeText: nextBadgeText,
+                          aiBadgeVariant: nextBadgeVariant,
                           aiTestSummary: eventData.summary || node.data.aiTestSummary,
-                          needsSetup: eventData.badgeVariant === 'warning',
+                          needsSetup: nextBadgeVariant === 'warning',
                           aiFallbackFields: node.data.aiFallbackFields,
                           autoExpand: true,
                           aiProgressConfig: [],
                           testData: eventData.preview || node.data.testData,
-                          executionStatus: eventData.executionStatus || 'completed'
+                          executionStatus: nextExecutionStatus
                         }
                       })
                     }
@@ -1828,25 +1834,34 @@ export function NewWorkflowBuilderContent() {
                 }
 
                     if (eventData.nodeId) {
+                      const isComplete = eventData.type === 'node_complete'
+
                       optimizedOnNodesChange([
                         {
                           type: 'update',
                           id: eventData.nodeId,
-                          item: (node: any) => ({
-                            ...node,
-                            data: {
-                              ...node.data,
-                              aiStatus: eventData.status || node.data.aiStatus,
-                              aiBadgeText: eventData.badgeText || node.data.aiBadgeText,
-                              aiBadgeVariant: eventData.badgeVariant || node.data.aiBadgeVariant,
-                              autoExpand: true,
-                              needsSetup: eventData.badgeVariant === 'warning',
-                              aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
-                              aiProgressConfig: [],
-                              config: eventData.config || node.data.config,
-                              testData: eventData.preview ? (eventData.preview || {}) : node.data.testData
+                          item: (node: any) => {
+                            const nextStatus = eventData.status || (isComplete ? 'ready' : node.data?.aiStatus)
+                            const nextBadgeText = eventData.badgeText || (isComplete ? 'Successful' : node.data?.aiBadgeText)
+                            const nextBadgeVariant = eventData.badgeVariant || (isComplete ? 'success' : node.data?.aiBadgeVariant)
+
+                            return {
+                              ...node,
+                              data: {
+                                ...node.data,
+                                aiStatus: nextStatus,
+                                aiBadgeText: nextBadgeText,
+                                aiBadgeVariant: nextBadgeVariant,
+                                autoExpand: true,
+                                needsSetup: nextBadgeVariant === 'warning',
+                                aiFallbackFields: eventData.fallbackFields || node.data.aiFallbackFields,
+                                aiProgressConfig: isComplete ? [] : node.data.aiProgressConfig,
+                                config: eventData.config || node.data.config,
+                                testData: eventData.preview ? (eventData.preview || {}) : node.data.testData,
+                                executionStatus: isComplete ? (eventData.executionStatus || 'completed') : node.data.executionStatus
+                              }
                             }
-                          })
+                          }
                         }
                       ])
                     }
