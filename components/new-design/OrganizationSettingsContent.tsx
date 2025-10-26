@@ -269,14 +269,6 @@ export function OrganizationSettingsContent() {
 
   return (
     <div className="h-full w-full space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold">Organization Settings</h2>
-        <p className="text-muted-foreground mt-1">
-          Manage your organization settings, members, and billing
-        </p>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>

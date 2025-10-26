@@ -4,9 +4,10 @@ import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 // PUT /api/workflows/folders/[id] - Update folder
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     const supabase = await createSupabaseRouteHandlerClient()
 
     const {
@@ -65,9 +66,10 @@ export async function PUT(
 // DELETE /api/workflows/folders/[id] - Delete folder
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params
     const supabase = await createSupabaseRouteHandlerClient()
 
     const {
@@ -76,6 +78,18 @@ export async function DELETE(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Parse request body for action and targetFolderId
+    let action: 'delete' | 'move' | null = null
+    let targetFolderId: string | null = null
+
+    try {
+      const body = await request.json()
+      action = body.action || null
+      targetFolderId = body.targetFolderId || null
+    } catch {
+      // No body - legacy behavior (move to default folder)
     }
 
     // Verify folder belongs to user
@@ -101,7 +115,56 @@ export async function DELETE(
       )
     }
 
-    // Delete folder (workflows will have folder_id set to null via ON DELETE SET NULL)
+    // Prevent deletion of trash folder
+    if (existingFolder.is_trash === true) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete trash folder' },
+        { status: 403 }
+      )
+    }
+
+    // Handle workflows in the folder based on action
+    if (action === 'delete') {
+      // Delete all workflows in the folder
+      const { error: deleteWorkflowsError } = await supabase
+        .from('workflows')
+        .delete()
+        .eq('folder_id', params.id)
+        .eq('user_id', user.id)
+
+      if (deleteWorkflowsError) {
+        throw new Error(`Failed to delete workflows: ${deleteWorkflowsError.message}`)
+      }
+    } else if (action === 'move' && targetFolderId) {
+      // Verify target folder exists and belongs to user
+      const { data: targetFolder, error: targetError } = await supabase
+        .from('workflow_folders')
+        .select('id')
+        .eq('id', targetFolderId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (targetError || !targetFolder) {
+        return NextResponse.json(
+          { success: false, error: 'Target folder not found' },
+          { status: 404 }
+        )
+      }
+
+      // Move workflows to target folder
+      const { error: moveWorkflowsError } = await supabase
+        .from('workflows')
+        .update({ folder_id: targetFolderId })
+        .eq('folder_id', params.id)
+        .eq('user_id', user.id)
+
+      if (moveWorkflowsError) {
+        throw new Error(`Failed to move workflows: ${moveWorkflowsError.message}`)
+      }
+    }
+    // If no action specified, workflows will have folder_id set to null via ON DELETE SET NULL
+
+    // Delete folder
     const { error } = await supabase
       .from('workflow_folders')
       .delete()
