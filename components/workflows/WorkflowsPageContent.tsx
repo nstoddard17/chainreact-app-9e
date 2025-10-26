@@ -337,7 +337,11 @@ function WorkflowsContent() {
 
       let matchesFolder = true
       if (selectedFolderFilter && !isViewingTrash) {
+        // If a specific folder is selected, only show workflows in that folder
         matchesFolder = w.folder_id === selectedFolderFilter
+      } else if (!selectedFolderFilter && !isViewingTrash) {
+        // If no folder is selected (All Workflows), exclude trash folder
+        matchesFolder = w.folder_id !== trashFolder?.id
       }
 
       return matchesSearch && matchesOwnership && matchesFolder
@@ -994,7 +998,22 @@ function WorkflowsContent() {
   const handleFolderClick = (folderId: string | null, e: React.MouseEvent) => {
     e.stopPropagation()
     setSelectedFolderFilter(folderId)
+    setOwnershipFilter('all') // Reset ownership filter when selecting a folder
     setActiveTab('workflows')
+  }
+
+  const handleOwnershipFilterChange = (value: OwnershipFilter) => {
+    setOwnershipFilter(value)
+    setSelectedFolderFilter(null) // Clear folder filter when changing ownership
+  }
+
+  // Get the current filter display label
+  const getCurrentFilterLabel = () => {
+    if (selectedFolderFilter) {
+      const folder = folders.find(f => f.id === selectedFolderFilter)
+      return folder?.name || 'Unknown Folder'
+    }
+    return ownershipOptions.find(option => option.value === ownershipFilter)?.label || 'All Workflows'
   }
 
   return (
@@ -1096,7 +1115,7 @@ function WorkflowsContent() {
                       ownershipMenuOpen ? "border-indigo-500" : "border-indigo-400"
                     )}
                   >
-                    <span className="mr-2">{ownershipOptions.find(option => option.value === ownershipFilter)?.label}</span>
+                    <span className="mr-2">{getCurrentFilterLabel()}</span>
                     <span className="flex flex-col leading-none text-slate-600 text-[10px]">
                       <ChevronUp className="w-3 h-3 -mb-[2px]" />
                       <ChevronDown className="w-3 h-3 -mt-[2px]" />
@@ -1107,7 +1126,8 @@ function WorkflowsContent() {
                   {ownershipOptions.map(option => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setOwnershipFilter(option.value)}
+                      onClick={() => handleOwnershipFilterChange(option.value)}
+                      className={cn(!selectedFolderFilter && ownershipFilter === option.value && "bg-slate-100")}
                     >
                       {option.label}
                     </DropdownMenuItem>
