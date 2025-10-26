@@ -2159,6 +2159,7 @@ export function NewWorkflowBuilderContent() {
             nodeInfo={configuringNode.nodeComponent}
             integrationName={configuringNode.integration?.name || ''}
             initialData={configuringNode.config}
+            focusField={configuringNode.focusField}
             workflowData={{ nodes, edges, id: currentWorkflow?.id, name: workflowName || currentWorkflow?.name }}
             nodeTitle={activeConfigNode?.data?.title || configuringNode.nodeComponent?.title || configuringNode.nodeComponent?.label}
             currentNodeId={configuringNode.id}

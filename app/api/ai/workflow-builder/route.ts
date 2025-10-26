@@ -458,8 +458,8 @@ function isValidEmail(email: string): boolean {
  */
 function isValidUrl(url: string): boolean {
   try {
-    new URL(url)
-    return true
+    const parsed = new URL(url)
+    return typeof parsed.href === 'string'
   } catch {
     return false
   }
