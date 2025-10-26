@@ -548,6 +548,7 @@ export function NewWorkflowBuilderContent() {
 
       const analysisResult = await analysisResponse.json()
       logger.info('[CLARIFICATION] Analysis result:', analysisResult)
+      setInferredData(analysisResult.inferredData || {})
 
       // STEP 2: If clarifications needed, show questions and STOP
       if (analysisResult.needsClarification && analysisResult.questions.length > 0) {
@@ -583,6 +584,9 @@ export function NewWorkflowBuilderContent() {
           prompt: userMessage,
           workflowId: currentWorkflow?.id,
           connectedIntegrations,
+          clarifications: analysisResult.inferredData ? {
+            ...analysisResult.inferredData
+          } : {},
           conversationHistory: reactAgentMessages.map(msg => ({
             role: msg.role,
             content: msg.content

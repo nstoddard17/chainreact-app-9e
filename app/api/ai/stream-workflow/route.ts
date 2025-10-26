@@ -1416,9 +1416,27 @@ Return JSON:
       const providedLabelIds = result.config.labelIds || result.config.label_ids
       if (Array.isArray(providedLabelIds) && providedLabelIds.length > 0) {
         result.config.labelIds = providedLabelIds
+        const labelDisplay = providedLabelIds
+          .map((label: string) => {
+            if (!label || typeof label !== 'string') return ''
+            if (label.toUpperCase() === 'INBOX') return 'Inbox'
+            if (label.toUpperCase() === 'SENT') return 'Sent'
+            if (label.toUpperCase() === 'SPAM') return 'Spam'
+            if (label.toUpperCase() === 'TRASH') return 'Trash'
+            if (label.toUpperCase() === 'DRAFT') return 'Drafts'
+            return label
+          })
+          .filter(Boolean)
+          .join(', ')
+        if (labelDisplay && !displayOverrides.labelIds) {
+          displayOverrides.labelIds = labelDisplay
+        }
       }
       if (!Array.isArray(result.config.labelIds) || result.config.labelIds.length === 0) {
         result.config.labelIds = ['INBOX']
+        if (!displayOverrides.labelIds) {
+          displayOverrides.labelIds = 'Inbox'
+        }
       }
 
       delete result.config.label_ids
@@ -1436,61 +1454,85 @@ Return JSON:
         clarificationFieldValues.channelId ??
         clarificationFieldValues.slack_channel
 
-      if (channelClarification && (!result.config.channel || result.config.channel === 'Select a channel')) {
-        if (Array.isArray(channelClarification)) {
-          result.config.channel = channelClarification[0]
-        } else {
-          result.config.channel = channelClarification
+      const aiChannelCandidate = typeof result.config.channel === 'string'
+        ? result.config.channel
+        : typeof result.config.channel_id === 'string'
+          ? result.config.channel_id
+          : undefined
+
+      const resolvedChannel = (() => {
+        if (channelClarification) {
+          return Array.isArray(channelClarification) ? channelClarification[0] : channelClarification
         }
+        if (aiChannelCandidate && aiChannelCandidate.trim().length > 0) {
+          return aiChannelCandidate.trim()
+        }
+        return undefined
+      })()
+
+      const attachmentFallback = (() => {
+        if (Array.isArray(result.config.attachments) && result.config.attachments.length > 0) {
+          const attachment = result.config.attachments.find(att => att && typeof att === 'object')
+          if (!attachment) return undefined
+          if (typeof attachment.text === 'string' && attachment.text.trim().length > 0) {
+            return attachment.text
+          }
+          if (typeof attachment.fallback === 'string' && attachment.fallback.trim().length > 0) {
+            return attachment.fallback
+          }
+        }
+        if (typeof result.config.attachments === 'string' && result.config.attachments.trim().length > 0) {
+          return result.config.attachments.trim()
+        }
+        return undefined
+      })()
+
+      const aiMessageCandidate = (() => {
+        if (typeof result.config.message === 'string' && result.config.message.trim().length > 0) {
+          return result.config.message.trim()
+        }
+        if (typeof result.config.text === 'string' && result.config.text.trim().length > 0) {
+          return result.config.text.trim()
+        }
+        if (typeof attachmentFallback === 'string') {
+          return attachmentFallback
+        }
+        if (typeof messageTemplate === 'string' && messageTemplate.trim().length > 0) {
+          return messageTemplate.trim()
+        }
+        return undefined
+      })()
+
+      const slackConfig: Record<string, any> = {}
+      if (resolvedChannel && resolvedChannel !== 'Select a channel') {
+        slackConfig.channel = resolvedChannel
+        displayOverrides.channel = resolvedChannel
+      }
+      if (aiMessageCandidate) {
+        slackConfig.message = aiMessageCandidate
       }
 
-      // Force-apply message template if present
-      if (messageTemplate && (!result.config.message || result.config.message === '' || result.config.message === 'Empty')) {
-        console.log('[generateNodeConfig] Applying message template to Slack message field')
-        result.config.message = messageTemplate
+      if (!slackConfig.message || slackConfig.message.trim().length === 0) {
+        const fallbackTemplate = (typeof messageTemplate === 'string' && messageTemplate.trim().length > 0)
+          ? messageTemplate.trim()
+          : `📧 New email from {{trigger.data.from}}\nSubject: {{trigger.data.subject}}\n\n{{trigger.data.body}}`
+        slackConfig.message = fallbackTemplate
       }
 
-      if (!displayOverrides.message && result.config.message) {
+      result.config = slackConfig
+
+      if (aiMessageCandidate) {
+        const condensedTemplate = aiMessageCandidate.replace(/\s+/g, ' ').trim()
+        if (!displayOverrides.message) {
+          displayOverrides.message = condensedTemplate.length > 80
+            ? `${condensedTemplate.slice(0, 77)}...`
+            : condensedTemplate || 'Auto-generated message template'
+        }
+      } else if (result.config.message) {
         const condensedTemplate = String(result.config.message).replace(/\s+/g, ' ').trim()
         displayOverrides.message = condensedTemplate.length > 80
           ? `${condensedTemplate.slice(0, 77)}...`
           : condensedTemplate || 'Auto-generated message template'
-      }
-
-      // Clean up auto-populated fields we don't want
-      if (!clarificationFieldValues.username) {
-        delete result.config.username
-      }
-
-      // If attachments only contain fallback text, move it into the message
-      if (!result.config.message && result.config.attachments) {
-        if (typeof result.config.attachments === 'string') {
-          result.config.message = result.config.attachments
-          delete result.config.attachments
-        } else if (Array.isArray(result.config.attachments) && result.config.attachments.length > 0) {
-          const attachment = result.config.attachments.find(att => att && typeof att === 'object')
-          const fallbackText = attachment?.fallback || attachment?.text
-          if (fallbackText) {
-            result.config.message = fallbackText
-            delete result.config.attachments
-          }
-        }
-      } else {
-        const hasAttachmentClarification = Boolean(clarificationFieldValues.attachments)
-        if (!hasAttachmentClarification && result.config.attachments !== undefined) {
-          if (typeof result.config.attachments === 'string') {
-            delete result.config.attachments
-          } else if (Array.isArray(result.config.attachments)) {
-            const meaningfulAttachment = result.config.attachments.some(att => {
-              if (!att || typeof att !== 'object') return true
-              const keys = Object.keys(att).filter(k => !['fallback', 'color'].includes(k))
-              return keys.length > 0
-            })
-            if (!meaningfulAttachment) {
-              delete result.config.attachments
-            }
-          }
-        }
       }
     }
 

@@ -928,3 +928,517 @@ Error: aborted
 [2025-10-26T03:48:48.406Z] [INFO   ] [STREAM] Setting field message =  for Send Message to Slack
 [2025-10-26T03:48:55.003Z] [INFO   ] [STREAM] Completed node 2 of 2, moving to next iteration
 [2025-10-26T03:48:55.004Z] [INFO   ] [STREAM] All nodes configured and tested, sending workflow_complete event
+[2025-10-26T03:57:00.423Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1307ms (1900 modules)
+[2025-10-26T03:57:01.036Z] [INFO   ] 2025-10-26T03:57:01.036Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884333636}
+[2025-10-26T03:57:01.198Z] [INFO   ] 2025-10-26T03:57:01.198Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T03:57:19.366Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1585ms (5937 modules)
+[2025-10-26T03:57:19.417Z] [WARN   ]  [33m[1m⚠[22m[39m Fast Refresh had to perform a full reload due to a runtime error.
+[2025-10-26T03:57:19.596Z] [INFO   ] 2025-10-26T03:57:19.596Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884352197}
+[2025-10-26T03:57:19.973Z] [INFO   ] 2025-10-26T03:57:19.973Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-26T03:57:19.973Z"}
+[2025-10-26T03:57:19.984Z] [INFO   ] 2025-10-26T03:57:19.984Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-26T03:57:19.984Z"}
+[2025-10-26T03:57:19.985Z] [INFO   ] 2025-10-26T03:57:19.985Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-26T03:57:19.985Z"}
+[2025-10-26T03:57:20.238Z] [INFO   ] 2025-10-26T03:57:20.238Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T03:57:20.550Z] [INFO   ] 2025-10-26T03:57:20.550Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-26T03:57:21.177Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations ...
+[2025-10-26T03:57:21.305Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/collaboration/join in 682ms (4272 modules)
+[2025-10-26T03:57:21.756Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4279 modules)
+[2025-10-26T03:57:21.862Z] [INFO   ] 2025-10-26T03:57:21.862Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-26T03:57:21.862Z","headers":{"referer":"check-console"}}
+[2025-10-26T03:57:22.040Z] [INFO   ] 2025-10-26T03:57:22.040Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T03:57:22.149Z] [INFO   ] 2025-10-26T03:57:22.149Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-26T03:57:23.231Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/analyze-request in 358ms (4281 modules)
+[2025-10-26T03:57:23.451Z] [INFO   ] 2025-10-26T03:57:23.450Z [INFO] [ANALYZE] Analyzing user request: {"prompt":"When I get an email send it to slack","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T03:57:27.440Z] [INFO   ] 2025-10-26T03:57:27.440Z [INFO] [ANALYZE] Analysis complete: {"needsClarification":true,"questions":[{"id":"slack_channel","question":"Which Slack channel would you like to send messages to?","fieldType":"dropdown","dataEndpoint":"/api/integrations/slack/channels","nodeType":"slack_action_send_message","configField":"channel","required":true},{"id":"email_sender_filter","question":"Would you like to filter emails by sender? (Optional)","fieldType":"dropdown","dataEndpoint":"/api/integrations/gmail/senders","nodeType":"gmail_trigger_new_email","configField":"from","required":false,"allowCustom":true,"isMultiSelect":true,"tooltip":"Select one or more recent senders, or type custom email addresses. The workflow will trigger for emails from any of the selected senders."},{"id":"email_keywords_filter","question":"Would you like to filter emails by keywords? (Optional)","fieldType":"text","nodeType":"gmail_trigger_new_email","configField":"keywords","required":false,"tooltip":"Enter keywords to search for in both the subject and body of emails. Examples: 'invoice', 'urgent report', 'meeting'. Separate multiple keywords with commas to match any of them. The workflow will trigger when an email contains any of these keywords in either the subject or body."}],"inferredData":{"email_source":"gmail","reasoning":"User has only Gmail connected","message_template":"New email from {{trigger.from}}\n\nSubject: {{trigger.subject}}\n\nBody:\n{{trigger.body}}"}}
+[2025-10-26T03:57:28.132Z] [INFO   ]  [37m[1m○[22m[39m Compiling /api/integrations/gmail/senders ...
+[2025-10-26T03:57:29.058Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/integrations/gmail/senders in 1471ms (4284 modules)
+[2025-10-26T03:57:29.605Z] [INFO   ]  [32m[1m✓[22m[39m Compiled (4286 modules)
+[2025-10-26T03:57:30.126Z] [INFO   ] 2025-10-26T03:57:30.125Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T03:57:30.490Z] [INFO   ] 2025-10-26T03:57:30.490Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T03:57:30.527Z] [INFO   ] 2025-10-26T03:57:30.527Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T03:57:31.162Z] [INFO   ] 2025-10-26T03:57:31.161Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T03:57:35.759Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 458ms (1667 modules)
+[2025-10-26T03:57:36.011Z] [INFO   ] 2025-10-26T03:57:36.011Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884368612}
+[2025-10-26T03:57:36.262Z] [INFO   ] 2025-10-26T03:57:36.262Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:00:56.255Z] [INFO   ] 2025-10-26T04:00:56.255Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884568856}
+[2025-10-26T04:00:56.495Z] [INFO   ] 2025-10-26T04:00:56.495Z [DEBUG] 💧 [AUTH] Rehydrating auth state from storage {"hasState":true,"hasUser":false,"initialized":false,"timestamp":"2025-10-26T04:00:56.495Z"}
+[2025-10-26T04:00:56.496Z] [INFO   ] 2025-10-26T04:00:56.496Z [DEBUG] 💧 [AUTH] State hydrated and reset {"hasUser":false,"initialized":false,"timestamp":"2025-10-26T04:00:56.496Z"}
+[2025-10-26T04:00:56.496Z] [INFO   ] 2025-10-26T04:00:56.496Z [DEBUG] ⏭️ [AUTH] Skipping initialization {"hasState":true,"alreadyInitialized":false,"isClient":false,"timestamp":"2025-10-26T04:00:56.496Z"}
+[2025-10-26T04:00:56.748Z] [INFO   ] 2025-10-26T04:00:56.747Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:00:57.325Z] [INFO   ] 2025-10-26T04:00:57.325Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-26T04:00:57.861Z] [INFO   ] 2025-10-26T04:00:57.861Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-26T04:00:57.861Z","headers":{"referer":"check-console"}}
+[2025-10-26T04:00:58.009Z] [INFO   ] 2025-10-26T04:00:58.009Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:00:58.127Z] [INFO   ] 2025-10-26T04:00:58.127Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-26T04:00:59.021Z] [INFO   ] 2025-10-26T04:00:59.021Z [INFO] [ANALYZE] Analyzing user request: {"prompt":"When I get an email send it to slack","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:01:02.355Z] [INFO   ] 2025-10-26T04:01:02.355Z [INFO] [ANALYZE] Analysis complete: {"needsClarification":true,"questions":[{"id":"slack_channel","question":"Which Slack channel would you like to send messages to?","fieldType":"dropdown","dataEndpoint":"/api/integrations/slack/channels","nodeType":"slack_action_send_message","configField":"channel","required":true},{"id":"email_sender_filter","question":"Would you like to filter emails by sender? (Optional)","fieldType":"dropdown","dataEndpoint":"/api/integrations/gmail/senders","nodeType":"gmail_trigger_new_email","configField":"from","required":false,"allowCustom":true,"isMultiSelect":true,"tooltip":"Select one or more recent senders, or type custom email addresses. The workflow will trigger for emails from any of the selected senders."},{"id":"email_keywords_filter","question":"Would you like to filter emails by keywords? (Optional)","fieldType":"text","nodeType":"gmail_trigger_new_email","configField":"keywords","required":false,"tooltip":"Enter keywords to search for in both the subject and body of emails. Examples: 'invoice', 'urgent report', 'meeting'. Separate multiple keywords with commas to match any of them. The workflow will trigger when an email contains any of these keywords in either the subject or body."}],"inferredData":{"email_source":"gmail","reasoning":"User has only Gmail connected","message_template":"New email from {{trigger.from}}\n\nSubject: {{trigger.subject}}\n\nBody:\n{{trigger.body}}"}}
+[2025-10-26T04:01:03.550Z] [INFO   ] 2025-10-26T04:01:03.550Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:01:03.934Z] [INFO   ] 2025-10-26T04:01:03.934Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:01:03.948Z] [INFO   ] 2025-10-26T04:01:03.948Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T04:01:04.591Z] [INFO   ] 2025-10-26T04:01:04.590Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T04:01:05.882Z] [INFO   ]  [32m[1m✓[22m[39m Compiled /api/ai/stream-workflow in 236ms (812 modules)
+[2025-10-26T04:01:06.394Z] [INFO   ] 2025-10-26T04:01:06.394Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884578995}
+[2025-10-26T04:01:06.498Z] [INFO   ] 2025-10-26T04:01:06.498Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:01:08.305Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-26T04:01:08.307Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:01:08.307Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:01:08.307Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-26T04:01:08.307Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-26T04:01:09.736Z] [INFO   ] 2025-10-26T04:01:09.736Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12884582336}
+[2025-10-26T04:01:09.925Z] [ERROR  ] aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-26T04:01:09.926Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException: aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-26T04:01:09.926Z] [ERROR  ]  [31m[1m⨯[22m[39m uncaughtException:  aborted
+Error: aborted
+    at abortIncoming (node:_http_server:809:17)
+    at socketOnClose (node:_http_server:803:3)
+    at Socket.emit (node:events:519:35)
+    at TCP.<anonymous> (node:net:351:12)
+    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)
+[2025-10-26T04:01:10.071Z] [INFO   ] 2025-10-26T04:01:10.070Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:01:10.077Z] [INFO   ] 2025-10-26T04:01:10.076Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-26T04:01:10.882Z] [INFO   ] 2025-10-26T04:01:10.882Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-26T04:01:10.882Z","headers":{"referer":"check-console"}}
+[2025-10-26T04:01:10.978Z] [INFO   ] 2025-10-26T04:01:10.978Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:01:11.176Z] [INFO   ] 2025-10-26T04:01:11.176Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-26T04:01:12.045Z] [INFO   ] 2025-10-26T04:01:12.045Z [INFO] [ANALYZE] Analyzing user request: {"prompt":"When I get an email send it to slack","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:01:12.926Z] [ERROR  ] 2025-10-26T04:01:12.926Z [ERROR] Stream workflow error: {"message":"Invalid state: Controller is already closed","stack":"TypeError: Invalid state: Controller is already closed\n    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1077:13)\n    at sendEvent (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:58:32)\n    at Object.start (webpack-internal:///(rsc)/./app/api/ai/stream-workflow/route.ts:186:29)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)","name":"TypeError","fullError":"{\n  \"code\": \"ERR_INVALID_STATE\"\n}"}
+[2025-10-26T04:01:15.407Z] [INFO   ] 2025-10-26T04:01:15.406Z [INFO] [ANALYZE] Analysis complete: {"needsClarification":true,"questions":[{"id":"slack_channel","question":"Which Slack channel would you like to send messages to?","fieldType":"dropdown","dataEndpoint":"/api/integrations/slack/channels","nodeType":"slack_action_send_message","configField":"channel","required":true},{"id":"email_sender_filter","question":"Would you like to filter emails by sender? (Optional)","fieldType":"dropdown","dataEndpoint":"/api/integrations/gmail/senders","nodeType":"gmail_trigger_new_email","configField":"from","required":false,"allowCustom":true,"isMultiSelect":true,"tooltip":"Select one or more recent senders, or type custom email addresses. The workflow will trigger for emails from any of the selected senders."},{"id":"email_keywords_filter","question":"Would you like to filter emails by keywords? (Optional)","fieldType":"text","nodeType":"gmail_trigger_new_email","configField":"keywords","required":false,"tooltip":"Enter keywords to search for in both the subject and body of emails. Examples: 'invoice', 'urgent report', 'meeting'. Separate multiple keywords with commas to match any of them. The workflow will trigger when an email contains any of these keywords in either the subject or body."}],"inferredData":{"email_source":"gmail","reasoning":"User has only Gmail connected","message_template":"New email from {{trigger.from}}\n\nSubject: {{trigger.subject}}\n\nBody:\n{{trigger.body}}"}}
+[2025-10-26T04:01:15.951Z] [INFO   ] 2025-10-26T04:01:15.951Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:01:16.303Z] [INFO   ] 2025-10-26T04:01:16.303Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:01:16.444Z] [INFO   ] 2025-10-26T04:01:16.444Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T04:01:17.087Z] [INFO   ] 2025-10-26T04:01:17.087Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":12}
+[2025-10-26T04:01:20.050Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-26T04:01:20.051Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:01:20.051Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:01:20.051Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-26T04:01:20.051Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-26T04:01:25.019Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send received emails to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in Gmail.',
+  reasoning: 'This is the starting point of the workflow, as it detects incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This action will take the content of the email and send it to Slack, fulfilling the user\'s request.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger for new emails, which connects directly to the Slack action to send the email content as a message.'
+}
+[2025-10-26T04:01:25.020Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'This node triggers the workflow when a new email is received in Gmail.',
+  reasoning: 'This is the starting point of the workflow, as it detects incoming emails.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'This node sends a message to a specified Slack channel.',
+  reasoning: 'This action will take the content of the email and send it to Slack, fulfilling the user\'s request.'
+}
+]
+[2025-10-26T04:01:25.020Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-26T04:01:25.123Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-26T04:01:26.079Z] [INFO   ] [STREAM] Preparing Trigger on New Email (node-1761451285020-0)
+[2025-10-26T04:01:26.882Z] [INFO   ] [STREAM] Starting configuration for Trigger on New Email (node-1761451285020-0)
+[2025-10-26T04:01:27.384Z] [INFO   ] [STREAM] Calling generateNodeConfig for Trigger on New Email...
+[2025-10-26T04:01:27.385Z] [INFO   ] [generateNodeConfig] Starting for node: Trigger on New Email
+[2025-10-26T04:01:27.385Z] [INFO   ] [generateNodeConfig] nodeComponent: { type: 'gmail_trigger_new_email', providerId: 'gmail' }
+[2025-10-26T04:01:27.385Z] [INFO   ] [generateNodeConfig] clarifications received: {}
+[2025-10-26T04:01:27.386Z] [INFO   ] [generateNodeConfig] Extracted clarificationEntries: []
+[2025-10-26T04:01:27.386Z] [INFO   ] [generateNodeConfig] messageTemplate: undefined
+[2025-10-26T04:01:27.386Z] [INFO   ] [generateNodeConfig] Final clarificationContext: NONE
+[2025-10-26T04:01:27.386Z] [INFO   ] [generateNodeConfig] Sending prompt to AI...
+[2025-10-26T04:01:32.336Z] [INFO   ] [generateNodeConfig] AI returned result: {
+  "success": true,
+  "config": {
+    "node_type": "gmail_trigger_new_email",
+    "trigger": {
+      "email": "{{trigger.email}}",
+      "subject": "{{trigger.subject}}",
+      "from": "{{trigger.from}}",
+      "to": "{{trigger.to}}",
+      "body": "{{trigger.body}}"
+    },
+    "options": {
+      "label": "inbox",
+      "include_spam": false,
+      "mark_as_read": false
+    }
+  },
+  "reasoning": "The configuration uses variables from previous nodes (e.g., {{trigger.email}}, {{trigger.subject}}) to dynamically capture relevant email details. The 'label' is set to 'inbox' as a sensible default, and 'include_spam' is set to false to avoid triggering on spam emails. 'mark_as_read' is set to false to keep the email unread for further processing in the workflow. This setup aligns with the user's goal of continuing the workflow based on new email triggers."
+}
+[2025-10-26T04:01:32.336Z] [INFO   ] [generateNodeConfig] Config from AI: {
+  "node_type": "gmail_trigger_new_email",
+  "trigger": {
+    "email": "{{trigger.email}}",
+    "subject": "{{trigger.subject}}",
+    "from": "{{trigger.from}}",
+    "to": "{{trigger.to}}",
+    "body": "{{trigger.body}}"
+  },
+  "options": {
+    "label": "inbox",
+    "include_spam": false,
+    "mark_as_read": false
+  }
+}
+[2025-10-26T04:01:32.337Z] [INFO   ] [generateNodeConfig] Final config after force-apply: {
+  "labelIds": [
+    "INBOX"
+  ]
+}
+[2025-10-26T04:01:32.337Z] [INFO   ] [STREAM] generateNodeConfig completed in 4953ms for Trigger on New Email
+[2025-10-26T04:01:32.337Z] [INFO   ] [STREAM] Config result: {
+  success: true,
+  hasConfig: true,
+  configKeys: [ 'labelIds' ],
+  finalConfigKeys: [ 'labelIds' ],
+  fallbackFields: []
+}
+[2025-10-26T04:01:32.337Z] [INFO   ] [STREAM] Configuring 1 fields for Trigger on New Email: labelIds
+[2025-10-26T04:01:32.337Z] [INFO   ] [STREAM] Setting field labelIds = INBOX for Trigger on New Email
+[2025-10-26T04:01:33.141Z] [INFO   ] [STREAM] Skipping test for trigger Trigger on New Email
+[2025-10-26T04:01:34.646Z] [INFO   ] [STREAM] Trigger complete, continuing to next node (loop iteration 0 of 1)
+[2025-10-26T04:01:34.949Z] [INFO   ] [STREAM] Completed node 1 of 2, moving to next iteration
+[2025-10-26T04:01:34.951Z] [INFO   ] [STREAM] Preparing Send Message to Slack (node-1761451285122-1)
+[2025-10-26T04:01:35.754Z] [INFO   ] [STREAM] Starting configuration for Send Message to Slack (node-1761451285122-1)
+[2025-10-26T04:01:36.256Z] [INFO   ] [STREAM] Calling generateNodeConfig for Send Message to Slack...
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] Starting for node: Send Message to Slack
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] nodeComponent: { type: 'slack_action_send_message', providerId: 'slack' }
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] clarifications received: {}
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] Extracted clarificationEntries: []
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] messageTemplate: undefined
+[2025-10-26T04:01:36.257Z] [INFO   ] [generateNodeConfig] Final clarificationContext: NONE
+[2025-10-26T04:01:36.258Z] [INFO   ] [generateNodeConfig] Sending prompt to AI...
+[2025-10-26T04:01:39.859Z] [INFO   ] [generateNodeConfig] AI returned result: {
+  "success": true,
+  "config": {
+    "channel": "#general",
+    "text": "New email received from {{trigger.email}} at {{trigger.timestamp}}. Please check it out!",
+    "username": "Email Notifier",
+    "icon_emoji": ":email:",
+    "link_names": true
+  },
+  "reasoning": "The configuration sends a message to the '#general' channel, which is a common default channel in Slack. The message includes the sender's email and the timestamp of the email received, using variables from the previous node to provide context. The username 'Email Notifier' and the emoji icon ':email:' are set as sensible defaults to make the message more identifiable and engaging. The 'link_names' option is set to true to automatically convert any mentions in the message into clickable links."
+}
+[2025-10-26T04:01:39.859Z] [INFO   ] [generateNodeConfig] Config from AI: {
+  "channel": "#general",
+  "text": "New email received from {{trigger.email}} at {{trigger.timestamp}}. Please check it out!",
+  "username": "Email Notifier",
+  "icon_emoji": ":email:",
+  "link_names": true
+}
+[2025-10-26T04:01:39.860Z] [INFO   ] [generateNodeConfig] Final config after force-apply: {
+  "channel": "#general",
+  "message": "New email received from {{trigger.email}} at {{trigger.timestamp}}. Please check it out!"
+}
+[2025-10-26T04:01:39.860Z] [INFO   ] [STREAM] generateNodeConfig completed in 3604ms for Send Message to Slack
+[2025-10-26T04:01:39.861Z] [INFO   ] [STREAM] Config result: {
+  success: true,
+  hasConfig: true,
+  configKeys: [ 'channel', 'message' ],
+  finalConfigKeys: [ 'channel', 'message' ],
+  fallbackFields: []
+}
+[2025-10-26T04:01:39.861Z] [INFO   ] [STREAM] Configuring 2 fields for Send Message to Slack: channel, message
+[2025-10-26T04:01:39.861Z] [INFO   ] [STREAM] Setting field channel = #general for Send Message to Slack
+[2025-10-26T04:01:40.165Z] [INFO   ] [STREAM] Setting field message = New email received from {{trigger.email}} at {{trigger.timestamp}}. Please check it out! for Send Message to Slack
+[2025-10-26T04:01:48.675Z] [INFO   ] [STREAM] Completed node 2 of 2, moving to next iteration
+[2025-10-26T04:01:48.676Z] [INFO   ] [STREAM] All nodes configured and tested, sending workflow_complete event
+[2025-10-26T04:09:35.279Z] [INFO   ] 2025-10-26T04:09:35.278Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12885087879}
+[2025-10-26T04:09:35.701Z] [INFO   ] 2025-10-26T04:09:35.700Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:09:35.710Z] [INFO   ] 2025-10-26T04:09:35.710Z [INFO] [NewWorkflowBuilderContent] URL params: {"aiChat":"true","hasInitialPrompt":true,"initialPrompt":"When I get an email send it to slack"}
+[2025-10-26T04:09:37.073Z] [INFO   ] 2025-10-26T04:09:37.073Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-26T04:09:37.073Z","headers":{"referer":"check-console"}}
+[2025-10-26T04:09:37.210Z] [INFO   ] 2025-10-26T04:09:37.210Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:09:37.312Z] [INFO   ] 2025-10-26T04:09:37.312Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+[2025-10-26T04:09:38.183Z] [INFO   ] 2025-10-26T04:09:38.183Z [INFO] [ANALYZE] Analyzing user request: {"prompt":"When I get an email send it to slack","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:09:41.570Z] [INFO   ] 2025-10-26T04:09:41.570Z [INFO] [ANALYZE] Analysis complete: {"needsClarification":true,"questions":[{"id":"slack_channel","question":"Which Slack channel would you like to send messages to?","fieldType":"dropdown","dataEndpoint":"/api/integrations/slack/channels","nodeType":"slack_action_send_message","configField":"channel","required":true},{"id":"email_sender_filter","question":"Would you like to filter emails by sender? (Optional)","fieldType":"dropdown","dataEndpoint":"/api/integrations/gmail/senders","nodeType":"gmail_trigger_new_email","configField":"from","required":false,"allowCustom":true,"isMultiSelect":true,"tooltip":"Select one or more recent senders, or type custom email addresses. The workflow will trigger for emails from any of the selected senders."},{"id":"email_keywords_filter","question":"Would you like to filter emails by keywords? (Optional)","fieldType":"text","nodeType":"gmail_trigger_new_email","configField":"keywords","required":false,"tooltip":"Enter keywords to search for in both the subject and body of emails. Examples: 'invoice', 'urgent report', 'meeting'. Separate multiple keywords with commas to match any of them. The workflow will trigger when an email contains any of these keywords in either the subject or body."}],"inferredData":{"email_source":"gmail","reasoning":"User has only Gmail connected","message_template":"New email from {{trigger.from}}\n\nSubject: {{trigger.subject}}\n\nBody:\n{{trigger.body}}"}}
+[2025-10-26T04:09:42.229Z] [INFO   ] 2025-10-26T04:09:42.228Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:09:42.593Z] [INFO   ] 2025-10-26T04:09:42.592Z [INFO] [SLACK CHANNELS] Fetched channels: {"count":3}
+[2025-10-26T04:09:42.723Z] [INFO   ] 2025-10-26T04:09:42.723Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":13}
+[2025-10-26T04:09:43.407Z] [INFO   ] 2025-10-26T04:09:43.407Z [INFO] [GMAIL SENDERS] Fetched senders: {"count":13}
+[2025-10-26T04:09:47.095Z] [INFO   ] [Prerequisite Check] Required apps: [ 'gmail', 'slack' ]
+[2025-10-26T04:09:47.095Z] [INFO   ] [Prerequisite Check] Connected integrations: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:09:47.096Z] [INFO   ] [Prerequisite Check] Normalized connected: [
+  'notion',
+  'mailchimp',
+  'gmail',
+  'google-sheets',
+  'facebook',
+  'trello',
+  'slack',
+  'google-docs',
+  'twitter',
+  'dropbox',
+  'google-drive',
+  'google-calendar',
+  'airtable',
+  'google_calendar'
+]
+[2025-10-26T04:09:47.096Z] [INFO   ] [Prerequisite Check] Checking gmail (normalized: gmail): CONNECTED
+[2025-10-26T04:09:47.096Z] [INFO   ] [Prerequisite Check] Checking slack (normalized: slack): CONNECTED
+[2025-10-26T04:09:57.204Z] [INFO   ] [STREAM] Phase 2: Starting node creation, plan: {
+  understanding: 'The user wants to automatically send received emails to a Slack channel.',
+  nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'Triggers the workflow when a new email is received in Gmail.',
+  reasoning: 'This node is essential to start the workflow whenever the user receives a new email.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'Sends a message to a specified Slack channel.',
+  reasoning: 'This node is needed to send the content of the received email to the Slack channel.'
+}
+],
+  connections: 'The workflow starts with the Gmail trigger node, which activates when a new email is received. This triggers the Slack action node to send the email content to a designated Slack channel.'
+}
+[2025-10-26T04:09:57.205Z] [INFO   ] [STREAM] Plan nodes: [
+  {
+  type: 'gmail_trigger_new_email',
+  title: 'Trigger on New Email',
+  description: 'Triggers the workflow when a new email is received in Gmail.',
+  reasoning: 'This node is essential to start the workflow whenever the user receives a new email.'
+},
+  {
+  type: 'slack_action_send_message',
+  title: 'Send Message to Slack',
+  description: 'Sends a message to a specified Slack channel.',
+  reasoning: 'This node is needed to send the content of the received email to the Slack channel.'
+}
+]
+[2025-10-26T04:09:57.205Z] [INFO   ] [POSITION] Node 0 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 0,
+  position: { x: 813.6666666666667, y: 80 }
+}
+[2025-10-26T04:09:57.306Z] [INFO   ] [POSITION] Node 1 : {
+  viewport: { width: 1558, height: 1211, zoom: 0.75, chatPanelWidth: 1000 },
+  effectiveViewportWidth: 3410.6666666666665,
+  builderViewportWidth: 2077.3333333333335,
+  visibleHeight: 1614.6666666666667,
+  availableWidth: 1997.3333333333335,
+  nodesPerRow: 3,
+  row: 0,
+  col: 1,
+  position: { x: 1103.6666666666667, y: 80 }
+}
+[2025-10-26T04:09:58.261Z] [INFO   ] [STREAM] Preparing Trigger on New Email (node-1761451797205-0)
+[2025-10-26T04:09:59.062Z] [INFO   ] [STREAM] Starting configuration for Trigger on New Email (node-1761451797205-0)
+[2025-10-26T04:09:59.565Z] [INFO   ] [STREAM] Calling generateNodeConfig for Trigger on New Email...
+[2025-10-26T04:09:59.566Z] [INFO   ] [generateNodeConfig] Starting for node: Trigger on New Email
+[2025-10-26T04:09:59.566Z] [INFO   ] [generateNodeConfig] nodeComponent: { type: 'gmail_trigger_new_email', providerId: 'gmail' }
+[2025-10-26T04:09:59.566Z] [INFO   ] [generateNodeConfig] clarifications received: {}
+[2025-10-26T04:09:59.566Z] [INFO   ] [generateNodeConfig] Extracted clarificationEntries: []
+[2025-10-26T04:09:59.567Z] [INFO   ] [generateNodeConfig] messageTemplate: undefined
+[2025-10-26T04:09:59.567Z] [INFO   ] [generateNodeConfig] Final clarificationContext: NONE
+[2025-10-26T04:09:59.567Z] [INFO   ] [generateNodeConfig] Sending prompt to AI...
+[2025-10-26T04:10:05.557Z] [INFO   ] [generateNodeConfig] AI returned result: {
+  "success": true,
+  "config": {
+    "node_type": "gmail_trigger_new_email",
+    "trigger": {
+      "email": "{{trigger.email}}",
+      "label_ids": [
+        "INBOX"
+      ],
+      "include_spam_trash": false,
+      "search_query": "is:unread"
+    },
+    "options": {
+      "polling_interval": 5,
+      "max_emails": 10
+    }
+  },
+  "reasoning": "The configuration uses the variable {{trigger.email}} to dynamically capture the email address from the previous node, ensuring that the workflow is tailored to the specific user. The label_ids field is set to 'INBOX' to focus on new emails, while include_spam_trash is set to false to avoid processing unwanted emails. The search_query is set to 'is:unread' to trigger the workflow only for unread emails, aligning with the goal of continuing the workflow upon receiving new emails. The polling_interval is set to 5 minutes to balance responsiveness and resource usage, and max_emails is set to 10 to limit the number of emails processed in a single trigger event."
+}
+[2025-10-26T04:10:05.558Z] [INFO   ] [generateNodeConfig] Config from AI: {
+  "node_type": "gmail_trigger_new_email",
+  "trigger": {
+    "email": "{{trigger.email}}",
+    "label_ids": [
+      "INBOX"
+    ],
+    "include_spam_trash": false,
+    "search_query": "is:unread"
+  },
+  "options": {
+    "polling_interval": 5,
+    "max_emails": 10
+  }
+}
+[2025-10-26T04:10:05.559Z] [INFO   ] [generateNodeConfig] Final config after force-apply: {
+  "labelIds": [
+    "INBOX"
+  ]
+}
+[2025-10-26T04:10:05.559Z] [INFO   ] [STREAM] generateNodeConfig completed in 5993ms for Trigger on New Email
+[2025-10-26T04:10:05.560Z] [INFO   ] [STREAM] Config result: {
+  success: true,
+  hasConfig: true,
+  configKeys: [ 'labelIds' ],
+  finalConfigKeys: [ 'labelIds' ],
+  fallbackFields: []
+}
+[2025-10-26T04:10:05.560Z] [INFO   ] [STREAM] Configuring 1 fields for Trigger on New Email: labelIds
+[2025-10-26T04:10:05.560Z] [INFO   ] [STREAM] Setting field labelIds = INBOX for Trigger on New Email
+[2025-10-26T04:10:06.367Z] [INFO   ] [STREAM] Skipping test for trigger Trigger on New Email
+[2025-10-26T04:10:07.870Z] [INFO   ] [STREAM] Trigger complete, continuing to next node (loop iteration 0 of 1)
+[2025-10-26T04:10:08.172Z] [INFO   ] [STREAM] Completed node 1 of 2, moving to next iteration
+[2025-10-26T04:10:08.172Z] [INFO   ] [STREAM] Preparing Send Message to Slack (node-1761451797305-1)
+[2025-10-26T04:10:08.974Z] [INFO   ] [STREAM] Starting configuration for Send Message to Slack (node-1761451797305-1)
+[2025-10-26T04:10:09.477Z] [INFO   ] [STREAM] Calling generateNodeConfig for Send Message to Slack...
+[2025-10-26T04:10:09.478Z] [INFO   ] [generateNodeConfig] Starting for node: Send Message to Slack
+[2025-10-26T04:10:09.478Z] [INFO   ] [generateNodeConfig] nodeComponent: { type: 'slack_action_send_message', providerId: 'slack' }
+[2025-10-26T04:10:09.478Z] [INFO   ] [generateNodeConfig] clarifications received: {}
+[2025-10-26T04:10:09.478Z] [INFO   ] [generateNodeConfig] Extracted clarificationEntries: []
+[2025-10-26T04:10:09.479Z] [INFO   ] [generateNodeConfig] messageTemplate: undefined
+[2025-10-26T04:10:09.479Z] [INFO   ] [generateNodeConfig] Final clarificationContext: NONE
+[2025-10-26T04:10:09.479Z] [INFO   ] [generateNodeConfig] Sending prompt to AI...
+[2025-10-26T04:10:39.484Z] [ERROR  ] 2025-10-26T04:10:39.484Z [ERROR] AI call failed: {}
+[2025-10-26T04:10:39.485Z] [INFO   ] [generateNodeConfig] AI returned result: {
+  "success": false,
+  "error": "AI API request timed out after 30 seconds"
+}
+[2025-10-26T04:10:39.485Z] [INFO   ] [generateNodeConfig] Config from AI: undefined
+[2025-10-26T04:10:39.485Z] [INFO   ] [generateNodeConfig] No config from AI, initializing empty config
+[2025-10-26T04:10:39.485Z] [INFO   ] [generateNodeConfig] Final config after force-apply: {}
+[2025-10-26T04:10:39.485Z] [INFO   ] [STREAM] generateNodeConfig completed in 30007ms for Send Message to Slack
+[2025-10-26T04:10:39.485Z] [INFO   ] [STREAM] Config result: {
+  success: false,
+  hasConfig: true,
+  configKeys: [],
+  finalConfigKeys: [ 'message' ],
+  fallbackFields: [ 'message' ]
+}
+[2025-10-26T04:10:39.485Z] [INFO   ] [STREAM] Configuring 1 fields for Send Message to Slack: message
+[2025-10-26T04:10:39.485Z] [INFO   ] [STREAM] Setting field message =  for Send Message to Slack
+[2025-10-26T04:10:48.330Z] [INFO   ] [STREAM] Completed node 2 of 2, moving to next iteration
+[2025-10-26T04:10:48.332Z] [INFO   ] [STREAM] All nodes configured and tested, sending workflow_complete event
+[2025-10-26T04:13:31.812Z] [INFO   ]  [32m[1m✓[22m[39m Compiled in 1426ms (1900 modules)
+[2025-10-26T04:13:32.200Z] [INFO   ] 2025-10-26T04:13:32.200Z [DEBUG] [Middleware] Username check: {"path":"/workflows/builder/e657c1e0-d8a3-44a2-a77b-8ad980027693","userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","provider":"email","role":"free","username":"nstoddard17","hasUsername":true,"isBetaTester":false,"isNewBetaUser":false,"accountAge":12885324801}
+[2025-10-26T04:13:32.309Z] [INFO   ] 2025-10-26T04:13:32.309Z [DEBUG] [Username Check] {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0","hasEmail":true,"provider":"email","hasUsername":true,"isGoogleUser":false}
+[2025-10-26T04:13:33.893Z] [INFO   ] 2025-10-26T04:13:33.893Z [DEBUG] 📍 [API /api/integrations] GET request received {"timestamp":"2025-10-26T04:13:33.893Z","headers":{"referer":"check-console"}}
+[2025-10-26T04:13:33.999Z] [INFO   ] 2025-10-26T04:13:33.999Z [DEBUG] ✅ [API /api/integrations] User authenticated {"userId":"a3e3a51a-175c-4b59-ad03-227ba12a18b0"}
+[2025-10-26T04:13:34.085Z] [INFO   ] 2025-10-26T04:13:34.084Z [DEBUG] 📊 [API /api/integrations] Query result {"count":14,"error":null,"firstFew":[{"provider":"notion","status":"connected"},{"provider":"mailchimp","status":"connected"}]}
+
+=== Log Session Ended: 2025-10-26T04:14:05.188Z ===
